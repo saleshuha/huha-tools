@@ -33,7 +33,7 @@ const App = () => (
                     alt="HuHa Logo" 
                     className="h-8 w-8 object-contain"
                   />
-                  <h1 className="font-semibold text-lg text-foreground">HuHa Excel Tools</h1>
+                  <h1 className="font-semibold text-lg text-foreground">HuHa Product Management System Tools</h1>
                 </div>
               </header>
               <main className="flex-1">
