@@ -290,12 +290,7 @@ export const BatchProcessor = () => {
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header with Navigation */}
         <div className="flex items-center justify-between">
-          <Link to="/">
-            <Button variant="default" className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground">
-              <ArrowLeft className="w-4 h-4" />
-              Back to Single File Mapper
-            </Button>
-          </Link>
+          <div className="w-32" /> {/* Spacer for center alignment */}
           <div className="text-center flex-1">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-xl bg-primary shadow-soft mb-4">
               <FileSpreadsheet className="w-8 h-8 text-primary-foreground" />
@@ -305,7 +300,12 @@ export const BatchProcessor = () => {
               Process multiple source files with the same target structure automatically
             </p>
           </div>
-          <div className="w-32" /> {/* Spacer for center alignment */}
+          <Link to="/">
+            <Button variant="default" className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground">
+              <ArrowLeft className="w-4 h-4" />
+              Back to Single File Mapper
+            </Button>
+          </Link>
         </div>
 
         {/* File Uploads */}
