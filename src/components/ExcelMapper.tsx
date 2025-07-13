@@ -221,14 +221,62 @@ export const ExcelMapper = () => {
           </div>
         ) : (
           <>
-            {/* Mapping Method Selector - only show after both files are uploaded */}
-            <div className="glass-container p-6">
-              <h2 className="text-xl font-semibold mb-4">Choose Mapping Method</h2>
-              <MappingMethodSelector
-                selectedMethod={mappingMethod}
-                onMethodChange={setMappingMethod}
-              />
+            {/* File Status and Clear Options - always visible when both files uploaded */}
+            <div className="grid lg:grid-cols-2 gap-8 mb-6">
+              {/* Source File Status */}
+              <div className="glass-container p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <FileSpreadsheet className="w-4 h-4 text-primary" />
+                    <div>
+                      <span className="font-medium text-sm">Source: {sourceData.fileName}</span>
+                      <div className="text-xs text-muted-foreground">
+                        {sourceData.headers.length} columns
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={clearSourceData}
+                    className="text-destructive hover:text-destructive"
+                  >
+                    <X className="w-4 h-4 mr-1" />
+                    Change
+                  </Button>
+                </div>
+              </div>
+
+              {/* Target File Status */}
+              <div className="glass-container p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <FileSpreadsheet className="w-4 h-4 text-accent" />
+                    <div>
+                      <span className="font-medium text-sm">Target: {targetData.fileName}</span>
+                      <div className="text-xs text-muted-foreground">
+                        {targetData.headers.length} columns
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={clearTargetData}
+                    className="text-destructive hover:text-destructive"
+                  >
+                    <X className="w-4 h-4 mr-1" />
+                    Change
+                  </Button>
+                </div>
+              </div>
             </div>
+
+            {/* Mapping Method Selector - only show after both files are uploaded */}
+            <MappingMethodSelector
+              selectedMethod={mappingMethod}
+              onMethodChange={setMappingMethod}
+            />
 
             {/* Mapping Interface */}
             {renderMappingInterface()}
