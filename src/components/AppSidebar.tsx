@@ -1,4 +1,4 @@
-import { File, Files, Calculator, ChevronDown, FolderOpen } from "lucide-react"
+import { File, Files, Calculator, ChevronDown, FolderOpen, Package } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
 import { useState } from "react"
 import {
@@ -39,6 +39,12 @@ const standaloneItems = [
     url: "/asin-sum",
     icon: Calculator,
     description: "Sum quantities by unique ASIN"
+  },
+  {
+    title: "Instock Inventory",
+    url: "/inventory",
+    icon: Package,
+    description: "Track product inventory with ASIN and serial numbers"
   }
 ]
 

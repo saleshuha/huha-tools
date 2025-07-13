@@ -8,6 +8,7 @@ import { AppSidebar } from "@/components/AppSidebar";
 import Index from "./pages/Index";
 import BatchProcessor from "./pages/BatchProcessor";
 import AsinQtySum from "./pages/AsinQtySum";
+import Inventory from "./pages/Inventory";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -40,6 +41,7 @@ const App = () => (
                   <Route path="/" element={<Index />} />
                   <Route path="/batch" element={<BatchProcessor />} />
                   <Route path="/asin-sum" element={<AsinQtySum />} />
+                  <Route path="/inventory" element={<Inventory />} />
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                   <Route path="*" element={<NotFound />} />
                 </Routes>
