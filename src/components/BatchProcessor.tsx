@@ -9,9 +9,10 @@ import { FileUpload } from './FileUpload';
 import { MappingMethodSelector } from './MappingMethodSelector';
 import { DropdownMappingView } from './mapping/DropdownMappingView';
 import { ClickConnectMappingView } from './mapping/ClickConnectMappingView';
+import { ProductScraper } from './ProductScraper';
 import { useToast } from '@/hooks/use-toast';
 import { useExcelExport } from '@/hooks/useExcelExport';
-import { FileSpreadsheet, Play, Pause, RotateCcw, Download, CheckCircle, AlertCircle, Clock, ArrowLeft, Home } from 'lucide-react';
+import { FileSpreadsheet, Play, Pause, RotateCcw, Download, CheckCircle, AlertCircle, Clock, ArrowLeft, Home, Package } from 'lucide-react';
 import { ExcelData, ColumnMapping } from '@/types/excel';
 import { MappingMethod } from '@/types/mappingMethods';
 
@@ -31,6 +32,7 @@ export const BatchProcessor = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentFileIndex, setCurrentFileIndex] = useState<number>(-1);
   const [showMappingSetup, setShowMappingSetup] = useState(false);
+  const [showProductScraper, setShowProductScraper] = useState(false);
   
   const { toast } = useToast();
   const { exportMappedData } = useExcelExport();
@@ -214,6 +216,10 @@ export const BatchProcessor = () => {
   const completedFiles = sourceFiles.filter(f => f.status === 'completed').length;
   const progress = sourceFiles.length > 0 ? (completedFiles / sourceFiles.length) * 100 : 0;
 
+  if (showProductScraper) {
+    return <ProductScraper onBack={() => setShowProductScraper(false)} />;
+  }
+
   if (showMappingSetup && sourceFiles.length > 0) {
     return (
       <div className="min-h-screen bg-gradient-surface p-6">
@@ -304,7 +310,14 @@ export const BatchProcessor = () => {
               Process multiple source files with the same target structure automatically
             </p>
           </div>
-          <div className="w-32" /> {/* Spacer for center alignment */}
+          <Button
+            variant="outline"
+            onClick={() => setShowProductScraper(true)}
+            className="flex items-center gap-2"
+          >
+            <Package className="w-4 h-4" />
+            Product Scraper
+          </Button>
         </div>
 
         {/* File Uploads */}
