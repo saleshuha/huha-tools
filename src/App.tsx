@@ -23,17 +23,22 @@ const App = () => (
           <div className="min-h-screen flex w-full">
             <AppSidebar />
             <div className="flex-1 flex flex-col">
-              <header className="h-12 flex items-center border-b px-4 bg-background/95 backdrop-blur-sm">
+              <header className="h-16 flex items-center border-b bg-gradient-to-r from-primary to-primary/90 shadow-lg backdrop-blur-sm">
                 <div className="ml-6">
-                  <SidebarTrigger className="bg-primary hover:bg-primary/90 text-primary-foreground border-primary" />
+                  <SidebarTrigger className="bg-white/20 hover:bg-white/30 text-white border-white/30 backdrop-blur-sm" />
                 </div>
-                <div className="ml-8 flex items-center gap-3">
-                  <img 
-                    src="/lovable-uploads/4f9a15c5-2d12-4ee0-b0bd-e982c5b4ece7.png" 
-                    alt="HuHa Logo" 
-                    className="h-8 w-8 object-contain"
-                  />
-                  <h1 className="font-semibold text-lg text-foreground">HuHa Product Management System Tools</h1>
+                <div className="ml-8 flex items-center gap-4">
+                  <div className="bg-white/10 rounded-lg p-2 backdrop-blur-sm">
+                    <img 
+                      src="/lovable-uploads/4f9a15c5-2d12-4ee0-b0bd-e982c5b4ece7.png" 
+                      alt="HuHa Logo" 
+                      className="h-8 w-8 object-contain"
+                    />
+                  </div>
+                  <div className="flex flex-col">
+                    <h1 className="font-bold text-xl text-white tracking-wide">HuHa Product Management System</h1>
+                    <p className="text-xs text-white/80 font-medium">Professional Inventory & Analytics Platform</p>
+                  </div>
                 </div>
               </header>
               <main className="flex-1">
