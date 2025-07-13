@@ -1,4 +1,4 @@
-import { File, Files, Calculator, ChevronDown, FolderOpen, Package, Globe } from "lucide-react"
+import { File, Files, Calculator, ChevronDown, FolderOpen, Package } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
 import { useState } from "react"
 import {
@@ -46,12 +46,6 @@ const standaloneItems = [
     icon: Package,
     description: "Track product inventory with ASIN and serial numbers"
   },
-  {
-    title: "Product Scraper",
-    url: "/product-scraper",
-    icon: Globe,
-    description: "Extract product data from e-commerce websites"
-  }
 ]
 
 export function AppSidebar() {
