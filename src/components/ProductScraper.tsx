@@ -74,44 +74,100 @@ export const ProductScraper = ({ onBack }: ProductScraperProps) => {
   const extractProductData = (data: any): ProductData => {
     const extracted: ProductData = {};
     
-    // Extract from metadata
+    // Extract from metadata first
     if (data.metadata) {
       extracted.title = data.metadata.title;
       extracted.description = data.metadata.description;
     }
 
-    // Try to extract price patterns from markdown/html
+    // Try to extract from markdown/html content
     const content = data.markdown || data.html || '';
     
-    // Price patterns
-    const priceMatch = content.match(/\$[\d,]+\.?\d*/g) || content.match(/[\d,]+\.?\d*\s*USD/g);
-    if (priceMatch) {
-      extracted.price = priceMatch[0];
+    // Enhanced price patterns - support multiple currencies and formats
+    const pricePatterns = [
+      /\$[\d,]+\.?\d*/g,                    // USD format: $123.45
+      /[\d,]+\.?\d*\s*USD/g,                // 123.45 USD
+      /[\d,]+\.?\d*\s*(SAR|AED|EGP|KWD)/gi, // Middle East currencies
+      /£[\d,]+\.?\d*/g,                     // GBP format: £123.45
+      /€[\d,]+\.?\d*/g,                     // EUR format: €123.45
+      /[\d,]+\.?\d*\s*(SR|درهم|جنيه)/g,     // Arabic currency symbols
+      /[\d,]+\.?\d*/g                       // Plain numbers as fallback
+    ];
+    
+    for (const pattern of pricePatterns) {
+      const priceMatch = content.match(pattern);
+      if (priceMatch) {
+        extracted.price = priceMatch[0];
+        break;
+      }
     }
 
-    // Brand patterns
-    const brandMatch = content.match(/brand[:\s]+([^\n\r,]+)/i);
-    if (brandMatch) {
-      extracted.brand = brandMatch[1].trim();
+    // Extract title from H1 tags if not found in metadata
+    if (!extracted.title) {
+      const titleMatch = content.match(/^#\s*(.+)$/m) || content.match(/<h1[^>]*>([^<]+)<\/h1>/i);
+      if (titleMatch) {
+        extracted.title = titleMatch[1].trim();
+      }
     }
 
-    // SKU patterns
-    const skuMatch = content.match(/sku[:\s]+([^\n\r,\s]+)/i) || content.match(/model[:\s]+([^\n\r,\s]+)/i);
-    if (skuMatch) {
-      extracted.sku = skuMatch[1].trim();
+    // Enhanced brand patterns
+    const brandPatterns = [
+      /brand[:\s]+([^\n\r,]+)/i,
+      /by\s+([A-Z][a-zA-Z\s]+)/,
+      /manufacturer[:\s]+([^\n\r,]+)/i
+    ];
+    
+    for (const pattern of brandPatterns) {
+      const brandMatch = content.match(pattern);
+      if (brandMatch) {
+        extracted.brand = brandMatch[1].trim();
+        break;
+      }
     }
 
-    // Availability patterns
-    const availMatch = content.match(/(in stock|out of stock|available|unavailable)/i);
-    if (availMatch) {
-      extracted.availability = availMatch[1];
+    // Enhanced SKU patterns
+    const skuPatterns = [
+      /sku[:\s]+([^\n\r,\s]+)/i,
+      /model[:\s]+([^\n\r,\s]+)/i,
+      /item[:\s]+([^\n\r,\s]+)/i,
+      /product\s+id[:\s]+([^\n\r,\s]+)/i
+    ];
+    
+    for (const pattern of skuPatterns) {
+      const skuMatch = content.match(pattern);
+      if (skuMatch) {
+        extracted.sku = skuMatch[1].trim();
+        break;
+      }
     }
 
-    // Extract other fields from the structured data if available
+    // Enhanced availability patterns
+    const availabilityPatterns = [
+      /(in stock|out of stock|available|unavailable|sold out)/i,
+      /(متوفر|غير متوفر|نفد المخزون)/i  // Arabic availability terms
+    ];
+    
+    for (const pattern of availabilityPatterns) {
+      const availMatch = content.match(pattern);
+      if (availMatch) {
+        extracted.availability = availMatch[1];
+        break;
+      }
+    }
+
+    // Try to extract more structured data from the content
+    // Look for common e-commerce data patterns
+    const descriptionMatch = content.match(/### (.+?)(?:\n###|\n\n|$)/s);
+    if (descriptionMatch && !extracted.description) {
+      extracted.description = descriptionMatch[1].trim();
+    }
+
+    // Extract any structured data if available
     if (data.extracted) {
       Object.assign(extracted, data.extracted);
     }
 
+    console.log('Extracted product data:', extracted);
     return extracted;
   };
 
