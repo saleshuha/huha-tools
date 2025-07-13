@@ -23,7 +23,7 @@ import { Textarea } from './ui/textarea';
 interface SSInventoryItem {
   id: string;
   skuNumber: string;
-  location: string;
+  binSerialNumber: string;
   status: 'in-stock' | 'sold' | 'reserved' | 'damaged';
   dateAdded: string;
 }
@@ -42,11 +42,11 @@ export function SSInventory() {
   // Form states
   const [newItem, setNewItem] = useState<{
     skuNumber: string;
-    location: string;
+    binSerialNumber: string;
     status: SSInventoryItem['status'];
   }>({
     skuNumber: '',
-    location: '',
+    binSerialNumber: '',
     status: 'in-stock'
   });
   const [bulkText, setBulkText] = useState('');
@@ -69,10 +69,10 @@ export function SSInventory() {
   }, [inventory]);
 
   const addItem = useCallback(() => {
-    if (!newItem.skuNumber.trim() || !newItem.location.trim()) {
+    if (!newItem.skuNumber.trim() || !newItem.binSerialNumber.trim()) {
       toast({
         title: "Validation Error",
-        description: "SKU Number and Location are required",
+        description: "SKU Number and Bin/Serial Number are required",
         variant: "destructive"
       });
       return;
@@ -92,18 +92,18 @@ export function SSInventory() {
     const item: SSInventoryItem = {
       id: Date.now().toString(),
       skuNumber: newItem.skuNumber.trim(),
-      location: newItem.location.trim(),
+      binSerialNumber: newItem.binSerialNumber.trim(),
       status: newItem.status,
       dateAdded: new Date().toISOString()
     };
 
     setInventory(prev => [...prev, item]);
-    setNewItem({ skuNumber: '', location: '', status: 'in-stock' });
+    setNewItem({ skuNumber: '', binSerialNumber: '', status: 'in-stock' });
     setIsAddDialogOpen(false);
     
     toast({
       title: "Item Added",
-      description: `Added SKU ${item.skuNumber} to location ${item.location}`,
+      description: `Added SKU ${item.skuNumber} to bin ${item.binSerialNumber}`,
     });
   }, [newItem, inventory, toast]);
 
@@ -138,12 +138,12 @@ export function SSInventory() {
       return;
     }
 
-    const csvHeaders = ['SKU Number', 'Location', 'Status', 'Date Added'];
+    const csvHeaders = ['SKU Number', 'Bin/Serial Number', 'Status', 'Date Added'];
     const csvData = [
       csvHeaders,
       ...inventory.map(item => [
         item.skuNumber,
-        item.location,
+        item.binSerialNumber,
         item.status,
         new Date(item.dateAdded).toLocaleDateString()
       ])
@@ -182,7 +182,7 @@ export function SSInventory() {
   const filteredInventory = inventory.filter(item => {
     const matchesSearch = 
       item.skuNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.location.toLowerCase().includes(searchTerm.toLowerCase());
+      item.binSerialNumber.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus = statusFilter === 'all' || item.status === statusFilter;
     
@@ -229,7 +229,7 @@ export function SSInventory() {
             <h1 className="text-3xl font-bold text-foreground">SKU Inventory</h1>
           </div>
           <p className="text-muted-foreground">
-            Track SKU inventory with locations and status
+            Track SKU inventory with bin/serial numbers and status
           </p>
         </div>
 
@@ -240,7 +240,7 @@ export function SSInventory() {
             <div className="relative w-full">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input
-                placeholder="Search SKU Number or Location..."
+                placeholder="Search SKU Number or Bin/Serial Number..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10 w-full"
@@ -299,12 +299,12 @@ export function SSInventory() {
                         />
                       </div>
                       <div>
-                        <Label htmlFor="location">Location</Label>
+                        <Label htmlFor="binSerialNumber">Bin / Serial Number</Label>
                         <Input
-                          id="location"
-                          value={newItem.location}
-                          onChange={(e) => setNewItem(prev => ({ ...prev, location: e.target.value }))}
-                          placeholder="Enter Storage Location"
+                          id="binSerialNumber"
+                          value={newItem.binSerialNumber}
+                          onChange={(e) => setNewItem(prev => ({ ...prev, binSerialNumber: e.target.value }))}
+                          placeholder="Enter Bin or Serial Number"
                         />
                       </div>
                       <div>
@@ -381,7 +381,7 @@ export function SSInventory() {
               <thead className="bg-muted/50 sticky top-0">
                 <tr>
                   <th className="text-left p-4 font-semibold">SKU Number</th>
-                  <th className="text-left p-4 font-semibold">Location</th>
+                  <th className="text-left p-4 font-semibold">Bin / Serial Number</th>
                   <th className="text-left p-4 font-semibold">Status</th>
                   <th className="text-left p-4 font-semibold">Date Added</th>
                   <th className="text-center p-4 font-semibold">Actions</th>
@@ -401,7 +401,7 @@ export function SSInventory() {
                   paginatedInventory.map((item, index) => (
                     <tr key={item.id} className={index % 2 === 0 ? 'bg-background' : 'bg-muted/20'}>
                       <td className="p-4 font-mono text-sm font-semibold">{item.skuNumber}</td>
-                      <td className="p-4 text-sm">{item.location}</td>
+                      <td className="p-4 text-sm">{item.binSerialNumber}</td>
                       <td className="p-4">
                         <Select 
                           value={item.status} 

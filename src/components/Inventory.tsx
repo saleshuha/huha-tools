@@ -92,7 +92,7 @@ export function Inventory() {
               </div>
               <h2 className="text-2xl font-bold text-foreground">SKU Inventory</h2>
               <p className="text-muted-foreground">
-                Manage inventory using SKU numbers with location tracking. Ideal for warehouse management.
+                Manage inventory using SKU numbers with bin/serial number tracking. Ideal for warehouse management.
               </p>
               <div className="flex items-center justify-center gap-2 text-secondary group-hover:gap-3 transition-all">
                 <span className="font-medium">Open SKU Inventory</span>
