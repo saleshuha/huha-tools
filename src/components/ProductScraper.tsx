@@ -198,26 +198,41 @@ export const ProductScraper = ({ onBack }: ProductScraperProps) => {
       const result = await FirecrawlService.scrapeProduct(url);
       
       if (result.success && result.data) {
+        console.log('Raw scraped data:', result.data);
         const extracted = extractProductData(result.data);
+        console.log('Final extracted data:', extracted);
+        
+        // Check if we extracted any meaningful data
+        const hasData = Object.values(extracted).some(value => value && value.toString().trim() !== '');
+        
+        if (!hasData) {
+          toast({
+            title: "Limited Data Extracted",
+            description: "The page was scraped but minimal product data was found. This might be a category page or the product structure is different.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Success",
+            description: `Product data scraped successfully! Extracted ${Object.keys(extracted).filter(k => extracted[k]).length} fields.`,
+          });
+        }
+        
         setProductData(extracted);
         setRawData(result.data);
-        
-        toast({
-          title: "Success",
-          description: "Product data scraped successfully",
-        });
       } else {
+        console.error('Scraping failed:', result);
         toast({
-          title: "Error",
-          description: result.error || "Failed to scrape product data",
+          title: "Scraping Failed",
+          description: result.error || "Failed to scrape product data. The website might be blocking our requests or the URL might not be accessible.",
           variant: "destructive",
         });
       }
     } catch (error) {
       console.error('Error scraping product:', error);
       toast({
-        title: "Error",
-        description: "Failed to scrape product data",
+        title: "Network Error",
+        description: "Failed to connect to the scraping service. Please check your internet connection and try again.",
         variant: "destructive",
       });
     } finally {
@@ -317,7 +332,8 @@ export const ProductScraper = ({ onBack }: ProductScraperProps) => {
                 Product URL
               </CardTitle>
               <CardDescription>
-                Enter the URL of the product page you want to scrape
+                Enter the URL of the product page you want to scrape. 
+                <strong>Important:</strong> Make sure to use direct product page URLs, not category or search result pages.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -328,8 +344,16 @@ export const ProductScraper = ({ onBack }: ProductScraperProps) => {
                   type="url"
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
-                  placeholder="https://example-store.com/product/..."
+                  placeholder="https://amazon.com/product-name/dp/B1234567890"
                 />
+                <div className="text-xs text-muted-foreground space-y-1">
+                  <p>✅ <strong>Good URLs:</strong> Direct product pages with specific product details</p>
+                  <p>❌ <strong>Avoid:</strong> Category pages, search results, or listing pages</p>
+                  <p><strong>Examples:</strong></p>
+                  <p>• Amazon: amazon.com/product-name/dp/PRODUCT_ID</p>
+                  <p>• Noon: noon.com/product/PRODUCT_ID</p>
+                  <p>• Any product page with detailed information</p>
+                </div>
               </div>
               <Button
                 onClick={handleScrape}
