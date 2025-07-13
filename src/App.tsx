@@ -21,9 +21,11 @@ const App = () => (
           <div className="min-h-screen flex w-full">
             <AppSidebar />
             <div className="flex-1 flex flex-col">
-              <header className="h-12 flex items-center border-b px-4">
-                <SidebarTrigger />
-                <h1 className="ml-4 font-semibold text-lg">Excel Column Mapper</h1>
+              <header className="h-12 flex items-center border-b px-4 bg-background/95 backdrop-blur-sm">
+                <div className="ml-2">
+                  <SidebarTrigger className="bg-primary hover:bg-primary/90 text-primary-foreground border-primary" />
+                </div>
+                <h1 className="ml-6 font-semibold text-lg text-foreground">HuHa Excel Column Mapper</h1>
               </header>
               <main className="flex-1">
                 <Routes>
