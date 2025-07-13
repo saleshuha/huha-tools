@@ -468,6 +468,7 @@ export function Inventory() {
                 Export
               </Button>
             </div>
+            </div>
           </div>
         </Card>
 
