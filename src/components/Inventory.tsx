@@ -13,8 +13,8 @@ export function Inventory() {
 
   if (currentView === 'asin') {
     return (
-      <div className="min-h-screen bg-gradient-surface p-6">
-        <div className="max-w-7xl mx-auto space-y-6">
+      <div className="min-h-screen bg-gradient-surface p-6 ml-8">
+        <div className="max-w-7xl mx-auto space-y-6 pl-4">
         <div className="flex justify-end">
           <Button 
             variant="outline" 
@@ -32,8 +32,8 @@ export function Inventory() {
 
   if (currentView === 'ss') {
     return (
-      <div className="min-h-screen bg-gradient-surface p-6">
-        <div className="max-w-7xl mx-auto space-y-6">
+      <div className="min-h-screen bg-gradient-surface p-6 ml-8">
+        <div className="max-w-7xl mx-auto space-y-6 pl-4">
         <div className="flex justify-end">
           <Button 
             variant="outline" 
@@ -50,8 +50,8 @@ export function Inventory() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-surface p-6 ml-4">
-      <div className="max-w-6xl mx-auto space-y-6">
+    <div className="min-h-screen bg-gradient-surface p-6 ml-8">
+      <div className="max-w-6xl mx-auto space-y-6 pl-4">
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-4">
@@ -64,7 +64,7 @@ export function Inventory() {
         </div>
 
         {/* Inventory Type Selection */}
-        <div className="grid md:grid-cols-2 gap-8 px-4">
+        <div className="grid md:grid-cols-2 gap-8 px-8">
           {/* ASIN Inventory */}
           <Card className="glass-container p-8 hover:shadow-lg transition-all duration-300 cursor-pointer group border-2 hover:border-primary/30" 
                 onClick={() => setCurrentView('asin')}>
@@ -103,7 +103,7 @@ export function Inventory() {
         </div>
 
         {/* Quick Stats */}
-        <div className="grid md:grid-cols-2 gap-6 mt-8 px-4">
+        <div className="grid md:grid-cols-2 gap-6 mt-8 px-8">
           <Card className="p-4">
             <div className="flex items-center gap-3">
               <Package className="w-5 h-5 text-primary" />
