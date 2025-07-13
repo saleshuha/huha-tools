@@ -73,8 +73,13 @@ export function AsinQtySum() {
       }
 
       const headers = excelData.data[headerRowIndex] as string[];
+      console.log("Headers from row", headerRowIndex, ":", headers);
+      
       const asinColumnIndex = headers.indexOf(selectedAsinColumn);
       const qtyColumnIndex = headers.indexOf(selectedQtyColumn);
+
+      console.log("ASIN column:", selectedAsinColumn, "at index:", asinColumnIndex);
+      console.log("QTY column:", selectedQtyColumn, "at index:", qtyColumnIndex);
 
       if (asinColumnIndex === -1 || qtyColumnIndex === -1) {
         toast({
@@ -88,23 +93,42 @@ export function AsinQtySum() {
 
       const asinQtyMap = new Map<string, number>();
 
+      // Show preview of first few rows for debugging
+      console.log("Preview of data rows:");
+      for (let i = headerRowIndex + 1; i < Math.min(headerRowIndex + 6, excelData.data.length); i++) {
+        const row = excelData.data[i] as (string | number)[];
+        console.log(`Row ${i}:`, row);
+        console.log(`  ASIN (col ${asinColumnIndex}):`, row[asinColumnIndex]);
+        console.log(`  QTY (col ${qtyColumnIndex}):`, row[qtyColumnIndex]);
+      }
+
       // Process data starting from the row after headers
       for (let i = headerRowIndex + 1; i < excelData.data.length; i++) {
         const row = excelData.data[i] as (string | number)[];
-        console.log(`Processing row ${i}:`, row);
+        
+        // Skip empty rows
+        if (!row || row.length === 0) continue;
         
         const asinValue = row[asinColumnIndex];
         const qtyValue = row[qtyColumnIndex];
         
+        // Clean and validate ASIN
         const asin = String(asinValue || '').trim();
-        const qty = Number(qtyValue) || 0;
+        // Convert QTY to number, handle various formats
+        let qty = 0;
+        if (qtyValue !== undefined && qtyValue !== null && qtyValue !== '') {
+          qty = Number(String(qtyValue).replace(/[^\d.-]/g, ''));
+        }
 
-        console.log(`Row ${i}: ASIN=${asin}, QTY=${qty}`);
+        console.log(`Row ${i}: ASIN="${asin}", QTY=${qty} (original: "${qtyValue}")`);
 
-        if (asin && qty > 0) {
+        // Only process if we have both ASIN and positive quantity
+        if (asin && !isNaN(qty) && qty > 0) {
           const currentQty = asinQtyMap.get(asin) || 0;
           asinQtyMap.set(asin, currentQty + qty);
-          console.log(`Updated ASIN ${asin}: ${currentQty} + ${qty} = ${currentQty + qty}`);
+          console.log(`  Added to map: ${asin} -> ${currentQty + qty}`);
+        } else {
+          console.log(`  Skipped: asin="${asin}", qty=${qty}, isNaN=${isNaN(qty)}`);
         }
       }
 
@@ -362,19 +386,27 @@ export function AsinQtySum() {
               <table className="w-full">
                 <thead className="bg-muted/50 sticky top-0">
                   <tr>
-                    <th className="text-left p-3 font-semibold">ASIN</th>
+                    <th className="text-left p-3 font-semibold border-r">ASIN</th>
                     <th className="text-right p-3 font-semibold">Total Quantity</th>
                   </tr>
                 </thead>
                 <tbody>
                   {summaryData.map((item, index) => (
-                    <tr key={item.asin} className={index % 2 === 0 ? 'bg-background' : 'bg-muted/20'}>
-                      <td className="p-3 font-mono">{item.asin}</td>
-                      <td className="p-3 text-right font-semibold">{item.totalQty}</td>
+                    <tr key={`${item.asin}-${index}`} className={index % 2 === 0 ? 'bg-background' : 'bg-muted/20'}>
+                      <td className="p-3 font-mono border-r text-sm">{item.asin}</td>
+                      <td className="p-3 text-right font-semibold">{item.totalQty.toLocaleString()}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+              
+              {/* Summary Footer */}
+              <div className="bg-primary/10 border-t p-3">
+                <div className="flex justify-between items-center text-sm font-semibold">
+                  <span>Total Unique ASINs: {summaryData.length}</span>
+                  <span>Total Combined Quantity: {summaryData.reduce((sum, item) => sum + item.totalQty, 0).toLocaleString()}</span>
+                </div>
+              </div>
             </div>
           </Card>
         )}
