@@ -15,15 +15,18 @@ interface FileUploadProps {
   description: string;
   accept: string;
   isTarget?: boolean;
+  multiple?: boolean;
 }
 
-export const FileUpload: React.FC<FileUploadProps> = ({
-  onFileUpload,
-  title,
-  description,
-  accept,
-  isTarget = false
+export const FileUpload: React.FC<FileUploadProps> = ({ 
+  onFileUpload, 
+  title, 
+  description, 
+  accept, 
+  isTarget = false,
+  multiple = false
 }) => {
+  const [isUploading, setIsUploading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadedFile, setUploadedFile] = useState<string | null>(null);
@@ -136,44 +139,49 @@ export const FileUpload: React.FC<FileUploadProps> = ({
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     if (acceptedFiles.length === 0) return;
     
-    const file = acceptedFiles[0];
-    setUploading(true);
-    setUploadProgress(0);
+    setIsUploading(true);
     
-    try {
-      // Simulate upload progress
-      const progressInterval = setInterval(() => {
-        setUploadProgress(prev => {
-          if (prev >= 90) {
-            clearInterval(progressInterval);
-            return 90;
-          }
-          return prev + 10;
-        });
-      }, 100);
+    for (const file of acceptedFiles) {
+      setUploading(true);
+      setUploadProgress(0);
       
-      const excelData = await processExcelFile(file);
-      
-      clearInterval(progressInterval);
-      setUploadProgress(100);
-      
-      setTimeout(() => {
-        setUploadedFile(file.name);
-        onFileUpload(excelData);
+      try {
+        // Simulate upload progress
+        const progressInterval = setInterval(() => {
+          setUploadProgress(prev => {
+            if (prev >= 90) {
+              clearInterval(progressInterval);
+              return 90;
+            }
+            return prev + 10;
+          });
+        }, 100);
+        
+        const excelData = await processExcelFile(file);
+        
+        clearInterval(progressInterval);
+        setUploadProgress(100);
+        
+        setTimeout(() => {
+          setUploadedFile(file.name);
+          onFileUpload(excelData);
+          setUploading(false);
+          setUploadProgress(0);
+        }, 500);
+        
+      } catch (error) {
         setUploading(false);
         setUploadProgress(0);
-      }, 500);
-      
-    } catch (error) {
-      setUploading(false);
-      setUploadProgress(0);
-      toast({
-        title: "Upload failed",
-        description: error instanceof Error ? error.message : "Failed to process Excel file",
-        variant: "destructive"
-      });
+        toast({
+          title: "Upload failed",
+          description: error instanceof Error ? error.message : "Failed to process Excel file",
+          variant: "destructive"
+        });
+      }
     }
-  }, [onFileUpload, processExcelFile, toast]);
+    
+    setIsUploading(false);
+  }, [onFileUpload, processExcelFile, toast, setIsUploading]);
 
   const { getRootProps, getInputProps, isDragActive, fileRejections } = useDropzone({
     onDrop,
@@ -181,7 +189,9 @@ export const FileUpload: React.FC<FileUploadProps> = ({
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
       'application/vnd.ms-excel': ['.xls']
     },
-    maxFiles: 1,
+    maxFiles: multiple ? undefined : 1,
+    multiple,
+    disabled: isUploading,
     maxSize: 10 * 1024 * 1024 // 10MB
   });
 
@@ -275,10 +285,10 @@ export const FileUpload: React.FC<FileUploadProps> = ({
                 <div className="text-sm text-muted-foreground space-y-1">
                   <p>
                     {isDragActive 
-                      ? 'Drop your Excel file here...' 
-                      : 'Drag & drop an Excel file here, or click to browse'}
+                      ? `Drop your Excel file${multiple ? 's' : ''} here...` 
+                      : `Drag & drop Excel file${multiple ? 's' : ''} here, or click to browse`}
                   </p>
-                  <p>Supports .xlsx and .xls files (max 10MB)</p>
+                  <p>Supports .xlsx and .xls files (max 10MB){multiple ? ' - Multiple files allowed' : ''}</p>
                 </div>
               )}
             </div>
