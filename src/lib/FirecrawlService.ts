@@ -7,19 +7,9 @@ interface ErrorResponse {
 
 interface ScrapeResponse {
   success: true;
-  data: {
-    markdown: string;
-    html: string;
-    metadata: {
-      title: string;
-      description: string;
-      [key: string]: any;
-    };
-    [key: string]: any;
-  };
+  data?: any;
+  [key: string]: any;
 }
-
-type ScrapedResponse = ScrapeResponse | ErrorResponse;
 
 export class FirecrawlService {
   private static API_KEY_STORAGE_KEY = 'firecrawl_api_key';
@@ -64,20 +54,36 @@ export class FirecrawlService {
         formats: ['markdown', 'html'],
         includeTags: ['title', 'meta', 'h1', 'h2', 'h3', 'price', 'img'],
         excludeTags: ['script', 'style', 'nav', 'footer']
-      }) as ScrapedResponse;
+      }) as any;
 
-      if (!scrapeResponse.success) {
-        console.error('Scrape failed:', (scrapeResponse as ErrorResponse).error);
+      console.log('Full Firecrawl response:', scrapeResponse);
+
+      // Check if the response indicates success
+      if (!scrapeResponse || !scrapeResponse.success) {
+        const errorMsg = scrapeResponse?.error || 'Unknown error occurred';
+        console.error('Scrape failed:', errorMsg);
         return { 
           success: false, 
-          error: (scrapeResponse as ErrorResponse).error || 'Failed to scrape product' 
+          error: errorMsg
         };
       }
 
-      console.log('Scrape successful:', scrapeResponse);
+      // Handle the actual response structure from Firecrawl
+      const responseData = scrapeResponse.data || scrapeResponse;
+      
+      // Check if we have meaningful data
+      if (!responseData || (responseData._type === "undefined" && responseData.value === "undefined")) {
+        console.error('Invalid response data:', responseData);
+        return { 
+          success: false, 
+          error: 'No valid content could be extracted from this URL. The page might be protected or have unusual structure.' 
+        };
+      }
+
+      console.log('Scrape successful with data:', responseData);
       return { 
         success: true,
-        data: scrapeResponse.data 
+        data: responseData 
       };
     } catch (error) {
       console.error('Error during scrape:', error);
