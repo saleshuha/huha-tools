@@ -24,7 +24,7 @@ const App = () => (
             <AppSidebar />
             <div className="flex-1 flex flex-col">
               <header className="h-12 flex items-center border-b bg-white shadow-sm">
-                <div className="flex items-center gap-3 px-4">
+                <div className="flex items-center gap-3 pl-8 pr-4">
                   <SidebarTrigger className="bg-primary hover:bg-primary/90 text-primary-foreground border-primary" />
                   <div className="bg-primary/10 rounded-md p-1.5">
                     <img 
