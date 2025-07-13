@@ -23,19 +23,19 @@ const App = () => (
           <div className="min-h-screen flex w-full">
             <AppSidebar />
             <div className="flex-1 flex flex-col">
-              <header className="h-16 flex items-center border-b bg-white shadow-lg relative z-10">
-                <div className="flex items-center gap-4 px-6">
+              <header className="h-12 flex items-center border-b bg-white shadow-sm">
+                <div className="flex items-center gap-3 px-4">
                   <SidebarTrigger className="bg-primary hover:bg-primary/90 text-primary-foreground border-primary" />
-                  <div className="bg-primary/10 rounded-lg p-2">
+                  <div className="bg-primary/10 rounded-md p-1.5">
                     <img 
                       src="/lovable-uploads/4f9a15c5-2d12-4ee0-b0bd-e982c5b4ece7.png" 
                       alt="HuHa Logo" 
-                      className="h-8 w-8 object-contain"
+                      className="h-6 w-6 object-contain"
                     />
                   </div>
                   <div className="flex flex-col">
-                    <h1 className="font-bold text-xl text-foreground tracking-wide">HuHa Product Management System</h1>
-                    <p className="text-xs text-muted-foreground font-medium">Professional Inventory & Analytics Platform</p>
+                    <h1 className="font-semibold text-base text-foreground tracking-wide">HuHa Product Management System</h1>
+                    <p className="text-[10px] text-muted-foreground font-medium leading-tight">Professional Inventory & Analytics Platform</p>
                   </div>
                 </div>
               </header>
