@@ -20,7 +20,7 @@ export function AsinQtySum() {
   const [summaryData, setSummaryData] = useState<AsinSummary[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showConfiguration, setShowConfiguration] = useState(false);
-  const [headerRowNumber, setHeaderRowNumber] = useState<number>(1);
+  const [headerRowNumber, setHeaderRowNumber] = useState<number>(0);
   const [selectedAsinColumn, setSelectedAsinColumn] = useState<string>('');
   const [selectedQtyColumn, setSelectedQtyColumn] = useState<string>('');
   const { toast } = useToast();
@@ -61,7 +61,7 @@ export function AsinQtySum() {
       console.log("Selected ASIN column:", selectedAsinColumn);
       console.log("Selected QTY column:", selectedQtyColumn);
 
-      const headerRowIndex = headerRowNumber - 1; // Convert to 0-based index
+      const headerRowIndex = headerRowNumber; // Already 0-based
       if (headerRowIndex >= excelData.data.length) {
         toast({
           title: "Invalid Header Row",
@@ -207,7 +207,7 @@ export function AsinQtySum() {
   // Get available columns for dropdowns
   const getAvailableColumns = () => {
     if (!excelData?.data || excelData.data.length === 0) return [];
-    const headerRowIndex = headerRowNumber - 1;
+    const headerRowIndex = headerRowNumber; // Already 0-based
     if (headerRowIndex >= excelData.data.length) return [];
     return excelData.data[headerRowIndex] as string[];
   };
@@ -270,14 +270,14 @@ export function AsinQtySum() {
                 <Input
                   id="headerRow"
                   type="number"
-                  min="1"
-                  max={excelData.data.length}
+                  min="0"
+                  max={excelData.data.length - 1}
                   value={headerRowNumber}
                   onChange={(e) => setHeaderRowNumber(Number(e.target.value))}
                   className="bg-background"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Row number containing column headers (default: 1)
+                  Row number containing column headers (0 = first row)
                 </p>
               </div>
 
