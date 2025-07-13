@@ -50,8 +50,8 @@ export function Inventory() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-surface p-6">
-      <div className="max-w-4xl mx-auto space-y-6">
+    <div className="min-h-screen bg-gradient-surface p-6 ml-4">
+      <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-4">
@@ -64,9 +64,9 @@ export function Inventory() {
         </div>
 
         {/* Inventory Type Selection */}
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className="grid md:grid-cols-2 gap-8 px-4">
           {/* ASIN Inventory */}
-          <Card className="glass-container p-8 hover:shadow-lg transition-shadow cursor-pointer group" 
+          <Card className="glass-container p-8 hover:shadow-lg transition-all duration-300 cursor-pointer group border-2 hover:border-primary/30" 
                 onClick={() => setCurrentView('asin')}>
             <div className="text-center space-y-4">
               <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto group-hover:bg-primary/20 transition-colors">
@@ -84,7 +84,7 @@ export function Inventory() {
           </Card>
 
           {/* SS Inventory */}
-          <Card className="glass-container p-8 hover:shadow-lg transition-shadow cursor-pointer group" 
+          <Card className="glass-container p-8 hover:shadow-lg transition-all duration-300 cursor-pointer group border-2 hover:border-secondary/30" 
                 onClick={() => setCurrentView('ss')}>
             <div className="text-center space-y-4">
               <div className="w-16 h-16 bg-secondary/10 rounded-full flex items-center justify-center mx-auto group-hover:bg-secondary/20 transition-colors">
@@ -103,7 +103,7 @@ export function Inventory() {
         </div>
 
         {/* Quick Stats */}
-        <div className="grid md:grid-cols-2 gap-4 mt-8">
+        <div className="grid md:grid-cols-2 gap-6 mt-8 px-4">
           <Card className="p-4">
             <div className="flex items-center gap-3">
               <Package className="w-5 h-5 text-primary" />
