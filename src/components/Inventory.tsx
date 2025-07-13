@@ -15,6 +15,7 @@ export function Inventory() {
     return (
       <div className="min-h-screen bg-gradient-surface p-6">
         <div className="max-w-7xl mx-auto space-y-6">
+        <div className="flex justify-end">
           <Button 
             variant="outline" 
             onClick={() => setCurrentView('main')}
@@ -22,6 +23,7 @@ export function Inventory() {
           >
             ← Back to Inventory Menu
           </Button>
+        </div>
           <AsinInventory />
         </div>
       </div>
@@ -32,6 +34,7 @@ export function Inventory() {
     return (
       <div className="min-h-screen bg-gradient-surface p-6">
         <div className="max-w-7xl mx-auto space-y-6">
+        <div className="flex justify-end">
           <Button 
             variant="outline" 
             onClick={() => setCurrentView('main')}
@@ -39,6 +42,7 @@ export function Inventory() {
           >
             ← Back to Inventory Menu
           </Button>
+        </div>
           <SSInventory />
         </div>
       </div>
