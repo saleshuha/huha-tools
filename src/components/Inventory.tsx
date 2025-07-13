@@ -316,51 +316,55 @@ export function Inventory() {
 
         {/* Controls */}
         <Card className="glass-container p-6">
-          <div className="flex flex-col lg:flex-row gap-4 justify-between">
-            {/* Search and Filter */}
-            <div className="flex flex-col sm:flex-row gap-4 flex-1">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                <Input
-                  placeholder="Search ASIN, Serial Number, or Notes..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="in-stock">In Stock</SelectItem>
-                  <SelectItem value="sold">Sold</SelectItem>
-                  <SelectItem value="reserved">Reserved</SelectItem>
-                  <SelectItem value="damaged">Damaged</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={itemsPerPage.toString()} onValueChange={(value) => setItemsPerPage(Number(value))}>
-                <SelectTrigger className="w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="50">50 items</SelectItem>
-                  <SelectItem value="100">100 items</SelectItem>
-                  <SelectItem value="150">150 items</SelectItem>
-                </SelectContent>
-              </Select>
+          <div className="space-y-4">
+            {/* Search Bar - Full Width */}
+            <div className="relative w-full">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+              <Input
+                placeholder="Search ASIN, Serial Number, or Notes..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 w-full"
+              />
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex gap-2">
-              <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button className="bg-primary hover:bg-primary/90">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Item
-                  </Button>
-                </DialogTrigger>
+            {/* Filters and Actions */}
+            <div className="flex flex-col lg:flex-row gap-4 justify-between">
+              {/* Filters */}
+              <div className="flex flex-col sm:flex-row gap-4">
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-48">
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Items</SelectItem>
+                    <SelectItem value="in-stock">In Stock Only</SelectItem>
+                    <SelectItem value="sold">Sold Only</SelectItem>
+                    <SelectItem value="reserved">Reserved Only</SelectItem>
+                    <SelectItem value="damaged">Damaged Only</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={itemsPerPage.toString()} onValueChange={(value) => setItemsPerPage(Number(value))}>
+                  <SelectTrigger className="w-32">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="50">50 items</SelectItem>
+                    <SelectItem value="100">100 items</SelectItem>
+                    <SelectItem value="150">150 items</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-2">
+                <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button className="bg-primary hover:bg-primary/90">
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Item
+                    </Button>
+                  </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
                     <DialogTitle>Add New Inventory Item</DialogTitle>
