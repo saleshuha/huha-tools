@@ -39,7 +39,7 @@ export const MappingMethodSelector: React.FC<MappingMethodSelectorProps> = ({
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
           <div className="flex-1">
             <Select value={selectedMethod} onValueChange={onMethodChange}>
-              <SelectTrigger className="w-full bg-background border-2 hover:border-primary/50 transition-colors">
+              <SelectTrigger className="w-full bg-background border-2 hover:border-primary transition-colors">
                 <SelectValue placeholder="Select mapping method" />
               </SelectTrigger>
               <SelectContent className="bg-background border-2 shadow-lg z-50">
@@ -49,7 +49,7 @@ export const MappingMethodSelector: React.FC<MappingMethodSelectorProps> = ({
                     <SelectItem 
                       key={method.value} 
                       value={method.value}
-                      className="hover:bg-muted focus:bg-muted cursor-pointer"
+                      className="hover:bg-muted cursor-pointer"
                     >
                       <div className="flex items-center space-x-3">
                         <IconComponent className="w-4 h-4 text-primary" />
