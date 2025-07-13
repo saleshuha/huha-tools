@@ -1,24 +1,8 @@
 import { ExcelMapper } from '@/components/ExcelMapper';
-import { Button } from '@/components/ui/button';
-import { Link } from 'react-router-dom';
-import { FileStack } from 'lucide-react';
 
 const Index = () => {
   return (
-    <div className="relative">
-      {/* Navigation Header */}
-      <div className="absolute top-4 left-4 right-4 z-10 flex justify-between items-center">
-        <div className="text-sm text-muted-foreground bg-background/80 backdrop-blur-sm px-3 py-1 rounded-lg border">
-          Single File Mapper
-        </div>
-        <Link to="/batch">
-          <Button variant="outline" className="flex items-center gap-2 bg-background/80 backdrop-blur-sm">
-            <FileStack className="w-4 h-4" />
-            Batch Processor
-          </Button>
-        </Link>
-      </div>
-      
+    <div className="container mx-auto p-6">
       <ExcelMapper />
     </div>
   );
