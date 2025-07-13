@@ -1,5 +1,5 @@
 import { File, Files } from "lucide-react"
-import { NavLink } from "react-router-dom"
+import { NavLink, useLocation } from "react-router-dom"
 import {
   Sidebar,
   SidebarContent,
@@ -29,32 +29,47 @@ const navigationItems = [
 
 export function AppSidebar() {
   const { state } = useSidebar()
+  const location = useLocation()
   const isCollapsed = state === "collapsed"
 
+  const isActive = (path: string) => {
+    if (path === "/") {
+      return location.pathname === "/"
+    }
+    return location.pathname === path
+  }
+
   return (
-    <Sidebar collapsible="icon">
+    <Sidebar collapsible="icon" className="border-r">
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Excel Mapper Tools</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-foreground/70 font-semibold">
+            Excel Mapper Tools
+          </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="space-y-2">
               {navigationItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
+                  <SidebarMenuButton 
+                    asChild
+                    className={`w-full p-3 rounded-lg transition-all duration-200 ${
+                      isActive(item.url)
+                        ? "bg-primary text-primary-foreground shadow-md hover:bg-primary/90" 
+                        : "hover:bg-muted/70 hover:text-foreground"
+                    }`}
+                  >
                     <NavLink 
                       to={item.url} 
                       end
-                      className={({ isActive }) =>
-                        isActive 
-                          ? "bg-primary text-primary-foreground font-medium" 
-                          : "hover:bg-muted/50"
-                      }
+                      className="flex items-center gap-3 no-underline"
                     >
-                      <item.icon className="h-4 w-4" />
+                      <item.icon className="h-5 w-5 flex-shrink-0" />
                       {!isCollapsed && (
-                        <div className="flex flex-col">
-                          <span>{item.title}</span>
-                          <span className="text-xs text-muted-foreground">
+                        <div className="flex flex-col text-left">
+                          <span className="font-medium text-sm leading-tight">
+                            {item.title}
+                          </span>
+                          <span className="text-xs opacity-80 leading-tight">
                             {item.description}
                           </span>
                         </div>
