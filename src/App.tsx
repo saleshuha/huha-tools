@@ -9,6 +9,7 @@ import Index from "./pages/Index";
 import BatchProcessor from "./pages/BatchProcessor";
 import AsinQtySum from "./pages/AsinQtySum";
 import Inventory from "./pages/Inventory";
+import ProductScraper from "./pages/ProductScraper";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -45,6 +46,7 @@ const App = () => (
                   <Route path="/batch" element={<BatchProcessor />} />
                   <Route path="/asin-sum" element={<AsinQtySum />} />
                   <Route path="/inventory" element={<Inventory />} />
+                  <Route path="/product-scraper" element={<ProductScraper />} />
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                   <Route path="*" element={<NotFound />} />
                 </Routes>
