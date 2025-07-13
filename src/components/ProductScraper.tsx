@@ -393,94 +393,79 @@ export const ProductScraper = ({ onBack }: ProductScraperProps) => {
             <CardHeader>
               <CardTitle>Scraped Product Data</CardTitle>
               <CardDescription>
-                Review and edit the extracted product information
+                Product information extracted from the scraped page
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="title">Title</Label>
-                  <Input
-                    id="title"
-                    value={productData.title || ''}
-                    onChange={(e) => updateProductField('title', e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="price">Price</Label>
-                  <Input
-                    id="price"
-                    value={productData.price || ''}
-                    onChange={(e) => updateProductField('price', e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="brand">Brand</Label>
-                  <Input
-                    id="brand"
-                    value={productData.brand || ''}
-                    onChange={(e) => updateProductField('brand', e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="sku">SKU</Label>
-                  <Input
-                    id="sku"
-                    value={productData.sku || ''}
-                    onChange={(e) => updateProductField('sku', e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="availability">Availability</Label>
-                  <Input
-                    id="availability"
-                    value={productData.availability || ''}
-                    onChange={(e) => updateProductField('availability', e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="category">Category</Label>
-                  <Input
-                    id="category"
-                    value={productData.category || ''}
-                    onChange={(e) => updateProductField('category', e.target.value)}
-                  />
-                </div>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse border border-border">
+                  <thead>
+                    <tr className="bg-muted">
+                      <th className="border border-border p-3 text-left font-medium">Field</th>
+                      <th className="border border-border p-3 text-left font-medium">Value</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(productData).map(([key, value]) => (
+                      <tr key={key} className="hover:bg-muted/50">
+                        <td className="border border-border p-3 font-medium capitalize">
+                          {key.replace(/([A-Z])/g, ' $1').trim()}
+                        </td>
+                        <td className="border border-border p-3">
+                          {key === 'images' && Array.isArray(value) ? (
+                            <div className="space-y-2">
+                              {value.map((img, index) => (
+                                <div key={index} className="flex items-center gap-2">
+                                  <img 
+                                    src={img} 
+                                    alt={`Product image ${index + 1}`}
+                                    className="w-16 h-16 object-cover rounded border"
+                                    onError={(e) => {
+                                      e.currentTarget.style.display = 'none';
+                                    }}
+                                  />
+                                  <a 
+                                    href={img} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="text-primary hover:underline text-sm break-all"
+                                  >
+                                    {img}
+                                  </a>
+                                </div>
+                              ))}
+                            </div>
+                          ) : key === 'imageUrl' && value ? (
+                            <div className="flex items-center gap-2">
+                              <img 
+                                src={value as string} 
+                                alt="Product image"
+                                className="w-16 h-16 object-cover rounded border"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none';
+                                }}
+                              />
+                              <a 
+                                href={value as string} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-primary hover:underline text-sm break-all"
+                              >
+                                {value as string}
+                              </a>
+                            </div>
+                          ) : (
+                            <span className="text-sm">
+                              {value ? String(value) : <span className="text-muted-foreground italic">Not found</span>}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
               
-              <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  value={productData.description || ''}
-                  onChange={(e) => updateProductField('description', e.target.value)}
-                  rows={4}
-                />
-              </div>
-
-              {/* Additional extracted fields */}
-              {Object.keys(productData).filter(key => 
-                !['title', 'price', 'brand', 'sku', 'availability', 'category', 'description'].includes(key)
-              ).length > 0 && (
-                <div className="space-y-2">
-                  <Label>Additional Fields</Label>
-                  <div className="grid md:grid-cols-2 gap-4">
-                    {Object.entries(productData)
-                      .filter(([key]) => !['title', 'price', 'brand', 'sku', 'availability', 'category', 'description'].includes(key))
-                      .map(([key, value]) => (
-                        <div key={key} className="space-y-2">
-                          <Label htmlFor={key} className="capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</Label>
-                          <Input
-                            id={key}
-                            value={String(value || '')}
-                            onChange={(e) => updateProductField(key, e.target.value)}
-                          />
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              )}
-
               <div className="flex gap-4 pt-4">
                 <Button onClick={() => console.log('Product data:', productData)}>
                   Export Data
