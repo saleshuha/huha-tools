@@ -138,51 +138,73 @@ export const ExcelMapper = () => {
     reader.onload = (e) => {
       try {
         const data = new Uint8Array(e.target?.result as ArrayBuffer);
-        const targetWorkbook = XLSX.read(data, { type: 'array', cellStyles: true });
-        const targetWorksheet = targetWorkbook.Sheets[targetWorkbook.SheetNames[0]];
+        const targetWorkbook = XLSX.read(data, { 
+          type: 'array', 
+          cellStyles: true,
+          cellFormula: true,
+          cellHTML: false,
+          cellNF: true
+        });
         
-        // Clear existing data rows (keep headers and formatting)
-        const range = XLSX.utils.decode_range(targetWorksheet['!ref'] || 'A1');
-        for (let row = 1; row <= range.e.r; row++) {
-          for (let col = 0; col <= range.e.c; col++) {
-            const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
-            if (targetWorksheet[cellAddress]) {
-              targetWorksheet[cellAddress].v = '';
-              targetWorksheet[cellAddress].w = '';
-            }
-          }
-        }
+        // Use the selected sheet or first sheet
+        const sheetName = targetData.selectedSheet || targetWorkbook.SheetNames[0];
+        const targetWorksheet = targetWorkbook.Sheets[sheetName];
         
-        // Add mapped source data to target structure
+        // Find the header row in the target file
+        const headerRowIndex = targetData.headers.findIndex((header, index) => {
+          const cellAddress = XLSX.utils.encode_cell({ r: 0, c: index });
+          const cellValue = targetWorksheet[cellAddress]?.v;
+          return String(cellValue).trim() === header.trim();
+        });
+        
+        // Determine the starting row for data (row after headers)
+        const dataStartRow = headerRowIndex >= 0 ? 1 : 1;
+        
+        // Add mapped source data starting from the data row
         sourceData.data.forEach((sourceRow, rowIndex) => {
           Object.entries(mappings).forEach(([sourceCol, targetCol]) => {
             const sourceIndex = sourceData.headers.indexOf(sourceCol);
             const targetIndex = targetData.headers.indexOf(targetCol);
             
             if (sourceIndex !== -1 && targetIndex !== -1 && sourceRow[sourceIndex] !== undefined) {
-              const cellAddress = XLSX.utils.encode_cell({ r: rowIndex + 1, c: targetIndex });
+              const cellAddress = XLSX.utils.encode_cell({ 
+                r: dataStartRow + rowIndex, 
+                c: targetIndex 
+              });
+              
+              // Create cell if it doesn't exist
               if (!targetWorksheet[cellAddress]) {
                 targetWorksheet[cellAddress] = {};
               }
-              targetWorksheet[cellAddress].v = sourceRow[sourceIndex] || '';
-              targetWorksheet[cellAddress].w = String(sourceRow[sourceIndex] || '');
+              
+              // Preserve existing cell formatting and only update the value
+              const existingCell = targetWorksheet[cellAddress];
+              targetWorksheet[cellAddress] = {
+                ...existingCell,
+                v: sourceRow[sourceIndex] || '',
+                w: String(sourceRow[sourceIndex] || '')
+              };
             }
           });
         });
 
-        // Update range to include all data
-        const newRange = XLSX.utils.encode_range({
+        // Update the range to include all data (preserve original range if larger)
+        const originalRange = XLSX.utils.decode_range(targetWorksheet['!ref'] || 'A1');
+        const newEndRow = Math.max(originalRange.e.r, dataStartRow + sourceData.data.length - 1);
+        const newEndCol = Math.max(originalRange.e.c, targetData.headers.length - 1);
+        
+        const updatedRange = XLSX.utils.encode_range({
           s: { r: 0, c: 0 },
-          e: { r: sourceData.data.length, c: targetData.headers.length - 1 }
+          e: { r: newEndRow, c: newEndCol }
         });
-        targetWorksheet['!ref'] = newRange;
+        targetWorksheet['!ref'] = updatedRange;
 
-        // Write the file with preserved formatting
-        XLSX.writeFile(targetWorkbook, 'mapped_data_formatted.xlsx');
+        // Write the file with all original formatting preserved
+        XLSX.writeFile(targetWorkbook, `${targetData.fileName.replace(/\.[^/.]+$/, '')}_mapped.xlsx`);
         
         toast({
           title: "Export successful",
-          description: `Exported ${sourceData.data.length} rows with preserved target formatting`,
+          description: `Exported ${sourceData.data.length} rows with original target file formatting preserved`,
         });
       } catch (error) {
         console.error('Error processing target file:', error);
