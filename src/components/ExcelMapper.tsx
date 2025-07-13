@@ -197,8 +197,8 @@ export const ExcelMapper = () => {
           onMethodChange={setMappingMethod}
         />
 
-        {/* File Upload Section - only show for drag-drop or when no files uploaded */}
-        {(mappingMethod === 'drag-drop' || !sourceData || !targetData) && (
+        {/* File Upload Section - only show for non drag-drop methods when no files uploaded */}
+        {mappingMethod !== 'drag-drop' && (!sourceData || !targetData) && (
           <div className="grid lg:grid-cols-2 gap-8 mb-8">
             {/* Source File Upload */}
             <div className="space-y-6">
