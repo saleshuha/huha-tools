@@ -26,7 +26,14 @@ const App = () => (
                 <div className="ml-6">
                   <SidebarTrigger className="bg-primary hover:bg-primary/90 text-primary-foreground border-primary" />
                 </div>
-                <h1 className="ml-8 font-semibold text-lg text-foreground">HuHa Excel Tools</h1>
+                <div className="ml-8 flex items-center gap-3">
+                  <img 
+                    src="/lovable-uploads/4f9a15c5-2d12-4ee0-b0bd-e982c5b4ece7.png" 
+                    alt="HuHa Logo" 
+                    className="h-8 w-8 object-contain"
+                  />
+                  <h1 className="font-semibold text-lg text-foreground">HuHa Excel Tools</h1>
+                </div>
               </header>
               <main className="flex-1">
                 <Routes>
