@@ -190,19 +190,18 @@ export const ExcelMapper = () => {
   const isReadyToExport = sourceData && targetData && mappingCount > 0;
 
   return (
-    <div className="min-h-screen p-6 animate-fade-in">
+    <div className="min-h-screen bg-gradient-surface p-6">
       <div className="max-w-7xl mx-auto space-y-8">
-        {/* Enhanced Header */}
-        <div className="text-center mb-12 animate-slide-down">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-primary shadow-glow mb-6 animate-float">
-            <FileSpreadsheet className="w-10 h-10 text-primary-foreground" />
+        {/* Clean Header */}
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-xl bg-primary shadow-soft mb-4">
+            <FileSpreadsheet className="w-8 h-8 text-primary-foreground" />
           </div>
-          <h1 className="text-5xl font-bold bg-gradient-hero bg-clip-text text-transparent mb-4 animate-fade-in-scale">
+          <h1 className="text-4xl font-bold text-foreground mb-2">
             Excel Column Mapper
           </h1>
-          <p className="text-muted-foreground text-xl max-w-2xl mx-auto leading-relaxed">
-            Transform your data with our intelligent column mapping system. 
-            Upload Excel files, create mappings, and export transformed data seamlessly.
+          <p className="text-muted-foreground text-lg max-w-xl mx-auto">
+            Upload Excel files, map columns, and export transformed data
           </p>
         </div>
 
@@ -213,19 +212,13 @@ export const ExcelMapper = () => {
           mappingCount={mappingCount}
         />
 
-        {/* Mapping Method Selector */}
-        <MappingMethodSelector
-          selectedMethod={mappingMethod}
-          onMethodChange={setMappingMethod}
-        />
-
-        {/* File Upload Section - only show for non drag-drop methods when no files uploaded */}
-        {mappingMethod !== 'drag-drop' && (!sourceData || !targetData) && (
+        {/* Initial File Upload Section - for drag-drop or when no files */}
+        {!sourceData || !targetData ? (
           <div className="grid lg:grid-cols-2 gap-8 mb-8">
             {/* Source File Upload */}
-            <div className="space-y-6">
-              <h2 className="text-2xl font-semibold flex items-center space-x-2">
-                <FileSpreadsheet className="w-6 h-6 text-primary" />
+            <div className="glass-container p-6">
+              <h2 className="text-xl font-semibold flex items-center space-x-2 mb-4">
+                <FileSpreadsheet className="w-5 h-5 text-primary" />
                 <span>Source File</span>
               </h2>
               <FileUpload
@@ -237,9 +230,9 @@ export const ExcelMapper = () => {
             </div>
 
             {/* Target File Upload */}
-            <div className="space-y-6">
-              <h2 className="text-2xl font-semibold flex items-center space-x-2">
-                <FileSpreadsheet className="w-6 h-6 text-accent" />
+            <div className="glass-container p-6">
+              <h2 className="text-xl font-semibold flex items-center space-x-2 mb-4">
+                <FileSpreadsheet className="w-5 h-5 text-accent" />
                 <span>Target File</span>
               </h2>
               <FileUpload
@@ -251,28 +244,39 @@ export const ExcelMapper = () => {
               />
             </div>
           </div>
-        )}
-
-        {/* Mapping Interface */}
-        {mappingMethod === 'drag-drop' ? (
-          <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-            {renderMappingInterface()}
-            <DragOverlay>
-              {draggedColumn && (
-                <div className="glass-container p-4 opacity-95 transform rotate-6 shadow-glow animate-float">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-3 h-3 rounded-full bg-gradient-primary animate-pulse"></div>
-                    <div>
-                      <div className="font-semibold text-primary">{draggedColumn}</div>
-                      <div className="text-sm text-accent font-medium">Dragging to target...</div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </DragOverlay>
-          </DndContext>
         ) : (
-          renderMappingInterface()
+          <>
+            {/* Mapping Method Selector - only show after both files are uploaded */}
+            <div className="glass-container p-6">
+              <h2 className="text-xl font-semibold mb-4">Choose Mapping Method</h2>
+              <MappingMethodSelector
+                selectedMethod={mappingMethod}
+                onMethodChange={setMappingMethod}
+              />
+            </div>
+
+            {/* Mapping Interface */}
+            {mappingMethod === 'drag-drop' ? (
+              <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+                {renderMappingInterface()}
+                <DragOverlay>
+                  {draggedColumn && (
+                    <div className="glass-container p-4 opacity-95 transform rotate-6 shadow-medium">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-3 h-3 rounded-full bg-primary"></div>
+                        <div>
+                          <div className="font-semibold text-primary">{draggedColumn}</div>
+                          <div className="text-sm text-accent font-medium">Dragging to target...</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </DragOverlay>
+              </DndContext>
+            ) : (
+              renderMappingInterface()
+            )}
+          </>
         )}
 
         {/* Export Section */}
