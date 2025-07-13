@@ -3,7 +3,7 @@ import { useDropzone } from 'react-dropzone';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Upload, FileSpreadsheet, CheckCircle, AlertCircle } from 'lucide-react';
+import { Upload, FileSpreadsheet, CheckCircle, AlertCircle, FileText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
 import type { ExcelData } from '@/types/excel';
@@ -35,70 +35,134 @@ export const FileUpload: React.FC<FileUploadProps> = ({
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const { toast } = useToast();
 
-  const processExcelFile = useCallback(async (file: File, selectedSheet?: string, headerRow: number = 1) => {
+  const processFile = useCallback(async (file: File, selectedSheet?: string, headerRow: number = 1) => {
     return new Promise<ExcelData>((resolve, reject) => {
       const reader = new FileReader();
       
       reader.onload = (e) => {
         try {
           const fileData = e.target?.result;
-          const workbook = XLSX.read(fileData, { 
-            type: 'binary', 
-            cellStyles: true,
-            cellFormula: true,
-            cellHTML: false,
-            cellNF: true
-          });
+          const fileExtension = file.name.toLowerCase().split('.').pop();
           
-          // If it's a target file and has multiple sheets, show sheet selector
-          if (isTarget && workbook.SheetNames.length > 1 && !selectedSheet) {
-            setPendingWorkbook(workbook);
-            setPendingFile(file);
-            setShowSheetSelector(true);
-            setUploading(false);
-            setUploadProgress(0);
-            return;
-          }
-          
-          const sheetName = selectedSheet || workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[sheetName];
-          
-          // Convert to array of arrays
-          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
-          
-          if (jsonData.length === 0) {
-            reject(new Error('Excel file is empty'));
-            return;
-          }
+          if (fileExtension === 'csv') {
+            // Process CSV file
+            const csvText = typeof fileData === 'string' ? fileData : new TextDecoder().decode(new Uint8Array(fileData as ArrayBuffer));
+            
+            // Parse CSV manually (simple parser)
+            const lines = csvText.split('\n').filter(line => line.trim());
+            if (lines.length === 0) {
+              reject(new Error('CSV file is empty'));
+              return;
+            }
+            
+            const parseCSVLine = (line: string) => {
+              const result = [];
+              let current = '';
+              let inQuotes = false;
+              
+              for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                
+                if (char === '"') {
+                  inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                  result.push(current.trim());
+                  current = '';
+                } else {
+                  current += char;
+                }
+              }
+              result.push(current.trim());
+              return result;
+            };
+            
+            const jsonData = lines.map(line => parseCSVLine(line));
+            
+            if (headerRow > jsonData.length) {
+              reject(new Error(`Header row ${headerRow} does not exist in the file`));
+              return;
+            }
+            
+            const headers = jsonData[headerRow - 1].map((header: any) => 
+              header ? String(header).replace(/^"(.*)"$/, '$1').trim() : `Column_${jsonData[headerRow - 1].indexOf(header) + 1}`
+            );
+            
+            const rowData = jsonData.slice(headerRow).map(row => 
+              row.map(cell => typeof cell === 'string' ? cell.replace(/^"(.*)"$/, '$1') : cell)
+            );
+            
+            resolve({
+              headers,
+              data: rowData,
+              fileName: file.name,
+              sheetNames: ['Sheet1'],
+              selectedSheet: 'Sheet1'
+            });
+          } else {
+            // Process Excel file
+            const workbook = XLSX.read(fileData, { 
+              type: 'binary', 
+              cellStyles: true,
+              cellFormula: true,
+              cellHTML: false,
+              cellNF: true
+            });
+            
+            // If it's a target file and has multiple sheets, show sheet selector
+            if (isTarget && workbook.SheetNames.length > 1 && !selectedSheet) {
+              setPendingWorkbook(workbook);
+              setPendingFile(file);
+              setShowSheetSelector(true);
+              setUploading(false);
+              setUploadProgress(0);
+              return;
+            }
+            
+            const sheetName = selectedSheet || workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            
+            // Convert to array of arrays
+            const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+            
+            if (jsonData.length === 0) {
+              reject(new Error('File is empty'));
+              return;
+            }
 
-          if (headerRow > jsonData.length) {
-            reject(new Error(`Header row ${headerRow} does not exist in the sheet`));
-            return;
-          }
+            if (headerRow > jsonData.length) {
+              reject(new Error(`Header row ${headerRow} does not exist in the sheet`));
+              return;
+            }
 
-          // Header row contains headers (adjust for 0-based index)
-          const headers = jsonData[headerRow - 1].map((header: any) => 
-            header ? String(header).trim() : `Column_${jsonData[headerRow - 1].indexOf(header) + 1}`
-          );
-          
-          // Rest of the rows contain data (starting from the row after headers)
-          const rowData = jsonData.slice(headerRow);
-          
-          resolve({
-            headers,
-            data: rowData,
-            fileName: file.name,
-            sheetNames: workbook.SheetNames,
-            selectedSheet: sheetName,
-            originalWorkbook: isTarget ? workbook : undefined // Store original workbook for target files
-          });
+            // Header row contains headers (adjust for 0-based index)
+            const headers = jsonData[headerRow - 1].map((header: any) => 
+              header ? String(header).trim() : `Column_${jsonData[headerRow - 1].indexOf(header) + 1}`
+            );
+            
+            // Rest of the rows contain data (starting from the row after headers)
+            const rowData = jsonData.slice(headerRow);
+            
+            resolve({
+              headers,
+              data: rowData,
+              fileName: file.name,
+              sheetNames: workbook.SheetNames,
+              selectedSheet: sheetName,
+              originalWorkbook: isTarget ? workbook : undefined // Store original workbook for target files
+            });
+          }
         } catch (error) {
-          reject(new Error('Failed to parse Excel file'));
+          reject(new Error(`Failed to parse ${file.name.toLowerCase().endsWith('.csv') ? 'CSV' : 'Excel'} file`));
         }
       };
       
       reader.onerror = () => reject(new Error('Failed to read file'));
-      reader.readAsBinaryString(file);
+      
+      if (file.name.toLowerCase().endsWith('.csv')) {
+        reader.readAsText(file);
+      } else {
+        reader.readAsBinaryString(file);
+      }
     });
   }, [isTarget]);
 
@@ -110,7 +174,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
     setUploadProgress(90);
     
     try {
-      const excelData = await processExcelFile(pendingFile, sheetName, headerRow);
+      const excelData = await processFile(pendingFile, sheetName, headerRow);
       
       setUploadProgress(100);
       
@@ -130,7 +194,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
       setPendingFile(null);
       toast({
         title: "Upload failed",
-        description: error instanceof Error ? error.message : "Failed to process Excel file",
+        description: error instanceof Error ? error.message : "Failed to process file",
         variant: "destructive"
       });
     }
@@ -157,7 +221,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
           });
         }, 100);
         
-        const excelData = await processExcelFile(file);
+        const excelData = await processFile(file);
         
         clearInterval(progressInterval);
         setUploadProgress(100);
@@ -174,20 +238,21 @@ export const FileUpload: React.FC<FileUploadProps> = ({
         setUploadProgress(0);
         toast({
           title: "Upload failed",
-          description: error instanceof Error ? error.message : "Failed to process Excel file",
+          description: error instanceof Error ? error.message : "Failed to process file",
           variant: "destructive"
         });
       }
     }
     
     setIsUploading(false);
-  }, [onFileUpload, processExcelFile, toast, setIsUploading]);
+  }, [onFileUpload, processFile, toast, setIsUploading]);
 
   const { getRootProps, getInputProps, isDragActive, fileRejections } = useDropzone({
     onDrop,
     accept: {
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
-      'application/vnd.ms-excel': ['.xls']
+      'application/vnd.ms-excel': ['.xls'],
+      'text/csv': ['.csv']
     },
     maxFiles: multiple ? undefined : 1,
     multiple,
@@ -225,7 +290,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
               <Upload className="w-6 h-6 text-primary animate-bounce" />
             </div>
             <div className="space-y-2">
-              <p className="font-medium">Processing Excel file...</p>
+              <p className="font-medium">Processing file...</p>
               <Progress value={uploadProgress} className="w-full max-w-xs mx-auto" />
               <p className="text-sm text-muted-foreground">{uploadProgress}% complete</p>
             </div>
@@ -261,6 +326,8 @@ export const FileUpload: React.FC<FileUploadProps> = ({
             }`}>
               {hasError ? (
                 <AlertCircle className="w-6 h-6" />
+              ) : accept.includes('csv') ? (
+                <FileText className="w-6 h-6" />
               ) : (
                 <FileSpreadsheet className="w-6 h-6" />
               )}
@@ -285,10 +352,10 @@ export const FileUpload: React.FC<FileUploadProps> = ({
                 <div className="text-sm text-muted-foreground space-y-1">
                   <p>
                     {isDragActive 
-                      ? `Drop your Excel file${multiple ? 's' : ''} here...` 
-                      : `Drag & drop Excel file${multiple ? 's' : ''} here, or click to browse`}
+                      ? `Drop your file${multiple ? 's' : ''} here...` 
+                      : `Drag & drop file${multiple ? 's' : ''} here, or click to browse`}
                   </p>
-                  <p>Supports .xlsx and .xls files (max 10MB){multiple ? ' - Multiple files allowed' : ''}</p>
+                  <p>Supports .xlsx, .xls, and .csv files (max 10MB){multiple ? ' - Multiple files allowed' : ''}</p>
                 </div>
               )}
             </div>
