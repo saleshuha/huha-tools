@@ -90,12 +90,12 @@ export function Inventory() {
               <div className="w-16 h-16 bg-secondary/10 rounded-full flex items-center justify-center mx-auto group-hover:bg-secondary/20 transition-colors">
                 <Hash className="w-8 h-8 text-secondary" />
               </div>
-              <h2 className="text-2xl font-bold text-foreground">SS Inventory</h2>
+              <h2 className="text-2xl font-bold text-foreground">SKU Inventory</h2>
               <p className="text-muted-foreground">
-                Manage inventory using SS numbers with product names and location tracking. Ideal for warehouse management.
+                Manage inventory using SKU numbers with location tracking. Ideal for warehouse management.
               </p>
               <div className="flex items-center justify-center gap-2 text-secondary group-hover:gap-3 transition-all">
-                <span className="font-medium">Open SS Inventory</span>
+                <span className="font-medium">Open SKU Inventory</span>
                 <ArrowRight className="w-4 h-4" />
               </div>
             </div>
@@ -126,7 +126,7 @@ export function Inventory() {
             <div className="flex items-center gap-3">
               <Hash className="w-5 h-5 text-secondary" />
               <div>
-                <div className="text-sm text-muted-foreground">SS Items</div>
+                <div className="text-sm text-muted-foreground">SKU Items</div>
                 <div className="text-xl font-bold">
                   {(() => {
                     try {
