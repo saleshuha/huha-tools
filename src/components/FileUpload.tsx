@@ -39,7 +39,13 @@ export const FileUpload: React.FC<FileUploadProps> = ({
       reader.onload = (e) => {
         try {
           const fileData = e.target?.result;
-          const workbook = XLSX.read(fileData, { type: 'binary' });
+          const workbook = XLSX.read(fileData, { 
+            type: 'binary', 
+            cellStyles: true,
+            cellFormula: true,
+            cellHTML: false,
+            cellNF: true
+          });
           
           // If it's a target file and has multiple sheets, show sheet selector
           if (isTarget && workbook.SheetNames.length > 1 && !selectedSheet) {
@@ -80,7 +86,8 @@ export const FileUpload: React.FC<FileUploadProps> = ({
             data: rowData,
             fileName: file.name,
             sheetNames: workbook.SheetNames,
-            selectedSheet: sheetName
+            selectedSheet: sheetName,
+            originalWorkbook: isTarget ? workbook : undefined // Store original workbook for target files
           });
         } catch (error) {
           reject(new Error('Failed to parse Excel file'));
