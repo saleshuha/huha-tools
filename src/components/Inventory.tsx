@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
-import { Package, Hash, ArrowRight } from 'lucide-react';
+import { Package, Hash, ArrowRight, Globe } from 'lucide-react';
 import { AsinInventory } from './AsinInventory';
 import { SSInventory } from './SSInventory';
+import { ProductScraper } from './ProductScraper';
 
-type InventoryView = 'main' | 'asin' | 'ss';
+type InventoryView = 'main' | 'asin' | 'ss' | 'scraper';
 
 export function Inventory() {
   console.log('Inventory component loaded, current view:', 'main');
@@ -49,14 +50,28 @@ export function Inventory() {
     );
   }
 
+  if (currentView === 'scraper') {
+    return <ProductScraper onBack={() => setCurrentView('main')} />;
+  }
+
   return (
     <div className="min-h-screen bg-gradient-surface p-6 ml-8">
       <div className="max-w-6xl mx-auto space-y-6 pl-4">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <Package className="w-8 h-8 text-primary" />
-            <h1 className="text-3xl font-bold text-foreground">Instock Inventory</h1>
+          <div className="flex items-center justify-between mb-6">
+            <div></div> {/* Spacer */}
+            <div className="flex items-center gap-3">
+              <Package className="w-8 h-8 text-primary" />
+              <h1 className="text-3xl font-bold text-foreground">Instock Inventory</h1>
+            </div>
+            <Button
+              onClick={() => setCurrentView('scraper')}
+              className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground"
+            >
+              <Globe className="w-4 h-4" />
+              Product Scraper
+            </Button>
           </div>
           <p className="text-muted-foreground">
             Choose your inventory management system
