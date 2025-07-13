@@ -36,6 +36,8 @@ export function Inventory() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(50);
   const { toast } = useToast();
 
   // Form states
@@ -268,6 +270,16 @@ export function Inventory() {
     return matchesSearch && matchesStatus;
   });
 
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredInventory.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedInventory = filteredInventory.slice(startIndex, startIndex + itemsPerPage);
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, itemsPerPage]);
+
   const getStatusColor = (status: InventoryItem['status']) => {
     switch (status) {
       case 'in-stock': return 'text-green-600 bg-green-100';
@@ -326,6 +338,16 @@ export function Inventory() {
                   <SelectItem value="sold">Sold</SelectItem>
                   <SelectItem value="reserved">Reserved</SelectItem>
                   <SelectItem value="damaged">Damaged</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={itemsPerPage.toString()} onValueChange={(value) => setItemsPerPage(Number(value))}>
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="50">50 items</SelectItem>
+                  <SelectItem value="100">100 items</SelectItem>
+                  <SelectItem value="150">150 items</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -502,7 +524,7 @@ export function Inventory() {
                     </td>
                   </tr>
                 ) : (
-                  filteredInventory.map((item, index) => (
+                  paginatedInventory.map((item, index) => (
                     <tr key={item.id} className={index % 2 === 0 ? 'bg-background' : 'bg-muted/20'}>
                       <td className="p-4 font-mono text-sm">{item.asin}</td>
                       <td className="p-4 font-mono text-sm">{item.serialNumber}</td>
@@ -547,6 +569,36 @@ export function Inventory() {
               </tbody>
             </table>
           </div>
+          
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex justify-between items-center p-4 border-t">
+              <div className="text-sm text-muted-foreground">
+                Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, filteredInventory.length)} of {filteredInventory.length} items
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                >
+                  Previous
+                </Button>
+                <span className="flex items-center px-3 text-sm">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
         </Card>
       </div>
     </div>
