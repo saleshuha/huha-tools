@@ -2,9 +2,12 @@ import { useState, useCallback } from 'react';
 import { FileUpload } from './FileUpload';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
+import { Label } from './ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { Input } from './ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useExcelExport } from '@/hooks/useExcelExport';
-import { Calculator, Download, Upload, FileSpreadsheet } from 'lucide-react';
+import { Calculator, Download, Upload, FileSpreadsheet, Settings } from 'lucide-react';
 import { ExcelData } from '@/types/excel';
 
 interface AsinSummary {
@@ -16,12 +19,19 @@ export function AsinQtySum() {
   const [excelData, setExcelData] = useState<ExcelData | null>(null);
   const [summaryData, setSummaryData] = useState<AsinSummary[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showConfiguration, setShowConfiguration] = useState(false);
+  const [headerRowNumber, setHeaderRowNumber] = useState<number>(1);
+  const [selectedAsinColumn, setSelectedAsinColumn] = useState<string>('');
+  const [selectedQtyColumn, setSelectedQtyColumn] = useState<string>('');
   const { toast } = useToast();
   const { exportMappedData } = useExcelExport();
 
   const handleFileUpload = useCallback((data: ExcelData | null) => {
     setExcelData(data);
     setSummaryData([]);
+    setShowConfiguration(!!data);
+    setSelectedAsinColumn('');
+    setSelectedQtyColumn('');
   }, []);
 
   const processAsinSum = useCallback(() => {
@@ -34,47 +44,42 @@ export function AsinQtySum() {
       return;
     }
 
+    if (!selectedAsinColumn || !selectedQtyColumn) {
+      toast({
+        title: "Columns Not Selected",
+        description: "Please select both ASIN and QTY columns",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsProcessing(true);
     
     try {
       console.log("Excel data:", excelData);
-      console.log("Data length:", excelData.data.length);
-      console.log("First row (headers):", excelData.data[0]);
+      console.log("Header row number:", headerRowNumber);
+      console.log("Selected ASIN column:", selectedAsinColumn);
+      console.log("Selected QTY column:", selectedQtyColumn);
 
-      const headers = excelData.data[0] as string[];
-      console.log("Headers array:", headers);
-
-      // More flexible column detection
-      const asinColumnIndex = headers.findIndex(header => {
-        const headerLower = String(header).toLowerCase().trim();
-        return headerLower.includes('asin') || headerLower === 'sku' || headerLower.includes('product');
-      });
-      
-      const qtyColumnIndex = headers.findIndex(header => {
-        const headerLower = String(header).toLowerCase().trim();
-        return headerLower.includes('qty') || 
-               headerLower.includes('quantity') || 
-               headerLower.includes('amount') ||
-               headerLower.includes('count');
-      });
-
-      console.log("ASIN column index:", asinColumnIndex);
-      console.log("QTY column index:", qtyColumnIndex);
-
-      if (asinColumnIndex === -1) {
+      const headerRowIndex = headerRowNumber - 1; // Convert to 0-based index
+      if (headerRowIndex >= excelData.data.length) {
         toast({
-          title: "ASIN Column Not Found",
-          description: `Could not find ASIN column. Available columns: ${headers.join(', ')}`,
+          title: "Invalid Header Row",
+          description: "Header row number exceeds the number of rows in the file",
           variant: "destructive"
         });
         setIsProcessing(false);
         return;
       }
 
-      if (qtyColumnIndex === -1) {
+      const headers = excelData.data[headerRowIndex] as string[];
+      const asinColumnIndex = headers.indexOf(selectedAsinColumn);
+      const qtyColumnIndex = headers.indexOf(selectedQtyColumn);
+
+      if (asinColumnIndex === -1 || qtyColumnIndex === -1) {
         toast({
-          title: "Quantity Column Not Found",
-          description: `Could not find QTY column. Available columns: ${headers.join(', ')}`,
+          title: "Column Not Found",
+          description: "Selected columns not found in the specified header row",
           variant: "destructive"
         });
         setIsProcessing(false);
@@ -83,8 +88,8 @@ export function AsinQtySum() {
 
       const asinQtyMap = new Map<string, number>();
 
-      // Process data starting from row 1 (skip headers)
-      for (let i = 1; i < excelData.data.length; i++) {
+      // Process data starting from the row after headers
+      for (let i = headerRowIndex + 1; i < excelData.data.length; i++) {
         const row = excelData.data[i] as (string | number)[];
         console.log(`Processing row ${i}:`, row);
         
@@ -113,6 +118,7 @@ export function AsinQtySum() {
       console.log("Summary results:", summaryResults);
 
       setSummaryData(summaryResults);
+      setShowConfiguration(false);
       
       toast({
         title: "Processing Complete",
@@ -129,7 +135,7 @@ export function AsinQtySum() {
     }
 
     setIsProcessing(false);
-  }, [excelData, toast]);
+  }, [excelData, headerRowNumber, selectedAsinColumn, selectedQtyColumn, toast]);
 
   const handleExport = useCallback(() => {
     if (summaryData.length === 0) {
@@ -188,6 +194,17 @@ export function AsinQtySum() {
   const resetData = () => {
     setExcelData(null);
     setSummaryData([]);
+    setShowConfiguration(false);
+    setSelectedAsinColumn('');
+    setSelectedQtyColumn('');
+  };
+
+  // Get available columns for dropdowns
+  const getAvailableColumns = () => {
+    if (!excelData?.data || excelData.data.length === 0) return [];
+    const headerRowIndex = headerRowNumber - 1;
+    if (headerRowIndex >= excelData.data.length) return [];
+    return excelData.data[headerRowIndex] as string[];
   };
 
   return (
@@ -219,7 +236,7 @@ export function AsinQtySum() {
             description="Supported formats: .xlsx, .xls"
           />
 
-          {excelData && (
+          {excelData && !showConfiguration && (
             <div className="mt-4 p-4 bg-success/10 border border-success/20 rounded-lg">
               <div className="flex items-center gap-2 text-success">
                 <FileSpreadsheet className="w-4 h-4" />
@@ -231,27 +248,86 @@ export function AsinQtySum() {
           )}
         </Card>
 
-        {/* Process Button */}
-        {excelData && (
+        {/* Configuration */}
+        {showConfiguration && excelData && (
           <Card className="glass-container p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-semibold text-foreground">Process ASIN Data</h3>
-                <p className="text-muted-foreground">Calculate total quantities for each unique ASIN</p>
+            <div className="flex items-center gap-3 mb-6">
+              <Settings className="w-5 h-5 text-primary" />
+              <h2 className="text-xl font-semibold text-foreground">Configure Processing</h2>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Header Row Number */}
+              <div className="space-y-2">
+                <Label htmlFor="headerRow" className="text-sm font-medium">
+                  Header Row Number
+                </Label>
+                <Input
+                  id="headerRow"
+                  type="number"
+                  min="1"
+                  max={excelData.data.length}
+                  value={headerRowNumber}
+                  onChange={(e) => setHeaderRowNumber(Number(e.target.value))}
+                  className="bg-background"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Row number containing column headers (default: 1)
+                </p>
               </div>
-              <div className="flex gap-3">
-                <Button variant="outline" onClick={resetData}>
-                  Reset
-                </Button>
-                <Button 
-                  onClick={processAsinSum} 
-                  disabled={isProcessing}
-                  className="bg-primary hover:bg-primary/90"
-                >
-                  <Calculator className="w-4 h-4 mr-2" />
-                  {isProcessing ? 'Processing...' : 'Calculate Sum'}
-                </Button>
+
+              {/* ASIN Column */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">
+                  ASIN Column
+                </Label>
+                <Select value={selectedAsinColumn} onValueChange={setSelectedAsinColumn}>
+                  <SelectTrigger className="bg-background border-input">
+                    <SelectValue placeholder="Select ASIN column" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border-input z-50">
+                    {getAvailableColumns().map((column, index) => (
+                      <SelectItem key={index} value={column} className="hover:bg-muted">
+                        {column}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
+
+              {/* QTY Column */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">
+                  Quantity Column
+                </Label>
+                <Select value={selectedQtyColumn} onValueChange={setSelectedQtyColumn}>
+                  <SelectTrigger className="bg-background border-input">
+                    <SelectValue placeholder="Select QTY column" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border-input z-50">
+                    {getAvailableColumns().map((column, index) => (
+                      <SelectItem key={index} value={column} className="hover:bg-muted">
+                        {column}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex justify-between mt-6">
+              <Button variant="outline" onClick={resetData}>
+                Start Over
+              </Button>
+              <Button 
+                onClick={processAsinSum} 
+                disabled={isProcessing || !selectedAsinColumn || !selectedQtyColumn}
+                className="bg-primary hover:bg-primary/90"
+              >
+                <Calculator className="w-4 h-4 mr-2" />
+                {isProcessing ? 'Processing...' : 'Calculate Sum'}
+              </Button>
             </div>
           </Card>
         )}
