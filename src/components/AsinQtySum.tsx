@@ -74,9 +74,14 @@ export function AsinQtySum() {
 
       const headers = excelData.data[headerRowIndex] as string[];
       console.log("Headers from row", headerRowIndex, ":", headers);
+      console.log("Available columns for selection:", headers);
       
-      const asinColumnIndex = headers.indexOf(selectedAsinColumn);
-      const qtyColumnIndex = headers.indexOf(selectedQtyColumn);
+      // Clean headers - convert to strings and trim whitespace
+      const cleanHeaders = headers.map(h => String(h || '').trim());
+      console.log("Cleaned headers:", cleanHeaders);
+      
+      const asinColumnIndex = cleanHeaders.indexOf(selectedAsinColumn);
+      const qtyColumnIndex = cleanHeaders.indexOf(selectedQtyColumn);
 
       console.log("ASIN column:", selectedAsinColumn, "at index:", asinColumnIndex);
       console.log("QTY column:", selectedQtyColumn, "at index:", qtyColumnIndex);
@@ -233,7 +238,9 @@ export function AsinQtySum() {
     if (!excelData?.data || excelData.data.length === 0) return [];
     const headerRowIndex = headerRowNumber; // Already 0-based
     if (headerRowIndex >= excelData.data.length) return [];
-    return excelData.data[headerRowIndex] as string[];
+    const headers = excelData.data[headerRowIndex] as string[];
+    // Clean headers - convert to strings and trim whitespace
+    return headers.map(h => String(h || '').trim()).filter(h => h !== '');
   };
 
   return (
