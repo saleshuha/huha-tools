@@ -10,7 +10,7 @@ import { useExcelExport } from '@/hooks/useExcelExport';
 
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
-import { FileSpreadsheet, X } from 'lucide-react';
+import { FileSpreadsheet, X, RotateCcw } from 'lucide-react';
 import { ExcelData, ColumnMapping } from '@/types/excel';
 import { MappingMethod } from '@/types/mappingMethods';
 
@@ -277,6 +277,23 @@ export const ExcelMapper = () => {
               selectedMethod={mappingMethod}
               onMethodChange={setMappingMethod}
             />
+
+            {/* Reset/Back Button */}
+            <div className="flex justify-center mt-6">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setSourceData(null);
+                  setTargetData(null);
+                  setMappings({});
+                  setMappingMethod('dropdown');
+                }}
+                className="flex items-center gap-2"
+              >
+                <RotateCcw className="w-4 h-4" />
+                Start Over
+              </Button>
+            </div>
 
             {/* Mapping Interface */}
             {renderMappingInterface()}

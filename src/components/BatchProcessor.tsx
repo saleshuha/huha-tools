@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -10,7 +11,7 @@ import { DropdownMappingView } from './mapping/DropdownMappingView';
 import { ClickConnectMappingView } from './mapping/ClickConnectMappingView';
 import { useToast } from '@/hooks/use-toast';
 import { useExcelExport } from '@/hooks/useExcelExport';
-import { FileSpreadsheet, Play, Pause, RotateCcw, Download, CheckCircle, AlertCircle, Clock } from 'lucide-react';
+import { FileSpreadsheet, Play, Pause, RotateCcw, Download, CheckCircle, AlertCircle, Clock, ArrowLeft, Home } from 'lucide-react';
 import { ExcelData, ColumnMapping } from '@/types/excel';
 import { MappingMethod } from '@/types/mappingMethods';
 
@@ -217,6 +218,24 @@ export const BatchProcessor = () => {
     return (
       <div className="min-h-screen bg-gradient-surface p-6">
         <div className="max-w-4xl mx-auto space-y-6">
+          {/* Header with Back Button */}
+          <div className="flex items-center justify-between">
+            <Button
+              variant="outline"
+              onClick={() => setShowMappingSetup(false)}
+              className="flex items-center gap-2"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back to Files
+            </Button>
+            <Link to="/">
+              <Button variant="ghost" size="sm" className="flex items-center gap-2">
+                <Home className="w-4 h-4" />
+                Single File Mapper
+              </Button>
+            </Link>
+          </div>
+
           <div className="text-center">
             <h1 className="text-3xl font-bold mb-2">Setup Template Mappings</h1>
             <p className="text-muted-foreground">
@@ -255,7 +274,8 @@ export const BatchProcessor = () => {
                 Apply to All Files
               </Button>
               <Button variant="outline" onClick={() => setShowMappingSetup(false)}>
-                Cancel
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Files
               </Button>
             </div>
           </Card>
@@ -267,15 +287,24 @@ export const BatchProcessor = () => {
   return (
     <div className="min-h-screen bg-gradient-surface p-6">
       <div className="max-w-6xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-xl bg-primary shadow-soft mb-4">
-            <FileSpreadsheet className="w-8 h-8 text-primary-foreground" />
+        {/* Header with Navigation */}
+        <div className="flex items-center justify-between">
+          <Link to="/">
+            <Button variant="outline" className="flex items-center gap-2">
+              <ArrowLeft className="w-4 h-4" />
+              Back to Single File Mapper
+            </Button>
+          </Link>
+          <div className="text-center flex-1">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-xl bg-primary shadow-soft mb-4">
+              <FileSpreadsheet className="w-8 h-8 text-primary-foreground" />
+            </div>
+            <h1 className="text-4xl font-bold mb-2">Batch File Processor</h1>
+            <p className="text-muted-foreground text-lg">
+              Process multiple source files with the same target structure automatically
+            </p>
           </div>
-          <h1 className="text-4xl font-bold mb-2">Batch File Processor</h1>
-          <p className="text-muted-foreground text-lg">
-            Process multiple source files with the same target structure automatically
-          </p>
+          <div className="w-32" /> {/* Spacer for center alignment */}
         </div>
 
         {/* File Uploads */}
