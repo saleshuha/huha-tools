@@ -37,18 +37,44 @@ export function AsinQtySum() {
     setIsProcessing(true);
     
     try {
-      const headers = excelData.data[0] as string[];
-      const asinColumnIndex = headers.findIndex(header => 
-        header.toLowerCase().includes('asin')
-      );
-      const qtyColumnIndex = headers.findIndex(header => 
-        header.toLowerCase().includes('qty') || header.toLowerCase().includes('quantity')
-      );
+      console.log("Excel data:", excelData);
+      console.log("Data length:", excelData.data.length);
+      console.log("First row (headers):", excelData.data[0]);
 
-      if (asinColumnIndex === -1 || qtyColumnIndex === -1) {
+      const headers = excelData.data[0] as string[];
+      console.log("Headers array:", headers);
+
+      // More flexible column detection
+      const asinColumnIndex = headers.findIndex(header => {
+        const headerLower = String(header).toLowerCase().trim();
+        return headerLower.includes('asin') || headerLower === 'sku' || headerLower.includes('product');
+      });
+      
+      const qtyColumnIndex = headers.findIndex(header => {
+        const headerLower = String(header).toLowerCase().trim();
+        return headerLower.includes('qty') || 
+               headerLower.includes('quantity') || 
+               headerLower.includes('amount') ||
+               headerLower.includes('count');
+      });
+
+      console.log("ASIN column index:", asinColumnIndex);
+      console.log("QTY column index:", qtyColumnIndex);
+
+      if (asinColumnIndex === -1) {
         toast({
-          title: "Columns Not Found",
-          description: "Could not find ASIN or QTY columns in the file",
+          title: "ASIN Column Not Found",
+          description: `Could not find ASIN column. Available columns: ${headers.join(', ')}`,
+          variant: "destructive"
+        });
+        setIsProcessing(false);
+        return;
+      }
+
+      if (qtyColumnIndex === -1) {
+        toast({
+          title: "Quantity Column Not Found",
+          description: `Could not find QTY column. Available columns: ${headers.join(', ')}`,
           variant: "destructive"
         });
         setIsProcessing(false);
@@ -60,19 +86,31 @@ export function AsinQtySum() {
       // Process data starting from row 1 (skip headers)
       for (let i = 1; i < excelData.data.length; i++) {
         const row = excelData.data[i] as (string | number)[];
-        const asin = String(row[asinColumnIndex] || '').trim();
-        const qty = Number(row[qtyColumnIndex]) || 0;
+        console.log(`Processing row ${i}:`, row);
+        
+        const asinValue = row[asinColumnIndex];
+        const qtyValue = row[qtyColumnIndex];
+        
+        const asin = String(asinValue || '').trim();
+        const qty = Number(qtyValue) || 0;
+
+        console.log(`Row ${i}: ASIN=${asin}, QTY=${qty}`);
 
         if (asin && qty > 0) {
           const currentQty = asinQtyMap.get(asin) || 0;
           asinQtyMap.set(asin, currentQty + qty);
+          console.log(`Updated ASIN ${asin}: ${currentQty} + ${qty} = ${currentQty + qty}`);
         }
       }
+
+      console.log("Final ASIN map:", Array.from(asinQtyMap.entries()));
 
       const summaryResults: AsinSummary[] = Array.from(asinQtyMap.entries()).map(([asin, totalQty]) => ({
         asin,
         totalQty
       }));
+
+      console.log("Summary results:", summaryResults);
 
       setSummaryData(summaryResults);
       
@@ -82,9 +120,10 @@ export function AsinQtySum() {
         variant: "default"
       });
     } catch (error) {
+      console.error("Processing error:", error);
       toast({
         title: "Processing Error",
-        description: "An error occurred while processing the data",
+        description: `Error details: ${error instanceof Error ? error.message : 'Unknown error'}`,
         variant: "destructive"
       });
     }
