@@ -12,7 +12,7 @@ import {
   Database,
   FileText
 } from 'lucide-react';
-import type { ExcelData, ColumnMapping } from './ExcelMapper';
+import type { ExcelData, ColumnMapping } from '@/types/excel';
 
 interface ColumnMapperProps {
   data: ExcelData;

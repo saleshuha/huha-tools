@@ -11,7 +11,7 @@ import {
   CheckCircle,
   BarChart3
 } from 'lucide-react';
-import type { ExcelData } from './ExcelMapper';
+import type { ExcelData } from '@/types/excel';
 
 interface ExportOptionsProps {
   isReady: boolean;

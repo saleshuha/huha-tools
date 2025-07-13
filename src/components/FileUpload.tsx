@@ -6,7 +6,7 @@ import { Progress } from '@/components/ui/progress';
 import { Upload, FileSpreadsheet, CheckCircle, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
-import type { ExcelData } from './ExcelMapper';
+import type { ExcelData } from '@/types/excel';
 import { SheetSelector } from './SheetSelector';
 
 interface FileUploadProps {
