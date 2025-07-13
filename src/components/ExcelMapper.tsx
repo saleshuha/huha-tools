@@ -281,7 +281,7 @@ export const ExcelMapper = () => {
             {/* Reset/Back Button */}
             <div className="flex justify-center mt-6">
               <Button
-                variant="outline"
+                variant="default"
                 onClick={() => {
                   setSourceData(null);
                   setTargetData(null);

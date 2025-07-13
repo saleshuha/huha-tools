@@ -221,9 +221,9 @@ export const BatchProcessor = () => {
           {/* Header with Back Button */}
           <div className="flex items-center justify-between">
             <Button
-              variant="outline"
+              variant="default"
               onClick={() => setShowMappingSetup(false)}
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground"
             >
               <ArrowLeft className="w-4 h-4" />
               Back to Files
@@ -273,7 +273,7 @@ export const BatchProcessor = () => {
               <Button onClick={applyTemplateMappings} disabled={Object.keys(templateMappings).length === 0}>
                 Apply to All Files
               </Button>
-              <Button variant="outline" onClick={() => setShowMappingSetup(false)}>
+              <Button variant="default" onClick={() => setShowMappingSetup(false)} className="bg-primary hover:bg-primary/90 text-primary-foreground">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back to Files
               </Button>
@@ -290,7 +290,7 @@ export const BatchProcessor = () => {
         {/* Header with Navigation */}
         <div className="flex items-center justify-between">
           <Link to="/">
-            <Button variant="outline" className="flex items-center gap-2">
+            <Button variant="default" className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground">
               <ArrowLeft className="w-4 h-4" />
               Back to Single File Mapper
             </Button>

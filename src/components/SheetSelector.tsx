@@ -54,10 +54,10 @@ export const SheetSelector: React.FC<SheetSelectorProps> = ({
           <DialogTitle className="flex items-center space-x-2">
             {selectedSheet && (
               <Button 
-                variant="ghost" 
+                variant="default" 
                 size="sm" 
                 onClick={handleBack}
-                className="p-1 mr-2"
+                className="p-1 mr-2 bg-primary hover:bg-primary/90 text-primary-foreground"
               >
                 <ArrowLeft className="w-4 h-4" />
               </Button>
