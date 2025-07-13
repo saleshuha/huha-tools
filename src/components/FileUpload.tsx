@@ -7,6 +7,7 @@ import { Upload, FileSpreadsheet, CheckCircle, AlertCircle } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
 import type { ExcelData } from './ExcelMapper';
+import { SheetSelector } from './SheetSelector';
 
 interface FileUploadProps {
   onFileUpload: (data: ExcelData) => void;
@@ -26,9 +27,12 @@ export const FileUpload: React.FC<FileUploadProps> = ({
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadedFile, setUploadedFile] = useState<string | null>(null);
+  const [showSheetSelector, setShowSheetSelector] = useState(false);
+  const [pendingWorkbook, setPendingWorkbook] = useState<XLSX.WorkBook | null>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const { toast } = useToast();
 
-  const processExcelFile = useCallback(async (file: File) => {
+  const processExcelFile = useCallback(async (file: File, selectedSheet?: string) => {
     return new Promise<ExcelData>((resolve, reject) => {
       const reader = new FileReader();
       
@@ -36,7 +40,18 @@ export const FileUpload: React.FC<FileUploadProps> = ({
         try {
           const fileData = e.target?.result;
           const workbook = XLSX.read(fileData, { type: 'binary' });
-          const sheetName = workbook.SheetNames[0];
+          
+          // If it's a target file and has multiple sheets, show sheet selector
+          if (isTarget && workbook.SheetNames.length > 1 && !selectedSheet) {
+            setPendingWorkbook(workbook);
+            setPendingFile(file);
+            setShowSheetSelector(true);
+            setUploading(false);
+            setUploadProgress(0);
+            return;
+          }
+          
+          const sheetName = selectedSheet || workbook.SheetNames[0];
           const worksheet = workbook.Sheets[sheetName];
           
           // Convert to array of arrays
@@ -58,7 +73,9 @@ export const FileUpload: React.FC<FileUploadProps> = ({
           resolve({
             headers,
             data: rowData,
-            fileName: file.name
+            fileName: file.name,
+            sheetNames: workbook.SheetNames,
+            selectedSheet: sheetName
           });
         } catch (error) {
           reject(new Error('Failed to parse Excel file'));
@@ -68,7 +85,41 @@ export const FileUpload: React.FC<FileUploadProps> = ({
       reader.onerror = () => reject(new Error('Failed to read file'));
       reader.readAsBinaryString(file);
     });
-  }, []);
+  }, [isTarget]);
+
+  const handleSheetSelection = async (sheetName: string) => {
+    if (!pendingWorkbook || !pendingFile) return;
+    
+    setShowSheetSelector(false);
+    setUploading(true);
+    setUploadProgress(90);
+    
+    try {
+      const excelData = await processExcelFile(pendingFile, sheetName);
+      
+      setUploadProgress(100);
+      
+      setTimeout(() => {
+        setUploadedFile(pendingFile.name);
+        onFileUpload(excelData);
+        setUploading(false);
+        setUploadProgress(0);
+        setPendingWorkbook(null);
+        setPendingFile(null);
+      }, 500);
+      
+    } catch (error) {
+      setUploading(false);
+      setUploadProgress(0);
+      setPendingWorkbook(null);
+      setPendingFile(null);
+      toast({
+        title: "Upload failed",
+        description: error instanceof Error ? error.message : "Failed to process Excel file",
+        variant: "destructive"
+      });
+    }
+  };
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     if (acceptedFiles.length === 0) return;
@@ -125,6 +176,18 @@ export const FileUpload: React.FC<FileUploadProps> = ({
   const hasError = fileRejections.length > 0;
 
   return (
+    <>
+      <SheetSelector
+        isOpen={showSheetSelector}
+        onClose={() => {
+          setShowSheetSelector(false);
+          setPendingWorkbook(null);
+          setPendingFile(null);
+        }}
+        onSelectSheet={handleSheetSelection}
+        sheetNames={pendingWorkbook?.SheetNames || []}
+        fileName={pendingFile?.name || ''}
+      />
     <Card className="p-6">
       <div
         {...getRootProps()}
@@ -218,5 +281,6 @@ export const FileUpload: React.FC<FileUploadProps> = ({
         )}
       </div>
     </Card>
+    </>
   );
 };

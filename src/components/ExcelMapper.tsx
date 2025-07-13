@@ -14,6 +14,8 @@ export interface ExcelData {
   headers: string[];
   data: any[][];
   fileName: string;
+  sheetNames?: string[];
+  selectedSheet?: string;
 }
 
 export interface ColumnMapping {
