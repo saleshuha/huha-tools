@@ -32,7 +32,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const { toast } = useToast();
 
-  const processExcelFile = useCallback(async (file: File, selectedSheet?: string) => {
+  const processExcelFile = useCallback(async (file: File, selectedSheet?: string, headerRow: number = 1) => {
     return new Promise<ExcelData>((resolve, reject) => {
       const reader = new FileReader();
       
@@ -62,13 +62,18 @@ export const FileUpload: React.FC<FileUploadProps> = ({
             return;
           }
 
-          // First row contains headers
-          const headers = jsonData[0].map((header: any) => 
-            header ? String(header).trim() : `Column_${jsonData[0].indexOf(header) + 1}`
+          if (headerRow > jsonData.length) {
+            reject(new Error(`Header row ${headerRow} does not exist in the sheet`));
+            return;
+          }
+
+          // Header row contains headers (adjust for 0-based index)
+          const headers = jsonData[headerRow - 1].map((header: any) => 
+            header ? String(header).trim() : `Column_${jsonData[headerRow - 1].indexOf(header) + 1}`
           );
           
-          // Rest of the rows contain data
-          const rowData = jsonData.slice(1);
+          // Rest of the rows contain data (starting from the row after headers)
+          const rowData = jsonData.slice(headerRow);
           
           resolve({
             headers,
@@ -87,7 +92,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
     });
   }, [isTarget]);
 
-  const handleSheetSelection = async (sheetName: string) => {
+  const handleSheetSelection = async (sheetName: string, headerRow: number) => {
     if (!pendingWorkbook || !pendingFile) return;
     
     setShowSheetSelector(false);
@@ -95,7 +100,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
     setUploadProgress(90);
     
     try {
-      const excelData = await processExcelFile(pendingFile, sheetName);
+      const excelData = await processExcelFile(pendingFile, sheetName, headerRow);
       
       setUploadProgress(100);
       
