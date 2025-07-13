@@ -22,10 +22,10 @@ const App = () => (
             <AppSidebar />
             <div className="flex-1 flex flex-col">
               <header className="h-12 flex items-center border-b px-4 bg-background/95 backdrop-blur-sm">
-                <div className="ml-2">
+                <div className="ml-6">
                   <SidebarTrigger className="bg-primary hover:bg-primary/90 text-primary-foreground border-primary" />
                 </div>
-                <h1 className="ml-6 font-semibold text-lg text-foreground">HuHa Excel Column Mapper</h1>
+                <h1 className="ml-8 font-semibold text-lg text-foreground">HuHa Excel Column Mapper</h1>
               </header>
               <main className="flex-1">
                 <Routes>
