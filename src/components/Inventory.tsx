@@ -17,9 +17,9 @@ export function Inventory() {
         <div className="max-w-7xl mx-auto space-y-6 pl-4">
         <div className="flex justify-end">
           <Button 
-            variant="outline" 
+            variant="default" 
             onClick={() => setCurrentView('main')}
-            className="mb-4"
+            className="mb-4 bg-primary hover:bg-primary/90 text-primary-foreground"
           >
             ← Back to Inventory Menu
           </Button>
