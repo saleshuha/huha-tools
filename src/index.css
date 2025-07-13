@@ -199,13 +199,17 @@
     @apply border-2 border-dashed border-muted-foreground/20 rounded-2xl p-10
            transition-all duration-500 hover:border-primary/60 hover:bg-primary/5
            bg-gradient-to-br from-card/50 to-muted/20 backdrop-blur-sm
-           relative overflow-hidden group animate-fade-in;
+           relative overflow-hidden animate-fade-in;
   }
   
   .upload-zone::before {
     content: '';
     @apply absolute inset-0 bg-gradient-primary opacity-0 
-           transition-opacity duration-500 group-hover:opacity-5;
+           transition-opacity duration-500;
+  }
+  
+  .upload-zone:hover::before {
+    @apply opacity-5;
   }
   
   .upload-zone.drag-over {
@@ -221,13 +225,17 @@
     @apply bg-gradient-to-br from-card/90 to-card/60 rounded-xl p-5 
            border border-border/30 shadow-soft backdrop-blur-sm
            transition-all duration-300 hover:shadow-medium hover:border-primary/40
-           hover:scale-[1.02] group relative overflow-hidden animate-slide-up;
+           hover:scale-[1.02] relative overflow-hidden animate-slide-up;
   }
   
   .column-card::before {
     content: '';
     @apply absolute inset-0 bg-gradient-primary opacity-0 
-           transition-opacity duration-300 group-hover:opacity-5;
+           transition-opacity duration-300;
+  }
+  
+  .column-card:hover::before {
+    @apply opacity-5;
   }
   
   .column-card.dragging {
