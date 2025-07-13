@@ -118,50 +118,68 @@ export const ExcelMapper = () => {
       case 'drag-drop':
       default:
         return (
-          <div className="grid lg:grid-cols-2 gap-8">
+          <div className="grid lg:grid-cols-2 gap-10 animate-slide-up">
             {/* Source File Upload */}
-            <div className="space-y-6">
-              <h2 className="text-2xl font-semibold flex items-center space-x-2">
-                <FileSpreadsheet className="w-6 h-6 text-primary" />
-                <span>Source File</span>
-              </h2>
-              <FileUpload
-                onFileUpload={handleSourceUpload}
-                title="Upload Source Excel File"
-                description="Select the Excel file containing your source data"
-                accept=".xlsx,.xls"
-              />
-              {sourceData && (
-                <ColumnMapper
-                  data={sourceData}
-                  type="source"
-                  mappings={mappings}
-                  onRemoveMapping={removeMapping}
+            <div className="space-y-8">
+              <div className="glass-container p-6 animate-fade-in-scale">
+                <div className="card-header-gradient p-4 -m-6 mb-6 rounded-t-2xl">
+                  <h2 className="text-2xl font-bold flex items-center space-x-3">
+                    <div className="p-2 rounded-lg bg-primary/20">
+                      <FileSpreadsheet className="w-6 h-6 text-primary" />
+                    </div>
+                    <span className="bg-gradient-primary bg-clip-text text-transparent">Source File</span>
+                  </h2>
+                  <p className="text-muted-foreground mt-2">Upload your source Excel file to begin mapping</p>
+                </div>
+                <FileUpload
+                  onFileUpload={handleSourceUpload}
+                  title="Upload Source Excel File"
+                  description="Select the Excel file containing your source data"
+                  accept=".xlsx,.xls"
                 />
-              )}
+                {sourceData && (
+                  <div className="mt-6 animate-bounce-in">
+                    <ColumnMapper
+                      data={sourceData}
+                      type="source"
+                      mappings={mappings}
+                      onRemoveMapping={removeMapping}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Target File Upload */}
-            <div className="space-y-6">
-              <h2 className="text-2xl font-semibold flex items-center space-x-2">
-                <FileSpreadsheet className="w-6 h-6 text-accent" />
-                <span>Target File</span>
-              </h2>
-              <FileUpload
-                onFileUpload={handleTargetUpload}
-                title="Upload Target Excel File"
-                description="Select the Excel file with your target column structure"
-                accept=".xlsx,.xls"
-                isTarget={true}
-              />
-              {targetData && (
-                <ColumnMapper
-                  data={targetData}
-                  type="target"
-                  mappings={mappings}
-                  onRemoveMapping={removeMapping}
+            <div className="space-y-8">
+              <div className="glass-container p-6 animate-fade-in-scale">
+                <div className="card-header-gradient p-4 -m-6 mb-6 rounded-t-2xl">
+                  <h2 className="text-2xl font-bold flex items-center space-x-3">
+                    <div className="p-2 rounded-lg bg-accent/20">
+                      <FileSpreadsheet className="w-6 h-6 text-accent" />
+                    </div>
+                    <span className="bg-gradient-accent bg-clip-text text-transparent">Target File</span>
+                  </h2>
+                  <p className="text-muted-foreground mt-2">Upload your target Excel file structure</p>
+                </div>
+                <FileUpload
+                  onFileUpload={handleTargetUpload}
+                  title="Upload Target Excel File"
+                  description="Select the Excel file with your target column structure"
+                  accept=".xlsx,.xls"
+                  isTarget={true}
                 />
-              )}
+                {targetData && (
+                  <div className="mt-6 animate-bounce-in">
+                    <ColumnMapper
+                      data={targetData}
+                      type="target"
+                      mappings={mappings}
+                      onRemoveMapping={removeMapping}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         );
@@ -172,15 +190,19 @@ export const ExcelMapper = () => {
   const isReadyToExport = sourceData && targetData && mappingCount > 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background to-muted p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-2">
+    <div className="min-h-screen p-6 animate-fade-in">
+      <div className="max-w-7xl mx-auto space-y-8">
+        {/* Enhanced Header */}
+        <div className="text-center mb-12 animate-slide-down">
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-primary shadow-glow mb-6 animate-float">
+            <FileSpreadsheet className="w-10 h-10 text-primary-foreground" />
+          </div>
+          <h1 className="text-5xl font-bold bg-gradient-hero bg-clip-text text-transparent mb-4 animate-fade-in-scale">
             Excel Column Mapper
           </h1>
-          <p className="text-muted-foreground text-lg">
-            Upload two Excel files, map columns, and export transformed data
+          <p className="text-muted-foreground text-xl max-w-2xl mx-auto leading-relaxed">
+            Transform your data with our intelligent column mapping system. 
+            Upload Excel files, create mappings, and export transformed data seamlessly.
           </p>
         </div>
 
@@ -237,9 +259,14 @@ export const ExcelMapper = () => {
             {renderMappingInterface()}
             <DragOverlay>
               {draggedColumn && (
-                <div className="column-card opacity-90 transform rotate-3 shadow-strong">
-                  <div className="font-medium text-primary">{draggedColumn}</div>
-                  <div className="text-sm text-muted-foreground">Dragging...</div>
+                <div className="glass-container p-4 opacity-95 transform rotate-6 shadow-glow animate-float">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-3 h-3 rounded-full bg-gradient-primary animate-pulse"></div>
+                    <div>
+                      <div className="font-semibold text-primary">{draggedColumn}</div>
+                      <div className="text-sm text-accent font-medium">Dragging to target...</div>
+                    </div>
+                  </div>
                 </div>
               )}
             </DragOverlay>
