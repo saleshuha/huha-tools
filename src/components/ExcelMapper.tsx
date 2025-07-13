@@ -129,18 +129,18 @@ export const ExcelMapper = () => {
     }
 
     try {
-      // Create a deep copy of the original workbook to preserve everything
-      const targetWorkbook = structuredClone(targetData.originalWorkbook);
+      // Use the original workbook directly (no cloning to avoid any structure changes)
+      const targetWorkbook = targetData.originalWorkbook;
       
       // Use the selected sheet or first sheet
       const sheetName = targetData.selectedSheet || targetWorkbook.SheetNames[0];
       const targetWorksheet = targetWorkbook.Sheets[sheetName];
       
-      // Determine the starting row for data (row after headers)
-      // Assuming headers are in row 1 (index 0), data starts at row 2 (index 1)
-      const dataStartRow = 1;
+      // Get header row index (default to 0 if not specified)
+      const headerRowIndex = (targetData as any).headerRowIndex || 0;
+      const dataStartRow = headerRowIndex + 1;
       
-      // Add mapped source data starting from the data row
+      // Copy-paste approach: Only update existing cell values, never modify structure
       sourceData.data.forEach((sourceRow, rowIndex) => {
         Object.entries(mappings).forEach(([sourceCol, targetCol]) => {
           const sourceIndex = sourceData.headers.indexOf(sourceCol);
@@ -152,28 +152,25 @@ export const ExcelMapper = () => {
               c: targetIndex 
             });
             
-            // Create cell if it doesn't exist or update existing cell
-            if (!targetWorksheet[cellAddress]) {
-              targetWorksheet[cellAddress] = {};
+            // Only update value if cell exists, otherwise create minimal cell
+            if (targetWorksheet[cellAddress]) {
+              // Preserve everything, only change the value (true copy-paste behavior)
+              targetWorksheet[cellAddress].v = sourceRow[sourceIndex];
+              if (targetWorksheet[cellAddress].w !== undefined) {
+                targetWorksheet[cellAddress].w = String(sourceRow[sourceIndex] || '');
+              }
+            } else {
+              // Create minimal cell only with value (Excel will handle formatting)
+              targetWorksheet[cellAddress] = {
+                v: sourceRow[sourceIndex],
+                t: typeof sourceRow[sourceIndex] === 'number' ? 'n' : 's'
+              };
             }
-            
-            // Update only the value while preserving all formatting
-            targetWorksheet[cellAddress].v = sourceRow[sourceIndex] || '';
-            targetWorksheet[cellAddress].w = String(sourceRow[sourceIndex] || '');
           }
         });
       });
 
-      // Update the range to include all data (preserve original range if larger)
-      const originalRange = XLSX.utils.decode_range(targetWorksheet['!ref'] || 'A1');
-      const newEndRow = Math.max(originalRange.e.r, dataStartRow + sourceData.data.length - 1);
-      const newEndCol = Math.max(originalRange.e.c, targetData.headers.length - 1);
-      
-      const updatedRange = XLSX.utils.encode_range({
-        s: { r: 0, c: 0 },
-        e: { r: newEndRow, c: newEndCol }
-      });
-      targetWorksheet['!ref'] = updatedRange;
+      // Don't modify the range - keep it exactly as original
 
       // Export with original file name but add "_mapped" suffix
       const originalName = targetData.fileName.replace(/\.[^/.]+$/, '');
