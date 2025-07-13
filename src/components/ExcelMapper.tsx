@@ -66,8 +66,8 @@ export const ExcelMapper = () => {
     });
   }, [toast]);
 
-  const onExport = useCallback(() => {
-    exportMappedData(sourceData, targetData, mappings);
+  const onExport = useCallback(async () => {
+    await exportMappedData(sourceData, targetData, mappings);
   }, [exportMappedData, sourceData, targetData, mappings]);
 
   const createMapping = useCallback((sourceColumn: string, targetColumn: string) => {

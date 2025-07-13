@@ -8,6 +8,7 @@ import { Input } from './ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useExcelExport } from '@/hooks/useExcelExport';
 import { Calculator, Download, Upload, FileSpreadsheet, Settings } from 'lucide-react';
+import JSZip from 'jszip';
 import { ExcelData } from '@/types/excel';
 
 interface AsinSummary {
@@ -166,7 +167,7 @@ export function AsinQtySum() {
     setIsProcessing(false);
   }, [excelData, headerRowNumber, selectedAsinColumn, selectedQtyColumn, toast]);
 
-  const handleExport = useCallback(() => {
+  const handleExport = useCallback(async () => {
     if (summaryData.length === 0) {
       toast({
         title: "No Data to Export",
@@ -177,40 +178,82 @@ export function AsinQtySum() {
     }
 
     try {
-      // Create CSV content
-      const csvData = [
-        ['ASIN', 'Total Quantity'],
-        ...summaryData.map(item => [item.asin, item.totalQty.toString()])
-      ];
-
-      const csvContent = csvData.map(row => 
-        row.map(field => {
-          if (field.includes(',') || field.includes('"') || field.includes('\n')) {
-            return `"${field.replace(/"/g, '""')}"`;
-          }
-          return field;
-        }).join(',')
-      ).join('\n');
-
-      // Create and download the file
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
+      const maxRowsPerFile = 9900;
+      const totalRows = summaryData.length;
       
-      if (link.download !== undefined) {
-        const url = URL.createObjectURL(blob);
-        link.setAttribute('href', url);
-        link.setAttribute('download', 'ASIN_QTY_Summary.csv');
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-      }
+      // Helper function to convert array to CSV content
+      const arrayToCSV = (data: string[][]) => {
+        return data.map(row => 
+          row.map(field => {
+            if (field.includes(',') || field.includes('"') || field.includes('\n')) {
+              return `"${field.replace(/"/g, '""')}"`;
+            }
+            return field;
+          }).join(',')
+        ).join('\n');
+      };
 
-      toast({
-        title: "Export successful",
-        description: `Exported ${summaryData.length} unique ASINs to CSV format`,
-      });
+      const headers = ['ASIN', 'Total Quantity'];
+      const dataRows = summaryData.map(item => [item.asin, item.totalQty.toString()]);
+
+      if (totalRows <= maxRowsPerFile) {
+        // Single file export
+        const csvData = [headers, ...dataRows];
+        const csvContent = arrayToCSV(csvData);
+        
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        
+        if (link.download !== undefined) {
+          const url = URL.createObjectURL(blob);
+          link.setAttribute('href', url);
+          link.setAttribute('download', 'ASIN_QTY_Summary.csv');
+          link.style.visibility = 'hidden';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+        }
+
+        toast({
+          title: "Export successful",
+          description: `Exported ${totalRows} unique ASINs to CSV format`,
+        });
+      } else {
+        // Multiple files export - create ZIP
+        const zip = new JSZip();
+        let fileCount = 0;
+        
+        for (let i = 0; i < totalRows; i += maxRowsPerFile) {
+          fileCount++;
+          const chunk = dataRows.slice(i, i + maxRowsPerFile);
+          const csvData = [headers, ...chunk];
+          const csvContent = arrayToCSV(csvData);
+          
+          const fileName = `ASIN_QTY_Summary_part${fileCount}.csv`;
+          zip.file(fileName, csvContent);
+        }
+        
+        // Generate and download ZIP file
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
+        const link = document.createElement('a');
+        
+        if (link.download !== undefined) {
+          const url = URL.createObjectURL(zipBlob);
+          link.setAttribute('href', url);
+          link.setAttribute('download', 'ASIN_QTY_Summary_files.zip');
+          link.style.visibility = 'hidden';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+        }
+
+        toast({
+          title: "ZIP Export successful",
+          description: `Exported ${totalRows} ASINs in ${fileCount} CSV files`,
+        });
+      }
     } catch (error) {
       toast({
         title: "Export error",
