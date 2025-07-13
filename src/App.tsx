@@ -23,11 +23,9 @@ const App = () => (
           <div className="min-h-screen flex w-full">
             <AppSidebar />
             <div className="flex-1 flex flex-col">
-              <header className="h-16 flex items-center border-b bg-white shadow-lg">
-                <div className="ml-6">
+              <header className="h-16 flex items-center border-b bg-white shadow-lg relative z-10">
+                <div className="flex items-center gap-4 px-6">
                   <SidebarTrigger className="bg-primary hover:bg-primary/90 text-primary-foreground border-primary" />
-                </div>
-                <div className="ml-8 flex items-center gap-4">
                   <div className="bg-primary/10 rounded-lg p-2">
                     <img 
                       src="/lovable-uploads/4f9a15c5-2d12-4ee0-b0bd-e982c5b4ece7.png" 
