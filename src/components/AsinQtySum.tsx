@@ -199,6 +199,11 @@ export function AsinQtySum() {
     setSelectedQtyColumn('');
   };
 
+  const clearResults = () => {
+    setSummaryData([]);
+    setShowConfiguration(true);
+  };
+
   // Get available columns for dropdowns
   const getAvailableColumns = () => {
     if (!excelData?.data || excelData.data.length === 0) return [];
@@ -342,10 +347,15 @@ export function AsinQtySum() {
                   {summaryData.length} unique ASINs found
                 </p>
               </div>
-              <Button onClick={handleExport} className="bg-primary hover:bg-primary/90">
-                <Download className="w-4 h-4 mr-2" />
-                Export Results
-              </Button>
+              <div className="flex gap-3">
+                <Button variant="outline" onClick={clearResults}>
+                  Clear Results
+                </Button>
+                <Button onClick={handleExport} className="bg-primary hover:bg-primary/90">
+                  <Download className="w-4 h-4 mr-2" />
+                  Export Results
+                </Button>
+              </div>
             </div>
 
             <div className="max-h-96 overflow-auto border rounded-lg">
