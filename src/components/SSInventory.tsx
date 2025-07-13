@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Input } from './ui/input';
@@ -11,30 +11,20 @@ import {
   Search, 
   Edit, 
   Trash2, 
-  Download, 
-  Upload,
+  Download,
   Check,
   X,
   Hash
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
-import { Textarea } from './ui/textarea';
-
-interface SSInventoryItem {
-  id: string;
-  skuNumber: string;
-  binSerialNumber: string;
-  status: 'in-stock' | 'sold' | 'reserved' | 'damaged';
-  dateAdded: string;
-}
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from './ui/alert-dialog';
+import { useSkuInventory, SkuInventoryItem } from '@/hooks/useSkuInventory';
 
 export function SSInventory() {
-  const [inventory, setInventory] = useState<SSInventoryItem[]>([]);
+  const { inventory, loading, addItem, updateItemStatus, deleteItem } = useSkuInventory();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState<SSInventoryItem | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
   const { toast } = useToast();
@@ -43,32 +33,14 @@ export function SSInventory() {
   const [newItem, setNewItem] = useState<{
     skuNumber: string;
     binSerialNumber: string;
-    status: SSInventoryItem['status'];
+    status: SkuInventoryItem['status'];
   }>({
     skuNumber: '',
     binSerialNumber: '',
     status: 'in-stock'
   });
-  const [bulkText, setBulkText] = useState('');
 
-  // Load inventory from localStorage on component mount
-  useEffect(() => {
-    const savedInventory = localStorage.getItem('huha-ss-inventory');
-    if (savedInventory) {
-      try {
-        setInventory(JSON.parse(savedInventory));
-      } catch (error) {
-        console.error('Error loading SS inventory:', error);
-      }
-    }
-  }, []);
-
-  // Save inventory to localStorage whenever inventory changes
-  useEffect(() => {
-    localStorage.setItem('huha-ss-inventory', JSON.stringify(inventory));
-  }, [inventory]);
-
-  const addItem = useCallback(() => {
+  const handleAddItem = async () => {
     if (!newItem.skuNumber.trim() || !newItem.binSerialNumber.trim()) {
       toast({
         title: "Validation Error",
@@ -89,46 +61,18 @@ export function SSInventory() {
       return;
     }
 
-    const item: SSInventoryItem = {
-      id: Date.now().toString(),
+    await addItem({
       skuNumber: newItem.skuNumber.trim(),
       binSerialNumber: newItem.binSerialNumber.trim(),
       status: newItem.status,
       dateAdded: new Date().toISOString()
-    };
+    });
 
-    setInventory(prev => [...prev, item]);
     setNewItem({ skuNumber: '', binSerialNumber: '', status: 'in-stock' });
     setIsAddDialogOpen(false);
-    
-    toast({
-      title: "Item Added",
-      description: `Added SKU ${item.skuNumber} to bin ${item.binSerialNumber}`,
-    });
-  }, [newItem, inventory, toast]);
+  };
 
-  const updateItemStatus = useCallback((id: string, status: SSInventoryItem['status']) => {
-    setInventory(prev => prev.map(item => 
-      item.id === id 
-        ? { ...item, status }
-        : item
-    ));
-    
-    toast({
-      title: "Status Updated",
-      description: `Item status changed to ${status}`,
-    });
-  }, [toast]);
-
-  const deleteItem = useCallback((id: string) => {
-    setInventory(prev => prev.filter(item => item.id !== id));
-    toast({
-      title: "Item Deleted",
-      description: "Item removed from inventory",
-    });
-  }, [toast]);
-
-  const exportInventory = useCallback(() => {
+  const exportInventory = () => {
     if (inventory.length === 0) {
       toast({
         title: "No Data",
@@ -176,7 +120,7 @@ export function SSInventory() {
       title: "Export Complete",
       description: `Exported ${inventory.length} items to CSV`,
     });
-  }, [inventory, toast]);
+  };
 
   // Filter inventory based on search and status
   const filteredInventory = inventory.filter(item => {
@@ -194,12 +138,7 @@ export function SSInventory() {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedInventory = filteredInventory.slice(startIndex, startIndex + itemsPerPage);
 
-  // Reset to first page when filters change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, statusFilter, itemsPerPage]);
-
-  const getStatusColor = (status: SSInventoryItem['status']) => {
+  const getStatusColor = (status: SkuInventoryItem['status']) => {
     switch (status) {
       case 'in-stock': return 'text-green-600 bg-green-100';
       case 'sold': return 'text-blue-600 bg-blue-100';
@@ -209,7 +148,7 @@ export function SSInventory() {
     }
   };
 
-  const getStatusIcon = (status: SSInventoryItem['status']) => {
+  const getStatusIcon = (status: SkuInventoryItem['status']) => {
     switch (status) {
       case 'in-stock': return <Package className="w-4 h-4" />;
       case 'sold': return <Check className="w-4 h-4" />;
@@ -219,9 +158,17 @@ export function SSInventory() {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="text-muted-foreground">Loading inventory...</div>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6">{/* Removed duplicate background/padding since parent handles it */}
-      <div className="space-y-6">{/* Removed max-width constraint since parent handles it */}
+    <div className="space-y-6">
+      <div className="space-y-6">
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-4">
@@ -309,7 +256,7 @@ export function SSInventory() {
                       </div>
                       <div>
                         <Label htmlFor="status">Status</Label>
-                        <Select value={newItem.status} onValueChange={(value: SSInventoryItem['status']) => 
+                        <Select value={newItem.status} onValueChange={(value: SkuInventoryItem['status']) => 
                           setNewItem(prev => ({ ...prev, status: value }))
                         }>
                           <SelectTrigger>
@@ -327,7 +274,7 @@ export function SSInventory() {
                         <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
                           Cancel
                         </Button>
-                        <Button onClick={addItem}>Add Item</Button>
+                        <Button onClick={handleAddItem}>Add Item</Button>
                       </div>
                     </div>
                   </DialogContent>
@@ -405,7 +352,7 @@ export function SSInventory() {
                       <td className="p-4">
                         <Select 
                           value={item.status} 
-                          onValueChange={(value: SSInventoryItem['status']) => updateItemStatus(item.id, value)}
+                          onValueChange={(value: SkuInventoryItem['status']) => updateItemStatus(item.id, value)}
                         >
                           <SelectTrigger className={`w-32 ${getStatusColor(item.status)}`}>
                             <div className="flex items-center gap-2">
@@ -425,14 +372,34 @@ export function SSInventory() {
                         {new Date(item.dateAdded).toLocaleDateString()}
                       </td>
                       <td className="p-4 text-center">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => deleteItem(item.id)}
-                          className="text-red-600 hover:text-red-700"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-red-600 hover:text-red-700"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete Item</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to delete this inventory item? This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction 
+                                onClick={() => deleteItem(item.id)}
+                                className="bg-red-600 hover:bg-red-700"
+                              >
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </td>
                     </tr>
                   ))
@@ -445,24 +412,24 @@ export function SSInventory() {
           {totalPages > 1 && (
             <div className="flex justify-between items-center p-4 border-t">
               <div className="text-sm text-muted-foreground">
-                Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, filteredInventory.length)} of {filteredInventory.length} items
+                Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredInventory.length)} of {filteredInventory.length} items
               </div>
               <div className="flex gap-2">
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                   disabled={currentPage === 1}
                 >
                   Previous
                 </Button>
-                <span className="flex items-center px-3 text-sm">
-                  Page {currentPage} of {totalPages}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">Page {currentPage} of {totalPages}</span>
+                </div>
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                   disabled={currentPage === totalPages}
                 >
                   Next

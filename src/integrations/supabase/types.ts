@@ -14,7 +14,78 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      asin_inventory: {
+        Row: {
+          asin: string
+          created_at: string
+          date_added: string
+          date_sold: string | null
+          id: string
+          notes: string | null
+          serial_number: string
+          status: Database["public"]["Enums"]["inventory_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          asin: string
+          created_at?: string
+          date_added?: string
+          date_sold?: string | null
+          id?: string
+          notes?: string | null
+          serial_number: string
+          status?: Database["public"]["Enums"]["inventory_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          asin?: string
+          created_at?: string
+          date_added?: string
+          date_sold?: string | null
+          id?: string
+          notes?: string | null
+          serial_number?: string
+          status?: Database["public"]["Enums"]["inventory_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      sku_inventory: {
+        Row: {
+          bin_serial_number: string
+          created_at: string
+          date_added: string
+          id: string
+          sku_number: string
+          status: Database["public"]["Enums"]["inventory_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          bin_serial_number: string
+          created_at?: string
+          date_added?: string
+          id?: string
+          sku_number: string
+          status?: Database["public"]["Enums"]["inventory_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          bin_serial_number?: string
+          created_at?: string
+          date_added?: string
+          id?: string
+          sku_number?: string
+          status?: Database["public"]["Enums"]["inventory_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +94,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      inventory_status: "in-stock" | "sold" | "reserved" | "damaged"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +221,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      inventory_status: ["in-stock", "sold", "reserved", "damaged"],
+    },
   },
 } as const

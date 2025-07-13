@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Input } from './ui/input';
@@ -18,24 +18,15 @@ import {
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { Textarea } from './ui/textarea';
-
-interface InventoryItem {
-  id: string;
-  asin: string;
-  serialNumber: string;
-  status: 'in-stock' | 'sold' | 'reserved' | 'damaged';
-  dateAdded: string;
-  dateSold?: string;
-  notes?: string;
-}
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from './ui/alert-dialog';
+import { useAsinInventory, AsinInventoryItem } from '@/hooks/useAsinInventory';
 
 export function AsinInventory() {
-  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const { inventory, loading, addItem, updateItemStatus, deleteItem, bulkAdd } = useAsinInventory();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
   const { toast } = useToast();
@@ -44,7 +35,7 @@ export function AsinInventory() {
   const [newItem, setNewItem] = useState<{
     asin: string;
     serialNumber: string;
-    status: InventoryItem['status'];
+    status: AsinInventoryItem['status'];
     notes: string;
   }>({
     asin: '',
@@ -54,24 +45,7 @@ export function AsinInventory() {
   });
   const [bulkText, setBulkText] = useState('');
 
-  // Load inventory from localStorage on component mount
-  useEffect(() => {
-    const savedInventory = localStorage.getItem('huha-inventory');
-    if (savedInventory) {
-      try {
-        setInventory(JSON.parse(savedInventory));
-      } catch (error) {
-        console.error('Error loading inventory:', error);
-      }
-    }
-  }, []);
-
-  // Save inventory to localStorage whenever inventory changes
-  useEffect(() => {
-    localStorage.setItem('huha-inventory', JSON.stringify(inventory));
-  }, [inventory]);
-
-  const addItem = useCallback(() => {
+  const handleAddItem = async () => {
     if (!newItem.asin.trim() || !newItem.serialNumber.trim()) {
       toast({
         title: "Validation Error",
@@ -92,26 +66,19 @@ export function AsinInventory() {
       return;
     }
 
-    const item: InventoryItem = {
-      id: Date.now().toString(),
+    await addItem({
       asin: newItem.asin.trim(),
       serialNumber: newItem.serialNumber.trim(),
       status: newItem.status,
       dateAdded: new Date().toISOString(),
       notes: newItem.notes.trim() || undefined
-    };
+    });
 
-    setInventory(prev => [...prev, item]);
     setNewItem({ asin: '', serialNumber: '', status: 'in-stock', notes: '' });
     setIsAddDialogOpen(false);
-    
-    toast({
-      title: "Item Added",
-      description: `Added ${item.asin} with serial ${item.serialNumber}`,
-    });
-  }, [newItem, inventory, toast]);
+  };
 
-  const bulkAdd = useCallback(() => {
+  const handleBulkAdd = async () => {
     if (!bulkText.trim()) {
       toast({
         title: "No Data",
@@ -122,7 +89,7 @@ export function AsinInventory() {
     }
 
     const lines = bulkText.trim().split('\n');
-    const newItems: InventoryItem[] = [];
+    const newItems: Omit<AsinInventoryItem, 'id'>[] = [];
     const errors: string[] = [];
 
     lines.forEach((line, index) => {
@@ -148,10 +115,9 @@ export function AsinInventory() {
       }
 
       const validStatuses = ['in-stock', 'sold', 'reserved', 'damaged'];
-      const itemStatus = validStatuses.includes(status.trim()) ? status.trim() as InventoryItem['status'] : 'in-stock';
+      const itemStatus = validStatuses.includes(status.trim()) ? status.trim() as AsinInventoryItem['status'] : 'in-stock';
 
       newItems.push({
-        id: `${Date.now()}-${index}`,
         asin: asin.trim(),
         serialNumber: serialNumber.trim(),
         status: itemStatus,
@@ -170,43 +136,13 @@ export function AsinInventory() {
     }
 
     if (newItems.length > 0) {
-      setInventory(prev => [...prev, ...newItems]);
+      await bulkAdd(newItems);
       setBulkText('');
       setIsBulkDialogOpen(false);
-      
-      toast({
-        title: "Bulk Add Complete",
-        description: `Added ${newItems.length} items to inventory`,
-      });
     }
-  }, [bulkText, inventory, toast]);
+  };
 
-  const updateItemStatus = useCallback((id: string, status: InventoryItem['status']) => {
-    setInventory(prev => prev.map(item => 
-      item.id === id 
-        ? { 
-            ...item, 
-            status,
-            dateSold: status === 'sold' ? new Date().toISOString() : item.dateSold
-          }
-        : item
-    ));
-    
-    toast({
-      title: "Status Updated",
-      description: `Item status changed to ${status}`,
-    });
-  }, [toast]);
-
-  const deleteItem = useCallback((id: string) => {
-    setInventory(prev => prev.filter(item => item.id !== id));
-    toast({
-      title: "Item Deleted",
-      description: "Item removed from inventory",
-    });
-  }, [toast]);
-
-  const exportInventory = useCallback(() => {
+  const exportInventory = () => {
     if (inventory.length === 0) {
       toast({
         title: "No Data",
@@ -244,7 +180,7 @@ export function AsinInventory() {
     if (link.download !== undefined) {
       const url = URL.createObjectURL(blob);
       link.setAttribute('href', url);
-      link.setAttribute('download', 'inventory.csv');
+      link.setAttribute('download', 'asin-inventory.csv');
       link.style.visibility = 'hidden';
       document.body.appendChild(link);
       link.click();
@@ -256,7 +192,7 @@ export function AsinInventory() {
       title: "Export Complete",
       description: `Exported ${inventory.length} items to CSV`,
     });
-  }, [inventory, toast]);
+  };
 
   // Filter inventory based on search and status
   const filteredInventory = inventory.filter(item => {
@@ -275,12 +211,7 @@ export function AsinInventory() {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedInventory = filteredInventory.slice(startIndex, startIndex + itemsPerPage);
 
-  // Reset to first page when filters change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, statusFilter, itemsPerPage]);
-
-  const getStatusColor = (status: InventoryItem['status']) => {
+  const getStatusColor = (status: AsinInventoryItem['status']) => {
     switch (status) {
       case 'in-stock': return 'text-green-600 bg-green-100';
       case 'sold': return 'text-blue-600 bg-blue-100';
@@ -290,7 +221,7 @@ export function AsinInventory() {
     }
   };
 
-  const getStatusIcon = (status: InventoryItem['status']) => {
+  const getStatusIcon = (status: AsinInventoryItem['status']) => {
     switch (status) {
       case 'in-stock': return <Package className="w-4 h-4" />;
       case 'sold': return <Check className="w-4 h-4" />;
@@ -300,9 +231,17 @@ export function AsinInventory() {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="text-muted-foreground">Loading inventory...</div>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6">{/* Removed duplicate background/padding since parent handles it */}
-      <div className="space-y-6">{/* Removed max-width constraint since parent handles it */}
+    <div className="space-y-6">
+      <div className="space-y-6">
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-4">
@@ -390,7 +329,7 @@ export function AsinInventory() {
                     </div>
                     <div>
                       <Label htmlFor="status">Status</Label>
-                      <Select value={newItem.status} onValueChange={(value: InventoryItem['status']) => 
+                      <Select value={newItem.status} onValueChange={(value: AsinInventoryItem['status']) => 
                         setNewItem(prev => ({ ...prev, status: value }))
                       }>
                         <SelectTrigger>
@@ -418,7 +357,7 @@ export function AsinInventory() {
                       <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
                         Cancel
                       </Button>
-                      <Button onClick={addItem}>Add Item</Button>
+                      <Button onClick={handleAddItem}>Add Item</Button>
                     </div>
                   </div>
                 </DialogContent>
@@ -457,7 +396,7 @@ export function AsinInventory() {
                       <Button variant="outline" onClick={() => setIsBulkDialogOpen(false)}>
                         Cancel
                       </Button>
-                      <Button onClick={bulkAdd}>Add Items</Button>
+                      <Button onClick={handleBulkAdd}>Add Items</Button>
                     </div>
                   </div>
                 </DialogContent>
@@ -514,14 +453,15 @@ export function AsinInventory() {
                   <th className="text-left p-4 font-semibold">Serial Number</th>
                   <th className="text-left p-4 font-semibold">Status</th>
                   <th className="text-left p-4 font-semibold">Date Added</th>
+                  <th className="text-left p-4 font-semibold">Date Sold</th>
                   <th className="text-left p-4 font-semibold">Notes</th>
                   <th className="text-center p-4 font-semibold">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredInventory.length === 0 ? (
+                {paginatedInventory.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="text-center p-8 text-muted-foreground">
+                    <td colSpan={7} className="text-center p-8 text-muted-foreground">
                       {inventory.length === 0 
                         ? "No inventory items yet. Add your first item to get started!"
                         : "No items match your search criteria."
@@ -531,12 +471,12 @@ export function AsinInventory() {
                 ) : (
                   paginatedInventory.map((item, index) => (
                     <tr key={item.id} className={index % 2 === 0 ? 'bg-background' : 'bg-muted/20'}>
-                      <td className="p-4 font-mono text-sm">{item.asin}</td>
+                      <td className="p-4 font-mono text-sm font-semibold">{item.asin}</td>
                       <td className="p-4 font-mono text-sm">{item.serialNumber}</td>
                       <td className="p-4">
                         <Select 
                           value={item.status} 
-                          onValueChange={(value: InventoryItem['status']) => updateItemStatus(item.id, value)}
+                          onValueChange={(value: AsinInventoryItem['status']) => updateItemStatus(item.id, value)}
                         >
                           <SelectTrigger className={`w-32 ${getStatusColor(item.status)}`}>
                             <div className="flex items-center gap-2">
@@ -555,18 +495,41 @@ export function AsinInventory() {
                       <td className="p-4 text-sm">
                         {new Date(item.dateAdded).toLocaleDateString()}
                       </td>
-                      <td className="p-4 text-sm max-w-48 truncate" title={item.notes}>
+                      <td className="p-4 text-sm">
+                        {item.dateSold ? new Date(item.dateSold).toLocaleDateString() : '-'}
+                      </td>
+                      <td className="p-4 text-sm max-w-xs truncate">
                         {item.notes || '-'}
                       </td>
                       <td className="p-4 text-center">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => deleteItem(item.id)}
-                          className="text-red-600 hover:text-red-800"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-red-600 hover:text-red-700"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete Item</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to delete this inventory item? This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction 
+                                onClick={() => deleteItem(item.id)}
+                                className="bg-red-600 hover:bg-red-700"
+                              >
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </td>
                     </tr>
                   ))
@@ -579,24 +542,24 @@ export function AsinInventory() {
           {totalPages > 1 && (
             <div className="flex justify-between items-center p-4 border-t">
               <div className="text-sm text-muted-foreground">
-                Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, filteredInventory.length)} of {filteredInventory.length} items
+                Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredInventory.length)} of {filteredInventory.length} items
               </div>
               <div className="flex gap-2">
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                   disabled={currentPage === 1}
                 >
                   Previous
                 </Button>
-                <span className="flex items-center px-3 text-sm">
-                  Page {currentPage} of {totalPages}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">Page {currentPage} of {totalPages}</span>
+                </div>
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                   disabled={currentPage === totalPages}
                 >
                   Next
