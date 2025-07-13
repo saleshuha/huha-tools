@@ -1,4 +1,4 @@
-import { File, Files } from "lucide-react"
+import { File, Files, Calculator } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
 import {
   Sidebar,
@@ -24,6 +24,12 @@ const navigationItems = [
     url: "/batch",
     icon: Files,
     description: "Process multiple source files with one target template"
+  },
+  {
+    title: "ASIN QTY Sum",
+    url: "/asin-sum",
+    icon: Calculator,
+    description: "Make the sum of the ASIN QTY and get the unique ASIN with SUM qty"
   }
 ]
 
