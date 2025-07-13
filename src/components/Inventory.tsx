@@ -8,6 +8,7 @@ import { SSInventory } from './SSInventory';
 type InventoryView = 'main' | 'asin' | 'ss';
 
 export function Inventory() {
+  console.log('Inventory component loaded, current view:', 'main');
   const [currentView, setCurrentView] = useState<InventoryView>('main');
 
   if (currentView === 'asin') {
