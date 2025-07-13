@@ -40,19 +40,19 @@ export function AppSidebar() {
   }
 
   return (
-    <Sidebar collapsible="icon" className="border-r">
+    <Sidebar collapsible="icon" className="border-r w-72">
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className="text-foreground/70 font-semibold">
+          <SidebarGroupLabel className="text-foreground/70 font-semibold px-4 py-3">
             Excel Mapper Tools
           </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu className="space-y-2">
+          <SidebarGroupContent className="px-2">
+            <SidebarMenu className="space-y-3">
               {navigationItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton 
                     asChild
-                    className={`w-full p-3 rounded-lg transition-all duration-200 ${
+                    className={`w-full p-4 rounded-lg transition-all duration-200 min-h-[80px] ${
                       isActive(item.url)
                         ? "bg-primary text-primary-foreground shadow-md hover:bg-primary/90" 
                         : "hover:bg-muted/70 hover:text-foreground"
@@ -61,15 +61,15 @@ export function AppSidebar() {
                     <NavLink 
                       to={item.url} 
                       end
-                      className="flex items-center gap-3 no-underline"
+                      className="flex items-start gap-4 no-underline w-full h-full"
                     >
-                      <item.icon className="h-5 w-5 flex-shrink-0" />
+                      <item.icon className="h-6 w-6 flex-shrink-0 mt-1" />
                       {!isCollapsed && (
-                        <div className="flex flex-col text-left">
-                          <span className="font-medium text-sm leading-tight">
+                        <div className="flex flex-col text-left flex-1 space-y-1">
+                          <span className="font-semibold text-base leading-tight">
                             {item.title}
                           </span>
-                          <span className="text-xs opacity-80 leading-tight">
+                          <span className="text-sm opacity-80 leading-relaxed">
                             {item.description}
                           </span>
                         </div>
