@@ -13,13 +13,15 @@ interface FileUploadProps {
   title: string;
   description: string;
   accept: string;
+  isTarget?: boolean;
 }
 
 export const FileUpload: React.FC<FileUploadProps> = ({
   onFileUpload,
   title,
   description,
-  accept
+  accept,
+  isTarget = false
 }) => {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -130,7 +132,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
           isDragActive ? 'drag-over' : ''
         } ${hasError ? 'border-destructive bg-destructive/5' : ''}`}
       >
-        <input {...getInputProps()} />
+        <input {...getInputProps()} data-target={isTarget} />
         
         {uploading ? (
           <div className="space-y-4">

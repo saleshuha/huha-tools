@@ -96,39 +96,103 @@ export const ExcelMapper = () => {
       return;
     }
 
-    // Create new workbook with mapped data
-    const mappedData: any[][] = [];
+    // Read the original target file to preserve formatting
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const targetFile = Array.from(document.querySelectorAll('input[type="file"]')).find(input => 
+      input.getAttribute('data-target') === 'true'
+    ) as HTMLInputElement;
     
-    // Add target headers as first row
-    mappedData.push(targetData.headers);
-    
-    // Map source data to target structure
-    sourceData.data.forEach(sourceRow => {
-      const targetRow = new Array(targetData.headers.length).fill('');
+    if (!targetFile?.files?.[0]) {
+      // Fallback to simple export if target file not available
+      const mappedData: any[][] = [];
+      mappedData.push(targetData.headers);
       
-      // Apply mappings
-      Object.entries(mappings).forEach(([sourceCol, targetCol]) => {
-        const sourceIndex = sourceData.headers.indexOf(sourceCol);
-        const targetIndex = targetData.headers.indexOf(targetCol);
-        
-        if (sourceIndex !== -1 && targetIndex !== -1) {
-          targetRow[targetIndex] = sourceRow[sourceIndex] || '';
-        }
+      sourceData.data.forEach(sourceRow => {
+        const targetRow = new Array(targetData.headers.length).fill('');
+        Object.entries(mappings).forEach(([sourceCol, targetCol]) => {
+          const sourceIndex = sourceData.headers.indexOf(sourceCol);
+          const targetIndex = targetData.headers.indexOf(targetCol);
+          if (sourceIndex !== -1 && targetIndex !== -1) {
+            targetRow[targetIndex] = sourceRow[sourceIndex] || '';
+          }
+        });
+        mappedData.push(targetRow);
       });
-      
-      mappedData.push(targetRow);
-    });
 
-    // Create and download Excel file
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.aoa_to_sheet(mappedData);
-    XLSX.utils.book_append_sheet(wb, ws, 'Mapped Data');
-    XLSX.writeFile(wb, 'mapped_data.xlsx');
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet(mappedData);
+      XLSX.utils.book_append_sheet(wb, ws, 'Mapped Data');
+      XLSX.writeFile(wb, 'mapped_data.xlsx');
+      
+      toast({
+        title: "Export successful",
+        description: `Exported ${sourceData.data.length} rows with ${Object.keys(mappings).length} column mappings`,
+      });
+      return;
+    }
+
+    // Read target file to preserve its structure and formatting
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const targetWorkbook = XLSX.read(data, { type: 'array', cellStyles: true });
+        const targetWorksheet = targetWorkbook.Sheets[targetWorkbook.SheetNames[0]];
+        
+        // Clear existing data rows (keep headers and formatting)
+        const range = XLSX.utils.decode_range(targetWorksheet['!ref'] || 'A1');
+        for (let row = 1; row <= range.e.r; row++) {
+          for (let col = 0; col <= range.e.c; col++) {
+            const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
+            if (targetWorksheet[cellAddress]) {
+              targetWorksheet[cellAddress].v = '';
+              targetWorksheet[cellAddress].w = '';
+            }
+          }
+        }
+        
+        // Add mapped source data to target structure
+        sourceData.data.forEach((sourceRow, rowIndex) => {
+          Object.entries(mappings).forEach(([sourceCol, targetCol]) => {
+            const sourceIndex = sourceData.headers.indexOf(sourceCol);
+            const targetIndex = targetData.headers.indexOf(targetCol);
+            
+            if (sourceIndex !== -1 && targetIndex !== -1 && sourceRow[sourceIndex] !== undefined) {
+              const cellAddress = XLSX.utils.encode_cell({ r: rowIndex + 1, c: targetIndex });
+              if (!targetWorksheet[cellAddress]) {
+                targetWorksheet[cellAddress] = {};
+              }
+              targetWorksheet[cellAddress].v = sourceRow[sourceIndex] || '';
+              targetWorksheet[cellAddress].w = String(sourceRow[sourceIndex] || '');
+            }
+          });
+        });
+
+        // Update range to include all data
+        const newRange = XLSX.utils.encode_range({
+          s: { r: 0, c: 0 },
+          e: { r: sourceData.data.length, c: targetData.headers.length - 1 }
+        });
+        targetWorksheet['!ref'] = newRange;
+
+        // Write the file with preserved formatting
+        XLSX.writeFile(targetWorkbook, 'mapped_data_formatted.xlsx');
+        
+        toast({
+          title: "Export successful",
+          description: `Exported ${sourceData.data.length} rows with preserved target formatting`,
+        });
+      } catch (error) {
+        console.error('Error processing target file:', error);
+        toast({
+          title: "Export error",
+          description: "Failed to preserve formatting. Try again.",
+          variant: "destructive"
+        });
+      }
+    };
     
-    toast({
-      title: "Export successful",
-      description: `Exported ${sourceData.data.length} rows with ${Object.keys(mappings).length} column mappings`,
-    });
+    reader.readAsArrayBuffer(targetFile.files[0]);
   };
 
   const mappingCount = Object.keys(mappings).length;
@@ -234,6 +298,7 @@ export const ExcelMapper = () => {
                 title="Upload Target Excel File"
                 description="Select the Excel file with your target column structure"
                 accept=".xlsx,.xls"
+                isTarget={true}
               />
               {targetData && (
                 <ColumnMapper
