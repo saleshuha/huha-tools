@@ -4,12 +4,13 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthGuard } from "@/components/AuthGuard";
 import { AppSidebar } from "@/components/AppSidebar";
 import Index from "./pages/Index";
 import BatchProcessor from "./pages/BatchProcessor";
 import AsinQtySum from "./pages/AsinQtySum";
 import Inventory from "./pages/Inventory";
-
+import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -42,10 +43,11 @@ const App = () => (
               </header>
               <main className="flex-1">
                 <Routes>
-                  <Route path="/" element={<Index />} />
-                  <Route path="/batch" element={<BatchProcessor />} />
-                  <Route path="/asin-sum" element={<AsinQtySum />} />
-                  <Route path="/inventory" element={<Inventory />} />
+                  <Route path="/auth" element={<Auth />} />
+                  <Route path="/" element={<AuthGuard><Index /></AuthGuard>} />
+                  <Route path="/batch" element={<AuthGuard><BatchProcessor /></AuthGuard>} />
+                  <Route path="/asin-sum" element={<AuthGuard><AsinQtySum /></AuthGuard>} />
+                  <Route path="/inventory" element={<AuthGuard><Inventory /></AuthGuard>} />
                   
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                   <Route path="*" element={<NotFound />} />

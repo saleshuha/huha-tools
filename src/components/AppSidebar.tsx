@@ -1,9 +1,12 @@
-import { File, Files, Calculator, ChevronDown, FolderOpen, Package } from "lucide-react"
+import { File, Files, Calculator, ChevronDown, FolderOpen, Package, LogOut } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
 import { useState } from "react"
+import { Button } from "@/components/ui/button"
+import { useAuth } from "@/hooks/useAuth"
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -49,6 +52,7 @@ const standaloneItems = [
 ]
 
 export function AppSidebar() {
+  const { signOut, user } = useAuth();
   const { state } = useSidebar()
   const location = useLocation()
   const isCollapsed = state === "collapsed"
@@ -174,6 +178,22 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      <SidebarFooter>
+        <div className="p-4 space-y-2">
+          <div className="text-sm text-muted-foreground">
+            {user?.email}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={signOut}
+            className="w-full"
+          >
+            <LogOut className="mr-2 h-4 w-4" />
+            Sign Out
+          </Button>
+        </div>
+      </SidebarFooter>
     </Sidebar>
   )
 }
