@@ -257,7 +257,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
     maxFiles: multiple ? undefined : 1,
     multiple,
     disabled: isUploading,
-    maxSize: 50 * 1024 * 1024 // 50MB
+    maxSize: 1024 * 1024 * 1024 // 1GB
   });
 
   const hasError = fileRejections.length > 0;
@@ -355,7 +355,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
                       ? `Drop your file${multiple ? 's' : ''} here...` 
                       : `Drag & drop file${multiple ? 's' : ''} here, or click to browse`}
                   </p>
-                  <p>Supports .xlsx, .xls, and .csv files (max 50MB){multiple ? ' - Multiple files allowed' : ''}</p>
+                  <p>Supports .xlsx, .xls, and .csv files (max 1GB){multiple ? ' - Multiple files allowed' : ''}</p>
                 </div>
               )}
             </div>
