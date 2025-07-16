@@ -78,7 +78,7 @@ export function PaymentCard({ payment, onStatusChange, onDelete }: PaymentCardPr
 
           <div className="flex items-center gap-1 text-xs text-muted-foreground">
             <Calendar className="h-3 w-3" />
-            Created: {formatDate(payment.dateCreated)}
+            Created: {formatDate(payment.created_at)}
           </div>
         </div>
       </CardContent>

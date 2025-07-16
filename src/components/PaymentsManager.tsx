@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Plus } from 'lucide-react';
 import { PaymentForm } from './PaymentForm';
 import { PaymentCard } from './PaymentCard';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 export interface Payment {
   id: string;
@@ -12,31 +14,137 @@ export interface Payment {
   region: 'UAE' | 'KSA';
   amount: number;
   status: 'Unpaid' | 'Paid' | 'Reversed';
-  dateCreated: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export function PaymentsManager() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
-  const addPayment = (newPayment: Omit<Payment, 'id' | 'dateCreated'>) => {
-    const payment: Payment = {
-      ...newPayment,
-      id: crypto.randomUUID(),
-      dateCreated: new Date().toISOString(),
-    };
-    setPayments(prev => [payment, ...prev]);
-    setShowForm(false);
+  useEffect(() => {
+    fetchPayments();
+  }, []);
+
+  const fetchPayments = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('payments')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      
+      // Type the data properly to ensure region is correctly typed
+      const typedPayments: Payment[] = (data || []).map(payment => ({
+        ...payment,
+        region: payment.region as 'UAE' | 'KSA',
+        status: payment.status as 'Unpaid' | 'Paid' | 'Reversed'
+      }));
+      
+      setPayments(typedPayments);
+    } catch (error) {
+      console.error('Error fetching payments:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load payments. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const updatePaymentStatus = (id: string, status: Payment['status']) => {
-    setPayments(prev => prev.map(payment => 
-      payment.id === id ? { ...payment, status } : payment
-    ));
+  const addPayment = async (newPayment: { platform: string; region: 'UAE' | 'KSA'; amount: number; status: 'Unpaid' | 'Paid' | 'Reversed' }) => {
+    try {
+      const { data, error } = await supabase
+        .from('payments')
+        .insert([{
+          platform: newPayment.platform,
+          region: newPayment.region,
+          amount: newPayment.amount,
+          status: newPayment.status,
+          user_id: (await supabase.auth.getUser()).data.user?.id
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Type the returned data properly
+      const typedPayment: Payment = {
+        ...data,
+        region: data.region as 'UAE' | 'KSA',
+        status: data.status as 'Unpaid' | 'Paid' | 'Reversed'
+      };
+
+      setPayments(prev => [typedPayment, ...prev]);
+      setShowForm(false);
+      toast({
+        title: "Success",
+        description: "Payment record added successfully.",
+      });
+    } catch (error) {
+      console.error('Error adding payment:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add payment. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const deletePayment = (id: string) => {
-    setPayments(prev => prev.filter(payment => payment.id !== id));
+  const updatePaymentStatus = async (id: string, status: Payment['status']) => {
+    try {
+      const { error } = await supabase
+        .from('payments')
+        .update({ status })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setPayments(prev => prev.map(payment => 
+        payment.id === id ? { ...payment, status } : payment
+      ));
+      
+      toast({
+        title: "Success",
+        description: "Payment status updated successfully.",
+      });
+    } catch (error) {
+      console.error('Error updating payment:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update payment status. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const deletePayment = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('payments')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setPayments(prev => prev.filter(payment => payment.id !== id));
+      toast({
+        title: "Success",
+        description: "Payment record deleted successfully.",
+      });
+    } catch (error) {
+      console.error('Error deleting payment:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete payment. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const getStatusCounts = () => {
@@ -49,8 +157,19 @@ export function PaymentsManager() {
   const statusCounts = getStatusCounts();
   const totalAmount = payments.reduce((sum, payment) => sum + payment.amount, 0);
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-2 text-muted-foreground">Loading payments...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Payment Tracker</h1>

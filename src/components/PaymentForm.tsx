@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import type { Payment } from './PaymentsManager';
 
 interface PaymentFormProps {
-  onSubmit: (payment: Omit<Payment, 'id' | 'dateCreated'>) => void;
+  onSubmit: (payment: { platform: string; region: 'UAE' | 'KSA'; amount: number; status: 'Unpaid' | 'Paid' | 'Reversed' }) => void;
   onCancel: () => void;
 }
 
