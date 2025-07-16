@@ -1,4 +1,4 @@
-import { File, Files, Calculator, ChevronDown, FolderOpen, Package } from "lucide-react"
+import { File, Files, Calculator, ChevronDown, FolderOpen, Package, CreditCard } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
 import { useState } from "react"
 import {
@@ -46,6 +46,12 @@ const standaloneItems = [
     url: "/inventory",
     icon: Package,
     description: "Track product inventory with ASIN and serial numbers"
+  },
+  {
+    title: "Payments",
+    url: "/payments",
+    icon: CreditCard,
+    description: "Track payments from e-commerce platforms"
   },
 ]
 

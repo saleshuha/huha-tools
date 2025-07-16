@@ -10,6 +10,7 @@ import Index from "./pages/Index";
 import BatchProcessor from "./pages/BatchProcessor";
 import AsinQtySum from "./pages/AsinQtySum";
 import Inventory from "./pages/Inventory";
+import Payments from "./pages/Payments";
 
 import NotFound from "./pages/NotFound";
 
@@ -47,6 +48,7 @@ const App = () => (
                   <Route path="/batch" element={<BatchProcessor />} />
                   <Route path="/asin-sum" element={<AsinQtySum />} />
                   <Route path="/inventory" element={<Inventory />} />
+                  <Route path="/payments" element={<Payments />} />
                   
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                   <Route path="*" element={<NotFound />} />
