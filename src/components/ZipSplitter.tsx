@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Upload, Archive, Split, FileText, Download } from 'lucide-react';
+import { Upload, Archive, Split, FileText, Download, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
 import JSZip from 'jszip';
@@ -16,6 +17,7 @@ interface CSVFile {
 }
 
 type SplitMethod = 'size' | 'files';
+type CompressionLevel = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
 
 export const ZipSplitter = () => {
   const { toast } = useToast();
@@ -24,6 +26,7 @@ export const ZipSplitter = () => {
   const [splitMethod, setSplitMethod] = useState<SplitMethod>('size');
   const [sizeLimit, setSizeLimit] = useState<number>(50); // MB
   const [filesLimit, setFilesLimit] = useState<number>(5);
+  const [compressionLevel, setCompressionLevel] = useState<CompressionLevel>(6);
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
 
@@ -163,7 +166,13 @@ export const ZipSplitter = () => {
   };
 
   const downloadZip = async (zip: JSZip, fileName: string): Promise<void> => {
-    const zipBlob = await zip.generateAsync({ type: 'blob' });
+    const zipBlob = await zip.generateAsync({ 
+      type: 'blob',
+      compression: 'DEFLATE',
+      compressionOptions: {
+        level: compressionLevel
+      }
+    });
     const link = document.createElement('a');
     
     if (link.download !== undefined) {
@@ -351,6 +360,29 @@ export const ZipSplitter = () => {
                     </p>
                   </div>
                 )}
+
+                <div>
+                  <Label htmlFor="compression-level">Compression Level</Label>
+                  <Select value={compressionLevel.toString()} onValueChange={(value) => setCompressionLevel(Number(value) as CompressionLevel)}>
+                    <SelectTrigger className="mt-2 w-48">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">1 - Fastest (Low compression)</SelectItem>
+                      <SelectItem value="2">2</SelectItem>
+                      <SelectItem value="3">3</SelectItem>
+                      <SelectItem value="4">4</SelectItem>
+                      <SelectItem value="5">5</SelectItem>
+                      <SelectItem value="6">6 - Balanced (Default)</SelectItem>
+                      <SelectItem value="7">7</SelectItem>
+                      <SelectItem value="8">8</SelectItem>
+                      <SelectItem value="9">9 - Best compression (Slowest)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Higher levels provide better compression but take longer to process
+                  </p>
+                </div>
               </div>
             </CardContent>
           </Card>
