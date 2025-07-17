@@ -9,6 +9,7 @@ import { AppSidebar } from "@/components/AppSidebar";
 import Index from "./pages/Index";
 import BatchProcessor from "./pages/BatchProcessor";
 import AsinQtySum from "./pages/AsinQtySum";
+import ZipSplitter from "./pages/ZipSplitter";
 import Inventory from "./pages/Inventory";
 import Payments from "./pages/Payments";
 import SalesTracking from "./pages/SalesTracking";
@@ -48,6 +49,7 @@ const App = () => (
                   <Route path="/" element={<Index />} />
                   <Route path="/batch" element={<BatchProcessor />} />
                   <Route path="/asin-sum" element={<AsinQtySum />} />
+                  <Route path="/zip-splitter" element={<ZipSplitter />} />
                   <Route path="/sales-tracking" element={<SalesTracking />} />
                   <Route path="/inventory" element={<Inventory />} />
                   <Route path="/payments" element={<Payments />} />

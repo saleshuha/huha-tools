@@ -1,4 +1,4 @@
-import { File, Files, Calculator, ChevronDown, FolderOpen, Package, CreditCard, Wrench, TrendingUp } from "lucide-react"
+import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, CreditCard, Wrench, TrendingUp } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
 import { useState } from "react"
 import {
@@ -37,6 +37,12 @@ const toolsItems = [
     url: "/asin-sum",
     icon: Calculator,
     description: "Sum quantities by unique ASIN"
+  },
+  {
+    title: "Zip Splitter",
+    url: "/zip-splitter",
+    icon: Archive,
+    description: "Split ZIP files by size or file count limits"
   }
 ]
 
