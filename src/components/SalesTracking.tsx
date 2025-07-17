@@ -298,78 +298,105 @@ export function SalesTracking() {
         </Alert>
       )}
 
-      {/* File Upload Area */}
-      <Card className="border-2 border-dashed">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Upload className="h-5 w-5" />
-            Upload Sales Data Files
-          </CardTitle>
-          <CardDescription>
-            Upload multiple Excel or CSV files. Files with matching columns will be combined and SKUs will be aggregated.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div
-            {...getRootProps()}
-            className={`rounded-lg p-8 text-center cursor-pointer transition-all duration-200
-              ${isDragActive ? 'bg-primary/10 border-primary scale-105' : 'bg-muted/30 hover:bg-muted/50'}
-              hover:scale-102`}
-          >
-            <input {...getInputProps()} />
-            <div className="flex flex-col items-center">
-              <Upload className="h-16 w-16 text-muted-foreground mb-4" />
-              {isDragActive ? (
-                <p className="text-xl font-medium text-primary">Drop files here...</p>
-              ) : (
-                <div>
-                  <p className="text-xl font-medium mb-2">
-                    Drag & drop files here, or click to browse
-                  </p>
-                  <p className="text-muted-foreground">
-                    Supports Excel (.xlsx, .xls) and CSV files • Multiple files allowed
-                  </p>
-                </div>
-              )}
+      {/* File Upload Area - Only show when no data */}
+      {data.length === 0 ? (
+        <Card className="border-2 border-dashed">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Upload className="h-5 w-5" />
+              Upload Sales Data Files
+            </CardTitle>
+            <CardDescription>
+              Upload multiple Excel or CSV files. Files with matching columns will be combined and SKUs will be aggregated.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div
+              {...getRootProps()}
+              className={`rounded-lg p-8 text-center cursor-pointer transition-all duration-200
+                ${isDragActive ? 'bg-primary/10 border-primary scale-105' : 'bg-muted/30 hover:bg-muted/50'}
+                hover:scale-102`}
+            >
+              <input {...getInputProps()} />
+              <div className="flex flex-col items-center">
+                <Upload className="h-16 w-16 text-muted-foreground mb-4" />
+                {isDragActive ? (
+                  <p className="text-xl font-medium text-primary">Drop files here...</p>
+                ) : (
+                  <div>
+                    <p className="text-xl font-medium mb-2">
+                      Drag & drop files here, or click to browse
+                    </p>
+                    <p className="text-muted-foreground">
+                      Supports Excel (.xlsx, .xls) and CSV files • Multiple files allowed
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-
-          {/* Uploaded Files List */}
-          {uploadedFiles.length > 0 && (
-            <div className="mt-6">
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="font-medium">Uploaded Files ({uploadedFiles.length})</h4>
-                <Button variant="ghost" size="sm" onClick={clearAllFiles}>
+          </CardContent>
+        </Card>
+      ) : (
+        /* Uploaded Files Summary - Show when data is loaded */
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Uploaded Files ({uploadedFiles.length})
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    const input = document.createElement('input')
+                    input.type = 'file'
+                    input.multiple = true
+                    input.accept = '.xlsx,.xls,.csv'
+                    input.onchange = (e) => {
+                      const files = Array.from((e.target as HTMLInputElement).files || [])
+                      if (files.length > 0) onDrop(files)
+                    }
+                    input.click()
+                  }}
+                  className="flex items-center gap-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add More Files
+                </Button>
+                <Button variant="destructive" onClick={clearAllFiles}>
                   <Trash2 className="h-4 w-4 mr-2" />
-                  Clear All
+                  Clear All Data
                 </Button>
               </div>
-              <div className="grid gap-2">
-                {uploadedFiles.map((file, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <FileText className="h-4 w-4 text-muted-foreground" />
-                      <div>
-                        <p className="font-medium text-sm">{file.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {file.data.length} rows • {file.columns.length} columns
-                        </p>
-                      </div>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-2 max-h-32 overflow-y-auto">
+              {uploadedFiles.map((file, index) => (
+                <div key={index} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <FileText className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <p className="font-medium text-sm">{file.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {file.data.length} rows • {file.columns.length} columns
+                      </p>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeFile(file.name)}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
                   </div>
-                ))}
-              </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeFile(file.name)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       {data.length > 0 && (
         <div className="space-y-6">
@@ -462,58 +489,62 @@ export function SalesTracking() {
                 Click column headers to sort • Aggregated data shows combined quantities for duplicate SKUs
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="overflow-auto max-h-[700px] rounded-lg border">
-                <Table>
-                  <TableHeader className="sticky top-0 bg-background">
-                    <TableRow>
-                      {visibleColumns.map((column) => (
-                        <TableHead
-                          key={column}
-                          className="cursor-pointer hover:bg-muted/50 select-none transition-colors font-semibold"
-                          onClick={() => handleSort(column)}
-                        >
-                          <div className="flex items-center gap-2">
-                            <span>{column.startsWith('_') ? column.replace('_', '') : column}</span>
-                            <ArrowUpDown className="h-4 w-4 opacity-50" />
-                            {sortConfig?.key === column && (
-                              <Badge variant="secondary" className="text-xs px-1">
-                                {sortConfig.direction === 'asc' ? '↑' : '↓'}
-                              </Badge>
-                            )}
-                          </div>
-                        </TableHead>
-                      ))}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {sortedData.map((row, index) => (
-                      <TableRow key={index} className="hover:bg-muted/50">
-                        {visibleColumns.map((column) => {
-                          const value = row[column]
-                          const isAggregated = column === '_duplicateCount' && (value || 0) > 1
-                          
-                          return (
-                            <TableCell key={column} className="font-mono text-sm">
-                              {value !== null && value !== undefined ? (
-                                <div className="flex items-center gap-2">
-                                  <span>{value.toString()}</span>
-                                  {isAggregated && (
-                                    <Badge variant="secondary" className="text-xs">
-                                      Aggregated
-                                    </Badge>
-                                  )}
-                                </div>
-                              ) : (
-                                <span className="text-muted-foreground">—</span>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto overflow-y-auto max-h-[700px] border rounded-lg">
+                <div className="min-w-full" style={{ width: 'max-content' }}>
+                  <Table className="w-full">
+                    <TableHeader className="sticky top-0 bg-background z-10">
+                      <TableRow>
+                        {visibleColumns.map((column) => (
+                          <TableHead
+                            key={column}
+                            className="cursor-pointer hover:bg-muted/50 select-none transition-colors font-semibold whitespace-nowrap min-w-[150px] px-4"
+                            onClick={() => handleSort(column)}
+                          >
+                            <div className="flex items-center gap-2">
+                              <span>{column.startsWith('_') ? column.replace('_', '') : column}</span>
+                              <ArrowUpDown className="h-4 w-4 opacity-50" />
+                              {sortConfig?.key === column && (
+                                <Badge variant="secondary" className="text-xs px-1">
+                                  {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                                </Badge>
                               )}
-                            </TableCell>
-                          )
-                        })}
+                            </div>
+                          </TableHead>
+                        ))}
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {sortedData.map((row, index) => (
+                        <TableRow key={index} className="hover:bg-muted/50">
+                          {visibleColumns.map((column) => {
+                            const value = row[column]
+                            const isAggregated = column === '_duplicateCount' && (value || 0) > 1
+                            
+                            return (
+                              <TableCell key={column} className="font-mono text-sm whitespace-nowrap min-w-[150px] px-4">
+                                {value !== null && value !== undefined ? (
+                                  <div className="flex items-center gap-2">
+                                    <span className="truncate max-w-[120px]" title={value.toString()}>
+                                      {value.toString()}
+                                    </span>
+                                    {isAggregated && (
+                                      <Badge variant="secondary" className="text-xs flex-shrink-0">
+                                        Aggregated
+                                      </Badge>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="text-muted-foreground">—</span>
+                                )}
+                              </TableCell>
+                            )
+                          })}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               </div>
             </CardContent>
           </Card>
