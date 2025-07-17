@@ -1,6 +1,9 @@
-import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, CreditCard, Wrench, TrendingUp } from "lucide-react"
+import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, CreditCard, Wrench, TrendingUp, LogOut } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
 import { useState } from "react"
+import { supabase } from "@/integrations/supabase/client"
+import { useToast } from "@/hooks/use-toast"
+import { Button } from "@/components/ui/button"
 import {
   Sidebar,
   SidebarContent,
@@ -72,6 +75,26 @@ export function AppSidebar() {
   const location = useLocation()
   const isCollapsed = state === "collapsed"
   const [isToolsOpen, setIsToolsOpen] = useState(true)
+  const { toast } = useToast()
+
+  const handleLogout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut()
+      if (error) {
+        toast({
+          title: "Error",
+          description: "Failed to sign out",
+          variant: "destructive"
+        })
+      }
+    } catch (error) {
+      toast({
+        title: "Error", 
+        description: "An unexpected error occurred",
+        variant: "destructive"
+      })
+    }
+  }
 
   const isActive = (path: string) => {
     if (path === "/") {
@@ -193,6 +216,16 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      <SidebarFooter className="p-4">
+        <Button 
+          onClick={handleLogout}
+          variant="outline"
+          className="w-full flex items-center gap-2 text-sm"
+        >
+          <LogOut className="h-4 w-4" />
+          {!isCollapsed && "Sign Out"}
+        </Button>
+      </SidebarFooter>
     </Sidebar>
   )
 }
