@@ -46,19 +46,11 @@ const Auth = () => {
       });
 
       if (error) {
-        if (error.message.includes('Invalid login credentials')) {
-          toast({
-            title: "Access Denied",
-            description: "Invalid credentials. Please contact your administrator.",
-            variant: "destructive"
-          });
-        } else {
-          toast({
-            title: "Error", 
-            description: error.message,
-            variant: "destructive"
-          });
-        }
+        toast({
+          title: "Access Denied",
+          description: "Invalid credentials. Please contact your administrator.",
+          variant: "destructive"
+        });
       }
     } catch (error) {
       toast({
