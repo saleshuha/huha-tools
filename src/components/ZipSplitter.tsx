@@ -19,7 +19,7 @@ type SplitMethod = 'size' | 'files';
 
 export const ZipSplitter = () => {
   const { toast } = useToast();
-  const [zipFile, setZipFile] = useState<File | null>(null);
+  const [zipFiles, setZipFiles] = useState<File[]>([]);
   const [csvFiles, setCsvFiles] = useState<CSVFile[]>([]);
   const [splitMethod, setSplitMethod] = useState<SplitMethod>('size');
   const [sizeLimit, setSizeLimit] = useState<number>(50); // MB
@@ -28,53 +28,64 @@ export const ZipSplitter = () => {
   const [progress, setProgress] = useState(0);
 
   const handleZipUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
 
-    if (!file.name.toLowerCase().endsWith('.zip')) {
+    const zipFilesArray = Array.from(files);
+    
+    // Validate all files are ZIP files
+    const invalidFiles = zipFilesArray.filter(file => !file.name.toLowerCase().endsWith('.zip'));
+    if (invalidFiles.length > 0) {
       toast({
         title: "Invalid file type",
-        description: "Please upload a ZIP file",
+        description: "Please upload only ZIP files",
         variant: "destructive"
       });
       return;
     }
 
-    setZipFile(file);
+    setZipFiles(zipFilesArray);
     setIsProcessing(true);
     setProgress(10);
 
     try {
-      const zip = new JSZip();
-      const zipContent = await zip.loadAsync(file);
-      const csvData: CSVFile[] = [];
+      const allCsvData: CSVFile[] = [];
+      const totalFiles = zipFilesArray.length;
+      
+      for (let i = 0; i < totalFiles; i++) {
+        const file = zipFilesArray[i];
+        const zip = new JSZip();
+        const zipContent = await zip.loadAsync(file);
+        
+        setProgress(10 + (i / totalFiles) * 80);
 
-      setProgress(30);
-
-      for (const [filename, zipEntry] of Object.entries(zipContent.files)) {
-        if (!zipEntry.dir && filename.toLowerCase().endsWith('.csv')) {
-          const content = await zipEntry.async('text');
-          const size = new Blob([content]).size;
-          csvData.push({
-            name: filename,
-            content,
-            size
-          });
+        for (const [filename, zipEntry] of Object.entries(zipContent.files)) {
+          if (!zipEntry.dir && filename.toLowerCase().endsWith('.csv')) {
+            const content = await zipEntry.async('text');
+            const size = new Blob([content]).size;
+            // Add source zip name to CSV name to avoid conflicts
+            const uniqueName = `${file.name.replace('.zip', '')}_${filename}`;
+            allCsvData.push({
+              name: uniqueName,
+              content,
+              size
+            });
+          }
         }
       }
 
-      setCsvFiles(csvData);
+      setCsvFiles(allCsvData);
       setProgress(100);
       
       toast({
-        title: "ZIP file processed",
-        description: `Found ${csvData.length} CSV files in the ZIP`,
+        title: "ZIP files processed",
+        description: `Found ${allCsvData.length} CSV files in ${totalFiles} ZIP files`,
       });
     } catch (error) {
-      console.error('Error processing ZIP file:', error);
+      console.error('Error processing ZIP files:', error);
       toast({
         title: "Processing error",
-        description: "Failed to process ZIP file. Please try again.",
+        description: "Failed to process ZIP files. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -221,7 +232,7 @@ export const ZipSplitter = () => {
           <h1 className="text-3xl font-bold text-primary">Zip Splitter</h1>
         </div>
         <p className="text-muted-foreground max-w-2xl mx-auto">
-          Upload a ZIP file containing multiple CSV files and split it into smaller ZIP files based on size or file count limits
+          Upload multiple ZIP files containing CSV files and split them into smaller ZIP files based on size or file count limits
         </p>
       </div>
 
@@ -231,38 +242,42 @@ export const ZipSplitter = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Upload className="h-5 w-5" />
-              Upload ZIP File
+              Upload ZIP Files
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               <div>
-                <Label htmlFor="zip-upload">Select ZIP File</Label>
+                <Label htmlFor="zip-upload">Select ZIP Files</Label>
                 <Input
                   id="zip-upload"
                   type="file"
                   accept=".zip"
+                  multiple
                   onChange={handleZipUpload}
                   disabled={isProcessing}
                   className="mt-2"
                 />
+                <p className="text-xs text-muted-foreground mt-1">
+                  You can select multiple ZIP files at once
+                </p>
               </div>
               
               {isProcessing && (
                 <div className="space-y-2">
-                  <div className="text-sm text-muted-foreground">Processing ZIP file...</div>
+                  <div className="text-sm text-muted-foreground">Processing ZIP files...</div>
                   <Progress value={progress} className="w-full" />
                 </div>
               )}
 
-              {zipFile && csvFiles.length > 0 && (
+              {zipFiles.length > 0 && csvFiles.length > 0 && (
                 <div className="bg-muted/30 p-4 rounded-lg">
                   <div className="flex items-center gap-2 mb-2">
                     <FileText className="h-4 w-4 text-primary" />
                     <span className="font-medium">Files Found</span>
                   </div>
                   <div className="text-sm text-muted-foreground space-y-1">
-                    <div>ZIP File: {zipFile.name}</div>
+                    <div>ZIP Files: {zipFiles.length}</div>
                     <div>CSV Files: {csvFiles.length}</div>
                     <div>Total Size: {formatFileSize(totalSize)}</div>
                   </div>
