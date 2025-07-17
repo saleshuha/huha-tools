@@ -1,4 +1,4 @@
-import { File, Files, Calculator, ChevronDown, FolderOpen, Package, CreditCard } from "lucide-react"
+import { File, Files, Calculator, ChevronDown, FolderOpen, Package, CreditCard, Wrench, TrendingUp } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
 import { useState } from "react"
 import {
@@ -19,9 +19,9 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
 
-const excelMapperItems = [
+const toolsItems = [
   {
-    title: "Single Processing",
+    title: "Excel File Mapper",
     url: "/",
     icon: File,
     description: "Map one source file to one target file"
@@ -31,15 +31,21 @@ const excelMapperItems = [
     url: "/batch",
     icon: Files,
     description: "Process multiple source files with one target template"
-  }
-]
-
-const standaloneItems = [
+  },
   {
     title: "ASIN QTY Sum",
     url: "/asin-sum",
     icon: Calculator,
     description: "Sum quantities by unique ASIN"
+  }
+]
+
+const standaloneItems = [
+  {
+    title: "Sales & Ranking Tracker",
+    url: "/sales-tracking",
+    icon: TrendingUp,
+    description: "Track and analyze product sales and ranking data"
   },
   {
     title: "Instock Inventory",
@@ -59,7 +65,7 @@ export function AppSidebar() {
   const { state } = useSidebar()
   const location = useLocation()
   const isCollapsed = state === "collapsed"
-  const [isMapperOpen, setIsMapperOpen] = useState(true)
+  const [isToolsOpen, setIsToolsOpen] = useState(true)
 
   const isActive = (path: string) => {
     if (path === "/") {
@@ -68,8 +74,8 @@ export function AppSidebar() {
     return location.pathname === path
   }
 
-  const isMapperSectionActive = () => {
-    return excelMapperItems.some(item => isActive(item.url))
+  const isToolsSectionActive = () => {
+    return toolsItems.some(item => isActive(item.url))
   }
 
   return (
@@ -77,35 +83,35 @@ export function AppSidebar() {
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel className="text-foreground/70 font-semibold px-4 py-3">
-            Excel Tools
+            Application
           </SidebarGroupLabel>
           <SidebarGroupContent className="px-2">
             <SidebarMenu className="space-y-3">
-              {/* Excel File Mapper with sub-buttons */}
+              {/* Tools dropdown */}
               <SidebarMenuItem>
-                <Collapsible open={isMapperOpen} onOpenChange={setIsMapperOpen}>
+                <Collapsible open={isToolsOpen} onOpenChange={setIsToolsOpen}>
                   <CollapsibleTrigger asChild>
                     <SidebarMenuButton
                       className={`w-full p-4 rounded-lg transition-all duration-200 min-h-[80px] ${
-                        isMapperSectionActive()
+                        isToolsSectionActive()
                           ? "bg-primary/10 border border-primary/20 text-primary" 
                           : "hover:bg-muted/70 hover:text-foreground"
                       }`}
                     >
                       <div className="flex items-start gap-4 w-full">
-                        <FolderOpen className="h-6 w-6 flex-shrink-0 mt-1" />
+                        <Wrench className="h-6 w-6 flex-shrink-0 mt-1" />
                         {!isCollapsed && (
                           <div className="flex flex-col text-left flex-1 space-y-1">
                             <div className="flex items-center justify-between">
                               <span className="font-semibold text-base leading-tight">
-                                Excel File Mapper
+                                Tools
                               </span>
                               <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${
-                                isMapperOpen ? "rotate-180" : ""
+                                isToolsOpen ? "rotate-180" : ""
                               }`} />
                             </div>
                             <span className="text-sm opacity-80 leading-relaxed">
-                              Excel processing tools
+                              Excel and utility tools
                             </span>
                           </div>
                         )}
@@ -113,7 +119,7 @@ export function AppSidebar() {
                     </SidebarMenuButton>
                   </CollapsibleTrigger>
                   <CollapsibleContent className="ml-6 mt-2 space-y-2 animate-accordion-down">
-                    {excelMapperItems.map((item) => (
+                    {toolsItems.map((item) => (
                       <SidebarMenuButton 
                         key={item.title}
                         asChild
