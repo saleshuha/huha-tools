@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useDropzone } from 'react-dropzone'
-import { Upload, Filter, ArrowUpDown, Eye, EyeOff, FileText, Calculator, Trash2, X, Plus } from 'lucide-react'
+import { Upload, Filter, ArrowUpDown, Eye, EyeOff, FileText, Calculator, Trash2, X, Plus, Download, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination'
 import * as XLSX from 'xlsx'
 
 interface ColumnVisibility {
@@ -37,6 +38,9 @@ export function SalesTracking() {
   const [sortConfig, setSortConfig] = useState<SortConfig | null>(null)
   const [showFilters, setShowFilters] = useState(false)
   const [showSummary, setShowSummary] = useState(false)
+  const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set())
+  const [currentPage, setCurrentPage] = useState(1)
+  const [rowsPerPage] = useState(1000)
 
   const processFiles = (files: UploadedFile[]) => {
     if (files.length === 0) {
@@ -199,6 +203,14 @@ export function SalesTracking() {
     })
   }, [data, sortConfig])
 
+  const paginatedData = useMemo(() => {
+    const startIndex = (currentPage - 1) * rowsPerPage
+    const endIndex = startIndex + rowsPerPage
+    return sortedData.slice(startIndex, endIndex)
+  }, [sortedData, currentPage, rowsPerPage])
+
+  const totalPages = Math.ceil(sortedData.length / rowsPerPage)
+
   const visibleColumns = columns.filter(col => columnVisibility[col])
 
   const toggleColumnVisibility = (column: string) => {
@@ -230,6 +242,49 @@ export function SalesTracking() {
     setSortConfig(null)
     setShowFilters(false)
     setShowSummary(false)
+    setSelectedRows(new Set())
+    setCurrentPage(1)
+  }
+
+  const toggleRowSelection = (index: number) => {
+    const actualIndex = (currentPage - 1) * rowsPerPage + index
+    setSelectedRows(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(actualIndex)) {
+        newSet.delete(actualIndex)
+      } else {
+        newSet.add(actualIndex)
+      }
+      return newSet
+    })
+  }
+
+  const toggleAllRowsSelection = () => {
+    const currentPageIndexes = paginatedData.map((_, index) => (currentPage - 1) * rowsPerPage + index)
+    const allCurrentPageSelected = currentPageIndexes.every(index => selectedRows.has(index))
+    
+    setSelectedRows(prev => {
+      const newSet = new Set(prev)
+      if (allCurrentPageSelected) {
+        currentPageIndexes.forEach(index => newSet.delete(index))
+      } else {
+        currentPageIndexes.forEach(index => newSet.add(index))
+      }
+      return newSet
+    })
+  }
+
+  const exportSelectedRows = () => {
+    const selectedData = sortedData.filter((_, index) => selectedRows.has(index))
+    if (selectedData.length === 0) {
+      alert('No rows selected for export')
+      return
+    }
+
+    const worksheet = XLSX.utils.json_to_sheet(selectedData)
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Selected Data')
+    XLSX.writeFile(workbook, `selected_sales_data_${new Date().toISOString().split('T')[0]}.xlsx`)
   }
 
   const getSummaryStats = () => {
@@ -269,6 +324,15 @@ export function SalesTracking() {
               >
                 <Filter className="h-4 w-4" />
                 {showFilters ? 'Hide Filters' : 'Show Filters'}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={exportSelectedRows}
+                disabled={selectedRows.size === 0}
+                className="flex items-center gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Export Selected ({selectedRows.size})
               </Button>
             </>
           )}
@@ -478,7 +542,13 @@ export function SalesTracking() {
                 <span>Processed Data</span>
                 <div className="flex gap-2">
                   <Badge variant="outline" className="px-3">
-                    {data.length} rows
+                    {data.length} total rows
+                  </Badge>
+                  <Badge variant="outline" className="px-3">
+                    Page {currentPage} of {totalPages}
+                  </Badge>
+                  <Badge variant="outline" className="px-3">
+                    {selectedRows.size} selected
                   </Badge>
                   <Badge variant="outline" className="px-3">
                     {visibleColumns.length} columns visible
@@ -486,15 +556,24 @@ export function SalesTracking() {
                 </div>
               </CardTitle>
               <CardDescription>
-                Click column headers to sort • Aggregated data shows combined quantities for duplicate SKUs
+                Click column headers to sort • Select rows to export • Showing {rowsPerPage} rows per page
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="overflow-x-auto overflow-y-auto max-h-[700px] border rounded-lg">
+              <div className="overflow-x-auto overflow-y-auto max-h-[600px] border rounded-lg">
                 <div className="min-w-full" style={{ width: 'max-content' }}>
                   <Table className="w-full">
                     <TableHeader className="sticky top-0 bg-background z-10">
                       <TableRow>
+                        <TableHead className="w-12 px-4">
+                          <Checkbox
+                            checked={paginatedData.length > 0 && paginatedData.every((_, index) => 
+                              selectedRows.has((currentPage - 1) * rowsPerPage + index)
+                            )}
+                            onCheckedChange={toggleAllRowsSelection}
+                            aria-label="Select all rows on this page"
+                          />
+                        </TableHead>
                         {visibleColumns.map((column) => (
                           <TableHead
                             key={column}
@@ -515,37 +594,114 @@ export function SalesTracking() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {sortedData.map((row, index) => (
-                        <TableRow key={index} className="hover:bg-muted/50">
-                          {visibleColumns.map((column) => {
-                            const value = row[column]
-                            const isAggregated = column === '_duplicateCount' && (value || 0) > 1
-                            
-                            return (
-                              <TableCell key={column} className="font-mono text-sm whitespace-nowrap min-w-[150px] px-4">
-                                {value !== null && value !== undefined ? (
-                                  <div className="flex items-center gap-2">
-                                    <span className="truncate max-w-[120px]" title={value.toString()}>
-                                      {value.toString()}
-                                    </span>
-                                    {isAggregated && (
-                                      <Badge variant="secondary" className="text-xs flex-shrink-0">
-                                        Aggregated
-                                      </Badge>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <span className="text-muted-foreground">—</span>
-                                )}
-                              </TableCell>
-                            )
-                          })}
-                        </TableRow>
-                      ))}
+                      {paginatedData.map((row, index) => {
+                        const actualIndex = (currentPage - 1) * rowsPerPage + index
+                        const isSelected = selectedRows.has(actualIndex)
+                        
+                        return (
+                          <TableRow 
+                            key={actualIndex} 
+                            className={`hover:bg-muted/50 ${isSelected ? 'bg-primary/5' : ''}`}
+                          >
+                            <TableCell className="w-12 px-4">
+                              <Checkbox
+                                checked={isSelected}
+                                onCheckedChange={() => toggleRowSelection(index)}
+                                aria-label={`Select row ${actualIndex + 1}`}
+                              />
+                            </TableCell>
+                            {visibleColumns.map((column) => {
+                              const value = row[column]
+                              const isAggregated = column === '_duplicateCount' && (value || 0) > 1
+                              
+                              return (
+                                <TableCell key={column} className="font-mono text-sm whitespace-nowrap min-w-[150px] px-4">
+                                  {value !== null && value !== undefined ? (
+                                    <div className="flex items-center gap-2">
+                                      <span className="truncate max-w-[120px]" title={value.toString()}>
+                                        {value.toString()}
+                                      </span>
+                                      {isAggregated && (
+                                        <Badge variant="secondary" className="text-xs flex-shrink-0">
+                                          Aggregated
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <span className="text-muted-foreground">—</span>
+                                  )}
+                                </TableCell>
+                              )
+                            })}
+                          </TableRow>
+                        )
+                      })}
                     </TableBody>
                   </Table>
                 </div>
               </div>
+              
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between px-4 py-4 border-t">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <span>
+                      Showing {((currentPage - 1) * rowsPerPage) + 1} to {Math.min(currentPage * rowsPerPage, sortedData.length)} of {sortedData.length} entries
+                    </span>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                      className="flex items-center gap-1"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      Previous
+                    </Button>
+                    
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                        let pageNum
+                        if (totalPages <= 5) {
+                          pageNum = i + 1
+                        } else if (currentPage <= 3) {
+                          pageNum = i + 1
+                        } else if (currentPage >= totalPages - 2) {
+                          pageNum = totalPages - 4 + i
+                        } else {
+                          pageNum = currentPage - 2 + i
+                        }
+                        
+                        return (
+                          <Button
+                            key={pageNum}
+                            variant={currentPage === pageNum ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setCurrentPage(pageNum)}
+                            className="w-8 h-8 p-0"
+                          >
+                            {pageNum}
+                          </Button>
+                        )
+                      })}
+                    </div>
+                    
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                      disabled={currentPage === totalPages}
+                      className="flex items-center gap-1"
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
