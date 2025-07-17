@@ -62,7 +62,6 @@ export const useBatchExport = () => {
     }
 
     try {
-      const maxZipSize = 49 * 1024 * 1024; // 49MB in bytes
       const originalName = targetData.fileName.replace(/\.[^/.]+$/, '');
 
       // Step 1: Process ALL files first
@@ -108,81 +107,26 @@ export const useBatchExport = () => {
         return;
       }
 
-      // Step 2: Create zip files from processed data
+      // Step 2: Create single zip file from processed data
       toast({
-        title: "Creating export files...",
-        description: `Creating zip files from ${totalRowsProcessed} processed rows`,
+        title: "Creating export file...",
+        description: `Creating zip file from ${totalRowsProcessed} processed rows`,
       });
 
-      const zipPromises: Promise<void>[] = [];
-      let zipCount = 1;
-      let currentZip = new JSZip();
-      let currentZipSize = 0;
-      let currentCSVData = [targetData.headers];
-      let fileCount = 1;
+      const zip = new JSZip();
+      const allCSVData = [targetData.headers, ...allMappedData];
+      const csvContent = arrayToCSV(allCSVData);
+      const fileName = `${originalName}_mapped_complete.csv`;
 
-      // Process all mapped data into zip files
-      for (let i = 0; i < allMappedData.length; i++) {
-        const row = allMappedData[i];
-        const testCSVData = [...currentCSVData, row];
-        const csvContent = arrayToCSV(testCSVData);
-        const csvSize = getFileSizeInBytes(csvContent);
+      // Add CSV to zip
+      zip.file(fileName, csvContent);
 
-        // If adding this row would make CSV too large, finalize current CSV
-        if (csvSize > maxZipSize && currentCSVData.length > 1) {
-          const finalCSVContent = arrayToCSV(currentCSVData);
-          const fileName = `${originalName}_mapped_part${fileCount}.csv`;
-          const finalCSVSize = getFileSizeInBytes(finalCSVContent);
-
-          // If adding this CSV would exceed zip limit, create new zip
-          if (currentZipSize + finalCSVSize > maxZipSize && Object.keys(currentZip.files).length > 0) {
-            zipPromises.push(downloadZip(currentZip, `${originalName}_batch_${zipCount}.zip`));
-            zipCount++;
-            currentZip = new JSZip();
-            currentZipSize = 0;
-          }
-
-          // Add CSV to current zip
-          currentZip.file(fileName, finalCSVContent);
-          currentZipSize += finalCSVSize;
-          fileCount++;
-
-          // Start new CSV with headers and current row
-          currentCSVData = [targetData.headers, row];
-        } else {
-          // Add row to current CSV
-          currentCSVData.push(row);
-        }
-      }
-
-      // Handle final CSV if it has data
-      if (currentCSVData.length > 1) {
-        const finalCSVContent = arrayToCSV(currentCSVData);
-        const fileName = `${originalName}_mapped_part${fileCount}.csv`;
-        const finalCSVSize = getFileSizeInBytes(finalCSVContent);
-
-        // If adding this CSV would exceed zip limit, create new zip
-        if (currentZipSize + finalCSVSize > maxZipSize && Object.keys(currentZip.files).length > 0) {
-          zipPromises.push(downloadZip(currentZip, `${originalName}_batch_${zipCount}.zip`));
-          zipCount++;
-          currentZip = new JSZip();
-        }
-
-        // Add final CSV to zip
-        currentZip.file(fileName, finalCSVContent);
-      }
-
-      // Download final zip if it has files
-      if (Object.keys(currentZip.files).length > 0) {
-        zipPromises.push(downloadZip(currentZip, `${originalName}_batch_${zipCount}.zip`));
-      }
-
-      // Download all zip files
-      await Promise.all(zipPromises);
+      // Download single zip file
+      await downloadZip(zip, `${originalName}_batch_export.zip`);
 
       toast({
         title: "Batch export successful",
-        description: `Exported ${totalRowsProcessed} rows from ${sourceFiles.length} source files in ${zipCount} zip file(s)`,
+        description: `Exported ${totalRowsProcessed} rows from ${sourceFiles.length} source files in single zip file`,
       });
       
     } catch (error) {
