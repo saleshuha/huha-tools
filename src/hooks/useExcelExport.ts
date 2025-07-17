@@ -55,71 +55,37 @@ export const useExcelExport = () => {
       });
 
       const totalRows = mappedRows.length;
-      const maxZipSize = 49 * 1024 * 1024; // 49MB in bytes
+      const maxRowsPerFile = 9900;
       const originalName = targetData.fileName.replace(/\.[^/.]+$/, '');
-
-      // Create first CSV with headers
-      let currentCSVData = [targetData.headers];
-      let currentSize = getFileSizeInBytes(arrayToCSV(currentCSVData));
-      let zipCount = 1;
+      
+      const zip = new JSZip();
       let fileCount = 1;
-      let currentZip = new JSZip();
-      const zipPromises: Promise<void>[] = [];
 
-      for (let i = 0; i < totalRows; i++) {
-        const newRow = mappedRows[i];
-        const testCSVData = [...currentCSVData, newRow];
-        const testSize = getFileSizeInBytes(arrayToCSV(testCSVData));
-
-        // Check if adding this row would exceed 49MB
-        if (testSize > maxZipSize && currentCSVData.length > 1) {
-          // Save current CSV to zip
-          const csvContent = arrayToCSV(currentCSVData);
-          const fileName = `${originalName}_mapped_part${fileCount}.csv`;
-          currentZip.file(fileName, csvContent);
-          fileCount++;
-
-          // Check if we need a new zip
-          const zipSize = await currentZip.generateAsync({ type: 'uint8array' });
-          if (zipSize.length > maxZipSize) {
-            // Remove the last file from current zip and create new zip
-            currentZip.remove(fileName);
-            
-            // Download current zip
-            zipPromises.push(downloadZip(currentZip, `${originalName}_mapped_files_${zipCount}.zip`));
-            zipCount++;
-            
-            // Create new zip with the file that didn't fit
-            currentZip = new JSZip();
-            currentZip.file(fileName, csvContent);
-          }
-
-          // Reset for next CSV
-          currentCSVData = [targetData.headers, newRow];
-          currentSize = getFileSizeInBytes(arrayToCSV(currentCSVData));
-        } else {
-          // Add row to current CSV
-          currentCSVData.push(newRow);
-          currentSize = testSize;
-        }
+      // Split data into chunks of 9900 rows
+      for (let i = 0; i < totalRows; i += maxRowsPerFile) {
+        const endIndex = Math.min(i + maxRowsPerFile, totalRows);
+        const rowsChunk = mappedRows.slice(i, endIndex);
+        
+        // Create CSV with headers + data chunk
+        const csvData = [targetData.headers, ...rowsChunk];
+        const csvContent = arrayToCSV(csvData);
+        
+        // Create filename for this part
+        const fileName = totalRows > maxRowsPerFile 
+          ? `${originalName}_mapped_part${fileCount}.csv`
+          : `${originalName}_mapped.csv`;
+        
+        zip.file(fileName, csvContent);
+        fileCount++;
       }
 
-      // Handle remaining data
-      if (currentCSVData.length > 1) {
-        const csvContent = arrayToCSV(currentCSVData);
-        const fileName = `${originalName}_mapped_part${fileCount}.csv`;
-        currentZip.file(fileName, csvContent);
-      }
+      // Download the zip file
+      await downloadZip(zip, `${originalName}_mapped_files.zip`);
 
-      // Download final zip
-      zipPromises.push(downloadZip(currentZip, `${originalName}_mapped_files_${zipCount}.zip`));
-
-      // Wait for all downloads to complete
-      await Promise.all(zipPromises);
-
+      const fileCount_final = Math.ceil(totalRows / maxRowsPerFile);
       toast({
         title: "Export successful",
-        description: `Exported ${totalRows} rows in ${zipCount} zip file(s) with ${Object.keys(mappings).length} column mappings`,
+        description: `Exported ${totalRows} rows in ${fileCount_final} CSV file(s) with ${Object.keys(mappings).length} column mappings`,
       });
       
     } catch (error) {

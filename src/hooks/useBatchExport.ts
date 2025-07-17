@@ -87,14 +87,28 @@ export const useBatchExport = () => {
 
         // Create individual zip file for this source file
         const zip = new JSZip();
-        const csvData = [targetData.headers, ...mappedData];
-        const csvContent = arrayToCSV(csvData);
-        
         const originalName = sourceFile.data.fileName.replace(/\.[^/.]+$/, '');
-        const csvFileName = `${originalName}_mapped.csv`;
-        
-        // Add CSV to zip
-        zip.file(csvFileName, csvContent);
+        const maxRowsPerFile = 9900;
+        const totalRows = mappedData.length;
+        let fileCount = 1;
+
+        // Split data into chunks of 9900 rows
+        for (let i = 0; i < totalRows; i += maxRowsPerFile) {
+          const endIndex = Math.min(i + maxRowsPerFile, totalRows);
+          const rowsChunk = mappedData.slice(i, endIndex);
+          
+          // Create CSV with headers + data chunk
+          const csvData = [targetData.headers, ...rowsChunk];
+          const csvContent = arrayToCSV(csvData);
+          
+          // Create filename for this part
+          const csvFileName = totalRows > maxRowsPerFile 
+            ? `${originalName}_mapped_part${fileCount}.csv`
+            : `${originalName}_mapped.csv`;
+          
+          zip.file(csvFileName, csvContent);
+          fileCount++;
+        }
 
         // Download individual zip file
         const zipFileName = `${originalName}_export.zip`;
