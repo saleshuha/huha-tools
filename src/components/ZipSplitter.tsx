@@ -24,7 +24,7 @@ export const ZipSplitter = () => {
   const [zipFiles, setZipFiles] = useState<File[]>([]);
   const [csvFiles, setCsvFiles] = useState<CSVFile[]>([]);
   const [splitMethod, setSplitMethod] = useState<SplitMethod>('size');
-  const [sizeLimit, setSizeLimit] = useState<number>(50); // MB
+  const [sizeLimit, setSizeLimit] = useState<number>(20); // MB
   const [filesLimit, setFilesLimit] = useState<number>(5);
   const [compressionLevel, setCompressionLevel] = useState<CompressionLevel>(6);
   const [isProcessing, setIsProcessing] = useState(false);
