@@ -65,7 +65,7 @@ export const useBatchExport = () => {
       const maxZipSize = 49 * 1024 * 1024; // 49MB in bytes
       const originalName = targetData.fileName.replace(/\.[^/.]+$/, '');
 
-      // Pre-process all mapped data first to avoid blocking UI
+      // Step 1: Process ALL files first
       toast({
         title: "Processing files...",
         description: "Mapping all source files, please wait",
@@ -74,9 +74,8 @@ export const useBatchExport = () => {
       const allMappedData: string[][] = [];
       let totalRowsProcessed = 0;
 
-      // Process files in chunks to prevent UI blocking
-      for (let i = 0; i < sourceFiles.length; i++) {
-        const sourceFile = sourceFiles[i];
+      // Process all files completely first
+      for (const sourceFile of sourceFiles) {
         const mappings = sourceFile.mappings;
         
         if (!mappings || Object.keys(mappings).length === 0) {
@@ -84,7 +83,7 @@ export const useBatchExport = () => {
         }
 
         // Process this source file's data
-        sourceFile.data.data.forEach(sourceRow => {
+        for (const sourceRow of sourceFile.data.data) {
           const targetRow = new Array(targetData.headers.length).fill('');
           Object.entries(mappings).forEach(([sourceCol, targetCol]) => {
             const sourceIndex = sourceFile.data.headers.indexOf(sourceCol);
@@ -95,14 +94,9 @@ export const useBatchExport = () => {
             }
           });
           allMappedData.push(targetRow);
-        });
+        }
 
         totalRowsProcessed += sourceFile.data.data.length;
-
-        // Add a small delay every 5 files to prevent blocking
-        if (i % 5 === 0 && i > 0) {
-          await new Promise(resolve => setTimeout(resolve, 10));
-        }
       }
 
       if (allMappedData.length === 0) {
@@ -114,35 +108,34 @@ export const useBatchExport = () => {
         return;
       }
 
-      // Now create zip files based on 49MB limit
+      // Step 2: Create zip files from processed data
       toast({
         title: "Creating export files...",
-        description: "Generating zip files, please wait",
+        description: `Creating zip files from ${totalRowsProcessed} processed rows`,
       });
 
-      let currentZip = new JSZip();
-      let zipCount = 1;
-      let fileCount = 1;
-      let currentCSVData = [targetData.headers];
-      let currentZipSize = 0;
       const zipPromises: Promise<void>[] = [];
+      let zipCount = 1;
+      let currentZip = new JSZip();
+      let currentZipSize = 0;
+      let currentCSVData = [targetData.headers];
+      let fileCount = 1;
 
+      // Process all mapped data into zip files
       for (let i = 0; i < allMappedData.length; i++) {
         const row = allMappedData[i];
         const testCSVData = [...currentCSVData, row];
         const csvContent = arrayToCSV(testCSVData);
         const csvSize = getFileSizeInBytes(csvContent);
 
-        // Check if adding this row would exceed 49MB for a single CSV file
+        // If adding this row would make CSV too large, finalize current CSV
         if (csvSize > maxZipSize && currentCSVData.length > 1) {
-          // Current CSV is getting too large, finalize it
           const finalCSVContent = arrayToCSV(currentCSVData);
           const fileName = `${originalName}_mapped_part${fileCount}.csv`;
           const finalCSVSize = getFileSizeInBytes(finalCSVContent);
 
-          // Check if adding this CSV would exceed the current zip size
+          // If adding this CSV would exceed zip limit, create new zip
           if (currentZipSize + finalCSVSize > maxZipSize && Object.keys(currentZip.files).length > 0) {
-            // Download current zip and create new one
             zipPromises.push(downloadZip(currentZip, `${originalName}_batch_${zipCount}.zip`));
             zipCount++;
             currentZip = new JSZip();
@@ -160,22 +153,16 @@ export const useBatchExport = () => {
           // Add row to current CSV
           currentCSVData.push(row);
         }
-
-        // Add small delay every 1000 rows to prevent blocking
-        if (i % 1000 === 0 && i > 0) {
-          await new Promise(resolve => setTimeout(resolve, 5));
-        }
       }
 
-      // Handle remaining data
+      // Handle final CSV if it has data
       if (currentCSVData.length > 1) {
         const finalCSVContent = arrayToCSV(currentCSVData);
         const fileName = `${originalName}_mapped_part${fileCount}.csv`;
         const finalCSVSize = getFileSizeInBytes(finalCSVContent);
 
-        // Check if adding this CSV would exceed the current zip size
+        // If adding this CSV would exceed zip limit, create new zip
         if (currentZipSize + finalCSVSize > maxZipSize && Object.keys(currentZip.files).length > 0) {
-          // Download current zip and create new one
           zipPromises.push(downloadZip(currentZip, `${originalName}_batch_${zipCount}.zip`));
           zipCount++;
           currentZip = new JSZip();
@@ -183,7 +170,6 @@ export const useBatchExport = () => {
 
         // Add final CSV to zip
         currentZip.file(fileName, finalCSVContent);
-        fileCount++;
       }
 
       // Download final zip if it has files
