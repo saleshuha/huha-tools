@@ -112,20 +112,32 @@ export const ZipSplitter = () => {
     const zipPromises: Promise<void>[] = [];
     let zipCount = 1;
     let currentZip = new JSZip();
-    let currentSize = 0;
+    let currentCompressedSize = 0;
     const limitBytes = sizeLimit * 1024 * 1024;
 
     for (const csvFile of csvFiles) {
-      // If adding this file would exceed the limit, create a new zip
-      if (currentSize + csvFile.size > limitBytes && Object.keys(currentZip.files).length > 0) {
+      // Add file to a temporary zip to calculate compressed size
+      const tempZip = new JSZip();
+      tempZip.file(csvFile.name, csvFile.content);
+      const tempCompressed = await tempZip.generateAsync({ 
+        type: 'blob',
+        compression: 'DEFLATE',
+        compressionOptions: {
+          level: compressionLevel
+        }
+      });
+      const compressedFileSize = tempCompressed.size;
+
+      // If adding this file would exceed the compressed limit, create a new zip
+      if (currentCompressedSize + compressedFileSize > limitBytes && Object.keys(currentZip.files).length > 0) {
         zipPromises.push(downloadZip(currentZip, `split_${zipCount}.zip`));
         zipCount++;
         currentZip = new JSZip();
-        currentSize = 0;
+        currentCompressedSize = 0;
       }
 
       currentZip.file(csvFile.name, csvFile.content);
-      currentSize += csvFile.size;
+      currentCompressedSize += compressedFileSize;
     }
 
     // Download final zip if it has files
