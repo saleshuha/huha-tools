@@ -4,10 +4,10 @@ import { useToast } from '@/hooks/use-toast';
 import { ExcelData, ColumnMapping } from '@/types/excel';
 import JSZip from 'jszip';
 
-interface BatchFile {
+export interface BatchFile {
   id: string;
   data: ExcelData;
-  mappings: ColumnMapping;
+  mappings?: ColumnMapping;
 }
 
 export const useBatchExport = () => {

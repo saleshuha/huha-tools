@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
@@ -12,22 +11,19 @@ import { DropdownMappingView } from './mapping/DropdownMappingView';
 import { ClickConnectMappingView } from './mapping/ClickConnectMappingView';
 
 import { useToast } from '@/hooks/use-toast';
-import { useBatchExport } from '@/hooks/useBatchExport';
+import { useBatchExport, BatchFile } from '@/hooks/useBatchExport';
 import { FileSpreadsheet, Download, CheckCircle, AlertCircle, Clock, ArrowLeft } from 'lucide-react';
 import { ExcelData, ColumnMapping } from '@/types/excel';
 import { MappingMethod } from '@/types/mappingMethods';
 
-interface BatchFile {
-  id: string;
-  data: ExcelData;
+interface ProcessingBatchFile extends BatchFile {
   status: 'pending' | 'processing' | 'completed' | 'error';
-  mappings?: ColumnMapping;
   error?: string;
 }
 
 export const BatchProcessor = () => {
   const [targetData, setTargetData] = useState<ExcelData | null>(null);
-  const [sourceFiles, setSourceFiles] = useState<BatchFile[]>([]);
+  const [sourceFiles, setSourceFiles] = useState<ProcessingBatchFile[]>([]);
   const [mappingMethod, setMappingMethod] = useState<MappingMethod>('dropdown');
   const [templateMappings, setTemplateMappings] = useState<ColumnMapping>({});
   const [isProcessing, setIsProcessing] = useState(false);
@@ -46,7 +42,7 @@ export const BatchProcessor = () => {
   }, [toast]);
 
   const handleSourceFilesUpload = useCallback((data: ExcelData) => {
-    const newFile: BatchFile = {
+    const newFile: ProcessingBatchFile = {
       id: `${Date.now()}-${Math.random()}`,
       data,
       status: 'pending'
@@ -190,7 +186,7 @@ export const BatchProcessor = () => {
     }
   }, [sourceFiles, targetData, exportIndividualFiles, toast]);
 
-  const getStatusIcon = (status: BatchFile['status']) => {
+  const getStatusIcon = (status: ProcessingBatchFile['status']) => {
     switch (status) {
       case 'completed':
         return <CheckCircle className="w-4 h-4 text-green-500" />;
@@ -203,7 +199,7 @@ export const BatchProcessor = () => {
     }
   };
 
-  const getStatusColor = (status: BatchFile['status']) => {
+  const getStatusColor = (status: ProcessingBatchFile['status']) => {
     switch (status) {
       case 'completed':
         return 'bg-green-500';
