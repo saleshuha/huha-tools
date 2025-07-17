@@ -12,6 +12,7 @@ import { ClickConnectMappingView } from './mapping/ClickConnectMappingView';
 
 import { useToast } from '@/hooks/use-toast';
 import { useExcelExport } from '@/hooks/useExcelExport';
+import { useBatchExport } from '@/hooks/useBatchExport';
 import { FileSpreadsheet, Play, Pause, RotateCcw, Download, CheckCircle, AlertCircle, Clock, ArrowLeft, Home } from 'lucide-react';
 import { ExcelData, ColumnMapping } from '@/types/excel';
 import { MappingMethod } from '@/types/mappingMethods';
@@ -35,6 +36,7 @@ export const BatchProcessor = () => {
   
   const { toast } = useToast();
   const { exportMappedData } = useExcelExport();
+  const { exportBatchData } = useBatchExport();
 
   const handleTargetUpload = useCallback((data: ExcelData) => {
     setTargetData(data);
@@ -120,6 +122,55 @@ export const BatchProcessor = () => {
     });
   }, [templateMappings, toast]);
 
+  const exportAllFiles = useCallback(async () => {
+    if (!targetData) {
+      toast({
+        title: "No target file",
+        description: "Please upload a target file first",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const filesWithMappings = sourceFiles.filter(file => 
+      file.mappings && Object.keys(file.mappings).length > 0
+    );
+
+    if (filesWithMappings.length === 0) {
+      toast({
+        title: "No mapped files",
+        description: "Please apply template mappings to source files first",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsProcessing(true);
+
+    try {
+      const batchFiles = filesWithMappings.map(file => ({
+        id: file.id,
+        data: file.data,
+        mappings: file.mappings || templateMappings
+      }));
+
+      await exportBatchData(batchFiles, targetData);
+
+      toast({
+        title: "Batch export completed",
+        description: `Successfully exported ${filesWithMappings.length} files in 49MB chunks`,
+      });
+    } catch (error) {
+      toast({
+        title: "Export failed",
+        description: "Failed to export batch files. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [sourceFiles, targetData, templateMappings, exportBatchData, toast]);
+
   const processFiles = useCallback(async () => {
     if (!targetData) {
       toast({
@@ -149,7 +200,8 @@ export const BatchProcessor = () => {
           throw new Error('No mappings defined for this file');
         }
 
-        // Export the file
+        // Note: Individual file export will be replaced by batch export
+        // This is kept for single file processing within batch
         await exportMappedData(file.data, targetData, mappings);
         
         setSourceFiles(prev => prev.map((f, idx) => 
@@ -385,7 +437,16 @@ export const BatchProcessor = () => {
                     className="flex items-center gap-2"
                   >
                     <Play className="w-4 h-4" />
-                    Start Processing
+                    Process Individual Files
+                  </Button>
+                  <Button
+                    onClick={exportAllFiles}
+                    disabled={!targetData || Object.keys(templateMappings).length === 0 || isProcessing}
+                    className="flex items-center gap-2 bg-accent hover:bg-accent/90"
+                    variant="outline"
+                  >
+                    <Download className="w-4 h-4" />
+                    Export All as Batch
                   </Button>
                   <Button
                     onClick={clearAllFiles}
