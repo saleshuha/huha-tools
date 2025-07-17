@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plus } from 'lucide-react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Plus, Edit, Trash2 } from 'lucide-react';
 import { PaymentForm } from './PaymentForm';
-import { PaymentCard } from './PaymentCard';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 export interface Payment {
   id: string;
@@ -14,6 +16,7 @@ export interface Payment {
   region: 'UAE' | 'KSA';
   amount: number;
   status: 'Unpaid' | 'Paid' | 'Reversed';
+  payment_date: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -57,7 +60,7 @@ export function PaymentsManager() {
     }
   };
 
-  const addPayment = async (newPayment: { platform: string; region: 'UAE' | 'KSA'; amount: number; status: 'Unpaid' | 'Paid' | 'Reversed' }) => {
+  const addPayment = async (newPayment: { platform: string; region: 'UAE' | 'KSA'; amount: number; status: 'Unpaid' | 'Paid' | 'Reversed'; payment_date?: string }) => {
     try {
       const { data, error } = await supabase
         .from('payments')
@@ -66,6 +69,7 @@ export function PaymentsManager() {
           region: newPayment.region,
           amount: newPayment.amount,
           status: newPayment.status,
+          payment_date: newPayment.payment_date || null,
           user_id: (await supabase.auth.getUser()).data.user?.id
         }])
         .select()
@@ -154,8 +158,27 @@ export function PaymentsManager() {
     }, {} as Record<Payment['status'], number>);
   };
 
+  const getMonthlyData = () => {
+    const monthlyTotals: Record<string, number> = {};
+    payments.forEach(payment => {
+      const date = new Date(payment.payment_date || payment.created_at);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      monthlyTotals[monthKey] = (monthlyTotals[monthKey] || 0) + payment.amount;
+    });
+    
+    return Object.entries(monthlyTotals)
+      .map(([month, amount]) => ({
+        month,
+        amount,
+        amountSAR: amount * 1.02 // Convert AED to SAR (approximate rate)
+      }))
+      .sort((a, b) => a.month.localeCompare(b.month));
+  };
+
   const statusCounts = getStatusCounts();
   const totalAmount = payments.reduce((sum, payment) => sum + payment.amount, 0);
+  const totalAmountSAR = totalAmount * 1.02; // Convert AED to SAR
+  const monthlyData = getMonthlyData();
 
   if (loading) {
     return (
@@ -189,7 +212,7 @@ export function PaymentsManager() {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium">Total Payments</CardTitle>
@@ -200,10 +223,18 @@ export function PaymentsManager() {
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Total Amount</CardTitle>
+              <CardTitle className="text-sm font-medium">Total Amount (AED)</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">AED {totalAmount.toLocaleString()}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Total Amount (SAR)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">SAR {totalAmountSAR.toLocaleString('en-US', { maximumFractionDigits: 2 })}</div>
             </CardContent>
           </Card>
           <Card>
@@ -224,6 +255,30 @@ export function PaymentsManager() {
           </Card>
         </div>
 
+        {/* Monthly Chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Monthly Payment Trends</CardTitle>
+            <CardDescription>Payment amounts by month in SAR</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={monthlyData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis />
+                  <Tooltip 
+                    formatter={(value: number) => [`SAR ${value.toLocaleString()}`, 'Amount']}
+                    labelFormatter={(label) => `Month: ${label}`}
+                  />
+                  <Bar dataKey="amountSAR" fill="#8884d8" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Payment Form Modal */}
         {showForm && (
           <Card className="border-2 border-primary">
@@ -242,29 +297,84 @@ export function PaymentsManager() {
           </Card>
         )}
 
-        {/* Payments List */}
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Payment Records</h2>
-          {payments.length === 0 ? (
-            <Card>
-              <CardContent className="py-8 text-center">
+        {/* Payments Table */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Payment Records</CardTitle>
+            <CardDescription>All payment records in table format</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {payments.length === 0 ? (
+              <div className="py-8 text-center">
                 <p className="text-muted-foreground">No payment records yet.</p>
                 <p className="text-sm text-muted-foreground">Click "Add Payment" to create your first record.</p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {payments.map((payment) => (
-                <PaymentCard
-                  key={payment.id}
-                  payment={payment}
-                  onStatusChange={updatePaymentStatus}
-                  onDelete={deletePayment}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Platform</TableHead>
+                    <TableHead>Region</TableHead>
+                    <TableHead>Amount (AED)</TableHead>
+                    <TableHead>Amount (SAR)</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Payment Date</TableHead>
+                    <TableHead>Created</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {payments.map((payment) => (
+                    <TableRow key={payment.id}>
+                      <TableCell className="font-medium">{payment.platform}</TableCell>
+                      <TableCell>{payment.region}</TableCell>
+                      <TableCell>AED {payment.amount.toLocaleString()}</TableCell>
+                      <TableCell className="text-green-600">SAR {(payment.amount * 1.02).toLocaleString('en-US', { maximumFractionDigits: 2 })}</TableCell>
+                      <TableCell>
+                        <Select 
+                          value={payment.status} 
+                          onValueChange={(value) => updatePaymentStatus(payment.id, value as Payment['status'])}
+                        >
+                          <SelectTrigger className="w-32">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Unpaid">
+                              <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">Unpaid</Badge>
+                            </SelectItem>
+                            <SelectItem value="Paid">
+                              <Badge variant="secondary" className="bg-green-100 text-green-800">Paid</Badge>
+                            </SelectItem>
+                            <SelectItem value="Reversed">
+                              <Badge variant="secondary" className="bg-red-100 text-red-800">Reversed</Badge>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
+                        {payment.payment_date 
+                          ? new Date(payment.payment_date).toLocaleDateString() 
+                          : 'Not set'
+                        }
+                      </TableCell>
+                      <TableCell>{new Date(payment.created_at).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => deletePayment(payment.id)}
+                          className="text-red-600 hover:text-red-800"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
