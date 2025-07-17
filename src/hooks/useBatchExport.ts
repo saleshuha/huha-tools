@@ -65,22 +65,25 @@ export const useBatchExport = () => {
       const maxZipSize = 49 * 1024 * 1024; // 49MB in bytes
       const originalName = targetData.fileName.replace(/\.[^/.]+$/, '');
 
-      let currentZip = new JSZip();
-      let zipCount = 1;
-      let fileCount = 1;
-      let totalRowsExported = 0;
-      const zipPromises: Promise<void>[] = [];
+      // Pre-process all mapped data first to avoid blocking UI
+      toast({
+        title: "Processing files...",
+        description: "Mapping all source files, please wait",
+      });
 
-      // Process all source files
-      for (const sourceFile of sourceFiles) {
+      const allMappedData: string[][] = [];
+      let totalRowsProcessed = 0;
+
+      // Process files in chunks to prevent UI blocking
+      for (let i = 0; i < sourceFiles.length; i++) {
+        const sourceFile = sourceFiles[i];
         const mappings = sourceFile.mappings;
+        
         if (!mappings || Object.keys(mappings).length === 0) {
           continue;
         }
 
-        // Prepare mapped data rows for this source file
-        const mappedRows: string[][] = [];
-        
+        // Process this source file's data
         sourceFile.data.data.forEach(sourceRow => {
           const targetRow = new Array(targetData.headers.length).fill('');
           Object.entries(mappings).forEach(([sourceCol, targetCol]) => {
@@ -91,83 +94,109 @@ export const useBatchExport = () => {
               targetRow[targetIndex] = value !== undefined ? String(value) : '';
             }
           });
-          mappedRows.push(targetRow);
+          allMappedData.push(targetRow);
         });
 
-        // Add rows to current CSV data
-        let currentCSVData = [targetData.headers];
-        
-        for (const row of mappedRows) {
-          const testCSVData = [...currentCSVData, row];
-          const csvContent = arrayToCSV(testCSVData);
-          const csvSize = getFileSizeInBytes(csvContent);
+        totalRowsProcessed += sourceFile.data.data.length;
 
-          // Check if adding this row would exceed 49MB for a single CSV
-          if (csvSize > maxZipSize && currentCSVData.length > 1) {
-            // Save current CSV to zip
-            const finalCSVContent = arrayToCSV(currentCSVData);
-            const fileName = `${originalName}_mapped_part${fileCount}.csv`;
-            
-            // Check if adding this file would exceed zip size limit
-            // Simple check: if current zip has files and this CSV is large, create new zip
-            const currentZipKeys = Object.keys(currentZip.files);
-            const csvSize = getFileSizeInBytes(finalCSVContent);
-            
-            if (currentZipKeys.length > 0 && csvSize > maxZipSize * 0.8) {
-              // Download current zip and create new one
-              zipPromises.push(downloadZip(currentZip, `${originalName}_mapped_files_${zipCount}.zip`));
-              zipCount++;
-              currentZip = new JSZip();
-            }
-            
-            // Add file to zip
-            currentZip.file(fileName, finalCSVContent);
-            fileCount++;
-            totalRowsExported += currentCSVData.length - 1; // Subtract header
-            
-            // Reset for next CSV with headers and current row
-            currentCSVData = [targetData.headers, row];
-          } else {
-            // Add row to current CSV
-            currentCSVData.push(row);
-          }
+        // Add a small delay every 5 files to prevent blocking
+        if (i % 5 === 0 && i > 0) {
+          await new Promise(resolve => setTimeout(resolve, 10));
         }
+      }
 
-        // Handle remaining data from this source file
-        if (currentCSVData.length > 1) {
+      if (allMappedData.length === 0) {
+        toast({
+          title: "No data to export",
+          description: "Please check your mappings and try again",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Now create zip files based on 49MB limit
+      toast({
+        title: "Creating export files...",
+        description: "Generating zip files, please wait",
+      });
+
+      let currentZip = new JSZip();
+      let zipCount = 1;
+      let fileCount = 1;
+      let currentCSVData = [targetData.headers];
+      let currentZipSize = 0;
+      const zipPromises: Promise<void>[] = [];
+
+      for (let i = 0; i < allMappedData.length; i++) {
+        const row = allMappedData[i];
+        const testCSVData = [...currentCSVData, row];
+        const csvContent = arrayToCSV(testCSVData);
+        const csvSize = getFileSizeInBytes(csvContent);
+
+        // Check if adding this row would exceed 49MB for a single CSV file
+        if (csvSize > maxZipSize && currentCSVData.length > 1) {
+          // Current CSV is getting too large, finalize it
           const finalCSVContent = arrayToCSV(currentCSVData);
           const fileName = `${originalName}_mapped_part${fileCount}.csv`;
-          
-          // Check if adding this file would exceed zip size limit
-          // Simple check: if current zip has files and this CSV is large, create new zip
-          const currentZipKeys = Object.keys(currentZip.files);
-          const csvSize = getFileSizeInBytes(finalCSVContent);
-          
-          if (currentZipKeys.length > 0 && csvSize > maxZipSize * 0.8) {
+          const finalCSVSize = getFileSizeInBytes(finalCSVContent);
+
+          // Check if adding this CSV would exceed the current zip size
+          if (currentZipSize + finalCSVSize > maxZipSize && Object.keys(currentZip.files).length > 0) {
             // Download current zip and create new one
-            zipPromises.push(downloadZip(currentZip, `${originalName}_mapped_files_${zipCount}.zip`));
+            zipPromises.push(downloadZip(currentZip, `${originalName}_batch_${zipCount}.zip`));
             zipCount++;
             currentZip = new JSZip();
+            currentZipSize = 0;
           }
-          
-          // Add file to zip
+
+          // Add CSV to current zip
           currentZip.file(fileName, finalCSVContent);
+          currentZipSize += finalCSVSize;
           fileCount++;
-          totalRowsExported += currentCSVData.length - 1; // Subtract header
+
+          // Start new CSV with headers and current row
+          currentCSVData = [targetData.headers, row];
+        } else {
+          // Add row to current CSV
+          currentCSVData.push(row);
         }
+
+        // Add small delay every 1000 rows to prevent blocking
+        if (i % 1000 === 0 && i > 0) {
+          await new Promise(resolve => setTimeout(resolve, 5));
+        }
+      }
+
+      // Handle remaining data
+      if (currentCSVData.length > 1) {
+        const finalCSVContent = arrayToCSV(currentCSVData);
+        const fileName = `${originalName}_mapped_part${fileCount}.csv`;
+        const finalCSVSize = getFileSizeInBytes(finalCSVContent);
+
+        // Check if adding this CSV would exceed the current zip size
+        if (currentZipSize + finalCSVSize > maxZipSize && Object.keys(currentZip.files).length > 0) {
+          // Download current zip and create new one
+          zipPromises.push(downloadZip(currentZip, `${originalName}_batch_${zipCount}.zip`));
+          zipCount++;
+          currentZip = new JSZip();
+        }
+
+        // Add final CSV to zip
+        currentZip.file(fileName, finalCSVContent);
+        fileCount++;
       }
 
       // Download final zip if it has files
       if (Object.keys(currentZip.files).length > 0) {
-        zipPromises.push(downloadZip(currentZip, `${originalName}_mapped_files_${zipCount}.zip`));
+        zipPromises.push(downloadZip(currentZip, `${originalName}_batch_${zipCount}.zip`));
       }
 
-      // Wait for all downloads to complete
+      // Download all zip files
       await Promise.all(zipPromises);
 
       toast({
         title: "Batch export successful",
-        description: `Exported ${totalRowsExported} rows from ${sourceFiles.length} source files in ${zipCount} zip file(s)`,
+        description: `Exported ${totalRowsProcessed} rows from ${sourceFiles.length} source files in ${zipCount} zip file(s)`,
       });
       
     } catch (error) {
