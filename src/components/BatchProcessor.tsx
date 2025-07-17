@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
@@ -11,9 +12,8 @@ import { DropdownMappingView } from './mapping/DropdownMappingView';
 import { ClickConnectMappingView } from './mapping/ClickConnectMappingView';
 
 import { useToast } from '@/hooks/use-toast';
-import { useExcelExport } from '@/hooks/useExcelExport';
 import { useBatchExport } from '@/hooks/useBatchExport';
-import { FileSpreadsheet, Play, Pause, RotateCcw, Download, CheckCircle, AlertCircle, Clock, ArrowLeft, Home } from 'lucide-react';
+import { FileSpreadsheet, Download, CheckCircle, AlertCircle, Clock, ArrowLeft } from 'lucide-react';
 import { ExcelData, ColumnMapping } from '@/types/excel';
 import { MappingMethod } from '@/types/mappingMethods';
 
@@ -31,12 +31,10 @@ export const BatchProcessor = () => {
   const [mappingMethod, setMappingMethod] = useState<MappingMethod>('dropdown');
   const [templateMappings, setTemplateMappings] = useState<ColumnMapping>({});
   const [isProcessing, setIsProcessing] = useState(false);
-  const [currentFileIndex, setCurrentFileIndex] = useState<number>(-1);
   const [showMappingSetup, setShowMappingSetup] = useState(false);
   
   const { toast } = useToast();
-  const { exportMappedData } = useExcelExport();
-  const { exportBatchData } = useBatchExport();
+  const { exportIndividualFiles } = useBatchExport();
 
   const handleTargetUpload = useCallback((data: ExcelData) => {
     setTargetData(data);
@@ -66,7 +64,6 @@ export const BatchProcessor = () => {
 
   const clearAllFiles = useCallback(() => {
     setSourceFiles([]);
-    setCurrentFileIndex(-1);
     setIsProcessing(false);
   }, []);
 
@@ -148,17 +145,39 @@ export const BatchProcessor = () => {
     setIsProcessing(true);
 
     try {
-      const batchFiles = filesWithMappings.map(file => ({
-        id: file.id,
-        data: file.data,
-        mappings: file.mappings || templateMappings
-      }));
+      // Process each file individually
+      for (let i = 0; i < filesWithMappings.length; i++) {
+        const file = filesWithMappings[i];
+        
+        setSourceFiles(prev => prev.map(f => 
+          f.id === file.id ? { ...f, status: 'processing' } : f
+        ));
 
-      await exportBatchData(batchFiles, targetData);
+        try {
+          await exportIndividualFiles([file], targetData);
+          
+          setSourceFiles(prev => prev.map(f => 
+            f.id === file.id ? { ...f, status: 'completed' } : f
+          ));
+
+          toast({
+            title: "File exported",
+            description: `${file.data.fileName} exported as individual zip`,
+          });
+        } catch (error) {
+          setSourceFiles(prev => prev.map(f => 
+            f.id === file.id ? { 
+              ...f, 
+              status: 'error', 
+              error: error instanceof Error ? error.message : 'Export failed'
+            } : f
+          ));
+        }
+      }
 
       toast({
         title: "Batch export completed",
-        description: `Successfully exported ${filesWithMappings.length} files in 49MB chunks`,
+        description: `Successfully exported ${filesWithMappings.length} individual zip files`,
       });
     } catch (error) {
       toast({
@@ -169,74 +188,7 @@ export const BatchProcessor = () => {
     } finally {
       setIsProcessing(false);
     }
-  }, [sourceFiles, targetData, templateMappings, exportBatchData, toast]);
-
-  const processFiles = useCallback(async () => {
-    if (!targetData) {
-      toast({
-        title: "No target file",
-        description: "Please upload a target file first",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setIsProcessing(true);
-    
-    for (let i = 0; i < sourceFiles.length; i++) {
-      const file = sourceFiles[i];
-      if (file.status === 'completed') continue;
-
-      setCurrentFileIndex(i);
-      setSourceFiles(prev => prev.map((f, idx) => 
-        idx === i ? { ...f, status: 'processing' } : f
-      ));
-
-      try {
-        await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate processing time
-        
-        const mappings = file.mappings || templateMappings;
-        if (Object.keys(mappings).length === 0) {
-          throw new Error('No mappings defined for this file');
-        }
-
-        // Note: Individual file export will be replaced by batch export
-        // This is kept for single file processing within batch
-        await exportMappedData(file.data, targetData, mappings);
-        
-        setSourceFiles(prev => prev.map((f, idx) => 
-          idx === i ? { ...f, status: 'completed' } : f
-        ));
-
-        toast({
-          title: "File processed",
-          description: `${file.data.fileName} exported successfully`,
-        });
-      } catch (error) {
-        setSourceFiles(prev => prev.map((f, idx) => 
-          idx === i ? { 
-            ...f, 
-            status: 'error', 
-            error: error instanceof Error ? error.message : 'Unknown error'
-          } : f
-        ));
-        
-        toast({
-          title: "Processing failed",
-          description: `Failed to process ${file.data.fileName}`,
-          variant: "destructive"
-        });
-      }
-    }
-
-    setIsProcessing(false);
-    setCurrentFileIndex(-1);
-    
-    toast({
-      title: "Batch processing completed",
-      description: "All files have been processed",
-    });
-  }, [sourceFiles, targetData, templateMappings, exportMappedData, toast]);
+  }, [sourceFiles, targetData, exportIndividualFiles, toast]);
 
   const getStatusIcon = (status: BatchFile['status']) => {
     switch (status) {
@@ -271,7 +223,6 @@ export const BatchProcessor = () => {
     return (
       <div className="min-h-screen bg-gradient-surface p-6">
         <div className="max-w-4xl mx-auto space-y-6">
-          {/* Header with Back Button */}
           <div className="flex items-center justify-between">
             <Button
               variant="default"
@@ -283,7 +234,7 @@ export const BatchProcessor = () => {
             </Button>
             <Link to="/">
               <Button variant="ghost" size="sm" className="flex items-center gap-2">
-                <Home className="w-4 h-4" />
+                <ArrowLeft className="w-4 h-4" />
                 Single File Mapper
               </Button>
             </Link>
@@ -340,16 +291,15 @@ export const BatchProcessor = () => {
   return (
     <div className="min-h-screen bg-gradient-surface p-6">
       <div className="max-w-6xl mx-auto space-y-6">
-        {/* Header with Navigation */}
         <div className="flex items-center justify-between">
-          <div className="w-32" /> {/* Spacer for center alignment */}
+          <div className="w-32" />
           <div className="text-center flex-1">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-xl bg-primary shadow-soft mb-4">
               <FileSpreadsheet className="w-8 h-8 text-primary-foreground" />
             </div>
             <h1 className="text-4xl font-bold mb-2">Batch File Processor</h1>
             <p className="text-muted-foreground text-lg">
-              Process multiple source files with the same target structure automatically
+              Process multiple source files and export each as individual zip files
             </p>
           </div>
           <Link to="/">
@@ -360,9 +310,7 @@ export const BatchProcessor = () => {
           </Link>
         </div>
 
-        {/* File Uploads */}
         <div className="grid lg:grid-cols-2 gap-6">
-          {/* Target File */}
           <Card className="p-6">
             <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
               <FileSpreadsheet className="w-5 h-5 text-accent" />
@@ -401,7 +349,6 @@ export const BatchProcessor = () => {
             )}
           </Card>
 
-          {/* Source Files */}
           <Card className="p-6">
             <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
               <FileSpreadsheet className="w-5 h-5 text-primary" />
@@ -410,14 +357,13 @@ export const BatchProcessor = () => {
             <FileUpload
               onFileUpload={handleSourceFilesUpload}
               title="Upload Source Files"
-              description="Upload multiple files to process in batch"
+              description="Upload multiple files to process individually"
               accept=".xlsx,.xls"
               multiple={true}
             />
           </Card>
         </div>
 
-        {/* Progress and Controls */}
         {sourceFiles.length > 0 && (
           <Card className="p-6">
             <div className="space-y-4">
@@ -432,28 +378,18 @@ export const BatchProcessor = () => {
                     Setup Mappings
                   </Button>
                   <Button
-                    onClick={processFiles}
-                    disabled={!targetData || Object.keys(templateMappings).length === 0 || isProcessing}
-                    className="flex items-center gap-2"
-                  >
-                    <Play className="w-4 h-4" />
-                    Process Individual Files
-                  </Button>
-                  <Button
                     onClick={exportAllFiles}
                     disabled={!targetData || Object.keys(templateMappings).length === 0 || isProcessing}
                     className="flex items-center gap-2 bg-accent hover:bg-accent/90"
-                    variant="outline"
                   >
                     <Download className="w-4 h-4" />
-                    Export All as Batch
+                    Export Individual Zip Files
                   </Button>
                   <Button
                     onClick={clearAllFiles}
                     disabled={isProcessing}
                     variant="outline"
                   >
-                    <RotateCcw className="w-4 h-4" />
                     Clear All
                   </Button>
                 </div>
@@ -477,7 +413,7 @@ export const BatchProcessor = () => {
                 <Alert>
                   <AlertDescription>
                     Template mappings configured for {Object.keys(templateMappings).length} columns.
-                    Ready to process files.
+                    Ready to export individual zip files.
                   </AlertDescription>
                 </Alert>
               )}
@@ -485,17 +421,14 @@ export const BatchProcessor = () => {
           </Card>
         )}
 
-        {/* File List */}
         {sourceFiles.length > 0 && (
           <Card className="p-6">
             <h3 className="text-lg font-semibold mb-4">Files in Queue</h3>
             <div className="space-y-2">
-              {sourceFiles.map((file, index) => (
+              {sourceFiles.map((file) => (
                 <div
                   key={file.id}
-                  className={`flex items-center justify-between p-3 rounded-lg border ${
-                    currentFileIndex === index ? 'border-primary bg-primary/5' : 'border-border'
-                  }`}
+                  className="flex items-center justify-between p-3 rounded-lg border border-border"
                 >
                   <div className="flex items-center space-x-3">
                     {getStatusIcon(file.status)}

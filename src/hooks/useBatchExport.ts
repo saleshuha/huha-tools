@@ -1,3 +1,4 @@
+
 import { useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { ExcelData, ColumnMapping } from '@/types/excel';
@@ -11,11 +12,6 @@ interface BatchFile {
 
 export const useBatchExport = () => {
   const { toast } = useToast();
-
-  // Helper function to get file size in bytes
-  const getFileSizeInBytes = (content: string): number => {
-    return new Blob([content]).size;
-  };
 
   // Helper function to convert array to CSV content
   const arrayToCSV = (data: string[][]): string => {
@@ -48,7 +44,7 @@ export const useBatchExport = () => {
     }
   };
 
-  const exportBatchData = useCallback(async (
+  const exportIndividualFiles = useCallback(async (
     sourceFiles: BatchFile[],
     targetData: ExcelData | null
   ) => {
@@ -62,18 +58,6 @@ export const useBatchExport = () => {
     }
 
     try {
-      const originalName = targetData.fileName.replace(/\.[^/.]+$/, '');
-
-      // Step 1: Process ALL files first
-      toast({
-        title: "Processing files...",
-        description: "Mapping all source files, please wait",
-      });
-
-      const allMappedData: string[][] = [];
-      let totalRowsProcessed = 0;
-
-      // Process all files completely first
       for (const sourceFile of sourceFiles) {
         const mappings = sourceFile.mappings;
         
@@ -82,6 +66,8 @@ export const useBatchExport = () => {
         }
 
         // Process this source file's data
+        const mappedData: string[][] = [];
+        
         for (const sourceRow of sourceFile.data.data) {
           const targetRow = new Array(targetData.headers.length).fill('');
           Object.entries(mappings).forEach(([sourceCol, targetCol]) => {
@@ -92,52 +78,38 @@ export const useBatchExport = () => {
               targetRow[targetIndex] = value !== undefined ? String(value) : '';
             }
           });
-          allMappedData.push(targetRow);
+          mappedData.push(targetRow);
         }
 
-        totalRowsProcessed += sourceFile.data.data.length;
+        if (mappedData.length === 0) {
+          continue;
+        }
+
+        // Create individual zip file for this source file
+        const zip = new JSZip();
+        const csvData = [targetData.headers, ...mappedData];
+        const csvContent = arrayToCSV(csvData);
+        
+        const originalName = sourceFile.data.fileName.replace(/\.[^/.]+$/, '');
+        const csvFileName = `${originalName}_mapped.csv`;
+        
+        // Add CSV to zip
+        zip.file(csvFileName, csvContent);
+
+        // Download individual zip file
+        const zipFileName = `${originalName}_export.zip`;
+        await downloadZip(zip, zipFileName);
       }
-
-      if (allMappedData.length === 0) {
-        toast({
-          title: "No data to export",
-          description: "Please check your mappings and try again",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      // Step 2: Create single zip file from processed data
-      toast({
-        title: "Creating export file...",
-        description: `Creating zip file from ${totalRowsProcessed} processed rows`,
-      });
-
-      const zip = new JSZip();
-      const allCSVData = [targetData.headers, ...allMappedData];
-      const csvContent = arrayToCSV(allCSVData);
-      const fileName = `${originalName}_mapped_complete.csv`;
-
-      // Add CSV to zip
-      zip.file(fileName, csvContent);
-
-      // Download single zip file
-      await downloadZip(zip, `${originalName}_batch_export.zip`);
-
-      toast({
-        title: "Batch export successful",
-        description: `Exported ${totalRowsProcessed} rows from ${sourceFiles.length} source files in single zip file`,
-      });
       
     } catch (error) {
-      console.error('Error during batch export:', error);
+      console.error('Error during individual file export:', error);
       toast({
         title: "Export error",
-        description: "Failed to export batch files. Please try again.",
+        description: "Failed to export files. Please try again.",
         variant: "destructive"
       });
     }
   }, [toast]);
 
-  return { exportBatchData };
+  return { exportIndividualFiles };
 };
