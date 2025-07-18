@@ -180,15 +180,15 @@ const Homepage = () => {
         </Dialog>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-1">
+      <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+        <Card className="xl:col-span-3">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <CalendarIcon className="h-5 w-5" />
-              Calendar
+              Calendar & Task Manager
             </CardTitle>
             <CardDescription>
-              Select a date to view and manage your tasks
+              Click on any date to view and manage your tasks for that day
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -196,77 +196,95 @@ const Homepage = () => {
               mode="single"
               selected={selectedDate}
               onSelect={(date) => date && setSelectedDate(date)}
-              className="rounded-md border p-3 pointer-events-auto"
+              className="rounded-md border p-6 pointer-events-auto w-full mx-auto"
+              classNames={{
+                months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
+                month: "space-y-4 w-full",
+                caption: "flex justify-center pt-1 relative items-center text-lg font-semibold",
+                caption_label: "text-lg font-semibold",
+                nav: "space-x-1 flex items-center",
+                nav_button: "h-8 w-8 bg-transparent p-0 opacity-50 hover:opacity-100 border border-input hover:bg-accent hover:text-accent-foreground rounded-md",
+                nav_button_previous: "absolute left-1",
+                nav_button_next: "absolute right-1",
+                table: "w-full border-collapse space-y-1",
+                head_row: "flex w-full",
+                head_cell: "text-muted-foreground rounded-md w-12 font-medium text-sm flex-1 text-center py-2",
+                row: "flex w-full mt-2",
+                cell: "relative p-0 text-center text-sm focus-within:relative focus-within:z-20 flex-1",
+                day: "h-12 w-full p-0 font-medium border border-border/50 hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground rounded-md transition-colors",
+                day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground font-semibold",
+                day_today: "bg-accent text-accent-foreground font-semibold",
+                day_outside: "text-muted-foreground opacity-50",
+                day_disabled: "text-muted-foreground opacity-50",
+                day_range_middle: "aria-selected:bg-accent aria-selected:text-accent-foreground",
+                day_hidden: "invisible",
+              }}
               modifiers={{
                 hasTask: getTaskDates()
               }}
-              modifiersStyles={{
-                hasTask: {
-                  backgroundColor: 'hsl(var(--primary))',
-                  color: 'hsl(var(--primary-foreground))',
-                  borderRadius: '50%'
-                }
+              modifiersClassNames={{
+                hasTask: "bg-secondary border-primary/50 text-secondary-foreground font-semibold relative after:absolute after:top-1 after:right-1 after:h-2 after:w-2 after:bg-primary after:rounded-full"
               }}
             />
           </CardContent>
         </Card>
 
-        <Card className="lg:col-span-2">
+        <Card className="xl:col-span-1">
           <CardHeader>
             <CardTitle>
-              Tasks for {format(selectedDate, 'MMMM d, yyyy')}
+              {format(selectedDate, 'MMMM d, yyyy')}
             </CardTitle>
             <CardDescription>
-              {selectedDateTasks.length} task(s) scheduled for this date
+              {selectedDateTasks.length} task(s) scheduled
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             {selectedDateTasks.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <CalendarIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No tasks scheduled for this date</p>
-                <p className="text-sm">Click "Add Task" to create a new one</p>
+              <div className="text-center py-6 text-muted-foreground">
+                <CalendarIcon className="h-8 w-8 mx-auto mb-3 opacity-50" />
+                <p className="font-medium">No tasks for this date</p>
+                <p className="text-sm">Click "Add Task" to create one</p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-3 max-h-96 overflow-y-auto">
                 {selectedDateTasks.map((task) => (
                   <div
                     key={task.id}
-                    className={`flex items-start space-x-3 p-4 rounded-lg border transition-colors ${
+                    className={`flex items-start space-x-3 p-3 rounded-lg border transition-colors animate-fade-in ${
                       task.completed ? 'bg-muted/50 opacity-75' : 'bg-card'
                     }`}
                   >
                     <button
                       onClick={() => toggleTask(task.id)}
-                      className={`mt-0.5 ${
+                      className={`mt-0.5 transition-colors hover-scale ${
                         task.completed 
                           ? 'text-green-600' 
                           : 'text-muted-foreground hover:text-foreground'
                       }`}
                     >
-                      <CheckCircle className={`h-5 w-5 ${task.completed ? 'fill-current' : ''}`} />
+                      <CheckCircle className={`h-4 w-4 ${task.completed ? 'fill-current' : ''}`} />
                     </button>
                     
                     <div className="flex-1 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <h4 className={`font-medium ${task.completed ? 'line-through text-muted-foreground' : ''}`}>
+                      <div className="flex items-start justify-between">
+                        <h4 className={`font-medium text-sm leading-tight ${task.completed ? 'line-through text-muted-foreground' : ''}`}>
                           {task.title}
                         </h4>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="gap-1">
+                        <div className="flex items-center gap-1">
+                          <Badge variant="outline" className="gap-1 text-xs">
                             {getTaskTypeIcon(task.type)}
                             {task.type}
-                          </Badge>
-                          <Badge className={getPriorityColor(task.priority)}>
-                            {task.priority}
                           </Badge>
                         </div>
                       </div>
                       {task.description && (
-                        <p className={`text-sm ${task.completed ? 'text-muted-foreground' : 'text-muted-foreground'}`}>
+                        <p className={`text-xs ${task.completed ? 'text-muted-foreground' : 'text-muted-foreground'}`}>
                           {task.description}
                         </p>
                       )}
+                      <Badge className={`${getPriorityColor(task.priority)} text-xs`}>
+                        {task.priority}
+                      </Badge>
                     </div>
                   </div>
                 ))}

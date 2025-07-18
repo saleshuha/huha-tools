@@ -58,18 +58,18 @@ const toolsItems = [
   }
 ]
 
-const standaloneItems = [
-  {
-    title: "Sales & Ranking Tracker",
-    url: "/sales-tracking",
-    icon: TrendingUp,
-    description: "Track and analyze product sales and ranking data"
-  },
+const coreItems = [
   {
     title: "Instock Inventory",
     url: "/inventory",
     icon: Package,
     description: "Track product inventory with ASIN and serial numbers"
+  },
+  {
+    title: "Sales & Ranking Tracker",
+    url: "/sales-tracking",
+    icon: TrendingUp,
+    description: "Track and analyze product sales and ranking data"
   },
   {
     title: "Payments",
@@ -157,12 +157,44 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               ))}
 
+              {/* Core Application Items */}
+              {coreItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton 
+                    asChild
+                    className={`w-full p-4 rounded-lg transition-all duration-200 min-h-[80px] hover-scale ${
+                      isActive(item.url)
+                        ? "bg-primary text-primary-foreground shadow-md hover:bg-primary/90" 
+                        : "hover:bg-muted/70 hover:text-foreground"
+                    }`}
+                  >
+                    <NavLink 
+                      to={item.url} 
+                      end
+                      className="flex items-start gap-4 no-underline w-full h-full"
+                    >
+                      <item.icon className="h-6 w-6 flex-shrink-0 mt-1" />
+                      {!isCollapsed && (
+                        <div className="flex flex-col text-left flex-1 space-y-1">
+                          <span className="font-semibold text-base leading-tight">
+                            {item.title}
+                          </span>
+                          <span className="text-sm opacity-80 leading-relaxed">
+                            {item.description}
+                          </span>
+                        </div>
+                      )}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+
               {/* Tools dropdown */}
               <SidebarMenuItem>
                 <Collapsible open={isToolsOpen} onOpenChange={setIsToolsOpen}>
                   <CollapsibleTrigger asChild>
                     <SidebarMenuButton
-                      className={`w-full p-4 rounded-lg transition-all duration-200 min-h-[80px] ${
+                      className={`w-full p-4 rounded-lg transition-all duration-200 min-h-[80px] hover-scale ${
                         isToolsSectionActive()
                           ? "bg-primary/10 border border-primary/20 text-primary" 
                           : "hover:bg-muted/70 hover:text-foreground"
@@ -193,7 +225,7 @@ export function AppSidebar() {
                       <SidebarMenuButton 
                         key={item.title}
                         asChild
-                        className={`w-full p-3 rounded-lg transition-all duration-200 min-h-[60px] ${
+                        className={`w-full p-3 rounded-lg transition-all duration-200 min-h-[60px] hover-scale ${
                           isActive(item.url)
                             ? "bg-primary text-primary-foreground shadow-md hover:bg-primary/90" 
                             : "hover:bg-muted/50 hover:text-foreground"
@@ -221,38 +253,6 @@ export function AppSidebar() {
                   </CollapsibleContent>
                 </Collapsible>
               </SidebarMenuItem>
-
-              {/* Standalone items */}
-              {standaloneItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton 
-                    asChild
-                    className={`w-full p-4 rounded-lg transition-all duration-200 min-h-[80px] ${
-                      isActive(item.url)
-                        ? "bg-primary text-primary-foreground shadow-md hover:bg-primary/90" 
-                        : "hover:bg-muted/70 hover:text-foreground"
-                    }`}
-                  >
-                    <NavLink 
-                      to={item.url} 
-                      end
-                      className="flex items-start gap-4 no-underline w-full h-full"
-                    >
-                      <item.icon className="h-6 w-6 flex-shrink-0 mt-1" />
-                      {!isCollapsed && (
-                        <div className="flex flex-col text-left flex-1 space-y-1">
-                          <span className="font-semibold text-base leading-tight">
-                            {item.title}
-                          </span>
-                          <span className="text-sm opacity-80 leading-relaxed">
-                            {item.description}
-                          </span>
-                        </div>
-                      )}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -261,7 +261,7 @@ export function AppSidebar() {
         <Button 
           onClick={handleLogout}
           variant="outline"
-          className="w-full flex items-center gap-2 text-sm"
+          className="w-full flex items-center gap-2 text-sm hover-scale"
         >
           <LogOut className="h-4 w-4" />
           {!isCollapsed && "Sign Out"}
