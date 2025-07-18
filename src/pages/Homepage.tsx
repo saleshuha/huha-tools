@@ -115,9 +115,9 @@ const Homepage = () => {
   const nextMonth = () => setCurrentDate(addMonths(currentDate, 1));
 
   return (
-    <div className="min-h-screen bg-background ml-64">
+    <div className="min-h-screen bg-background ml-64 w-full">
       {/* Header */}
-      <div className="p-6 border-b bg-white shadow-sm">
+      <div className="p-6 border-b bg-white shadow-sm w-full">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Calendar & Tasks</h1>
           <p className="text-muted-foreground">Manage your daily tasks and schedule</p>
@@ -152,7 +152,7 @@ const Homepage = () => {
       )}
 
       {/* Calendar */}
-      <div className="p-6">
+      <div className="p-6 w-full">
         {/* Calendar Header */}
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-semibold">
@@ -169,11 +169,11 @@ const Homepage = () => {
         </div>
 
         {/* Calendar Grid */}
-        <div className="border rounded-lg overflow-hidden bg-white shadow-sm">
+        <div className="border rounded-lg overflow-hidden bg-white shadow-sm w-full">
           {/* Days of week header */}
-          <div className="grid grid-cols-7 border-b bg-gray-50">
+          <div className="grid grid-cols-7 border-b bg-gray-50 w-full">
             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-              <div key={day} className="p-4 text-center font-medium text-sm text-gray-600">
+              <div key={day} className="p-6 text-center font-medium text-lg text-gray-600">
                 {day}
               </div>
             ))}
