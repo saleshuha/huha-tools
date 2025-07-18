@@ -84,6 +84,10 @@ const Homepage = () => {
     ));
   };
 
+  const deleteTask = (taskId: string) => {
+    setTasks(tasks.filter(task => task.id !== taskId));
+  };
+
   const getTasksForDate = (date: Date) => {
     return tasks.filter(task => isSameDay(task.date, date));
   };
@@ -143,16 +147,28 @@ const Homepage = () => {
               {getTasksForDate(selectedDate).map((task) => (
                 <div
                   key={task.id}
-                  onClick={() => toggleTask(task.id)}
                   className={`
-                    px-4 py-2 rounded-lg text-sm cursor-pointer transition-all duration-300 
-                    hover:scale-105 hover:shadow-medium flex items-center gap-2
+                    px-4 py-2 rounded-lg text-sm transition-all duration-300 
+                    hover:scale-105 hover:shadow-medium flex items-center gap-2 relative group/task
                     ${task.completed ? 'line-through opacity-60' : 'shadow-soft'}
                     ${getPriorityColor(task.priority)}
                   `}
                 >
-                  {getTaskTypeIcon(task.type)}
-                  <span className="font-medium">{task.title}</span>
+                  <div 
+                    onClick={() => toggleTask(task.id)}
+                    className="flex items-center gap-2 cursor-pointer flex-1"
+                  >
+                    {getTaskTypeIcon(task.type)}
+                    <span className="font-medium">{task.title}</span>
+                  </div>
+                  {/* Delete button for tasks in header */}
+                  <button
+                    onClick={() => deleteTask(task.id)}
+                    className="w-5 h-5 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center opacity-0 group-hover/task:opacity-100 transition-opacity duration-200 hover:scale-110 ml-2"
+                    title="Delete task"
+                  >
+                    ×
+                  </button>
                 </div>
               ))}
             </div>
@@ -188,8 +204,8 @@ const Homepage = () => {
             </div>
           </div>
 
-          {/* Enhanced Calendar Grid */}
-          <div className="glass-container overflow-hidden h-full flex flex-col animate-fade-in-scale">
+          {/* Enhanced Calendar Grid with proper height */}
+          <div className="glass-container overflow-hidden flex flex-col animate-fade-in-scale" style={{ height: 'calc(100vh - 280px)' }}>
             {/* Enhanced Days of week header */}
             <div className="grid grid-cols-7 border-b border-border bg-gradient-primary flex-shrink-0">
               {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((day, index) => (
@@ -200,8 +216,8 @@ const Homepage = () => {
               ))}
             </div>
 
-            {/* Enhanced Calendar Days */}
-            <div className="grid grid-cols-7 flex-1">
+            {/* Enhanced Calendar Days with proper grid */}
+            <div className="grid grid-cols-7 flex-1 auto-rows-fr">
               {calendarDays.map((day, index) => {
                 const dayTasks = getTasksForDate(day);
                 const isCurrentMonth = isSameMonth(day, currentDate);
@@ -217,7 +233,7 @@ const Homepage = () => {
                     }}
                     className={`
                       p-3 border-r border-b border-border cursor-pointer transition-all duration-300 
-                      flex flex-col h-full hover:bg-accent/20 hover:scale-[1.02] group
+                      flex flex-col min-h-[120px] hover:bg-accent/20 hover:scale-[1.02] group
                       ${!isCurrentMonth ? 'bg-muted/30 text-muted-foreground' : 'bg-card'}
                       ${isToday ? 'bg-gradient-accent ring-2 ring-accent/30' : ''}
                       ${isSelected ? 'bg-primary/10 ring-2 ring-primary/50' : ''}
@@ -234,27 +250,40 @@ const Homepage = () => {
                       {format(day, 'd')}
                     </div>
 
-                    {/* Enhanced Tasks for this day */}
+                    {/* Enhanced Tasks for this day with delete option */}
                     <div className="space-y-1.5 flex-1 overflow-hidden">
                       {dayTasks.slice(0, 3).map((task, taskIndex) => (
                         <div
                           key={task.id}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleTask(task.id);
-                          }}
                           className={`
                             text-xs p-2 rounded-md border cursor-pointer transition-all duration-300
-                            hover:scale-105 hover:shadow-soft transform
+                            hover:scale-105 hover:shadow-soft transform group/task relative
                             ${task.completed ? 'line-through opacity-60' : 'shadow-soft'}
                             ${getPriorityColor(task.priority)}
                           `}
                           style={{ animationDelay: `${taskIndex * 100}ms` }}
                         >
-                          <div className="flex items-center gap-1.5">
+                          <div 
+                            className="flex items-center gap-1.5"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleTask(task.id);
+                            }}
+                          >
                             {getTaskTypeIcon(task.type)}
-                            <span className="truncate font-medium">{task.title}</span>
+                            <span className="truncate font-medium flex-1">{task.title}</span>
                           </div>
+                          {/* Delete button - appears on hover */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteTask(task.id);
+                            }}
+                            className="absolute -top-1 -right-1 w-4 h-4 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center opacity-0 group-hover/task:opacity-100 transition-opacity duration-200 hover:scale-110"
+                            title="Delete task"
+                          >
+                            ×
+                          </button>
                         </div>
                       ))}
                       {dayTasks.length > 3 && (
