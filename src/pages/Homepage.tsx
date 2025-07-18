@@ -195,7 +195,7 @@ const Homepage = () => {
                     setIsDialogOpen(true);
                   }}
                   className={`
-                    min-h-[140px] p-2 border-r border-b cursor-pointer transition-colors hover:bg-gray-50
+                    min-h-[200px] p-4 border-r border-b cursor-pointer transition-colors hover:bg-gray-50
                     ${!isCurrentMonth ? 'bg-gray-50 text-gray-400' : ''}
                     ${isToday ? 'bg-blue-50' : ''}
                     ${isSelected ? 'bg-primary/10 border-primary' : ''}
