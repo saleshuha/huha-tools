@@ -62,6 +62,7 @@ export type Database = {
           platform: string
           region: string
           status: string
+          store_name: string | null
           updated_at: string
           user_id: string
         }
@@ -73,6 +74,7 @@ export type Database = {
           platform: string
           region: string
           status?: string
+          store_name?: string | null
           updated_at?: string
           user_id: string
         }
@@ -84,6 +86,7 @@ export type Database = {
           platform?: string
           region?: string
           status?: string
+          store_name?: string | null
           updated_at?: string
           user_id?: string
         }

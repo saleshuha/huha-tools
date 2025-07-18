@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils';
 import type { Payment } from './PaymentsManager';
 
 interface PaymentFormProps {
-  onSubmit: (payment: { platform: string; region: 'UAE' | 'KSA'; amount: number; status: 'Unpaid' | 'Paid' | 'Reversed'; payment_date?: string }) => void;
+  onSubmit: (payment: { platform: string; store_name?: string; region: 'UAE' | 'KSA'; amount: number; status: 'Unpaid' | 'Paid' | 'Reversed'; payment_date?: string }) => void;
   onCancel: () => void;
 }
 
@@ -20,6 +20,7 @@ const regions: Array<'UAE' | 'KSA'> = ['UAE', 'KSA'];
 
 export function PaymentForm({ onSubmit, onCancel }: PaymentFormProps) {
   const [platform, setPlatform] = useState('');
+  const [storeName, setStoreName] = useState('');
   const [region, setRegion] = useState<'UAE' | 'KSA' | ''>('');
   const [amount, setAmount] = useState('');
   const [paymentDate, setPaymentDate] = useState<Date>();
@@ -38,6 +39,7 @@ export function PaymentForm({ onSubmit, onCancel }: PaymentFormProps) {
 
     onSubmit({
       platform,
+      store_name: storeName || undefined,
       region: region as 'UAE' | 'KSA',
       amount: numericAmount,
       status: 'Unpaid',
@@ -46,6 +48,7 @@ export function PaymentForm({ onSubmit, onCancel }: PaymentFormProps) {
 
     // Reset form
     setPlatform('');
+    setStoreName('');
     setRegion('');
     setAmount('');
     setPaymentDate(undefined);
@@ -69,31 +72,49 @@ export function PaymentForm({ onSubmit, onCancel }: PaymentFormProps) {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="region">Region/Market</Label>
-          <Select value={region} onValueChange={(value) => setRegion(value as 'UAE' | 'KSA')}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select region" />
-            </SelectTrigger>
-            <SelectContent>
-              {regions.map((r) => (
-                <SelectItem key={r} value={r}>{r}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Label htmlFor="storeName">Store Name (Optional)</Label>
+          <Input
+            id="storeName"
+            type="text"
+            placeholder="Enter store name"
+            value={storeName}
+            onChange={(e) => setStoreName(e.target.value)}
+          />
         </div>
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="amount">Amount (AED)</Label>
+        <Label htmlFor="region">Region/Market</Label>
+        <Select value={region} onValueChange={(value) => setRegion(value as 'UAE' | 'KSA')}>
+          <SelectTrigger>
+            <SelectValue placeholder="Select region" />
+          </SelectTrigger>
+          <SelectContent>
+            {regions.map((r) => (
+              <SelectItem key={r} value={r}>{r}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="amount">
+          Amount ({region === 'UAE' ? 'AED' : region === 'KSA' ? 'SAR' : 'Currency'})
+        </Label>
         <Input
           id="amount"
           type="number"
           min="0"
           step="0.01"
-          placeholder="Enter amount"
+          placeholder={`Enter amount in ${region === 'UAE' ? 'AED' : region === 'KSA' ? 'SAR' : 'local currency'}`}
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
         />
+        {region && (
+          <p className="text-xs text-muted-foreground">
+            Currency will be set to {region === 'UAE' ? 'AED' : 'SAR'} based on selected region
+          </p>
+        )}
       </div>
 
       <div className="space-y-2">

@@ -13,6 +13,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 export interface Payment {
   id: string;
   platform: string;
+  store_name: string | null;
   region: 'UAE' | 'KSA';
   amount: number;
   status: 'Unpaid' | 'Paid' | 'Reversed';
@@ -60,12 +61,13 @@ export function PaymentsManager() {
     }
   };
 
-  const addPayment = async (newPayment: { platform: string; region: 'UAE' | 'KSA'; amount: number; status: 'Unpaid' | 'Paid' | 'Reversed'; payment_date?: string }) => {
+  const addPayment = async (newPayment: { platform: string; store_name?: string; region: 'UAE' | 'KSA'; amount: number; status: 'Unpaid' | 'Paid' | 'Reversed'; payment_date?: string }) => {
     try {
       const { data, error } = await supabase
         .from('payments')
         .insert([{
           platform: newPayment.platform,
+          store_name: newPayment.store_name || null,
           region: newPayment.region,
           amount: newPayment.amount,
           status: newPayment.status,
@@ -158,26 +160,46 @@ export function PaymentsManager() {
     }, {} as Record<Payment['status'], number>);
   };
 
+  const getCurrencyTotals = () => {
+    const totals = { AED: 0, SAR: 0 };
+    payments.forEach(payment => {
+      if (payment.region === 'UAE') {
+        totals.AED += payment.amount;
+      } else if (payment.region === 'KSA') {
+        totals.SAR += payment.amount;
+      }
+    });
+    return totals;
+  };
+
   const getMonthlyData = () => {
-    const monthlyTotals: Record<string, number> = {};
+    const monthlyTotals: Record<string, { AED: number; SAR: number }> = {};
     payments.forEach(payment => {
       const date = new Date(payment.payment_date || payment.created_at);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      monthlyTotals[monthKey] = (monthlyTotals[monthKey] || 0) + payment.amount;
+      
+      if (!monthlyTotals[monthKey]) {
+        monthlyTotals[monthKey] = { AED: 0, SAR: 0 };
+      }
+      
+      if (payment.region === 'UAE') {
+        monthlyTotals[monthKey].AED += payment.amount;
+      } else if (payment.region === 'KSA') {
+        monthlyTotals[monthKey].SAR += payment.amount;
+      }
     });
     
     return Object.entries(monthlyTotals)
-      .map(([month, amount]) => ({
+      .map(([month, amounts]) => ({
         month,
-        amount,
-        amountSAR: amount * 1.02 // Convert AED to SAR (approximate rate)
+        AED: amounts.AED,
+        SAR: amounts.SAR
       }))
       .sort((a, b) => a.month.localeCompare(b.month));
   };
 
   const statusCounts = getStatusCounts();
-  const totalAmount = payments.reduce((sum, payment) => sum + payment.amount, 0);
-  const totalAmountSAR = totalAmount * 1.02; // Convert AED to SAR
+  const currencyTotals = getCurrencyTotals();
   const monthlyData = getMonthlyData();
 
   if (loading) {
@@ -223,18 +245,20 @@ export function PaymentsManager() {
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Total Amount (AED)</CardTitle>
+              <CardTitle className="text-sm font-medium">Total AED (UAE)</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">AED {totalAmount.toLocaleString()}</div>
+              <div className="text-2xl font-bold text-blue-600">AED {currencyTotals.AED.toLocaleString()}</div>
+              <div className="text-sm text-muted-foreground">UAE Region</div>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Total Amount (SAR)</CardTitle>
+              <CardTitle className="text-sm font-medium">Total SAR (KSA)</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">SAR {totalAmountSAR.toLocaleString('en-US', { maximumFractionDigits: 2 })}</div>
+              <div className="text-2xl font-bold text-green-600">SAR {currencyTotals.SAR.toLocaleString()}</div>
+              <div className="text-sm text-muted-foreground">KSA Region</div>
             </CardContent>
           </Card>
           <Card>
@@ -258,8 +282,8 @@ export function PaymentsManager() {
         {/* Monthly Chart */}
         <Card>
           <CardHeader>
-            <CardTitle>Monthly Payment Trends</CardTitle>
-            <CardDescription>Payment amounts by month in SAR</CardDescription>
+            <CardTitle>Monthly Payment Trends by Currency</CardTitle>
+            <CardDescription>Payment amounts by month for AED and SAR</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-80">
@@ -269,10 +293,14 @@ export function PaymentsManager() {
                   <XAxis dataKey="month" />
                   <YAxis />
                   <Tooltip 
-                    formatter={(value: number) => [`SAR ${value.toLocaleString()}`, 'Amount']}
+                    formatter={(value: number, name: string) => [
+                      `${name} ${value.toLocaleString()}`, 
+                      name === 'AED' ? 'UAE Payments' : 'KSA Payments'
+                    ]}
                     labelFormatter={(label) => `Month: ${label}`}
                   />
-                  <Bar dataKey="amountSAR" fill="#8884d8" />
+                  <Bar dataKey="AED" fill="#3b82f6" name="AED" />
+                  <Bar dataKey="SAR" fill="#10b981" name="SAR" />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -314,9 +342,9 @@ export function PaymentsManager() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Platform</TableHead>
+                    <TableHead>Store Name</TableHead>
                     <TableHead>Region</TableHead>
-                    <TableHead>Amount (AED)</TableHead>
-                    <TableHead>Amount (SAR)</TableHead>
+                    <TableHead>Amount</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Payment Date</TableHead>
                     <TableHead>Created</TableHead>
@@ -327,9 +355,11 @@ export function PaymentsManager() {
                   {payments.map((payment) => (
                     <TableRow key={payment.id}>
                       <TableCell className="font-medium">{payment.platform}</TableCell>
+                      <TableCell className="text-muted-foreground">{payment.store_name || 'Not specified'}</TableCell>
                       <TableCell>{payment.region}</TableCell>
-                      <TableCell>AED {payment.amount.toLocaleString()}</TableCell>
-                      <TableCell className="text-green-600">SAR {(payment.amount * 1.02).toLocaleString('en-US', { maximumFractionDigits: 2 })}</TableCell>
+                      <TableCell className={payment.region === 'UAE' ? 'text-blue-600' : 'text-green-600'}>
+                        {payment.region === 'UAE' ? 'AED' : 'SAR'} {payment.amount.toLocaleString()}
+                      </TableCell>
                       <TableCell>
                         <Select 
                           value={payment.status} 
