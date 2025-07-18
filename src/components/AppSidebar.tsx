@@ -121,7 +121,7 @@ export function AppSidebar() {
       <SidebarContent className="bg-gradient-surface">
         <SidebarGroup>
           <SidebarGroupLabel className="text-sidebar-foreground/80 font-bold px-6 py-4 text-base">
-            🚀 HuHa Dashboard
+            HuHa Dashboard
           </SidebarGroupLabel>
           <SidebarGroupContent className="px-3">
             <SidebarMenu className="space-y-2">
@@ -206,7 +206,7 @@ export function AppSidebar() {
                           <div className="flex flex-col text-left flex-1 space-y-1">
                             <div className="flex items-center justify-between">
                               <span className="font-bold text-base leading-tight">
-                                🛠️ Tools
+                                Tools
                               </span>
                               <ChevronDown className={`h-4 w-4 transition-transform duration-300 ${
                                 isToolsOpen ? "rotate-180" : ""

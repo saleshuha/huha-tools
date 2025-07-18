@@ -208,7 +208,7 @@ const Homepage = () => {
                       flex flex-col hover:bg-accent/20 hover:scale-[1.01] group relative overflow-hidden
                       ${!isCurrentMonth ? 'bg-muted/30 text-muted-foreground' : 'bg-card'}
                       ${isToday ? 'bg-gradient-accent ring-2 ring-accent/30' : ''}
-                      ${isSelected ? 'bg-primary/10 ring-2 ring-primary/50' : ''}
+                      ${isSelected ? 'bg-primary/20 ring-2 ring-primary border-primary' : ''}
                     `}
                     style={{ minHeight: '100px' }}
                   >
