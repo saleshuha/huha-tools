@@ -117,23 +117,23 @@ export function AppSidebar() {
   }
 
   return (
-    <Sidebar collapsible="icon" className="border-r w-72">
-      <SidebarContent>
+    <Sidebar collapsible="icon" className="border-r border-sidebar-border w-72 bg-sidebar shadow-strong">
+      <SidebarContent className="bg-gradient-surface">
         <SidebarGroup>
-          <SidebarGroupLabel className="text-foreground/70 font-semibold px-4 py-3">
-            Application
+          <SidebarGroupLabel className="text-sidebar-foreground/80 font-bold px-6 py-4 text-base">
+            🚀 HuHa Dashboard
           </SidebarGroupLabel>
-          <SidebarGroupContent className="px-2">
-            <SidebarMenu className="space-y-3">
+          <SidebarGroupContent className="px-3">
+            <SidebarMenu className="space-y-2">
               {/* Navigation items */}
               {navigationItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton 
                     asChild
-                    className={`w-full p-4 rounded-lg transition-all duration-200 min-h-[80px] ${
+                    className={`w-full p-4 rounded-xl transition-all duration-300 min-h-[80px] hover:scale-[1.02] group ${
                       isActive(item.url)
-                        ? "bg-primary text-primary-foreground shadow-md hover:bg-primary/90" 
-                        : "hover:bg-muted/70 hover:text-foreground"
+                        ? "bg-gradient-primary text-primary-foreground shadow-medium animate-glow-pulse" 
+                        : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground glass-container"
                     }`}
                   >
                     <NavLink 
@@ -141,10 +141,10 @@ export function AppSidebar() {
                       end
                       className="flex items-start gap-4 no-underline w-full h-full"
                     >
-                      <item.icon className="h-6 w-6 flex-shrink-0 mt-1" />
+                      <item.icon className="h-6 w-6 flex-shrink-0 mt-1 group-hover:scale-110 transition-transform duration-300" />
                       {!isCollapsed && (
                         <div className="flex flex-col text-left flex-1 space-y-1">
-                          <span className="font-semibold text-base leading-tight">
+                          <span className="font-bold text-base leading-tight">
                             {item.title}
                           </span>
                           <span className="text-sm opacity-80 leading-relaxed">
@@ -162,10 +162,10 @@ export function AppSidebar() {
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton 
                     asChild
-                    className={`w-full p-4 rounded-lg transition-all duration-200 min-h-[80px] hover-scale ${
+                    className={`w-full p-4 rounded-xl transition-all duration-300 min-h-[80px] hover:scale-[1.02] group ${
                       isActive(item.url)
-                        ? "bg-primary text-primary-foreground shadow-md hover:bg-primary/90" 
-                        : "hover:bg-muted/70 hover:text-foreground"
+                        ? "bg-gradient-primary text-primary-foreground shadow-medium animate-glow-pulse" 
+                        : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground glass-container"
                     }`}
                   >
                     <NavLink 
@@ -173,10 +173,10 @@ export function AppSidebar() {
                       end
                       className="flex items-start gap-4 no-underline w-full h-full"
                     >
-                      <item.icon className="h-6 w-6 flex-shrink-0 mt-1" />
+                      <item.icon className="h-6 w-6 flex-shrink-0 mt-1 group-hover:scale-110 transition-transform duration-300" />
                       {!isCollapsed && (
                         <div className="flex flex-col text-left flex-1 space-y-1">
-                          <span className="font-semibold text-base leading-tight">
+                          <span className="font-bold text-base leading-tight">
                             {item.title}
                           </span>
                           <span className="text-sm opacity-80 leading-relaxed">
@@ -189,26 +189,26 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               ))}
 
-              {/* Tools dropdown */}
+              {/* Enhanced Tools dropdown */}
               <SidebarMenuItem>
                 <Collapsible open={isToolsOpen} onOpenChange={setIsToolsOpen}>
                   <CollapsibleTrigger asChild>
                     <SidebarMenuButton
-                      className={`w-full p-4 rounded-lg transition-all duration-200 min-h-[80px] hover-scale ${
+                      className={`w-full p-4 rounded-xl transition-all duration-300 min-h-[80px] hover:scale-[1.02] group ${
                         isToolsSectionActive()
-                          ? "bg-primary/10 border border-primary/20 text-primary" 
-                          : "hover:bg-muted/70 hover:text-foreground"
+                          ? "bg-gradient-accent text-accent-foreground shadow-medium" 
+                          : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground glass-container"
                       }`}
                     >
                       <div className="flex items-start gap-4 w-full">
-                        <Wrench className="h-6 w-6 flex-shrink-0 mt-1" />
+                        <Wrench className="h-6 w-6 flex-shrink-0 mt-1 group-hover:scale-110 transition-transform duration-300" />
                         {!isCollapsed && (
                           <div className="flex flex-col text-left flex-1 space-y-1">
                             <div className="flex items-center justify-between">
-                              <span className="font-semibold text-base leading-tight">
-                                Tools
+                              <span className="font-bold text-base leading-tight">
+                                🛠️ Tools
                               </span>
-                              <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${
+                              <ChevronDown className={`h-4 w-4 transition-transform duration-300 ${
                                 isToolsOpen ? "rotate-180" : ""
                               }`} />
                             </div>
@@ -225,10 +225,10 @@ export function AppSidebar() {
                       <SidebarMenuButton 
                         key={item.title}
                         asChild
-                        className={`w-full p-3 rounded-lg transition-all duration-200 min-h-[60px] hover-scale ${
+                        className={`w-full p-3 rounded-lg transition-all duration-300 min-h-[60px] hover:scale-[1.02] group ${
                           isActive(item.url)
-                            ? "bg-primary text-primary-foreground shadow-md hover:bg-primary/90" 
-                            : "hover:bg-muted/50 hover:text-foreground"
+                            ? "bg-gradient-primary text-primary-foreground shadow-medium" 
+                            : "hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground glass-container border border-sidebar-border/30"
                         }`}
                       >
                         <NavLink 
@@ -236,10 +236,10 @@ export function AppSidebar() {
                           end
                           className="flex items-start gap-3 no-underline w-full h-full"
                         >
-                          <item.icon className="h-5 w-5 flex-shrink-0 mt-1" />
+                          <item.icon className="h-5 w-5 flex-shrink-0 mt-1 group-hover:scale-110 transition-transform duration-300" />
                           {!isCollapsed && (
                             <div className="flex flex-col text-left flex-1 space-y-1">
-                              <span className="font-medium text-sm leading-tight">
+                              <span className="font-semibold text-sm leading-tight">
                                 {item.title}
                               </span>
                               <span className="text-xs opacity-80 leading-relaxed">
@@ -257,11 +257,11 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="p-4">
+      <SidebarFooter className="p-4 border-t border-sidebar-border bg-sidebar">
         <Button 
           onClick={handleLogout}
           variant="outline"
-          className="w-full flex items-center gap-2 text-sm hover-scale"
+          className="w-full flex items-center gap-2 text-sm hover:scale-105 transition-all duration-300 bg-gradient-to-r from-destructive/10 to-destructive/5 hover:from-destructive hover:to-destructive/80 hover:text-destructive-foreground border-destructive/20 hover:border-destructive"
         >
           <LogOut className="h-4 w-4" />
           {!isCollapsed && "Sign Out"}
