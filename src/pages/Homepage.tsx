@@ -8,7 +8,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, CheckCircle, Clock, MapPin, ChevronLeft, ChevronRight } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, addMonths, subMonths, startOfWeek, endOfWeek } from "date-fns";
-interface Task {
+import { useTasks } from "@/hooks/useTasks";
+
+interface LocalTask {
   id: string;
   title: string;
   description?: string;
@@ -18,34 +20,9 @@ interface Task {
   priority: 'low' | 'medium' | 'high';
 }
 const Homepage = () => {
+  const { tasks: dbTasks, loading, addTask: addDbTask, updateTask, deleteTask: deleteDbTask } = useTasks();
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [tasks, setTasks] = useState<Task[]>([{
-    id: '1',
-    title: 'Team standup',
-    description: 'Daily sync with development team',
-    date: new Date(),
-    type: 'meeting',
-    completed: false,
-    priority: 'high'
-  }, {
-    id: '2',
-    title: 'Review inventory',
-    description: 'Check monthly inventory data',
-    date: new Date(),
-    type: 'task',
-    completed: false,
-    priority: 'medium'
-  }, {
-    id: '3',
-    title: 'Client call',
-    description: 'Discuss project requirements',
-    date: new Date(Date.now() + 86400000),
-    // tomorrow
-    type: 'meeting',
-    completed: false,
-    priority: 'high'
-  }]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newTask, setNewTask] = useState({
     title: '',
@@ -53,18 +30,27 @@ const Homepage = () => {
     type: 'task' as const,
     priority: 'medium' as const
   });
-  const addTask = () => {
+
+  // Convert DB tasks to local format
+  const tasks: LocalTask[] = dbTasks.map(task => ({
+    id: task.id,
+    title: task.title,
+    description: task.description || '',
+    date: task.due_date ? new Date(task.due_date) : new Date(task.created_at),
+    type: 'task' as const, // Since DB doesn't have type field, default to task
+    completed: task.completed,
+    priority: 'medium' as const // Since DB doesn't have priority field, default to medium
+  }));
+  const addTask = async () => {
     if (!newTask.title.trim()) return;
-    const task: Task = {
-      id: Date.now().toString(),
+    
+    await addDbTask({
       title: newTask.title,
-      description: newTask.description,
-      date: selectedDate,
-      type: newTask.type,
+      description: newTask.description || undefined,
+      due_date: format(selectedDate, 'yyyy-MM-dd'),
       completed: false,
-      priority: newTask.priority
-    };
-    setTasks([...tasks, task]);
+    });
+    
     setNewTask({
       title: '',
       description: '',
@@ -73,14 +59,16 @@ const Homepage = () => {
     });
     setIsDialogOpen(false);
   };
-  const toggleTask = (taskId: string) => {
-    setTasks(tasks.map(task => task.id === taskId ? {
-      ...task,
-      completed: !task.completed
-    } : task));
+
+  const toggleTask = async (taskId: string) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (task) {
+      await updateTask(taskId, { completed: !task.completed });
+    }
   };
-  const deleteTask = (taskId: string) => {
-    setTasks(tasks.filter(task => task.id !== taskId));
+
+  const handleDeleteTask = async (taskId: string) => {
+    await deleteDbTask(taskId);
   };
   const getTasksForDate = (date: Date) => {
     return tasks.filter(task => isSameDay(task.date, date));
@@ -143,7 +131,7 @@ const Homepage = () => {
                     <span className="font-medium">{task.title}</span>
                   </div>
                   {/* Delete button for tasks in header */}
-                  <button onClick={() => deleteTask(task.id)} className="w-5 h-5 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center opacity-0 group-hover/task:opacity-100 transition-opacity duration-200 hover:scale-110 ml-2" title="Delete task">
+                  <button onClick={() => handleDeleteTask(task.id)} className="w-5 h-5 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center opacity-0 group-hover/task:opacity-100 transition-opacity duration-200 hover:scale-110 ml-2" title="Delete task">
                     ×
                   </button>
                 </div>)}
@@ -251,7 +239,7 @@ const Homepage = () => {
                           <button 
                             onClick={(e) => {
                               e.stopPropagation();
-                              deleteTask(task.id);
+                              handleDeleteTask(task.id);
                             }} 
                             className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center opacity-0 group-hover/task:opacity-100 transition-opacity duration-200 hover:scale-110 text-xs" 
                             title="Delete task"

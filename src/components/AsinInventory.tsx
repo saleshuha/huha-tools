@@ -4,6 +4,7 @@ import { Card } from './ui/card';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { Checkbox } from './ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Package, 
@@ -16,7 +17,7 @@ import {
   Check,
   X
 } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from './ui/dialog';
 import { Textarea } from './ui/textarea';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from './ui/alert-dialog';
 import { useAsinInventory, AsinInventoryItem } from '@/hooks/useAsinInventory';
@@ -27,6 +28,9 @@ export function AsinInventory() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [isBulkStatusDialogOpen, setIsBulkStatusDialogOpen] = useState(false);
+  const [bulkStatusValue, setBulkStatusValue] = useState<AsinInventoryItem['status']>('in-stock');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
   const { toast } = useToast();
@@ -194,12 +198,45 @@ export function AsinInventory() {
     });
   };
 
-  // Filter inventory based on search and status
+  // Handle bulk status update
+  const handleBulkStatusUpdate = async () => {
+    if (selectedItems.size === 0) {
+      toast({
+        title: "Error",
+        description: "Please select items to update",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      for (const itemId of selectedItems) {
+        await updateItemStatus(itemId, bulkStatusValue);
+      }
+      setSelectedItems(new Set());
+      setIsBulkStatusDialogOpen(false);
+      toast({
+        title: "Success",
+        description: `Updated ${selectedItems.size} items successfully`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update items",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Filter inventory based on search and status (with bulk search support)
   const filteredInventory = inventory.filter(item => {
-    const matchesSearch = 
-      item.asin.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.serialNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (item.notes && item.notes.toLowerCase().includes(searchTerm.toLowerCase()));
+    const searchTerms = searchTerm.toLowerCase().split(' ').filter(term => term.length > 0);
+    
+    const matchesSearch = searchTerms.length === 0 || searchTerms.some(term =>
+      item.asin.toLowerCase().includes(term) ||
+      item.serialNumber.toLowerCase().includes(term) ||
+      (item.notes && item.notes.toLowerCase().includes(term))
+    );
     
     const matchesStatus = statusFilter === 'all' || item.status === statusFilter;
     
@@ -260,7 +297,7 @@ export function AsinInventory() {
             <div className="relative w-full">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input
-                placeholder="Search ASIN, Serial Number, or Notes..."
+                placeholder="Search multiple items using spaces (e.g., ASIN1 SERIAL1 ASIN2)..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10 w-full"
@@ -296,7 +333,52 @@ export function AsinInventory() {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
+                {selectedItems.size > 0 && (
+                  <Dialog open={isBulkStatusDialogOpen} onOpenChange={setIsBulkStatusDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        className="bg-accent/10"
+                      >
+                        <Edit className="w-4 h-4 mr-2" />
+                        Update Selected ({selectedItems.size})
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Update Selected Items Status</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div>
+                          <Label htmlFor="bulk-status">New Status</Label>
+                          <Select
+                            value={bulkStatusValue}
+                            onValueChange={(value: AsinInventoryItem['status']) => setBulkStatusValue(value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="in-stock">In Stock</SelectItem>
+                              <SelectItem value="sold">Sold</SelectItem>
+                              <SelectItem value="reserved">Reserved</SelectItem>
+                              <SelectItem value="damaged">Damaged</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsBulkStatusDialogOpen(false)}>
+                          Cancel
+                        </Button>
+                        <Button onClick={handleBulkStatusUpdate}>
+                          Update {selectedItems.size} Items
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                )}
                 <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                   <DialogTrigger asChild>
                     <Button className="bg-primary hover:bg-primary/90">
@@ -449,6 +531,18 @@ export function AsinInventory() {
             <table className="w-full">
               <thead className="bg-muted/50 sticky top-0">
                 <tr>
+                  <th className="text-left p-4 font-semibold">
+                    <Checkbox
+                      checked={selectedItems.size === paginatedInventory.length && paginatedInventory.length > 0}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedItems(new Set(paginatedInventory.map(item => item.id)));
+                        } else {
+                          setSelectedItems(new Set());
+                        }
+                      }}
+                    />
+                  </th>
                   <th className="text-left p-4 font-semibold">ASIN</th>
                   <th className="text-left p-4 font-semibold">Serial Number</th>
                   <th className="text-left p-4 font-semibold">Status</th>
@@ -461,7 +555,7 @@ export function AsinInventory() {
               <tbody>
                 {paginatedInventory.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="text-center p-8 text-muted-foreground">
+                    <td colSpan={8} className="text-center p-8 text-muted-foreground">
                       {inventory.length === 0 
                         ? "No inventory items yet. Add your first item to get started!"
                         : "No items match your search criteria."
@@ -471,6 +565,20 @@ export function AsinInventory() {
                 ) : (
                   paginatedInventory.map((item, index) => (
                     <tr key={item.id} className={index % 2 === 0 ? 'bg-background' : 'bg-muted/20'}>
+                      <td className="p-4">
+                        <Checkbox
+                          checked={selectedItems.has(item.id)}
+                          onCheckedChange={(checked) => {
+                            const newSelected = new Set(selectedItems);
+                            if (checked) {
+                              newSelected.add(item.id);
+                            } else {
+                              newSelected.delete(item.id);
+                            }
+                            setSelectedItems(newSelected);
+                          }}
+                        />
+                      </td>
                       <td className="p-4 font-mono text-sm font-semibold">{item.asin}</td>
                       <td className="p-4 font-mono text-sm">{item.serialNumber}</td>
                       <td className="p-4">
