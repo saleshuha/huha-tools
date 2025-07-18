@@ -171,76 +171,105 @@ const Homepage = () => {
 
           {/* Enhanced Calendar Grid with proper height */}
           <div className="glass-container overflow-hidden flex flex-col animate-fade-in-scale" style={{
-          height: 'calc(100vh - 280px)',
-          minHeight: '600px'
-        }}>
+            height: 'calc(100vh - 300px)',
+            minHeight: '700px'
+          }}>
             {/* Enhanced Days of week header */}
             <div className="grid grid-cols-7 border-b border-border bg-gradient-primary flex-shrink-0">
-              {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((day, index) => <div key={day} className="p-4 text-center font-semibold text-primary-foreground">
+              {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((day, index) => (
+                <div key={day} className="p-3 text-center font-semibold text-primary-foreground">
                   <div className="hidden sm:block">{day}</div>
                   <div className="sm:hidden">{day.slice(0, 3)}</div>
-                </div>)}
+                </div>
+              ))}
             </div>
 
-            {/* Enhanced Calendar Days with proper grid */}
-            <div className="grid grid-cols-7 grid-rows-6 flex-1" style={{ minHeight: '540px' }}>
+            {/* Enhanced Calendar Days with fixed grid structure */}
+            <div className="grid grid-cols-7 flex-1" style={{ 
+              display: 'grid',
+              gridTemplateRows: `repeat(${Math.ceil(calendarDays.length / 7)}, 1fr)`,
+              minHeight: '600px'
+            }}>
               {calendarDays.map((day, index) => {
-              const dayTasks = getTasksForDate(day);
-              const isCurrentMonth = isSameMonth(day, currentDate);
-              const isToday = isSameDay(day, new Date());
-              const isSelected = isSameDay(day, selectedDate);
-              return <div key={index} onClick={() => {
-                setSelectedDate(day);
-                setIsDialogOpen(true);
-              }} className={`
-                      p-3 border-r border-b border-border cursor-pointer transition-all duration-300 
-                      flex flex-col min-h-[120px] hover:bg-accent/20 hover:scale-[1.02] group
+                const dayTasks = getTasksForDate(day);
+                const isCurrentMonth = isSameMonth(day, currentDate);
+                const isToday = isSameDay(day, new Date());
+                const isSelected = isSameDay(day, selectedDate);
+                
+                return (
+                  <div 
+                    key={index} 
+                    onClick={() => {
+                      setSelectedDate(day);
+                      setIsDialogOpen(true);
+                    }} 
+                    className={`
+                      p-2 border-r border-b border-border cursor-pointer transition-all duration-300 
+                      flex flex-col hover:bg-accent/20 hover:scale-[1.01] group relative overflow-hidden
                       ${!isCurrentMonth ? 'bg-muted/30 text-muted-foreground' : 'bg-card'}
                       ${isToday ? 'bg-gradient-accent ring-2 ring-accent/30' : ''}
                       ${isSelected ? 'bg-primary/10 ring-2 ring-primary/50' : ''}
-                    `}>
-                    {/* Enhanced Date number */}
+                    `}
+                    style={{ minHeight: '100px' }}
+                  >
+                    {/* Date number */}
                     <div className={`
-                      w-8 h-8 flex items-center justify-center rounded-full text-sm font-bold mb-2 
+                      w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold mb-1 
                       flex-shrink-0 transition-all duration-300 group-hover:scale-110
-                      ${isToday ? 'bg-accent text-accent-foreground shadow-medium animate-glow-pulse' : ''}
+                      ${isToday ? 'bg-accent text-accent-foreground shadow-medium' : ''}
                       ${isSelected && !isToday ? 'bg-primary text-primary-foreground shadow-soft' : ''}
                       ${!isToday && !isSelected ? 'group-hover:bg-muted' : ''}
                     `}>
                       {format(day, 'd')}
                     </div>
 
-                    {/* Enhanced Tasks for this day with delete option */}
-                    <div className="space-y-1 flex-1 overflow-hidden">
-                      {dayTasks.slice(0, 3).map((task, taskIndex) => <div key={task.id} className={`
-                            text-xs p-1.5 rounded-md border cursor-pointer transition-all duration-300
-                            hover:scale-105 hover:shadow-soft transform group/task relative
-                            ${task.completed ? 'line-through opacity-60' : 'shadow-soft'}
+                    {/* Tasks for this day */}
+                    <div className="space-y-0.5 flex-1 overflow-hidden">
+                      {dayTasks.slice(0, 2).map((task, taskIndex) => (
+                        <div 
+                          key={task.id} 
+                          className={`
+                            text-xs p-1 rounded border cursor-pointer transition-all duration-300
+                            hover:scale-105 transform group/task relative
+                            ${task.completed ? 'line-through opacity-60' : ''}
                             ${getPriorityColor(task.priority)}
-                          `} style={{
-                    animationDelay: `${taskIndex * 100}ms`
-                  }}>
-                          <div className="flex items-center gap-1" onClick={e => {
-                      e.stopPropagation();
-                      toggleTask(task.id);
-                    }}>
+                          `}
+                          style={{ animationDelay: `${taskIndex * 100}ms` }}
+                        >
+                          <div 
+                            className="flex items-center gap-1" 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleTask(task.id);
+                            }}
+                          >
                             {getTaskTypeIcon(task.type)}
-                            <span className="truncate text-xs flex-1">{task.title}</span>
+                            <span className="truncate text-xs flex-1 leading-none">{task.title}</span>
                           </div>
-                          {/* Delete button - appears on hover */}
-                          <button onClick={e => {
-                      e.stopPropagation();
-                      deleteTask(task.id);
-                    }} className="absolute -top-1 -right-1 w-4 h-4 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center opacity-0 group-hover/task:opacity-100 transition-opacity duration-200 hover:scale-110" title="Delete task">
+                          
+                          {/* Delete button */}
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteTask(task.id);
+                            }} 
+                            className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center opacity-0 group-hover/task:opacity-100 transition-opacity duration-200 hover:scale-110 text-xs" 
+                            title="Delete task"
+                          >
                             ×
                           </button>
-                        </div>)}
-                      {dayTasks.length > 3 && <div className="text-xs text-muted-foreground font-medium p-0.5 rounded bg-muted/50 text-center animate-fade-in">
-                          +{dayTasks.length - 3} more
-                        </div>}
+                        </div>
+                      ))}
+                      
+                      {dayTasks.length > 2 && (
+                        <div className="text-xs text-muted-foreground font-medium px-1 py-0.5 rounded bg-muted/50 text-center">
+                          +{dayTasks.length - 2}
+                        </div>
+                      )}
                     </div>
-                  </div>;
-            })}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
