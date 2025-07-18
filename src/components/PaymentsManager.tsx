@@ -4,11 +4,12 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Edit, Trash2 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Plus, Search, Filter, Download, TrendingUp, TrendingDown, DollarSign, Calendar } from 'lucide-react';
 import { PaymentForm } from './PaymentForm';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 export interface Payment {
   id: string;
@@ -24,13 +25,22 @@ export interface Payment {
 
 export function PaymentsManager() {
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [filteredPayments, setFilteredPayments] = useState<Payment[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [regionFilter, setRegionFilter] = useState<string>('all');
+  const [platformFilter, setPlatformFilter] = useState<string>('all');
   const { toast } = useToast();
 
   useEffect(() => {
     fetchPayments();
   }, []);
+
+  useEffect(() => {
+    filterPayments();
+  }, [payments, searchTerm, statusFilter, regionFilter, platformFilter]);
 
   const fetchPayments = async () => {
     try {
@@ -59,6 +69,31 @@ export function PaymentsManager() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const filterPayments = () => {
+    let filtered = payments;
+
+    if (searchTerm) {
+      filtered = filtered.filter(payment => 
+        payment.platform.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (payment.store_name && payment.store_name.toLowerCase().includes(searchTerm.toLowerCase()))
+      );
+    }
+
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(payment => payment.status === statusFilter);
+    }
+
+    if (regionFilter !== 'all') {
+      filtered = filtered.filter(payment => payment.region === regionFilter);
+    }
+
+    if (platformFilter !== 'all') {
+      filtered = filtered.filter(payment => payment.platform === platformFilter);
+    }
+
+    setFilteredPayments(filtered);
   };
 
   const addPayment = async (newPayment: { platform: string; store_name?: string; region: 'UAE' | 'KSA'; amount: number; status: 'Unpaid' | 'Paid' | 'Reversed'; payment_date?: string }) => {
@@ -154,7 +189,7 @@ export function PaymentsManager() {
   };
 
   const getStatusCounts = () => {
-    return payments.reduce((acc, payment) => {
+    return filteredPayments.reduce((acc, payment) => {
       acc[payment.status] = (acc[payment.status] || 0) + 1;
       return acc;
     }, {} as Record<Payment['status'], number>);
@@ -162,7 +197,7 @@ export function PaymentsManager() {
 
   const getCurrencyTotals = () => {
     const totals = { AED: 0, SAR: 0 };
-    payments.forEach(payment => {
+    filteredPayments.forEach(payment => {
       if (payment.region === 'UAE') {
         totals.AED += payment.amount;
       } else if (payment.region === 'KSA') {
@@ -172,44 +207,66 @@ export function PaymentsManager() {
     return totals;
   };
 
-  const getMonthlyData = () => {
-    const monthlyTotals: Record<string, { AED: number; SAR: number }> = {};
-    payments.forEach(payment => {
-      const date = new Date(payment.payment_date || payment.created_at);
-      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      
-      if (!monthlyTotals[monthKey]) {
-        monthlyTotals[monthKey] = { AED: 0, SAR: 0 };
-      }
-      
-      if (payment.region === 'UAE') {
-        monthlyTotals[monthKey].AED += payment.amount;
-      } else if (payment.region === 'KSA') {
-        monthlyTotals[monthKey].SAR += payment.amount;
-      }
-    });
+  const getAdvancedStats = () => {
+    const currentMonth = new Date();
+    const lastMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1);
     
-    return Object.entries(monthlyTotals)
-      .map(([month, amounts]) => ({
-        month,
-        AED: amounts.AED,
-        SAR: amounts.SAR
-      }))
-      .sort((a, b) => a.month.localeCompare(b.month));
+    const currentMonthPayments = filteredPayments.filter(p => 
+      new Date(p.created_at).getMonth() === currentMonth.getMonth() &&
+      new Date(p.created_at).getFullYear() === currentMonth.getFullYear()
+    );
+    
+    const lastMonthPayments = payments.filter(p => 
+      new Date(p.created_at).getMonth() === lastMonth.getMonth() &&
+      new Date(p.created_at).getFullYear() === lastMonth.getFullYear()
+    );
+
+    const currentMonthTotal = currentMonthPayments.reduce((sum, p) => sum + p.amount, 0);
+    const lastMonthTotal = lastMonthPayments.reduce((sum, p) => sum + p.amount, 0);
+    const growth = lastMonthTotal > 0 ? ((currentMonthTotal - lastMonthTotal) / lastMonthTotal) * 100 : 0;
+
+    return {
+      currentMonthTotal,
+      lastMonthTotal,
+      growth,
+      avgPayment: filteredPayments.length > 0 ? currencyTotals.AED + currencyTotals.SAR / filteredPayments.length : 0,
+      platformCount: new Set(filteredPayments.map(p => p.platform)).size
+    };
   };
 
   const statusCounts = getStatusCounts();
   const currencyTotals = getCurrencyTotals();
-  const monthlyData = getMonthlyData();
+  const advancedStats = getAdvancedStats();
+
+  const exportData = () => {
+    const csvContent = "data:text/csv;charset=utf-8," 
+      + "Platform,Store Name,Region,Amount,Currency,Status,Payment Date,Created Date\n"
+      + filteredPayments.map(p => 
+          `${p.platform},"${p.store_name || 'N/A'}",${p.region},${p.amount},${p.region === 'UAE' ? 'AED' : 'SAR'},${p.status},"${p.payment_date || 'N/A'}","${new Date(p.created_at).toLocaleDateString()}"`
+        ).join("\n");
+    
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `payments_export_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast({
+      title: "Success",
+      description: "Payment data exported successfully.",
+    });
+  };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-surface p-6 ml-8">
-        <div className="max-w-7xl mx-auto space-y-6 pl-4">
+      <div className="min-h-screen bg-gradient-surface p-6">
+        <div className="max-w-7xl mx-auto space-y-6">
           <div className="flex items-center justify-center h-96">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-              <p className="mt-2 text-muted-foreground">Loading payments...</p>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-lg text-muted-foreground">Loading payments...</p>
             </div>
           </div>
         </div>
@@ -218,102 +275,222 @@ export function PaymentsManager() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-surface p-6 ml-8">
-      <div className="max-w-7xl mx-auto space-y-6 pl-4">
-        <div className="flex items-center justify-between">
+    <div className="min-h-screen bg-gradient-surface p-6">
+      <div className="max-w-7xl mx-auto space-y-8">
+        {/* Header Section */}
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 p-6 glass-container animate-fade-in">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Payment Tracker</h1>
-            <p className="text-muted-foreground">
-              Track payments from e-commerce platforms across UAE and KSA
+            <h1 className="text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-2">
+              💳 Payment Analytics Hub
+            </h1>
+            <p className="text-muted-foreground text-lg">
+              Advanced payment tracking and analytics across multiple platforms and regions
             </p>
           </div>
-          <Button onClick={() => setShowForm(true)} className="flex items-center gap-2">
-            <Plus className="h-4 w-4" />
-            Add Payment
-          </Button>
+          <div className="flex gap-3">
+            <Button onClick={exportData} variant="outline" className="flex items-center gap-2">
+              <Download className="h-4 w-4" />
+              Export Data
+            </Button>
+            <Button onClick={() => setShowForm(true)} className="flex items-center gap-2 bg-gradient-primary hover:opacity-90">
+              <Plus className="h-4 w-4" />
+              Add Payment
+            </Button>
+          </div>
         </div>
 
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Total Payments</CardTitle>
+        {/* Advanced Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4 animate-fade-in">
+          <Card className="glass-container hover-scale">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Total Payments</CardTitle>
+                <DollarSign className="h-4 w-4 text-primary" />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{payments.length}</div>
+              <div className="text-3xl font-bold text-foreground">{filteredPayments.length}</div>
+              <div className="text-sm text-muted-foreground mt-1">
+                {payments.length !== filteredPayments.length && `of ${payments.length} total`}
+              </div>
             </CardContent>
           </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Total AED (UAE)</CardTitle>
+
+          <Card className="glass-container hover-scale">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium text-muted-foreground">AED (UAE)</CardTitle>
+                <TrendingUp className="h-4 w-4 text-blue-500" />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-600">AED {currencyTotals.AED.toLocaleString()}</div>
-              <div className="text-sm text-muted-foreground">UAE Region</div>
+              <div className="text-3xl font-bold text-blue-600">
+                {currencyTotals.AED.toLocaleString()}
+              </div>
+              <div className="text-sm text-muted-foreground mt-1">UAE Region</div>
             </CardContent>
           </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Total SAR (KSA)</CardTitle>
+
+          <Card className="glass-container hover-scale">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium text-muted-foreground">SAR (KSA)</CardTitle>
+                <TrendingUp className="h-4 w-4 text-green-500" />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">SAR {currencyTotals.SAR.toLocaleString()}</div>
-              <div className="text-sm text-muted-foreground">KSA Region</div>
+              <div className="text-3xl font-bold text-green-600">
+                {currencyTotals.SAR.toLocaleString()}
+              </div>
+              <div className="text-sm text-muted-foreground mt-1">KSA Region</div>
             </CardContent>
           </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Status Overview</CardTitle>
+
+          <Card className="glass-container hover-scale">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Monthly Growth</CardTitle>
+                {advancedStats.growth >= 0 ? <TrendingUp className="h-4 w-4 text-green-500" /> : <TrendingDown className="h-4 w-4 text-red-500" />}
+              </div>
             </CardHeader>
-            <CardContent className="flex flex-wrap gap-2">
-              <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
-                Unpaid: {statusCounts.Unpaid || 0}
-              </Badge>
-              <Badge variant="secondary" className="bg-green-100 text-green-800">
-                Paid: {statusCounts.Paid || 0}
-              </Badge>
-              <Badge variant="secondary" className="bg-red-100 text-red-800">
-                Reversed: {statusCounts.Reversed || 0}
-              </Badge>
+            <CardContent>
+              <div className={`text-2xl font-bold ${advancedStats.growth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {advancedStats.growth >= 0 ? '+' : ''}{advancedStats.growth.toFixed(1)}%
+              </div>
+              <div className="text-sm text-muted-foreground mt-1">vs last month</div>
+            </CardContent>
+          </Card>
+
+          <Card className="glass-container hover-scale">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Platforms</CardTitle>
+                <Calendar className="h-4 w-4 text-primary" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-foreground">{advancedStats.platformCount}</div>
+              <div className="text-sm text-muted-foreground mt-1">Active platforms</div>
+            </CardContent>
+          </Card>
+
+          <Card className="glass-container hover-scale">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Status Overview</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 text-xs">
+                  Unpaid: {statusCounts.Unpaid || 0}
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <Badge variant="secondary" className="bg-green-100 text-green-800 text-xs">
+                  Paid: {statusCounts.Paid || 0}
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <Badge variant="secondary" className="bg-red-100 text-red-800 text-xs">
+                  Reversed: {statusCounts.Reversed || 0}
+                </Badge>
+              </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Monthly Chart */}
-        <Card>
+        {/* Advanced Filters and Search */}
+        <Card className="glass-container animate-fade-in">
           <CardHeader>
-            <CardTitle>Monthly Payment Trends by Currency</CardTitle>
-            <CardDescription>Payment amounts by month for AED and SAR</CardDescription>
+            <CardTitle className="flex items-center gap-2">
+              <Filter className="h-5 w-5" />
+              Advanced Filters
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={monthlyData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip 
-                    formatter={(value: number, name: string) => [
-                      `${name} ${value.toLocaleString()}`, 
-                      name === 'AED' ? 'UAE Payments' : 'KSA Payments'
-                    ]}
-                    labelFormatter={(label) => `Month: ${label}`}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-muted-foreground">Search</label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search platform or store..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
                   />
-                  <Bar dataKey="AED" fill="#3b82f6" name="AED" />
-                  <Bar dataKey="SAR" fill="#10b981" name="SAR" />
-                </BarChart>
-              </ResponsiveContainer>
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-muted-foreground">Status</label>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All statuses" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="Unpaid">Unpaid</SelectItem>
+                    <SelectItem value="Paid">Paid</SelectItem>
+                    <SelectItem value="Reversed">Reversed</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-muted-foreground">Region</label>
+                <Select value={regionFilter} onValueChange={setRegionFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All regions" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Regions</SelectItem>
+                    <SelectItem value="UAE">UAE</SelectItem>
+                    <SelectItem value="KSA">KSA</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-muted-foreground">Platform</label>
+                <Select value={platformFilter} onValueChange={setPlatformFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All platforms" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Platforms</SelectItem>
+                    {Array.from(new Set(payments.map(p => p.platform))).map(platform => (
+                      <SelectItem key={platform} value={platform}>{platform}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-muted-foreground">Actions</label>
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setSearchTerm('');
+                    setStatusFilter('all');
+                    setRegionFilter('all');
+                    setPlatformFilter('all');
+                  }}
+                  className="w-full"
+                >
+                  Clear Filters
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Payment Form Modal */}
         {showForm && (
-          <Card className="border-2 border-primary">
+          <Card className="glass-container border-2 border-primary animate-scale-in">
             <CardHeader>
-              <CardTitle>Add New Payment</CardTitle>
+              <CardTitle className="text-xl">Add New Payment Record</CardTitle>
               <CardDescription>
-                Enter payment details for tracking
+                Enter detailed payment information for comprehensive tracking
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -325,83 +502,137 @@ export function PaymentsManager() {
           </Card>
         )}
 
-        {/* Payments Table */}
-        <Card>
+        {/* Enhanced Payments Table */}
+        <Card className="glass-container animate-fade-in">
           <CardHeader>
-            <CardTitle>Payment Records</CardTitle>
-            <CardDescription>All payment records in table format</CardDescription>
+            <CardTitle className="text-xl">Payment Records</CardTitle>
+            <CardDescription>
+              Comprehensive view of all payment transactions 
+              {filteredPayments.length !== payments.length && ` (${filteredPayments.length} of ${payments.length} shown)`}
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            {payments.length === 0 ? (
-              <div className="py-8 text-center">
-                <p className="text-muted-foreground">No payment records yet.</p>
-                <p className="text-sm text-muted-foreground">Click "Add Payment" to create your first record.</p>
+            {filteredPayments.length === 0 ? (
+              <div className="py-12 text-center">
+                <div className="mx-auto w-24 h-24 bg-muted rounded-full flex items-center justify-center mb-4">
+                  <DollarSign className="h-12 w-12 text-muted-foreground" />
+                </div>
+                <h3 className="text-lg font-semibold text-foreground mb-2">No payment records found</h3>
+                <p className="text-muted-foreground mb-4">
+                  {payments.length === 0 
+                    ? "Start by adding your first payment record." 
+                    : "Try adjusting your filters to see more results."
+                  }
+                </p>
+                {payments.length === 0 && (
+                  <Button onClick={() => setShowForm(true)} className="bg-gradient-primary">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add First Payment
+                  </Button>
+                )}
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Platform</TableHead>
-                    <TableHead>Store Name</TableHead>
-                    <TableHead>Region</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Payment Date</TableHead>
-                    <TableHead>Created</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {payments.map((payment) => (
-                    <TableRow key={payment.id}>
-                      <TableCell className="font-medium">{payment.platform}</TableCell>
-                      <TableCell className="text-muted-foreground">{payment.store_name || 'Not specified'}</TableCell>
-                      <TableCell>{payment.region}</TableCell>
-                      <TableCell className={payment.region === 'UAE' ? 'text-blue-600' : 'text-green-600'}>
-                        {payment.region === 'UAE' ? 'AED' : 'SAR'} {payment.amount.toLocaleString()}
-                      </TableCell>
-                      <TableCell>
-                        <Select 
-                          value={payment.status} 
-                          onValueChange={(value) => updatePaymentStatus(payment.id, value as Payment['status'])}
-                        >
-                          <SelectTrigger className="w-32">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Unpaid">
-                              <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">Unpaid</Badge>
-                            </SelectItem>
-                            <SelectItem value="Paid">
-                              <Badge variant="secondary" className="bg-green-100 text-green-800">Paid</Badge>
-                            </SelectItem>
-                            <SelectItem value="Reversed">
-                              <Badge variant="secondary" className="bg-red-100 text-red-800">Reversed</Badge>
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell>
-                        {payment.payment_date 
-                          ? new Date(payment.payment_date).toLocaleDateString() 
-                          : 'Not set'
-                        }
-                      </TableCell>
-                      <TableCell>{new Date(payment.created_at).toLocaleDateString()}</TableCell>
-                      <TableCell>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => deletePayment(payment.id)}
-                          className="text-red-600 hover:text-red-800"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="hover:bg-muted/50">
+                      <TableHead className="font-semibold">Platform</TableHead>
+                      <TableHead className="font-semibold">Store Name</TableHead>
+                      <TableHead className="font-semibold">Region</TableHead>
+                      <TableHead className="font-semibold">Amount</TableHead>
+                      <TableHead className="font-semibold">Status</TableHead>
+                      <TableHead className="font-semibold">Payment Date</TableHead>
+                      <TableHead className="font-semibold">Created</TableHead>
+                      <TableHead className="font-semibold text-center">Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredPayments.map((payment) => (
+                      <TableRow key={payment.id} className="hover:bg-muted/30 transition-colors">
+                        <TableCell className="font-medium text-foreground">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-primary"></div>
+                            {payment.platform}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {payment.store_name || (
+                            <span className="italic text-muted-foreground/60">Not specified</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={payment.region === 'UAE' ? 'border-blue-200 text-blue-700' : 'border-green-200 text-green-700'}>
+                            {payment.region}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className={`font-semibold ${payment.region === 'UAE' ? 'text-blue-600' : 'text-green-600'}`}>
+                          <div className="flex flex-col">
+                            <span>{payment.region === 'UAE' ? 'AED' : 'SAR'} {payment.amount.toLocaleString()}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Select 
+                            value={payment.status} 
+                            onValueChange={(value) => updatePaymentStatus(payment.id, value as Payment['status'])}
+                          >
+                            <SelectTrigger className="w-32">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Unpaid">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
+                                  <span>Unpaid</span>
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="Paid">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                                  <span>Paid</span>
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="Reversed">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                                  <span>Reversed</span>
+                                </div>
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {payment.payment_date 
+                            ? new Date(payment.payment_date).toLocaleDateString('en-US', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric'
+                              })
+                            : <span className="italic text-muted-foreground/60">Not set</span>
+                          }
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {new Date(payment.created_at).toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric'
+                          })}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => deletePayment(payment.id)}
+                            className="text-red-600 hover:text-red-800 hover:bg-red-50 border-red-200"
+                          >
+                            <span className="sr-only">Delete payment</span>
+                            🗑️
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             )}
           </CardContent>
         </Card>
