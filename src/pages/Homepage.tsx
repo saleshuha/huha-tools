@@ -116,10 +116,10 @@ const Homepage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-surface flex">
-      {/* Spacer for sidebar */}
-      <div className="w-64 flex-shrink-0"></div>
+      {/* Reduced spacer for sidebar - calendar now uses more space */}
+      <div className="w-16 flex-shrink-0"></div>
       
-      {/* Main content */}
+      {/* Main content - calendar now extends further left */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Enhanced Header with gradient */}
         <div className="glass-container p-6 mx-4 mt-4 mb-2 flex-shrink-0 bg-gradient-primary border-0">
