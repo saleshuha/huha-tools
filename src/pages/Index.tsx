@@ -1,11 +1,7 @@
-import { ExcelMapper } from '@/components/ExcelMapper';
+import Homepage from './Homepage';
 
 const Index = () => {
-  return (
-    <div className="container mx-auto p-6">
-      <ExcelMapper />
-    </div>
-  );
+  return <Homepage />;
 };
 
 export default Index;

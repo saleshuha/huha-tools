@@ -10,6 +10,7 @@ import type { User, Session } from "@supabase/supabase-js";
 
 import { AppSidebar } from "@/components/AppSidebar";
 import Index from "./pages/Index";
+import ExcelMapperPage from "./pages/ExcelMapper";
 import BatchProcessor from "./pages/BatchProcessor";
 import AsinQtySum from "./pages/AsinQtySum";
 import ZipSplitter from "./pages/ZipSplitter";
@@ -103,6 +104,7 @@ const App = () => {
                 <main className="flex-1">
                   <Routes>
                     <Route path="/" element={<Index />} />
+                    <Route path="/excel-mapper" element={<ExcelMapperPage />} />
                     <Route path="/batch" element={<BatchProcessor />} />
                     <Route path="/asin-sum" element={<AsinQtySum />} />
                     <Route path="/zip-splitter" element={<ZipSplitter />} />

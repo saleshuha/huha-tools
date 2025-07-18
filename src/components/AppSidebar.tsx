@@ -1,4 +1,4 @@
-import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, CreditCard, Wrench, TrendingUp, LogOut } from "lucide-react"
+import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, CreditCard, Wrench, TrendingUp, LogOut, Home } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
 import { useState } from "react"
 import { supabase } from "@/integrations/supabase/client"
@@ -22,10 +22,19 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
 
+const navigationItems = [
+  {
+    title: "Homepage",
+    url: "/",
+    icon: Home,
+    description: "Calendar, tasks, and dashboard overview"
+  }
+]
+
 const toolsItems = [
   {
     title: "Excel File Mapper",
-    url: "/",
+    url: "/excel-mapper",
     icon: File,
     description: "Map one source file to one target file"
   },
@@ -116,6 +125,38 @@ export function AppSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent className="px-2">
             <SidebarMenu className="space-y-3">
+              {/* Navigation items */}
+              {navigationItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton 
+                    asChild
+                    className={`w-full p-4 rounded-lg transition-all duration-200 min-h-[80px] ${
+                      isActive(item.url)
+                        ? "bg-primary text-primary-foreground shadow-md hover:bg-primary/90" 
+                        : "hover:bg-muted/70 hover:text-foreground"
+                    }`}
+                  >
+                    <NavLink 
+                      to={item.url} 
+                      end
+                      className="flex items-start gap-4 no-underline w-full h-full"
+                    >
+                      <item.icon className="h-6 w-6 flex-shrink-0 mt-1" />
+                      {!isCollapsed && (
+                        <div className="flex flex-col text-left flex-1 space-y-1">
+                          <span className="font-semibold text-base leading-tight">
+                            {item.title}
+                          </span>
+                          <span className="text-sm opacity-80 leading-relaxed">
+                            {item.description}
+                          </span>
+                        </div>
+                      )}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+
               {/* Tools dropdown */}
               <SidebarMenuItem>
                 <Collapsible open={isToolsOpen} onOpenChange={setIsToolsOpen}>
