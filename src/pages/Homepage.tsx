@@ -115,87 +115,41 @@ const Homepage = () => {
   const nextMonth = () => setCurrentDate(addMonths(currentDate, 1));
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background ml-64">
       {/* Header */}
       <div className="p-6 border-b bg-white shadow-sm">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Calendar & Tasks</h1>
-            <p className="text-muted-foreground">Manage your daily tasks and schedule</p>
-          </div>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="gap-2">
-                <Plus className="h-4 w-4" />
-                Add Task
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
-              <DialogHeader>
-                <DialogTitle>Add New Task</DialogTitle>
-                <DialogDescription>
-                  Create a new task for {format(selectedDate, 'MMMM d, yyyy')}
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="title">Title</Label>
-                  <Input
-                    id="title"
-                    value={newTask.title}
-                    onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
-                    placeholder="Enter task title"
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="description">Description</Label>
-                  <Textarea
-                    id="description"
-                    value={newTask.description}
-                    onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
-                    placeholder="Enter task description"
-                    rows={3}
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="type">Type</Label>
-                    <Select value={newTask.type} onValueChange={(value: any) => setNewTask({ ...newTask, type: value })}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="task">Task</SelectItem>
-                        <SelectItem value="meeting">Meeting</SelectItem>
-                        <SelectItem value="routine">Routine</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="priority">Priority</Label>
-                    <Select value={newTask.priority} onValueChange={(value: any) => setNewTask({ ...newTask, priority: value })}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="low">Low</SelectItem>
-                        <SelectItem value="medium">Medium</SelectItem>
-                        <SelectItem value="high">High</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={addTask}>Add Task</Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Calendar & Tasks</h1>
+          <p className="text-muted-foreground">Manage your daily tasks and schedule</p>
         </div>
       </div>
+
+      {/* Selected Date Tasks (above calendar) */}
+      {selectedDate && getTasksForDate(selectedDate).length > 0 && (
+        <div className="p-6 bg-white border-b">
+          <h3 className="text-lg font-semibold mb-4">
+            Tasks for {format(selectedDate, 'EEEE, MMMM d, yyyy')}
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {getTasksForDate(selectedDate).map((task) => (
+              <div
+                key={task.id}
+                onClick={() => toggleTask(task.id)}
+                className={`
+                  px-3 py-1 rounded-full text-sm cursor-pointer transition-all
+                  ${task.completed ? 'line-through opacity-60' : ''}
+                  ${getPriorityColor(task.priority)}
+                `}
+              >
+                <div className="flex items-center gap-1">
+                  {getTaskTypeIcon(task.type)}
+                  <span>{task.title}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Calendar */}
       <div className="p-6">
@@ -236,7 +190,10 @@ const Homepage = () => {
               return (
                 <div
                   key={index}
-                  onClick={() => setSelectedDate(day)}
+                  onClick={() => {
+                    setSelectedDate(day);
+                    setIsDialogOpen(true);
+                  }}
                   className={`
                     min-h-[140px] p-2 border-r border-b cursor-pointer transition-colors hover:bg-gray-50
                     ${!isCurrentMonth ? 'bg-gray-50 text-gray-400' : ''}
@@ -286,66 +243,74 @@ const Homepage = () => {
           </div>
         </div>
 
-        {/* Selected Date Details */}
-        {selectedDate && (
-          <div className="mt-6 bg-white border rounded-lg p-6 shadow-sm">
-            <h3 className="text-lg font-semibold mb-4">
-              Tasks for {format(selectedDate, 'EEEE, MMMM d, yyyy')}
-            </h3>
-            
-            {getTasksForDate(selectedDate).length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <p>No tasks scheduled for this date</p>
-                <p className="text-sm">Click "Add Task" to create a new one</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {getTasksForDate(selectedDate).map((task) => (
-                  <div
-                    key={task.id}
-                    className={`flex items-start space-x-3 p-4 rounded-lg border transition-colors ${
-                      task.completed ? 'bg-gray-50 opacity-75' : 'bg-white'
-                    }`}
-                  >
-                    <button
-                      onClick={() => toggleTask(task.id)}
-                      className={`mt-0.5 transition-colors ${
-                        task.completed 
-                          ? 'text-green-600' 
-                          : 'text-gray-400 hover:text-gray-600'
-                      }`}
-                    >
-                      <CheckCircle className={`h-5 w-5 ${task.completed ? 'fill-current' : ''}`} />
-                    </button>
-                    
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className={`font-medium ${task.completed ? 'line-through text-gray-500' : ''}`}>
-                          {task.title}
-                        </h4>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="gap-1">
-                            {getTaskTypeIcon(task.type)}
-                            {task.type}
-                          </Badge>
-                          <Badge className={getPriorityColor(task.priority)}>
-                            {task.priority}
-                          </Badge>
-                        </div>
-                      </div>
-                      {task.description && (
-                        <p className={`text-sm ${task.completed ? 'text-gray-400' : 'text-gray-600'}`}>
-                          {task.description}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
       </div>
+
+      {/* Task Creation Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Add New Task</DialogTitle>
+            <DialogDescription>
+              Create a new task for {format(selectedDate, 'MMMM d, yyyy')}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="title">Title</Label>
+              <Input
+                id="title"
+                value={newTask.title}
+                onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
+                placeholder="Enter task title"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                value={newTask.description}
+                onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
+                placeholder="Enter task description"
+                rows={3}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="type">Type</Label>
+                <Select value={newTask.type} onValueChange={(value: any) => setNewTask({ ...newTask, type: value })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="task">Task</SelectItem>
+                    <SelectItem value="meeting">Meeting</SelectItem>
+                    <SelectItem value="routine">Routine</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="priority">Priority</Label>
+                <Select value={newTask.priority} onValueChange={(value: any) => setNewTask({ ...newTask, priority: value })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={addTask}>Add Task</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
