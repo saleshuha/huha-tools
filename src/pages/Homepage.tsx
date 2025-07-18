@@ -129,7 +129,7 @@ const Homepage = () => {
         {/* Enhanced Selected Date Tasks */}
         {selectedDate && getTasksForDate(selectedDate).length > 0 && <div className="glass-container p-6 mx-4 mb-2 flex-shrink-0 animate-slide-up">
             <h3 className="text-lg font-semibold mb-4 text-card-foreground">
-              ✨ Tasks for {format(selectedDate, 'EEEE, MMMM d, yyyy')}
+              Tasks for {format(selectedDate, 'EEEE, MMMM d, yyyy')}
             </h3>
             <div className="flex flex-wrap gap-3">
               {getTasksForDate(selectedDate).map(task => <div key={task.id} className={`
@@ -211,21 +211,21 @@ const Homepage = () => {
                     </div>
 
                     {/* Enhanced Tasks for this day with delete option */}
-                    <div className="space-y-1.5 flex-1 overflow-hidden">
+                    <div className="space-y-1 flex-1 overflow-hidden">
                       {dayTasks.slice(0, 3).map((task, taskIndex) => <div key={task.id} className={`
-                            text-xs p-2 rounded-md border cursor-pointer transition-all duration-300
+                            text-xs p-1.5 rounded-md border cursor-pointer transition-all duration-300
                             hover:scale-105 hover:shadow-soft transform group/task relative
                             ${task.completed ? 'line-through opacity-60' : 'shadow-soft'}
                             ${getPriorityColor(task.priority)}
                           `} style={{
                     animationDelay: `${taskIndex * 100}ms`
                   }}>
-                          <div className="flex items-center gap-1.5" onClick={e => {
+                          <div className="flex items-center gap-1" onClick={e => {
                       e.stopPropagation();
                       toggleTask(task.id);
                     }}>
                             {getTaskTypeIcon(task.type)}
-                            <span className="truncate font-medium flex-1">{task.title}</span>
+                            <span className="truncate text-xs flex-1">{task.title}</span>
                           </div>
                           {/* Delete button - appears on hover */}
                           <button onClick={e => {
@@ -235,8 +235,8 @@ const Homepage = () => {
                             ×
                           </button>
                         </div>)}
-                      {dayTasks.length > 3 && <div className="text-xs text-muted-foreground font-medium p-1 rounded bg-muted/50 text-center animate-fade-in">
-                          +{dayTasks.length - 3} more tasks
+                      {dayTasks.length > 3 && <div className="text-xs text-muted-foreground font-medium p-0.5 rounded bg-muted/50 text-center animate-fade-in">
+                          +{dayTasks.length - 3} more
                         </div>}
                     </div>
                   </div>;
@@ -250,7 +250,7 @@ const Homepage = () => {
           <DialogContent className="sm:max-w-[500px] glass-container">
             <DialogHeader className="text-center pb-4">
               <DialogTitle className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-                ✨ Add New Task
+                Add New Task
               </DialogTitle>
               <DialogDescription className="text-muted-foreground text-base">
                 Create a new task for {format(selectedDate, 'EEEE, MMMM d, yyyy')}
