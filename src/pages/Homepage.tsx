@@ -171,7 +171,8 @@ const Homepage = () => {
 
           {/* Enhanced Calendar Grid with proper height */}
           <div className="glass-container overflow-hidden flex flex-col animate-fade-in-scale" style={{
-          height: 'calc(100vh - 280px)'
+          height: 'calc(100vh - 280px)',
+          minHeight: '600px'
         }}>
             {/* Enhanced Days of week header */}
             <div className="grid grid-cols-7 border-b border-border bg-gradient-primary flex-shrink-0">
@@ -182,7 +183,7 @@ const Homepage = () => {
             </div>
 
             {/* Enhanced Calendar Days with proper grid */}
-            <div className="grid grid-cols-7 flex-1 auto-rows-fr">
+            <div className="grid grid-cols-7 grid-rows-6 flex-1" style={{ minHeight: '540px' }}>
               {calendarDays.map((day, index) => {
               const dayTasks = getTasksForDate(day);
               const isCurrentMonth = isSameMonth(day, currentDate);
