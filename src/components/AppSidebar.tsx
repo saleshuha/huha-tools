@@ -6,7 +6,6 @@ import { useToast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ModeToggle } from "@/components/ui/mode-toggle"
-import { AIAssistant } from "@/components/AIAssistant"
 import {
   Sidebar,
   SidebarContent,
@@ -95,8 +94,6 @@ export function AppSidebar() {
   const location = useLocation()
   const isCollapsed = state === "collapsed"
   const [isToolsOpen, setIsToolsOpen] = useState(true)
-  const [isAIOpen, setIsAIOpen] = useState(false)
-  const [aiContext, setAIContext] = useState('general')
   const { toast } = useToast()
 
   const handleLogout = async () => {
@@ -129,19 +126,6 @@ export function AppSidebar() {
     return toolsItems.some(item => isActive(item.url))
   }
 
-  const openAIAssistant = (context: string) => {
-    setAIContext(context)
-    setIsAIOpen(true)
-  }
-
-  const getContextFromPath = (path: string) => {
-    if (path.includes('inventory')) return 'inventory'
-    if (path.includes('sales')) return 'sales'
-    if (path.includes('payment')) return 'payments'
-    if (path.includes('excel') || path.includes('batch') || path.includes('asin') || path.includes('zip')) return 'tools'
-    return 'general'
-  }
-
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border w-72 bg-sidebar shadow-strong">
       <SidebarContent className="bg-gradient-surface">
@@ -154,20 +138,6 @@ export function AppSidebar() {
             </div>
             {!isCollapsed && <ModeToggle />}
           </SidebarGroupLabel>
-          
-          {/* AI Quick Actions */}
-          {!isCollapsed && (
-            <div className="px-6 py-2">
-              <Button
-                onClick={() => openAIAssistant(getContextFromPath(location.pathname))}
-                className="w-full bg-gradient-primary text-primary-foreground hover:shadow-medium transition-all duration-300 group"
-              >
-                <Brain className="w-4 h-4 mr-2 group-hover:animate-pulse" />
-                AI Assistant
-                <Zap className="w-3 h-3 ml-auto" />
-              </Button>
-            </div>
-          )}
           <SidebarGroupContent className="px-3">
             <SidebarMenu className="space-y-2">
               {navigationItems.map((item) => (
@@ -240,18 +210,6 @@ export function AppSidebar() {
                           </span>
                         </div>
                       )}
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="absolute top-2 right-2 w-6 h-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={(e) => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          openAIAssistant(getContextFromPath(item.url))
-                        }}
-                      >
-                        <Bot className="w-3 h-3" />
-                      </Button>
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -327,18 +285,6 @@ export function AppSidebar() {
                               </span>
                             </div>
                           )}
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="absolute top-1 right-1 w-5 h-5 opacity-0 group-hover:opacity-100 transition-opacity"
-                            onClick={(e) => {
-                              e.preventDefault()
-                              e.stopPropagation()
-                              openAIAssistant('tools')
-                            }}
-                          >
-                            <Bot className="w-3 h-3" />
-                          </Button>
                         </NavLink>
                       </SidebarMenuButton>
                     ))}
@@ -361,12 +307,6 @@ export function AppSidebar() {
           </Button>
         </div>
       </SidebarFooter>
-      
-      <AIAssistant 
-        isOpen={isAIOpen} 
-        onClose={() => setIsAIOpen(false)}
-        context={aiContext}
-      />
     </Sidebar>
   )
 }
