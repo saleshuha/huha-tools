@@ -88,22 +88,43 @@ export function SalesTracking() {
       col.toLowerCase().includes('position')
     )
 
+    console.log('Column mapping:', {
+      partnerSkuColumn,
+      shippedQtyColumn,
+      salesColumn,
+      rankingColumn,
+      availableColumns: allColumns
+    })
+
     if (partnerSkuColumn && shippedQtyColumn) {
       const partnerSkuMap = new Map<string, PartnerSKUAggregate>()
       
       combinedData.forEach(row => {
-        const partnerSku = row[partnerSkuColumn]?.toString() || ''
-        const shippedQty = parseFloat(row[shippedQtyColumn]) || 0
-        const sales = parseFloat(row[salesColumn]) || 0
-        const ranking = parseFloat(row[rankingColumn]) || 0
+        const partnerSku = row[partnerSkuColumn]?.toString().trim() || ''
+        const shippedQtyValue = row[shippedQtyColumn]
+        const salesValue = row[salesColumn]
+        const rankingValue = row[rankingColumn]
+        
+        // Better parsing with validation
+        const shippedQty = typeof shippedQtyValue === 'number' ? shippedQtyValue : 
+          (typeof shippedQtyValue === 'string' ? parseFloat(shippedQtyValue.replace(/[^\d.-]/g, '')) : 0)
+        const sales = typeof salesValue === 'number' ? salesValue : 
+          (typeof salesValue === 'string' ? parseFloat(salesValue.replace(/[^\d.-]/g, '')) : 0)
+        const ranking = typeof rankingValue === 'number' ? rankingValue : 
+          (typeof rankingValue === 'string' ? parseFloat(rankingValue.replace(/[^\d.-]/g, '')) : 0)
+        
         const source = row._source || 'Unknown'
         
-        if (partnerSku && shippedQty > 0) {
+        if (partnerSku && !isNaN(shippedQty) && shippedQty > 0) {
           if (partnerSkuMap.has(partnerSku)) {
             const existing = partnerSkuMap.get(partnerSku)!
             existing.totalShippedQty += shippedQty
-            existing.totalSales += sales
-            existing.avgRanking = ranking > 0 ? (existing.avgRanking + ranking) / 2 : existing.avgRanking
+            existing.totalSales += (isNaN(sales) ? 0 : sales)
+            // Better average calculation for ranking
+            if (!isNaN(ranking) && ranking > 0) {
+              const totalRanking = existing.avgRanking * existing.recordCount + ranking
+              existing.avgRanking = totalRanking / (existing.recordCount + 1)
+            }
             existing.recordCount += 1
             if (!existing.sources.includes(source)) {
               existing.sources.push(source)
@@ -112,8 +133,8 @@ export function SalesTracking() {
             partnerSkuMap.set(partnerSku, {
               partnerSku,
               totalShippedQty: shippedQty,
-              totalSales: sales,
-              avgRanking: ranking,
+              totalSales: isNaN(sales) ? 0 : sales,
+              avgRanking: isNaN(ranking) ? 0 : ranking,
               sources: [source],
               recordCount: 1
             })
@@ -124,7 +145,11 @@ export function SalesTracking() {
       const partnerSkuArray = Array.from(partnerSkuMap.values())
         .sort((a, b) => b.totalShippedQty - a.totalShippedQty)
       
+      console.log('Processed Partner SKU data:', partnerSkuArray.slice(0, 5))
       setPartnerSkuData(partnerSkuArray)
+    } else {
+      console.warn('Required columns not found:', { partnerSkuColumn, shippedQtyColumn })
+      setPartnerSkuData([])
     }
   }
 
@@ -445,10 +470,10 @@ export function SalesTracking() {
       {/* Enhanced Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-2">
-            🚀 Advanced Sales & Ranking Analytics
+          <h1 className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-2">
+            Sales & Ranking Analytics
           </h1>
-          <p className="text-muted-foreground text-lg">
+          <p className="text-muted-foreground">
             Comprehensive sales tracking with Partner SKU aggregation and detailed performance insights
           </p>
         </div>
@@ -780,7 +805,20 @@ export function SalesTracking() {
                     Clear
                   </Button>
                 )}
+                <Button
+                  variant="outline"
+                  onClick={() => setShowFilters(!showFilters)}
+                  className="flex items-center gap-2"
+                >
+                  <Filter className="h-4 w-4" />
+                  {showFilters ? 'Hide' : 'Show'} Columns
+                </Button>
               </div>
+              {searchFilter && (
+                <div className="mt-3 text-sm text-muted-foreground">
+                  Showing {filteredData.length} of {data.length} records
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -880,27 +918,26 @@ export function SalesTracking() {
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="overflow-x-auto overflow-y-auto max-h-[600px] border rounded-lg">
-                <div className="min-w-full" style={{ width: 'max-content' }}>
-                  <Table className="w-full">
-                    <TableHeader className="sticky top-0 bg-background z-10">
-                      <TableRow>
-                        <TableHead className="w-12 px-4">
-                          <Checkbox
-                            checked={paginatedData.length > 0 && paginatedData.every((_, index) => 
-                              selectedRows.has((currentPage - 1) * rowsPerPage + index)
-                            )}
-                            onCheckedChange={toggleAllRowsSelection}
-                            aria-label="Select all rows on this page"
-                          />
-                        </TableHead>
-                        {visibleColumns.map((column) => (
-                          <TableHead
-                            key={column}
-                            className="cursor-pointer hover:bg-muted/50 select-none transition-colors font-semibold whitespace-nowrap min-w-[150px] px-4"
-                            onClick={() => handleSort(column)}
-                          >
-                            <div className="flex items-center gap-2">
+              <div className="overflow-x-auto max-h-[700px] border rounded-lg">
+                <Table className="w-full">
+                  <TableHeader className="sticky top-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 z-20 border-b shadow-sm">
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead className="w-12 px-4 bg-background/95 backdrop-blur">
+                        <Checkbox
+                          checked={paginatedData.length > 0 && paginatedData.every((_, index) => 
+                            selectedRows.has((currentPage - 1) * rowsPerPage + index)
+                          )}
+                          onCheckedChange={toggleAllRowsSelection}
+                          aria-label="Select all rows on this page"
+                        />
+                      </TableHead>
+                      {visibleColumns.map((column) => (
+                        <TableHead
+                          key={column}
+                          className="cursor-pointer hover:bg-muted/50 select-none transition-colors font-semibold whitespace-nowrap min-w-[150px] px-4 bg-background/95 backdrop-blur"
+                          onClick={() => handleSort(column)}
+                        >
+                          <div className="flex items-center gap-2">
                               <span>{column.startsWith('_') ? column.replace('_', '') : column}</span>
                               <ArrowUpDown className="h-4 w-4 opacity-50" />
                               {sortConfig?.key === column && (
@@ -958,8 +995,7 @@ export function SalesTracking() {
                       })}
                     </TableBody>
                   </Table>
-                </div>
-              </div>
+                 </div>
               
               {/* Pagination */}
               {totalPages > 1 && (
