@@ -7,6 +7,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
+import { ThemeProvider } from "@/components/ui/theme-provider";
+import { ModeToggle } from "@/components/ui/mode-toggle";
 
 import { AppSidebar } from "@/components/AppSidebar";
 import Index from "./pages/Index";
@@ -59,70 +61,75 @@ const App = () => {
   // If no user, show auth page
   if (!user) {
     return (
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Routes>
-              <Route path="/auth" element={<Auth />} />
-              <Route path="*" element={<Navigate to="/auth" replace />} />
-            </Routes>
-          </BrowserRouter>
-        </TooltipProvider>
-      </QueryClientProvider>
+      <ThemeProvider defaultTheme="dark" storageKey="huha-ui-theme">
+        <QueryClientProvider client={queryClient}>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <Routes>
+                <Route path="/auth" element={<Auth />} />
+                <Route path="*" element={<Navigate to="/auth" replace />} />
+              </Routes>
+            </BrowserRouter>
+          </TooltipProvider>
+        </QueryClientProvider>
+      </ThemeProvider>
     );
   }
 
   // If user is authenticated, show main app
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <SidebarProvider>
-            <div className="min-h-screen flex w-full">
-              <AppSidebar />
-              <div className="flex-1 flex flex-col">
-                <header className="h-12 flex items-center border-b bg-white shadow-sm">
-                  <div className="flex items-center gap-3 pl-8 pr-4">
-                    <SidebarTrigger className="bg-primary hover:bg-primary/90 text-primary-foreground border-primary" />
-                    <div className="bg-primary/10 rounded-md p-1.5">
-                      <img 
-                        src="/lovable-uploads/4f9a15c5-2d12-4ee0-b0bd-e982c5b4ece7.png" 
-                        alt="HuHa Logo" 
-                        className="h-6 w-6 object-contain"
-                      />
+    <ThemeProvider defaultTheme="dark" storageKey="huha-ui-theme">
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <SidebarProvider>
+              <div className="min-h-screen flex w-full">
+                <AppSidebar />
+                <div className="flex-1 flex flex-col">
+                  <header className="h-12 flex items-center border-b bg-background/80 backdrop-blur-xl shadow-sm">
+                    <div className="flex items-center gap-3 pl-8 pr-4 w-full">
+                      <SidebarTrigger className="bg-primary hover:bg-primary/90 text-primary-foreground border-primary" />
+                      <div className="bg-gradient-primary rounded-md p-1.5">
+                        <img 
+                          src="/lovable-uploads/4f9a15c5-2d12-4ee0-b0bd-e982c5b4ece7.png" 
+                          alt="HuHa Logo" 
+                          className="h-6 w-6 object-contain"
+                        />
+                      </div>
+                      <div className="flex flex-col flex-1">
+                        <h1 className="font-semibold text-base text-foreground tracking-wide">AI-Powered HuHa System</h1>
+                        <p className="text-[10px] text-muted-foreground font-medium leading-tight">Intelligent Product Management & Analytics Platform</p>
+                      </div>
+                      <ModeToggle />
                     </div>
-                    <div className="flex flex-col">
-                      <h1 className="font-semibold text-base text-foreground tracking-wide">HuHa Product Management System</h1>
-                      <p className="text-[10px] text-muted-foreground font-medium leading-tight">Professional Inventory & Analytics Platform</p>
-                    </div>
-                  </div>
-                </header>
-                <main className="flex-1">
-                  <Routes>
-                    <Route path="/" element={<Index />} />
-                    <Route path="/excel-mapper" element={<ExcelMapperPage />} />
-                    <Route path="/batch" element={<BatchProcessor />} />
-                    <Route path="/asin-sum" element={<AsinQtySum />} />
-                    <Route path="/zip-splitter" element={<ZipSplitter />} />
-                    <Route path="/sales-tracking" element={<SalesTracking />} />
-                    <Route path="/inventory" element={<Inventory />} />
-                    <Route path="/payments" element={<Payments />} />
-                    <Route path="/auth" element={<Navigate to="/" replace />} />
-                    
-                    {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </main>
+                  </header>
+                  <main className="flex-1">
+                    <Routes>
+                      <Route path="/" element={<Index />} />
+                      <Route path="/excel-mapper" element={<ExcelMapperPage />} />
+                      <Route path="/batch" element={<BatchProcessor />} />
+                      <Route path="/asin-sum" element={<AsinQtySum />} />
+                      <Route path="/zip-splitter" element={<ZipSplitter />} />
+                      <Route path="/sales-tracking" element={<SalesTracking />} />
+                      <Route path="/inventory" element={<Inventory />} />
+                      <Route path="/payments" element={<Payments />} />
+                      <Route path="/auth" element={<Navigate to="/" replace />} />
+                      
+                      {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                      <Route path="*" element={<NotFound />} />
+                    </Routes>
+                  </main>
+                </div>
               </div>
-            </div>
-          </SidebarProvider>
-        </BrowserRouter>
-      </TooltipProvider>
-    </QueryClientProvider>
+            </SidebarProvider>
+          </BrowserRouter>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 };
 

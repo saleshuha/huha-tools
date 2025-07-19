@@ -1,9 +1,12 @@
-import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, CreditCard, Wrench, TrendingUp, LogOut, Home } from "lucide-react"
+import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, CreditCard, Wrench, TrendingUp, LogOut, Home, Bot, Sparkles, Moon, Sun, Monitor, Zap, Brain, Activity } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
 import { useState } from "react"
 import { supabase } from "@/integrations/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { ModeToggle } from "@/components/ui/mode-toggle"
+import { AIAssistant } from "@/components/AIAssistant"
 import {
   Sidebar,
   SidebarContent,
@@ -24,58 +27,66 @@ import {
 
 const navigationItems = [
   {
-    title: "Homepage",
+    title: "AI Dashboard",
     url: "/",
-    icon: Home,
-    description: "Calendar, tasks, and dashboard overview"
+    icon: Brain,
+    description: "Intelligent insights, tasks, and analytics overview",
+    aiFeatures: ["Smart Analytics", "Predictive Insights", "Auto Reports"]
   }
 ]
 
 const toolsItems = [
   {
-    title: "Excel File Mapper",
+    title: "AI Excel Mapper",
     url: "/excel-mapper",
     icon: File,
-    description: "Map one source file to one target file"
+    description: "Smart mapping with AI-powered column detection",
+    aiFeatures: ["Auto-mapping", "Smart Validation", "Error Detection"]
   },
   {
-    title: "Batch Processor",
+    title: "AI Batch Processor",
     url: "/batch",
     icon: Files,
-    description: "Process multiple source files with one target template"
+    description: "Intelligent batch processing with optimization",
+    aiFeatures: ["Smart Batching", "Performance Optimization", "Auto-retry"]
   },
   {
-    title: "ASIN QTY Sum",
+    title: "AI ASIN Analyzer",
     url: "/asin-sum",
     icon: Calculator,
-    description: "Sum quantities by unique ASIN"
+    description: "Advanced ASIN analysis with predictive insights",
+    aiFeatures: ["Pattern Recognition", "Trend Analysis", "Smart Grouping"]
   },
   {
-    title: "Zip Splitter",
+    title: "Smart Zip Manager",
     url: "/zip-splitter",
     icon: Archive,
-    description: "Split ZIP files by size or file count limits"
+    description: "Intelligent file management and optimization",
+    aiFeatures: ["Size Optimization", "Smart Compression", "Auto-organization"]
   }
 ]
 
 const coreItems = [
   {
-    title: "Instock Inventory",
+    title: "AI Inventory Hub",
     url: "/inventory",
     icon: Package,
-    description: "Track product inventory with ASIN and serial numbers"
+    description: "Smart inventory tracking with predictive analytics",
+    aiFeatures: ["Stock Prediction", "Demand Forecasting", "Auto-reordering"]
   },
   {
-    title: "Sales & Ranking Tracker",
+    title: "AI Sales Intelligence",
     url: "/sales-tracking",
     icon: TrendingUp,
-    description: "Track and analyze product sales and ranking data"
+    description: "Advanced sales analytics with growth insights",
+    aiFeatures: ["Trend Analysis", "Growth Predictions", "Performance Optimization"]
   },
   {
-    title: "Payments",
+    title: "AI Payment Analytics",
     url: "/payments",
     icon: CreditCard,
-    description: "Track payments from e-commerce platforms"
+    description: "Intelligent payment tracking and cash flow analysis",
+    aiFeatures: ["Cash Flow Prediction", "Pattern Detection", "Fraud Prevention"]
   },
 ]
 
@@ -84,6 +95,8 @@ export function AppSidebar() {
   const location = useLocation()
   const isCollapsed = state === "collapsed"
   const [isToolsOpen, setIsToolsOpen] = useState(true)
+  const [isAIOpen, setIsAIOpen] = useState(false)
+  const [aiContext, setAIContext] = useState('general')
   const { toast } = useToast()
 
   const handleLogout = async () => {
@@ -116,21 +129,52 @@ export function AppSidebar() {
     return toolsItems.some(item => isActive(item.url))
   }
 
+  const openAIAssistant = (context: string) => {
+    setAIContext(context)
+    setIsAIOpen(true)
+  }
+
+  const getContextFromPath = (path: string) => {
+    if (path.includes('inventory')) return 'inventory'
+    if (path.includes('sales')) return 'sales'
+    if (path.includes('payment')) return 'payments'
+    if (path.includes('excel') || path.includes('batch') || path.includes('asin') || path.includes('zip')) return 'tools'
+    return 'general'
+  }
+
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border w-72 bg-sidebar shadow-strong">
       <SidebarContent className="bg-gradient-surface">
         <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/80 font-bold px-6 py-4 text-base">
-            HuHa Dashboard
+          <SidebarGroupLabel className="text-sidebar-foreground/80 font-bold px-6 py-4 text-base flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Bot className="w-5 h-5 text-primary" />
+              AI-Powered HuHa
+              <Sparkles className="w-4 h-4 text-primary animate-pulse" />
+            </div>
+            {!isCollapsed && <ModeToggle />}
           </SidebarGroupLabel>
+          
+          {/* AI Quick Actions */}
+          {!isCollapsed && (
+            <div className="px-6 py-2">
+              <Button
+                onClick={() => openAIAssistant(getContextFromPath(location.pathname))}
+                className="w-full bg-gradient-primary text-primary-foreground hover:shadow-medium transition-all duration-300 group"
+              >
+                <Brain className="w-4 h-4 mr-2 group-hover:animate-pulse" />
+                AI Assistant
+                <Zap className="w-3 h-3 ml-auto" />
+              </Button>
+            </div>
+          )}
           <SidebarGroupContent className="px-3">
             <SidebarMenu className="space-y-2">
-              {/* Navigation items */}
               {navigationItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton 
                     asChild
-                    className={`w-full p-4 rounded-xl transition-all duration-300 min-h-[80px] hover:scale-[1.02] group ${
+                    className={`w-full p-4 rounded-xl transition-all duration-300 min-h-[80px] hover:scale-[1.02] group relative ${
                       isActive(item.url)
                         ? "bg-gradient-primary text-primary-foreground shadow-medium animate-glow-pulse" 
                         : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground glass-container"
@@ -144,12 +188,27 @@ export function AppSidebar() {
                       <item.icon className="h-6 w-6 flex-shrink-0 mt-1 group-hover:scale-110 transition-transform duration-300" />
                       {!isCollapsed && (
                         <div className="flex flex-col text-left flex-1 space-y-1">
-                          <span className="font-bold text-base leading-tight">
-                            {item.title}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-base leading-tight">
+                              {item.title}
+                            </span>
+                            <Badge variant="secondary" className="text-xs px-1 py-0">
+                              <Sparkles className="w-2 h-2 mr-1" />
+                              AI
+                            </Badge>
+                          </div>
                           <span className="text-sm opacity-80 leading-relaxed">
                             {item.description}
                           </span>
+                          {item.aiFeatures && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {item.aiFeatures.slice(0, 2).map((feature, idx) => (
+                                <Badge key={idx} variant="outline" className="text-xs px-1 py-0">
+                                  {feature}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       )}
                     </NavLink>
@@ -157,12 +216,12 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               ))}
 
-              {/* Core Application Items */}
+              {/* Core Application Items with AI features */}
               {coreItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton 
                     asChild
-                    className={`w-full p-4 rounded-xl transition-all duration-300 min-h-[80px] hover:scale-[1.02] group ${
+                    className={`w-full p-4 rounded-xl transition-all duration-300 min-h-[80px] hover:scale-[1.02] group relative ${
                       isActive(item.url)
                         ? "bg-gradient-primary text-primary-foreground shadow-medium animate-glow-pulse" 
                         : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground glass-container"
@@ -176,20 +235,47 @@ export function AppSidebar() {
                       <item.icon className="h-6 w-6 flex-shrink-0 mt-1 group-hover:scale-110 transition-transform duration-300" />
                       {!isCollapsed && (
                         <div className="flex flex-col text-left flex-1 space-y-1">
-                          <span className="font-bold text-base leading-tight">
-                            {item.title}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-base leading-tight">
+                              {item.title}
+                            </span>
+                            <Badge variant="secondary" className="text-xs px-1 py-0">
+                              <Activity className="w-2 h-2 mr-1" />
+                              AI
+                            </Badge>
+                          </div>
                           <span className="text-sm opacity-80 leading-relaxed">
                             {item.description}
                           </span>
+                          {item.aiFeatures && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {item.aiFeatures.slice(0, 2).map((feature, idx) => (
+                                <Badge key={idx} variant="outline" className="text-xs px-1 py-0">
+                                  {feature}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       )}
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="absolute top-2 right-2 w-6 h-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          openAIAssistant(getContextFromPath(item.url))
+                        }}
+                      >
+                        <Bot className="w-3 h-3" />
+                      </Button>
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
 
-              {/* Enhanced Tools dropdown */}
+              {/* Enhanced AI Tools dropdown */}
               <SidebarMenuItem>
                 <Collapsible open={isToolsOpen} onOpenChange={setIsToolsOpen}>
                   <CollapsibleTrigger asChild>
@@ -205,15 +291,21 @@ export function AppSidebar() {
                         {!isCollapsed && (
                           <div className="flex flex-col text-left flex-1 space-y-1">
                             <div className="flex items-center justify-between">
-                              <span className="font-bold text-base leading-tight">
-                                Tools
-                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-base leading-tight">
+                                  AI Tools
+                                </span>
+                                <Badge variant="secondary" className="text-xs px-1 py-0">
+                                  <Bot className="w-2 h-2 mr-1" />
+                                  Smart
+                                </Badge>
+                              </div>
                               <ChevronDown className={`h-4 w-4 transition-transform duration-300 ${
                                 isToolsOpen ? "rotate-180" : ""
                               }`} />
                             </div>
                             <span className="text-sm opacity-80 leading-relaxed">
-                              Excel and utility tools
+                              Intelligent Excel and utility tools
                             </span>
                           </div>
                         )}
@@ -239,14 +331,41 @@ export function AppSidebar() {
                           <item.icon className="h-5 w-5 flex-shrink-0 mt-1 group-hover:scale-110 transition-transform duration-300" />
                           {!isCollapsed && (
                             <div className="flex flex-col text-left flex-1 space-y-1">
-                              <span className="font-semibold text-sm leading-tight">
-                                {item.title}
-                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="font-semibold text-sm leading-tight">
+                                  {item.title}
+                                </span>
+                                <Badge variant="outline" className="text-xs px-1 py-0">
+                                  <Sparkles className="w-2 h-2 mr-1" />
+                                  AI
+                                </Badge>
+                              </div>
                               <span className="text-xs opacity-80 leading-relaxed">
                                 {item.description}
                               </span>
+                              {item.aiFeatures && (
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {item.aiFeatures.slice(0, 2).map((feature, idx) => (
+                                    <Badge key={idx} variant="outline" className="text-xs px-1 py-0">
+                                      {feature}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           )}
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="absolute top-1 right-1 w-5 h-5 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              openAIAssistant('tools')
+                            }}
+                          >
+                            <Bot className="w-3 h-3" />
+                          </Button>
                         </NavLink>
                       </SidebarMenuButton>
                     ))}
@@ -258,15 +377,23 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="p-4 border-t border-sidebar-border bg-sidebar">
-        <Button 
-          onClick={handleLogout}
-          variant="outline"
-          className="w-full flex items-center gap-2 text-sm hover:scale-105 transition-all duration-300 bg-gradient-to-r from-destructive/10 to-destructive/5 hover:from-destructive hover:to-destructive/80 hover:text-destructive-foreground border-destructive/20 hover:border-destructive"
-        >
-          <LogOut className="h-4 w-4" />
-          {!isCollapsed && "Sign Out"}
-        </Button>
+        <div className="space-y-2">
+          <Button 
+            onClick={handleLogout}
+            variant="outline"
+            className="w-full flex items-center gap-2 text-sm hover:scale-105 transition-all duration-300 bg-gradient-to-r from-destructive/10 to-destructive/5 hover:from-destructive hover:to-destructive/80 hover:text-destructive-foreground border-destructive/20 hover:border-destructive"
+          >
+            <LogOut className="h-4 w-4" />
+            {!isCollapsed && "Sign Out"}
+          </Button>
+        </div>
       </SidebarFooter>
+      
+      <AIAssistant 
+        isOpen={isAIOpen} 
+        onClose={() => setIsAIOpen(false)}
+        context={aiContext}
+      />
     </Sidebar>
   )
 }
