@@ -174,7 +174,7 @@ export function AppSidebar() {
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton 
                     asChild
-                    className={`w-full p-4 rounded-xl transition-all duration-300 min-h-[80px] hover:scale-[1.02] group relative ${
+                    className={`w-full p-3 rounded-lg transition-all duration-300 min-h-[60px] hover:scale-[1.02] group relative ${
                       isActive(item.url)
                         ? "bg-gradient-primary text-primary-foreground shadow-medium animate-glow-pulse" 
                         : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground glass-container"
@@ -185,11 +185,11 @@ export function AppSidebar() {
                       end
                       className="flex items-start gap-4 no-underline w-full h-full"
                     >
-                      <item.icon className="h-6 w-6 flex-shrink-0 mt-1 group-hover:scale-110 transition-transform duration-300" />
+                      <item.icon className="h-5 w-5 flex-shrink-0 mt-1 group-hover:scale-110 transition-transform duration-300" />
                       {!isCollapsed && (
                         <div className="flex flex-col text-left flex-1 space-y-1">
                           <div className="flex items-center gap-2">
-                            <span className="font-bold text-base leading-tight">
+                            <span className="font-semibold text-sm leading-tight">
                               {item.title}
                             </span>
                             <Badge variant="secondary" className="text-xs px-1 py-0">
@@ -197,18 +197,9 @@ export function AppSidebar() {
                               AI
                             </Badge>
                           </div>
-                          <span className="text-sm opacity-80 leading-relaxed">
+                          <span className="text-xs opacity-80 leading-relaxed">
                             {item.description}
                           </span>
-                          {item.aiFeatures && (
-                            <div className="flex flex-wrap gap-1 mt-1">
-                              {item.aiFeatures.slice(0, 2).map((feature, idx) => (
-                                <Badge key={idx} variant="outline" className="text-xs px-1 py-0">
-                                  {feature}
-                                </Badge>
-                              ))}
-                            </div>
-                          )}
                         </div>
                       )}
                     </NavLink>
@@ -221,7 +212,7 @@ export function AppSidebar() {
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton 
                     asChild
-                    className={`w-full p-4 rounded-xl transition-all duration-300 min-h-[80px] hover:scale-[1.02] group relative ${
+                    className={`w-full p-3 rounded-lg transition-all duration-300 min-h-[55px] hover:scale-[1.02] group relative ${
                       isActive(item.url)
                         ? "bg-gradient-primary text-primary-foreground shadow-medium animate-glow-pulse" 
                         : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground glass-container"
@@ -232,11 +223,11 @@ export function AppSidebar() {
                       end
                       className="flex items-start gap-4 no-underline w-full h-full"
                     >
-                      <item.icon className="h-6 w-6 flex-shrink-0 mt-1 group-hover:scale-110 transition-transform duration-300" />
+                      <item.icon className="h-5 w-5 flex-shrink-0 mt-1 group-hover:scale-110 transition-transform duration-300" />
                       {!isCollapsed && (
                         <div className="flex flex-col text-left flex-1 space-y-1">
                           <div className="flex items-center gap-2">
-                            <span className="font-bold text-base leading-tight">
+                            <span className="font-semibold text-sm leading-tight">
                               {item.title}
                             </span>
                             <Badge variant="secondary" className="text-xs px-1 py-0">
@@ -244,18 +235,9 @@ export function AppSidebar() {
                               AI
                             </Badge>
                           </div>
-                          <span className="text-sm opacity-80 leading-relaxed">
+                          <span className="text-xs opacity-80 leading-relaxed">
                             {item.description}
                           </span>
-                          {item.aiFeatures && (
-                            <div className="flex flex-wrap gap-1 mt-1">
-                              {item.aiFeatures.slice(0, 2).map((feature, idx) => (
-                                <Badge key={idx} variant="outline" className="text-xs px-1 py-0">
-                                  {feature}
-                                </Badge>
-                              ))}
-                            </div>
-                          )}
                         </div>
                       )}
                       <Button
@@ -280,19 +262,19 @@ export function AppSidebar() {
                 <Collapsible open={isToolsOpen} onOpenChange={setIsToolsOpen}>
                   <CollapsibleTrigger asChild>
                     <SidebarMenuButton
-                      className={`w-full p-4 rounded-xl transition-all duration-300 min-h-[80px] hover:scale-[1.02] group ${
+                      className={`w-full p-3 rounded-lg transition-all duration-300 min-h-[55px] hover:scale-[1.02] group ${
                         isToolsSectionActive()
                           ? "bg-gradient-accent text-accent-foreground shadow-medium" 
                           : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground glass-container"
                       }`}
                     >
                       <div className="flex items-start gap-4 w-full">
-                        <Wrench className="h-6 w-6 flex-shrink-0 mt-1 group-hover:scale-110 transition-transform duration-300" />
+                        <Wrench className="h-5 w-5 flex-shrink-0 mt-1 group-hover:scale-110 transition-transform duration-300" />
                         {!isCollapsed && (
                           <div className="flex flex-col text-left flex-1 space-y-1">
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2">
-                                <span className="font-bold text-base leading-tight">
+                                <span className="font-semibold text-sm leading-tight">
                                   AI Tools
                                 </span>
                                 <Badge variant="secondary" className="text-xs px-1 py-0">
@@ -304,7 +286,7 @@ export function AppSidebar() {
                                 isToolsOpen ? "rotate-180" : ""
                               }`} />
                             </div>
-                            <span className="text-sm opacity-80 leading-relaxed">
+                            <span className="text-xs opacity-80 leading-relaxed">
                               Intelligent Excel and utility tools
                             </span>
                           </div>
@@ -317,7 +299,7 @@ export function AppSidebar() {
                       <SidebarMenuButton 
                         key={item.title}
                         asChild
-                        className={`w-full p-3 rounded-lg transition-all duration-300 min-h-[60px] hover:scale-[1.02] group ${
+                        className={`w-full p-2 rounded-lg transition-all duration-300 min-h-[45px] hover:scale-[1.02] group ${
                           isActive(item.url)
                             ? "bg-gradient-primary text-primary-foreground shadow-medium" 
                             : "hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground glass-container border border-sidebar-border/30"
@@ -328,11 +310,11 @@ export function AppSidebar() {
                           end
                           className="flex items-start gap-3 no-underline w-full h-full"
                         >
-                          <item.icon className="h-5 w-5 flex-shrink-0 mt-1 group-hover:scale-110 transition-transform duration-300" />
+                          <item.icon className="h-4 w-4 flex-shrink-0 mt-1 group-hover:scale-110 transition-transform duration-300" />
                           {!isCollapsed && (
                             <div className="flex flex-col text-left flex-1 space-y-1">
                               <div className="flex items-center gap-2">
-                                <span className="font-semibold text-sm leading-tight">
+                                <span className="font-medium text-xs leading-tight">
                                   {item.title}
                                 </span>
                                 <Badge variant="outline" className="text-xs px-1 py-0">
@@ -340,18 +322,9 @@ export function AppSidebar() {
                                   AI
                                 </Badge>
                               </div>
-                              <span className="text-xs opacity-80 leading-relaxed">
+                              <span className="text-xs opacity-70 leading-relaxed">
                                 {item.description}
                               </span>
-                              {item.aiFeatures && (
-                                <div className="flex flex-wrap gap-1 mt-1">
-                                  {item.aiFeatures.slice(0, 2).map((feature, idx) => (
-                                    <Badge key={idx} variant="outline" className="text-xs px-1 py-0">
-                                      {feature}
-                                    </Badge>
-                                  ))}
-                                </div>
-                              )}
                             </div>
                           )}
                           <Button
