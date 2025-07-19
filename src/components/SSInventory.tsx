@@ -34,10 +34,14 @@ export function SSInventory() {
     skuNumber: string;
     binSerialNumber: string;
     status: SkuInventoryItem['status'];
+    quantity: number;
+    minStockLevel: number;
   }>({
     skuNumber: '',
     binSerialNumber: '',
-    status: 'in-stock'
+    status: 'in-stock',
+    quantity: 1,
+    minStockLevel: 5
   });
 
   const handleAddItem = async () => {
@@ -65,10 +69,12 @@ export function SSInventory() {
       skuNumber: newItem.skuNumber.trim(),
       binSerialNumber: newItem.binSerialNumber.trim(),
       status: newItem.status,
-      dateAdded: new Date().toISOString()
+      dateAdded: new Date().toISOString(),
+      quantity: newItem.quantity,
+      minStockLevel: newItem.minStockLevel
     });
 
-    setNewItem({ skuNumber: '', binSerialNumber: '', status: 'in-stock' });
+    setNewItem({ skuNumber: '', binSerialNumber: '', status: 'in-stock', quantity: 1, minStockLevel: 5 });
     setIsAddDialogOpen(false);
   };
 
@@ -268,7 +274,31 @@ export function SSInventory() {
                             <SelectItem value="reserved">Reserved</SelectItem>
                             <SelectItem value="damaged">Damaged</SelectItem>
                           </SelectContent>
-                      </Select>
+                        </Select>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="quantity">Quantity</Label>
+                          <Input
+                            id="quantity"
+                            type="number"
+                            min="1"
+                            value={newItem.quantity}
+                            onChange={(e) => setNewItem(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
+                            placeholder="Enter quantity"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="minStockLevel">Min Stock Level</Label>
+                          <Input
+                            id="minStockLevel"
+                            type="number"
+                            min="1"
+                            value={newItem.minStockLevel}
+                            onChange={(e) => setNewItem(prev => ({ ...prev, minStockLevel: parseInt(e.target.value) || 5 }))}
+                            placeholder="Enter minimum stock level"
+                          />
+                        </div>
                       </div>
                       <div className="flex gap-2 justify-end">
                         <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>

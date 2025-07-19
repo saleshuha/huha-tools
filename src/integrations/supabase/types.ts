@@ -21,7 +21,12 @@ export type Database = {
           date_added: string
           date_sold: string | null
           id: string
+          last_restock_date: string | null
+          min_stock_level: number
           notes: string | null
+          quantity: number
+          restock_date: string | null
+          restock_quantity: number | null
           serial_number: string
           status: Database["public"]["Enums"]["inventory_status"]
           updated_at: string
@@ -33,7 +38,12 @@ export type Database = {
           date_added?: string
           date_sold?: string | null
           id?: string
+          last_restock_date?: string | null
+          min_stock_level?: number
           notes?: string | null
+          quantity?: number
+          restock_date?: string | null
+          restock_quantity?: number | null
           serial_number: string
           status?: Database["public"]["Enums"]["inventory_status"]
           updated_at?: string
@@ -45,7 +55,12 @@ export type Database = {
           date_added?: string
           date_sold?: string | null
           id?: string
+          last_restock_date?: string | null
+          min_stock_level?: number
           notes?: string | null
+          quantity?: number
+          restock_date?: string | null
+          restock_quantity?: number | null
           serial_number?: string
           status?: Database["public"]["Enums"]["inventory_status"]
           updated_at?: string
@@ -97,7 +112,13 @@ export type Database = {
           bin_serial_number: string
           created_at: string
           date_added: string
+          date_sold: string | null
           id: string
+          last_restock_date: string | null
+          min_stock_level: number
+          quantity: number
+          restock_date: string | null
+          restock_quantity: number | null
           sku_number: string
           status: Database["public"]["Enums"]["inventory_status"]
           updated_at: string
@@ -107,7 +128,13 @@ export type Database = {
           bin_serial_number: string
           created_at?: string
           date_added?: string
+          date_sold?: string | null
           id?: string
+          last_restock_date?: string | null
+          min_stock_level?: number
+          quantity?: number
+          restock_date?: string | null
+          restock_quantity?: number | null
           sku_number: string
           status?: Database["public"]["Enums"]["inventory_status"]
           updated_at?: string
@@ -117,7 +144,13 @@ export type Database = {
           bin_serial_number?: string
           created_at?: string
           date_added?: string
+          date_sold?: string | null
           id?: string
+          last_restock_date?: string | null
+          min_stock_level?: number
+          quantity?: number
+          restock_date?: string | null
+          restock_quantity?: number | null
           sku_number?: string
           status?: Database["public"]["Enums"]["inventory_status"]
           updated_at?: string
@@ -163,7 +196,29 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_items_needing_restock: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          table_name: string
+          item_id: string
+          identifier: string
+          current_quantity: number
+          min_stock_level: number
+          days_since_last_restock: number
+        }[]
+      }
+      get_sales_analytics: {
+        Args: { start_date?: string; end_date?: string }
+        Returns: {
+          product_type: string
+          total_sold: number
+          avg_days_to_sell: number
+          fastest_selling_item: string
+          slowest_selling_item: string
+          restock_frequency_days: number
+          predicted_restock_needed_items: Json
+        }[]
+      }
     }
     Enums: {
       inventory_status: "in-stock" | "sold" | "reserved" | "damaged"

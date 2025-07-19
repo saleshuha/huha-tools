@@ -8,6 +8,12 @@ export interface SkuInventoryItem {
   binSerialNumber: string;
   status: 'in-stock' | 'sold' | 'reserved' | 'damaged';
   dateAdded: string;
+  dateSold?: string;
+  quantity: number;
+  minStockLevel: number;
+  restockDate?: string;
+  restockQuantity?: number;
+  lastRestockDate?: string;
 }
 
 export function useSkuInventory() {
@@ -32,6 +38,12 @@ export function useSkuInventory() {
         binSerialNumber: item.bin_serial_number,
         status: item.status,
         dateAdded: item.date_added,
+        dateSold: item.date_sold || undefined,
+        quantity: item.quantity || 1,
+        minStockLevel: item.min_stock_level || 5,
+        restockDate: item.restock_date || undefined,
+        restockQuantity: item.restock_quantity || undefined,
+        lastRestockDate: item.last_restock_date || undefined,
       }));
 
       setInventory(formattedData);
@@ -60,6 +72,12 @@ export function useSkuInventory() {
           bin_serial_number: item.binSerialNumber,
           status: item.status,
           date_added: item.dateAdded,
+          date_sold: item.dateSold || null,
+          quantity: item.quantity || 1,
+          min_stock_level: item.minStockLevel || 5,
+          restock_date: item.restockDate || null,
+          restock_quantity: item.restockQuantity || null,
+          last_restock_date: item.lastRestockDate || null,
         })
         .select()
         .single();
@@ -72,6 +90,12 @@ export function useSkuInventory() {
         binSerialNumber: data.bin_serial_number,
         status: data.status,
         dateAdded: data.date_added,
+        dateSold: data.date_sold || undefined,
+        quantity: data.quantity || 1,
+        minStockLevel: data.min_stock_level || 5,
+        restockDate: data.restock_date || undefined,
+        restockQuantity: data.restock_quantity || undefined,
+        lastRestockDate: data.last_restock_date || undefined,
       };
 
       setInventory(prev => [newItem, ...prev]);
@@ -91,15 +115,22 @@ export function useSkuInventory() {
   // Update item status
   const updateItemStatus = async (id: string, status: SkuInventoryItem['status']) => {
     try {
+      const updateData: any = { status };
+      if (status === 'sold') {
+        updateData.date_sold = new Date().toISOString();
+      }
+
       const { error } = await supabase
         .from('sku_inventory')
-        .update({ status })
+        .update(updateData)
         .eq('id', id);
 
       if (error) throw error;
 
       setInventory(prev => prev.map(item => 
-        item.id === id ? { ...item, status } : item
+        item.id === id 
+          ? { ...item, status, ...(status === 'sold' && { dateSold: new Date().toISOString() }) }
+          : item
       ));
     } catch (error: any) {
       toast({
@@ -138,12 +169,51 @@ export function useSkuInventory() {
     loadInventory();
   }, []);
 
+  // Restock item
+  const restockItem = async (id: string, quantity: number) => {
+    try {
+      const { error } = await supabase
+        .from('sku_inventory')
+        .update({ 
+          quantity,
+          last_restock_date: new Date().toISOString(),
+          restock_quantity: quantity
+        })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setInventory(prev => prev.map(item => 
+        item.id === id 
+          ? { 
+              ...item, 
+              quantity,
+              lastRestockDate: new Date().toISOString(),
+              restockQuantity: quantity
+            }
+          : item
+      ));
+
+      toast({
+        title: "Item restocked",
+        description: `Item quantity updated to ${quantity}`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error restocking item",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   return {
     inventory,
     loading,
     addItem,
     updateItemStatus,
     deleteItem,
+    restockItem,
     refetch: loadInventory,
   };
 }

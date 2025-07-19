@@ -10,6 +10,11 @@ export interface AsinInventoryItem {
   dateAdded: string;
   dateSold?: string;
   notes?: string;
+  quantity: number;
+  minStockLevel: number;
+  restockDate?: string;
+  restockQuantity?: number;
+  lastRestockDate?: string;
 }
 
 export function useAsinInventory() {
@@ -36,6 +41,11 @@ export function useAsinInventory() {
         dateAdded: item.date_added,
         dateSold: item.date_sold || undefined,
         notes: item.notes || undefined,
+        quantity: item.quantity || 1,
+        minStockLevel: item.min_stock_level || 5,
+        restockDate: item.restock_date || undefined,
+        restockQuantity: item.restock_quantity || undefined,
+        lastRestockDate: item.last_restock_date || undefined,
       }));
 
       setInventory(formattedData);
@@ -66,6 +76,11 @@ export function useAsinInventory() {
           date_added: item.dateAdded,
           date_sold: item.dateSold || null,
           notes: item.notes || null,
+          quantity: item.quantity || 1,
+          min_stock_level: item.minStockLevel || 5,
+          restock_date: item.restockDate || null,
+          restock_quantity: item.restockQuantity || null,
+          last_restock_date: item.lastRestockDate || null,
         })
         .select()
         .single();
@@ -80,6 +95,11 @@ export function useAsinInventory() {
         dateAdded: data.date_added,
         dateSold: data.date_sold || undefined,
         notes: data.notes || undefined,
+        quantity: data.quantity || 1,
+        minStockLevel: data.min_stock_level || 5,
+        restockDate: data.restock_date || undefined,
+        restockQuantity: data.restock_quantity || undefined,
+        lastRestockDate: data.last_restock_date || undefined,
       };
 
       setInventory(prev => [newItem, ...prev]);
@@ -163,6 +183,11 @@ export function useAsinInventory() {
         date_added: item.dateAdded,
         date_sold: item.dateSold || null,
         notes: item.notes || null,
+        quantity: item.quantity || 1,
+        min_stock_level: item.minStockLevel || 5,
+        restock_date: item.restockDate || null,
+        restock_quantity: item.restockQuantity || null,
+        last_restock_date: item.lastRestockDate || null,
       }));
 
       const { data, error } = await supabase
@@ -180,6 +205,11 @@ export function useAsinInventory() {
         dateAdded: item.date_added,
         dateSold: item.date_sold || undefined,
         notes: item.notes || undefined,
+        quantity: item.quantity || 1,
+        minStockLevel: item.min_stock_level || 5,
+        restockDate: item.restock_date || undefined,
+        restockQuantity: item.restock_quantity || undefined,
+        lastRestockDate: item.last_restock_date || undefined,
       }));
 
       setInventory(prev => [...newItems, ...prev]);
@@ -200,6 +230,44 @@ export function useAsinInventory() {
     loadInventory();
   }, []);
 
+  // Restock item
+  const restockItem = async (id: string, quantity: number) => {
+    try {
+      const { error } = await supabase
+        .from('asin_inventory')
+        .update({ 
+          quantity,
+          last_restock_date: new Date().toISOString(),
+          restock_quantity: quantity
+        })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setInventory(prev => prev.map(item => 
+        item.id === id 
+          ? { 
+              ...item, 
+              quantity,
+              lastRestockDate: new Date().toISOString(),
+              restockQuantity: quantity
+            }
+          : item
+      ));
+
+      toast({
+        title: "Item restocked",
+        description: `Item quantity updated to ${quantity}`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error restocking item",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   return {
     inventory,
     loading,
@@ -207,6 +275,7 @@ export function useAsinInventory() {
     updateItemStatus,
     deleteItem,
     bulkAdd,
+    restockItem,
     refetch: loadInventory,
   };
 }

@@ -15,15 +15,18 @@ import {
   Download, 
   Upload,
   Check,
-  X
+  X,
+  RefreshCw,
+  AlertTriangle
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from './ui/dialog';
 import { Textarea } from './ui/textarea';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from './ui/alert-dialog';
 import { useAsinInventory, AsinInventoryItem } from '@/hooks/useAsinInventory';
+import { InventoryAnalytics } from './InventoryAnalytics';
 
 export function AsinInventory() {
-  const { inventory, loading, addItem, updateItemStatus, deleteItem, bulkAdd } = useAsinInventory();
+  const { inventory, loading, addItem, updateItemStatus, deleteItem, bulkAdd, restockItem } = useAsinInventory();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -35,19 +38,42 @@ export function AsinInventory() {
   const [itemsPerPage, setItemsPerPage] = useState(50);
   const { toast } = useToast();
 
+  const handleRestock = async () => {
+    if (restockQuantity <= 0) {
+      toast({
+        title: "Invalid Quantity",
+        description: "Please enter a valid quantity",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    await restockItem(restockItemId, restockQuantity);
+    setRestockDialogOpen(false);
+    setRestockItemId('');
+    setRestockQuantity(1);
+  };
+
   // Form states
   const [newItem, setNewItem] = useState<{
     asin: string;
     serialNumber: string;
     status: AsinInventoryItem['status'];
     notes: string;
+    quantity: number;
+    minStockLevel: number;
   }>({
     asin: '',
     serialNumber: '',
     status: 'in-stock',
-    notes: ''
+    notes: '',
+    quantity: 1,
+    minStockLevel: 5
   });
   const [bulkText, setBulkText] = useState('');
+  const [restockDialogOpen, setRestockDialogOpen] = useState(false);
+  const [restockItemId, setRestockItemId] = useState<string>('');
+  const [restockQuantity, setRestockQuantity] = useState<number>(1);
 
   const handleAddItem = async () => {
     if (!newItem.asin.trim() || !newItem.serialNumber.trim()) {
@@ -75,10 +101,12 @@ export function AsinInventory() {
       serialNumber: newItem.serialNumber.trim(),
       status: newItem.status,
       dateAdded: new Date().toISOString(),
-      notes: newItem.notes.trim() || undefined
+      notes: newItem.notes.trim() || undefined,
+      quantity: newItem.quantity,
+      minStockLevel: newItem.minStockLevel
     });
 
-    setNewItem({ asin: '', serialNumber: '', status: 'in-stock', notes: '' });
+    setNewItem({ asin: '', serialNumber: '', status: 'in-stock', notes: '', quantity: 1, minStockLevel: 5 });
     setIsAddDialogOpen(false);
   };
 
@@ -103,7 +131,7 @@ export function AsinInventory() {
         return;
       }
 
-      const [asin, serialNumber, status = 'in-stock', notes = ''] = parts;
+      const [asin, serialNumber, status = 'in-stock', notes = '', quantity = '1', minStockLevel = '5'] = parts;
       
       if (!asin.trim() || !serialNumber.trim()) {
         errors.push(`Line ${index + 1}: ASIN and Serial Number cannot be empty`);
@@ -126,7 +154,9 @@ export function AsinInventory() {
         serialNumber: serialNumber.trim(),
         status: itemStatus,
         dateAdded: new Date().toISOString(),
-        notes: notes.trim() || undefined
+        notes: notes.trim() || undefined,
+        quantity: parseInt(quantity) || 1,
+        minStockLevel: parseInt(minStockLevel) || 5
       });
     });
 
@@ -156,7 +186,7 @@ export function AsinInventory() {
       return;
     }
 
-    const csvHeaders = ['ASIN', 'Serial Number', 'Status', 'Date Added', 'Date Sold', 'Notes'];
+    const csvHeaders = ['ASIN', 'Serial Number', 'Status', 'Date Added', 'Date Sold', 'Notes', 'Quantity', 'Min Stock Level', 'Last Restock Date'];
     const csvData = [
       csvHeaders,
       ...inventory.map(item => [
@@ -165,7 +195,10 @@ export function AsinInventory() {
         item.status,
         new Date(item.dateAdded).toLocaleDateString(),
         item.dateSold ? new Date(item.dateSold).toLocaleDateString() : '',
-        item.notes || ''
+        item.notes || '',
+        item.quantity.toString(),
+        item.minStockLevel.toString(),
+        item.lastRestockDate ? new Date(item.lastRestockDate).toLocaleDateString() : ''
       ])
     ];
 
@@ -278,6 +311,9 @@ export function AsinInventory() {
 
   return (
     <div className="space-y-6">
+      {/* AI Analytics Section */}
+      <InventoryAnalytics />
+      
       <div className="space-y-6">
         {/* Header */}
         <div className="text-center mb-8">
@@ -425,6 +461,30 @@ export function AsinInventory() {
                         </SelectContent>
                       </Select>
                     </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="quantity">Quantity</Label>
+                        <Input
+                          id="quantity"
+                          type="number"
+                          min="1"
+                          value={newItem.quantity}
+                          onChange={(e) => setNewItem(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
+                          placeholder="Enter quantity"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="minStockLevel">Min Stock Level</Label>
+                        <Input
+                          id="minStockLevel"
+                          type="number"
+                          min="1"
+                          value={newItem.minStockLevel}
+                          onChange={(e) => setNewItem(prev => ({ ...prev, minStockLevel: parseInt(e.target.value) || 5 }))}
+                          placeholder="Enter minimum stock level"
+                        />
+                      </div>
+                    </div>
                     <div>
                       <Label htmlFor="notes">Notes (Optional)</Label>
                       <Textarea
@@ -546,6 +606,8 @@ export function AsinInventory() {
                   <th className="text-left p-4 font-semibold">ASIN</th>
                   <th className="text-left p-4 font-semibold">Serial Number</th>
                   <th className="text-left p-4 font-semibold">Status</th>
+                  <th className="text-left p-4 font-semibold">Qty</th>
+                  <th className="text-left p-4 font-semibold">Min Level</th>
                   <th className="text-left p-4 font-semibold">Date Added</th>
                   <th className="text-left p-4 font-semibold">Date Sold</th>
                   <th className="text-left p-4 font-semibold">Notes</th>
@@ -555,7 +617,7 @@ export function AsinInventory() {
               <tbody>
                 {paginatedInventory.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="text-center p-8 text-muted-foreground">
+                    <td colSpan={10} className="text-center p-8 text-muted-foreground">
                       {inventory.length === 0 
                         ? "No inventory items yet. Add your first item to get started!"
                         : "No items match your search criteria."
@@ -600,6 +662,17 @@ export function AsinInventory() {
                           </SelectContent>
                         </Select>
                       </td>
+                      <td className="p-4">
+                        <div className="flex items-center gap-2">
+                          <span className={`font-medium ${item.quantity <= item.minStockLevel ? 'text-red-600' : ''}`}>
+                            {item.quantity}
+                          </span>
+                          {item.quantity <= item.minStockLevel && (
+                            <AlertTriangle className="w-4 h-4 text-red-600" />
+                          )}
+                        </div>
+                      </td>
+                      <td className="p-4 text-sm">{item.minStockLevel}</td>
                       <td className="p-4 text-sm">
                         {new Date(item.dateAdded).toLocaleDateString()}
                       </td>
@@ -610,34 +683,48 @@ export function AsinInventory() {
                         {item.notes || '-'}
                       </td>
                       <td className="p-4 text-center">
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-red-600 hover:text-red-700"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Delete Item</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Are you sure you want to delete this inventory item? This action cannot be undone.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction 
-                                onClick={() => deleteItem(item.id)}
-                                className="bg-red-600 hover:bg-red-700"
+                        <div className="flex gap-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setRestockItemId(item.id);
+                              setRestockQuantity(item.quantity + 1);
+                              setRestockDialogOpen(true);
+                            }}
+                            className="text-blue-600 hover:text-blue-700"
+                          >
+                            <RefreshCw className="w-4 h-4" />
+                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-red-600 hover:text-red-700"
                               >
-                                Delete
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete Item</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to delete this inventory item? This action cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction 
+                                  onClick={() => deleteItem(item.id)}
+                                  className="bg-red-600 hover:bg-red-700"
+                                >
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -676,6 +763,37 @@ export function AsinInventory() {
             </div>
           )}
         </Card>
+
+        {/* Restock Dialog */}
+        <Dialog open={restockDialogOpen} onOpenChange={setRestockDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Restock Item</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="restockQuantity">New Quantity</Label>
+                <Input
+                  id="restockQuantity"
+                  type="number"
+                  min="1"
+                  value={restockQuantity}
+                  onChange={(e) => setRestockQuantity(parseInt(e.target.value) || 1)}
+                  placeholder="Enter new quantity"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setRestockDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleRestock}>
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Restock Item
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
