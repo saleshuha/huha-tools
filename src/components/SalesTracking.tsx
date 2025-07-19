@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useDropzone } from 'react-dropzone'
-import { Upload, Filter, ArrowUpDown, Eye, EyeOff, FileText, Calculator, Trash2, X, Plus, Download, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Upload, Filter, ArrowUpDown, Eye, EyeOff, FileText, Calculator, Trash2, X, Plus, Download, ChevronLeft, ChevronRight, TrendingUp, BarChart3, Package, Search, Star, Activity } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination'
+import { Input } from '@/components/ui/input'
 import * as XLSX from 'xlsx'
 
 interface ColumnVisibility {
@@ -30,6 +30,23 @@ interface UploadedFile {
   columns: string[]
 }
 
+interface PartnerSKUAggregate {
+  partnerSku: string
+  totalShippedQty: number
+  totalSales: number
+  avgRanking: number
+  sources: string[]
+  recordCount: number
+}
+
+interface AnalyticsData {
+  topPartnerSKUs: PartnerSKUAggregate[]
+  totalShippedUnits: number
+  avgShippedPerSKU: number
+  uniquePartnerSKUs: number
+  topPerformingSKUs: PartnerSKUAggregate[]
+}
+
 export function SalesTracking() {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([])
   const [data, setData] = useState<FileData[]>([])
@@ -38,15 +55,85 @@ export function SalesTracking() {
   const [sortConfig, setSortConfig] = useState<SortConfig | null>(null)
   const [showFilters, setShowFilters] = useState(false)
   const [showSummary, setShowSummary] = useState(false)
+  const [showAnalytics, setShowAnalytics] = useState(false)
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set())
   const [currentPage, setCurrentPage] = useState(1)
   const [rowsPerPage] = useState(1000)
+  const [partnerSkuData, setPartnerSkuData] = useState<PartnerSKUAggregate[]>([])
+  const [searchFilter, setSearchFilter] = useState('')
+
+  // Enhanced processing for Partner SKU aggregation
+  const processPartnerSKUData = (combinedData: FileData[], allColumns: string[]) => {
+    const partnerSkuColumn = allColumns.find(col => 
+      col.toLowerCase().includes('partner') && col.toLowerCase().includes('sku') ||
+      col.toLowerCase().includes('partnersku') ||
+      col.toLowerCase().includes('partner_sku')
+    )
+    
+    const shippedQtyColumn = allColumns.find(col => 
+      col.toLowerCase().includes('shipped') && (col.toLowerCase().includes('qty') || col.toLowerCase().includes('quantity')) ||
+      col.toLowerCase().includes('shipped_qty') ||
+      col.toLowerCase().includes('shippedqty')
+    )
+    
+    const salesColumn = allColumns.find(col => 
+      col.toLowerCase().includes('sales') ||
+      col.toLowerCase().includes('revenue') ||
+      col.toLowerCase().includes('amount')
+    )
+    
+    const rankingColumn = allColumns.find(col => 
+      col.toLowerCase().includes('ranking') ||
+      col.toLowerCase().includes('rank') ||
+      col.toLowerCase().includes('position')
+    )
+
+    if (partnerSkuColumn && shippedQtyColumn) {
+      const partnerSkuMap = new Map<string, PartnerSKUAggregate>()
+      
+      combinedData.forEach(row => {
+        const partnerSku = row[partnerSkuColumn]?.toString() || ''
+        const shippedQty = parseFloat(row[shippedQtyColumn]) || 0
+        const sales = parseFloat(row[salesColumn]) || 0
+        const ranking = parseFloat(row[rankingColumn]) || 0
+        const source = row._source || 'Unknown'
+        
+        if (partnerSku && shippedQty > 0) {
+          if (partnerSkuMap.has(partnerSku)) {
+            const existing = partnerSkuMap.get(partnerSku)!
+            existing.totalShippedQty += shippedQty
+            existing.totalSales += sales
+            existing.avgRanking = ranking > 0 ? (existing.avgRanking + ranking) / 2 : existing.avgRanking
+            existing.recordCount += 1
+            if (!existing.sources.includes(source)) {
+              existing.sources.push(source)
+            }
+          } else {
+            partnerSkuMap.set(partnerSku, {
+              partnerSku,
+              totalShippedQty: shippedQty,
+              totalSales: sales,
+              avgRanking: ranking,
+              sources: [source],
+              recordCount: 1
+            })
+          }
+        }
+      })
+      
+      const partnerSkuArray = Array.from(partnerSkuMap.values())
+        .sort((a, b) => b.totalShippedQty - a.totalShippedQty)
+      
+      setPartnerSkuData(partnerSkuArray)
+    }
+  }
 
   const processFiles = (files: UploadedFile[]) => {
     if (files.length === 0) {
       setData([])
       setColumns([])
       setColumnVisibility({})
+      setPartnerSkuData([])
       return
     }
 
@@ -71,7 +158,10 @@ export function SalesTracking() {
       })
     })
 
-    // Aggregate SKUs if SKU column exists
+    // Process Partner SKU aggregation
+    processPartnerSKUData(combinedData, allColumns)
+
+    // Aggregate regular SKUs if SKU column exists
     const skuColumn = allColumns.find(col => 
       col.toLowerCase().includes('sku') || 
       col.toLowerCase().includes('product') ||
@@ -203,13 +293,24 @@ export function SalesTracking() {
     })
   }, [data, sortConfig])
 
+  // Filter data based on search
+  const filteredData = useMemo(() => {
+    if (!searchFilter) return sortedData
+    
+    return sortedData.filter(row => {
+      return Object.values(row).some(value => 
+        value?.toString().toLowerCase().includes(searchFilter.toLowerCase())
+      )
+    })
+  }, [sortedData, searchFilter])
+
   const paginatedData = useMemo(() => {
     const startIndex = (currentPage - 1) * rowsPerPage
     const endIndex = startIndex + rowsPerPage
-    return sortedData.slice(startIndex, endIndex)
-  }, [sortedData, currentPage, rowsPerPage])
+    return filteredData.slice(startIndex, endIndex)
+  }, [filteredData, currentPage, rowsPerPage])
 
-  const totalPages = Math.ceil(sortedData.length / rowsPerPage)
+  const totalPages = Math.ceil(filteredData.length / rowsPerPage)
 
   const visibleColumns = columns.filter(col => columnVisibility[col])
 
@@ -242,8 +343,11 @@ export function SalesTracking() {
     setSortConfig(null)
     setShowFilters(false)
     setShowSummary(false)
+    setShowAnalytics(false)
     setSelectedRows(new Set())
     setCurrentPage(1)
+    setPartnerSkuData([])
+    setSearchFilter('')
   }
 
   const toggleRowSelection = (index: number) => {
@@ -275,7 +379,7 @@ export function SalesTracking() {
   }
 
   const exportSelectedRows = () => {
-    const selectedData = sortedData.filter((_, index) => selectedRows.has(index))
+    const selectedData = filteredData.filter((_, index) => selectedRows.has(index))
     if (selectedData.length === 0) {
       alert('No rows selected for export')
       return
@@ -294,16 +398,58 @@ export function SalesTracking() {
     return { totalRows, duplicatesFound, totalFiles }
   }
 
+  const getPartnerSKUAnalytics = (): AnalyticsData => {
+    const totalShippedUnits = partnerSkuData.reduce((sum, item) => sum + item.totalShippedQty, 0)
+    const avgShippedPerSKU = partnerSkuData.length > 0 ? totalShippedUnits / partnerSkuData.length : 0
+    const uniquePartnerSKUs = partnerSkuData.length
+    const topPartnerSKUs = partnerSkuData.slice(0, 10)
+    const topPerformingSKUs = partnerSkuData
+      .filter(item => item.totalSales > 0)
+      .sort((a, b) => b.totalSales - a.totalSales)
+      .slice(0, 10)
+
+    return {
+      totalShippedUnits,
+      avgShippedPerSKU,
+      uniquePartnerSKUs,
+      topPartnerSKUs,
+      topPerformingSKUs
+    }
+  }
+
+  const exportPartnerSKUData = () => {
+    if (partnerSkuData.length === 0) {
+      alert('No Partner SKU data available for export')
+      return
+    }
+
+    const exportData = partnerSkuData.map(item => ({
+      'Partner SKU': item.partnerSku,
+      'Total Shipped Qty': item.totalShippedQty,
+      'Total Sales': item.totalSales,
+      'Average Ranking': item.avgRanking,
+      'Record Count': item.recordCount,
+      'Sources': item.sources.join(', ')
+    }))
+
+    const worksheet = XLSX.utils.json_to_sheet(exportData)
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Partner SKU Analysis')
+    XLSX.writeFile(workbook, `partner_sku_analysis_${new Date().toISOString().split('T')[0]}.xlsx`)
+  }
+
+  const analytics = getPartnerSKUAnalytics()
+
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      {/* Header */}
+    <div className="space-y-8">
+      {/* Enhanced Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-            Sales & Ranking Tracker
+          <h1 className="text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-2">
+            🚀 Advanced Sales & Ranking Analytics
           </h1>
-          <p className="text-muted-foreground mt-2 text-lg">
-            Upload multiple sales data files to track performance and aggregate SKU quantities
+          <p className="text-muted-foreground text-lg">
+            Comprehensive sales tracking with Partner SKU aggregation and detailed performance insights
           </p>
         </div>
         <div className="flex gap-2">
@@ -311,8 +457,16 @@ export function SalesTracking() {
             <>
               <Button
                 variant="outline"
+                onClick={() => setShowAnalytics(!showAnalytics)}
+                className="flex items-center gap-2 glass-button"
+              >
+                <BarChart3 className="h-4 w-4" />
+                {showAnalytics ? 'Hide Analytics' : 'Show Analytics'}
+              </Button>
+              <Button
+                variant="outline"
                 onClick={() => setShowSummary(!showSummary)}
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 glass-button"
               >
                 <Calculator className="h-4 w-4" />
                 {showSummary ? 'Hide Summary' : 'Show Summary'}
@@ -320,7 +474,7 @@ export function SalesTracking() {
               <Button
                 variant="outline"
                 onClick={() => setShowFilters(!showFilters)}
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 glass-button"
               >
                 <Filter className="h-4 w-4" />
                 {showFilters ? 'Hide Filters' : 'Show Filters'}
@@ -329,7 +483,7 @@ export function SalesTracking() {
                 variant="outline"
                 onClick={exportSelectedRows}
                 disabled={selectedRows.size === 0}
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 glass-button"
               >
                 <Download className="h-4 w-4" />
                 Export Selected ({selectedRows.size})
@@ -339,9 +493,144 @@ export function SalesTracking() {
         </div>
       </div>
 
+      {/* Partner SKU Analytics Section */}
+      {showAnalytics && partnerSkuData.length > 0 && (
+        <div className="glass-container p-6 animate-fade-in">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <Package className="h-6 w-6 text-primary" />
+              <h2 className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+                Partner SKU Analytics
+              </h2>
+            </div>
+            <Button
+              variant="outline"
+              onClick={exportPartnerSKUData}
+              className="flex items-center gap-2"
+            >
+              <Download className="h-4 w-4" />
+              Export Partner SKU Data
+            </Button>
+          </div>
+
+          {/* Key Metrics */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <Card className="glass-card">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 rounded-full bg-primary/10">
+                    <TrendingUp className="h-6 w-6 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Total Shipped Units</p>
+                    <p className="text-2xl font-bold text-primary">{analytics.totalShippedUnits.toLocaleString()}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="glass-card">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 rounded-full bg-secondary/10">
+                    <Package className="h-6 w-6 text-secondary" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Unique Partner SKUs</p>
+                    <p className="text-2xl font-bold text-secondary">{analytics.uniquePartnerSKUs}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="glass-card">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 rounded-full bg-accent/10">
+                    <Activity className="h-6 w-6 text-accent" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Avg Shipped per SKU</p>
+                    <p className="text-2xl font-bold text-accent">{analytics.avgShippedPerSKU.toFixed(1)}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="glass-card">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 rounded-full bg-destructive/10">
+                    <Star className="h-6 w-6 text-destructive" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Top Performers</p>
+                    <p className="text-2xl font-bold text-destructive">{analytics.topPerformingSKUs.length}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Top Partner SKUs Table */}
+          <Card className="glass-card">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5" />
+                Top Partner SKUs by Shipped Quantity
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Rank</TableHead>
+                      <TableHead>Partner SKU</TableHead>
+                      <TableHead>Total Shipped Qty</TableHead>
+                      <TableHead>Total Sales</TableHead>
+                      <TableHead>Avg Ranking</TableHead>
+                      <TableHead>Records</TableHead>
+                      <TableHead>Sources</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {analytics.topPartnerSKUs.map((item, index) => (
+                      <TableRow key={item.partnerSku}>
+                        <TableCell>
+                          <Badge variant={index < 3 ? "default" : "secondary"}>
+                            #{index + 1}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="font-mono font-medium">{item.partnerSku}</TableCell>
+                        <TableCell className="font-semibold text-primary">
+                          {item.totalShippedQty.toLocaleString()}
+                        </TableCell>
+                        <TableCell>
+                          {item.totalSales > 0 ? `$${item.totalSales.toFixed(2)}` : '—'}
+                        </TableCell>
+                        <TableCell>
+                          {item.avgRanking > 0 ? item.avgRanking.toFixed(1) : '—'}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{item.recordCount}</Badge>
+                        </TableCell>
+                        <TableCell className="max-w-[200px] truncate" title={item.sources.join(', ')}>
+                          {item.sources.length > 1 ? `${item.sources[0]} +${item.sources.length - 1} more` : item.sources[0]}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* Summary Stats */}
       {showSummary && data.length > 0 && (
-        <Alert>
+        <Alert className="glass-container">
           <Calculator className="h-4 w-4" />
           <AlertDescription>
             <div className="grid grid-cols-3 gap-4 mt-2">
@@ -362,24 +651,24 @@ export function SalesTracking() {
         </Alert>
       )}
 
-      {/* File Upload Area - Only show when no data */}
+      {/* File Upload Area */}
       {data.length === 0 ? (
-        <Card className="border-2 border-dashed">
+        <Card className="glass-container border-2 border-dashed">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Upload className="h-5 w-5" />
               Upload Sales Data Files
             </CardTitle>
             <CardDescription>
-              Upload multiple Excel or CSV files. Files with matching columns will be combined and SKUs will be aggregated.
+              Upload multiple Excel or CSV files. Files with matching columns will be combined and SKUs will be aggregated automatically.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div
               {...getRootProps()}
-              className={`rounded-lg p-8 text-center cursor-pointer transition-all duration-200
-                ${isDragActive ? 'bg-primary/10 border-primary scale-105' : 'bg-muted/30 hover:bg-muted/50'}
-                hover:scale-102`}
+              className={`rounded-lg p-8 text-center cursor-pointer transition-all duration-200 border-2 border-dashed
+                ${isDragActive ? 'bg-primary/10 border-primary scale-105' : 'bg-muted/30 hover:bg-muted/50 border-muted-foreground/20'}
+                hover:scale-[1.02]`}
             >
               <input {...getInputProps()} />
               <div className="flex flex-col items-center">
@@ -401,72 +690,103 @@ export function SalesTracking() {
           </CardContent>
         </Card>
       ) : (
-        /* Uploaded Files Summary - Show when data is loaded */
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
-                Uploaded Files ({uploadedFiles.length})
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    const input = document.createElement('input')
-                    input.type = 'file'
-                    input.multiple = true
-                    input.accept = '.xlsx,.xls,.csv'
-                    input.onchange = (e) => {
-                      const files = Array.from((e.target as HTMLInputElement).files || [])
-                      if (files.length > 0) onDrop(files)
-                    }
-                    input.click()
-                  }}
-                  className="flex items-center gap-2"
-                >
-                  <Plus className="h-4 w-4" />
-                  Add More Files
-                </Button>
-                <Button variant="destructive" onClick={clearAllFiles}>
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Clear All Data
-                </Button>
-              </div>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-2 max-h-32 overflow-y-auto">
-              {uploadedFiles.map((file, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <FileText className="h-4 w-4 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium text-sm">{file.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {file.data.length} rows • {file.columns.length} columns
-                      </p>
-                    </div>
-                  </div>
+        /* Data Management Section */
+        <div className="space-y-6">
+          {/* Uploaded Files Summary */}
+          <Card className="glass-container">
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Uploaded Files ({uploadedFiles.length})
+                </div>
+                <div className="flex gap-2">
                   <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeFile(file.name)}
+                    variant="outline"
+                    onClick={() => {
+                      const input = document.createElement('input')
+                      input.type = 'file'
+                      input.multiple = true
+                      input.accept = '.xlsx,.xls,.csv'
+                      input.onchange = (e) => {
+                        const files = Array.from((e.target as HTMLInputElement).files || [])
+                        if (files.length > 0) onDrop(files)
+                      }
+                      input.click()
+                    }}
+                    className="flex items-center gap-2"
                   >
-                    <X className="h-4 w-4" />
+                    <Plus className="h-4 w-4" />
+                    Add More Files
+                  </Button>
+                  <Button variant="destructive" onClick={clearAllFiles}>
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Clear All Data
                   </Button>
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-2 max-h-32 overflow-y-auto">
+                {uploadedFiles.map((file, index) => (
+                  <div key={index} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="font-medium text-sm">{file.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {file.data.length} rows • {file.columns.length} columns
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeFile(file.name)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
 
-      {data.length > 0 && (
-        <div className="space-y-6">
+          {/* Search and Filter Section */}
+          <Card className="glass-container">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Search className="h-5 w-5" />
+                Search & Filter Data
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex gap-4 items-center">
+                <div className="flex-1">
+                  <Input
+                    placeholder="Search across all data..."
+                    value={searchFilter}
+                    onChange={(e) => setSearchFilter(e.target.value)}
+                    className="w-full"
+                  />
+                </div>
+                {searchFilter && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSearchFilter('')}
+                  >
+                    <X className="h-4 w-4" />
+                    Clear
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Column Filters */}
           {showFilters && (
-            <Card>
+            <Card className="glass-container">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Filter className="h-5 w-5" />
@@ -536,13 +856,13 @@ export function SalesTracking() {
           )}
 
           {/* Data Table */}
-          <Card>
+          <Card className="glass-container">
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <span>Processed Data</span>
                 <div className="flex gap-2">
                   <Badge variant="outline" className="px-3">
-                    {data.length} total rows
+                    {filteredData.length} filtered rows
                   </Badge>
                   <Badge variant="outline" className="px-3">
                     Page {currentPage} of {totalPages}
@@ -556,7 +876,7 @@ export function SalesTracking() {
                 </div>
               </CardTitle>
               <CardDescription>
-                Click column headers to sort • Select rows to export • Showing {rowsPerPage} rows per page
+                Click column headers to sort • Select rows to export • Use search to filter data
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
@@ -601,7 +921,7 @@ export function SalesTracking() {
                         return (
                           <TableRow 
                             key={actualIndex} 
-                            className={`hover:bg-muted/50 ${isSelected ? 'bg-primary/5' : ''}`}
+                            className={`hover:bg-muted/50 transition-colors ${isSelected ? 'bg-primary/5' : ''}`}
                           >
                             <TableCell className="w-12 px-4">
                               <Checkbox
@@ -646,7 +966,7 @@ export function SalesTracking() {
                 <div className="flex items-center justify-between px-4 py-4 border-t">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <span>
-                      Showing {((currentPage - 1) * rowsPerPage) + 1} to {Math.min(currentPage * rowsPerPage, sortedData.length)} of {sortedData.length} entries
+                      Showing {((currentPage - 1) * rowsPerPage) + 1} to {Math.min(currentPage * rowsPerPage, filteredData.length)} of {filteredData.length} entries
                     </span>
                   </div>
                   
