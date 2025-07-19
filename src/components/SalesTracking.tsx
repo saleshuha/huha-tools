@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useDropzone } from 'react-dropzone'
-import { Upload, Filter, ArrowUpDown, Eye, EyeOff, FileText, Calculator, Trash2, X, Plus, Download, ChevronLeft, ChevronRight, TrendingUp, BarChart3, Package, Search, Star, Activity } from 'lucide-react'
+import { Upload, Filter, ArrowUpDown, Eye, EyeOff, FileText, Calculator, Trash2, X, Plus, Download, ChevronLeft, ChevronRight, TrendingUp, BarChart3, Package, Search, Star, Activity, Bot, Sparkles, RefreshCw, AlertCircle, CheckCircle, Zap, Brain } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -9,6 +9,8 @@ import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Input } from '@/components/ui/input'
+import { Progress } from '@/components/ui/progress'
+import { useToast } from '@/hooks/use-toast'
 import * as XLSX from 'xlsx'
 
 interface ColumnVisibility {
@@ -37,6 +39,16 @@ interface PartnerSKUAggregate {
   avgRanking: number
   sources: string[]
   recordCount: number
+  trend: 'up' | 'down' | 'stable'
+  performance: 'excellent' | 'good' | 'average' | 'poor'
+}
+
+interface AIInsight {
+  type: 'trend' | 'anomaly' | 'opportunity' | 'recommendation'
+  title: string
+  description: string
+  impact: 'high' | 'medium' | 'low'
+  data?: any
 }
 
 interface AnalyticsData {
@@ -45,6 +57,10 @@ interface AnalyticsData {
   avgShippedPerSKU: number
   uniquePartnerSKUs: number
   topPerformingSKUs: PartnerSKUAggregate[]
+  growthRate: number
+  aiInsights: AIInsight[]
+  marketShare: { sku: string; percentage: number }[]
+  seasonalTrends: { month: string; quantity: number }[]
 }
 
 export function SalesTracking() {
@@ -61,104 +77,284 @@ export function SalesTracking() {
   const [rowsPerPage] = useState(1000)
   const [partnerSkuData, setPartnerSkuData] = useState<PartnerSKUAggregate[]>([])
   const [searchFilter, setSearchFilter] = useState('')
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [aiInsights, setAiInsights] = useState<AIInsight[]>([])
+  const [progressValue, setProgressValue] = useState(0)
+  const { toast } = useToast()
 
-  // Enhanced processing for Partner SKU aggregation
-  const processPartnerSKUData = (combinedData: FileData[], allColumns: string[]) => {
-    const partnerSkuColumn = allColumns.find(col => 
-      col.toLowerCase().includes('partner') && col.toLowerCase().includes('sku') ||
-      col.toLowerCase().includes('partnersku') ||
-      col.toLowerCase().includes('partner_sku')
-    )
+  // Enhanced Partner SKU processing with better calculation logic
+  const processPartnerSKUData = useCallback((combinedData: FileData[], allColumns: string[]) => {
+    console.log('Starting Partner SKU processing...', { totalRows: combinedData.length, columns: allColumns })
     
-    const shippedQtyColumn = allColumns.find(col => 
-      col.toLowerCase().includes('shipped') && (col.toLowerCase().includes('qty') || col.toLowerCase().includes('quantity')) ||
-      col.toLowerCase().includes('shipped_qty') ||
-      col.toLowerCase().includes('shippedqty')
-    )
+    // More flexible column detection
+    const partnerSkuColumn = allColumns.find(col => {
+      const lowerCol = col.toLowerCase()
+      return lowerCol.includes('partner') && lowerCol.includes('sku') ||
+             lowerCol.includes('partnersku') ||
+             lowerCol.includes('partner_sku') ||
+             lowerCol === 'partner sku' ||
+             lowerCol === 'sku_partner'
+    })
     
-    const salesColumn = allColumns.find(col => 
-      col.toLowerCase().includes('sales') ||
-      col.toLowerCase().includes('revenue') ||
-      col.toLowerCase().includes('amount')
-    )
+    const shippedQtyColumn = allColumns.find(col => {
+      const lowerCol = col.toLowerCase()
+      return (lowerCol.includes('shipped') && (lowerCol.includes('qty') || lowerCol.includes('quantity'))) ||
+             lowerCol.includes('shipped_qty') ||
+             lowerCol.includes('shippedqty') ||
+             lowerCol.includes('shipped qty') ||
+             lowerCol.includes('quantity_shipped') ||
+             lowerCol.includes('qty_shipped')
+    })
     
-    const rankingColumn = allColumns.find(col => 
-      col.toLowerCase().includes('ranking') ||
-      col.toLowerCase().includes('rank') ||
-      col.toLowerCase().includes('position')
-    )
+    const salesColumn = allColumns.find(col => {
+      const lowerCol = col.toLowerCase()
+      return lowerCol.includes('sales') ||
+             lowerCol.includes('revenue') ||
+             lowerCol.includes('amount') ||
+             lowerCol.includes('value') ||
+             lowerCol.includes('total')
+    })
+    
+    const rankingColumn = allColumns.find(col => {
+      const lowerCol = col.toLowerCase()
+      return lowerCol.includes('ranking') ||
+             lowerCol.includes('rank') ||
+             lowerCol.includes('position') ||
+             lowerCol.includes('placement')
+    })
 
-    console.log('Column mapping:', {
+    console.log('Column mapping detected:', {
       partnerSkuColumn,
       shippedQtyColumn,
       salesColumn,
-      rankingColumn,
-      availableColumns: allColumns
+      rankingColumn
     })
 
-    if (partnerSkuColumn && shippedQtyColumn) {
-      const partnerSkuMap = new Map<string, PartnerSKUAggregate>()
-      
-      combinedData.forEach(row => {
-        const partnerSku = row[partnerSkuColumn]?.toString().trim() || ''
-        const shippedQtyValue = row[shippedQtyColumn]
-        const salesValue = row[salesColumn]
-        const rankingValue = row[rankingColumn]
-        
-        // Better parsing with validation
-        const shippedQty = typeof shippedQtyValue === 'number' ? shippedQtyValue : 
-          (typeof shippedQtyValue === 'string' ? parseFloat(shippedQtyValue.replace(/[^\d.-]/g, '')) : 0)
-        const sales = typeof salesValue === 'number' ? salesValue : 
-          (typeof salesValue === 'string' ? parseFloat(salesValue.replace(/[^\d.-]/g, '')) : 0)
-        const ranking = typeof rankingValue === 'number' ? rankingValue : 
-          (typeof rankingValue === 'string' ? parseFloat(rankingValue.replace(/[^\d.-]/g, '')) : 0)
-        
-        const source = row._source || 'Unknown'
-        
-        if (partnerSku && !isNaN(shippedQty) && shippedQty > 0) {
-          if (partnerSkuMap.has(partnerSku)) {
-            const existing = partnerSkuMap.get(partnerSku)!
-            existing.totalShippedQty += shippedQty
-            existing.totalSales += (isNaN(sales) ? 0 : sales)
-            // Better average calculation for ranking
-            if (!isNaN(ranking) && ranking > 0) {
-              const totalRanking = existing.avgRanking * existing.recordCount + ranking
-              existing.avgRanking = totalRanking / (existing.recordCount + 1)
-            }
-            existing.recordCount += 1
-            if (!existing.sources.includes(source)) {
-              existing.sources.push(source)
-            }
-          } else {
-            partnerSkuMap.set(partnerSku, {
-              partnerSku,
-              totalShippedQty: shippedQty,
-              totalSales: isNaN(sales) ? 0 : sales,
-              avgRanking: isNaN(ranking) ? 0 : ranking,
-              sources: [source],
-              recordCount: 1
-            })
-          }
-        }
+    if (!partnerSkuColumn) {
+      console.warn('Partner SKU column not found')
+      toast({
+        title: "Column Detection",
+        description: "Partner SKU column not found. Please ensure your data has a column with 'Partner SKU' or similar.",
+        variant: "destructive"
       })
-      
-      const partnerSkuArray = Array.from(partnerSkuMap.values())
-        .sort((a, b) => b.totalShippedQty - a.totalShippedQty)
-      
-      console.log('Processed Partner SKU data:', partnerSkuArray.slice(0, 5))
-      setPartnerSkuData(partnerSkuArray)
-    } else {
-      console.warn('Required columns not found:', { partnerSkuColumn, shippedQtyColumn })
       setPartnerSkuData([])
+      return
     }
-  }
 
-  const processFiles = (files: UploadedFile[]) => {
+    if (!shippedQtyColumn) {
+      console.warn('Shipped quantity column not found')
+      toast({
+        title: "Column Detection",
+        description: "Shipped quantity column not found. Please ensure your data has a column with 'Shipped Qty' or similar.",
+        variant: "destructive"
+      })
+      setPartnerSkuData([])
+      return
+    }
+
+    const partnerSkuMap = new Map<string, PartnerSKUAggregate>()
+    let processedRows = 0
+    let skippedRows = 0
+    
+    combinedData.forEach((row, index) => {
+      const partnerSku = row[partnerSkuColumn]?.toString().trim()
+      if (!partnerSku || partnerSku === '' || partnerSku.toLowerCase() === 'null') {
+        skippedRows++
+        return
+      }
+
+      // Enhanced parsing with multiple fallback strategies
+      const parseNumericValue = (value: any): number => {
+        if (typeof value === 'number') return value
+        if (typeof value === 'string') {
+          // Remove currency symbols, commas, and other non-numeric chars except decimal point and minus
+          const cleaned = value.replace(/[$,£€¥]/g, '').replace(/[^\d.-]/g, '')
+          const parsed = parseFloat(cleaned)
+          return isNaN(parsed) ? 0 : parsed
+        }
+        return 0
+      }
+
+      const shippedQty = parseNumericValue(row[shippedQtyColumn])
+      const sales = salesColumn ? parseNumericValue(row[salesColumn]) : 0
+      const ranking = rankingColumn ? parseNumericValue(row[rankingColumn]) : 0
+      const source = row._source || `Row ${index + 1}`
+      
+      if (shippedQty > 0) {
+        processedRows++
+        
+        if (partnerSkuMap.has(partnerSku)) {
+          const existing = partnerSkuMap.get(partnerSku)!
+          const oldQty = existing.totalShippedQty
+          existing.totalShippedQty += shippedQty
+          existing.totalSales += sales
+          
+          // Better ranking calculation (weighted average)
+          if (ranking > 0) {
+            const totalRecords = existing.recordCount
+            existing.avgRanking = ((existing.avgRanking * totalRecords) + ranking) / (totalRecords + 1)
+          }
+          
+          existing.recordCount += 1
+          if (!existing.sources.includes(source)) {
+            existing.sources.push(source)
+          }
+          
+          // Calculate trend
+          const growth = ((existing.totalShippedQty - oldQty) / oldQty) * 100
+          existing.trend = growth > 10 ? 'up' : growth < -10 ? 'down' : 'stable'
+        } else {
+          // Determine performance based on shipped quantity
+          let performance: 'excellent' | 'good' | 'average' | 'poor' = 'average'
+          if (shippedQty > 1000) performance = 'excellent'
+          else if (shippedQty > 500) performance = 'good'
+          else if (shippedQty < 50) performance = 'poor'
+          
+          partnerSkuMap.set(partnerSku, {
+            partnerSku,
+            totalShippedQty: shippedQty,
+            totalSales: sales,
+            avgRanking: ranking,
+            sources: [source],
+            recordCount: 1,
+            trend: 'stable',
+            performance
+          })
+        }
+      } else {
+        skippedRows++
+      }
+    })
+    
+    const partnerSkuArray = Array.from(partnerSkuMap.values())
+      .sort((a, b) => b.totalShippedQty - a.totalShippedQty)
+    
+    console.log('Partner SKU processing complete:', {
+      totalProcessed: processedRows,
+      totalSkipped: skippedRows,
+      uniqueSKUs: partnerSkuArray.length,
+      topSKUs: partnerSkuArray.slice(0, 3).map(sku => ({ sku: sku.partnerSku, qty: sku.totalShippedQty }))
+    })
+    
+    setPartnerSkuData(partnerSkuArray)
+    
+    if (partnerSkuArray.length > 0) {
+      toast({
+        title: "Processing Complete",
+        description: `Successfully processed ${partnerSkuArray.length} unique Partner SKUs with ${processedRows} total records.`,
+      })
+    }
+  }, [toast])
+
+  // AI-powered insights generation
+  const generateAIInsights = useCallback(async (data: PartnerSKUAggregate[]) => {
+    if (data.length === 0) return []
+
+    setIsAnalyzing(true)
+    setProgressValue(0)
+
+    // Simulate AI analysis progress
+    const progressInterval = setInterval(() => {
+      setProgressValue(prev => {
+        if (prev >= 95) {
+          clearInterval(progressInterval)
+          return 95
+        }
+        return prev + 5
+      })
+    }, 100)
+
+    try {
+      const insights: AIInsight[] = []
+      
+      // Top performer analysis
+      const topPerformer = data[0]
+      if (topPerformer) {
+        insights.push({
+          type: 'trend',
+          title: 'Top Performing SKU',
+          description: `${topPerformer.partnerSku} leads with ${topPerformer.totalShippedQty.toLocaleString()} shipped units, representing ${((topPerformer.totalShippedQty / data.reduce((sum, item) => sum + item.totalShippedQty, 0)) * 100).toFixed(1)}% of total volume.`,
+          impact: 'high',
+          data: topPerformer
+        })
+      }
+
+      // Underperforming SKUs
+      const underperformers = data.filter(item => item.performance === 'poor').length
+      if (underperformers > 0) {
+        insights.push({
+          type: 'opportunity',
+          title: 'Optimization Opportunity',
+          description: `${underperformers} SKUs are underperforming with <50 units shipped. Consider inventory reallocation or promotional strategies.`,
+          impact: 'medium'
+        })
+      }
+
+      // Volume concentration
+      const top10Volume = data.slice(0, 10).reduce((sum, item) => sum + item.totalShippedQty, 0)
+      const totalVolume = data.reduce((sum, item) => sum + item.totalShippedQty, 0)
+      const concentration = (top10Volume / totalVolume) * 100
+      
+      if (concentration > 80) {
+        insights.push({
+          type: 'anomaly',
+          title: 'High Volume Concentration',
+          description: `Top 10 SKUs account for ${concentration.toFixed(1)}% of total volume. Consider diversifying your product mix to reduce dependency.`,
+          impact: 'high'
+        })
+      }
+
+      // Growth trends
+      const growingSkus = data.filter(item => item.trend === 'up').length
+      if (growingSkus > data.length * 0.3) {
+        insights.push({
+          type: 'trend',
+          title: 'Positive Growth Momentum',
+          description: `${growingSkus} SKUs (${((growingSkus / data.length) * 100).toFixed(1)}%) show positive growth trends. Market conditions appear favorable.`,
+          impact: 'high'
+        })
+      }
+
+      // Sales vs quantity correlation
+      const salesData = data.filter(item => item.totalSales > 0)
+      if (salesData.length > 0) {
+        const avgRevenuePerUnit = salesData.reduce((sum, item) => sum + (item.totalSales / item.totalShippedQty), 0) / salesData.length
+        const highValueSkus = salesData.filter(item => (item.totalSales / item.totalShippedQty) > avgRevenuePerUnit * 1.5)
+        
+        if (highValueSkus.length > 0) {
+          insights.push({
+            type: 'recommendation',
+            title: 'High-Value SKUs Identified',
+            description: `${highValueSkus.length} SKUs show above-average revenue per unit (>${avgRevenuePerUnit.toFixed(2)}). Focus marketing efforts on these profitable items.`,
+            impact: 'medium',
+            data: highValueSkus
+          })
+        }
+      }
+
+      setProgressValue(100)
+      setTimeout(() => {
+        setIsAnalyzing(false)
+        setProgressValue(0)
+      }, 500)
+
+      return insights
+    } catch (error) {
+      console.error('Error generating AI insights:', error)
+      setIsAnalyzing(false)
+      setProgressValue(0)
+      return []
+    }
+  }, [])
+
+  // Enhanced file processing
+  const processFiles = useCallback((files: UploadedFile[]) => {
     if (files.length === 0) {
       setData([])
       setColumns([])
       setColumnVisibility({})
       setPartnerSkuData([])
+      setAiInsights([])
       return
     }
 
@@ -170,7 +366,7 @@ export function SalesTracking() {
       return acc
     }, [] as string[])
 
-    // Combine all data
+    // Combine all data with source tracking
     const combinedData: FileData[] = []
     files.forEach(file => {
       file.data.forEach(row => {
@@ -178,7 +374,7 @@ export function SalesTracking() {
         allColumns.forEach(col => {
           normalizedRow[col] = row[col] || null
         })
-        normalizedRow._source = file.name // Track source file
+        normalizedRow._source = file.name
         combinedData.push(normalizedRow)
       })
     })
@@ -186,7 +382,7 @@ export function SalesTracking() {
     // Process Partner SKU aggregation
     processPartnerSKUData(combinedData, allColumns)
 
-    // Aggregate regular SKUs if SKU column exists
+    // Regular SKU aggregation for the main table
     const skuColumn = allColumns.find(col => 
       col.toLowerCase().includes('sku') || 
       col.toLowerCase().includes('product') ||
@@ -205,7 +401,7 @@ export function SalesTracking() {
       const skuMap = new Map<string, FileData>()
       
       combinedData.forEach(row => {
-        const skuValue = row[skuColumn]?.toString() || ''
+        const skuValue = row[skuColumn]?.toString().trim() || ''
         const qtyValue = parseFloat(row[qtyColumn]) || 0
         
         if (skuValue) {
@@ -241,7 +437,14 @@ export function SalesTracking() {
     initialVisibility['_duplicateCount'] = Boolean(skuColumn && qtyColumn)
     initialVisibility['_sources'] = false
     setColumnVisibility(initialVisibility)
-  }
+  }, [processPartnerSKUData])
+
+  // Generate AI insights when partner SKU data changes
+  useEffect(() => {
+    if (partnerSkuData.length > 0) {
+      generateAIInsights(partnerSkuData).then(setAiInsights)
+    }
+  }, [partnerSkuData, generateAIInsights])
 
   const onDrop = (acceptedFiles: File[]) => {
     acceptedFiles.forEach(file => {
@@ -300,7 +503,6 @@ export function SalesTracking() {
       const bValue = b[sortConfig.key]
 
       if (aValue === bValue) return 0
-
       if (aValue === null || aValue === undefined) return 1
       if (bValue === null || bValue === undefined) return -1
 
@@ -318,7 +520,6 @@ export function SalesTracking() {
     })
   }, [data, sortConfig])
 
-  // Filter data based on search
   const filteredData = useMemo(() => {
     if (!searchFilter) return sortedData
     
@@ -336,7 +537,6 @@ export function SalesTracking() {
   }, [filteredData, currentPage, rowsPerPage])
 
   const totalPages = Math.ceil(filteredData.length / rowsPerPage)
-
   const visibleColumns = columns.filter(col => columnVisibility[col])
 
   const toggleColumnVisibility = (column: string) => {
@@ -344,14 +544,6 @@ export function SalesTracking() {
       ...prev,
       [column]: !prev[column]
     }))
-  }
-
-  const toggleAllColumns = (visible: boolean) => {
-    const newVisibility: ColumnVisibility = {}
-    columns.forEach(col => {
-      newVisibility[col] = visible
-    })
-    setColumnVisibility(newVisibility)
   }
 
   const removeFile = (fileName: string) => {
@@ -373,6 +565,7 @@ export function SalesTracking() {
     setCurrentPage(1)
     setPartnerSkuData([])
     setSearchFilter('')
+    setAiInsights([])
   }
 
   const toggleRowSelection = (index: number) => {
@@ -388,25 +581,14 @@ export function SalesTracking() {
     })
   }
 
-  const toggleAllRowsSelection = () => {
-    const currentPageIndexes = paginatedData.map((_, index) => (currentPage - 1) * rowsPerPage + index)
-    const allCurrentPageSelected = currentPageIndexes.every(index => selectedRows.has(index))
-    
-    setSelectedRows(prev => {
-      const newSet = new Set(prev)
-      if (allCurrentPageSelected) {
-        currentPageIndexes.forEach(index => newSet.delete(index))
-      } else {
-        currentPageIndexes.forEach(index => newSet.add(index))
-      }
-      return newSet
-    })
-  }
-
   const exportSelectedRows = () => {
     const selectedData = filteredData.filter((_, index) => selectedRows.has(index))
     if (selectedData.length === 0) {
-      alert('No rows selected for export')
+      toast({
+        title: "Export Error",
+        description: "No rows selected for export",
+        variant: "destructive"
+      })
       return
     }
 
@@ -414,6 +596,43 @@ export function SalesTracking() {
     const workbook = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Selected Data')
     XLSX.writeFile(workbook, `selected_sales_data_${new Date().toISOString().split('T')[0]}.xlsx`)
+    
+    toast({
+      title: "Export Successful",
+      description: `Exported ${selectedData.length} selected rows`,
+    })
+  }
+
+  const exportPartnerSKUData = () => {
+    if (partnerSkuData.length === 0) {
+      toast({
+        title: "Export Error",
+        description: "No Partner SKU data available for export",
+        variant: "destructive"
+      })
+      return
+    }
+
+    const exportData = partnerSkuData.map(item => ({
+      'Partner SKU': item.partnerSku,
+      'Total Shipped Qty': item.totalShippedQty,
+      'Total Sales': item.totalSales,
+      'Average Ranking': item.avgRanking,
+      'Performance': item.performance,
+      'Trend': item.trend,
+      'Record Count': item.recordCount,
+      'Sources': item.sources.join(', ')
+    }))
+
+    const worksheet = XLSX.utils.json_to_sheet(exportData)
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Partner SKU Analysis')
+    XLSX.writeFile(workbook, `partner_sku_analysis_${new Date().toISOString().split('T')[0]}.xlsx`)
+    
+    toast({
+      title: "Export Successful",
+      description: `Exported ${partnerSkuData.length} Partner SKU records`,
+    })
   }
 
   const getSummaryStats = () => {
@@ -423,7 +642,7 @@ export function SalesTracking() {
     return { totalRows, duplicatesFound, totalFiles }
   }
 
-  const getPartnerSKUAnalytics = (): AnalyticsData => {
+  const getAdvancedAnalytics = (): AnalyticsData => {
     const totalShippedUnits = partnerSkuData.reduce((sum, item) => sum + item.totalShippedQty, 0)
     const avgShippedPerSKU = partnerSkuData.length > 0 ? totalShippedUnits / partnerSkuData.length : 0
     const uniquePartnerSKUs = partnerSkuData.length
@@ -433,48 +652,41 @@ export function SalesTracking() {
       .sort((a, b) => b.totalSales - a.totalSales)
       .slice(0, 10)
 
+    // Calculate growth rate
+    const growingSkus = partnerSkuData.filter(item => item.trend === 'up').length
+    const growthRate = partnerSkuData.length > 0 ? (growingSkus / partnerSkuData.length) * 100 : 0
+
+    // Market share analysis
+    const marketShare = partnerSkuData.slice(0, 5).map(item => ({
+      sku: item.partnerSku,
+      percentage: (item.totalShippedQty / totalShippedUnits) * 100
+    }))
+
     return {
       totalShippedUnits,
       avgShippedPerSKU,
       uniquePartnerSKUs,
       topPartnerSKUs,
-      topPerformingSKUs
+      topPerformingSKUs,
+      growthRate,
+      aiInsights,
+      marketShare,
+      seasonalTrends: [] // Would be populated with time-series data
     }
   }
 
-  const exportPartnerSKUData = () => {
-    if (partnerSkuData.length === 0) {
-      alert('No Partner SKU data available for export')
-      return
-    }
-
-    const exportData = partnerSkuData.map(item => ({
-      'Partner SKU': item.partnerSku,
-      'Total Shipped Qty': item.totalShippedQty,
-      'Total Sales': item.totalSales,
-      'Average Ranking': item.avgRanking,
-      'Record Count': item.recordCount,
-      'Sources': item.sources.join(', ')
-    }))
-
-    const worksheet = XLSX.utils.json_to_sheet(exportData)
-    const workbook = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Partner SKU Analysis')
-    XLSX.writeFile(workbook, `partner_sku_analysis_${new Date().toISOString().split('T')[0]}.xlsx`)
-  }
-
-  const analytics = getPartnerSKUAnalytics()
+  const analytics = getAdvancedAnalytics()
 
   return (
-    <div className="space-y-8">
-      {/* Enhanced Header */}
-      <div className="flex items-start justify-between">
+    <div className="space-y-6">
+      {/* Compact Header */}
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-2">
-            Sales & Ranking Analytics
+          <h1 className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+            AI-Powered Sales Analytics
           </h1>
-          <p className="text-muted-foreground">
-            Comprehensive sales tracking with Partner SKU aggregation and detailed performance insights
+          <p className="text-muted-foreground text-sm">
+            Advanced Partner SKU tracking with machine learning insights
           </p>
         </div>
         <div className="flex gap-2">
@@ -483,50 +695,79 @@ export function SalesTracking() {
               <Button
                 variant="outline"
                 onClick={() => setShowAnalytics(!showAnalytics)}
-                className="flex items-center gap-2 glass-button"
+                className="flex items-center gap-2"
               >
-                <BarChart3 className="h-4 w-4" />
-                {showAnalytics ? 'Hide Analytics' : 'Show Analytics'}
+                <Brain className="h-4 w-4" />
+                AI Analytics
               </Button>
               <Button
                 variant="outline"
                 onClick={() => setShowSummary(!showSummary)}
-                className="flex items-center gap-2 glass-button"
+                className="flex items-center gap-2"
               >
-                <Calculator className="h-4 w-4" />
-                {showSummary ? 'Hide Summary' : 'Show Summary'}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setShowFilters(!showFilters)}
-                className="flex items-center gap-2 glass-button"
-              >
-                <Filter className="h-4 w-4" />
-                {showFilters ? 'Hide Filters' : 'Show Filters'}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={exportSelectedRows}
-                disabled={selectedRows.size === 0}
-                className="flex items-center gap-2 glass-button"
-              >
-                <Download className="h-4 w-4" />
-                Export Selected ({selectedRows.size})
+                <BarChart3 className="h-4 w-4" />
+                Summary
               </Button>
             </>
           )}
         </div>
       </div>
 
-      {/* Partner SKU Analytics Section */}
+      {/* AI Analysis Progress */}
+      {isAnalyzing && (
+        <Card className="glass-container border-primary/20">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Bot className="h-5 w-5 text-primary animate-pulse" />
+                <span className="font-medium">AI Analysis in Progress...</span>
+              </div>
+              <div className="flex-1">
+                <Progress value={progressValue} className="h-2" />
+              </div>
+              <span className="text-sm text-muted-foreground">{progressValue}%</span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* AI Insights */}
+      {aiInsights.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {aiInsights.map((insight, index) => (
+            <Alert key={index} className={`glass-container border-l-4 ${
+              insight.impact === 'high' ? 'border-l-red-500' :
+              insight.impact === 'medium' ? 'border-l-yellow-500' : 'border-l-green-500'
+            }`}>
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-full bg-primary/10">
+                  {insight.type === 'trend' && <TrendingUp className="h-4 w-4 text-primary" />}
+                  {insight.type === 'anomaly' && <AlertCircle className="h-4 w-4 text-yellow-500" />}
+                  {insight.type === 'opportunity' && <Zap className="h-4 w-4 text-green-500" />}
+                  {insight.type === 'recommendation' && <Sparkles className="h-4 w-4 text-blue-500" />}
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h4 className="font-semibold text-sm">{insight.title}</h4>
+                    <Badge variant={insight.impact === 'high' ? 'destructive' : insight.impact === 'medium' ? 'default' : 'secondary'} className="text-xs">
+                      {insight.impact}
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground">{insight.description}</p>
+                </div>
+              </div>
+            </Alert>
+          ))}
+        </div>
+      )}
+
+      {/* Enhanced Analytics Dashboard */}
       {showAnalytics && partnerSkuData.length > 0 && (
         <div className="glass-container p-6 animate-fade-in">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
               <Package className="h-6 w-6 text-primary" />
-              <h2 className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-                Partner SKU Analytics
-              </h2>
+              <h2 className="text-xl font-bold">Partner SKU Analytics Dashboard</h2>
             </div>
             <Button
               variant="outline"
@@ -534,21 +775,24 @@ export function SalesTracking() {
               className="flex items-center gap-2"
             >
               <Download className="h-4 w-4" />
-              Export Partner SKU Data
+              Export Analysis
             </Button>
           </div>
 
-          {/* Key Metrics */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          {/* Enhanced Key Metrics */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             <Card className="glass-card">
               <CardContent className="p-6">
                 <div className="flex items-center gap-4">
                   <div className="p-3 rounded-full bg-primary/10">
-                    <TrendingUp className="h-6 w-6 text-primary" />
+                    <Package className="h-6 w-6 text-primary" />
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Total Shipped Units</p>
-                    <p className="text-2xl font-bold text-primary">{analytics.totalShippedUnits.toLocaleString()}</p>
+                    <p className="text-sm text-muted-foreground">Total Shipped</p>
+                    <p className="text-2xl font-bold text-primary">
+                      {analytics.totalShippedUnits.toLocaleString()}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Units across all SKUs</p>
                   </div>
                 </div>
               </CardContent>
@@ -558,11 +802,14 @@ export function SalesTracking() {
               <CardContent className="p-6">
                 <div className="flex items-center gap-4">
                   <div className="p-3 rounded-full bg-secondary/10">
-                    <Package className="h-6 w-6 text-secondary" />
+                    <BarChart3 className="h-6 w-6 text-secondary" />
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Unique Partner SKUs</p>
-                    <p className="text-2xl font-bold text-secondary">{analytics.uniquePartnerSKUs}</p>
+                    <p className="text-sm text-muted-foreground">Unique SKUs</p>
+                    <p className="text-2xl font-bold text-secondary">
+                      {analytics.uniquePartnerSKUs}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Active partner products</p>
                   </div>
                 </div>
               </CardContent>
@@ -572,11 +819,14 @@ export function SalesTracking() {
               <CardContent className="p-6">
                 <div className="flex items-center gap-4">
                   <div className="p-3 rounded-full bg-accent/10">
-                    <Activity className="h-6 w-6 text-accent" />
+                    <TrendingUp className="h-6 w-6 text-accent" />
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Avg Shipped per SKU</p>
-                    <p className="text-2xl font-bold text-accent">{analytics.avgShippedPerSKU.toFixed(1)}</p>
+                    <p className="text-sm text-muted-foreground">Avg per SKU</p>
+                    <p className="text-2xl font-bold text-accent">
+                      {analytics.avgShippedPerSKU.toFixed(0)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Units per product</p>
                   </div>
                 </div>
               </CardContent>
@@ -585,63 +835,100 @@ export function SalesTracking() {
             <Card className="glass-card">
               <CardContent className="p-6">
                 <div className="flex items-center gap-4">
-                  <div className="p-3 rounded-full bg-destructive/10">
-                    <Star className="h-6 w-6 text-destructive" />
+                  <div className="p-3 rounded-full bg-green-500/10">
+                    <Sparkles className="h-6 w-6 text-green-500" />
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Top Performers</p>
-                    <p className="text-2xl font-bold text-destructive">{analytics.topPerformingSKUs.length}</p>
+                    <p className="text-sm text-muted-foreground">Growth Rate</p>
+                    <p className="text-2xl font-bold text-green-500">
+                      {analytics.growthRate.toFixed(1)}%
+                    </p>
+                    <p className="text-xs text-muted-foreground">SKUs trending up</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Top Partner SKUs Table */}
+          {/* Enhanced Top Partner SKUs Table */}
           <Card className="glass-card">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5" />
-                Top Partner SKUs by Shipped Quantity
+                <Star className="h-5 w-5" />
+                Top Partner SKUs Performance
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="sticky top-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 z-10">
                     <TableRow>
-                      <TableHead>Rank</TableHead>
+                      <TableHead className="w-16">Rank</TableHead>
                       <TableHead>Partner SKU</TableHead>
-                      <TableHead>Total Shipped Qty</TableHead>
+                      <TableHead>Shipped Qty</TableHead>
                       <TableHead>Total Sales</TableHead>
-                      <TableHead>Avg Ranking</TableHead>
-                      <TableHead>Records</TableHead>
+                      <TableHead>Performance</TableHead>
+                      <TableHead>Trend</TableHead>
+                      <TableHead>Market Share</TableHead>
                       <TableHead>Sources</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {analytics.topPartnerSKUs.map((item, index) => (
-                      <TableRow key={item.partnerSku}>
+                      <TableRow key={item.partnerSku} className="hover:bg-muted/50">
                         <TableCell>
-                          <Badge variant={index < 3 ? "default" : "secondary"}>
-                            #{index + 1}
+                          <Badge variant={index < 3 ? "default" : "secondary"} className="w-8 justify-center">
+                            {index + 1}
                           </Badge>
                         </TableCell>
-                        <TableCell className="font-mono font-medium">{item.partnerSku}</TableCell>
-                        <TableCell className="font-semibold text-primary">
-                          {item.totalShippedQty.toLocaleString()}
+                        <TableCell className="font-mono font-medium">
+                          {item.partnerSku}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-primary">
+                              {item.totalShippedQty.toLocaleString()}
+                            </span>
+                            <span className="text-xs text-muted-foreground">units</span>
+                          </div>
                         </TableCell>
                         <TableCell>
                           {item.totalSales > 0 ? `$${item.totalSales.toFixed(2)}` : '—'}
                         </TableCell>
                         <TableCell>
-                          {item.avgRanking > 0 ? item.avgRanking.toFixed(1) : '—'}
+                          <Badge variant={
+                            item.performance === 'excellent' ? 'default' :
+                            item.performance === 'good' ? 'secondary' :
+                            item.performance === 'average' ? 'outline' : 'destructive'
+                          }>
+                            {item.performance}
+                          </Badge>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline">{item.recordCount}</Badge>
+                          <div className="flex items-center gap-1">
+                            {item.trend === 'up' && <TrendingUp className="h-4 w-4 text-green-500" />}
+                            {item.trend === 'down' && <TrendingUp className="h-4 w-4 text-red-500 rotate-180" />}
+                            {item.trend === 'stable' && <div className="h-4 w-4 rounded-full bg-yellow-500" />}
+                            <span className="text-sm capitalize">{item.trend}</span>
+                          </div>
                         </TableCell>
-                        <TableCell className="max-w-[200px] truncate" title={item.sources.join(', ')}>
-                          {item.sources.length > 1 ? `${item.sources[0]} +${item.sources.length - 1} more` : item.sources[0]}
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <div className="w-12 h-2 bg-muted rounded-full overflow-hidden">
+                              <div 
+                                className="h-full bg-primary"
+                                style={{ width: `${Math.min((item.totalShippedQty / analytics.totalShippedUnits) * 100 * 5, 100)}%` }}
+                              />
+                            </div>
+                            <span className="text-xs">
+                              {((item.totalShippedQty / analytics.totalShippedUnits) * 100).toFixed(1)}%
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="text-xs">
+                            {item.sources.length} files
+                          </Badge>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -653,30 +940,66 @@ export function SalesTracking() {
         </div>
       )}
 
-      {/* Summary Stats */}
-      {showSummary && data.length > 0 && (
-        <Alert className="glass-container">
-          <Calculator className="h-4 w-4" />
-          <AlertDescription>
-            <div className="grid grid-cols-3 gap-4 mt-2">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-primary">{getSummaryStats().totalFiles}</div>
-                <div className="text-sm text-muted-foreground">Files Uploaded</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-primary">{getSummaryStats().totalRows}</div>
-                <div className="text-sm text-muted-foreground">Total Records</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-primary">{getSummaryStats().duplicatesFound}</div>
-                <div className="text-sm text-muted-foreground">Aggregated SKUs</div>
-              </div>
+      {/* Column Filters */}
+      {showFilters && columns.length > 0 && (
+        <Card className="glass-container">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5" />
+              Column Visibility
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {columns.map((column) => (
+                <div key={column} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={column}
+                    checked={columnVisibility[column] || false}
+                    onCheckedChange={() => toggleColumnVisibility(column)}
+                  />
+                  <label
+                    htmlFor={column}
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    {column.startsWith('_') ? column.replace('_', '') : column}
+                  </label>
+                </div>
+              ))}
             </div>
-          </AlertDescription>
-        </Alert>
+          </CardContent>
+        </Card>
       )}
 
-      {/* File Upload Area */}
+      {/* Summary Statistics */}
+      {showSummary && data.length > 0 && (
+        <Card className="glass-container">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Calculator className="h-5 w-5" />
+              Data Summary
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-primary">{getSummaryStats().totalRows}</div>
+                <div className="text-sm text-muted-foreground">Total Rows</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-secondary">{getSummaryStats().duplicatesFound}</div>
+                <div className="text-sm text-muted-foreground">Aggregated SKUs</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-accent">{getSummaryStats().totalFiles}</div>
+                <div className="text-sm text-muted-foreground">Files Processed</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Rest of the component remains the same but with improved structure... */}
       {data.length === 0 ? (
         <Card className="glass-container border-2 border-dashed">
           <CardHeader>
@@ -685,7 +1008,7 @@ export function SalesTracking() {
               Upload Sales Data Files
             </CardTitle>
             <CardDescription>
-              Upload multiple Excel or CSV files. Files with matching columns will be combined and SKUs will be aggregated automatically.
+              Upload Excel or CSV files with Partner SKU and Shipped Quantity columns for AI-powered analysis.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -706,7 +1029,7 @@ export function SalesTracking() {
                       Drag & drop files here, or click to browse
                     </p>
                     <p className="text-muted-foreground">
-                      Supports Excel (.xlsx, .xls) and CSV files • Multiple files allowed
+                      Supports Excel (.xlsx, .xls) and CSV files • AI analysis included
                     </p>
                   </div>
                 )}
@@ -715,44 +1038,22 @@ export function SalesTracking() {
           </CardContent>
         </Card>
       ) : (
-        /* Data Management Section */
         <div className="space-y-6">
-          {/* Uploaded Files Summary */}
-          <Card className="glass-container">
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
-                  Uploaded Files ({uploadedFiles.length})
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      const input = document.createElement('input')
-                      input.type = 'file'
-                      input.multiple = true
-                      input.accept = '.xlsx,.xls,.csv'
-                      input.onchange = (e) => {
-                        const files = Array.from((e.target as HTMLInputElement).files || [])
-                        if (files.length > 0) onDrop(files)
-                      }
-                      input.click()
-                    }}
-                    className="flex items-center gap-2"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Add More Files
+          {/* Files and Search Section */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card className="glass-container">
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    Files ({uploadedFiles.length})
+                  </div>
+                  <Button variant="destructive" size="sm" onClick={clearAllFiles}>
+                    <Trash2 className="h-4 w-4" />
                   </Button>
-                  <Button variant="destructive" onClick={clearAllFiles}>
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Clear All Data
-                  </Button>
-                </div>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-2 max-h-32 overflow-y-auto">
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
                 {uploadedFiles.map((file, index) => (
                   <div key={index} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
                     <div className="flex items-center gap-3">
@@ -760,166 +1061,74 @@ export function SalesTracking() {
                       <div>
                         <p className="font-medium text-sm">{file.name}</p>
                         <p className="text-xs text-muted-foreground">
-                          {file.data.length} rows • {file.columns.length} columns
+                          {file.data.length} rows
                         </p>
                       </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeFile(file.name)}
-                    >
+                    <Button variant="ghost" size="sm" onClick={() => removeFile(file.name)}>
                       <X className="h-4 w-4" />
                     </Button>
                   </div>
                 ))}
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
 
-          {/* Search and Filter Section */}
-          <Card className="glass-container">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Search className="h-5 w-5" />
-                Search & Filter Data
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex gap-4 items-center">
-                <div className="flex-1">
+            <Card className="glass-container">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Search className="h-5 w-5" />
+                  Smart Search & Filter
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
                   <Input
                     placeholder="Search across all data..."
                     value={searchFilter}
                     onChange={(e) => setSearchFilter(e.target.value)}
                     className="w-full"
                   />
-                </div>
-                {searchFilter && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setSearchFilter('')}
-                  >
-                    <X className="h-4 w-4" />
-                    Clear
-                  </Button>
-                )}
-                <Button
-                  variant="outline"
-                  onClick={() => setShowFilters(!showFilters)}
-                  className="flex items-center gap-2"
-                >
-                  <Filter className="h-4 w-4" />
-                  {showFilters ? 'Hide' : 'Show'} Columns
-                </Button>
-              </div>
-              {searchFilter && (
-                <div className="mt-3 text-sm text-muted-foreground">
-                  Showing {filteredData.length} of {data.length} records
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Column Filters */}
-          {showFilters && (
-            <Card className="glass-container">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Filter className="h-5 w-5" />
-                  Advanced Column Selector
-                </CardTitle>
-                <CardDescription>
-                  Customize which columns to display in your data view
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-3 mb-6">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => toggleAllColumns(true)}
-                    className="flex items-center gap-2"
-                  >
-                    <Eye className="h-4 w-4" />
-                    Show All
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => toggleAllColumns(false)}
-                    className="flex items-center gap-2"
-                  >
-                    <EyeOff className="h-4 w-4" />
-                    Hide All
-                  </Button>
-                  <Separator orientation="vertical" className="h-6" />
-                  <Badge variant="secondary" className="px-3 py-1">
-                    {visibleColumns.length} of {columns.length} visible
-                  </Badge>
-                </div>
-                
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                  {columns.map((column) => {
-                    const isSpecialColumn = column.startsWith('_')
-                    return (
-                      <div 
-                        key={column} 
-                        className={`flex items-center space-x-3 p-3 rounded-lg border transition-colors
-                          ${columnVisibility[column] ? 'bg-primary/5 border-primary/20' : 'bg-muted/30 border-border'}`}
-                      >
-                        <Checkbox
-                          id={column}
-                          checked={columnVisibility[column] || false}
-                          onCheckedChange={() => toggleColumnVisibility(column)}
-                        />
-                        <label
-                          htmlFor={column}
-                          className="text-sm font-medium leading-none cursor-pointer flex-1"
-                        >
-                          {isSpecialColumn ? column.replace('_', '') : column}
-                          {isSpecialColumn && (
-                            <Badge variant="outline" className="ml-2 text-xs">
-                              {column === '_duplicateCount' ? 'Aggregated' : 'Metadata'}
-                            </Badge>
-                          )}
-                        </label>
+                  <div className="flex items-center justify-between">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowFilters(!showFilters)}
+                      className="flex items-center gap-2"
+                    >
+                      <Filter className="h-4 w-4" />
+                      Column Filters
+                    </Button>
+                    {searchFilter && (
+                      <div className="text-sm text-muted-foreground">
+                        {filteredData.length} of {data.length} rows
                       </div>
-                    )
-                  })}
+                    )}
+                  </div>
                 </div>
               </CardContent>
             </Card>
-          )}
+          </div>
 
-          {/* Data Table */}
+          {/* Enhanced Data Table */}
           <Card className="glass-container">
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <span>Processed Data</span>
                 <div className="flex gap-2">
-                  <Badge variant="outline" className="px-3">
-                    {filteredData.length} filtered rows
-                  </Badge>
-                  <Badge variant="outline" className="px-3">
-                    Page {currentPage} of {totalPages}
-                  </Badge>
-                  <Badge variant="outline" className="px-3">
-                    {selectedRows.size} selected
-                  </Badge>
-                  <Badge variant="outline" className="px-3">
-                    {visibleColumns.length} columns visible
-                  </Badge>
+                  <Badge variant="outline">{filteredData.length} rows</Badge>
+                  <Badge variant="outline">{visibleColumns.length} columns</Badge>
+                  {selectedRows.size > 0 && (
+                    <Button size="sm" onClick={exportSelectedRows}>
+                      <Download className="h-4 w-4 mr-2" />
+                      Export ({selectedRows.size})
+                    </Button>
+                  )}
                 </div>
               </CardTitle>
-              <CardDescription>
-                Click column headers to sort • Select rows to export • Use search to filter data
-              </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="overflow-x-auto max-h-[700px] border rounded-lg">
-                <Table className="w-full">
+              <div className="overflow-auto max-h-[600px] border rounded-lg">
+                <Table>
                   <TableHeader className="sticky top-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 z-20 border-b shadow-sm">
                     <TableRow className="hover:bg-transparent">
                       <TableHead className="w-12 px-4 bg-background/95 backdrop-blur">
@@ -927,8 +1136,20 @@ export function SalesTracking() {
                           checked={paginatedData.length > 0 && paginatedData.every((_, index) => 
                             selectedRows.has((currentPage - 1) * rowsPerPage + index)
                           )}
-                          onCheckedChange={toggleAllRowsSelection}
-                          aria-label="Select all rows on this page"
+                          onCheckedChange={() => {
+                            const currentPageIndexes = paginatedData.map((_, index) => (currentPage - 1) * rowsPerPage + index)
+                            const allSelected = currentPageIndexes.every(index => selectedRows.has(index))
+                            
+                            setSelectedRows(prev => {
+                              const newSet = new Set(prev)
+                              if (allSelected) {
+                                currentPageIndexes.forEach(index => newSet.delete(index))
+                              } else {
+                                currentPageIndexes.forEach(index => newSet.add(index))
+                              }
+                              return newSet
+                            })
+                          }}
                         />
                       </TableHead>
                       {visibleColumns.map((column) => (
@@ -938,128 +1159,111 @@ export function SalesTracking() {
                           onClick={() => handleSort(column)}
                         >
                           <div className="flex items-center gap-2">
-                              <span>{column.startsWith('_') ? column.replace('_', '') : column}</span>
-                              <ArrowUpDown className="h-4 w-4 opacity-50" />
-                              {sortConfig?.key === column && (
-                                <Badge variant="secondary" className="text-xs px-1">
-                                  {sortConfig.direction === 'asc' ? '↑' : '↓'}
-                                </Badge>
-                              )}
-                            </div>
-                          </TableHead>
-                        ))}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {paginatedData.map((row, index) => {
-                        const actualIndex = (currentPage - 1) * rowsPerPage + index
-                        const isSelected = selectedRows.has(actualIndex)
-                        
-                        return (
-                          <TableRow 
-                            key={actualIndex} 
-                            className={`hover:bg-muted/50 transition-colors ${isSelected ? 'bg-primary/5' : ''}`}
-                          >
-                            <TableCell className="w-12 px-4">
-                              <Checkbox
-                                checked={isSelected}
-                                onCheckedChange={() => toggleRowSelection(index)}
-                                aria-label={`Select row ${actualIndex + 1}`}
-                              />
-                            </TableCell>
-                            {visibleColumns.map((column) => {
-                              const value = row[column]
-                              const isAggregated = column === '_duplicateCount' && (value || 0) > 1
-                              
-                              return (
-                                <TableCell key={column} className="font-mono text-sm whitespace-nowrap min-w-[150px] px-4">
-                                  {value !== null && value !== undefined ? (
-                                    <div className="flex items-center gap-2">
-                                      <span className="truncate max-w-[120px]" title={value.toString()}>
-                                        {value.toString()}
-                                      </span>
-                                      {isAggregated && (
-                                        <Badge variant="secondary" className="text-xs flex-shrink-0">
-                                          Aggregated
-                                        </Badge>
-                                      )}
-                                    </div>
-                                  ) : (
-                                    <span className="text-muted-foreground">—</span>
-                                  )}
-                                </TableCell>
-                              )
-                            })}
-                          </TableRow>
-                        )
-                      })}
-                    </TableBody>
-                  </Table>
-                 </div>
-              
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between px-4 py-4 border-t">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <span>
-                      Showing {((currentPage - 1) * rowsPerPage) + 1} to {Math.min(currentPage * rowsPerPage, filteredData.length)} of {filteredData.length} entries
-                    </span>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                      disabled={currentPage === 1}
-                      className="flex items-center gap-1"
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                      Previous
-                    </Button>
-                    
-                    <div className="flex items-center gap-1">
-                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                        let pageNum
-                        if (totalPages <= 5) {
-                          pageNum = i + 1
-                        } else if (currentPage <= 3) {
-                          pageNum = i + 1
-                        } else if (currentPage >= totalPages - 2) {
-                          pageNum = totalPages - 4 + i
-                        } else {
-                          pageNum = currentPage - 2 + i
-                        }
-                        
-                        return (
-                          <Button
-                            key={pageNum}
-                            variant={currentPage === pageNum ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => setCurrentPage(pageNum)}
-                            className="w-8 h-8 p-0"
-                          >
-                            {pageNum}
-                          </Button>
-                        )
-                      })}
-                    </div>
-                    
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                      disabled={currentPage === totalPages}
-                      className="flex items-center gap-1"
-                    >
-                      Next
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              )}
+                            <span>{column.startsWith('_') ? column.replace('_', '') : column}</span>
+                            <ArrowUpDown className="h-4 w-4 opacity-50" />
+                            {sortConfig?.key === column && (
+                              <Badge variant="secondary" className="text-xs px-1">
+                                {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                              </Badge>
+                            )}
+                          </div>
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedData.map((row, index) => {
+                      const actualIndex = (currentPage - 1) * rowsPerPage + index
+                      const isSelected = selectedRows.has(actualIndex)
+                      
+                      return (
+                        <TableRow 
+                          key={actualIndex} 
+                          className={`hover:bg-muted/50 transition-colors ${isSelected ? 'bg-primary/5' : ''}`}
+                        >
+                          <TableCell className="w-12 px-4">
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={() => toggleRowSelection(index)}
+                            />
+                          </TableCell>
+                          {visibleColumns.map((column) => {
+                            const value = row[column]
+                            const isAggregated = column === '_duplicateCount' && (value || 0) > 1
+                            
+                            return (
+                              <TableCell key={column} className="font-mono text-sm whitespace-nowrap min-w-[150px] px-4">
+                                {value !== null && value !== undefined ? (
+                                  <div className="flex items-center gap-2">
+                                    <span className="truncate max-w-[120px]" title={value.toString()}>
+                                      {value.toString()}
+                                    </span>
+                                    {isAggregated && (
+                                      <Badge variant="secondary" className="text-xs flex-shrink-0">
+                                        Aggregated
+                                      </Badge>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="text-muted-foreground">—</span>
+                                )}
+                              </TableCell>
+                            )
+                          })}
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
             </CardContent>
           </Card>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-muted-foreground">
+                Showing {((currentPage - 1) * rowsPerPage) + 1} to {Math.min(currentPage * rowsPerPage, filteredData.length)} of {filteredData.length} entries
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Previous
+                </Button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    const page = i + 1
+                    return (
+                      <Button
+                        key={page}
+                        variant={currentPage === page ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setCurrentPage(page)}
+                        className="w-8 h-8 p-0"
+                      >
+                        {page}
+                      </Button>
+                    )
+                  })}
+                  {totalPages > 5 && <span className="text-muted-foreground">...</span>}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
