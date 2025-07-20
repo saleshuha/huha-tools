@@ -14,7 +14,8 @@ import {
   Download,
   Check,
   X,
-  Hash
+  Hash,
+  Printer
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from './ui/alert-dialog';
@@ -31,17 +32,15 @@ export function SSInventory() {
 
   // Form states
   const [newItem, setNewItem] = useState<{
-    skuNumber: string;
+  skuNumber: string;
     binSerialNumber: string;
     status: SkuInventoryItem['status'];
     quantity: number;
-    minStockLevel: number;
   }>({
     skuNumber: '',
     binSerialNumber: '',
     status: 'in-stock',
-    quantity: 1,
-    minStockLevel: 5
+    quantity: 1
   });
 
   const handleAddItem = async () => {
@@ -71,10 +70,10 @@ export function SSInventory() {
       status: newItem.status,
       dateAdded: new Date().toISOString(),
       quantity: newItem.quantity,
-      minStockLevel: newItem.minStockLevel
+      minStockLevel: 1
     });
 
-    setNewItem({ skuNumber: '', binSerialNumber: '', status: 'in-stock', quantity: 1, minStockLevel: 5 });
+    setNewItem({ skuNumber: '', binSerialNumber: '', status: 'in-stock', quantity: 1 });
     setIsAddDialogOpen(false);
   };
 
@@ -243,21 +242,21 @@ export function SSInventory() {
                     </DialogHeader>
                     <div className="space-y-4">
                       <div>
-                        <Label htmlFor="skuNumber">SKU Number</Label>
-                        <Input
-                          id="skuNumber"
-                          value={newItem.skuNumber}
-                          onChange={(e) => setNewItem(prev => ({ ...prev, skuNumber: e.target.value }))}
-                          placeholder="Enter SKU Number"
-                        />
-                      </div>
-                      <div>
                         <Label htmlFor="binSerialNumber">Bin / Serial Number</Label>
                         <Input
                           id="binSerialNumber"
                           value={newItem.binSerialNumber}
                           onChange={(e) => setNewItem(prev => ({ ...prev, binSerialNumber: e.target.value }))}
                           placeholder="Enter Bin or Serial Number"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="skuNumber">SKU Number</Label>
+                        <Input
+                          id="skuNumber"
+                          value={newItem.skuNumber}
+                          onChange={(e) => setNewItem(prev => ({ ...prev, skuNumber: e.target.value }))}
+                          placeholder="Enter SKU Number"
                         />
                       </div>
                       <div>
@@ -276,29 +275,16 @@ export function SSInventory() {
                           </SelectContent>
                         </Select>
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="quantity">Quantity</Label>
-                          <Input
-                            id="quantity"
-                            type="number"
-                            min="1"
-                            value={newItem.quantity}
-                            onChange={(e) => setNewItem(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
-                            placeholder="Enter quantity"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="minStockLevel">Min Stock Level</Label>
-                          <Input
-                            id="minStockLevel"
-                            type="number"
-                            min="1"
-                            value={newItem.minStockLevel}
-                            onChange={(e) => setNewItem(prev => ({ ...prev, minStockLevel: parseInt(e.target.value) || 5 }))}
-                            placeholder="Enter minimum stock level"
-                          />
-                        </div>
+                      <div>
+                        <Label htmlFor="quantity">Quantity</Label>
+                        <Input
+                          id="quantity"
+                          type="number"
+                          min="1"
+                          value={newItem.quantity}
+                          onChange={(e) => setNewItem(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
+                          placeholder="Enter quantity"
+                        />
                       </div>
                       <div className="flex gap-2 justify-end">
                         <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
@@ -313,6 +299,10 @@ export function SSInventory() {
                 <Button variant="outline" onClick={exportInventory}>
                   <Download className="w-4 h-4 mr-2" />
                   Export
+                </Button>
+                <Button variant="outline" onClick={() => window.print()}>
+                  <Printer className="w-4 h-4 mr-2" />
+                  Print
                 </Button>
               </div>
             </div>
@@ -357,8 +347,8 @@ export function SSInventory() {
             <table className="w-full">
               <thead className="bg-muted/50 sticky top-0">
                 <tr>
-                  <th className="text-left p-4 font-semibold">SKU Number</th>
                   <th className="text-left p-4 font-semibold">Bin / Serial Number</th>
+                  <th className="text-left p-4 font-semibold">SKU Number</th>
                   <th className="text-left p-4 font-semibold">Status</th>
                   <th className="text-left p-4 font-semibold">Date Added</th>
                   <th className="text-center p-4 font-semibold">Actions</th>
@@ -377,8 +367,8 @@ export function SSInventory() {
                 ) : (
                   paginatedInventory.map((item, index) => (
                     <tr key={item.id} className={index % 2 === 0 ? 'bg-background' : 'bg-muted/20'}>
-                      <td className="p-4 font-mono text-sm font-semibold">{item.skuNumber}</td>
-                      <td className="p-4 text-sm">{item.binSerialNumber}</td>
+                      <td className="p-4 font-mono text-sm font-semibold">{item.binSerialNumber}</td>
+                      <td className="p-4 text-sm">{item.skuNumber}</td>
                       <td className="p-4">
                         <Select 
                           value={item.status} 

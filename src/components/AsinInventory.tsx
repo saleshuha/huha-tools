@@ -17,7 +17,8 @@ import {
   Check,
   X,
   RefreshCw,
-  AlertTriangle
+  AlertTriangle,
+  Printer
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from './ui/dialog';
 import { Textarea } from './ui/textarea';
@@ -61,14 +62,12 @@ export function AsinInventory() {
     status: AsinInventoryItem['status'];
     notes: string;
     quantity: number;
-    minStockLevel: number;
   }>({
     asin: '',
     serialNumber: '',
     status: 'in-stock',
     notes: '',
-    quantity: 1,
-    minStockLevel: 5
+    quantity: 1
   });
   const [bulkText, setBulkText] = useState('');
   const [restockDialogOpen, setRestockDialogOpen] = useState(false);
@@ -103,10 +102,10 @@ export function AsinInventory() {
       dateAdded: new Date().toISOString(),
       notes: newItem.notes.trim() || undefined,
       quantity: newItem.quantity,
-      minStockLevel: newItem.minStockLevel
+      minStockLevel: 1
     });
 
-    setNewItem({ asin: '', serialNumber: '', status: 'in-stock', notes: '', quantity: 1, minStockLevel: 5 });
+    setNewItem({ asin: '', serialNumber: '', status: 'in-stock', notes: '', quantity: 1 });
     setIsAddDialogOpen(false);
   };
 
@@ -131,7 +130,7 @@ export function AsinInventory() {
         return;
       }
 
-      const [asin, serialNumber, status = 'in-stock', notes = '', quantity = '1', minStockLevel = '5'] = parts;
+      const [asin, serialNumber, status = 'in-stock', notes = '', quantity = '1'] = parts;
       
       if (!asin.trim() || !serialNumber.trim()) {
         errors.push(`Line ${index + 1}: ASIN and Serial Number cannot be empty`);
@@ -156,7 +155,7 @@ export function AsinInventory() {
         dateAdded: new Date().toISOString(),
         notes: notes.trim() || undefined,
         quantity: parseInt(quantity) || 1,
-        minStockLevel: parseInt(minStockLevel) || 5
+        minStockLevel: 1
       });
     });
 
@@ -186,18 +185,17 @@ export function AsinInventory() {
       return;
     }
 
-    const csvHeaders = ['ASIN', 'Serial Number', 'Status', 'Date Added', 'Date Sold', 'Notes', 'Quantity', 'Min Stock Level', 'Last Restock Date'];
+    const csvHeaders = ['Serial Number', 'ASIN', 'Status', 'Date Added', 'Date Sold', 'Notes', 'Quantity', 'Last Restock Date'];
     const csvData = [
       csvHeaders,
       ...inventory.map(item => [
-        item.asin,
         item.serialNumber,
+        item.asin,
         item.status,
         new Date(item.dateAdded).toLocaleDateString(),
         item.dateSold ? new Date(item.dateSold).toLocaleDateString() : '',
         item.notes || '',
         item.quantity.toString(),
-        item.minStockLevel.toString(),
         item.lastRestockDate ? new Date(item.lastRestockDate).toLocaleDateString() : ''
       ])
     ];
@@ -428,21 +426,21 @@ export function AsinInventory() {
                   </DialogHeader>
                   <div className="space-y-4">
                     <div>
-                      <Label htmlFor="asin">ASIN</Label>
-                      <Input
-                        id="asin"
-                        value={newItem.asin}
-                        onChange={(e) => setNewItem(prev => ({ ...prev, asin: e.target.value }))}
-                        placeholder="Enter ASIN"
-                      />
-                    </div>
-                    <div>
                       <Label htmlFor="serial">Serial Number</Label>
                       <Input
                         id="serial"
                         value={newItem.serialNumber}
                         onChange={(e) => setNewItem(prev => ({ ...prev, serialNumber: e.target.value }))}
                         placeholder="Enter Serial Number"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="asin">ASIN</Label>
+                      <Input
+                        id="asin"
+                        value={newItem.asin}
+                        onChange={(e) => setNewItem(prev => ({ ...prev, asin: e.target.value }))}
+                        placeholder="Enter ASIN"
                       />
                     </div>
                     <div>
@@ -471,17 +469,6 @@ export function AsinInventory() {
                           value={newItem.quantity}
                           onChange={(e) => setNewItem(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
                           placeholder="Enter quantity"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="minStockLevel">Min Stock Level</Label>
-                        <Input
-                          id="minStockLevel"
-                          type="number"
-                          min="1"
-                          value={newItem.minStockLevel}
-                          onChange={(e) => setNewItem(prev => ({ ...prev, minStockLevel: parseInt(e.target.value) || 5 }))}
-                          placeholder="Enter minimum stock level"
                         />
                       </div>
                     </div>
@@ -544,10 +531,14 @@ export function AsinInventory() {
                 </DialogContent>
               </Dialog>
 
-              <Button variant="outline" onClick={exportInventory}>
-                <Download className="w-4 h-4 mr-2" />
-                Export
-              </Button>
+                <Button variant="outline" onClick={exportInventory}>
+                  <Download className="w-4 h-4 mr-2" />
+                  Export
+                </Button>
+                <Button variant="outline" onClick={() => window.print()}>
+                  <Printer className="w-4 h-4 mr-2" />
+                  Print
+                </Button>
             </div>
             </div>
           </div>
@@ -603,8 +594,8 @@ export function AsinInventory() {
                       }}
                     />
                   </th>
-                  <th className="text-left p-4 font-semibold">ASIN</th>
                   <th className="text-left p-4 font-semibold">Serial Number</th>
+                  <th className="text-left p-4 font-semibold">ASIN</th>
                   <th className="text-left p-4 font-semibold">Status</th>
                   <th className="text-left p-4 font-semibold">Qty</th>
                   <th className="text-left p-4 font-semibold">Min Level</th>
@@ -641,8 +632,8 @@ export function AsinInventory() {
                           }}
                         />
                       </td>
-                      <td className="p-4 font-mono text-sm font-semibold">{item.asin}</td>
-                      <td className="p-4 font-mono text-sm">{item.serialNumber}</td>
+                      <td className="p-4 font-mono text-sm font-semibold">{item.serialNumber}</td>
+                      <td className="p-4 font-mono text-sm">{item.asin}</td>
                       <td className="p-4">
                         <Select 
                           value={item.status} 
