@@ -276,10 +276,16 @@ export function useAsinInventory() {
       const previousQuantity = item.quantity;
       const changeAmount = newQuantity - previousQuantity;
 
-      // Update the inventory quantity
+      // Update the inventory quantity and status if needed
+      const updateData: any = { quantity: newQuantity };
+      if (newQuantity === 0) {
+        updateData.status = 'sold';
+        updateData.date_sold = new Date().toISOString();
+      }
+
       const { error: updateError } = await supabase
         .from('asin_inventory')
-        .update({ quantity: newQuantity })
+        .update(updateData)
         .eq('id', id);
 
       if (updateError) throw updateError;
@@ -304,7 +310,16 @@ export function useAsinInventory() {
 
       // Update local state
       setInventory(prev => prev.map(item => 
-        item.id === id ? { ...item, quantity: newQuantity } : item
+        item.id === id 
+          ? { 
+              ...item, 
+              quantity: newQuantity,
+              ...(newQuantity === 0 && { 
+                status: 'sold' as const, 
+                dateSold: new Date().toISOString() 
+              })
+            } 
+          : item
       ));
 
       toast({
