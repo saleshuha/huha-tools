@@ -27,7 +27,7 @@ import { useAsinInventory, AsinInventoryItem } from '@/hooks/useAsinInventory';
 import { InventoryAnalytics } from './InventoryAnalytics';
 
 export function AsinInventory() {
-  const { inventory, loading, addItem, updateItemStatus, deleteItem, bulkAdd, restockItem } = useAsinInventory();
+  const { inventory, loading, addItem, updateItemStatus, deleteItem, bulkAdd, restockItem, updateQuantity } = useAsinInventory();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -101,8 +101,7 @@ export function AsinInventory() {
       status: newItem.status,
       dateAdded: new Date().toISOString(),
       notes: newItem.notes.trim() || undefined,
-      quantity: newItem.quantity,
-      minStockLevel: 1
+      quantity: newItem.quantity
     });
 
     setNewItem({ asin: '', serialNumber: '', status: 'in-stock', notes: '', quantity: 1 });
@@ -154,8 +153,7 @@ export function AsinInventory() {
         status: itemStatus,
         dateAdded: new Date().toISOString(),
         notes: notes.trim() || undefined,
-        quantity: parseInt(quantity) || 1,
-        minStockLevel: 1
+        quantity: parseInt(quantity) || 1
       });
     });
 
@@ -598,7 +596,6 @@ export function AsinInventory() {
                   <th className="text-left p-4 font-semibold">ASIN</th>
                   <th className="text-left p-4 font-semibold">Status</th>
                   <th className="text-left p-4 font-semibold">Qty</th>
-                  <th className="text-left p-4 font-semibold">Min Level</th>
                   <th className="text-left p-4 font-semibold">Date Added</th>
                   <th className="text-left p-4 font-semibold">Date Sold</th>
                   <th className="text-left p-4 font-semibold">Notes</th>
@@ -608,7 +605,7 @@ export function AsinInventory() {
               <tbody>
                 {paginatedInventory.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="text-center p-8 text-muted-foreground">
+                    <td colSpan={9} className="text-center p-8 text-muted-foreground">
                       {inventory.length === 0 
                         ? "No inventory items yet. Add your first item to get started!"
                         : "No items match your search criteria."
@@ -654,16 +651,19 @@ export function AsinInventory() {
                         </Select>
                       </td>
                       <td className="p-4">
-                        <div className="flex items-center gap-2">
-                          <span className={`font-medium ${item.quantity <= item.minStockLevel ? 'text-red-600' : ''}`}>
-                            {item.quantity}
-                          </span>
-                          {item.quantity <= item.minStockLevel && (
-                            <AlertTriangle className="w-4 h-4 text-red-600" />
-                          )}
-                        </div>
+                        <Input
+                          type="number"
+                          value={item.quantity}
+                          onChange={(e) => {
+                            const newQuantity = parseInt(e.target.value) || 0;
+                            if (newQuantity !== item.quantity) {
+                              updateQuantity(item.id, newQuantity);
+                            }
+                          }}
+                          className="w-20"
+                          min="0"
+                        />
                       </td>
-                      <td className="p-4 text-sm">{item.minStockLevel}</td>
                       <td className="p-4 text-sm">
                         {new Date(item.dateAdded).toLocaleDateString()}
                       </td>

@@ -11,7 +11,6 @@ export interface AsinInventoryItem {
   dateSold?: string;
   notes?: string;
   quantity: number;
-  minStockLevel: number;
   restockDate?: string;
   restockQuantity?: number;
   lastRestockDate?: string;
@@ -42,7 +41,6 @@ export function useAsinInventory() {
         dateSold: item.date_sold || undefined,
         notes: item.notes || undefined,
         quantity: item.quantity || 1,
-        minStockLevel: item.min_stock_level || 5,
         restockDate: item.restock_date || undefined,
         restockQuantity: item.restock_quantity || undefined,
         lastRestockDate: item.last_restock_date || undefined,
@@ -77,7 +75,6 @@ export function useAsinInventory() {
           date_sold: item.dateSold || null,
           notes: item.notes || null,
           quantity: item.quantity || 1,
-          min_stock_level: item.minStockLevel || 5,
           restock_date: item.restockDate || null,
           restock_quantity: item.restockQuantity || null,
           last_restock_date: item.lastRestockDate || null,
@@ -96,7 +93,6 @@ export function useAsinInventory() {
         dateSold: data.date_sold || undefined,
         notes: data.notes || undefined,
         quantity: data.quantity || 1,
-        minStockLevel: data.min_stock_level || 5,
         restockDate: data.restock_date || undefined,
         restockQuantity: data.restock_quantity || undefined,
         lastRestockDate: data.last_restock_date || undefined,
@@ -184,7 +180,6 @@ export function useAsinInventory() {
         date_sold: item.dateSold || null,
         notes: item.notes || null,
         quantity: item.quantity || 1,
-        min_stock_level: item.minStockLevel || 5,
         restock_date: item.restockDate || null,
         restock_quantity: item.restockQuantity || null,
         last_restock_date: item.lastRestockDate || null,
@@ -206,7 +201,6 @@ export function useAsinInventory() {
         dateSold: item.date_sold || undefined,
         notes: item.notes || undefined,
         quantity: item.quantity || 1,
-        minStockLevel: item.min_stock_level || 5,
         restockDate: item.restock_date || undefined,
         restockQuantity: item.restock_quantity || undefined,
         lastRestockDate: item.last_restock_date || undefined,
@@ -268,6 +262,65 @@ export function useAsinInventory() {
     }
   };
 
+  const updateQuantity = async (id: string, newQuantity: number, reason?: string) => {
+    try {
+      const item = inventory.find(item => item.id === id);
+      if (!item) {
+        toast({
+          title: "Item not found",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const previousQuantity = item.quantity;
+      const changeAmount = newQuantity - previousQuantity;
+
+      // Update the inventory quantity
+      const { error: updateError } = await supabase
+        .from('asin_inventory')
+        .update({ quantity: newQuantity })
+        .eq('id', id);
+
+      if (updateError) throw updateError;
+
+      // Record the stock change
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error: changeError } = await supabase
+        .from('stock_changes')
+        .insert({
+          user_id: user?.id,
+          inventory_type: 'asin',
+          inventory_id: id,
+          asin: item.asin,
+          serial_number: item.serialNumber,
+          previous_quantity: previousQuantity,
+          new_quantity: newQuantity,
+          change_amount: changeAmount,
+          change_reason: reason || (changeAmount > 0 ? 'Stock increase' : 'Stock decrease')
+        });
+
+      if (changeError) throw changeError;
+
+      // Update local state
+      setInventory(prev => prev.map(item => 
+        item.id === id ? { ...item, quantity: newQuantity } : item
+      ));
+
+      toast({
+        title: "Quantity updated",
+        description: `Updated from ${previousQuantity} to ${newQuantity}`,
+      });
+    } catch (error: any) {
+      console.error('Error updating quantity:', error);
+      toast({
+        title: "Error updating quantity",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   return {
     inventory,
     loading,
@@ -276,6 +329,7 @@ export function useAsinInventory() {
     deleteItem,
     bulkAdd,
     restockItem,
+    updateQuantity,
     refetch: loadInventory,
   };
 }

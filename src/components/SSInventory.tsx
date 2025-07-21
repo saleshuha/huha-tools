@@ -22,7 +22,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useSkuInventory, SkuInventoryItem } from '@/hooks/useSkuInventory';
 
 export function SSInventory() {
-  const { inventory, loading, addItem, updateItemStatus, deleteItem } = useSkuInventory();
+  const { inventory, loading, addItem, updateItemStatus, deleteItem, updateQuantity } = useSkuInventory();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -69,8 +69,7 @@ export function SSInventory() {
       binSerialNumber: newItem.binSerialNumber.trim(),
       status: newItem.status,
       dateAdded: new Date().toISOString(),
-      quantity: newItem.quantity,
-      minStockLevel: 1
+      quantity: newItem.quantity
     });
 
     setNewItem({ skuNumber: '', binSerialNumber: '', status: 'in-stock', quantity: 1 });
@@ -348,16 +347,17 @@ export function SSInventory() {
               <thead className="bg-muted/50 sticky top-0">
                 <tr>
                   <th className="text-left p-4 font-semibold">Bin / Serial Number</th>
-                  <th className="text-left p-4 font-semibold">SKU Number</th>
-                  <th className="text-left p-4 font-semibold">Status</th>
-                  <th className="text-left p-4 font-semibold">Date Added</th>
-                  <th className="text-center p-4 font-semibold">Actions</th>
+                   <th className="text-left p-4 font-semibold">SKU Number</th>
+                   <th className="text-left p-4 font-semibold">Status</th>
+                   <th className="text-left p-4 font-semibold">Quantity</th>
+                   <th className="text-left p-4 font-semibold">Date Added</th>
+                   <th className="text-center p-4 font-semibold">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {paginatedInventory.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="text-center p-8 text-muted-foreground">
+                    <td colSpan={6} className="text-center p-8 text-muted-foreground">
                       {inventory.length === 0 
                         ? "No SKU inventory items yet. Add your first item to get started!"
                         : "No items match your search criteria."
@@ -387,10 +387,24 @@ export function SSInventory() {
                             <SelectItem value="damaged">Damaged</SelectItem>
                           </SelectContent>
                         </Select>
-                      </td>
-                      <td className="p-4 text-sm">
-                        {new Date(item.dateAdded).toLocaleDateString()}
-                      </td>
+                       </td>
+                       <td className="p-4">
+                         <Input
+                           type="number"
+                           value={item.quantity}
+                           onChange={(e) => {
+                             const newQuantity = parseInt(e.target.value) || 0;
+                             if (newQuantity !== item.quantity) {
+                               updateQuantity(item.id, newQuantity);
+                             }
+                           }}
+                           className="w-20"
+                           min="0"
+                         />
+                       </td>
+                       <td className="p-4 text-sm">
+                         {new Date(item.dateAdded).toLocaleDateString()}
+                       </td>
                       <td className="p-4 text-center">
                         <AlertDialog>
                           <AlertDialogTrigger asChild>

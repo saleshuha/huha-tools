@@ -110,9 +110,9 @@ export function InventoryAnalytics() {
               >
                 <div>
                   <p className="font-medium">{item.identifier}</p>
-                  <p className="text-sm text-muted-foreground">
-                    Current: {item.current_quantity} | Min: {item.min_stock_level}
-                  </p>
+                   <p className="text-sm text-muted-foreground">
+                     Current: {item.current_quantity}
+                   </p>
                 </div>
                 <div className="text-right">
                   <Badge 

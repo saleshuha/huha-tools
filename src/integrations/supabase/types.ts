@@ -22,7 +22,6 @@ export type Database = {
           date_sold: string | null
           id: string
           last_restock_date: string | null
-          min_stock_level: number
           notes: string | null
           quantity: number
           restock_date: string | null
@@ -39,7 +38,6 @@ export type Database = {
           date_sold?: string | null
           id?: string
           last_restock_date?: string | null
-          min_stock_level?: number
           notes?: string | null
           quantity?: number
           restock_date?: string | null
@@ -56,7 +54,6 @@ export type Database = {
           date_sold?: string | null
           id?: string
           last_restock_date?: string | null
-          min_stock_level?: number
           notes?: string | null
           quantity?: number
           restock_date?: string | null
@@ -115,7 +112,6 @@ export type Database = {
           date_sold: string | null
           id: string
           last_restock_date: string | null
-          min_stock_level: number
           quantity: number
           restock_date: string | null
           restock_quantity: number | null
@@ -131,7 +127,6 @@ export type Database = {
           date_sold?: string | null
           id?: string
           last_restock_date?: string | null
-          min_stock_level?: number
           quantity?: number
           restock_date?: string | null
           restock_quantity?: number | null
@@ -147,13 +142,57 @@ export type Database = {
           date_sold?: string | null
           id?: string
           last_restock_date?: string | null
-          min_stock_level?: number
           quantity?: number
           restock_date?: string | null
           restock_quantity?: number | null
           sku_number?: string
           status?: Database["public"]["Enums"]["inventory_status"]
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      stock_changes: {
+        Row: {
+          asin: string | null
+          change_amount: number
+          change_reason: string | null
+          created_at: string
+          id: string
+          inventory_id: string
+          inventory_type: string
+          new_quantity: number
+          previous_quantity: number
+          serial_number: string | null
+          sku_number: string | null
+          user_id: string
+        }
+        Insert: {
+          asin?: string | null
+          change_amount: number
+          change_reason?: string | null
+          created_at?: string
+          id?: string
+          inventory_id: string
+          inventory_type: string
+          new_quantity: number
+          previous_quantity: number
+          serial_number?: string | null
+          sku_number?: string | null
+          user_id: string
+        }
+        Update: {
+          asin?: string | null
+          change_amount?: number
+          change_reason?: string | null
+          created_at?: string
+          id?: string
+          inventory_id?: string
+          inventory_type?: string
+          new_quantity?: number
+          previous_quantity?: number
+          serial_number?: string | null
+          sku_number?: string | null
           user_id?: string
         }
         Relationships: []
@@ -203,7 +242,6 @@ export type Database = {
           item_id: string
           identifier: string
           current_quantity: number
-          min_stock_level: number
           days_since_last_restock: number
         }[]
       }

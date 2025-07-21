@@ -7,7 +7,6 @@ export interface RestockItem {
   item_id: string;
   identifier: string;
   current_quantity: number;
-  min_stock_level: number;
   days_since_last_restock: number | null;
 }
 
