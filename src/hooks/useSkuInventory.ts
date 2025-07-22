@@ -341,6 +341,35 @@ export function useSkuInventory() {
     }
   };
 
+  // Update bin location
+  const updateBinLocation = async (id: string, newBinSerial: string) => {
+    try {
+      const { error } = await supabase
+        .from('sku_inventory')
+        .update({ bin_serial_number: newBinSerial })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setInventory(prev => prev.map(item => 
+        item.id === id 
+          ? { ...item, binSerialNumber: newBinSerial }
+          : item
+      ));
+
+      toast({
+        title: "Bin location updated",
+        description: "Item bin location has been updated successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error updating bin location",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   return {
     inventory,
     loading,
@@ -350,6 +379,7 @@ export function useSkuInventory() {
     deleteItem,
     restockItem,
     updateQuantity,
+    updateBinLocation,
     refetch: loadInventory,
   };
 }

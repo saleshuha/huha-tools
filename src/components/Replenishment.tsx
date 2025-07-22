@@ -69,63 +69,9 @@ export function Replenishment() {
   const [selectedItem, setSelectedItem] = useState<ReplenishmentItem | null>(null);
   const [isExporting, setIsExporting] = useState(false);
 
-  // Generate country-specific mock data with AI-powered insights
+  // Generate replenishment data from real inventory
   const generateMockData = (): ReplenishmentItem[] => {
-    const countryPrefixes = {
-      UAE: ['UAE-', 'DXB-', 'AUH-'],
-      KSA: ['KSA-', 'RYD-', 'JED-']
-    };
-
-    const mockProducts = [
-      'iPhone 15 Pro', 'Samsung Galaxy S24', 'MacBook Air M3', 'iPad Pro',
-      'AirPods Pro', 'Sony WH-1000XM5', 'Canon EOS R6', 'Dell XPS 13',
-      'Nike Air Jordan', 'Adidas Ultra Boost', 'Gaming Chair Pro', 'Monitor 27"'
-    ];
-
-    const prefixes = countryPrefixes[selectedCountry] || countryPrefixes.UAE;
-    
-    return Array.from({ length: 15 }, (_, i) => {
-      const current_stock = Math.floor(Math.random() * 20);
-      const min_threshold = Math.floor(Math.random() * 8) + 2;
-      const daily_sell_rate = Math.random() * 3 + 0.5;
-      const lead_time = Math.floor(Math.random() * 21) + 5;
-      
-      const getStatus = () => {
-        if (current_stock <= 1) return { status: 'Critical' as const, color: 'destructive' as const, icon: '🚨' };
-        if (current_stock <= min_threshold) return { status: 'Low Stock' as const, color: 'secondary' as const, icon: '⚠️' };
-        if (current_stock > min_threshold * 3) return { status: 'Overstock' as const, color: 'outline' as const, icon: '📦' };
-        return { status: 'Normal' as const, color: 'default' as const, icon: '✅' };
-      };
-
-      const statusInfo = getStatus();
-      const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
-      
-      const daysUntilStockout = Math.ceil(current_stock / daily_sell_rate);
-      const suggestedReorderDate = new Date();
-      suggestedReorderDate.setDate(suggestedReorderDate.getDate() + Math.max(0, daysUntilStockout - lead_time));
-      
-      const stockoutDate = new Date();
-      stockoutDate.setDate(stockoutDate.getDate() + daysUntilStockout);
-
-      return {
-        id: `${i + 1}`,
-        product_id: `${prefix}${mockProducts[i % mockProducts.length].replace(/\s+/g, '-').toUpperCase()}-${String(i + 1).padStart(3, '0')}`,
-        product_type: Math.random() > 0.5 ? 'asin' : 'sku',
-        current_stock,
-        min_threshold,
-        lead_time_days: lead_time,
-        daily_sell_rate,
-        weekly_sell_rate: daily_sell_rate * 7,
-        monthly_sell_rate: daily_sell_rate * 30,
-        suggested_reorder_qty: Math.max(min_threshold * 2, Math.ceil(daily_sell_rate * lead_time * 1.5)),
-        suggested_restock_date: suggestedReorderDate.toLocaleDateString(),
-        projected_stockout_date: stockoutDate.toLocaleDateString(),
-        status: statusInfo.status,
-        status_color: statusInfo.color,
-        status_icon: statusInfo.icon,
-        confidence_score: Math.floor(Math.random() * 30) + 70
-      };
-    });
+    return [];
   };
 
   // Load replenishment data

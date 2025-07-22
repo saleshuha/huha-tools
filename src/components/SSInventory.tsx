@@ -25,7 +25,7 @@ import { StockHistoryDialog } from './StockHistoryDialog';
 import { Textarea } from './ui/textarea';
 
 export function SSInventory() {
-  const { inventory, loading, addItem, updateItemStatus, updateQuantity, bulkAdd } = useSkuInventory();
+  const { inventory, loading, addItem, updateItemStatus, updateQuantity, bulkAdd, updateBinLocation } = useSkuInventory();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -493,8 +493,18 @@ export function SSInventory() {
                         onUpdate={(newQuantity, reason) => updateQuantity(item.id, newQuantity, reason)}
                       />
                     </td>
-                    <td className="p-4 text-sm text-muted-foreground">
-                      -
+                    <td className="p-4 text-sm">
+                      <Input
+                        value={item.binSerialNumber.split('-')[0] || ''}
+                        onChange={(e) => {
+                          const newBin = e.target.value;
+                          const serialPart = item.binSerialNumber.split('-')[1] || '';
+                          const newBinSerial = newBin ? `${newBin}-${serialPart}` : serialPart;
+                          updateBinLocation(item.id, newBinSerial);
+                        }}
+                        placeholder="Bin location"
+                        className="w-20 text-xs"
+                      />
                     </td>
                     <td className="p-4 text-center">
                       <StockHistoryDialog
