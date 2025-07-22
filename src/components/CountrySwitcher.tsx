@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useCountry } from '@/contexts/CountryContext';
 
 const countries = [
   { code: 'UAE', name: 'United Arab Emirates', flag: '🇦🇪' },
@@ -7,12 +8,12 @@ const countries = [
 ];
 
 export function CountrySwitcher() {
-  const [selectedCountry, setSelectedCountry] = useState('UAE');
+  const { selectedCountry, setSelectedCountry } = useCountry();
 
   return (
     <div className="flex items-center gap-3">
       <span className="text-sm font-medium text-foreground">Country:</span>
-      <Select value={selectedCountry} onValueChange={setSelectedCountry}>
+      <Select value={selectedCountry} onValueChange={(value: 'UAE' | 'KSA') => setSelectedCountry(value)}>
         <SelectTrigger className="w-[180px] h-10 bg-background border-2 border-border hover:border-primary transition-colors">
           <SelectValue>
             <div className="flex items-center gap-2">

@@ -8,6 +8,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
 
+import { CountryProvider } from "@/contexts/CountryContext";
 import { AppSidebar } from "@/components/AppSidebar";
 import { CountrySwitcher } from "@/components/CountrySwitcher";
 import Index from "./pages/Index";
@@ -78,9 +79,10 @@ const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
+        <CountryProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
           <SidebarProvider>
             <div className="min-h-screen flex w-full">
               <AppSidebar />
@@ -121,8 +123,9 @@ const App = () => {
                 </main>
               </div>
             </div>
-          </SidebarProvider>
-        </BrowserRouter>
+            </SidebarProvider>
+          </BrowserRouter>
+        </CountryProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );

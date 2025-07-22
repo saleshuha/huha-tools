@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useUserProfile } from '@/hooks/useUserProfile';
+import { useCountry } from '@/contexts/CountryContext';
 
 export interface SkuInventoryItem {
   id: string;
@@ -21,17 +22,18 @@ export function useSkuInventory() {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const { profile } = useUserProfile();
+  const { selectedCountry } = useCountry();
 
   // Load inventory from Supabase
   const loadInventory = async () => {
-    if (!profile?.country) return;
+    if (!selectedCountry) return;
     
     try {
       setLoading(true);
       const { data, error } = await supabase
         .from('sku_inventory')
         .select('*')
-        .eq('country', profile.country)
+        .eq('country', selectedCountry)
         .order('date_added', { ascending: false });
 
       if (error) throw error;
@@ -80,7 +82,7 @@ export function useSkuInventory() {
           restock_date: item.restockDate || null,
           restock_quantity: item.restockQuantity || null,
           last_restock_date: item.lastRestockDate || null,
-          country: profile?.country,
+          country: selectedCountry,
         })
         .select()
         .single();
@@ -168,10 +170,10 @@ export function useSkuInventory() {
   };
 
   useEffect(() => {
-    if (profile?.country) {
+    if (selectedCountry) {
       loadInventory();
     }
-  }, [profile?.country]);
+  }, [selectedCountry]);
 
   // Restock item
   const restockItem = async (id: string, quantity: number) => {

@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, CheckCircle, Clock, MapPin, ChevronLeft, ChevronRight } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, addMonths, subMonths, startOfWeek, endOfWeek } from "date-fns";
 import { useTasks } from "@/hooks/useTasks";
+import { useCountry } from "@/contexts/CountryContext";
 
 interface LocalTask {
   id: string;
@@ -20,6 +21,7 @@ interface LocalTask {
   priority: 'low' | 'medium' | 'high';
 }
 const Homepage = () => {
+  const { selectedCountry } = useCountry();
   const { tasks: dbTasks, loading, addTask: addDbTask, updateTask, deleteTask: deleteDbTask } = useTasks();
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -111,8 +113,25 @@ const Homepage = () => {
       
       {/* Main content - calendar now extends further left */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Enhanced Header with gradient */}
-        
+        {/* Country-specific Header */}
+        <div className="glass-container p-6 mx-4 my-4 flex-shrink-0 animate-slide-up">
+          <div className="flex items-center gap-4">
+            <div className="text-4xl">
+              {selectedCountry === 'UAE' ? '🇦🇪' : '🇸🇦'}
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+                {selectedCountry === 'UAE' ? 'UAE Operations Dashboard' : 'KSA Operations Dashboard'}
+              </h1>
+              <p className="text-muted-foreground">
+                {selectedCountry === 'UAE' 
+                  ? 'Managing inventory and operations in the United Arab Emirates' 
+                  : 'Managing inventory and operations in Saudi Arabia'
+                }
+              </p>
+            </div>
+          </div>
+        </div>
 
         {/* Enhanced Selected Date Tasks */}
         {selectedDate && getTasksForDate(selectedDate).length > 0 && <div className="glass-container p-6 mx-4 mb-2 flex-shrink-0 animate-slide-up">
