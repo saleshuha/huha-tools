@@ -372,23 +372,10 @@ export function SSInventory() {
                     <td className="p-4 font-mono text-sm font-semibold">{item.binSerialNumber}</td>
                     <td className="p-4 text-sm">{item.skuNumber}</td>
                     <td className="p-4">
-                      <Select 
-                        value={item.status} 
-                        onValueChange={(value: SkuInventoryItem['status']) => updateItemStatus(item.id, value)}
-                      >
-                        <SelectTrigger className={`w-32 ${getStatusColor(item.status)}`}>
-                          <div className="flex items-center gap-2">
-                            {getStatusIcon(item.status)}
-                            <SelectValue />
-                          </div>
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="in-stock">In Stock</SelectItem>
-                          <SelectItem value="sold">Sold</SelectItem>
-                          <SelectItem value="reserved">Reserved</SelectItem>
-                          <SelectItem value="damaged">Damaged</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <div className={`inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium w-32 ${getStatusColor(item.status)}`}>
+                        {getStatusIcon(item.status)}
+                        <span className="capitalize">{item.status.replace('-', ' ')}</span>
+                      </div>
                     </td>
                     <td className="p-4">
                       <QuantityEditor
