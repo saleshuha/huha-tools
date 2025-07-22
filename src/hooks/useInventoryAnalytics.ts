@@ -11,56 +11,158 @@ export interface RestockItem {
 }
 
 export interface SalesAnalytics {
-  product_type: string;
-  total_sold: number;
-  avg_days_to_sell: number;
-  fastest_selling_item: string;
-  slowest_selling_item: string;
-  restock_frequency_days: number;
-  predicted_restock_needed_items: any;
+  period: string;
+  items_sold: number;
+  items_restocked: number;
+  avg_sell_rate_per_day: number;
+  critical_items: number;
+  predicted_stockout_days: number;
+}
+
+export interface InventoryMetrics {
+  salesTracking: {
+    [key: string]: number; // '1d', '3d', '7d', etc.
+  };
+  restockTracking: {
+    [key: string]: number;
+  };
+  forecasting: {
+    avgLeadTime: number;
+    recommendedReorderLevel: number;
+    totalActiveItems: number;
+    criticalStockItems: number;
+  };
 }
 
 export function useInventoryAnalytics() {
   const [restockItems, setRestockItems] = useState<RestockItem[]>([]);
-  const [salesAnalytics, setSalesAnalytics] = useState<SalesAnalytics[]>([]);
+  const [inventoryMetrics, setInventoryMetrics] = useState<InventoryMetrics>({
+    salesTracking: {},
+    restockTracking: {},
+    forecasting: {
+      avgLeadTime: 0,
+      recommendedReorderLevel: 0,
+      totalActiveItems: 0,
+      criticalStockItems: 0
+    }
+  });
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  // Load items needing restock for specific country
-  const loadRestockItems = async (country?: string) => {
+  // Calculate sales/restock tracking for different periods
+  const calculateInventoryMetrics = async (country?: string) => {
     try {
-      const { data, error } = country 
-        ? await supabase.rpc('get_items_needing_restock', { p_country: country } as any)
-        : await supabase.rpc('get_items_needing_restock');
-      
-      if (error) throw error;
-      
-      setRestockItems(data || []);
-    } catch (error: any) {
-      toast({
-        title: "Error loading restock data",
-        description: error.message,
-        variant: "destructive",
+      const periods = [1, 3, 7, 15, 30, 45, 60, 90];
+      const salesTracking: { [key: string]: number } = {};
+      const restockTracking: { [key: string]: number } = {};
+
+      // Get current date
+      const now = new Date();
+
+      for (const days of periods) {
+        const startDate = new Date(now);
+        startDate.setDate(startDate.getDate() - days);
+
+        // Query ASIN inventory for sold items
+        let asinQuery = supabase
+          .from('asin_inventory')
+          .select('id')
+          .eq('status', 'sold')
+          .gte('date_sold', startDate.toISOString());
+
+        if (country) {
+          asinQuery = asinQuery.eq('country', country);
+        }
+
+        const { data: asinSold } = await asinQuery;
+
+        // Query SKU inventory for sold items
+        let skuQuery = supabase
+          .from('sku_inventory')
+          .select('id')
+          .eq('status', 'sold')
+          .gte('date_sold', startDate.toISOString());
+
+        if (country) {
+          skuQuery = skuQuery.eq('country', country);
+        }
+
+        const { data: skuSold } = await skuQuery;
+
+        // Query ASIN inventory for restocked items
+        let asinRestockQuery = supabase
+          .from('asin_inventory')
+          .select('restock_quantity')
+          .not('last_restock_date', 'is', null)
+          .gte('last_restock_date', startDate.toISOString());
+
+        if (country) {
+          asinRestockQuery = asinRestockQuery.eq('country', country);
+        }
+
+        const { data: asinRestocked } = await asinRestockQuery;
+
+        // Query SKU inventory for restocked items
+        let skuRestockQuery = supabase
+          .from('sku_inventory')
+          .select('restock_quantity')
+          .not('last_restock_date', 'is', null)
+          .gte('last_restock_date', startDate.toISOString());
+
+        if (country) {
+          skuRestockQuery = skuRestockQuery.eq('country', country);
+        }
+
+        const { data: skuRestocked } = await skuRestockQuery;
+
+        // Calculate totals
+        const totalSold = (asinSold?.length || 0) + (skuSold?.length || 0);
+        const totalRestocked = (asinRestocked?.reduce((sum, item) => sum + (item.restock_quantity || 0), 0) || 0) +
+                              (skuRestocked?.reduce((sum, item) => sum + (item.restock_quantity || 0), 0) || 0);
+
+        salesTracking[`${days}d`] = totalSold;
+        restockTracking[`${days}d`] = totalRestocked;
+      }
+
+      // Calculate forecasting metrics
+      let totalItemsQuery = supabase
+        .from('asin_inventory')
+        .select('id, quantity')
+        .eq('status', 'in-stock');
+
+      let totalSkuQuery = supabase
+        .from('sku_inventory')
+        .select('id, quantity')
+        .eq('status', 'in-stock');
+
+      if (country) {
+        totalItemsQuery = totalItemsQuery.eq('country', country);
+        totalSkuQuery = totalSkuQuery.eq('country', country);
+      }
+
+      const [{ data: asinItems }, { data: skuItems }] = await Promise.all([
+        totalItemsQuery,
+        totalSkuQuery
+      ]);
+
+      const totalActiveItems = (asinItems?.length || 0) + (skuItems?.length || 0);
+      const criticalStockItems = (asinItems?.filter(item => item.quantity <= 1).length || 0) + 
+                                (skuItems?.filter(item => item.quantity <= 1).length || 0);
+
+      setInventoryMetrics({
+        salesTracking,
+        restockTracking,
+        forecasting: {
+          avgLeadTime: 14, // Default lead time
+          recommendedReorderLevel: Math.ceil(salesTracking['30d'] / 30 * 14), // 14 days of stock
+          totalActiveItems,
+          criticalStockItems
+        }
       });
-    }
-  };
 
-  // Load sales analytics for specific country
-  const loadSalesAnalytics = async (country?: string, startDate?: string, endDate?: string) => {
-    try {
-      const params: any = {};
-      if (country) params.p_country = country;
-      if (startDate) params.start_date = startDate;
-      if (endDate) params.end_date = endDate;
-
-      const { data, error } = await supabase.rpc('get_sales_analytics', params);
-      
-      if (error) throw error;
-      
-      setSalesAnalytics(data || []);
     } catch (error: any) {
       toast({
-        title: "Error loading sales analytics",
+        title: "Error calculating metrics",
         description: error.message,
         variant: "destructive",
       });
@@ -71,66 +173,10 @@ export function useInventoryAnalytics() {
   const loadAnalytics = async (country?: string) => {
     try {
       setLoading(true);
-      await Promise.all([
-        loadRestockItems(country),
-        loadSalesAnalytics(country)
-      ]);
+      await calculateInventoryMetrics(country);
     } finally {
       setLoading(false);
     }
-  };
-
-  // Get AI insights based on analytics
-  const getAIInsights = () => {
-    const insights = [];
-
-    // Restock insights
-    if (restockItems.length > 0) {
-      const criticalItems = restockItems.filter(item => item.current_quantity <= 1);
-      if (criticalItems.length > 0) {
-        insights.push({
-          type: 'critical',
-          title: 'Critical Stock Alert',
-          message: `${criticalItems.length} items are critically low (≤1 unit)`,
-          action: 'Immediate restock required'
-        });
-      }
-
-      const lowStockItems = restockItems.filter(item => item.current_quantity > 1);
-      if (lowStockItems.length > 0) {
-        insights.push({
-          type: 'warning',
-          title: 'Low Stock Warning',
-          message: `${lowStockItems.length} items below minimum stock level`,
-          action: 'Plan restock within 3-5 days'
-        });
-      }
-    }
-
-    // Sales analytics insights
-    salesAnalytics.forEach(analytics => {
-      if (analytics.total_sold > 0) {
-        insights.push({
-          type: 'info',
-          title: `${analytics.product_type} Performance`,
-          message: `${analytics.total_sold} items sold, avg ${Math.round(analytics.avg_days_to_sell)} days to sell`,
-          action: analytics.fastest_selling_item !== 'N/A' 
-            ? `Best performer: ${analytics.fastest_selling_item}` 
-            : 'Continue monitoring'
-        });
-      }
-
-      if (analytics.predicted_restock_needed_items?.length > 0) {
-        insights.push({
-          type: 'prediction',
-          title: `AI Prediction: ${analytics.product_type}`,
-          message: `${analytics.predicted_restock_needed_items.length} items may need restock soon`,
-          action: 'Review predicted items and prepare restock plan'
-        });
-      }
-    });
-
-    return insights;
   };
 
   useEffect(() => {
@@ -139,11 +185,8 @@ export function useInventoryAnalytics() {
 
   return {
     restockItems,
-    salesAnalytics,
+    inventoryMetrics,
     loading,
     loadAnalytics,
-    loadRestockItems,
-    loadSalesAnalytics,
-    getAIInsights,
   };
 }

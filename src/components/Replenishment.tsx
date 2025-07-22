@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useCountry } from '@/contexts/CountryContext';
+import { useInventoryAnalytics } from '@/hooks/useInventoryAnalytics';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -58,6 +59,7 @@ interface ReplenishmentItem {
 
 export function Replenishment() {
   const { selectedCountry } = useCountry();
+  const { inventoryMetrics, loading: analyticsLoading, loadAnalytics } = useInventoryAnalytics();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [replenishmentData, setReplenishmentData] = useState<ReplenishmentItem[]>([]);
@@ -181,6 +183,7 @@ export function Replenishment() {
   // Load data when country changes
   useEffect(() => {
     loadReplenishmentData();
+    loadAnalytics(selectedCountry);
   }, [selectedCountry]);
 
   // Export to CSV
@@ -259,19 +262,19 @@ export function Replenishment() {
           <div className="p-4">
             <div className="flex items-center justify-between mb-4">
               <div className="p-3 rounded-xl bg-gradient-primary/10 backdrop-blur-sm">
-                <Brain className="w-6 h-6 text-gradient-start" />
+                <AlertTriangle className="w-6 h-6 text-destructive" />
               </div>
-              <Badge variant="secondary" className="bg-gradient-primary/20 text-primary border-0 text-xs">
-                AI Powered
+              <Badge variant="secondary" className="bg-destructive/20 text-destructive border-0 text-xs">
+                Critical
               </Badge>
             </div>
             <h3 className="text-2xl font-bold text-foreground mb-2">
-              {criticalItems.length}
+              {inventoryMetrics.forecasting.criticalStockItems}
             </h3>
-            <p className="text-sm text-muted-foreground mb-3">Critical Items ({selectedCountry})</p>
+            <p className="text-sm text-muted-foreground mb-3">Critical Stock ({selectedCountry})</p>
             <div className="flex items-center text-sm">
               <AlertTriangle className="w-4 h-4 text-destructive mr-2" />
-              <span className="text-destructive font-medium">Immediate Action</span>
+              <span className="text-destructive font-medium">≤1 unit items</span>
             </div>
           </div>
         </Card>
@@ -280,19 +283,19 @@ export function Replenishment() {
           <div className="p-4">
             <div className="flex items-center justify-between mb-4">
               <div className="p-3 rounded-xl bg-gradient-accent/10 backdrop-blur-sm">
-                <TrendingUp className="w-6 h-6 text-accent" />
+                <TrendingDown className="w-6 h-6 text-accent" />
               </div>
               <Badge variant="outline" className="border-accent/30 text-accent bg-accent/5 text-xs">
-                Trending
+                30 Days
               </Badge>
             </div>
             <h3 className="text-2xl font-bold text-foreground mb-2">
-              ${totalValue.toLocaleString()}
+              {inventoryMetrics.salesTracking['30d'] || 0}
             </h3>
-            <p className="text-sm text-muted-foreground mb-3">Total Restock Value ({selectedCountry})</p>
+            <p className="text-sm text-muted-foreground mb-3">Items Sold ({selectedCountry})</p>
             <div className="flex items-center text-sm">
-              <ArrowUp className="w-4 h-4 text-accent mr-2" />
-              <span className="text-accent font-medium">+12% vs last month</span>
+              <Activity className="w-4 h-4 text-accent mr-2" />
+              <span className="text-accent font-medium">{((inventoryMetrics.salesTracking['30d'] || 0) / 30).toFixed(1)}/day avg</span>
             </div>
           </div>
         </Card>
@@ -301,19 +304,19 @@ export function Replenishment() {
           <div className="p-4">
             <div className="flex items-center justify-between mb-4">
               <div className="p-3 rounded-xl bg-gradient-secondary/10 backdrop-blur-sm">
-                <Activity className="w-6 h-6 text-secondary" />
+                <Package className="w-6 h-6 text-secondary" />
               </div>
               <Badge variant="outline" className="border-secondary/30 text-secondary bg-secondary/5 text-xs">
-                Active
+                30 Days
               </Badge>
             </div>
             <h3 className="text-2xl font-bold text-foreground mb-2">
-              {avgSellRate.toFixed(1)}/day
+              {inventoryMetrics.restockTracking['30d'] || 0}
             </h3>
-            <p className="text-sm text-muted-foreground mb-3">Avg Sell Rate ({selectedCountry})</p>
+            <p className="text-sm text-muted-foreground mb-3">Items Restocked ({selectedCountry})</p>
             <div className="flex items-center text-sm">
-              <Activity className="w-4 h-4 text-secondary mr-2" />
-              <span className="text-secondary font-medium">Stable velocity</span>
+              <ArrowUp className="w-4 h-4 text-secondary mr-2" />
+              <span className="text-secondary font-medium">Inventory replenished</span>
             </div>
           </div>
         </Card>
@@ -322,23 +325,97 @@ export function Replenishment() {
           <div className="p-4">
             <div className="flex items-center justify-between mb-4">
               <div className="p-3 rounded-xl bg-gradient-tertiary/10 backdrop-blur-sm">
-                <Clock className="w-6 h-6 text-tertiary" />
+                <BarChart3 className="w-6 h-6 text-tertiary" />
               </div>
               <Badge variant="outline" className="border-tertiary/30 text-tertiary bg-tertiary/5 text-xs">
-                Optimized
+                Active
               </Badge>
             </div>
             <h3 className="text-2xl font-bold text-foreground mb-2">
-              {avgLeadTime.toFixed(0)} days
+              {inventoryMetrics.forecasting.totalActiveItems}
             </h3>
-            <p className="text-sm text-muted-foreground mb-3">Avg Lead Time ({selectedCountry})</p>
+            <p className="text-sm text-muted-foreground mb-3">Total Items ({selectedCountry})</p>
             <div className="flex items-center text-sm">
               <Target className="w-4 h-4 text-tertiary mr-2" />
-              <span className="text-tertiary font-medium">Well managed</span>
+              <span className="text-tertiary font-medium">In-stock items</span>
             </div>
           </div>
         </Card>
       </div>
+
+      {/* Sales & Restock Tracking */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card className="glass-container">
+          <div className="p-4">
+            <h3 className="text-lg font-semibold bg-gradient-primary bg-clip-text text-transparent mb-4">
+              📈 Sales Tracking - {selectedCountry}
+            </h3>
+            <div className="grid grid-cols-2 gap-3">
+              {[1, 3, 7, 15, 30, 45, 60, 90].map(days => (
+                <div key={days} className="bg-card/50 rounded-lg p-3">
+                  <div className="text-xs text-muted-foreground mb-1">{days} day{days > 1 ? 's' : ''}</div>
+                  <div className="text-lg font-bold text-foreground">
+                    {inventoryMetrics.salesTracking[`${days}d`] || 0}
+                  </div>
+                  <div className="text-xs text-accent">sold</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Card>
+
+        <Card className="glass-container">
+          <div className="p-4">
+            <h3 className="text-lg font-semibold bg-gradient-primary bg-clip-text text-transparent mb-4">
+              📦 Restock Tracking - {selectedCountry}
+            </h3>
+            <div className="grid grid-cols-2 gap-3">
+              {[1, 3, 7, 15, 30, 45, 60, 90].map(days => (
+                <div key={days} className="bg-card/50 rounded-lg p-3">
+                  <div className="text-xs text-muted-foreground mb-1">{days} day{days > 1 ? 's' : ''}</div>
+                  <div className="text-lg font-bold text-foreground">
+                    {inventoryMetrics.restockTracking[`${days}d`] || 0}
+                  </div>
+                  <div className="text-xs text-secondary">restocked</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      {/* AI Forecasting Card */}
+      <Card className="glass-container">
+        <div className="p-4">
+          <h3 className="text-lg font-semibold bg-gradient-primary bg-clip-text text-transparent mb-4 flex items-center gap-2">
+            <Brain className="w-5 h-5 text-primary" />
+            🔮 AI Forecasting & Recommendations - {selectedCountry}
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-primary/10 rounded-lg p-4">
+              <div className="text-sm text-muted-foreground mb-2">Recommended Reorder Level</div>
+              <div className="text-2xl font-bold text-primary mb-1">
+                {inventoryMetrics.forecasting.recommendedReorderLevel}
+              </div>
+              <div className="text-xs text-muted-foreground">units (based on 30-day velocity)</div>
+            </div>
+            <div className="bg-accent/10 rounded-lg p-4">
+              <div className="text-sm text-muted-foreground mb-2">Average Lead Time</div>
+              <div className="text-2xl font-bold text-accent mb-1">
+                {inventoryMetrics.forecasting.avgLeadTime}
+              </div>
+              <div className="text-xs text-muted-foreground">days to restock</div>
+            </div>
+            <div className="bg-secondary/10 rounded-lg p-4">
+              <div className="text-sm text-muted-foreground mb-2">Forecasted Demand</div>
+              <div className="text-2xl font-bold text-secondary mb-1">
+                {Math.ceil((inventoryMetrics.salesTracking['30d'] || 0) / 30 * inventoryMetrics.forecasting.avgLeadTime)}
+              </div>
+              <div className="text-xs text-muted-foreground">units needed during lead time</div>
+            </div>
+          </div>
+        </div>
+      </Card>
 
       {/* Control Panel */}
       <Card className="glass-container">
