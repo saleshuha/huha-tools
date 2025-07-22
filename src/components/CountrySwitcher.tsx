@@ -6,25 +6,14 @@ import { useUserProfile } from '@/hooks/useUserProfile';
 export function CountrySwitcher() {
   const { profile, loading } = useUserProfile();
 
-  console.log('CountrySwitcher: profile=', profile, 'loading=', loading);
-
-  if (loading) {
-    console.log('CountrySwitcher: Still loading...');
-    return null;
-  }
-  
-  if (!profile) {
-    console.log('CountrySwitcher: No profile found');
-    return null;
-  }
-
-  console.log('CountrySwitcher: Rendering with country:', profile.country);
+  // Always show with UAE as default while loading
+  const country = profile?.country || 'UAE';
 
   return (
     <div className="flex items-center gap-2">
       <span className="text-sm text-muted-foreground">Country:</span>
       <Badge variant="outline" className="font-medium">
-        {profile.country}
+        {country}
       </Badge>
     </div>
   );

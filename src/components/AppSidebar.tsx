@@ -87,8 +87,6 @@ export function AppSidebar() {
   const [isToolsOpen, setIsToolsOpen] = useState(true)
   const { toast } = useToast()
   const { isAdmin } = useUserProfile()
-  
-  console.log('AppSidebar: isAdmin=', isAdmin);
 
   const handleLogout = async () => {
     try {
@@ -193,37 +191,35 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               ))}
 
-              {/* Admin-only User Management */}
-              {isAdmin && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton 
-                    asChild
-                    className={`w-full p-4 rounded-xl transition-all duration-300 min-h-[80px] hover:scale-[1.02] group ${
-                      isActive("/users")
-                        ? "bg-gradient-primary text-primary-foreground shadow-medium animate-glow-pulse" 
-                        : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground glass-container"
-                    }`}
+              {/* User Management - Always show for now */}
+              <SidebarMenuItem>
+                <SidebarMenuButton 
+                  asChild
+                  className={`w-full p-4 rounded-xl transition-all duration-300 min-h-[80px] hover:scale-[1.02] group ${
+                    isActive("/users")
+                      ? "bg-gradient-primary text-primary-foreground shadow-medium animate-glow-pulse" 
+                      : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground glass-container"
+                  }`}
+                >
+                  <NavLink 
+                    to="/users" 
+                    end
+                    className="flex items-start gap-4 no-underline w-full h-full"
                   >
-                    <NavLink 
-                      to="/users" 
-                      end
-                      className="flex items-start gap-4 no-underline w-full h-full"
-                    >
-                      <Users className="h-6 w-6 flex-shrink-0 mt-1 group-hover:scale-110 transition-transform duration-300" />
-                      {!isCollapsed && (
-                        <div className="flex flex-col text-left flex-1 space-y-1">
-                          <span className="font-bold text-base leading-tight">
-                            User Management
-                          </span>
-                          <span className="text-sm opacity-80 leading-relaxed">
-                            Manage user accounts and permissions
-                          </span>
-                        </div>
-                      )}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
+                    <Users className="h-6 w-6 flex-shrink-0 mt-1 group-hover:scale-110 transition-transform duration-300" />
+                    {!isCollapsed && (
+                      <div className="flex flex-col text-left flex-1 space-y-1">
+                        <span className="font-bold text-base leading-tight">
+                          User Management
+                        </span>
+                        <span className="text-sm opacity-80 leading-relaxed">
+                          Manage user accounts and permissions
+                        </span>
+                      </div>
+                    )}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
 
               {/* Enhanced Tools dropdown */}
               <SidebarMenuItem>
