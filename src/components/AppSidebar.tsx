@@ -87,6 +87,8 @@ export function AppSidebar() {
   const [isToolsOpen, setIsToolsOpen] = useState(true)
   const { toast } = useToast()
   const { isAdmin } = useUserProfile()
+  
+  console.log('AppSidebar: isAdmin=', isAdmin);
 
   const handleLogout = async () => {
     try {

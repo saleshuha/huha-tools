@@ -6,9 +6,19 @@ import { useUserProfile } from '@/hooks/useUserProfile';
 export function CountrySwitcher() {
   const { profile, loading } = useUserProfile();
 
-  if (loading || !profile) {
+  console.log('CountrySwitcher: profile=', profile, 'loading=', loading);
+
+  if (loading) {
+    console.log('CountrySwitcher: Still loading...');
     return null;
   }
+  
+  if (!profile) {
+    console.log('CountrySwitcher: No profile found');
+    return null;
+  }
+
+  console.log('CountrySwitcher: Rendering with country:', profile.country);
 
   return (
     <div className="flex items-center gap-2">

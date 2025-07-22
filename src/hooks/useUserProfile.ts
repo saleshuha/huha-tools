@@ -19,13 +19,18 @@ export function useUserProfile() {
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
+    console.log('useUserProfile: useEffect triggered');
     const getUser = async () => {
+      console.log('useUserProfile: Getting user...');
       const { data: { user } } = await supabase.auth.getUser();
+      console.log('useUserProfile: Current user:', user);
       setUser(user);
       
       if (user) {
+        console.log('useUserProfile: User found, fetching profile for:', user.id);
         fetchProfile(user.id);
       } else {
+        console.log('useUserProfile: No user found');
         setLoading(false);
       }
     };
@@ -50,6 +55,7 @@ export function useUserProfile() {
   }, []);
 
   const fetchProfile = async (userId: string) => {
+    console.log('useUserProfile: fetchProfile called for userId:', userId);
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -57,11 +63,14 @@ export function useUserProfile() {
         .eq('id', userId)
         .single();
 
+      console.log('useUserProfile: Profile query result:', { data, error });
+
       if (error) {
         console.error('Error fetching profile:', error);
         return;
       }
 
+      console.log('useUserProfile: Setting profile:', data);
       setProfile(data as UserProfile);
     } catch (error) {
       console.error('Error fetching profile:', error);
