@@ -191,14 +191,14 @@ export function Replenishment() {
       supabase.removeChannel(skuChannel);
       supabase.removeChannel(stockChangesChannel);
     };
-  }, [selectedCountry, loadAnalytics]);
+  }, [selectedCountry]);
 
   // Load data when country changes
   useEffect(() => {
     console.log(`Country changed to: ${selectedCountry}, loading data...`);
     loadReplenishmentData();
     loadAnalytics(selectedCountry);
-  }, [selectedCountry, loadAnalytics]);
+  }, [selectedCountry]);
 
   // Export to CSV
   const handleExport = async () => {
