@@ -287,10 +287,65 @@ export function useSkuInventory() {
     }
   };
 
+  // Bulk add items
+  const bulkAdd = async (items: Omit<SkuInventoryItem, 'id'>[]) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const insertData = items.map(item => ({
+        user_id: user.id,
+        sku_number: item.skuNumber,
+        bin_serial_number: item.binSerialNumber,
+        status: item.status,
+        date_added: item.dateAdded,
+        date_sold: item.dateSold || null,
+        quantity: item.quantity || 1,
+        restock_date: item.restockDate || null,
+        restock_quantity: item.restockQuantity || null,
+        last_restock_date: item.lastRestockDate || null,
+        country: selectedCountry,
+      }));
+
+      const { data, error } = await supabase
+        .from('sku_inventory')
+        .insert(insertData)
+        .select();
+
+      if (error) throw error;
+
+      const newItems: SkuInventoryItem[] = data.map(item => ({
+        id: item.id,
+        skuNumber: item.sku_number,
+        binSerialNumber: item.bin_serial_number,
+        status: item.status,
+        dateAdded: item.date_added,
+        dateSold: item.date_sold || undefined,
+        quantity: item.quantity || 1,
+        restockDate: item.restock_date || undefined,
+        restockQuantity: item.restock_quantity || undefined,
+        lastRestockDate: item.last_restock_date || undefined,
+      }));
+
+      setInventory(prev => [...newItems, ...prev]);
+      toast({
+        title: "Bulk add successful",
+        description: `Added ${items.length} items to inventory.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error bulk adding items",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   return {
     inventory,
     loading,
     addItem,
+    bulkAdd,
     updateItemStatus,
     deleteItem,
     restockItem,

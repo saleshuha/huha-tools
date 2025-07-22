@@ -11,6 +11,7 @@ import {
   Search, 
   Edit, 
   Download,
+  Upload,
   Check,
   X,
   Hash,
@@ -21,11 +22,14 @@ import { useSkuInventory, SkuInventoryItem } from '@/hooks/useSkuInventory';
 import { QuantityEditor } from './QuantityEditor';
 import { StockHistoryDialog } from './StockHistoryDialog';
 
+import { Textarea } from './ui/textarea';
+
 export function SSInventory() {
-  const { inventory, loading, addItem, updateItemStatus, updateQuantity } = useSkuInventory();
+  const { inventory, loading, addItem, updateItemStatus, updateQuantity, bulkAdd } = useSkuInventory();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
   const { toast } = useToast();
@@ -42,6 +46,7 @@ export function SSInventory() {
     status: 'in-stock',
     quantity: 1
   });
+  const [bulkText, setBulkText] = useState('');
 
   const handleAddItem = async () => {
     if (!newItem.skuNumber.trim() || !newItem.binSerialNumber.trim()) {
@@ -74,6 +79,70 @@ export function SSInventory() {
 
     setNewItem({ skuNumber: '', binSerialNumber: '', status: 'in-stock', quantity: 1 });
     setIsAddDialogOpen(false);
+  };
+
+  const handleBulkAdd = async () => {
+    if (!bulkText.trim()) {
+      toast({
+        title: "No Data",
+        description: "Please enter items to add",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const lines = bulkText.trim().split('\n');
+    const newItems: Omit<SkuInventoryItem, 'id'>[] = [];
+    const errors: string[] = [];
+
+    lines.forEach((line, index) => {
+      const parts = line.trim().split('\t');
+      if (parts.length < 2) {
+        errors.push(`Line ${index + 1}: Invalid format (need SKU Number and Bin/Serial Number)`);
+        return;
+      }
+
+      const [skuNumber, binSerialNumber, status = 'in-stock', quantity = '1'] = parts;
+      
+      if (!skuNumber.trim() || !binSerialNumber.trim()) {
+        errors.push(`Line ${index + 1}: SKU Number and Bin/Serial Number cannot be empty`);
+        return;
+      }
+
+      // Check for duplicate SKU number
+      const exists = inventory.some(item => item.skuNumber === skuNumber.trim()) ||
+                    newItems.some(item => item.skuNumber === skuNumber.trim());
+      if (exists) {
+        errors.push(`Line ${index + 1}: Duplicate SKU number ${skuNumber}`);
+        return;
+      }
+
+      const validStatuses = ['in-stock', 'sold', 'reserved', 'damaged'];
+      const itemStatus = validStatuses.includes(status.trim()) ? status.trim() as SkuInventoryItem['status'] : 'in-stock';
+
+      newItems.push({
+        skuNumber: skuNumber.trim(),
+        binSerialNumber: binSerialNumber.trim(),
+        status: itemStatus,
+        dateAdded: new Date().toISOString(),
+        quantity: parseInt(quantity) || 1
+      });
+    });
+
+    if (errors.length > 0) {
+      toast({
+        title: "Bulk Add Errors",
+        description: `${errors.length} errors found. Check console for details.`,
+        variant: "destructive"
+      });
+      console.error('Bulk add errors:', errors);
+    }
+
+    if (newItems.length > 0) {
+      await bulkAdd(newItems);
+      setBulkText('');
+      setIsBulkDialogOpen(false);
+    }
   };
 
   const exportInventory = () => {
@@ -292,6 +361,47 @@ export function SSInventory() {
                         Cancel
                       </Button>
                       <Button onClick={handleAddItem}>Add Item</Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+
+              <Dialog open={isBulkDialogOpen} onOpenChange={setIsBulkDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline">
+                    <Upload className="w-4 h-4 mr-2" />
+                    Bulk Add
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>Bulk Add SKU Items</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="bulk-text">
+                        Paste tab-separated data (SKU Number, Bin/Serial Number, Status, Quantity)
+                      </Label>
+                      <Textarea
+                        id="bulk-text"
+                        value={bulkText}
+                        onChange={(e) => setBulkText(e.target.value)}
+                        placeholder="SKU001	BIN001	in-stock	5&#10;SKU002	BIN002	sold	1&#10;SKU003	BIN003	reserved	10"
+                        rows={10}
+                        className="font-mono text-sm"
+                      />
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Format: Each line should have SKU Number, Bin/Serial Number, Status (optional), and Quantity (optional) separated by tabs.
+                        <br />Status: in-stock, sold, reserved, damaged (defaults to in-stock)
+                        <br />Quantity: any positive number (defaults to 1)
+                        <br />Example: SKU123	BIN001	in-stock	5
+                      </p>
+                    </div>
+                    <div className="flex gap-2 justify-end">
+                      <Button variant="outline" onClick={() => setIsBulkDialogOpen(false)}>
+                        Cancel
+                      </Button>
+                      <Button onClick={handleBulkAdd}>Add Items</Button>
                     </div>
                   </div>
                 </DialogContent>

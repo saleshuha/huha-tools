@@ -485,19 +485,21 @@ export function AsinInventory() {
                   <div className="space-y-4">
                     <div>
                       <Label htmlFor="bulk-text">
-                        Paste tab-separated data (ASIN, Serial Number, Status)
+                        Paste tab-separated data (ASIN, Serial Number, Status, Quantity)
                       </Label>
                       <Textarea
                         id="bulk-text"
                         value={bulkText}
                         onChange={(e) => setBulkText(e.target.value)}
-                        placeholder="ASIN1	SN001	in-stock&#10;ASIN2	SN002	sold"
+                        placeholder="ASIN1	SN001	in-stock	5&#10;ASIN2	SN002	sold	1&#10;ASIN3	SN003	reserved	10"
                         rows={10}
                         className="font-mono text-sm"
                       />
                       <p className="text-xs text-muted-foreground mt-2">
-                        Format: Each line should have ASIN, Serial Number, and Status (optional) separated by tabs.
-                        Status can be: in-stock, sold, reserved, damaged (defaults to in-stock)
+                        Format: Each line should have ASIN, Serial Number, Status (optional), and Quantity (optional) separated by tabs.
+                        <br />Status: in-stock, sold, reserved, damaged (defaults to in-stock)
+                        <br />Quantity: any positive number (defaults to 1)
+                        <br />Example: ASIN123	SN001	in-stock	5
                       </p>
                     </div>
                     <div className="flex gap-2 justify-end">
