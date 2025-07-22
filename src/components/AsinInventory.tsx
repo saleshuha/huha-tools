@@ -11,7 +11,6 @@ import {
   Plus, 
   Search, 
   Edit, 
-  Trash2, 
   Download, 
   Upload,
   Check,
@@ -22,12 +21,13 @@ import {
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from './ui/dialog';
 import { Textarea } from './ui/textarea';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from './ui/alert-dialog';
 import { useAsinInventory, AsinInventoryItem } from '@/hooks/useAsinInventory';
 import { InventoryAnalytics } from './InventoryAnalytics';
+import { QuantityEditor } from './QuantityEditor';
+import { StockHistoryDialog } from './StockHistoryDialog';
 
 export function AsinInventory() {
-  const { inventory, loading, addItem, updateItemStatus, deleteItem, bulkAdd, restockItem, updateQuantity } = useAsinInventory();
+  const { inventory, loading, addItem, updateItemStatus, bulkAdd, restockItem, updateQuantity } = useAsinInventory();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -650,20 +650,12 @@ export function AsinInventory() {
                           </SelectContent>
                         </Select>
                       </td>
-                      <td className="p-4">
-                        <Input
-                          type="number"
-                          value={item.quantity}
-                          onChange={(e) => {
-                            const newQuantity = parseInt(e.target.value) || 0;
-                            if (newQuantity !== item.quantity) {
-                              updateQuantity(item.id, newQuantity);
-                            }
-                          }}
-                          className="w-20"
-                          min="0"
-                        />
-                      </td>
+                       <td className="p-4">
+                         <QuantityEditor
+                           currentQuantity={item.quantity}
+                           onUpdate={(newQuantity, reason) => updateQuantity(item.id, newQuantity, reason)}
+                         />
+                       </td>
                       <td className="p-4 text-sm">
                         {new Date(item.dateAdded).toLocaleDateString()}
                       </td>
@@ -673,50 +665,13 @@ export function AsinInventory() {
                       <td className="p-4 text-sm max-w-xs truncate">
                         {item.notes || '-'}
                       </td>
-                      <td className="p-4 text-center">
-                        <div className="flex gap-1">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setRestockItemId(item.id);
-                              setRestockQuantity(item.quantity + 1);
-                              setRestockDialogOpen(true);
-                            }}
-                            className="text-blue-600 hover:text-blue-700"
-                          >
-                            <RefreshCw className="w-4 h-4" />
-                          </Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="text-red-600 hover:text-red-700"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Delete Item</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Are you sure you want to delete this inventory item? This action cannot be undone.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction 
-                                  onClick={() => deleteItem(item.id)}
-                                  className="bg-red-600 hover:bg-red-700"
-                                >
-                                  Delete
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </div>
-                      </td>
+                       <td className="p-4 text-center">
+                         <StockHistoryDialog
+                           inventoryId={item.id}
+                           itemIdentifier={`${item.asin} (${item.serialNumber})`}
+                           inventoryType="asin"
+                         />
+                       </td>
                     </tr>
                   ))
                 )}

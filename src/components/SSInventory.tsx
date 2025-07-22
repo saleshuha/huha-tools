@@ -10,7 +10,6 @@ import {
   Plus, 
   Search, 
   Edit, 
-  Trash2, 
   Download,
   Check,
   X,
@@ -18,11 +17,12 @@ import {
   Printer
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from './ui/alert-dialog';
 import { useSkuInventory, SkuInventoryItem } from '@/hooks/useSkuInventory';
+import { QuantityEditor } from './QuantityEditor';
+import { StockHistoryDialog } from './StockHistoryDialog';
 
 export function SSInventory() {
-  const { inventory, loading, addItem, updateItemStatus, deleteItem, updateQuantity } = useSkuInventory();
+  const { inventory, loading, addItem, updateItemStatus, updateQuantity } = useSkuInventory();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -389,52 +389,21 @@ export function SSInventory() {
                         </Select>
                        </td>
                        <td className="p-4">
-                         <Input
-                           type="number"
-                           value={item.quantity}
-                           onChange={(e) => {
-                             const newQuantity = parseInt(e.target.value) || 0;
-                             if (newQuantity !== item.quantity) {
-                               updateQuantity(item.id, newQuantity);
-                             }
-                           }}
-                           className="w-20"
-                           min="0"
+                         <QuantityEditor
+                           currentQuantity={item.quantity}
+                           onUpdate={(newQuantity, reason) => updateQuantity(item.id, newQuantity, reason)}
                          />
                        </td>
                        <td className="p-4 text-sm">
                          {new Date(item.dateAdded).toLocaleDateString()}
                        </td>
-                      <td className="p-4 text-center">
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-red-600 hover:text-red-700"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Delete Item</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Are you sure you want to delete this inventory item? This action cannot be undone.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction 
-                                onClick={() => deleteItem(item.id)}
-                                className="bg-red-600 hover:bg-red-700"
-                              >
-                                Delete
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </td>
+                       <td className="p-4 text-center">
+                         <StockHistoryDialog
+                           inventoryId={item.id}
+                           itemIdentifier={`${item.skuNumber} (${item.binSerialNumber})`}
+                           inventoryType="sku"
+                         />
+                       </td>
                     </tr>
                   ))
                 )}
