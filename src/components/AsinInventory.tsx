@@ -314,19 +314,18 @@ export function AsinInventory() {
       {/* Controls */}
       <Card className="glass-container p-6">
         <div className="space-y-4">
-          {/* Search Bar - Full Width */}
-          <div className="relative w-full">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-            <Input
-              placeholder="Search multiple items using spaces (e.g., ASIN1 SERIAL1 ASIN2)..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 w-full"
-            />
-          </div>
-
-          {/* Filters and Actions */}
-          <div className="flex flex-col lg:flex-row gap-4 justify-between">
+          {/* Search Bar and Filters */}
+          <div className="flex flex-col lg:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+              <Input
+                placeholder="Search multiple items using spaces (e.g., ASIN1 SERIAL1 ASIN2)..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 w-full"
+              />
+            </div>
+            
             {/* Filters */}
             <div className="flex flex-col sm:flex-row gap-4">
               <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -352,6 +351,11 @@ export function AsinInventory() {
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex flex-col lg:flex-row gap-4 justify-between">
+            <div></div>
 
             {/* Action Buttons */}
             <div className="flex gap-2 flex-wrap">
@@ -573,15 +577,14 @@ export function AsinInventory() {
                 <th className="text-left p-4 font-semibold">ASIN</th>
                 <th className="text-left p-4 font-semibold">Status</th>
                 <th className="text-left p-4 font-semibold">Qty</th>
-                <th className="text-left p-4 font-semibold">Date Added</th>
-                <th className="text-left p-4 font-semibold">Date Sold</th>
-                <th className="text-center p-4 font-semibold">Actions</th>
+                <th className="text-left p-4 font-semibold">Bin</th>
+                <th className="text-center p-4 font-semibold">History</th>
               </tr>
             </thead>
             <tbody>
               {paginatedInventory.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="text-center p-8 text-muted-foreground">
+                  <td colSpan={6} className="text-center p-8 text-muted-foreground">
                     {inventory.length === 0 
                       ? "No inventory items yet. Add your first item to get started!"
                       : "No items match your search criteria."
@@ -632,11 +635,8 @@ export function AsinInventory() {
                         onUpdate={(newQuantity, reason) => updateQuantity(item.id, newQuantity, reason)}
                       />
                     </td>
-                    <td className="p-4 text-sm">
-                      {new Date(item.dateAdded).toLocaleDateString()}
-                    </td>
-                    <td className="p-4 text-sm">
-                      {item.dateSold ? new Date(item.dateSold).toLocaleDateString() : '-'}
+                    <td className="p-4 text-sm text-muted-foreground">
+                      -
                     </td>
                     <td className="p-4 text-center">
                       <StockHistoryDialog

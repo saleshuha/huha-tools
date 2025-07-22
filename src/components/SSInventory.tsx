@@ -32,7 +32,7 @@ export function SSInventory() {
 
   // Form states
   const [newItem, setNewItem] = useState<{
-  skuNumber: string;
+    skuNumber: string;
     binSerialNumber: string;
     status: SkuInventoryItem['status'];
     quantity: number;
@@ -86,14 +86,14 @@ export function SSInventory() {
       return;
     }
 
-    const csvHeaders = ['SKU Number', 'Bin/Serial Number', 'Status', 'Date Added'];
+    const csvHeaders = ['SKU Number', 'Bin/Serial Number', 'Status', 'Quantity'];
     const csvData = [
       csvHeaders,
       ...inventory.map(item => [
         item.skuNumber,
         item.binSerialNumber,
         item.status,
-        new Date(item.dateAdded).toLocaleDateString()
+        item.quantity.toString()
       ])
     ];
 
@@ -172,23 +172,23 @@ export function SSInventory() {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <Hash className="w-8 h-8 text-primary" />
-            <h1 className="text-3xl font-bold text-foreground">SKU Inventory</h1>
-          </div>
-          <p className="text-muted-foreground">
-            Track SKU inventory with bin/serial numbers and status
-          </p>
+      {/* Header */}
+      <div className="text-center mb-8">
+        <div className="flex items-center justify-center gap-3 mb-4">
+          <Hash className="w-8 h-8 text-primary" />
+          <h1 className="text-3xl font-bold text-foreground">SKU Inventory</h1>
         </div>
+        <p className="text-muted-foreground">
+          Track SKU inventory with bin/serial numbers and status
+        </p>
+      </div>
 
-        {/* Controls */}
-        <Card className="glass-container p-6">
-          <div className="space-y-4">
-            {/* Search Bar - Full Width */}
-            <div className="relative w-full">
+      {/* Controls */}
+      <Card className="glass-container p-6">
+        <div className="space-y-4">
+          {/* Search Bar and Filters */}
+          <div className="flex flex-col lg:flex-row gap-4">
+            <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input
                 placeholder="Search SKU Number or Bin/Serial Number..."
@@ -197,251 +197,252 @@ export function SSInventory() {
                 className="pl-10 w-full"
               />
             </div>
+            
+            {/* Filters */}
+            <div className="flex flex-col sm:flex-row gap-4">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Items</SelectItem>
+                  <SelectItem value="in-stock">In Stock Only</SelectItem>
+                  <SelectItem value="sold">Sold Only</SelectItem>
+                  <SelectItem value="reserved">Reserved Only</SelectItem>
+                  <SelectItem value="damaged">Damaged Only</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={itemsPerPage.toString()} onValueChange={(value) => setItemsPerPage(Number(value))}>
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="50">50 items</SelectItem>
+                  <SelectItem value="100">100 items</SelectItem>
+                  <SelectItem value="150">150 items</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
-            {/* Filters and Actions */}
-            <div className="flex flex-col lg:flex-row gap-4 justify-between">
-              {/* Filters */}
-              <div className="flex flex-col sm:flex-row gap-4">
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-48">
-                    <SelectValue placeholder="Filter by status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Items</SelectItem>
-                    <SelectItem value="in-stock">In Stock Only</SelectItem>
-                    <SelectItem value="sold">Sold Only</SelectItem>
-                    <SelectItem value="reserved">Reserved Only</SelectItem>
-                    <SelectItem value="damaged">Damaged Only</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={itemsPerPage.toString()} onValueChange={(value) => setItemsPerPage(Number(value))}>
-                  <SelectTrigger className="w-32">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="50">50 items</SelectItem>
-                    <SelectItem value="100">100 items</SelectItem>
-                    <SelectItem value="150">150 items</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex gap-2">
-                <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button className="bg-primary hover:bg-primary/90">
-                      <Plus className="w-4 h-4 mr-2" />
-                      Add Item
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Add New SKU Inventory Item</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="binSerialNumber">Bin / Serial Number</Label>
-                        <Input
-                          id="binSerialNumber"
-                          value={newItem.binSerialNumber}
-                          onChange={(e) => setNewItem(prev => ({ ...prev, binSerialNumber: e.target.value }))}
-                          placeholder="Enter Bin or Serial Number"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="skuNumber">SKU Number</Label>
-                        <Input
-                          id="skuNumber"
-                          value={newItem.skuNumber}
-                          onChange={(e) => setNewItem(prev => ({ ...prev, skuNumber: e.target.value }))}
-                          placeholder="Enter SKU Number"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="status">Status</Label>
-                        <Select value={newItem.status} onValueChange={(value: SkuInventoryItem['status']) => 
-                          setNewItem(prev => ({ ...prev, status: value }))
-                        }>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="in-stock">In Stock</SelectItem>
-                            <SelectItem value="sold">Sold</SelectItem>
-                            <SelectItem value="reserved">Reserved</SelectItem>
-                            <SelectItem value="damaged">Damaged</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label htmlFor="quantity">Quantity</Label>
-                        <Input
-                          id="quantity"
-                          type="number"
-                          min="1"
-                          value={newItem.quantity}
-                          onChange={(e) => setNewItem(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
-                          placeholder="Enter quantity"
-                        />
-                      </div>
-                      <div className="flex gap-2 justify-end">
-                        <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                          Cancel
-                        </Button>
-                        <Button onClick={handleAddItem}>Add Item</Button>
-                      </div>
+          {/* Actions */}
+          <div className="flex flex-col lg:flex-row gap-4 justify-between">
+            <div></div>
+            {/* Action Buttons */}
+            <div className="flex gap-2">
+              <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button className="bg-primary hover:bg-primary/90">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Item
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Add New SKU Inventory Item</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="binSerialNumber">Bin / Serial Number</Label>
+                      <Input
+                        id="binSerialNumber"
+                        value={newItem.binSerialNumber}
+                        onChange={(e) => setNewItem(prev => ({ ...prev, binSerialNumber: e.target.value }))}
+                        placeholder="Enter Bin or Serial Number"
+                      />
                     </div>
-                  </DialogContent>
-                </Dialog>
+                    <div>
+                      <Label htmlFor="skuNumber">SKU Number</Label>
+                      <Input
+                        id="skuNumber"
+                        value={newItem.skuNumber}
+                        onChange={(e) => setNewItem(prev => ({ ...prev, skuNumber: e.target.value }))}
+                        placeholder="Enter SKU Number"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="status">Status</Label>
+                      <Select value={newItem.status} onValueChange={(value: SkuInventoryItem['status']) => 
+                        setNewItem(prev => ({ ...prev, status: value }))
+                      }>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="in-stock">In Stock</SelectItem>
+                          <SelectItem value="sold">Sold</SelectItem>
+                          <SelectItem value="reserved">Reserved</SelectItem>
+                          <SelectItem value="damaged">Damaged</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="quantity">Quantity</Label>
+                      <Input
+                        id="quantity"
+                        type="number"
+                        min="1"
+                        value={newItem.quantity}
+                        onChange={(e) => setNewItem(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
+                        placeholder="Enter quantity"
+                      />
+                    </div>
+                    <div className="flex gap-2 justify-end">
+                      <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                        Cancel
+                      </Button>
+                      <Button onClick={handleAddItem}>Add Item</Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
 
-                <Button variant="outline" onClick={exportInventory}>
-                  <Download className="w-4 h-4 mr-2" />
-                  Export
-                </Button>
-                <Button variant="outline" onClick={() => window.print()}>
-                  <Printer className="w-4 h-4 mr-2" />
-                  Print
-                </Button>
-              </div>
+              <Button variant="outline" onClick={exportInventory}>
+                <Download className="w-4 h-4 mr-2" />
+                Export
+              </Button>
+              <Button variant="outline" onClick={() => window.print()}>
+                <Printer className="w-4 h-4 mr-2" />
+                Print
+              </Button>
             </div>
           </div>
-        </Card>
-
-        {/* Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-          <Card className="p-4 text-center">
-            <div className="text-2xl font-bold text-foreground">{inventory.length}</div>
-            <div className="text-sm text-muted-foreground">Total Items</div>
-          </Card>
-          <Card className="p-4 text-center">
-            <div className="text-2xl font-bold text-green-600">
-              {inventory.filter(item => item.status === 'in-stock').length}
-            </div>
-            <div className="text-sm text-muted-foreground">In Stock</div>
-          </Card>
-          <Card className="p-4 text-center">
-            <div className="text-2xl font-bold text-blue-600">
-              {inventory.filter(item => item.status === 'sold').length}
-            </div>
-            <div className="text-sm text-muted-foreground">Sold</div>
-          </Card>
-          <Card className="p-4 text-center">
-            <div className="text-2xl font-bold text-yellow-600">
-              {inventory.filter(item => item.status === 'reserved').length}
-            </div>
-            <div className="text-sm text-muted-foreground">Reserved</div>
-          </Card>
-          <Card className="p-4 text-center">
-            <div className="text-2xl font-bold text-red-600">
-              {inventory.filter(item => item.status === 'damaged').length}
-            </div>
-            <div className="text-sm text-muted-foreground">Damaged</div>
-          </Card>
         </div>
+      </Card>
 
-        {/* Inventory Table */}
-        <Card className="glass-container">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-muted/50 sticky top-0">
-                <tr>
-                  <th className="text-left p-4 font-semibold">Bin / Serial Number</th>
-                   <th className="text-left p-4 font-semibold">SKU Number</th>
-                   <th className="text-left p-4 font-semibold">Status</th>
-                   <th className="text-left p-4 font-semibold">Quantity</th>
-                   <th className="text-left p-4 font-semibold">Date Added</th>
-                   <th className="text-center p-4 font-semibold">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginatedInventory.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="text-center p-8 text-muted-foreground">
-                      {inventory.length === 0 
-                        ? "No SKU inventory items yet. Add your first item to get started!"
-                        : "No items match your search criteria."
-                      }
-                    </td>
-                  </tr>
-                ) : (
-                  paginatedInventory.map((item, index) => (
-                    <tr key={item.id} className={index % 2 === 0 ? 'bg-background' : 'bg-muted/20'}>
-                      <td className="p-4 font-mono text-sm font-semibold">{item.binSerialNumber}</td>
-                      <td className="p-4 text-sm">{item.skuNumber}</td>
-                      <td className="p-4">
-                        <Select 
-                          value={item.status} 
-                          onValueChange={(value: SkuInventoryItem['status']) => updateItemStatus(item.id, value)}
-                        >
-                          <SelectTrigger className={`w-32 ${getStatusColor(item.status)}`}>
-                            <div className="flex items-center gap-2">
-                              {getStatusIcon(item.status)}
-                              <SelectValue />
-                            </div>
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="in-stock">In Stock</SelectItem>
-                            <SelectItem value="sold">Sold</SelectItem>
-                            <SelectItem value="reserved">Reserved</SelectItem>
-                            <SelectItem value="damaged">Damaged</SelectItem>
-                          </SelectContent>
-                        </Select>
-                       </td>
-                       <td className="p-4">
-                         <QuantityEditor
-                           currentQuantity={item.quantity}
-                           onUpdate={(newQuantity, reason) => updateQuantity(item.id, newQuantity, reason)}
-                         />
-                       </td>
-                       <td className="p-4 text-sm">
-                         {new Date(item.dateAdded).toLocaleDateString()}
-                       </td>
-                       <td className="p-4 text-center">
-                         <StockHistoryDialog
-                           inventoryId={item.id}
-                           itemIdentifier={`${item.skuNumber} (${item.binSerialNumber})`}
-                           inventoryType="sku"
-                         />
-                       </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+      {/* Stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <Card className="p-4 text-center">
+          <div className="text-2xl font-bold text-foreground">{inventory.length}</div>
+          <div className="text-sm text-muted-foreground">Total Items</div>
+        </Card>
+        <Card className="p-4 text-center">
+          <div className="text-2xl font-bold text-green-600">
+            {inventory.filter(item => item.status === 'in-stock').length}
           </div>
-          
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex justify-between items-center p-4 border-t">
-              <div className="text-sm text-muted-foreground">
-                Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredInventory.length)} of {filteredInventory.length} items
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                  disabled={currentPage === 1}
-                >
-                  Previous
-                </Button>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm">Page {currentPage} of {totalPages}</span>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                  disabled={currentPage === totalPages}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
-          )}
+          <div className="text-sm text-muted-foreground">In Stock</div>
+        </Card>
+        <Card className="p-4 text-center">
+          <div className="text-2xl font-bold text-blue-600">
+            {inventory.filter(item => item.status === 'sold').length}
+          </div>
+          <div className="text-sm text-muted-foreground">Sold</div>
+        </Card>
+        <Card className="p-4 text-center">
+          <div className="text-2xl font-bold text-yellow-600">
+            {inventory.filter(item => item.status === 'reserved').length}
+          </div>
+          <div className="text-sm text-muted-foreground">Reserved</div>
+        </Card>
+        <Card className="p-4 text-center">
+          <div className="text-2xl font-bold text-red-600">
+            {inventory.filter(item => item.status === 'damaged').length}
+          </div>
+          <div className="text-sm text-muted-foreground">Damaged</div>
         </Card>
       </div>
+
+      {/* Inventory Table */}
+      <Card className="glass-container">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-muted/50 sticky top-0">
+              <tr>
+                <th className="text-left p-4 font-semibold">Bin / Serial Number</th>
+                <th className="text-left p-4 font-semibold">SKU Number</th>
+                <th className="text-left p-4 font-semibold">Status</th>
+                <th className="text-left p-4 font-semibold">Quantity</th>
+                <th className="text-left p-4 font-semibold">Bin</th>
+                <th className="text-center p-4 font-semibold">History</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paginatedInventory.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="text-center p-8 text-muted-foreground">
+                    {inventory.length === 0 
+                      ? "No SKU inventory items yet. Add your first item to get started!"
+                      : "No items match your search criteria."
+                    }
+                  </td>
+                </tr>
+              ) : (
+                paginatedInventory.map((item, index) => (
+                  <tr key={item.id} className={index % 2 === 0 ? 'bg-background' : 'bg-muted/20'}>
+                    <td className="p-4 font-mono text-sm font-semibold">{item.binSerialNumber}</td>
+                    <td className="p-4 text-sm">{item.skuNumber}</td>
+                    <td className="p-4">
+                      <Select 
+                        value={item.status} 
+                        onValueChange={(value: SkuInventoryItem['status']) => updateItemStatus(item.id, value)}
+                      >
+                        <SelectTrigger className={`w-32 ${getStatusColor(item.status)}`}>
+                          <div className="flex items-center gap-2">
+                            {getStatusIcon(item.status)}
+                            <SelectValue />
+                          </div>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="in-stock">In Stock</SelectItem>
+                          <SelectItem value="sold">Sold</SelectItem>
+                          <SelectItem value="reserved">Reserved</SelectItem>
+                          <SelectItem value="damaged">Damaged</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </td>
+                    <td className="p-4">
+                      <QuantityEditor
+                        currentQuantity={item.quantity}
+                        onUpdate={(newQuantity, reason) => updateQuantity(item.id, newQuantity, reason)}
+                      />
+                    </td>
+                    <td className="p-4 text-sm text-muted-foreground">
+                      -
+                    </td>
+                    <td className="p-4 text-center">
+                      <StockHistoryDialog
+                        inventoryId={item.id}
+                        itemIdentifier={`${item.skuNumber} (${item.binSerialNumber})`}
+                        inventoryType="sku"
+                      />
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+        
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex justify-between items-center p-4 border-t">
+            <div className="text-sm text-muted-foreground">
+              Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredInventory.length)} of {filteredInventory.length} items
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                disabled={currentPage === 1}
+              >
+                Previous
+              </Button>
+              <div className="flex items-center gap-2">
+                <span className="text-sm">Page {currentPage} of {totalPages}</span>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                disabled={currentPage === totalPages}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        )}
+      </Card>
     </div>
   );
 }
