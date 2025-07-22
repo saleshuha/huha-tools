@@ -26,10 +26,12 @@ export function useInventoryAnalytics() {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  // Load items needing restock
-  const loadRestockItems = async () => {
+  // Load items needing restock for specific country
+  const loadRestockItems = async (country?: string) => {
     try {
-      const { data, error } = await supabase.rpc('get_items_needing_restock');
+      const { data, error } = country 
+        ? await supabase.rpc('get_items_needing_restock', { p_country: country } as any)
+        : await supabase.rpc('get_items_needing_restock');
       
       if (error) throw error;
       
@@ -43,10 +45,11 @@ export function useInventoryAnalytics() {
     }
   };
 
-  // Load sales analytics
-  const loadSalesAnalytics = async (startDate?: string, endDate?: string) => {
+  // Load sales analytics for specific country
+  const loadSalesAnalytics = async (country?: string, startDate?: string, endDate?: string) => {
     try {
       const params: any = {};
+      if (country) params.p_country = country;
       if (startDate) params.start_date = startDate;
       if (endDate) params.end_date = endDate;
 
@@ -64,13 +67,13 @@ export function useInventoryAnalytics() {
     }
   };
 
-  // Load all analytics data
-  const loadAnalytics = async () => {
+  // Load all analytics data for specific country
+  const loadAnalytics = async (country?: string) => {
     try {
       setLoading(true);
       await Promise.all([
-        loadRestockItems(),
-        loadSalesAnalytics()
+        loadRestockItems(country),
+        loadSalesAnalytics(country)
       ]);
     } finally {
       setLoading(false);
