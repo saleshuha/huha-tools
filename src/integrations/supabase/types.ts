@@ -299,6 +299,10 @@ export type Database = {
           predicted_restock_needed_items: Json
         }[]
       }
+      is_user_admin: {
+        Args: { user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       inventory_status: "in-stock" | "sold" | "reserved" | "damaged"
