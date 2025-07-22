@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useCountry } from '@/contexts/CountryContext';
 
 export interface Task {
   id: string;
@@ -9,6 +10,7 @@ export interface Task {
   description?: string;
   due_date?: string;
   completed: boolean;
+  country: string;
   created_at: string;
   updated_at: string;
 }
@@ -17,13 +19,17 @@ export function useTasks() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { selectedCountry } = useCountry();
 
   const loadTasks = async () => {
+    if (!selectedCountry) return;
+    
     try {
       setLoading(true);
       const { data, error } = await supabase
         .from('tasks')
         .select('*')
+        .eq('country', selectedCountry)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -49,13 +55,13 @@ export function useTasks() {
     }
   };
 
-  const addTask = async (task: Omit<Task, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => {
+  const addTask = async (task: Omit<Task, 'id' | 'user_id' | 'country' | 'created_at' | 'updated_at'>) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      if (!user || !selectedCountry) {
         toast({
           title: "Error",
-          description: "You must be logged in to add tasks",
+          description: "You must be logged in and have a country selected to add tasks",
           variant: "destructive",
         });
         return;
@@ -66,6 +72,7 @@ export function useTasks() {
         .insert([{
           ...task,
           user_id: user.id,
+          country: selectedCountry,
         }])
         .select()
         .single();
@@ -95,7 +102,7 @@ export function useTasks() {
     }
   };
 
-  const updateTask = async (id: string, updates: Partial<Omit<Task, 'id' | 'user_id' | 'created_at' | 'updated_at'>>) => {
+  const updateTask = async (id: string, updates: Partial<Omit<Task, 'id' | 'user_id' | 'country' | 'created_at' | 'updated_at'>>) => {
     try {
       const { data, error } = await supabase
         .from('tasks')
@@ -160,8 +167,10 @@ export function useTasks() {
   };
 
   useEffect(() => {
-    loadTasks();
-  }, []);
+    if (selectedCountry) {
+      loadTasks();
+    }
+  }, [selectedCountry]);
 
   return {
     tasks,
