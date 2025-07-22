@@ -18,6 +18,7 @@ import AsinQtySum from "./pages/AsinQtySum";
 import ZipSplitter from "./pages/ZipSplitter";
 import Inventory from "./pages/Inventory";
 import UserManagementPage from "./pages/UserManagement";
+import ReplenishmentPage from "./pages/Replenishment";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -115,6 +116,7 @@ const App = () => {
                     <Route path="/zip-splitter" element={<ZipSplitter />} />
                     <Route path="/inventory" element={<Inventory />} />
                     <Route path="/users" element={<UserManagementPage />} />
+                    <Route path="/replenishment" element={<ReplenishmentPage />} />
                     <Route path="/auth" element={<Navigate to="/" replace />} />
                     
                     {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

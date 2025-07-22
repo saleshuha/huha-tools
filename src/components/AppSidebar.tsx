@@ -1,4 +1,4 @@
-import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, Wrench, LogOut, Home, Users } from "lucide-react"
+import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, Wrench, LogOut, Home, Users, TrendingUp } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
 import { useState } from "react"
 import { supabase } from "@/integrations/supabase/client"
@@ -65,6 +65,12 @@ const coreItems = [
     url: "/inventory",
     icon: Package,
     description: "Track product inventory with ASIN and serial numbers"
+  },
+  {
+    title: "Replenishment",
+    url: "/replenishment",
+    icon: TrendingUp,
+    description: "AI-powered inventory forecasting and restock recommendations"
   },
 ]
 
