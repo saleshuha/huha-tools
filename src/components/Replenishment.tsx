@@ -130,6 +130,8 @@ export function Replenishment() {
   useEffect(() => {
     if (!selectedCountry) return;
 
+    console.log(`Setting up real-time subscriptions for country: ${selectedCountry}`);
+
     const asinChannel = supabase
       .channel('asin-inventory-changes')
       .on(
@@ -140,10 +142,9 @@ export function Replenishment() {
           table: 'asin_inventory',
           filter: `country=eq.${selectedCountry}`
         },
-        () => {
-          console.log('ASIN inventory changed, refreshing analytics...');
+        (payload) => {
+          console.log('ASIN inventory changed, refreshing analytics...', payload);
           loadAnalytics(selectedCountry);
-          loadReplenishmentData();
         }
       )
       .subscribe();
@@ -158,10 +159,9 @@ export function Replenishment() {
           table: 'sku_inventory',
           filter: `country=eq.${selectedCountry}`
         },
-        () => {
-          console.log('SKU inventory changed, refreshing analytics...');
+        (payload) => {
+          console.log('SKU inventory changed, refreshing analytics...', payload);
           loadAnalytics(selectedCountry);
-          loadReplenishmentData();
         }
       )
       .subscribe();
@@ -175,26 +175,30 @@ export function Replenishment() {
           schema: 'public',
           table: 'stock_changes'
         },
-        () => {
-          console.log('Stock change recorded, refreshing analytics...');
+        (payload) => {
+          console.log('Stock change recorded, refreshing analytics...', payload);
           loadAnalytics(selectedCountry);
-          loadReplenishmentData();
         }
       )
       .subscribe();
+
+    // Force initial load
+    console.log(`Loading initial analytics for ${selectedCountry}`);
+    loadAnalytics(selectedCountry);
 
     return () => {
       supabase.removeChannel(asinChannel);
       supabase.removeChannel(skuChannel);
       supabase.removeChannel(stockChangesChannel);
     };
-  }, [selectedCountry]);
+  }, [selectedCountry, loadAnalytics]);
 
   // Load data when country changes
   useEffect(() => {
+    console.log(`Country changed to: ${selectedCountry}, loading data...`);
     loadReplenishmentData();
     loadAnalytics(selectedCountry);
-  }, [selectedCountry]);
+  }, [selectedCountry, loadAnalytics]);
 
   // Export to CSV
   const handleExport = async () => {
@@ -243,7 +247,9 @@ export function Replenishment() {
   };
 
   const handleRefresh = () => {
+    console.log('Manual refresh triggered');
     loadReplenishmentData();
+    loadAnalytics(selectedCountry);
   };
 
   // Calculate analytics
