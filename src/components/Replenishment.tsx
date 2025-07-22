@@ -126,6 +126,70 @@ export function Replenishment() {
     setFilteredData(filtered);
   }, [searchTerm, filterStatus, replenishmentData]);
 
+  // Real-time subscriptions for inventory changes
+  useEffect(() => {
+    if (!selectedCountry) return;
+
+    const asinChannel = supabase
+      .channel('asin-inventory-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'asin_inventory',
+          filter: `country=eq.${selectedCountry}`
+        },
+        () => {
+          console.log('ASIN inventory changed, refreshing analytics...');
+          loadAnalytics(selectedCountry);
+          loadReplenishmentData();
+        }
+      )
+      .subscribe();
+
+    const skuChannel = supabase
+      .channel('sku-inventory-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'sku_inventory',
+          filter: `country=eq.${selectedCountry}`
+        },
+        () => {
+          console.log('SKU inventory changed, refreshing analytics...');
+          loadAnalytics(selectedCountry);
+          loadReplenishmentData();
+        }
+      )
+      .subscribe();
+
+    const stockChangesChannel = supabase
+      .channel('stock-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'stock_changes'
+        },
+        () => {
+          console.log('Stock change recorded, refreshing analytics...');
+          loadAnalytics(selectedCountry);
+          loadReplenishmentData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(asinChannel);
+      supabase.removeChannel(skuChannel);
+      supabase.removeChannel(stockChangesChannel);
+    };
+  }, [selectedCountry]);
+
   // Load data when country changes
   useEffect(() => {
     loadReplenishmentData();
