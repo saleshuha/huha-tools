@@ -16,8 +16,6 @@ import BatchProcessor from "./pages/BatchProcessor";
 import AsinQtySum from "./pages/AsinQtySum";
 import ZipSplitter from "./pages/ZipSplitter";
 import Inventory from "./pages/Inventory";
-import Payments from "./pages/Payments";
-import SalesTracking from "./pages/SalesTracking";
 import UserManagementPage from "./pages/UserManagement";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
@@ -113,9 +111,7 @@ const App = () => {
                     <Route path="/batch" element={<BatchProcessor />} />
                     <Route path="/asin-sum" element={<AsinQtySum />} />
                     <Route path="/zip-splitter" element={<ZipSplitter />} />
-                    <Route path="/sales-tracking" element={<SalesTracking />} />
                     <Route path="/inventory" element={<Inventory />} />
-                    <Route path="/payments" element={<Payments />} />
                     <Route path="/users" element={<UserManagementPage />} />
                     <Route path="/auth" element={<Navigate to="/" replace />} />
                     

@@ -1,4 +1,4 @@
-import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, CreditCard, Wrench, TrendingUp, LogOut, Home, Users } from "lucide-react"
+import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, Wrench, LogOut, Home, Users } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
 import { useState } from "react"
 import { supabase } from "@/integrations/supabase/client"
@@ -65,18 +65,6 @@ const coreItems = [
     url: "/inventory",
     icon: Package,
     description: "Track product inventory with ASIN and serial numbers"
-  },
-  {
-    title: "Sales & Ranking Tracker",
-    url: "/sales-tracking",
-    icon: TrendingUp,
-    description: "Track and analyze product sales and ranking data"
-  },
-  {
-    title: "Payments",
-    url: "/payments",
-    icon: CreditCard,
-    description: "Track payments from e-commerce platforms"
   },
 ]
 
