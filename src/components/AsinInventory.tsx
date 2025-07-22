@@ -26,7 +26,7 @@ import { QuantityEditor } from './QuantityEditor';
 import { StockHistoryDialog } from './StockHistoryDialog';
 
 export function AsinInventory() {
-  const { inventory, loading, addItem, updateItemStatus, bulkAdd, restockItem, updateQuantity } = useAsinInventory();
+  const { inventory, loading, addItem, updateItemStatus, bulkAdd, restockItem, updateQuantity, updateBin, refetch } = useAsinInventory();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -37,6 +37,12 @@ export function AsinInventory() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
   const { toast } = useToast();
+
+  const updateItemBin = async (id: string, binLocation: string) => {
+    if (updateBin) {
+      await updateBin(id, binLocation);
+    }
+  };
 
   const handleRestock = async () => {
     if (restockQuantity <= 0) {
@@ -520,6 +526,10 @@ export function AsinInventory() {
                 <Printer className="w-4 h-4 mr-2" />
                 Print
               </Button>
+              <Button variant="outline" onClick={refetch}>
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Refresh
+              </Button>
             </div>
           </div>
         </div>
@@ -624,8 +634,13 @@ export function AsinInventory() {
                         onUpdate={(newQuantity, reason) => updateQuantity(item.id, newQuantity, reason)}
                       />
                     </td>
-                    <td className="p-4 text-sm text-muted-foreground">
-                      -
+                    <td className="p-4 text-sm">
+                      <Input
+                        value={item.notes || ''}
+                        onChange={(e) => updateItemBin(item.id, e.target.value)}
+                        placeholder="Bin location"
+                        className="w-20 text-xs"
+                      />
                     </td>
                     <td className="p-4 text-center">
                       <StockHistoryDialog

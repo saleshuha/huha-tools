@@ -227,16 +227,10 @@ export function useSkuInventory() {
       const previousQuantity = item.quantity;
       const changeAmount = newQuantity - previousQuantity;
 
-      // Update the inventory quantity and status if needed
-      const updateData: any = { quantity: newQuantity };
-      if (newQuantity === 0) {
-        updateData.status = 'sold';
-        updateData.date_sold = new Date().toISOString();
-      }
-
+      // Update the inventory quantity (triggers will handle status automatically)
       const { error: updateError } = await supabase
         .from('sku_inventory')
-        .update(updateData)
+        .update({ quantity: newQuantity })
         .eq('id', id);
 
       if (updateError) throw updateError;
@@ -259,19 +253,8 @@ export function useSkuInventory() {
 
       if (changeError) throw changeError;
 
-      // Update local state
-      setInventory(prev => prev.map(item => 
-        item.id === id 
-          ? { 
-              ...item, 
-              quantity: newQuantity,
-              ...(newQuantity === 0 && { 
-                status: 'sold' as const, 
-                dateSold: new Date().toISOString() 
-              })
-            } 
-          : item
-      ));
+      // Refresh inventory to get updated status from triggers
+      await loadInventory();
 
       toast({
         title: "Quantity updated",

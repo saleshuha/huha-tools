@@ -15,7 +15,8 @@ import {
   Check,
   X,
   Hash,
-  Printer
+  Printer,
+  RefreshCw
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { useSkuInventory, SkuInventoryItem } from '@/hooks/useSkuInventory';
@@ -25,7 +26,7 @@ import { StockHistoryDialog } from './StockHistoryDialog';
 import { Textarea } from './ui/textarea';
 
 export function SSInventory() {
-  const { inventory, loading, addItem, updateItemStatus, updateQuantity, bulkAdd, updateBinLocation } = useSkuInventory();
+  const { inventory, loading, addItem, updateItemStatus, updateQuantity, bulkAdd, updateBinLocation, refetch } = useSkuInventory();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -414,6 +415,10 @@ export function SSInventory() {
               <Button variant="outline" onClick={() => window.print()}>
                 <Printer className="w-4 h-4 mr-2" />
                 Print
+              </Button>
+              <Button variant="outline" onClick={refetch}>
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Refresh
               </Button>
             </div>
           </div>
