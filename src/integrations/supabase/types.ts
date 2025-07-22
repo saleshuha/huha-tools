@@ -17,6 +17,7 @@ export type Database = {
       asin_inventory: {
         Row: {
           asin: string
+          country: string
           created_at: string
           date_added: string
           date_sold: string | null
@@ -33,6 +34,7 @@ export type Database = {
         }
         Insert: {
           asin: string
+          country?: string
           created_at?: string
           date_added?: string
           date_sold?: string | null
@@ -49,6 +51,7 @@ export type Database = {
         }
         Update: {
           asin?: string
+          country?: string
           created_at?: string
           date_added?: string
           date_sold?: string | null
@@ -68,6 +71,7 @@ export type Database = {
       payments: {
         Row: {
           amount: number
+          country: string | null
           created_at: string
           id: string
           payment_date: string | null
@@ -80,6 +84,7 @@ export type Database = {
         }
         Insert: {
           amount: number
+          country?: string | null
           created_at?: string
           id?: string
           payment_date?: string | null
@@ -92,6 +97,7 @@ export type Database = {
         }
         Update: {
           amount?: number
+          country?: string | null
           created_at?: string
           id?: string
           payment_date?: string | null
@@ -104,9 +110,43 @@ export type Database = {
         }
         Relationships: []
       }
+      profiles: {
+        Row: {
+          country: string
+          created_at: string
+          email: string
+          full_name: string | null
+          id: string
+          is_main_admin: boolean
+          role: string
+          updated_at: string
+        }
+        Insert: {
+          country: string
+          created_at?: string
+          email: string
+          full_name?: string | null
+          id: string
+          is_main_admin?: boolean
+          role?: string
+          updated_at?: string
+        }
+        Update: {
+          country?: string
+          created_at?: string
+          email?: string
+          full_name?: string | null
+          id?: string
+          is_main_admin?: boolean
+          role?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       sku_inventory: {
         Row: {
           bin_serial_number: string
+          country: string
           created_at: string
           date_added: string
           date_sold: string | null
@@ -122,6 +162,7 @@ export type Database = {
         }
         Insert: {
           bin_serial_number: string
+          country?: string
           created_at?: string
           date_added?: string
           date_sold?: string | null
@@ -137,6 +178,7 @@ export type Database = {
         }
         Update: {
           bin_serial_number?: string
+          country?: string
           created_at?: string
           date_added?: string
           date_sold?: string | null

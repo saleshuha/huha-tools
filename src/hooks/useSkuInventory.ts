@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useUserProfile } from '@/hooks/useUserProfile';
 
 export interface SkuInventoryItem {
   id: string;
@@ -19,14 +20,18 @@ export function useSkuInventory() {
   const [inventory, setInventory] = useState<SkuInventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { profile } = useUserProfile();
 
   // Load inventory from Supabase
   const loadInventory = async () => {
+    if (!profile?.country) return;
+    
     try {
       setLoading(true);
       const { data, error } = await supabase
         .from('sku_inventory')
         .select('*')
+        .eq('country', profile.country)
         .order('date_added', { ascending: false });
 
       if (error) throw error;
@@ -75,6 +80,7 @@ export function useSkuInventory() {
           restock_date: item.restockDate || null,
           restock_quantity: item.restockQuantity || null,
           last_restock_date: item.lastRestockDate || null,
+          country: profile?.country,
         })
         .select()
         .single();
@@ -162,8 +168,10 @@ export function useSkuInventory() {
   };
 
   useEffect(() => {
-    loadInventory();
-  }, []);
+    if (profile?.country) {
+      loadInventory();
+    }
+  }, [profile?.country]);
 
   // Restock item
   const restockItem = async (id: string, quantity: number) => {

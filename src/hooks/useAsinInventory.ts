@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useUserProfile } from '@/hooks/useUserProfile';
 
 export interface AsinInventoryItem {
   id: string;
@@ -20,14 +21,18 @@ export function useAsinInventory() {
   const [inventory, setInventory] = useState<AsinInventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { profile } = useUserProfile();
 
   // Load inventory from Supabase
   const loadInventory = async () => {
+    if (!profile?.country) return;
+    
     try {
       setLoading(true);
       const { data, error } = await supabase
         .from('asin_inventory')
         .select('*')
+        .eq('country', profile.country)
         .order('date_added', { ascending: false });
 
       if (error) throw error;
@@ -62,7 +67,7 @@ export function useAsinInventory() {
   const addItem = async (item: Omit<AsinInventoryItem, 'id'>) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
+      if (!user || !profile?.country) throw new Error('User not authenticated or no country');
 
       const { data, error } = await supabase
         .from('asin_inventory')
@@ -78,6 +83,7 @@ export function useAsinInventory() {
           restock_date: item.restockDate || null,
           restock_quantity: item.restockQuantity || null,
           last_restock_date: item.lastRestockDate || null,
+          country: profile.country,
         })
         .select()
         .single();
@@ -169,7 +175,7 @@ export function useAsinInventory() {
   const bulkAdd = async (items: Omit<AsinInventoryItem, 'id'>[]) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
+      if (!user || !profile?.country) throw new Error('User not authenticated or no country');
 
       const insertData = items.map(item => ({
         user_id: user.id,
@@ -183,6 +189,7 @@ export function useAsinInventory() {
         restock_date: item.restockDate || null,
         restock_quantity: item.restockQuantity || null,
         last_restock_date: item.lastRestockDate || null,
+        country: profile.country,
       }));
 
       const { data, error } = await supabase
@@ -221,8 +228,10 @@ export function useAsinInventory() {
   };
 
   useEffect(() => {
-    loadInventory();
-  }, []);
+    if (profile?.country) {
+      loadInventory();
+    }
+  }, [profile?.country]);
 
   // Restock item
   const restockItem = async (id: string, quantity: number) => {

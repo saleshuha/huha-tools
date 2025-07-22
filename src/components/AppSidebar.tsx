@@ -1,9 +1,10 @@
-import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, CreditCard, Wrench, TrendingUp, LogOut, Home } from "lucide-react"
+import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, CreditCard, Wrench, TrendingUp, LogOut, Home, Users } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
 import { useState } from "react"
 import { supabase } from "@/integrations/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
+import { useUserProfile } from "@/hooks/useUserProfile"
 import {
   Sidebar,
   SidebarContent,
@@ -85,6 +86,7 @@ export function AppSidebar() {
   const isCollapsed = state === "collapsed"
   const [isToolsOpen, setIsToolsOpen] = useState(true)
   const { toast } = useToast()
+  const { isAdmin } = useUserProfile()
 
   const handleLogout = async () => {
     try {
@@ -188,6 +190,38 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+
+              {/* Admin-only User Management */}
+              {isAdmin && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton 
+                    asChild
+                    className={`w-full p-4 rounded-xl transition-all duration-300 min-h-[80px] hover:scale-[1.02] group ${
+                      isActive("/users")
+                        ? "bg-gradient-primary text-primary-foreground shadow-medium animate-glow-pulse" 
+                        : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground glass-container"
+                    }`}
+                  >
+                    <NavLink 
+                      to="/users" 
+                      end
+                      className="flex items-start gap-4 no-underline w-full h-full"
+                    >
+                      <Users className="h-6 w-6 flex-shrink-0 mt-1 group-hover:scale-110 transition-transform duration-300" />
+                      {!isCollapsed && (
+                        <div className="flex flex-col text-left flex-1 space-y-1">
+                          <span className="font-bold text-base leading-tight">
+                            User Management
+                          </span>
+                          <span className="text-sm opacity-80 leading-relaxed">
+                            Manage user accounts and permissions
+                          </span>
+                        </div>
+                      )}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
 
               {/* Enhanced Tools dropdown */}
               <SidebarMenuItem>
