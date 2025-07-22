@@ -18,10 +18,11 @@ import {
   Printer,
   RefreshCw
 } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from './ui/dialog';
 import { useSkuInventory, SkuInventoryItem } from '@/hooks/useSkuInventory';
 import { QuantityEditor } from './QuantityEditor';
 import { StockHistoryDialog } from './StockHistoryDialog';
+import { Checkbox } from './ui/checkbox';
 
 import { Textarea } from './ui/textarea';
 
@@ -31,6 +32,12 @@ export function SSInventory() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [isBulkStatusDialogOpen, setIsBulkStatusDialogOpen] = useState(false);
+  const [isBulkQuantityDialogOpen, setIsBulkQuantityDialogOpen] = useState(false);
+  const [bulkStatusValue, setBulkStatusValue] = useState<SkuInventoryItem['status']>('in-stock');
+  const [bulkQuantityValue, setBulkQuantityValue] = useState(1);
+  const [bulkQuantityReason, setBulkQuantityReason] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
   const { toast } = useToast();
@@ -196,6 +203,54 @@ export function SSInventory() {
     });
   };
 
+  const handleBulkStatusUpdate = async () => {
+    try {
+      const promises = Array.from(selectedItems).map(id => 
+        updateItemStatus(id, bulkStatusValue)
+      );
+      await Promise.all(promises);
+      
+      toast({
+        title: "Bulk status update successful",
+        description: `Updated ${selectedItems.size} items to ${bulkStatusValue}`,
+      });
+      
+      setSelectedItems(new Set());
+      setIsBulkStatusDialogOpen(false);
+    } catch (error: any) {
+      toast({
+        title: "Bulk status update failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleBulkQuantityUpdate = async () => {
+    try {
+      const promises = Array.from(selectedItems).map(id => 
+        updateQuantity(id, bulkQuantityValue, bulkQuantityReason || 'Bulk quantity update')
+      );
+      await Promise.all(promises);
+      
+      toast({
+        title: "Bulk quantity update successful",
+        description: `Updated ${selectedItems.size} items to quantity ${bulkQuantityValue}`,
+      });
+      
+      setSelectedItems(new Set());
+      setIsBulkQuantityDialogOpen(false);
+      setBulkQuantityValue(1);
+      setBulkQuantityReason('');
+    } catch (error: any) {
+      toast({
+        title: "Bulk quantity update failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   // Filter inventory based on search and status
   const filteredInventory = inventory.filter(item => {
     const matchesSearch = 
@@ -294,6 +349,101 @@ export function SSInventory() {
               </Select>
             </div>
           </div>
+
+          {/* Bulk Actions */}
+          {selectedItems.size > 0 && (
+            <div className="flex gap-2 p-4 bg-primary/10 rounded-lg">
+              <span className="text-sm font-medium text-foreground">
+                {selectedItems.size} item{selectedItems.size > 1 ? 's' : ''} selected
+              </span>
+              <Dialog open={isBulkStatusDialogOpen} onOpenChange={setIsBulkStatusDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" variant="outline">
+                    <Edit className="w-4 h-4 mr-2" />
+                    Update Status
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Bulk Status Update</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="bulkStatus">New Status</Label>
+                      <Select value={bulkStatusValue} onValueChange={(value: SkuInventoryItem['status']) => setBulkStatusValue(value)}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="in-stock">In Stock</SelectItem>
+                          <SelectItem value="sold">Sold</SelectItem>
+                          <SelectItem value="reserved">Reserved</SelectItem>
+                          <SelectItem value="damaged">Damaged</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsBulkStatusDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handleBulkStatusUpdate}>Update {selectedItems.size} Items</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+
+              <Dialog open={isBulkQuantityDialogOpen} onOpenChange={setIsBulkQuantityDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" variant="outline">
+                    <Hash className="w-4 h-4 mr-2" />
+                    Update Quantity
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Bulk Quantity Update</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="bulkQuantity">New Quantity</Label>
+                      <Input
+                        id="bulkQuantity"
+                        type="number"
+                        min="0"
+                        value={bulkQuantityValue}
+                        onChange={(e) => setBulkQuantityValue(parseInt(e.target.value) || 0)}
+                        placeholder="Enter new quantity"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="bulkReason">Reason (Optional)</Label>
+                      <Input
+                        id="bulkReason"
+                        value={bulkQuantityReason}
+                        onChange={(e) => setBulkQuantityReason(e.target.value)}
+                        placeholder="e.g., Stock adjustment, Inventory correction"
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsBulkQuantityDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handleBulkQuantityUpdate}>Update {selectedItems.size} Items</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={() => setSelectedItems(new Set())}
+              >
+                <X className="w-4 h-4 mr-2" />
+                Clear Selection
+              </Button>
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex flex-col lg:flex-row gap-4 justify-between">
@@ -463,6 +613,18 @@ export function SSInventory() {
           <table className="w-full">
             <thead className="bg-muted/50 sticky top-0">
               <tr>
+                <th className="text-left p-4 font-semibold">
+                  <Checkbox
+                    checked={selectedItems.size === paginatedInventory.length && paginatedInventory.length > 0}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        setSelectedItems(new Set(paginatedInventory.map(item => item.id)));
+                      } else {
+                        setSelectedItems(new Set());
+                      }
+                    }}
+                  />
+                </th>
                 <th className="text-left p-4 font-semibold">Bin / Serial Number</th>
                 <th className="text-left p-4 font-semibold">SKU Number</th>
                 <th className="text-left p-4 font-semibold">Status</th>
@@ -474,7 +636,7 @@ export function SSInventory() {
             <tbody>
               {paginatedInventory.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center p-8 text-muted-foreground">
+                  <td colSpan={7} className="text-center p-8 text-muted-foreground">
                     {inventory.length === 0 
                       ? "No SKU inventory items yet. Add your first item to get started!"
                       : "No items match your search criteria."
@@ -484,8 +646,22 @@ export function SSInventory() {
               ) : (
                 paginatedInventory.map((item, index) => (
                   <tr key={item.id} className={index % 2 === 0 ? 'bg-background' : 'bg-muted/20'}>
+                    <td className="p-4">
+                      <Checkbox
+                        checked={selectedItems.has(item.id)}
+                        onCheckedChange={(checked) => {
+                          const newSelected = new Set(selectedItems);
+                          if (checked) {
+                            newSelected.add(item.id);
+                          } else {
+                            newSelected.delete(item.id);
+                          }
+                          setSelectedItems(newSelected);
+                        }}
+                      />
+                    </td>
                     <td className="p-4 font-mono text-sm font-semibold">{item.binSerialNumber}</td>
-                    <td className="p-4 text-sm">{item.skuNumber}</td>
+                    <td className="p-4 font-mono text-sm">{item.skuNumber}</td>
                     <td className="p-4">
                       <div className={`inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium w-32 ${getStatusColor(item.status)}`}>
                         {getStatusIcon(item.status)}

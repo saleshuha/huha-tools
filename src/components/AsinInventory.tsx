@@ -17,7 +17,8 @@ import {
   X,
   RefreshCw,
   AlertTriangle,
-  Printer
+  Printer,
+  Hash
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from './ui/dialog';
 import { Textarea } from './ui/textarea';
@@ -33,7 +34,10 @@ export function AsinInventory() {
   const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [isBulkStatusDialogOpen, setIsBulkStatusDialogOpen] = useState(false);
+  const [isBulkQuantityDialogOpen, setIsBulkQuantityDialogOpen] = useState(false);
   const [bulkStatusValue, setBulkStatusValue] = useState<AsinInventoryItem['status']>('in-stock');
+  const [bulkQuantityValue, setBulkQuantityValue] = useState(1);
+  const [bulkQuantityReason, setBulkQuantityReason] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
   const { toast } = useToast();
@@ -229,29 +233,48 @@ export function AsinInventory() {
 
   // Handle bulk status update
   const handleBulkStatusUpdate = async () => {
-    if (selectedItems.size === 0) {
-      toast({
-        title: "Error",
-        description: "Please select items to update",
-        variant: "destructive",
-      });
-      return;
-    }
-
     try {
-      for (const itemId of selectedItems) {
-        await updateItemStatus(itemId, bulkStatusValue);
-      }
+      const promises = Array.from(selectedItems).map(id => 
+        updateItemStatus(id, bulkStatusValue)
+      );
+      await Promise.all(promises);
+      
+      toast({
+        title: "Bulk update successful",
+        description: `Updated ${selectedItems.size} items to ${bulkStatusValue}`,
+      });
+      
       setSelectedItems(new Set());
       setIsBulkStatusDialogOpen(false);
+    } catch (error: any) {
       toast({
-        title: "Success",
-        description: `Updated ${selectedItems.size} items successfully`,
+        title: "Bulk update failed",
+        description: error.message,
+        variant: "destructive",
       });
-    } catch (error) {
+    }
+  };
+
+  const handleBulkQuantityUpdate = async () => {
+    try {
+      const promises = Array.from(selectedItems).map(id => 
+        updateQuantity(id, bulkQuantityValue, bulkQuantityReason || 'Bulk quantity update')
+      );
+      await Promise.all(promises);
+      
       toast({
-        title: "Error",
-        description: "Failed to update items",
+        title: "Bulk quantity update successful",
+        description: `Updated ${selectedItems.size} items to quantity ${bulkQuantityValue}`,
+      });
+      
+      setSelectedItems(new Set());
+      setIsBulkQuantityDialogOpen(false);
+      setBulkQuantityValue(1);
+      setBulkQuantityReason('');
+    } catch (error: any) {
+      toast({
+        title: "Bulk quantity update failed",
+        description: error.message,
         variant: "destructive",
       });
     }
@@ -366,49 +389,106 @@ export function AsinInventory() {
             {/* Action Buttons */}
             <div className="flex gap-2 flex-wrap">
               {selectedItems.size > 0 && (
-                <Dialog open={isBulkStatusDialogOpen} onOpenChange={setIsBulkStatusDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button 
-                      variant="outline" 
-                      className="bg-accent/10"
-                    >
-                      <Edit className="w-4 h-4 mr-2" />
-                      Update Selected ({selectedItems.size})
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Update Selected Items Status</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="bulk-status">New Status</Label>
-                        <Select
-                          value={bulkStatusValue}
-                          onValueChange={(value: AsinInventoryItem['status']) => setBulkStatusValue(value)}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="in-stock">In Stock</SelectItem>
-                            <SelectItem value="sold">Sold</SelectItem>
-                            <SelectItem value="reserved">Reserved</SelectItem>
-                            <SelectItem value="damaged">Damaged</SelectItem>
-                          </SelectContent>
-                        </Select>
+                <>
+                  <Dialog open={isBulkStatusDialogOpen} onOpenChange={setIsBulkStatusDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        className="bg-accent/10"
+                      >
+                        <Edit className="w-4 h-4 mr-2" />
+                        Update Status ({selectedItems.size})
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Update Selected Items Status</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div>
+                          <Label htmlFor="bulk-status">New Status</Label>
+                          <Select
+                            value={bulkStatusValue}
+                            onValueChange={(value: AsinInventoryItem['status']) => setBulkStatusValue(value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="in-stock">In Stock</SelectItem>
+                              <SelectItem value="sold">Sold</SelectItem>
+                              <SelectItem value="reserved">Reserved</SelectItem>
+                              <SelectItem value="damaged">Damaged</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
-                    </div>
-                    <DialogFooter>
-                      <Button variant="outline" onClick={() => setIsBulkStatusDialogOpen(false)}>
-                        Cancel
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsBulkStatusDialogOpen(false)}>
+                          Cancel
+                        </Button>
+                        <Button onClick={handleBulkStatusUpdate}>
+                          Update {selectedItems.size} Items
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+
+                  <Dialog open={isBulkQuantityDialogOpen} onOpenChange={setIsBulkQuantityDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        className="bg-primary/10"
+                      >
+                        <Hash className="w-4 h-4 mr-2" />
+                        Update Quantity ({selectedItems.size})
                       </Button>
-                      <Button onClick={handleBulkStatusUpdate}>
-                        Update {selectedItems.size} Items
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Bulk Quantity Update</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div>
+                          <Label htmlFor="bulkQuantity">New Quantity</Label>
+                          <Input
+                            id="bulkQuantity"
+                            type="number"
+                            min="0"
+                            value={bulkQuantityValue}
+                            onChange={(e) => setBulkQuantityValue(parseInt(e.target.value) || 0)}
+                            placeholder="Enter new quantity"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="bulkReason">Reason (Optional)</Label>
+                          <Input
+                            id="bulkReason"
+                            value={bulkQuantityReason}
+                            onChange={(e) => setBulkQuantityReason(e.target.value)}
+                            placeholder="e.g., Stock adjustment, Inventory correction"
+                          />
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsBulkQuantityDialogOpen(false)}>
+                          Cancel
+                        </Button>
+                        <Button onClick={handleBulkQuantityUpdate}>
+                          Update {selectedItems.size} Items
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setSelectedItems(new Set())}
+                  >
+                    <X className="w-4 h-4 mr-2" />
+                    Clear Selection
+                  </Button>
+                </>
               )}
               <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                 <DialogTrigger asChild>
