@@ -1254,8 +1254,6 @@ export function AsinInventory() {
           </div>
         </CardContent>
       </Card>
-        </CardContent>
-      </Card>
 
       {/* Bulk Selection Actions */}
       {selectedItems.size > 0 && (
@@ -1622,4 +1620,5 @@ export function AsinInventory() {
       )}
     </div>
   );
+}
 }
