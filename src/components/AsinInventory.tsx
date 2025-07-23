@@ -779,10 +779,6 @@ export function AsinInventory() {
                   Actions:
                 </Label>
                 <div className="flex flex-wrap gap-3">
-              <Label className="text-sm font-medium flex items-center gap-2 mb-2 w-full">
-                <Settings className="w-4 h-4" />
-                Actions:
-              </Label>
               <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                 <DialogTrigger asChild>
                   <Button className="bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600">
@@ -926,7 +922,7 @@ export function AsinInventory() {
                 <RefreshCw className="w-4 h-4 mr-2" />
                 Refresh Data
               </Button>
-                </div>
+              </div>
               </div>
             </div>
           </div>
