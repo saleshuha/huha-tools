@@ -11,8 +11,7 @@ const corsHeaders = {
 };
 
 interface InventoryEmailRequest {
-  inventoryType: 'asin' | 'sku';
-  csvData: string;
+  inventory: any[];
   userEmail: string;
 }
 
@@ -23,30 +22,49 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { inventoryType, csvData, userEmail }: InventoryEmailRequest = await req.json();
+    const { inventory, userEmail }: InventoryEmailRequest = await req.json();
 
-    console.log('Sending inventory email to:', userEmail, 'Type:', inventoryType);
+    console.log('Sending inventory email to:', userEmail, 'Items count:', inventory.length);
 
-    const subject = `${inventoryType.toUpperCase()} Inventory Export - ${new Date().toLocaleDateString()}`;
+    // Generate CSV data from inventory
+    const csvHeaders = ['ASIN', 'Serial Number', 'Status', 'Quantity', 'Date Added', 'Notes'];
+    const csvRows = inventory.map(item => [
+      item.asin || item.skuNumber || '',
+      item.serialNumber || item.binSerialNumber || '',
+      item.status || '',
+      item.quantity?.toString() || '0',
+      item.dateAdded ? new Date(item.dateAdded).toLocaleDateString() : '',
+      item.notes || ''
+    ]);
+    
+    const csvData = [csvHeaders, ...csvRows]
+      .map(row => row.map(field => `"${field}"`).join(','))
+      .join('\n');
+
+    // Determine inventory type from the data structure
+    const inventoryType = inventory.length > 0 && inventory[0].asin ? 'ASIN' : 'SKU';
+    
+    const subject = `${inventoryType} Inventory Export - ${new Date().toLocaleDateString()}`;
     
     const emailResponse = await resend.emails.send({
       from: "Inventory System <onboarding@resend.dev>",
       to: [userEmail],
       subject: subject,
       html: `
-        <h1>Your ${inventoryType.toUpperCase()} Inventory Export</h1>
+        <h1>Your ${inventoryType} Inventory Export</h1>
         <p>Hello,</p>
         <p>Your inventory export has been generated and is attached to this email.</p>
         <p><strong>Export Details:</strong></p>
         <ul>
-          <li>Type: ${inventoryType.toUpperCase()} Inventory</li>
+          <li>Type: ${inventoryType} Inventory</li>
           <li>Generated: ${new Date().toLocaleString()}</li>
           <li>Format: CSV</li>
+          <li>Total Items: ${inventory.length}</li>
         </ul>
         <p>Best regards,<br>Your Inventory Management System</p>
       `,
       attachments: [{
-        filename: `${inventoryType}-inventory-${new Date().toISOString().split('T')[0]}.csv`,
+        filename: `${inventoryType.toLowerCase()}-inventory-${new Date().toISOString().split('T')[0]}.csv`,
         content: btoa(csvData),
         type: 'text/csv',
         disposition: 'attachment'
