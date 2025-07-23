@@ -1254,7 +1254,6 @@ export function AsinInventory() {
         </CardContent>
       </Card>
 
-
       {/* Bulk Selection Actions */}
       {selectedItems.size > 0 && (
         <Card className="border-l-4 border-l-primary bg-primary/5">
