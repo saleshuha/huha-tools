@@ -16,10 +16,13 @@ import {
   X,
   Hash,
   Printer,
-  RefreshCw
+  RefreshCw,
+  Mail
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from './ui/dialog';
 import { useSkuInventory, SkuInventoryItem } from '@/hooks/useSkuInventory';
+import { useUserProfile } from '@/hooks/useUserProfile';
+import { supabase } from '@/integrations/supabase/client';
 import { QuantityEditor } from './QuantityEditor';
 import { StockHistoryDialog } from './StockHistoryDialog';
 import { Checkbox } from './ui/checkbox';
@@ -28,6 +31,7 @@ import { Textarea } from './ui/textarea';
 
 export function SSInventory() {
   const { inventory, loading, addItem, updateItemStatus, updateQuantity, bulkAdd, updateBinLocation, refetch } = useSkuInventory();
+  const { user } = useUserProfile();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -201,6 +205,75 @@ export function SSInventory() {
       title: "Export Complete",
       description: `Exported ${inventory.length} items to CSV`,
     });
+  };
+
+  const emailInventory = async () => {
+    if (inventory.length === 0) {
+      toast({
+        title: "No Data",
+        description: "No inventory items to email",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!user?.email) {
+      toast({
+        title: "Error",
+        description: "User email not found",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const csvHeaders = ['SKU Number', 'Bin/Serial Number', 'Status', 'Quantity'];
+      const csvData = [
+        csvHeaders,
+        ...inventory.map(item => [
+          item.skuNumber,
+          item.binSerialNumber,
+          item.status,
+          item.quantity.toString()
+        ])
+      ];
+
+      const csvContent = csvData.map(row => 
+        row.map(field => {
+          if (field.includes(',') || field.includes('"') || field.includes('\n')) {
+            return `"${field.replace(/"/g, '""')}"`;
+          }
+          return field;
+        }).join(',')
+      ).join('\n');
+
+      toast({
+        title: "Sending Email",
+        description: "Preparing your inventory export..."
+      });
+
+      const { error } = await supabase.functions.invoke('send-inventory-email', {
+        body: {
+          inventoryType: 'sku',
+          csvData: csvContent,
+          userEmail: user.email
+        }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Email Sent",
+        description: `SKU inventory export sent to ${user.email}`
+      });
+    } catch (error: any) {
+      console.error('Email export error:', error);
+      toast({
+        title: "Email Failed",
+        description: error.message || "Failed to send inventory email",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleBulkStatusUpdate = async () => {
@@ -561,6 +634,10 @@ export function SSInventory() {
               <Button variant="outline" onClick={exportInventory}>
                 <Download className="w-4 h-4 mr-2" />
                 Export
+              </Button>
+              <Button variant="outline" onClick={emailInventory}>
+                <Mail className="w-4 h-4 mr-2" />
+                Email Export
               </Button>
               <Button variant="outline" onClick={() => window.print()}>
                 <Printer className="w-4 h-4 mr-2" />
