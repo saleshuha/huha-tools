@@ -236,13 +236,17 @@ export function Replenishment() {
   };
 
   const handleSelectItem = (itemId: string, checked: boolean) => {
-    const newSelected = new Set(selectedItems);
-    if (checked) {
-      newSelected.add(itemId);
-    } else {
-      newSelected.delete(itemId);
-    }
-    setSelectedItems(newSelected);
+    console.log('handleSelectItem called with:', { itemId, checked, currentSelected: Array.from(selectedItems) });
+    setSelectedItems(prev => {
+      const newSelected = new Set(prev);
+      if (checked) {
+        newSelected.add(itemId);
+      } else {
+        newSelected.delete(itemId);
+      }
+      console.log('New selected items:', Array.from(newSelected));
+      return newSelected;
+    });
   };
 
   const handleBulkMarkAsOrdered = () => {
