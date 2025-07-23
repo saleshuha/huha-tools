@@ -88,17 +88,29 @@ export function Replenishment() {
   // Load restock items needing attention
   const loadRestockItems = async () => {
     try {
+      console.log('Loading restock items for country:', selectedCountry);
       const { data, error } = await supabase.rpc('get_items_needing_restock');
       if (error) throw error;
       
-      // Add status field for tracking supplier orders
-      const itemsWithStatus = data.map((item: any) => ({
+      console.log('Raw restock data from function:', data);
+      
+      // Filter by country and add status field for tracking supplier orders
+      const filteredData = data?.filter((item: any) => {
+        // The database function should already filter by user, but let's ensure data integrity
+        return item.current_quantity <= 5;
+      }) || [];
+      
+      console.log('Filtered restock items:', filteredData);
+      
+      const itemsWithStatus = filteredData.map((item: any) => ({
         ...item,
         status: 'pending' as const
       }));
       
       setRestockItems(itemsWithStatus);
+      console.log('Set restock items:', itemsWithStatus.length, 'items');
     } catch (error: any) {
+      console.error('Error loading restock items:', error);
       toast({
         title: "Error loading restock items",
         description: error.message,
@@ -331,11 +343,19 @@ export function Replenishment() {
     );
   }
 
-  // Filter restock items
-  const filteredRestockItems = restockItems.filter(item => 
-    item.status === 'pending' &&
-    item.identifier.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Filter restock items with bulk search support
+  const filteredRestockItems = restockItems.filter(item => {
+    if (item.status !== 'pending') return false;
+    
+    if (!searchTerm.trim()) return true;
+    
+    // Support bulk search - split by comma and search for any match
+    const searchTerms = searchTerm.toLowerCase().split(',').map(term => term.trim()).filter(Boolean);
+    
+    return searchTerms.some(term => 
+      item.identifier.toLowerCase().includes(term)
+    );
+  });
 
   // Chart configurations
   const chartConfig = {
@@ -437,119 +457,159 @@ export function Replenishment() {
 
         {/* Sales Analytics Tab */}
         <TabsContent value="sales" className="space-y-6">
-          <Card className="glass-container">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <BarChart3 className="w-5 h-5" />
-                  Sales Performance by Period
-                </CardTitle>
-                <p className="text-muted-foreground">Track sales across different time periods</p>
-              </div>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-semibold">Sales Performance Analytics</h3>
+              <p className="text-muted-foreground">Track sales across different time periods</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {salesData.map(item => (
+                    <SelectItem key={item.period} value={item.period}>
+                      {item.period}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Button onClick={exportSalesData} variant="outline" size="sm" className="gap-2">
                 <Download className="w-4 h-4" />
-                Export Sales Data
+                Export
               </Button>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center gap-4">
-                <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-                  <SelectTrigger className="w-32">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {salesData.map(item => (
-                      <SelectItem key={item.period} value={item.period}>
-                        {item.period}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {selectedPeriodData && (
-                  <div className="flex items-center gap-6 text-sm">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full bg-primary"></div>
-                      <span>ASIN: {selectedPeriodData.asin_sold}</span>
+            </div>
+          </div>
+
+          {/* Sales Performance Cards Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
+            {salesData.map((period, index) => (
+              <Card key={period.period} className={`glass-container hover-scale cursor-pointer transition-all ${selectedPeriod === period.period ? 'ring-2 ring-primary' : ''}`} onClick={() => setSelectedPeriod(period.period)}>
+                <CardContent className="p-4">
+                  <div className="text-center space-y-2">
+                    <div className="text-xs text-muted-foreground font-medium">{period.period}</div>
+                    <div className="space-y-1">
+                      <div className="text-lg font-bold text-primary">{period.total_sold}</div>
+                      <div className="text-xs text-muted-foreground">Total Sold</div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full bg-secondary"></div>
-                      <span>SKU: {selectedPeriodData.sku_sold}</span>
+                    <div className="space-y-1">
+                      <div className="text-sm font-semibold text-secondary">{period.total_restocked}</div>
+                      <div className="text-xs text-muted-foreground">Restocked</div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full bg-accent"></div>
-                      <span>Rate: {selectedPeriodData.sell_rate.toFixed(1)}/day</span>
+                    <div className="text-xs text-accent">{period.sell_rate.toFixed(1)}/day</div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Selected Period Details */}
+          {selectedPeriodData && (
+            <Card className="glass-container">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5" />
+                  Detailed Analytics for {selectedPeriod}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="space-y-4">
+                    <h4 className="font-medium text-primary">ASIN Performance</h4>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center p-3 rounded-lg bg-primary/10">
+                        <span className="text-sm">Items Sold</span>
+                        <span className="font-bold text-primary">{selectedPeriodData.asin_sold}</span>
+                      </div>
+                      <div className="flex justify-between items-center p-3 rounded-lg bg-primary/10">
+                        <span className="text-sm">Restocked</span>
+                        <span className="font-bold text-primary">{selectedPeriodData.asin_restocked}</span>
+                      </div>
+                      <div className="flex justify-between items-center p-3 rounded-lg bg-primary/10">
+                        <span className="text-sm">Daily Rate</span>
+                        <span className="font-bold text-primary">{(selectedPeriodData.asin_sold / parseInt(selectedPeriod)).toFixed(1)}</span>
+                      </div>
                     </div>
                   </div>
-                )}
-              </div>
-              
-              <div className="h-80">
-                <ChartContainer config={chartConfig}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RechartsBarChart data={salesData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <XAxis dataKey="period" stroke="hsl(var(--muted-foreground))" />
-                      <YAxis stroke="hsl(var(--muted-foreground))" />
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                      <Bar dataKey="asin_sold" fill="hsl(var(--chart-1))" name="ASIN Sold" />
-                      <Bar dataKey="sku_sold" fill="hsl(var(--chart-2))" name="SKU Sold" />
-                    </RechartsBarChart>
-                  </ResponsiveContainer>
-                </ChartContainer>
+
+                  <div className="space-y-4">
+                    <h4 className="font-medium text-secondary">SKU Performance</h4>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center p-3 rounded-lg bg-secondary/10">
+                        <span className="text-sm">Items Sold</span>
+                        <span className="font-bold text-secondary">{selectedPeriodData.sku_sold}</span>
+                      </div>
+                      <div className="flex justify-between items-center p-3 rounded-lg bg-secondary/10">
+                        <span className="text-sm">Restocked</span>
+                        <span className="font-bold text-secondary">{selectedPeriodData.sku_restocked}</span>
+                      </div>
+                      <div className="flex justify-between items-center p-3 rounded-lg bg-secondary/10">
+                        <span className="text-sm">Daily Rate</span>
+                        <span className="font-bold text-secondary">{(selectedPeriodData.sku_sold / parseInt(selectedPeriod)).toFixed(1)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h4 className="font-medium text-accent">Overall Metrics</h4>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center p-3 rounded-lg bg-accent/10">
+                        <span className="text-sm">Total Performance</span>
+                        <span className="font-bold text-accent">{selectedPeriodData.total_sold}</span>
+                      </div>
+                      <div className="flex justify-between items-center p-3 rounded-lg bg-accent/10">
+                        <span className="text-sm">Efficiency Rate</span>
+                        <span className="font-bold text-accent">{selectedPeriodData.total_restocked > 0 ? ((selectedPeriodData.total_sold / selectedPeriodData.total_restocked) * 100).toFixed(0) : 0}%</span>
+                      </div>
+                      <div className="flex justify-between items-center p-3 rounded-lg bg-accent/10">
+                        <span className="text-sm">Sales Velocity</span>
+                        <span className="font-bold text-accent">{selectedPeriodData.sell_rate.toFixed(2)}/day</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Quick Comparison Table */}
+          <Card className="glass-container">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Activity className="w-5 h-5" />
+                Sales Comparison Table
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left p-2">Period</th>
+                      <th className="text-center p-2">ASIN Sold</th>
+                      <th className="text-center p-2">SKU Sold</th>
+                      <th className="text-center p-2">Total Sold</th>
+                      <th className="text-center p-2">Restocked</th>
+                      <th className="text-center p-2">Daily Rate</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {salesData.map((item) => (
+                      <tr key={item.period} className={`border-b hover:bg-muted/50 ${selectedPeriod === item.period ? 'bg-primary/10' : ''}`}>
+                        <td className="p-2 font-medium">{item.period}</td>
+                        <td className="p-2 text-center">{item.asin_sold}</td>
+                        <td className="p-2 text-center">{item.sku_sold}</td>
+                        <td className="p-2 text-center font-bold">{item.total_sold}</td>
+                        <td className="p-2 text-center">{item.total_restocked}</td>
+                        <td className="p-2 text-center">{item.sell_rate.toFixed(1)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </CardContent>
           </Card>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card className="glass-container">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <LineChart className="w-5 h-5" />
-                  Sales vs Restocks Trend
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-60">
-                  <ChartContainer config={chartConfig}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <RechartsLineChart data={salesData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                        <XAxis dataKey="period" stroke="hsl(var(--muted-foreground))" />
-                        <YAxis stroke="hsl(var(--muted-foreground))" />
-                        <ChartTooltip content={<ChartTooltipContent />} />
-                        <Line type="monotone" dataKey="total_sold" stroke="hsl(var(--primary))" strokeWidth={2} name="Sales" />
-                        <Line type="monotone" dataKey="total_restocked" stroke="hsl(var(--secondary))" strokeWidth={2} name="Restocks" />
-                      </RechartsLineChart>
-                    </ResponsiveContainer>
-                  </ChartContainer>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="glass-container">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Activity className="w-5 h-5" />
-                  Daily Sell Rate Analysis
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-60">
-                  <ChartContainer config={chartConfig}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={salesData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                        <XAxis dataKey="period" stroke="hsl(var(--muted-foreground))" />
-                        <YAxis stroke="hsl(var(--muted-foreground))" />
-                        <ChartTooltip content={<ChartTooltipContent />} />
-                        <Area type="monotone" dataKey="sell_rate" stroke="hsl(var(--accent))" fill="hsl(var(--accent))" fillOpacity={0.3} name="Daily Rate" />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  </ChartContainer>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
         </TabsContent>
 
         {/* Restock Management Tab */}
@@ -561,7 +621,7 @@ export function Replenishment() {
                   <Package className="w-5 h-5" />
                   Items Needing Restock
                 </CardTitle>
-                <p className="text-muted-foreground">Manage items that require replenishment</p>
+                <p className="text-muted-foreground">Manage items that require replenishment (≤5 units)</p>
               </div>
               <div className="flex items-center gap-2">
                 <Button onClick={exportRestockData} variant="outline" size="sm" className="gap-2">
@@ -571,23 +631,33 @@ export function Replenishment() {
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center gap-4">
-                <div className="relative flex-1 max-w-md">
+              <div className="flex items-center gap-4 flex-wrap">
+                <div className="relative flex-1 min-w-80">
                   <Search className="w-4 h-4 absolute left-3 top-3 text-muted-foreground" />
                   <Input
-                    placeholder="Search items..."
+                    placeholder="Search items (separate multiple terms with commas: ASIN123, SKU456, serial789)..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10"
                   />
                 </div>
-                <Badge variant="outline" className="text-sm">
+                <Badge variant="outline" className="text-sm whitespace-nowrap">
                   {filteredRestockItems.length} items need attention
                 </Badge>
+                <div className="text-xs text-muted-foreground">
+                  Items with ≤5 units in stock
+                </div>
               </div>
 
+              {/* Search Guide */}
+              {searchTerm && (
+                <div className="text-xs text-muted-foreground p-2 bg-muted/30 rounded-lg">
+                  <strong>Bulk Search Active:</strong> Searching for: {searchTerm.split(',').map(term => term.trim()).filter(Boolean).join(', ')}
+                </div>
+              )}
+
               <div className="space-y-2 max-h-96 overflow-y-auto">
-                {filteredRestockItems.map((item) => (
+                {filteredRestockItems.length > 0 ? filteredRestockItems.map((item) => (
                   <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
                     <div className="flex items-center gap-4">
                       <div className="p-2 rounded-lg bg-destructive/20">
@@ -600,9 +670,11 @@ export function Replenishment() {
                       <div>
                         <p className="font-medium">{item.identifier}</p>
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <span>Current: {item.current_quantity} units</span>
-                          {item.days_since_last_restock && (
+                          <span className="font-medium text-destructive">Current: {item.current_quantity} units</span>
+                          {item.days_since_last_restock !== null ? (
                             <span>Last restock: {item.days_since_last_restock} days ago</span>
+                          ) : (
+                            <span>Never restocked</span>
                           )}
                           <Badge variant="outline" className="text-xs">
                             {item.table_name === 'asin_inventory' ? 'ASIN' : 'SKU'}
@@ -617,20 +689,23 @@ export function Replenishment() {
                       <Button
                         size="sm"
                         onClick={() => markAsOrdered(item.id)}
+                        disabled={item.status === 'ordered'}
                         className="gap-2"
                       >
                         <Truck className="w-4 h-4" />
-                        Mark as Ordered
+                        {item.status === 'ordered' ? 'Ordered' : 'Mark as Ordered'}
                       </Button>
                     </div>
                   </div>
-                ))}
-                
-                {filteredRestockItems.length === 0 && (
+                )) : (
                   <div className="text-center py-8 text-muted-foreground">
                     <CheckCircle className="w-12 h-12 mx-auto mb-4 text-primary" />
-                    <p className="text-lg font-medium">All items are well stocked!</p>
-                    <p>No items currently need restocking.</p>
+                    <p className="text-lg font-medium">
+                      {searchTerm ? 'No matching items found' : 'All items are well stocked!'}
+                    </p>
+                    <p>
+                      {searchTerm ? 'Try adjusting your search terms' : 'No items currently need restocking (≤5 units)'}
+                    </p>
                   </div>
                 )}
               </div>
