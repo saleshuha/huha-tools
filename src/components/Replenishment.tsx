@@ -97,7 +97,7 @@ export function Replenishment() {
       // Filter by country and add status field for tracking supplier orders
       const filteredData = data?.filter((item: any) => {
         // The database function should already filter by user, but let's ensure data integrity
-        return item.current_quantity <= 5;
+        return item.current_quantity === 0;
       }) || [];
       
       console.log('Filtered restock items:', filteredData);
