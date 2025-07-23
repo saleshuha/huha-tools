@@ -47,7 +47,7 @@ const handler = async (req: Request): Promise<Response> => {
       `,
       attachments: [{
         filename: `${inventoryType}-inventory-${new Date().toISOString().split('T')[0]}.csv`,
-        content: Buffer.from(csvData).toString('base64'),
+        content: btoa(csvData),
         type: 'text/csv',
         disposition: 'attachment'
       }]

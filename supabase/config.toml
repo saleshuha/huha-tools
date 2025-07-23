@@ -1,1 +1,4 @@
 project_id = "vfqqlifvhooefxvvyebm"
+
+[functions.send-inventory-email]
+verify_jwt = false

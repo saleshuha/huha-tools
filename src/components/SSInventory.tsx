@@ -252,7 +252,13 @@ export function SSInventory() {
         description: "Preparing your inventory export..."
       });
 
-      const { error } = await supabase.functions.invoke('send-inventory-email', {
+      console.log('About to call email function with data:', {
+        inventoryType: 'sku',
+        userEmail: user.email,
+        csvDataLength: csvContent.length
+      });
+
+      const { data, error } = await supabase.functions.invoke('send-inventory-email', {
         body: {
           inventoryType: 'sku',
           csvData: csvContent,
@@ -260,7 +266,12 @@ export function SSInventory() {
         }
       });
 
-      if (error) throw error;
+      console.log('Email function response:', { data, error });
+
+      if (error) {
+        console.error('Supabase function error:', error);
+        throw error;
+      }
 
       toast({
         title: "Email Sent",
