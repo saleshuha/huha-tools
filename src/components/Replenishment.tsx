@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Card } from './ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -8,6 +8,7 @@ import { Badge } from './ui/badge';
 import { Progress } from './ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from './ui/chart';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useCountry } from '@/contexts/CountryContext';
@@ -35,8 +36,37 @@ import {
   ArrowDown,
   Sparkles,
   ShoppingCart,
-  Activity
+  Activity,
+  DollarSign,
+  Users,
+  Database,
+  Gauge,
+  PieChart,
+  LineChart,
+  TrendingUp as TrendUp,
+  Percent,
+  Timer,
+  Layers,
+  BarChart2
 } from 'lucide-react';
+import { 
+  LineChart as RechartsLineChart, 
+  Line, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  BarChart as RechartsBarChart,
+  Bar,
+  PieChart as RechartsPieChart,
+  Cell,
+  Pie,
+  Legend,
+  RadialBarChart,
+  RadialBar
+} from 'recharts';
 
 interface ReplenishmentItem {
   id: string;
@@ -270,135 +300,510 @@ export function Replenishment() {
     );
   }
 
+  // Prepare chart data
+  const salesChartData = [1, 3, 7, 15, 30, 45, 60, 90].map(days => ({
+    period: `${days}d`,
+    sales: inventoryMetrics.salesTracking[`${days}d`] || 0,
+    restocks: inventoryMetrics.restockTracking[`${days}d`] || 0,
+    velocity: ((inventoryMetrics.salesTracking[`${days}d`] || 0) / days).toFixed(1)
+  }));
+
+  const pieChartData = [
+    { name: 'Critical', value: inventoryMetrics.forecasting.criticalStockItems, color: 'hsl(var(--destructive))' },
+    { name: 'Low Stock', value: Math.max(0, Math.floor(inventoryMetrics.forecasting.totalActiveItems * 0.15)), color: 'hsl(var(--warning))' },
+    { name: 'Normal', value: Math.max(0, inventoryMetrics.forecasting.totalActiveItems - inventoryMetrics.forecasting.criticalStockItems - Math.floor(inventoryMetrics.forecasting.totalActiveItems * 0.15)), color: 'hsl(var(--primary))' }
+  ];
+
+  const trendData = [1, 3, 7, 15, 30].map(days => ({
+    period: `${days}d`,
+    sales: inventoryMetrics.salesTracking[`${days}d`] || 0,
+    target: Math.ceil((inventoryMetrics.salesTracking['30d'] || 0) / 30 * days),
+    efficiency: ((inventoryMetrics.salesTracking[`${days}d`] || 0) / Math.max(1, Math.ceil((inventoryMetrics.salesTracking['30d'] || 0) / 30 * days)) * 100).toFixed(0)
+  }));
+
+  const chartConfig = {
+    sales: {
+      label: "Sales",
+      color: "hsl(var(--primary))",
+    },
+    restocks: {
+      label: "Restocks", 
+      color: "hsl(var(--secondary))",
+    },
+    velocity: {
+      label: "Velocity",
+      color: "hsl(var(--accent))",
+    },
+    target: {
+      label: "Target",
+      color: "hsl(var(--muted-foreground))",
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in w-full max-w-none">
-      {/* AI Analytics Dashboard */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <Card className="glass-container hover-scale group">
-          <div className="p-4">
+      {/* Enhanced Analytics Dashboard */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
+        <Card className="glass-container hover-scale group relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-destructive/5 to-destructive/20 opacity-50" />
+          <CardContent className="p-4 relative z-10">
             <div className="flex items-center justify-between mb-4">
-              <div className="p-3 rounded-xl bg-gradient-primary/10 backdrop-blur-sm">
+              <div className="p-3 rounded-xl bg-destructive/20 backdrop-blur-sm border border-destructive/30">
                 <AlertTriangle className="w-6 h-6 text-destructive" />
               </div>
-              <Badge variant="secondary" className="bg-destructive/20 text-destructive border-0 text-xs">
-                Critical
+              <Badge variant="destructive" className="text-xs shadow-sm">
+                URGENT
               </Badge>
             </div>
-            <h3 className="text-2xl font-bold text-foreground mb-2">
+            <h3 className="text-3xl font-bold text-foreground mb-2">
               {inventoryMetrics.forecasting.criticalStockItems}
             </h3>
-            <p className="text-sm text-muted-foreground mb-3">Critical Stock ({selectedCountry})</p>
-            <div className="flex items-center text-sm">
-              <AlertTriangle className="w-4 h-4 text-destructive mr-2" />
-              <span className="text-destructive font-medium">≤1 unit items</span>
+            <p className="text-sm text-muted-foreground mb-3">Critical Items</p>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center text-sm">
+                <AlertTriangle className="w-4 h-4 text-destructive mr-2" />
+                <span className="text-destructive font-medium">≤1 unit</span>
+              </div>
+              <Progress value={(inventoryMetrics.forecasting.criticalStockItems / Math.max(1, inventoryMetrics.forecasting.totalActiveItems)) * 100} className="w-16 h-2" />
             </div>
-          </div>
+          </CardContent>
         </Card>
 
-        <Card className="glass-container hover-scale group">
-          <div className="p-4">
+        <Card className="glass-container hover-scale group relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-primary/20 opacity-50" />
+          <CardContent className="p-4 relative z-10">
             <div className="flex items-center justify-between mb-4">
-              <div className="p-3 rounded-xl bg-gradient-accent/10 backdrop-blur-sm">
-                <TrendingDown className="w-6 h-6 text-accent" />
+              <div className="p-3 rounded-xl bg-primary/20 backdrop-blur-sm border border-primary/30">
+                <TrendingDown className="w-6 h-6 text-primary" />
               </div>
-              <Badge variant="outline" className="border-accent/30 text-accent bg-accent/5 text-xs">
-                30 Days
+              <Badge variant="outline" className="border-primary/30 text-primary bg-primary/10 text-xs">
+                30d
               </Badge>
             </div>
-            <h3 className="text-2xl font-bold text-foreground mb-2">
+            <h3 className="text-3xl font-bold text-foreground mb-2">
               {inventoryMetrics.salesTracking['30d'] || 0}
             </h3>
-            <p className="text-sm text-muted-foreground mb-3">Items Sold ({selectedCountry})</p>
-            <div className="flex items-center text-sm">
-              <Activity className="w-4 h-4 text-accent mr-2" />
-              <span className="text-accent font-medium">{((inventoryMetrics.salesTracking['30d'] || 0) / 30).toFixed(1)}/day avg</span>
+            <p className="text-sm text-muted-foreground mb-3">Items Sold</p>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center text-sm">
+                <Activity className="w-4 h-4 text-primary mr-2" />
+                <span className="text-primary font-medium">{((inventoryMetrics.salesTracking['30d'] || 0) / 30).toFixed(1)}/day</span>
+              </div>
+              <Progress value={Math.min(100, (inventoryMetrics.salesTracking['30d'] || 0) / 10)} className="w-16 h-2" />
             </div>
-          </div>
+          </CardContent>
         </Card>
 
-        <Card className="glass-container hover-scale group">
-          <div className="p-4">
+        <Card className="glass-container hover-scale group relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-secondary/5 to-secondary/20 opacity-50" />
+          <CardContent className="p-4 relative z-10">
             <div className="flex items-center justify-between mb-4">
-              <div className="p-3 rounded-xl bg-gradient-secondary/10 backdrop-blur-sm">
+              <div className="p-3 rounded-xl bg-secondary/20 backdrop-blur-sm border border-secondary/30">
                 <Package className="w-6 h-6 text-secondary" />
               </div>
-              <Badge variant="outline" className="border-secondary/30 text-secondary bg-secondary/5 text-xs">
-                30 Days
+              <Badge variant="outline" className="border-secondary/30 text-secondary bg-secondary/10 text-xs">
+                30d
               </Badge>
             </div>
-            <h3 className="text-2xl font-bold text-foreground mb-2">
+            <h3 className="text-3xl font-bold text-foreground mb-2">
               {inventoryMetrics.restockTracking['30d'] || 0}
             </h3>
-            <p className="text-sm text-muted-foreground mb-3">Items Restocked ({selectedCountry})</p>
-            <div className="flex items-center text-sm">
-              <ArrowUp className="w-4 h-4 text-secondary mr-2" />
-              <span className="text-secondary font-medium">Inventory replenished</span>
+            <p className="text-sm text-muted-foreground mb-3">Restocked</p>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center text-sm">
+                <ArrowUp className="w-4 h-4 text-secondary mr-2" />
+                <span className="text-secondary font-medium">Replenished</span>
+              </div>
+              <Progress value={Math.min(100, (inventoryMetrics.restockTracking['30d'] || 0) / 5)} className="w-16 h-2" />
             </div>
-          </div>
+          </CardContent>
         </Card>
 
-        <Card className="glass-container hover-scale group">
-          <div className="p-4">
+        <Card className="glass-container hover-scale group relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-accent/5 to-accent/20 opacity-50" />
+          <CardContent className="p-4 relative z-10">
             <div className="flex items-center justify-between mb-4">
-              <div className="p-3 rounded-xl bg-gradient-tertiary/10 backdrop-blur-sm">
-                <BarChart3 className="w-6 h-6 text-tertiary" />
+              <div className="p-3 rounded-xl bg-accent/20 backdrop-blur-sm border border-accent/30">
+                <Database className="w-6 h-6 text-accent" />
               </div>
-              <Badge variant="outline" className="border-tertiary/30 text-tertiary bg-tertiary/5 text-xs">
+              <Badge variant="outline" className="border-accent/30 text-accent bg-accent/10 text-xs">
                 Active
               </Badge>
             </div>
-            <h3 className="text-2xl font-bold text-foreground mb-2">
+            <h3 className="text-3xl font-bold text-foreground mb-2">
               {inventoryMetrics.forecasting.totalActiveItems}
             </h3>
-            <p className="text-sm text-muted-foreground mb-3">Total Items ({selectedCountry})</p>
-            <div className="flex items-center text-sm">
-              <Target className="w-4 h-4 text-tertiary mr-2" />
-              <span className="text-tertiary font-medium">In-stock items</span>
+            <p className="text-sm text-muted-foreground mb-3">Total Items</p>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center text-sm">
+                <Target className="w-4 h-4 text-accent mr-2" />
+                <span className="text-accent font-medium">In Stock</span>
+              </div>
+              <Progress value={100} className="w-16 h-2" />
             </div>
-          </div>
+          </CardContent>
+        </Card>
+
+        <Card className="glass-container hover-scale group relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-tertiary/5 to-tertiary/20 opacity-50" />
+          <CardContent className="p-4 relative z-10">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-3 rounded-xl bg-tertiary/20 backdrop-blur-sm border border-tertiary/30">
+                <Gauge className="w-6 h-6 text-tertiary" />
+              </div>
+              <Badge variant="outline" className="border-tertiary/30 text-tertiary bg-tertiary/10 text-xs">
+                Health
+              </Badge>
+            </div>
+            <h3 className="text-3xl font-bold text-foreground mb-2">
+              {Math.round(100 - (inventoryMetrics.forecasting.criticalStockItems / Math.max(1, inventoryMetrics.forecasting.totalActiveItems) * 100))}%
+            </h3>
+            <p className="text-sm text-muted-foreground mb-3">Stock Health</p>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center text-sm">
+                <Sparkles className="w-4 h-4 text-tertiary mr-2" />
+                <span className="text-tertiary font-medium">Score</span>
+              </div>
+              <Progress value={100 - (inventoryMetrics.forecasting.criticalStockItems / Math.max(1, inventoryMetrics.forecasting.totalActiveItems) * 100)} className="w-16 h-2" />
+            </div>
+          </CardContent>
         </Card>
       </div>
 
-      {/* Sales & Restock Tracking */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="glass-container">
-          <div className="p-4">
-            <h3 className="text-lg font-semibold bg-gradient-primary bg-clip-text text-transparent mb-4">
-              📈 Sales Tracking - {selectedCountry}
-            </h3>
-            <div className="grid grid-cols-2 gap-3">
-              {[1, 3, 7, 15, 30, 45, 60, 90].map(days => (
-                <div key={days} className="bg-card/50 rounded-lg p-3">
-                  <div className="text-xs text-muted-foreground mb-1">{days} day{days > 1 ? 's' : ''}</div>
-                  <div className="text-lg font-bold text-foreground">
-                    {inventoryMetrics.salesTracking[`${days}d`] || 0}
-                  </div>
-                  <div className="text-xs text-accent">sold</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </Card>
+      {/* Advanced Analytics Charts */}
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="grid w-full grid-cols-4 glass-container mb-6">
+          <TabsTrigger value="overview" className="flex items-center gap-2">
+            <BarChart3 className="w-4 h-4" />
+            Overview
+          </TabsTrigger>
+          <TabsTrigger value="trends" className="flex items-center gap-2">
+            <LineChart className="w-4 h-4" />
+            Trends
+          </TabsTrigger>
+          <TabsTrigger value="distribution" className="flex items-center gap-2">
+            <PieChart className="w-4 h-4" />
+            Distribution
+          </TabsTrigger>
+          <TabsTrigger value="performance" className="flex items-center gap-2">
+            <Gauge className="w-4 h-4" />
+            Performance
+          </TabsTrigger>
+        </TabsList>
 
-        <Card className="glass-container">
-          <div className="p-4">
-            <h3 className="text-lg font-semibold bg-gradient-primary bg-clip-text text-transparent mb-4">
-              📦 Restock Tracking - {selectedCountry}
-            </h3>
-            <div className="grid grid-cols-2 gap-3">
-              {[1, 3, 7, 15, 30, 45, 60, 90].map(days => (
-                <div key={days} className="bg-card/50 rounded-lg p-3">
-                  <div className="text-xs text-muted-foreground mb-1">{days} day{days > 1 ? 's' : ''}</div>
-                  <div className="text-lg font-bold text-foreground">
-                    {inventoryMetrics.restockTracking[`${days}d`] || 0}
-                  </div>
-                  <div className="text-xs text-secondary">restocked</div>
-                </div>
-              ))}
-            </div>
+        <TabsContent value="overview" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card className="glass-container">
+              <CardHeader>
+                <CardTitle className="text-lg font-semibold bg-gradient-primary bg-clip-text text-transparent flex items-center gap-2">
+                  <BarChart2 className="w-5 h-5 text-primary" />
+                  Sales vs Restock Comparison
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="h-80">
+                <ChartContainer config={chartConfig}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RechartsBarChart data={salesChartData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="period" stroke="hsl(var(--muted-foreground))" />
+                      <YAxis stroke="hsl(var(--muted-foreground))" />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Bar dataKey="sales" fill="hsl(var(--primary))" name="Sales" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="restocks" fill="hsl(var(--secondary))" name="Restocks" radius={[4, 4, 0, 0]} />
+                    </RechartsBarChart>
+                  </ResponsiveContainer>
+                </ChartContainer>
+              </CardContent>
+            </Card>
+
+            <Card className="glass-container">
+              <CardHeader>
+                <CardTitle className="text-lg font-semibold bg-gradient-primary bg-clip-text text-transparent flex items-center gap-2">
+                  <Activity className="w-5 h-5 text-primary" />
+                  Sales Velocity Trend
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="h-80">
+                <ChartContainer config={chartConfig}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={salesChartData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="period" stroke="hsl(var(--muted-foreground))" />
+                      <YAxis stroke="hsl(var(--muted-foreground))" />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Area 
+                        type="monotone" 
+                        dataKey="sales" 
+                        stroke="hsl(var(--primary))" 
+                        fill="hsl(var(--primary))" 
+                        fillOpacity={0.2}
+                        name="Sales"
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </ChartContainer>
+              </CardContent>
+            </Card>
           </div>
-        </Card>
-      </div>
+        </TabsContent>
+
+        <TabsContent value="trends" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card className="glass-container">
+              <CardHeader>
+                <CardTitle className="text-lg font-semibold bg-gradient-primary bg-clip-text text-transparent flex items-center gap-2">
+                  <TrendUp className="w-5 h-5 text-primary" />
+                  Sales Performance vs Target
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="h-80">
+                <ChartContainer config={chartConfig}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RechartsLineChart data={trendData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="period" stroke="hsl(var(--muted-foreground))" />
+                      <YAxis stroke="hsl(var(--muted-foreground))" />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Line 
+                        type="monotone" 
+                        dataKey="sales" 
+                        stroke="hsl(var(--primary))" 
+                        strokeWidth={3}
+                        dot={{ fill: "hsl(var(--primary))", strokeWidth: 2, r: 6 }}
+                        name="Actual Sales"
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="target" 
+                        stroke="hsl(var(--muted-foreground))" 
+                        strokeWidth={2}
+                        strokeDasharray="5 5"
+                        dot={{ fill: "hsl(var(--muted-foreground))", strokeWidth: 2, r: 4 }}
+                        name="Target"
+                      />
+                    </RechartsLineChart>
+                  </ResponsiveContainer>
+                </ChartContainer>
+              </CardContent>
+            </Card>
+
+            <Card className="glass-container">
+              <CardHeader>
+                <CardTitle className="text-lg font-semibold bg-gradient-primary bg-clip-text text-transparent flex items-center gap-2">
+                  <Percent className="w-5 h-5 text-primary" />
+                  Efficiency Metrics
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="h-80">
+                <div className="space-y-6 pt-4">
+                  {trendData.map((item, index) => (
+                    <div key={item.period} className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">{item.period} Efficiency</span>
+                        <Badge variant="outline" className="text-xs">
+                          {item.efficiency}%
+                        </Badge>
+                      </div>
+                      <Progress 
+                        value={Math.min(100, parseInt(item.efficiency))} 
+                        className="h-3"
+                      />
+                      <div className="text-xs text-muted-foreground">
+                        {item.sales} sales / {item.target} target
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="distribution" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card className="glass-container">
+              <CardHeader>
+                <CardTitle className="text-lg font-semibold bg-gradient-primary bg-clip-text text-transparent flex items-center gap-2">
+                  <PieChart className="w-5 h-5 text-primary" />
+                  Stock Status Distribution
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="h-80">
+                <ChartContainer config={chartConfig}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RechartsPieChart>
+                      <Pie
+                        data={pieChartData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={120}
+                        fill="#8884d8"
+                        paddingAngle={5}
+                        dataKey="value"
+                      >
+                        {pieChartData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Legend />
+                    </RechartsPieChart>
+                  </ResponsiveContainer>
+                </ChartContainer>
+              </CardContent>
+            </Card>
+
+            <Card className="glass-container">
+              <CardHeader>
+                <CardTitle className="text-lg font-semibold bg-gradient-primary bg-clip-text text-transparent flex items-center gap-2">
+                  <Layers className="w-5 h-5 text-primary" />
+                  Inventory Health Score
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="h-80">
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center space-y-4">
+                    <div className="relative w-40 h-40 mx-auto">
+                      <svg className="w-40 h-40 transform -rotate-90" viewBox="0 0 36 36">
+                        <path
+                          d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                          fill="none"
+                          stroke="hsl(var(--border))"
+                          strokeWidth="2"
+                        />
+                        <path
+                          d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                          fill="none"
+                          stroke="hsl(var(--primary))"
+                          strokeWidth="2"
+                          strokeDasharray={`${100 - (inventoryMetrics.forecasting.criticalStockItems / Math.max(1, inventoryMetrics.forecasting.totalActiveItems) * 100)}, 100`}
+                          className="transition-all duration-500"
+                        />
+                      </svg>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="text-center">
+                          <div className="text-3xl font-bold text-primary">
+                            {Math.round(100 - (inventoryMetrics.forecasting.criticalStockItems / Math.max(1, inventoryMetrics.forecasting.totalActiveItems) * 100))}%
+                          </div>
+                          <div className="text-xs text-muted-foreground">Health Score</div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span>Critical Items:</span>
+                        <span className="text-destructive font-medium">{inventoryMetrics.forecasting.criticalStockItems}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span>Total Items:</span>
+                        <span className="text-primary font-medium">{inventoryMetrics.forecasting.totalActiveItems}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="performance" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <Card className="glass-container">
+              <CardHeader>
+                <CardTitle className="text-lg font-semibold bg-gradient-primary bg-clip-text text-transparent flex items-center gap-2">
+                  <Timer className="w-5 h-5 text-primary" />
+                  Lead Time Analysis
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-primary mb-2">
+                      {inventoryMetrics.forecasting.avgLeadTime} days
+                    </div>
+                    <div className="text-sm text-muted-foreground">Average Lead Time</div>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex justify-between text-sm">
+                      <span>Optimal Range:</span>
+                      <span className="text-accent">7-14 days</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span>Current Status:</span>
+                      <Badge variant={inventoryMetrics.forecasting.avgLeadTime <= 14 ? "default" : "secondary"}>
+                        {inventoryMetrics.forecasting.avgLeadTime <= 14 ? "Optimal" : "Review Needed"}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="glass-container">
+              <CardHeader>
+                <CardTitle className="text-lg font-semibold bg-gradient-primary bg-clip-text text-transparent flex items-center gap-2">
+                  <Target className="w-5 h-5 text-primary" />
+                  Reorder Point
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-secondary mb-2">
+                      {inventoryMetrics.forecasting.recommendedReorderLevel}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Recommended Units</div>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex justify-between text-sm">
+                      <span>Based on:</span>
+                      <span className="text-accent">30-day velocity</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span>Safety Stock:</span>
+                      <Badge variant="outline">
+                        {Math.ceil(inventoryMetrics.forecasting.recommendedReorderLevel * 0.2)} units
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="glass-container">
+              <CardHeader>
+                <CardTitle className="text-lg font-semibold bg-gradient-primary bg-clip-text text-transparent flex items-center gap-2">
+                  <Brain className="w-5 h-5 text-primary" />
+                  AI Forecast
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-tertiary mb-2">
+                      {Math.ceil((inventoryMetrics.salesTracking['30d'] || 0) / 30 * inventoryMetrics.forecasting.avgLeadTime)}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Demand During Lead Time</div>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex justify-between text-sm">
+                      <span>Confidence:</span>
+                      <Badge variant="default">
+                        {Math.min(95, Math.max(60, 95 - inventoryMetrics.forecasting.criticalStockItems * 5))}%
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span>Next Review:</span>
+                      <span className="text-accent">7 days</span>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+      </Tabs>
 
       {/* AI Forecasting Card */}
       <Card className="glass-container">
