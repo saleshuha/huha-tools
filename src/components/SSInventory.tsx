@@ -479,7 +479,7 @@ export function SSInventory() {
         </div>
 
         {/* Quick Stats Dashboard */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3 md:gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4 auto-fit-columns">
           <Card className="hover:shadow-lg transition-all duration-300 min-w-0">
             <CardContent className="p-3 md:p-4">
               <div className="flex items-center gap-2 md:gap-3">
@@ -640,7 +640,8 @@ export function SSInventory() {
             </div>
 
             {/* Filters and Controls Row */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
               {/* Status Filter */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium">Status Filter</Label>
@@ -731,14 +732,14 @@ export function SSInventory() {
                   {Math.min(startIndex + 1, filteredInventory.length)}-{Math.min(startIndex + itemsPerPage, filteredInventory.length)} of {filteredInventory.length}
                 </div>
               </div>
-            </div>
 
-            {/* Action Buttons */}
-            <div className="flex flex-wrap gap-3">
-              <Label className="text-sm font-medium flex items-center gap-2 mb-2 w-full">
-                <Settings className="w-4 h-4" />
-                Actions:
-              </Label>
+              {/* Action Buttons */}
+              <div className="space-y-3">
+                <Label className="text-sm font-medium flex items-center gap-2">
+                  <Settings className="w-4 h-4" />
+                  Actions:
+                </Label>
+                <div className="flex flex-wrap gap-3">
               <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                 <DialogTrigger asChild>
                   <Button className="bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600">
@@ -872,6 +873,8 @@ export function SSInventory() {
                 <RefreshCw className="w-4 h-4 mr-2" />
                 Refresh Data
               </Button>
+                </div>
+              </div>
             </div>
           </div>
         </CardContent>

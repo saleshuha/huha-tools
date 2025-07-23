@@ -210,4 +210,9 @@
     @apply bg-gradient-accent text-accent-foreground font-semibold
            hover:shadow-medium transform hover:scale-105 transition-all duration-200;
   }
+
+  /* Grid utilities for responsive design */
+  .auto-fit-columns {
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  }
 }
