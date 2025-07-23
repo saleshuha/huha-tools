@@ -580,43 +580,175 @@ export function SSInventory() {
         </div>
       </div>
 
-      {/* Unified Controls Panel */}
-      <Card className="border-0 shadow-lg bg-card/50 backdrop-blur-sm">
-        <CardContent className="p-6">
-          <div className="space-y-6">
-            {/* Search Bar */}
+      {/* Prominent Search Bar */}
+      <Card className="border-0 shadow-xl bg-gradient-to-r from-card/80 to-card/60 backdrop-blur-md">
+        <CardContent className="p-8">
+          <div className="space-y-8">
+            {/* Enhanced Search Bar */}
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground w-6 h-6" />
               <Input
-                placeholder="Advanced search: SKU Number, Bin/Serial Number (use spaces for multiple terms)..."
+                placeholder="🔍 Advanced search: SKU Number, Bin/Serial Number (use spaces for multiple terms)..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 h-12 text-lg"
+                className="pl-14 h-16 text-xl font-medium shadow-lg border-2 focus:border-primary/50 bg-background/50"
               />
             </div>
 
-            {/* Quick Filters */}
-            <div className="flex flex-wrap gap-2">
-              <Label className="text-sm font-medium flex items-center gap-2 mb-2 w-full">
-                <Filter className="w-4 h-4" />
+            {/* Action Buttons Row */}
+            <div className="flex flex-wrap items-center gap-4">
+              <Label className="text-base font-semibold flex items-center gap-2">
+                <Settings className="w-5 h-5" />
+                Actions:
+              </Label>
+              <div className="flex flex-wrap gap-3">
+                <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="lg" className="bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 text-white">
+                      <Plus className="w-5 h-5 mr-2" />
+                      Add New Item
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-md">
+                    <DialogHeader>
+                      <DialogTitle className="flex items-center gap-2">
+                        <Plus className="w-5 h-5" />
+                        Add New SKU Item
+                      </DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="skuNumber">SKU Number</Label>
+                        <Input
+                          id="skuNumber"
+                          value={newItem.skuNumber}
+                          onChange={(e) => setNewItem({ ...newItem, skuNumber: e.target.value })}
+                          placeholder="Enter SKU Number..."
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="binSerialNumber">Bin/Serial Number</Label>
+                        <Input
+                          id="binSerialNumber"
+                          value={newItem.binSerialNumber}
+                          onChange={(e) => setNewItem({ ...newItem, binSerialNumber: e.target.value })}
+                          placeholder="Enter Bin/Serial Number..."
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="quantity">Quantity</Label>
+                        <Input
+                          id="quantity"
+                          type="number"
+                          min="1"
+                          value={newItem.quantity}
+                          onChange={(e) => setNewItem({ ...newItem, quantity: parseInt(e.target.value) || 1 })}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="status">Status</Label>
+                        <Select
+                          value={newItem.status}
+                          onValueChange={(value: SkuInventoryItem['status']) => setNewItem({ ...newItem, status: value })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="in-stock">In Stock</SelectItem>
+                            <SelectItem value="sold">Sold</SelectItem>
+                            <SelectItem value="reserved">Reserved</SelectItem>
+                            <SelectItem value="damaged">Damaged</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                        Cancel
+                      </Button>
+                      <Button onClick={handleAddItem}>Add Item</Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+
+                <Dialog open={isBulkDialogOpen} onOpenChange={setIsBulkDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="lg" variant="outline" className="border-2 hover:border-primary/50">
+                      <Upload className="w-5 h-5 mr-2" />
+                      Bulk Add Items
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                      <DialogTitle>Bulk Add SKU Items</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="bulkText">
+                          Paste tab-separated data (SKU Number, Bin/Serial Number, Status, Quantity)
+                        </Label>
+                        <Textarea
+                          id="bulkText"
+                          value={bulkText}
+                          onChange={(e) => setBulkText(e.target.value)}
+                          placeholder="SKU001	BIN001	in-stock	10&#10;SKU002	BIN002	sold	1"
+                          rows={8}
+                          className="font-mono text-sm"
+                        />
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        <p><strong>Format:</strong> Each line should contain tab-separated values</p>
+                        <p><strong>Order:</strong> SKU Number → Bin/Serial Number → Status → Quantity</p>
+                        <p><strong>Status options:</strong> in-stock, sold, reserved, damaged</p>
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setIsBulkDialogOpen(false)}>
+                        Cancel
+                      </Button>
+                      <Button onClick={handleBulkAdd}>Add Items</Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+
+                <Button size="lg" variant="outline" className="border-primary/30 hover:bg-primary/5">
+                  <Download className="w-5 h-5 mr-2" />
+                  Export
+                </Button>
+                <Button size="lg" variant="outline" className="border-blue-300 hover:bg-blue-50">
+                  <RefreshCw className="w-5 h-5 mr-2" />
+                  Refresh
+                </Button>
+                <Button size="lg" variant="outline" className="border-purple-300 hover:bg-purple-50">
+                  <Mail className="w-5 h-5 mr-2" />
+                  Email Report
+                </Button>
+              </div>
+            </div>
+
+            {/* Quick Filters Row */}
+            <div className="flex flex-wrap items-center gap-3">
+              <Label className="text-base font-semibold flex items-center gap-2">
+                <Filter className="w-5 h-5" />
                 Quick Filters:
               </Label>
               <Button
                 variant={quickFilter === 'all' ? 'default' : 'outline'}
-                size="sm"
+                size="lg"
                 onClick={() => setQuickFilter('all')}
                 className="flex items-center gap-2"
               >
-                <Hash className="w-4 h-4" />
+                <Hash className="w-5 h-5" />
                 All Items
               </Button>
               <Button
                 variant={quickFilter === 'low-stock' ? 'default' : 'outline'}
-                size="sm"
+                size="lg"
                 onClick={() => setQuickFilter('low-stock')}
                 className="flex items-center gap-2"
               >
-                <AlertTriangle className="w-4 h-4" />
+                <AlertTriangle className="w-5 h-5" />
                 Low Stock
               </Button>
               <Button
