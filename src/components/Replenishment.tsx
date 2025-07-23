@@ -98,6 +98,9 @@ export function Replenishment() {
   const [filterStatus, setFilterStatus] = useState<'all' | 'critical' | 'low' | 'normal'>('all');
   const [selectedItem, setSelectedItem] = useState<ReplenishmentItem | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [isGeneratingForecast, setIsGeneratingForecast] = useState(false);
+  const [aiInsights, setAiInsights] = useState<string>('');
+  const [lastForecastTime, setLastForecastTime] = useState<Date | null>(null);
 
   // Generate replenishment data from real inventory
   const generateMockData = (): ReplenishmentItem[] => {
@@ -280,6 +283,69 @@ export function Replenishment() {
     console.log('Manual refresh triggered');
     loadReplenishmentData();
     loadAnalytics(selectedCountry);
+    toast({
+      title: "Data Refreshed",
+      description: "Replenishment analytics have been updated",
+    });
+  };
+
+  // Generate AI forecast
+  const generateAiForecast = async () => {
+    try {
+      setIsGeneratingForecast(true);
+      
+      const forecastData = {
+        country: selectedCountry,
+        criticalItems: inventoryMetrics.forecasting.criticalStockItems,
+        totalItems: inventoryMetrics.forecasting.totalActiveItems,
+        salesVelocity: inventoryMetrics.salesTracking['30d'] || 0,
+        restockRate: inventoryMetrics.restockTracking['30d'] || 0,
+        avgLeadTime: inventoryMetrics.forecasting.avgLeadTime,
+        healthScore: Math.round(100 - (inventoryMetrics.forecasting.criticalStockItems / Math.max(1, inventoryMetrics.forecasting.totalActiveItems) * 100))
+      };
+
+      // Simulate AI analysis (replace with actual AI call)
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      const insights = `📊 AI Inventory Analysis for ${selectedCountry}:
+
+🔍 Current Status:
+• Health Score: ${forecastData.healthScore}% (${forecastData.healthScore >= 80 ? 'Healthy' : 'Needs Attention'})
+• Critical Items: ${forecastData.criticalItems} out of ${forecastData.totalItems}
+• 30-day Sales Velocity: ${forecastData.salesVelocity} items
+
+📈 Trend Analysis:
+• Sales Rate: ${(forecastData.salesVelocity / 30).toFixed(1)} items/day average
+• Restock Efficiency: ${forecastData.restockRate > 0 ? 'Active' : 'Low'} replenishment activity
+• Lead Time: ${forecastData.avgLeadTime} days average
+
+🎯 AI Recommendations:
+${forecastData.criticalItems > 0 ? `• URGENT: ${forecastData.criticalItems} items need immediate restocking` : '• No critical stock issues detected'}
+${forecastData.healthScore < 80 ? '• Recommend increasing safety stock levels' : '• Current stock levels are optimal'}
+• Suggested reorder point: ${Math.ceil(forecastData.salesVelocity / 30 * forecastData.avgLeadTime)} units
+• Next review in: ${forecastData.criticalItems > 0 ? '3 days' : '7 days'}
+
+🔮 7-Day Forecast:
+• Expected sales: ${Math.ceil(forecastData.salesVelocity / 30 * 7)} items
+• Predicted stockouts: ${Math.max(0, forecastData.criticalItems - Math.ceil(forecastData.restockRate / 30 * 7))} items
+• Confidence level: ${Math.min(95, Math.max(60, 95 - forecastData.criticalItems * 5))}%`;
+
+      setAiInsights(insights);
+      setLastForecastTime(new Date());
+      
+      toast({
+        title: "AI Forecast Generated",
+        description: "Fresh insights and recommendations are ready",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Forecast Generation Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingForecast(false);
+    }
   };
 
   // Calculate analytics
@@ -470,6 +536,131 @@ export function Replenishment() {
         </Card>
       </div>
 
+      {/* Enhanced AI Forecasting Section */}
+      <Card className="glass-container relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-secondary/5 to-accent/5 opacity-60" />
+        <CardHeader className="relative z-10">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent flex items-center gap-3">
+              <div className="p-3 rounded-xl bg-gradient-to-r from-primary/20 to-secondary/20 backdrop-blur-sm border border-primary/30">
+                <Brain className="w-8 h-8 text-primary" />
+              </div>
+              🔮 AI Forecasting & Recommendations
+            </CardTitle>
+            <div className="flex gap-2">
+              <Button 
+                onClick={generateAiForecast}
+                disabled={isGeneratingForecast}
+                className="bg-gradient-primary hover:opacity-90 text-white border-0"
+              >
+                {isGeneratingForecast ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Fresh AI Forecast
+                  </>
+                )}
+              </Button>
+              <Button 
+                onClick={handleRefresh}
+                variant="outline"
+                className="border-primary/30 hover:bg-primary/10"
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Refresh Data
+              </Button>
+            </div>
+          </div>
+          {lastForecastTime && (
+            <p className="text-sm text-muted-foreground">
+              Last forecast: {lastForecastTime.toLocaleString()}
+            </p>
+          )}
+        </CardHeader>
+        <CardContent className="relative z-10">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Quick Metrics */}
+            <div className="space-y-4">
+              <h4 className="text-lg font-semibold text-foreground mb-4">📊 Quick Insights</h4>
+              <div className="space-y-3">
+                <div className="p-4 rounded-lg bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20">
+                  <div className="text-sm text-muted-foreground mb-1">Recommended Reorder Level</div>
+                  <div className="text-2xl font-bold text-primary mb-1">
+                    {inventoryMetrics.forecasting.recommendedReorderLevel}
+                  </div>
+                  <div className="text-xs text-muted-foreground">units (based on 30-day velocity)</div>
+                </div>
+                <div className="p-4 rounded-lg bg-gradient-to-r from-accent/10 to-accent/5 border border-accent/20">
+                  <div className="text-sm text-muted-foreground mb-1">Average Lead Time</div>
+                  <div className="text-2xl font-bold text-accent mb-1">
+                    {inventoryMetrics.forecasting.avgLeadTime}
+                  </div>
+                  <div className="text-xs text-muted-foreground">days to restock</div>
+                </div>
+                <div className="p-4 rounded-lg bg-gradient-to-r from-secondary/10 to-secondary/5 border border-secondary/20">
+                  <div className="text-sm text-muted-foreground mb-1">Forecasted Demand</div>
+                  <div className="text-2xl font-bold text-secondary mb-1">
+                    {Math.ceil((inventoryMetrics.salesTracking['30d'] || 0) / 30 * inventoryMetrics.forecasting.avgLeadTime)}
+                  </div>
+                  <div className="text-xs text-muted-foreground">units needed during lead time</div>
+                </div>
+              </div>
+            </div>
+
+            {/* AI Insights */}
+            <div className="lg:col-span-2">
+              <h4 className="text-lg font-semibold text-foreground mb-4">🤖 AI Analysis & Recommendations</h4>
+              <div className="bg-card/50 rounded-lg p-6 border border-border/50 min-h-[300px]">
+                {aiInsights ? (
+                  <div className="space-y-4">
+                    <div className="prose prose-sm max-w-none">
+                      <pre className="whitespace-pre-wrap text-sm text-foreground font-mono bg-transparent border-0 p-0 m-0">
+                        {aiInsights}
+                      </pre>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center h-full min-h-[200px] text-center">
+                    <div className="space-y-4">
+                      <div className="w-16 h-16 mx-auto rounded-full bg-gradient-primary/20 flex items-center justify-center">
+                        <Brain className="w-8 h-8 text-primary" />
+                      </div>
+                      <div>
+                        <h5 className="text-lg font-medium text-foreground mb-2">AI-Powered Insights</h5>
+                        <p className="text-muted-foreground mb-4">
+                          Generate personalized inventory recommendations and forecasts based on your data
+                        </p>
+                        <Button 
+                          onClick={generateAiForecast}
+                          disabled={isGeneratingForecast}
+                          className="bg-gradient-primary hover:opacity-90 text-white border-0"
+                        >
+                          {isGeneratingForecast ? (
+                            <>
+                              <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                              Analyzing...
+                            </>
+                          ) : (
+                            <>
+                              <Zap className="w-4 h-4 mr-2" />
+                              Generate AI Forecast
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Advanced Analytics Charts */}
       <Tabs defaultValue="overview" className="w-full">
         <TabsList className="grid w-full grid-cols-4 glass-container mb-6">
@@ -503,10 +694,10 @@ export function Replenishment() {
               <CardContent className="h-80">
                 <ChartContainer config={chartConfig}>
                   <ResponsiveContainer width="100%" height="100%">
-                    <RechartsBarChart data={salesChartData}>
+                    <RechartsBarChart data={salesChartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <XAxis dataKey="period" stroke="hsl(var(--muted-foreground))" />
-                      <YAxis stroke="hsl(var(--muted-foreground))" />
+                      <XAxis dataKey="period" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                      <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
                       <ChartTooltip content={<ChartTooltipContent />} />
                       <Bar dataKey="sales" fill="hsl(var(--primary))" name="Sales" radius={[4, 4, 0, 0]} />
                       <Bar dataKey="restocks" fill="hsl(var(--secondary))" name="Restocks" radius={[4, 4, 0, 0]} />
@@ -526,10 +717,10 @@ export function Replenishment() {
               <CardContent className="h-80">
                 <ChartContainer config={chartConfig}>
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={salesChartData}>
+                    <AreaChart data={salesChartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <XAxis dataKey="period" stroke="hsl(var(--muted-foreground))" />
-                      <YAxis stroke="hsl(var(--muted-foreground))" />
+                      <XAxis dataKey="period" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                      <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
                       <ChartTooltip content={<ChartTooltipContent />} />
                       <Area 
                         type="monotone" 
@@ -559,10 +750,17 @@ export function Replenishment() {
               <CardContent className="h-80">
                 <ChartContainer config={chartConfig}>
                   <ResponsiveContainer width="100%" height="100%">
-                    <RechartsLineChart data={trendData}>
+                    <RechartsLineChart data={trendData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <XAxis dataKey="period" stroke="hsl(var(--muted-foreground))" />
-                      <YAxis stroke="hsl(var(--muted-foreground))" />
+                      <XAxis 
+                        dataKey="period" 
+                        stroke="hsl(var(--muted-foreground))"
+                        fontSize={12}
+                      />
+                      <YAxis 
+                        stroke="hsl(var(--muted-foreground))"
+                        fontSize={12}
+                      />
                       <ChartTooltip content={<ChartTooltipContent />} />
                       <Line 
                         type="monotone" 
@@ -594,10 +792,10 @@ export function Replenishment() {
                   Efficiency Metrics
                 </CardTitle>
               </CardHeader>
-              <CardContent className="h-80">
-                <div className="space-y-6 pt-4">
+              <CardContent className="h-80 overflow-y-auto">
+                <div className="space-y-4 pt-2">
                   {trendData.map((item, index) => (
-                    <div key={item.period} className="space-y-2">
+                    <div key={item.period} className="space-y-3 p-3 rounded-lg bg-card/50">
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-medium">{item.period} Efficiency</span>
                         <Badge variant="outline" className="text-xs">
@@ -606,7 +804,7 @@ export function Replenishment() {
                       </div>
                       <Progress 
                         value={Math.min(100, parseInt(item.efficiency))} 
-                        className="h-3"
+                        className="h-2"
                       />
                       <div className="text-xs text-muted-foreground">
                         {item.sales} sales / {item.target} target
@@ -631,23 +829,39 @@ export function Replenishment() {
               <CardContent className="h-80">
                 <ChartContainer config={chartConfig}>
                   <ResponsiveContainer width="100%" height="100%">
-                    <RechartsPieChart>
+                    <RechartsPieChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
                       <Pie
                         data={pieChartData}
                         cx="50%"
                         cy="50%"
-                        innerRadius={60}
-                        outerRadius={120}
+                        innerRadius={50}
+                        outerRadius={100}
                         fill="#8884d8"
                         paddingAngle={5}
                         dataKey="value"
+                        label={({ name, value, percent }) => `${name}: ${value} (${(percent * 100).toFixed(0)}%)`}
+                        labelLine={false}
                       >
                         {pieChartData.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}
                       </Pie>
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                      <Legend />
+                      <ChartTooltip 
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            const data = payload[0].payload;
+                            return (
+                              <div className="bg-background border rounded-lg p-3 shadow-lg">
+                                <p className="text-sm font-medium">{data.name}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {data.value} items ({((data.value / Math.max(1, inventoryMetrics.forecasting.totalActiveItems)) * 100).toFixed(1)}%)
+                                </p>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
                     </RechartsPieChart>
                   </ResponsiveContainer>
                 </ChartContainer>
@@ -663,7 +877,7 @@ export function Replenishment() {
               </CardHeader>
               <CardContent className="h-80">
                 <div className="flex items-center justify-center h-full">
-                  <div className="text-center space-y-4">
+                  <div className="text-center space-y-6">
                     <div className="relative w-40 h-40 mx-auto">
                       <svg className="w-40 h-40 transform -rotate-90" viewBox="0 0 36 36">
                         <path
@@ -690,14 +904,20 @@ export function Replenishment() {
                         </div>
                       </div>
                     </div>
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
+                    <div className="space-y-3">
+                      <div className="flex justify-between text-sm p-2 rounded bg-card/30">
                         <span>Critical Items:</span>
                         <span className="text-destructive font-medium">{inventoryMetrics.forecasting.criticalStockItems}</span>
                       </div>
-                      <div className="flex justify-between text-sm">
+                      <div className="flex justify-between text-sm p-2 rounded bg-card/30">
                         <span>Total Items:</span>
                         <span className="text-primary font-medium">{inventoryMetrics.forecasting.totalActiveItems}</span>
+                      </div>
+                      <div className="flex justify-between text-sm p-2 rounded bg-card/30">
+                        <span>Health Status:</span>
+                        <Badge variant={100 - (inventoryMetrics.forecasting.criticalStockItems / Math.max(1, inventoryMetrics.forecasting.totalActiveItems) * 100) >= 80 ? "default" : "destructive"}>
+                          {100 - (inventoryMetrics.forecasting.criticalStockItems / Math.max(1, inventoryMetrics.forecasting.totalActiveItems) * 100) >= 80 ? "Healthy" : "Needs Attention"}
+                        </Badge>
                       </div>
                     </div>
                   </div>
@@ -805,39 +1025,6 @@ export function Replenishment() {
         </TabsContent>
       </Tabs>
 
-      {/* AI Forecasting Card */}
-      <Card className="glass-container">
-        <div className="p-4">
-          <h3 className="text-lg font-semibold bg-gradient-primary bg-clip-text text-transparent mb-4 flex items-center gap-2">
-            <Brain className="w-5 h-5 text-primary" />
-            🔮 AI Forecasting & Recommendations - {selectedCountry}
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-primary/10 rounded-lg p-4">
-              <div className="text-sm text-muted-foreground mb-2">Recommended Reorder Level</div>
-              <div className="text-2xl font-bold text-primary mb-1">
-                {inventoryMetrics.forecasting.recommendedReorderLevel}
-              </div>
-              <div className="text-xs text-muted-foreground">units (based on 30-day velocity)</div>
-            </div>
-            <div className="bg-accent/10 rounded-lg p-4">
-              <div className="text-sm text-muted-foreground mb-2">Average Lead Time</div>
-              <div className="text-2xl font-bold text-accent mb-1">
-                {inventoryMetrics.forecasting.avgLeadTime}
-              </div>
-              <div className="text-xs text-muted-foreground">days to restock</div>
-            </div>
-            <div className="bg-secondary/10 rounded-lg p-4">
-              <div className="text-sm text-muted-foreground mb-2">Forecasted Demand</div>
-              <div className="text-2xl font-bold text-secondary mb-1">
-                {Math.ceil((inventoryMetrics.salesTracking['30d'] || 0) / 30 * inventoryMetrics.forecasting.avgLeadTime)}
-              </div>
-              <div className="text-xs text-muted-foreground">units needed during lead time</div>
-            </div>
-          </div>
-        </div>
-      </Card>
-
       {/* Control Panel */}
       <Card className="glass-container">
         <div className="p-4">
@@ -867,239 +1054,191 @@ export function Replenishment() {
               </Select>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
-              <Button 
-                onClick={handleRefresh} 
-                disabled={loading}
-                variant="outline" 
-                className="glass-button"
-              >
-                <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-                Refresh
-              </Button>
-              <Button 
-                onClick={handleExport} 
-                disabled={isExporting}
-                className="bg-gradient-primary hover:bg-gradient-primary/90 border-0"
-              >
-                <Download className="w-4 h-4 mr-2" />
-                {isExporting ? 'Exporting...' : 'Export CSV'}
+            <div className="flex gap-2 w-full sm:w-auto">
+              <Button onClick={handleExport} disabled={isExporting} className="bg-gradient-secondary hover:opacity-90 text-white border-0 flex-1 sm:flex-none">
+                {isExporting ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    Exporting...
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-4 h-4 mr-2" />
+                    Export CSV
+                  </>
+                )}
               </Button>
             </div>
           </div>
         </div>
       </Card>
 
-      {/* Advanced Data Table */}
+      {/* Replenishment Items Table */}
       <Card className="glass-container">
         <div className="p-4">
-          <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <h3 className="text-xl font-semibold bg-gradient-primary bg-clip-text text-transparent">
-                AI Replenishment Analytics - {selectedCountry}
-              </h3>
-              <Badge variant="secondary" className="bg-gradient-primary/20 text-primary border-0">
-                {filteredData.length} items
-              </Badge>
+          <h3 className="text-lg font-semibold bg-gradient-primary bg-clip-text text-transparent mb-4">
+            📋 Replenishment Items ({filteredData.length})
+          </h3>
+          
+          {filteredData.length === 0 ? (
+            <div className="text-center py-12">
+              <Package className="w-16 h-16 text-muted-foreground mx-auto mb-4 opacity-50" />
+              <h4 className="text-lg font-medium text-muted-foreground mb-2">No replenishment items found</h4>
+              <p className="text-sm text-muted-foreground">
+                {searchTerm || filterStatus !== 'all' 
+                  ? 'Try adjusting your search or filter criteria' 
+                  : 'Add inventory items to see replenishment recommendations'}
+              </p>
             </div>
-            
-            <div className="border border-border/50 rounded-lg bg-card/30 backdrop-blur-sm overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[800px]">
-                  <thead className="bg-muted/50 backdrop-blur-sm">
-                    <tr className="border-b border-border/50">
-                      <th className="text-left p-3 font-semibold text-sm">Product</th>
-                      <th className="text-left p-3 font-semibold text-sm">Stock</th>
-                      <th className="text-left p-3 font-semibold text-sm">Status</th>
-                      <th className="text-left p-3 font-semibold text-sm">Sell Rate</th>
-                      <th className="text-left p-3 font-semibold text-sm">AI Recommendations</th>
-                      <th className="text-left p-3 font-semibold text-sm">Actions</th>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border/50">
+                    <th className="text-left p-3 font-medium text-muted-foreground">Product</th>
+                    <th className="text-left p-3 font-medium text-muted-foreground">Type</th>
+                    <th className="text-left p-3 font-medium text-muted-foreground">Current Stock</th>
+                    <th className="text-left p-3 font-medium text-muted-foreground">Status</th>
+                    <th className="text-left p-3 font-medium text-muted-foreground">Daily Rate</th>
+                    <th className="text-left p-3 font-medium text-muted-foreground">Reorder Qty</th>
+                    <th className="text-left p-3 font-medium text-muted-foreground">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredData.map((item) => (
+                    <tr key={item.id} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
+                      <td className="p-3">
+                        <div className="font-medium text-foreground">{item.product_id}</div>
+                      </td>
+                      <td className="p-3">
+                        <Badge variant="outline" className="text-xs">
+                          {item.product_type.toUpperCase()}
+                        </Badge>
+                      </td>
+                      <td className="p-3">
+                        <span className="font-medium text-foreground">{item.current_stock}</span>
+                      </td>
+                      <td className="p-3">
+                        <Badge variant={item.status_color}>
+                          {item.status}
+                        </Badge>
+                      </td>
+                      <td className="p-3">
+                        <span className="text-muted-foreground">{item.daily_sell_rate.toFixed(1)}</span>
+                      </td>
+                      <td className="p-3">
+                        <span className="font-medium text-accent">{item.suggested_reorder_qty}</span>
+                      </td>
+                      <td className="p-3">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setSelectedItem(item)}
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {filteredData.map((item) => (
-                      <tr key={item.id} className="border-b border-border/30 hover:bg-muted/30 transition-colors">
-                        <td className="p-3">
-                          <div className="space-y-1">
-                            <div className="font-medium text-foreground text-sm">{item.product_id}</div>
-                            <div className="text-xs text-muted-foreground uppercase">
-                              {item.product_type}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="p-3">
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium text-sm">{item.current_stock}</span>
-                              <span className="text-muted-foreground text-xs">/ {item.min_threshold} min</span>
-                            </div>
-                            <Progress 
-                              value={(item.current_stock / item.min_threshold) * 100} 
-                              className="h-2"
-                            />
-                          </div>
-                        </td>
-                        <td className="p-3">
-                          <Badge 
-                            variant={item.status_color === 'destructive' ? 'destructive' : 
-                                   item.status_color === 'secondary' ? 'secondary' : 'outline'}
-                            className={`text-xs ${item.status_color === 'destructive' ? 'bg-destructive/20 text-destructive border-destructive/30' :
-                                       item.status_color === 'secondary' ? 'bg-secondary/20 text-secondary border-secondary/30' :
-                                       'bg-accent/20 text-accent border-accent/30'}`}
-                          >
-                            {item.status_icon} {item.status}
-                          </Badge>
-                        </td>
-                        <td className="p-3">
-                          <div className="space-y-1">
-                            <div className="text-sm font-medium">{item.daily_sell_rate.toFixed(1)}/day</div>
-                            <div className="text-xs text-muted-foreground">
-                              {item.weekly_sell_rate.toFixed(1)}/week
-                            </div>
-                          </div>
-                        </td>
-                        <td className="p-3">
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-2">
-                              <Sparkles className="w-4 h-4 text-primary" />
-                              <span className="text-xs font-medium">Reorder: {item.suggested_reorder_qty} units</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Calendar className="w-4 h-4 text-accent" />
-                              <span className="text-xs text-muted-foreground">{item.suggested_restock_date}</span>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="p-3">
-                          <Dialog>
-                            <DialogTrigger asChild>
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                className="glass-button text-xs"
-                                onClick={() => setSelectedItem(item)}
-                              >
-                                <Eye className="w-4 h-4 mr-2" />
-                                Details
-                              </Button>
-                            </DialogTrigger>
-                          </Dialog>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                  ))}
+                </tbody>
+              </table>
             </div>
-            
-            {filteredData.length === 0 && (
-              <div className="text-center py-8 text-muted-foreground">
-                <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                <p>No items found matching your criteria</p>
-              </div>
-            )}
-          </div>
+          )}
         </div>
       </Card>
 
       {/* Item Details Dialog */}
       {selectedItem && (
         <Dialog open={!!selectedItem} onOpenChange={() => setSelectedItem(null)}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto glass-container">
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle className="bg-gradient-primary bg-clip-text text-transparent">
-                AI Replenishment Analysis: {selectedItem.product_id}
+              <DialogTitle className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+                📦 Replenishment Details: {selectedItem.product_id}
               </DialogTitle>
             </DialogHeader>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <Card className="p-4 bg-card/50">
-                  <h4 className="font-semibold mb-3 flex items-center gap-2">
-                    <Package className="w-5 h-5 text-primary" />
-                    Current Inventory Status
-                  </h4>
-                  <div className="space-y-3">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Current Stock:</span>
-                      <span className="font-medium">{selectedItem.current_stock} units</span>
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card className="glass-container">
+                  <div className="p-4">
+                    <h4 className="font-semibold text-foreground mb-3">Current Status</h4>
+                    <div className="space-y-3">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Product Type:</span>
+                        <Badge variant="outline">{selectedItem.product_type.toUpperCase()}</Badge>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Current Stock:</span>
+                        <span className="font-medium">{selectedItem.current_stock} units</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Min Threshold:</span>
+                        <span className="font-medium">{selectedItem.min_threshold} units</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Status:</span>
+                        <Badge variant={selectedItem.status_color}>{selectedItem.status}</Badge>
+                      </div>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Minimum Threshold:</span>
-                      <span className="font-medium">{selectedItem.min_threshold} units</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Lead Time:</span>
-                      <span className="font-medium">{selectedItem.lead_time_days} days</span>
-                    </div>
-                    <Progress 
-                      value={(selectedItem.current_stock / selectedItem.min_threshold) * 100} 
-                      className="h-3"
-                    />
                   </div>
                 </Card>
 
-                <Card className="p-4 bg-card/50">
-                  <h4 className="font-semibold mb-3 flex items-center gap-2">
-                    <BarChart3 className="w-5 h-5 text-accent" />
-                    Sales Velocity
-                  </h4>
-                  <div className="space-y-3">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Daily Rate:</span>
-                      <span className="font-medium">{selectedItem.daily_sell_rate.toFixed(2)} units/day</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Weekly Rate:</span>
-                      <span className="font-medium">{selectedItem.weekly_sell_rate.toFixed(1)} units/week</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Monthly Rate:</span>
-                      <span className="font-medium">{selectedItem.monthly_sell_rate.toFixed(0)} units/month</span>
+                <Card className="glass-container">
+                  <div className="p-4">
+                    <h4 className="font-semibold text-foreground mb-3">Sales Performance</h4>
+                    <div className="space-y-3">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Daily Sell Rate:</span>
+                        <span className="font-medium">{selectedItem.daily_sell_rate.toFixed(2)} units/day</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Weekly Sell Rate:</span>
+                        <span className="font-medium">{selectedItem.weekly_sell_rate.toFixed(2)} units/week</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Monthly Sell Rate:</span>
+                        <span className="font-medium">{selectedItem.monthly_sell_rate.toFixed(2)} units/month</span>
+                      </div>
                     </div>
                   </div>
                 </Card>
-              </div>
 
-              <div className="space-y-4">
-                <Card className="p-4 bg-gradient-primary/5 border-primary/20">
-                  <h4 className="font-semibold mb-3 flex items-center gap-2">
-                    <Brain className="w-5 h-5 text-primary" />
-                    AI Recommendations
-                  </h4>
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-3 p-3 rounded-lg bg-primary/10">
-                      <Sparkles className="w-5 h-5 text-primary" />
-                      <div>
-                        <div className="font-medium">Suggested Reorder Quantity</div>
-                        <div className="text-2xl font-bold text-primary">{selectedItem.suggested_reorder_qty} units</div>
+                <Card className="glass-container">
+                  <div className="p-4">
+                    <h4 className="font-semibold text-foreground mb-3">Replenishment Plan</h4>
+                    <div className="space-y-3">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Suggested Reorder Qty:</span>
+                        <span className="font-medium text-accent">{selectedItem.suggested_reorder_qty} units</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Lead Time:</span>
+                        <span className="font-medium">{selectedItem.lead_time_days} days</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Suggested Restock Date:</span>
+                        <span className="font-medium">{selectedItem.suggested_restock_date}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Projected Stockout:</span>
+                        <span className="font-medium text-destructive">{selectedItem.projected_stockout_date}</span>
                       </div>
                     </div>
-                    
-                    <div className="flex items-center gap-3 p-3 rounded-lg bg-accent/10">
-                      <Calendar className="w-5 h-5 text-accent" />
-                      <div>
-                        <div className="font-medium">Suggested Restock Date</div>
-                        <div className="text-lg font-semibold text-accent">{selectedItem.suggested_restock_date}</div>
+                  </div>
+                </Card>
+
+                <Card className="glass-container">
+                  <div className="p-4">
+                    <h4 className="font-semibold text-foreground mb-3">AI Confidence</h4>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Confidence Score:</span>
+                        <Badge variant="default">{selectedItem.confidence_score}%</Badge>
                       </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-3 p-3 rounded-lg bg-destructive/10">
-                      <AlertTriangle className="w-5 h-5 text-destructive" />
-                      <div>
-                        <div className="font-medium">Projected Stock-out</div>
-                        <div className="text-lg font-semibold text-destructive">{selectedItem.projected_stockout_date}</div>
+                      <Progress value={selectedItem.confidence_score} className="w-full" />
+                      <div className="text-xs text-muted-foreground">
+                        Based on historical data and sales patterns
                       </div>
-                    </div>
-                    
-                    <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/10">
-                      <div className="flex items-center gap-2">
-                        <Target className="w-5 h-5 text-secondary" />
-                        <span className="font-medium">AI Confidence Score</span>
-                      </div>
-                      <Badge variant="secondary" className="bg-secondary/20 text-secondary border-secondary/30">
-                        {selectedItem.confidence_score}%
-                      </Badge>
                     </div>
                   </div>
                 </Card>
