@@ -1098,13 +1098,13 @@ export function SSInventory() {
                         <td className="p-4">
                           <div className="flex gap-2">
                             <QuantityEditor
-                              itemId={item.id}
                               currentQuantity={item.quantity}
                               onUpdate={(newQuantity, reason) => updateQuantity(item.id, newQuantity, reason)}
                             />
                             <StockHistoryDialog
                               inventoryType="sku"
                               inventoryId={item.id}
+                              itemIdentifier={`${item.skuNumber} (${item.binSerialNumber})`}
                             />
                           </div>
                         </td>
@@ -1176,13 +1176,13 @@ export function SSInventory() {
 
                     <div className="flex gap-2 pt-2 border-t">
                       <QuantityEditor
-                        itemId={item.id}
                         currentQuantity={item.quantity}
                         onUpdate={(newQuantity, reason) => updateQuantity(item.id, newQuantity, reason)}
                       />
                       <StockHistoryDialog
                         inventoryType="sku"
                         inventoryId={item.id}
+                        itemIdentifier={`${item.skuNumber} (${item.binSerialNumber})`}
                       />
                     </div>
                   </div>
