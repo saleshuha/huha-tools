@@ -518,100 +518,100 @@ export function AsinInventory() {
         </div>
 
         {/* Quick Stats Dashboard */}
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-          <Card className="hover:shadow-lg transition-all duration-300">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30">
-                  <Package className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3 md:gap-4">
+          <Card className="hover:shadow-lg transition-all duration-300 min-w-0">
+            <CardContent className="p-3 md:p-4">
+              <div className="flex items-center gap-2 md:gap-3">
+                <div className="p-1.5 md:p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex-shrink-0">
+                  <Package className="w-4 h-4 md:w-5 md:h-5 text-blue-600 dark:text-blue-400" />
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Total</p>
-                  <p className="text-2xl font-bold">{stats.total}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="hover:shadow-lg transition-all duration-300">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-green-100 dark:bg-green-900/30">
-                  <Check className="w-5 h-5 text-green-600 dark:text-green-400" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">In Stock</p>
-                  <p className="text-2xl font-bold text-green-600">{stats.inStock}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs md:text-sm text-muted-foreground truncate">Total</p>
+                  <p className="text-lg md:text-2xl font-bold">{stats.total}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="hover:shadow-lg transition-all duration-300">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-yellow-100 dark:bg-yellow-900/30">
-                  <AlertTriangle className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
+          <Card className="hover:shadow-lg transition-all duration-300 min-w-0">
+            <CardContent className="p-3 md:p-4">
+              <div className="flex items-center gap-2 md:gap-3">
+                <div className="p-1.5 md:p-2 rounded-lg bg-green-100 dark:bg-green-900/30 flex-shrink-0">
+                  <Check className="w-4 h-4 md:w-5 md:h-5 text-green-600 dark:text-green-400" />
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Low Stock</p>
-                  <p className="text-2xl font-bold text-yellow-600">{stats.lowStock}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="hover:shadow-lg transition-all duration-300">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-red-100 dark:bg-red-900/30">
-                  <X className="w-5 h-5 text-red-600 dark:text-red-400" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Out of Stock</p>
-                  <p className="text-2xl font-bold text-red-600">{stats.outOfStock}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs md:text-sm text-muted-foreground truncate">In Stock</p>
+                  <p className="text-lg md:text-2xl font-bold text-green-600">{stats.inStock}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="hover:shadow-lg transition-all duration-300">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-900/30">
-                  <ShoppingCart className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+          <Card className="hover:shadow-lg transition-all duration-300 min-w-0">
+            <CardContent className="p-3 md:p-4">
+              <div className="flex items-center gap-2 md:gap-3">
+                <div className="p-1.5 md:p-2 rounded-lg bg-yellow-100 dark:bg-yellow-900/30 flex-shrink-0">
+                  <AlertTriangle className="w-4 h-4 md:w-5 md:h-5 text-yellow-600 dark:text-yellow-400" />
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Sold</p>
-                  <p className="text-2xl font-bold text-purple-600">{stats.sold}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="hover:shadow-lg transition-all duration-300">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-cyan-100 dark:bg-cyan-900/30">
-                  <TrendingUp className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Units</p>
-                  <p className="text-2xl font-bold text-cyan-600">{stats.totalValue}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs md:text-sm text-muted-foreground truncate">Low Stock</p>
+                  <p className="text-lg md:text-2xl font-bold text-yellow-600">{stats.lowStock}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="hover:shadow-lg transition-all duration-300">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-indigo-100 dark:bg-indigo-900/30">
-                  <Clock className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+          <Card className="hover:shadow-lg transition-all duration-300 min-w-0">
+            <CardContent className="p-3 md:p-4">
+              <div className="flex items-center gap-2 md:gap-3">
+                <div className="p-1.5 md:p-2 rounded-lg bg-red-100 dark:bg-red-900/30 flex-shrink-0">
+                  <X className="w-4 h-4 md:w-5 md:h-5 text-red-600 dark:text-red-400" />
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Recent</p>
-                  <p className="text-2xl font-bold text-indigo-600">{stats.recentlyAdded}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs md:text-sm text-muted-foreground truncate">Out of Stock</p>
+                  <p className="text-lg md:text-2xl font-bold text-red-600">{stats.outOfStock}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="hover:shadow-lg transition-all duration-300 min-w-0">
+            <CardContent className="p-3 md:p-4">
+              <div className="flex items-center gap-2 md:gap-3">
+                <div className="p-1.5 md:p-2 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex-shrink-0">
+                  <ShoppingCart className="w-4 h-4 md:w-5 md:h-5 text-purple-600 dark:text-purple-400" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs md:text-sm text-muted-foreground truncate">Sold</p>
+                  <p className="text-lg md:text-2xl font-bold text-purple-600">{stats.sold}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="hover:shadow-lg transition-all duration-300 min-w-0">
+            <CardContent className="p-3 md:p-4">
+              <div className="flex items-center gap-2 md:gap-3">
+                <div className="p-1.5 md:p-2 rounded-lg bg-cyan-100 dark:bg-cyan-900/30 flex-shrink-0">
+                  <TrendingUp className="w-4 h-4 md:w-5 md:h-5 text-cyan-600 dark:text-cyan-400" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs md:text-sm text-muted-foreground truncate">Total Units</p>
+                  <p className="text-lg md:text-2xl font-bold text-cyan-600">{stats.totalValue}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="hover:shadow-lg transition-all duration-300 min-w-0">
+            <CardContent className="p-3 md:p-4">
+              <div className="flex items-center gap-2 md:gap-3">
+                <div className="p-1.5 md:p-2 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 flex-shrink-0">
+                  <Clock className="w-4 h-4 md:w-5 md:h-5 text-indigo-600 dark:text-indigo-400" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs md:text-sm text-muted-foreground truncate">Recent</p>
+                  <p className="text-lg md:text-2xl font-bold text-indigo-600">{stats.recentlyAdded}</p>
                 </div>
               </div>
             </CardContent>
@@ -619,195 +619,172 @@ export function AsinInventory() {
         </div>
       </div>
 
-      {/* Advanced Controls Panel */}
+      {/* Unified Controls Panel */}
       <Card className="border-0 shadow-lg bg-card/50 backdrop-blur-sm">
         <CardContent className="p-6">
-          <Tabs defaultValue="filters" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="filters" className="flex items-center gap-2">
+          <div className="space-y-6">
+            {/* Search Bar */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+              <Input
+                placeholder="Advanced search: ASIN, Serial Number, Notes (use spaces for multiple terms)..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 h-12 text-lg"
+              />
+            </div>
+
+            {/* Quick Filters */}
+            <div className="flex flex-wrap gap-2">
+              <Label className="text-sm font-medium flex items-center gap-2 mb-2 w-full">
                 <Filter className="w-4 h-4" />
-                Filters
-              </TabsTrigger>
-              <TabsTrigger value="search" className="flex items-center gap-2">
-                <Search className="w-4 h-4" />
-                Search
-              </TabsTrigger>
-              <TabsTrigger value="view" className="flex items-center gap-2">
-                <Eye className="w-4 h-4" />
-                View
-              </TabsTrigger>
-              <TabsTrigger value="actions" className="flex items-center gap-2">
-                <Settings className="w-4 h-4" />
-                Actions
-              </TabsTrigger>
-            </TabsList>
+                Quick Filters:
+              </Label>
+              <Button
+                variant={quickFilter === 'all' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setQuickFilter('all')}
+                className="flex items-center gap-2"
+              >
+                <Package className="w-4 h-4" />
+                All Items
+              </Button>
+              <Button
+                variant={quickFilter === 'low-stock' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setQuickFilter('low-stock')}
+                className="flex items-center gap-2"
+              >
+                <AlertTriangle className="w-4 h-4" />
+                Low Stock
+              </Button>
+              <Button
+                variant={quickFilter === 'out-of-stock' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setQuickFilter('out-of-stock')}
+                className="flex items-center gap-2"
+              >
+                <X className="w-4 h-4" />
+                Out of Stock
+              </Button>
+              <Button
+                variant={quickFilter === 'recent' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setQuickFilter('recent')}
+                className="flex items-center gap-2"
+              >
+                <Clock className="w-4 h-4" />
+                Recent
+              </Button>
+            </div>
 
-            <TabsContent value="filters" className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Quick Filters */}
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Quick Filters</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      variant={quickFilter === 'all' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setQuickFilter('all')}
-                      className="justify-start"
-                    >
-                      <Package className="w-4 h-4 mr-2" />
-                      All Items
-                    </Button>
-                    <Button
-                      variant={quickFilter === 'low-stock' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setQuickFilter('low-stock')}
-                      className="justify-start"
-                    >
-                      <AlertTriangle className="w-4 h-4 mr-2" />
-                      Low Stock
-                    </Button>
-                    <Button
-                      variant={quickFilter === 'out-of-stock' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setQuickFilter('out-of-stock')}
-                      className="justify-start"
-                    >
-                      <X className="w-4 h-4 mr-2" />
-                      Out of Stock
-                    </Button>
-                    <Button
-                      variant={quickFilter === 'recent' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setQuickFilter('recent')}
-                      className="justify-start"
-                    >
-                      <Clock className="w-4 h-4 mr-2" />
-                      Recent
-                    </Button>
-                  </div>
-                </div>
+            {/* Filters and Controls Row */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              {/* Status Filter */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Status Filter</Label>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="bg-background border z-50">
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border z-50">
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="in-stock">In Stock Only</SelectItem>
+                    <SelectItem value="sold">Sold Only</SelectItem>
+                    <SelectItem value="reserved">Reserved Only</SelectItem>
+                    <SelectItem value="damaged">Damaged Only</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-                {/* Status Filter */}
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Status Filter</Label>
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Filter by status" />
+              {/* Sort Options */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Sort By</Label>
+                <div className="flex gap-2">
+                  <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
+                    <SelectTrigger className="flex-1 bg-background border z-50">
+                      <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Status</SelectItem>
-                      <SelectItem value="in-stock">In Stock Only</SelectItem>
-                      <SelectItem value="sold">Sold Only</SelectItem>
-                      <SelectItem value="reserved">Reserved Only</SelectItem>
-                      <SelectItem value="damaged">Damaged Only</SelectItem>
+                    <SelectContent className="bg-background border z-50">
+                      <SelectItem value="dateAdded">Date Added</SelectItem>
+                      <SelectItem value="asin">ASIN</SelectItem>
+                      <SelectItem value="quantity">Quantity</SelectItem>
+                      <SelectItem value="status">Status</SelectItem>
                     </SelectContent>
                   </Select>
-                </div>
-
-                {/* Sort Options */}
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Sort By</Label>
-                  <div className="flex gap-2">
-                    <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
-                      <SelectTrigger className="flex-1">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="dateAdded">Date Added</SelectItem>
-                        <SelectItem value="asin">ASIN</SelectItem>
-                        <SelectItem value="quantity">Quantity</SelectItem>
-                        <SelectItem value="status">Status</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                    >
-                      {sortOrder === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />}
-                    </Button>
-                  </div>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                  >
+                    {sortOrder === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />}
+                  </Button>
                 </div>
               </div>
-            </TabsContent>
 
-            <TabsContent value="search" className="space-y-4">
-              <div className="space-y-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                  <Input
-                    placeholder="Advanced search: ASIN, Serial Number, Notes (use spaces for multiple terms)..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 h-12 text-lg"
-                  />
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  <p><strong>Tips:</strong> Use spaces to search multiple terms. Search across ASIN, Serial Number, and Notes.</p>
-                  <p>Example: "B123 damaged" will find items with ASIN containing "B123" and notes containing "damaged"</p>
-                </div>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="view" className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <Label className="text-sm font-medium">View Mode:</Label>
-                    <div className="flex border rounded-lg p-1">
-                      <Button
-                        variant={viewMode === 'table' ? 'default' : 'ghost'}
-                        size="sm"
-                        onClick={() => setViewMode('table')}
-                        className="h-8"
-                      >
-                        <List className="w-4 h-4 mr-1" />
-                        Table
-                      </Button>
-                      <Button
-                        variant={viewMode === 'grid' ? 'default' : 'ghost'}
-                        size="sm"
-                        onClick={() => setViewMode('grid')}
-                        className="h-8"
-                      >
-                        <Grid3X3 className="w-4 h-4 mr-1" />
-                        Grid
-                      </Button>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <Label className="text-sm font-medium">Items per page:</Label>
-                    <Select value={itemsPerPage.toString()} onValueChange={(value) => setItemsPerPage(Number(value))}>
-                      <SelectTrigger className="w-24">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="25">25</SelectItem>
-                        <SelectItem value="50">50</SelectItem>
-                        <SelectItem value="100">100</SelectItem>
-                        <SelectItem value="150">150</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="text-sm text-muted-foreground">
-                  Showing {Math.min(startIndex + 1, filteredInventory.length)}-{Math.min(startIndex + itemsPerPage, filteredInventory.length)} of {filteredInventory.length} items
+              {/* View Mode */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">View Mode</Label>
+                <div className="flex border rounded-lg p-1 bg-background">
+                  <Button
+                    variant={viewMode === 'table' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setViewMode('table')}
+                    className="h-8 flex-1"
+                  >
+                    <List className="w-4 h-4 mr-1" />
+                    Table
+                  </Button>
+                  <Button
+                    variant={viewMode === 'grid' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setViewMode('grid')}
+                    className="h-8 flex-1"
+                  >
+                    <Grid3X3 className="w-4 h-4 mr-1" />
+                    Grid
+                  </Button>
                 </div>
               </div>
-            </TabsContent>
 
-            <TabsContent value="actions" className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* Add Item */}
-                <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button className="h-12 justify-start bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600">
-                      <Plus className="w-5 h-5 mr-2" />
-                      Add New Item
-                    </Button>
-                  </DialogTrigger>
+              {/* Items per page */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Items per page</Label>
+                <Select value={itemsPerPage.toString()} onValueChange={(value) => setItemsPerPage(Number(value))}>
+                  <SelectTrigger className="bg-background border z-50">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border z-50">
+                    <SelectItem value="25">25</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                    <SelectItem value="100">100</SelectItem>
+                    <SelectItem value="150">150</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Results Info */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Results</Label>
+                <div className="text-sm text-muted-foreground bg-muted/30 rounded-md px-3 py-2">
+                  {Math.min(startIndex + 1, filteredInventory.length)}-{Math.min(startIndex + itemsPerPage, filteredInventory.length)} of {filteredInventory.length}
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex flex-wrap gap-3">
+              <Label className="text-sm font-medium flex items-center gap-2 mb-2 w-full">
+                <Settings className="w-4 h-4" />
+                Actions:
+              </Label>
+              <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button className="bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add New Item
+                  </Button>
+                </DialogTrigger>
                   <DialogContent className="max-w-md">
                     <DialogHeader>
                       <DialogTitle className="flex items-center gap-2">
@@ -881,14 +858,13 @@ export function AsinInventory() {
                   </DialogContent>
                 </Dialog>
 
-                {/* Bulk Add */}
-                <Dialog open={isBulkDialogOpen} onOpenChange={setIsBulkDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button variant="outline" className="h-12 justify-start">
-                      <Upload className="w-5 h-5 mr-2" />
-                      Bulk Add Items
-                    </Button>
-                  </DialogTrigger>
+              <Dialog open={isBulkDialogOpen} onOpenChange={setIsBulkDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline">
+                    <Upload className="w-4 h-4 mr-2" />
+                    Bulk Add Items
+                  </Button>
+                </DialogTrigger>
                   <DialogContent className="max-w-2xl">
                     <DialogHeader>
                       <DialogTitle>Bulk Add ASIN Items</DialogTitle>
@@ -922,38 +898,31 @@ export function AsinInventory() {
                   </DialogContent>
                 </Dialog>
 
-                {/* Export */}
-                <Button
-                  variant="outline"
-                  onClick={exportInventory}
-                  className="h-12 justify-start"
-                >
-                  <Download className="w-5 h-5 mr-2" />
-                  Export CSV
-                </Button>
+              <Button
+                variant="outline"
+                onClick={exportInventory}
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Export CSV
+              </Button>
 
-                {/* Email Export */}
-                <Button
-                  variant="outline"
-                  onClick={emailInventory}
-                  className="h-12 justify-start"
-                >
-                  <Mail className="w-5 h-5 mr-2" />
-                  Email Export
-                </Button>
+              <Button
+                variant="outline"
+                onClick={emailInventory}
+              >
+                <Mail className="w-4 h-4 mr-2" />
+                Email Export
+              </Button>
 
-                {/* Refresh */}
-                <Button
-                  variant="outline"
-                  onClick={refetch}
-                  className="h-12 justify-start"
-                >
-                  <RefreshCw className="w-5 h-5 mr-2" />
-                  Refresh Data
-                </Button>
-              </div>
-            </TabsContent>
-          </Tabs>
+              <Button
+                variant="outline"
+                onClick={refetch}
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Refresh Data
+              </Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
