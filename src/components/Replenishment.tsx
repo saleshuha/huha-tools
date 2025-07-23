@@ -264,6 +264,24 @@ export function Replenishment() {
     downloadCSV(csvContent, `restock-items-${selectedCountry}-${new Date().toISOString().split('T')[0]}.csv`);
   };
 
+  const exportOrderedData = () => {
+    const orderedItems = restockItems.filter(item => item.status === 'ordered');
+
+    const csvContent = [
+      ['Type', 'Identifier', 'Current Quantity', 'Days Since Restock', 'Order Status', 'Date Marked'],
+      ...orderedItems.map(item => [
+        item.table_name === 'asin_inventory' ? 'ASIN' : 'SKU',
+        item.identifier,
+        item.current_quantity,
+        item.days_since_last_restock || 'Never',
+        item.status,
+        new Date().toLocaleDateString()
+      ])
+    ].map(row => row.join(',')).join('\n');
+
+    downloadCSV(csvContent, `ordered-items-${selectedCountry}-${new Date().toISOString().split('T')[0]}.csv`);
+  };
+
   const downloadCSV = (content: string, filename: string) => {
     const blob = new Blob([content], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -350,12 +368,12 @@ export function Replenishment() {
     );
   });
 
-  // Chart configurations
+  // Chart configurations with updated SKU color scheme
   const chartConfig = {
     total_sold: { label: "Total Sold", color: "hsl(var(--primary))" },
     total_restocked: { label: "Total Restocked", color: "hsl(var(--secondary))" },
     asin_sold: { label: "ASIN Sold", color: "hsl(var(--chart-1))" },
-    sku_sold: { label: "SKU Sold", color: "hsl(var(--chart-2))" },
+    sku_sold: { label: "SKU Sold", color: "hsl(220, 70%, 50%)" }, // Changed to blue scheme
     sell_rate: { label: "Daily Rate", color: "hsl(var(--accent))" }
   };
 
@@ -378,7 +396,7 @@ export function Replenishment() {
       </div>
 
       {/* Key Metrics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <Card className="glass-container hover-scale">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -419,6 +437,21 @@ export function Replenishment() {
               </div>
               <div className="p-3 rounded-full bg-destructive/20">
                 <AlertTriangle className="w-6 h-6 text-destructive" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="glass-container hover-scale">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Items Ordered</p>
+                <p className="text-3xl font-bold text-foreground">{restockItems.filter(item => item.status === 'ordered').length}</p>
+                <p className="text-sm" style={{ color: 'hsl(220, 70%, 50%)' }}>From supplier</p>
+              </div>
+              <div className="p-3 rounded-full" style={{ backgroundColor: 'hsl(220, 70%, 50%, 0.2)' }}>
+                <Truck className="w-6 h-6" style={{ color: 'hsl(220, 70%, 50%)' }} />
               </div>
             </div>
           </CardContent>
@@ -527,19 +560,19 @@ export function Replenishment() {
                   </div>
 
                   <div className="space-y-4">
-                    <h4 className="font-medium text-secondary">SKU Performance</h4>
+                    <h4 className="font-medium" style={{ color: 'hsl(220, 70%, 50%)' }}>SKU Performance</h4>
                     <div className="space-y-3">
-                      <div className="flex justify-between items-center p-3 rounded-lg bg-secondary/10">
+                      <div className="flex justify-between items-center p-3 rounded-lg" style={{ backgroundColor: 'hsl(220, 70%, 50%, 0.1)' }}>
                         <span className="text-sm">Items Sold</span>
-                        <span className="font-bold text-secondary">{selectedPeriodData.sku_sold}</span>
+                        <span className="font-bold" style={{ color: 'hsl(220, 70%, 50%)' }}>{selectedPeriodData.sku_sold}</span>
                       </div>
-                      <div className="flex justify-between items-center p-3 rounded-lg bg-secondary/10">
+                      <div className="flex justify-between items-center p-3 rounded-lg" style={{ backgroundColor: 'hsl(220, 70%, 50%, 0.1)' }}>
                         <span className="text-sm">Restocked</span>
-                        <span className="font-bold text-secondary">{selectedPeriodData.sku_restocked}</span>
+                        <span className="font-bold" style={{ color: 'hsl(220, 70%, 50%)' }}>{selectedPeriodData.sku_restocked}</span>
                       </div>
-                      <div className="flex justify-between items-center p-3 rounded-lg bg-secondary/10">
+                      <div className="flex justify-between items-center p-3 rounded-lg" style={{ backgroundColor: 'hsl(220, 70%, 50%, 0.1)' }}>
                         <span className="text-sm">Daily Rate</span>
-                        <span className="font-bold text-secondary">{(selectedPeriodData.sku_sold / parseInt(selectedPeriod)).toFixed(1)}</span>
+                        <span className="font-bold" style={{ color: 'hsl(220, 70%, 50%)' }}>{(selectedPeriodData.sku_sold / parseInt(selectedPeriod)).toFixed(1)}</span>
                       </div>
                     </div>
                   </div>
@@ -617,6 +650,10 @@ export function Replenishment() {
                 <p className="text-muted-foreground">Manage items that require replenishment (≤5 units)</p>
               </div>
               <div className="flex items-center gap-2">
+                <Button onClick={exportOrderedData} variant="outline" size="sm" className="gap-2" style={{ backgroundColor: 'hsl(220, 70%, 50%, 0.1)', borderColor: 'hsl(220, 70%, 50%)', color: 'hsl(220, 70%, 50%)' }}>
+                  <Download className="w-4 h-4" />
+                  Export Ordered Items
+                </Button>
                 <Button onClick={exportRestockData} variant="outline" size="sm" className="gap-2">
                   <Download className="w-4 h-4" />
                   Export Restock Data
