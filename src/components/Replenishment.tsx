@@ -211,6 +211,20 @@ export function Replenishment() {
     }
   };
 
+  // Filter restock items with bulk search support (moved up to be available for handlers)
+  const filteredRestockItems = restockItems.filter(item => {
+    if (item.status !== 'pending') return false;
+    
+    if (!searchTerm.trim()) return true;
+    
+    // Support bulk search - split by comma and search for any match
+    const searchTerms = searchTerm.toLowerCase().split(',').map(term => term.trim()).filter(Boolean);
+    
+    return searchTerms.some(term => 
+      item.identifier.toLowerCase().includes(term)
+    );
+  });
+
   // Bulk selection handlers
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
@@ -395,19 +409,6 @@ export function Replenishment() {
     );
   }
 
-  // Filter restock items with bulk search support
-  const filteredRestockItems = restockItems.filter(item => {
-    if (item.status !== 'pending') return false;
-    
-    if (!searchTerm.trim()) return true;
-    
-    // Support bulk search - split by comma and search for any match
-    const searchTerms = searchTerm.toLowerCase().split(',').map(term => term.trim()).filter(Boolean);
-    
-    return searchTerms.some(term => 
-      item.identifier.toLowerCase().includes(term)
-    );
-  });
 
   // Chart configurations with updated SKU color scheme
   const chartConfig = {
