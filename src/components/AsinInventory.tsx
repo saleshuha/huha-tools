@@ -1251,6 +1251,9 @@ export function AsinInventory() {
               </div>
             </div>
           </div>
+          </div>
+        </CardContent>
+      </Card>
         </CardContent>
       </Card>
 

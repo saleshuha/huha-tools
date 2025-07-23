@@ -9,8 +9,8 @@ export function Inventory() {
   console.log('Inventory component loaded, current view:', 'main');
   const [currentView, setCurrentView] = useState<InventoryView>('main');
   if (currentView === 'asin') {
-    return <div className="min-h-screen bg-gradient-surface p-6 ml-8">
-        <div className="max-w-7xl mx-auto space-y-6 pl-4">
+    return <div className="min-h-screen bg-gradient-surface p-4 md:p-6 ml-0 md:ml-16">
+        <div className="max-w-[95vw] mx-auto space-y-6">
         <div className="flex justify-end">
           <Button variant="default" onClick={() => setCurrentView('main')} className="mb-4 bg-primary hover:bg-primary/90 text-primary-foreground">
             ← Back to Inventory Menu
@@ -21,8 +21,8 @@ export function Inventory() {
       </div>;
   }
   if (currentView === 'ss') {
-    return <div className="min-h-screen bg-gradient-surface p-6 ml-8">
-        <div className="max-w-7xl mx-auto space-y-6 pl-4">
+    return <div className="min-h-screen bg-gradient-surface p-4 md:p-6 ml-0 md:ml-16">
+        <div className="max-w-[95vw] mx-auto space-y-6">
         <div className="flex justify-end">
           <Button variant="outline" onClick={() => setCurrentView('main')} className="mb-4">
             ← Back to Inventory Menu
@@ -32,8 +32,8 @@ export function Inventory() {
         </div>
       </div>;
   }
-  return <div className="min-h-screen bg-gradient-surface p-6 ml-8">
-      <div className="max-w-6xl mx-auto space-y-6 pl-4">
+  return <div className="min-h-screen bg-gradient-surface p-4 md:p-6 ml-0 md:ml-16">
+      <div className="max-w-[95vw] mx-auto space-y-6">
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-4">
