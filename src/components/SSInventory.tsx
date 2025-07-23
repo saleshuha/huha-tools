@@ -877,6 +877,7 @@ export function SSInventory() {
               </div>
             </div>
           </div>
+          </div>
         </CardContent>
       </Card>
 
