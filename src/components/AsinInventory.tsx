@@ -668,16 +668,19 @@ export function AsinInventory() {
                       <td className="p-4 text-sm text-muted-foreground">
                         {new Date(item.dateAdded).toLocaleDateString()}
                       </td>
-                      <td className="p-4">
-                        <div className="flex items-center gap-2">
-                          <Button size="sm" variant="ghost">
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button size="sm" variant="ghost">
-                            <Eye className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </td>
+                       <td className="p-4">
+                         <div className="flex items-center gap-2">
+                           <QuantityEditor
+                             currentQuantity={item.quantity}
+                             onUpdate={(newQuantity, reason) => updateQuantity(item.id, newQuantity, reason)}
+                           />
+                           <StockHistoryDialog
+                             inventoryId={item.id}
+                             itemIdentifier={`${item.asin} (${item.serialNumber})`}
+                             inventoryType="asin"
+                           />
+                         </div>
+                       </td>
                     </tr>
                   ))}
                 </tbody>
@@ -742,16 +745,17 @@ export function AsinInventory() {
                       <p className="text-sm">{new Date(item.dateAdded).toLocaleDateString()}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Button size="sm" variant="outline" className="flex-1">
-                      <Edit className="w-4 h-4 mr-1" />
-                      Edit
-                    </Button>
-                    <Button size="sm" variant="outline" className="flex-1">
-                      <Eye className="w-4 h-4 mr-1" />
-                      View
-                    </Button>
-                  </div>
+                   <div className="flex items-center gap-2">
+                     <QuantityEditor
+                       currentQuantity={item.quantity}
+                       onUpdate={(newQuantity, reason) => updateQuantity(item.id, newQuantity, reason)}
+                     />
+                     <StockHistoryDialog
+                       inventoryId={item.id}
+                       itemIdentifier={`${item.asin} (${item.serialNumber})`}
+                       inventoryType="asin"
+                     />
+                   </div>
                 </div>
               </CardContent>
             </Card>
