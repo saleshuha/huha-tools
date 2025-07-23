@@ -167,6 +167,113 @@ export function AsinInventory() {
     });
   };
 
+  const handleBulkAdd = async () => {
+    if (!bulkText.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Please enter some data to import",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const lines = bulkText.trim().split('\n');
+    const items = [];
+
+    for (const line of lines) {
+      const parts = line.split('\t');
+      if (parts.length >= 4) {
+        items.push({
+          asin: parts[0].trim(),
+          serialNumber: parts[1].trim(),
+          status: parts[2].trim() as AsinInventoryItem['status'],
+          quantity: parseInt(parts[3]) || 1,
+          notes: parts[4]?.trim() || '',
+          dateAdded: new Date().toISOString()
+        });
+      }
+    }
+
+    if (items.length === 0) {
+      toast({
+        title: "No Valid Data",
+        description: "No valid items found in the input",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    await bulkAdd(items);
+    setBulkText('');
+    setIsBulkDialogOpen(false);
+    toast({
+      title: "Success",
+      description: `Added ${items.length} items to inventory`,
+    });
+  };
+
+  const exportInventory = () => {
+    const csvData = [
+      ['ASIN', 'Serial Number', 'Status', 'Quantity', 'Date Added', 'Notes'],
+      ...filteredInventory.map(item => [
+        item.asin,
+        item.serialNumber,
+        item.status,
+        item.quantity.toString(),
+        new Date(item.dateAdded).toLocaleDateString(),
+        item.notes || ''
+      ])
+    ];
+
+    const csvContent = csvData.map(row => row.map(field => `"${field}"`).join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `asin-inventory-${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    toast({
+      title: "Export Complete",
+      description: "Inventory data exported to CSV file",
+    });
+  };
+
+  const emailInventory = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('send-inventory-email', {
+        body: {
+          inventory: filteredInventory,
+          userEmail: user?.email
+        }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Email Sent",
+        description: "Inventory report sent to your email",
+      });
+    } catch (error) {
+      toast({
+        title: "Email Failed",
+        description: "Could not send email report",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleRefresh = () => {
+    refetch();
+    toast({
+      title: "Refreshed",
+      description: "Inventory data refreshed",
+    });
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -299,15 +406,55 @@ export function AsinInventory() {
                   </DialogContent>
                 </Dialog>
 
-                <Button size="lg" variant="outline" className="border-primary/30 hover:bg-primary/5">
+                <Dialog open={isBulkDialogOpen} onOpenChange={setIsBulkDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="lg" variant="outline" className="border-2 hover:border-primary/50">
+                      <Upload className="w-5 h-5 mr-2" />
+                      Bulk Add Items
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                      <DialogTitle>Bulk Add ASIN Items</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="bulkText">
+                          Paste tab-separated data (ASIN, Serial Number, Status, Quantity, Notes)
+                        </Label>
+                        <Textarea
+                          id="bulkText"
+                          value={bulkText}
+                          onChange={(e) => setBulkText(e.target.value)}
+                          placeholder="B123456789	SN001	in-stock	5	Optional notes&#10;B987654321	SN002	sold	1	Another item"
+                          rows={8}
+                          className="font-mono text-sm"
+                        />
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        <p><strong>Format:</strong> Each line should contain tab-separated values</p>
+                        <p><strong>Order:</strong> ASIN → Serial Number → Status → Quantity → Notes</p>
+                        <p><strong>Status options:</strong> in-stock, sold, reserved, damaged</p>
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setIsBulkDialogOpen(false)}>
+                        Cancel
+                      </Button>
+                      <Button onClick={handleBulkAdd}>Add Items</Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+
+                <Button size="lg" variant="outline" className="border-primary/30 hover:bg-primary/5" onClick={exportInventory}>
                   <Download className="w-5 h-5 mr-2" />
                   Export
                 </Button>
-                <Button size="lg" variant="outline" className="border-blue-300 hover:bg-blue-50">
+                <Button size="lg" variant="outline" className="border-blue-300 hover:bg-blue-50" onClick={handleRefresh}>
                   <RefreshCw className="w-5 h-5 mr-2" />
                   Refresh
                 </Button>
-                <Button size="lg" variant="outline" className="border-purple-300 hover:bg-purple-50">
+                <Button size="lg" variant="outline" className="border-purple-300 hover:bg-purple-50" onClick={emailInventory}>
                   <Mail className="w-5 h-5 mr-2" />
                   Email Report
                 </Button>
