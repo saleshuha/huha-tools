@@ -85,7 +85,7 @@ export function Replenishment() {
   const [restockItems, setRestockItems] = useState<RestockItem[]>([]);
   const [salesData, setSalesData] = useState<SalesData[]>([]);
 
-  // Load restock items needing attention
+  // Load restock items needing attention - Real-time data
   const loadRestockItems = async () => {
     try {
       console.log('Loading restock items for country:', selectedCountry);
@@ -94,15 +94,8 @@ export function Replenishment() {
       
       console.log('Raw restock data from function:', data);
       
-      // Filter by country and add status field for tracking supplier orders
-      const filteredData = data?.filter((item: any) => {
-        // The database function should already filter by user, but let's ensure data integrity
-        return item.current_quantity === 0;
-      }) || [];
-      
-      console.log('Filtered restock items:', filteredData);
-      
-      const itemsWithStatus = filteredData.map((item: any) => ({
+      // The database function now filters by user and quantity = 0
+      const itemsWithStatus = (data || []).map((item: any) => ({
         ...item,
         status: 'pending' as const
       }));
