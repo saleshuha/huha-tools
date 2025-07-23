@@ -431,9 +431,9 @@ export function Replenishment() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Items Needing Restock</p>
+                <p className="text-sm font-medium text-muted-foreground">Critical Stock (0 Units)</p>
                 <p className="text-3xl font-bold text-foreground">{filteredRestockItems.length}</p>
-                <p className="text-sm text-destructive">Requires attention</p>
+                <p className="text-sm text-destructive">Out of stock</p>
               </div>
               <div className="p-3 rounded-full bg-destructive/20">
                 <AlertTriangle className="w-6 h-6 text-destructive" />
