@@ -37,6 +37,7 @@ import {
   Target,
   Zap
 } from 'lucide-react';
+import { Checkbox } from './ui/checkbox';
 import { 
   LineChart as RechartsLineChart, 
   Line, 
@@ -84,6 +85,7 @@ export function Replenishment() {
   const [selectedPeriod, setSelectedPeriod] = useState('30d');
   const [restockItems, setRestockItems] = useState<RestockItem[]>([]);
   const [salesData, setSalesData] = useState<SalesData[]>([]);
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
 
   // Load restock items needing attention - Real-time data
   const loadRestockItems = async () => {
@@ -207,6 +209,45 @@ export function Replenishment() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Bulk selection handlers
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      const allItemIds = filteredRestockItems.map(item => item.id);
+      setSelectedItems(new Set(allItemIds));
+    } else {
+      setSelectedItems(new Set());
+    }
+  };
+
+  const handleSelectItem = (itemId: string, checked: boolean) => {
+    const newSelected = new Set(selectedItems);
+    if (checked) {
+      newSelected.add(itemId);
+    } else {
+      newSelected.delete(itemId);
+    }
+    setSelectedItems(newSelected);
+  };
+
+  const handleBulkMarkAsOrdered = () => {
+    if (selectedItems.size === 0) return;
+    
+    setRestockItems(prev => 
+      prev.map(item => 
+        selectedItems.has(item.id)
+          ? { ...item, status: 'ordered' as const }
+          : item
+      )
+    );
+    
+    setSelectedItems(new Set());
+    
+    toast({
+      title: "Bulk Order Status Updated",
+      description: `${selectedItems.size} items marked as ordered from supplier`,
+    });
   };
 
   // Mark item as ordered from supplier
@@ -675,9 +716,42 @@ export function Replenishment() {
                   {filteredRestockItems.length} items need attention
                 </Badge>
                 <div className="text-xs text-muted-foreground">
-                  Items with ≤5 units in stock
+                  Critical stock (0 units)
                 </div>
               </div>
+
+              {/* Bulk Actions */}
+              {filteredRestockItems.length > 0 && (
+                <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="select-all"
+                        checked={selectedItems.size === filteredRestockItems.length && filteredRestockItems.length > 0}
+                        onCheckedChange={handleSelectAll}
+                      />
+                      <label htmlFor="select-all" className="text-sm font-medium">
+                        Select All ({filteredRestockItems.length} items)
+                      </label>
+                    </div>
+                    {selectedItems.size > 0 && (
+                      <Badge variant="secondary">
+                        {selectedItems.size} selected
+                      </Badge>
+                    )}
+                  </div>
+                  {selectedItems.size > 0 && (
+                    <Button
+                      onClick={handleBulkMarkAsOrdered}
+                      className="gap-2"
+                      style={{ backgroundColor: 'hsl(220, 70%, 50%)', color: 'white' }}
+                    >
+                      <Truck className="w-4 h-4" />
+                      Mark {selectedItems.size} as Ordered
+                    </Button>
+                  )}
+                </div>
+              )}
 
               {/* Search Guide */}
               {searchTerm && (
@@ -690,6 +764,11 @@ export function Replenishment() {
                 {filteredRestockItems.length > 0 ? filteredRestockItems.map((item) => (
                   <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
                     <div className="flex items-center gap-4">
+                      <Checkbox
+                        id={`select-${item.id}`}
+                        checked={selectedItems.has(item.id)}
+                        onCheckedChange={(checked) => handleSelectItem(item.id, checked as boolean)}
+                      />
                       <div className="p-2 rounded-lg bg-destructive/20">
                         {item.table_name === 'asin_inventory' ? (
                           <Package className="w-4 h-4 text-destructive" />
@@ -734,7 +813,7 @@ export function Replenishment() {
                       {searchTerm ? 'No matching items found' : 'All items are well stocked!'}
                     </p>
                     <p>
-                      {searchTerm ? 'Try adjusting your search terms' : 'No items currently need restocking (≤5 units)'}
+                      {searchTerm ? 'Try adjusting your search terms' : 'No items currently have critical stock (0 units)'}
                     </p>
                   </div>
                 )}
