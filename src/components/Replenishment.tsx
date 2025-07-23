@@ -97,11 +97,13 @@ export function Replenishment() {
       console.log('Raw restock data from function:', data);
       
       // The database function now filters by user and quantity = 0
-      const itemsWithStatus = (data || []).map((item: any) => ({
+      const itemsWithStatus = (data || []).map((item: any, index: number) => ({
         ...item,
+        id: item.id || `${item.identifier}-${item.table_name}-${index}`, // Generate unique ID if missing
         status: 'pending' as const
       }));
       
+      console.log('First item structure:', itemsWithStatus[0]);
       setRestockItems(itemsWithStatus);
       console.log('Set restock items:', itemsWithStatus.length, 'items');
     } catch (error: any) {
