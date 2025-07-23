@@ -772,7 +772,10 @@ export function Replenishment() {
                       <Checkbox
                         id={`select-${item.id}`}
                         checked={selectedItems.has(item.id)}
-                        onCheckedChange={(checked) => handleSelectItem(item.id, checked as boolean)}
+                        onCheckedChange={(checked) => {
+                          console.log('Individual checkbox clicked:', { itemId: item.id, checked });
+                          handleSelectItem(item.id, checked as boolean);
+                        }}
                       />
                       <div className="p-2 rounded-lg bg-destructive/20">
                         {item.table_name === 'asin_inventory' ? (
