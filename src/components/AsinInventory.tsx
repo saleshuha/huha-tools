@@ -450,22 +450,166 @@ export function AsinInventory() {
             )}
           </CardContent>
         </Card>
-      ) : (
+      ) : viewMode === 'table' ? (
         <Card>
-          <CardContent className="p-6">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold">Inventory Items</h3>
-                <span className="text-sm text-muted-foreground">
-                  Showing {paginatedInventory.length} of {filteredInventory.length} items
-                </span>
-              </div>
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">Inventory table view coming soon...</p>
-              </div>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-muted/50">
+                  <tr className="border-b">
+                    <th className="p-4 text-left">
+                      <Checkbox
+                        checked={selectedItems.size === paginatedInventory.length && paginatedInventory.length > 0}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSelectedItems(new Set(paginatedInventory.map(item => item.id)));
+                          } else {
+                            setSelectedItems(new Set());
+                          }
+                        }}
+                      />
+                    </th>
+                    <th className="p-4 text-left font-medium">ASIN</th>
+                    <th className="p-4 text-left font-medium">Serial Number</th>
+                    <th className="p-4 text-left font-medium">Status</th>
+                    <th className="p-4 text-left font-medium">Quantity</th>
+                    <th className="p-4 text-left font-medium">Date Added</th>
+                    <th className="p-4 text-left font-medium">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedInventory.map((item) => (
+                    <tr key={item.id} className="border-b hover:bg-muted/25 transition-colors">
+                      <td className="p-4">
+                        <Checkbox
+                          checked={selectedItems.has(item.id)}
+                          onCheckedChange={(checked) => {
+                            const newSelected = new Set(selectedItems);
+                            if (checked) {
+                              newSelected.add(item.id);
+                            } else {
+                              newSelected.delete(item.id);
+                            }
+                            setSelectedItems(newSelected);
+                          }}
+                        />
+                      </td>
+                      <td className="p-4 font-mono text-sm">{item.asin}</td>
+                      <td className="p-4 font-mono text-sm">{item.serialNumber}</td>
+                      <td className="p-4">
+                        <Badge variant={
+                          item.status === 'in-stock' ? 'default' :
+                          item.status === 'sold' ? 'secondary' :
+                          item.status === 'reserved' ? 'outline' : 'destructive'
+                        }>
+                          {item.status.replace('-', ' ').toUpperCase()}
+                        </Badge>
+                      </td>
+                      <td className="p-4">
+                        <div className="flex items-center gap-2">
+                          <span className={`font-semibold ${
+                            item.quantity === 0 ? 'text-red-500' :
+                            item.quantity <= 5 ? 'text-yellow-500' : 'text-green-500'
+                          }`}>
+                            {item.quantity}
+                          </span>
+                          {item.quantity <= 5 && (
+                            <AlertTriangle className="w-4 h-4 text-yellow-500" />
+                          )}
+                        </div>
+                      </td>
+                      <td className="p-4 text-sm text-muted-foreground">
+                        {new Date(item.dateAdded).toLocaleDateString()}
+                      </td>
+                      <td className="p-4">
+                        <div className="flex items-center gap-2">
+                          <Button size="sm" variant="ghost">
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button size="sm" variant="ghost">
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </CardContent>
         </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {paginatedInventory.map((item) => (
+            <Card key={item.id} className="hover:shadow-lg transition-all duration-300 border-0 shadow-md">
+              <CardContent className="p-6">
+                <div className="space-y-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        checked={selectedItems.has(item.id)}
+                        onCheckedChange={(checked) => {
+                          const newSelected = new Set(selectedItems);
+                          if (checked) {
+                            newSelected.add(item.id);
+                          } else {
+                            newSelected.delete(item.id);
+                          }
+                          setSelectedItems(newSelected);
+                        }}
+                      />
+                      <Badge variant={
+                        item.status === 'in-stock' ? 'default' :
+                        item.status === 'sold' ? 'secondary' :
+                        item.status === 'reserved' ? 'outline' : 'destructive'
+                      }>
+                        {item.status.replace('-', ' ').toUpperCase()}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">ASIN</Label>
+                      <p className="font-mono text-sm">{item.asin}</p>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Serial Number</Label>
+                      <p className="font-mono text-sm">{item.serialNumber}</p>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Quantity</Label>
+                      <div className="flex items-center gap-2">
+                        <span className={`font-semibold ${
+                          item.quantity === 0 ? 'text-red-500' :
+                          item.quantity <= 5 ? 'text-yellow-500' : 'text-green-500'
+                        }`}>
+                          {item.quantity}
+                        </span>
+                        {item.quantity <= 5 && (
+                          <AlertTriangle className="w-4 h-4 text-yellow-500" />
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Date Added</Label>
+                      <p className="text-sm">{new Date(item.dateAdded).toLocaleDateString()}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button size="sm" variant="outline" className="flex-1">
+                      <Edit className="w-4 h-4 mr-1" />
+                      Edit
+                    </Button>
+                    <Button size="sm" variant="outline" className="flex-1">
+                      <Eye className="w-4 h-4 mr-1" />
+                      View
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       )}
     </div>
   );
