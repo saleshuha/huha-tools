@@ -517,10 +517,10 @@ export function Replenishment() {
 
       {/* Main Content Tabs */}
       <Tabs defaultValue="sales" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="sales">📊 Sales Analytics</TabsTrigger>
-          <TabsTrigger value="restock">📦 Restock Management</TabsTrigger>
-          <TabsTrigger value="trends">📈 Trends & Forecasting</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-3 h-14 p-2 bg-gradient-subtle rounded-xl shadow-elegant">
+          <TabsTrigger value="sales" className="text-sm font-semibold px-6 py-3 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all duration-300 hover:bg-white/10">📊 Sales Analytics</TabsTrigger>
+          <TabsTrigger value="restock" className="text-sm font-semibold px-6 py-3 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all duration-300 hover:bg-white/10">📦 Restock Management</TabsTrigger>
+          <TabsTrigger value="trends" className="text-sm font-semibold px-6 py-3 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all duration-300 hover:bg-white/10">📈 Trends & Forecasting</TabsTrigger>
         </TabsList>
 
         {/* Sales Analytics Tab */}
