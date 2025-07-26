@@ -110,7 +110,7 @@ export function Replenishment() {
       // The database function now filters by user and country and quantity = 0
       const itemsWithStatus = (data || []).map((item: any, index: number) => ({
         ...item,
-        id: item.item_id || `${item.identifier}-${item.table_name}-${index}`, // Use item_id from function
+        id: item.item_id, // Use item_id directly from the database function
         status: 'pending' as const
       }));
       
@@ -316,23 +316,44 @@ export function Replenishment() {
   // Mark item as ordered from supplier
   const markAsOrdered = async (itemId: string) => {
     const item = restockItems.find(i => i.id === itemId);
-    if (!item) return;
+    if (!item) {
+      console.error('Item not found:', itemId);
+      toast({
+        title: "Error",
+        description: "Item not found",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    console.log('Marking item as ordered:', { itemId, tableType: item.table_name, item });
 
     try {
-      // Update status in database
+      let updateResult;
+      
+      // Update status in database using the correct ID
       if (item.table_name === 'asin_inventory') {
-        const { error } = await supabase
+        updateResult = await supabase
           .from('asin_inventory')
           .update({ status: 'ordered' })
           .eq('id', itemId);
-        if (error) throw error;
+        console.log('ASIN update result:', updateResult);
       } else if (item.table_name === 'sku_inventory') {
-        const { error } = await supabase
+        updateResult = await supabase
           .from('sku_inventory')
           .update({ status: 'ordered' })
           .eq('id', itemId);
-        if (error) throw error;
+        console.log('SKU update result:', updateResult);
+      } else {
+        throw new Error(`Unknown table type: ${item.table_name}`);
       }
+
+      if (updateResult.error) {
+        console.error('Database update error:', updateResult.error);
+        throw updateResult.error;
+      }
+
+      console.log('Database update successful, updating local state...');
 
       // Update local state
       setRestockItems(prev => 
@@ -347,11 +368,17 @@ export function Replenishment() {
         title: "Order Status Updated",
         description: "Item marked as ordered from supplier",
       });
-    } catch (error) {
+
+      // Refresh the data to ensure consistency
+      setTimeout(() => {
+        loadRestockItems();
+      }, 1000);
+
+    } catch (error: any) {
       console.error('Error marking item as ordered:', error);
       toast({
         title: "Error",
-        description: "Failed to update order status",
+        description: `Failed to update order status: ${error.message}`,
         variant: "destructive",
       });
     }
