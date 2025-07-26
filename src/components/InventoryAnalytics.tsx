@@ -576,8 +576,6 @@ export function InventoryAnalytics() {
                         dot={false}
                         connectNulls={false}
                       />
-                      
-                      <ReferenceLine x={new Date().toISOString().split('T')[0]} stroke="hsl(var(--destructive))" strokeDasharray="2 2" />
                     </ComposedChart>
                   </ResponsiveContainer>
                 </ChartContainer>
