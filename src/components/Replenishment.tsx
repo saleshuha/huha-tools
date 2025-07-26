@@ -790,7 +790,7 @@ export function Replenishment() {
                       <div>
                         <p className="font-medium">{item.identifier}</p>
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <span className="font-medium text-destructive">Current: {item.current_quantity} units</span>
+                          <span className="font-medium text-destructive">Current: {item.status === 'ordered' ? 0 : item.current_quantity} units</span>
                           {item.days_since_last_restock !== null ? (
                             <span>Last restock: {item.days_since_last_restock} days ago</span>
                           ) : (
