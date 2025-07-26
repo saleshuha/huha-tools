@@ -76,11 +76,19 @@ interface SalesData {
   sell_rate: number;
 }
 
+interface DialogData {
+  isOpen: boolean;
+  title: string;
+  items: RestockItem[];
+  type: 'critical' | 'ordered' | 'active' | 'sales' | 'restocks';
+}
+
 export function Replenishment() {
   const { selectedCountry } = useCountry();
   const { inventoryMetrics, loading: analyticsLoading, loadAnalytics } = useInventoryAnalytics();
   const { toast } = useToast();
   
+  const [dialogData, setDialogData] = useState<DialogData>({ isOpen: false, title: '', items: [], type: 'critical' });
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPeriod, setSelectedPeriod] = useState('30d');
@@ -423,6 +431,97 @@ export function Replenishment() {
     });
   };
 
+  // Dialog handlers for metric cards
+  const openCriticalStockDialog = () => {
+    setDialogData({
+      isOpen: true,
+      title: 'Critical Stock Items (0 Units)',
+      items: filteredRestockItems,
+      type: 'critical'
+    });
+  };
+
+  const openOrderedItemsDialog = () => {
+    const orderedItems = restockItems.filter(item => item.status === 'ordered');
+    setDialogData({
+      isOpen: true,
+      title: 'Items Ordered from Supplier',
+      items: orderedItems,
+      type: 'ordered'
+    });
+  };
+
+  const openActiveItemsDialog = async () => {
+    try {
+      // Get all active items from both tables
+      const [asinData, skuData] = await Promise.all([
+        supabase
+          .from('asin_inventory')
+          .select('*')
+          .eq('country', selectedCountry)
+          .eq('status', 'in-stock'),
+        supabase
+          .from('sku_inventory')
+          .select('*')
+          .eq('country', selectedCountry)
+          .eq('status', 'in-stock')
+      ]);
+
+      const activeItems: RestockItem[] = [
+        ...(asinData.data || []).map(item => ({
+          id: item.id,
+          identifier: `${item.asin} (${item.serial_number})`,
+          current_quantity: item.quantity,
+          table_name: 'asin_inventory' as const,
+          days_since_last_restock: item.last_restock_date 
+            ? Math.floor((new Date().getTime() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24))
+            : null,
+          status: 'in-stock' as const
+        })),
+        ...(skuData.data || []).map(item => ({
+          id: item.id,
+          identifier: `${item.sku_number} (${item.bin_serial_number})`,
+          current_quantity: item.quantity,
+          table_name: 'sku_inventory' as const,
+          days_since_last_restock: item.last_restock_date 
+            ? Math.floor((new Date().getTime() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24))
+            : null,
+          status: 'in-stock' as const
+        }))
+      ];
+
+      setDialogData({
+        isOpen: true,
+        title: 'Active Inventory Items',
+        items: activeItems,
+        type: 'active'
+      });
+    } catch (error) {
+      console.error('Error loading active items:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load active items",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const exportDialogData = () => {
+    const { items, type, title } = dialogData;
+    const csvContent = [
+      ['Type', 'Identifier', 'Current Quantity', 'Days Since Restock', 'Status'],
+      ...items.map(item => [
+        item.table_name === 'asin_inventory' ? 'ASIN' : 'SKU',
+        item.identifier,
+        item.current_quantity,
+        item.days_since_last_restock || 'Never',
+        item.status
+      ])
+    ].map(row => row.join(',')).join('\n');
+
+    downloadCSV(csvContent, `${type}-items-${selectedCountry}-${new Date().toISOString().split('T')[0]}.csv`);
+  };
+
   // Real-time subscriptions
   useEffect(() => {
     if (!selectedCountry) return;
@@ -538,7 +637,7 @@ export function Replenishment() {
           </CardContent>
         </Card>
 
-        <Card className="glass-container hover-scale">
+        <Card className="glass-container hover-scale cursor-pointer transition-all hover:shadow-lg" onClick={openCriticalStockDialog}>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -553,7 +652,7 @@ export function Replenishment() {
           </CardContent>
         </Card>
 
-        <Card className="glass-container hover-scale">
+        <Card className="glass-container hover-scale cursor-pointer transition-all hover:shadow-lg" onClick={openOrderedItemsDialog}>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -568,12 +667,12 @@ export function Replenishment() {
           </CardContent>
         </Card>
 
-        <Card className="glass-container hover-scale">
+        <Card className="glass-container hover-scale cursor-pointer transition-all hover:shadow-lg" onClick={openActiveItemsDialog}>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Active Items</p>
-                <p className="text-3xl font-bold text-foreground">{inventoryMetrics.forecasting.totalActiveItems}</p>
+                <p className="text-3xl font-bold text-foreground">{inventoryMetrics.forecasting?.totalActiveItems || 0}</p>
                 <p className="text-sm text-accent">In inventory</p>
               </div>
               <div className="p-3 rounded-full bg-accent/20">
@@ -900,6 +999,109 @@ export function Replenishment() {
           <InventoryAnalytics />
         </TabsContent>
       </Tabs>
+
+      {/* Dialog for displaying filtered items */}
+      <Dialog open={dialogData.isOpen} onOpenChange={(open) => setDialogData(prev => ({ ...prev, isOpen: open }))}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden bg-background border border-border">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                {dialogData.type === 'critical' && <AlertTriangle className="w-5 h-5 text-destructive" />}
+                {dialogData.type === 'ordered' && <Truck className="w-5 h-5" style={{ color: 'hsl(220, 70%, 50%)' }} />}
+                {dialogData.type === 'active' && <Database className="w-5 h-5 text-accent" />}
+                {dialogData.title}
+              </span>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline">{dialogData.items.length} items</Badge>
+                <Button onClick={exportDialogData} variant="outline" size="sm" className="gap-2">
+                  <Download className="w-4 h-4" />
+                  Export
+                </Button>
+              </div>
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="flex flex-col h-full min-h-0">
+            <div className="overflow-y-auto flex-1 space-y-2 p-2">
+              {dialogData.items.length > 0 ? (
+                dialogData.items.map((item) => (
+                  <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors bg-card">
+                    <div className="flex items-center gap-4">
+                      <div className={`p-2 rounded-lg ${
+                        dialogData.type === 'critical' ? 'bg-destructive/20' :
+                        dialogData.type === 'ordered' ? 'bg-blue-500/20' :
+                        'bg-accent/20'
+                      }`}>
+                        {item.table_name === 'asin_inventory' ? (
+                          <Package className={`w-4 h-4 ${
+                            dialogData.type === 'critical' ? 'text-destructive' :
+                            dialogData.type === 'ordered' ? 'text-blue-500' :
+                            'text-accent'
+                          }`} />
+                        ) : (
+                          <Database className={`w-4 h-4 ${
+                            dialogData.type === 'critical' ? 'text-destructive' :
+                            dialogData.type === 'ordered' ? 'text-blue-500' :
+                            'text-accent'
+                          }`} />
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-medium">{item.identifier}</p>
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                          <span className={`font-medium ${
+                            dialogData.type === 'critical' ? 'text-destructive' :
+                            dialogData.type === 'ordered' ? 'text-blue-500' :
+                            'text-foreground'
+                          }`}>
+                            Quantity: {dialogData.type === 'ordered' && item.status === 'ordered' ? 0 : item.current_quantity} units
+                          </span>
+                          {item.days_since_last_restock !== null ? (
+                            <span>Last restock: {item.days_since_last_restock} days ago</span>
+                          ) : (
+                            <span>Never restocked</span>
+                          )}
+                          <Badge variant="outline" className="text-xs">
+                            {item.table_name === 'asin_inventory' ? 'ASIN' : 'SKU'}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={
+                        dialogData.type === 'critical' ? 'destructive' :
+                        dialogData.type === 'ordered' ? 'outline' :
+                        'secondary'
+                      } className="text-xs">
+                        {dialogData.type === 'critical' ? 'Critical Stock' :
+                         dialogData.type === 'ordered' ? 'Ordered' :
+                         'Active'}
+                      </Badge>
+                      {dialogData.type === 'critical' && (
+                        <Button
+                          size="sm"
+                          onClick={() => markAsOrdered(item.id)}
+                          disabled={item.status === 'ordered'}
+                          className="gap-2"
+                        >
+                          <Truck className="w-4 h-4" />
+                          {item.status === 'ordered' ? 'Ordered' : 'Mark as Ordered'}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <CheckCircle className="w-12 h-12 mx-auto mb-4 text-primary" />
+                  <p className="text-lg font-medium">No items found</p>
+                  <p>No items match the current criteria</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
