@@ -100,21 +100,23 @@ export function Replenishment() {
   const loadRestockItems = async () => {
     try {
       console.log('Loading restock items for country:', selectedCountry);
-      const { data, error } = await supabase.rpc('get_items_needing_restock');
+      const { data, error } = await supabase.rpc('get_items_needing_restock', { 
+        country_filter: selectedCountry 
+      });
       if (error) throw error;
       
       console.log('Raw restock data from function:', data);
       
-      // The database function now filters by user and quantity = 0
+      // The database function now filters by user and country and quantity = 0
       const itemsWithStatus = (data || []).map((item: any, index: number) => ({
         ...item,
-        id: item.id || `${item.identifier}-${item.table_name}-${index}`, // Generate unique ID if missing
+        id: item.item_id || `${item.identifier}-${item.table_name}-${index}`, // Use item_id from function
         status: 'pending' as const
       }));
       
       console.log('First item structure:', itemsWithStatus[0]);
       setRestockItems(itemsWithStatus);
-      console.log('Set restock items:', itemsWithStatus.length, 'items');
+      console.log('Set restock items for', selectedCountry, ':', itemsWithStatus.length, 'items');
     } catch (error: any) {
       console.error('Error loading restock items:', error);
       toast({
@@ -140,50 +142,48 @@ export function Replenishment() {
           .from('asin_inventory')
           .select('*')
           .eq('status', 'sold')
+          .eq('country', selectedCountry)  // Filter by selected country
           .gte('date_sold', startDate.toISOString());
 
         let asinRestockQuery = supabase
           .from('asin_inventory')
           .select('restock_quantity')
+          .eq('country', selectedCountry)  // Filter by selected country
           .not('last_restock_date', 'is', null)
           .gte('last_restock_date', startDate.toISOString());
 
-        if (selectedCountry) {
-          asinSalesQuery = asinSalesQuery.eq('country', selectedCountry);
-          asinRestockQuery = asinRestockQuery.eq('country', selectedCountry);
-        }
-
-        // Query SKU inventory for sales data
         let skuSalesQuery = supabase
           .from('sku_inventory')
           .select('*')
           .eq('status', 'sold')
+          .eq('country', selectedCountry)  // Filter by selected country
           .gte('date_sold', startDate.toISOString());
 
         let skuRestockQuery = supabase
           .from('sku_inventory')
           .select('restock_quantity')
+          .eq('country', selectedCountry)  // Filter by selected country
           .not('last_restock_date', 'is', null)
           .gte('last_restock_date', startDate.toISOString());
 
-        if (selectedCountry) {
-          skuSalesQuery = skuSalesQuery.eq('country', selectedCountry);
-          skuRestockQuery = skuRestockQuery.eq('country', selectedCountry);
-        }
-
-        const [asinSales, asinRestocks, skuSales, skuRestocks] = await Promise.all([
+        const [asinSalesData, asinRestockData, skuSalesData, skuRestockData] = await Promise.all([
           asinSalesQuery,
           asinRestockQuery,
           skuSalesQuery,
           skuRestockQuery
         ]);
 
-        const asinSoldCount = asinSales.data?.length || 0;
-        const skuSoldCount = skuSales.data?.length || 0;
+        if (asinSalesData.error) throw asinSalesData.error;
+        if (asinRestockData.error) throw asinRestockData.error;
+        if (skuSalesData.error) throw skuSalesData.error;
+        if (skuRestockData.error) throw skuRestockData.error;
+
+        const asinSoldCount = asinSalesData.data?.length || 0;
+        const skuSoldCount = skuSalesData.data?.length || 0;
         const totalSold = asinSoldCount + skuSoldCount;
 
-        const asinRestockedQty = asinRestocks.data?.reduce((sum, item) => sum + (item.restock_quantity || 0), 0) || 0;
-        const skuRestockedQty = skuRestocks.data?.reduce((sum, item) => sum + (item.restock_quantity || 0), 0) || 0;
+        const asinRestockedQty = asinRestockData.data?.reduce((sum, item) => sum + (item.restock_quantity || 0), 0) || 0;
+        const skuRestockedQty = skuRestockData.data?.reduce((sum, item) => sum + (item.restock_quantity || 0), 0) || 0;
         const totalRestocked = asinRestockedQty + skuRestockedQty;
 
         salesAnalytics.push({

@@ -281,7 +281,7 @@ export type Database = {
     }
     Functions: {
       get_items_needing_restock: {
-        Args: Record<PropertyKey, never>
+        Args: Record<PropertyKey, never> | { country_filter?: string }
         Returns: {
           table_name: string
           item_id: string
