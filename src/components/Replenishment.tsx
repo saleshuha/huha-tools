@@ -252,39 +252,101 @@ export function Replenishment() {
     });
   };
 
-  const handleBulkMarkAsOrdered = () => {
+  const handleBulkMarkAsOrdered = async () => {
     if (selectedItems.size === 0) return;
     
-    setRestockItems(prev => 
-      prev.map(item => 
-        selectedItems.has(item.id)
-          ? { ...item, status: 'ordered' as const }
-          : item
-      )
-    );
-    
-    setSelectedItems(new Set());
-    
-    toast({
-      title: "Bulk Order Status Updated",
-      description: `${selectedItems.size} items marked as ordered from supplier`,
-    });
+    try {
+      // Update each item in database
+      const updatePromises = Array.from(selectedItems).map(async (itemId) => {
+        const item = restockItems.find(i => i.id === itemId);
+        if (!item) return;
+
+        if (item.table_name === 'asin_inventory') {
+          return supabase
+            .from('asin_inventory')
+            .update({ status: 'ordered' })
+            .eq('id', itemId);
+        } else if (item.table_name === 'sku_inventory') {
+          return supabase
+            .from('sku_inventory')
+            .update({ status: 'ordered' })
+            .eq('id', itemId);
+        }
+      });
+
+      const results = await Promise.all(updatePromises);
+      const errors = results.filter(result => result?.error);
+      
+      if (errors.length > 0) {
+        throw new Error(`Failed to update ${errors.length} items`);
+      }
+
+      // Update local state
+      setRestockItems(prev => 
+        prev.map(item => 
+          selectedItems.has(item.id)
+            ? { ...item, status: 'ordered' as const }
+            : item
+        )
+      );
+      setSelectedItems(new Set());
+      
+      toast({
+        title: "Bulk Order Status Updated",
+        description: `${selectedItems.size} items marked as ordered from supplier`,
+      });
+    } catch (error) {
+      console.error('Error bulk updating order status:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update some items",
+        variant: "destructive",
+      });
+    }
   };
 
   // Mark item as ordered from supplier
   const markAsOrdered = async (itemId: string) => {
-    setRestockItems(prev => 
-      prev.map(item => 
-        item.id === itemId 
-          ? { ...item, status: 'ordered' }
-          : item
-      )
-    );
-    
-    toast({
-      title: "Order Status Updated",
-      description: "Item marked as ordered from supplier",
-    });
+    const item = restockItems.find(i => i.id === itemId);
+    if (!item) return;
+
+    try {
+      // Update status in database
+      if (item.table_name === 'asin_inventory') {
+        const { error } = await supabase
+          .from('asin_inventory')
+          .update({ status: 'ordered' })
+          .eq('id', itemId);
+        if (error) throw error;
+      } else if (item.table_name === 'sku_inventory') {
+        const { error } = await supabase
+          .from('sku_inventory')
+          .update({ status: 'ordered' })
+          .eq('id', itemId);
+        if (error) throw error;
+      }
+
+      // Update local state
+      setRestockItems(prev => 
+        prev.map(item => 
+          item.id === itemId 
+            ? { ...item, status: 'ordered' }
+            : item
+        )
+      );
+      
+      toast({
+        title: "Order Status Updated",
+        description: "Item marked as ordered from supplier",
+      });
+    } catch (error) {
+      console.error('Error marking item as ordered:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update order status",
+        variant: "destructive",
+      });
+    }
   };
 
   // Export data functions

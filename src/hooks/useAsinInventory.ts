@@ -8,7 +8,7 @@ export interface AsinInventoryItem {
   id: string;
   asin: string;
   serialNumber: string;
-  status: 'in-stock' | 'sold' | 'reserved' | 'damaged';
+  status: 'in-stock' | 'sold' | 'reserved' | 'damaged' | 'ordered';
   dateAdded: string;
   dateSold?: string;
   notes?: string;
@@ -238,13 +238,21 @@ export function useAsinInventory() {
   // Restock item
   const restockItem = async (id: string, quantity: number) => {
     try {
+      const item = inventory.find(item => item.id === id);
+      const updateData: any = { 
+        quantity,
+        last_restock_date: new Date().toISOString(),
+        restock_quantity: quantity
+      };
+
+      // If item was marked as ordered, change status back to in-stock
+      if (item?.status === 'ordered') {
+        updateData.status = 'in-stock';
+      }
+
       const { error } = await supabase
         .from('asin_inventory')
-        .update({ 
-          quantity,
-          last_restock_date: new Date().toISOString(),
-          restock_quantity: quantity
-        })
+        .update(updateData)
         .eq('id', id);
 
       if (error) throw error;
@@ -255,14 +263,15 @@ export function useAsinInventory() {
               ...item, 
               quantity,
               lastRestockDate: new Date().toISOString(),
-              restockQuantity: quantity
+              restockQuantity: quantity,
+              ...(item.status === 'ordered' && { status: 'in-stock' as const })
             }
           : item
       ));
 
       toast({
         title: "Item restocked",
-        description: `Item quantity updated to ${quantity}`,
+        description: `Item quantity updated to ${quantity}${item?.status === 'ordered' ? ' and status updated to in-stock' : ''}`,
       });
     } catch (error: any) {
       toast({
