@@ -1029,8 +1029,8 @@ export function Replenishment() {
 
       {/* Dialog for displaying filtered items */}
       <Dialog open={dialogData.isOpen} onOpenChange={(open) => setDialogData(prev => ({ ...prev, isOpen: open }))}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden bg-background border border-border">
-          <DialogHeader>
+        <DialogContent className="max-w-5xl max-h-[85vh] flex flex-col bg-background border border-border">
+          <DialogHeader className="flex-shrink-0 pb-4 border-b">
             <DialogTitle className="flex items-center justify-between">
               <span className="flex items-center gap-2">
                 {dialogData.type === 'critical' && <AlertTriangle className="w-5 h-5 text-destructive" />}
@@ -1048,13 +1048,23 @@ export function Replenishment() {
             </DialogTitle>
           </DialogHeader>
           
-          <div className="flex flex-col h-full min-h-0">
-            <div className="overflow-y-auto flex-1 space-y-2 p-2">
-              {dialogData.items.length > 0 ? (
-                dialogData.items.map((item) => (
-                  <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors bg-card">
-                    <div className="flex items-center gap-4">
-                      <div className={`p-2 rounded-lg ${
+          {/* Scrollable content area */}
+          <div className="flex-1 overflow-hidden flex flex-col min-h-0">
+            {dialogData.items.length > 0 ? (
+              <div className="overflow-y-auto flex-1 space-y-3 p-4 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
+                {dialogData.items.map((item, index) => (
+                  <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors bg-card shadow-sm">
+                    <div className="flex items-center gap-4 flex-1">
+                      {/* Checkbox for selection */}
+                      <Checkbox
+                        id={`dialog-item-${item.id}`}
+                        checked={selectedItems.has(item.id)}
+                        onCheckedChange={(checked) => handleSelectItem(item.id, checked as boolean)}
+                        className="flex-shrink-0"
+                      />
+                      
+                      {/* Item icon */}
+                      <div className={`p-2 rounded-lg flex-shrink-0 ${
                         dialogData.type === 'critical' ? 'bg-destructive/20' :
                         dialogData.type === 'ordered' ? 'bg-blue-500/20' :
                         'bg-accent/20'
@@ -1073,9 +1083,11 @@ export function Replenishment() {
                           }`} />
                         )}
                       </div>
-                      <div>
-                        <p className="font-medium">{item.identifier}</p>
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                      
+                      {/* Item details */}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">{item.identifier}</p>
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
                           <span className={`font-medium ${
                             dialogData.type === 'critical' ? 'text-destructive' :
                             dialogData.type === 'ordered' ? 'text-blue-500' :
@@ -1088,13 +1100,15 @@ export function Replenishment() {
                           ) : (
                             <span>Never restocked</span>
                           )}
-                          <Badge variant="outline" className="text-xs">
+                          <Badge variant="outline" className="text-xs flex-shrink-0">
                             {item.table_name === 'asin_inventory' ? 'ASIN' : 'SKU'}
                           </Badge>
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    
+                    {/* Action buttons */}
+                    <div className="flex items-center gap-2 flex-shrink-0">
                       <Badge variant={
                         dialogData.type === 'critical' ? 'destructive' :
                         dialogData.type === 'ordered' ? 'outline' :
@@ -1117,15 +1131,36 @@ export function Replenishment() {
                       )}
                     </div>
                   </div>
-                ))
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <CheckCircle className="w-12 h-12 mx-auto mb-4 text-primary" />
-                  <p className="text-lg font-medium">No items found</p>
-                  <p>No items match the current criteria</p>
+                ))}
+              </div>
+            ) : (
+              <div className="flex-1 flex items-center justify-center text-center py-12">
+                <div>
+                  <CheckCircle className="w-16 h-16 mx-auto mb-4 text-primary" />
+                  <p className="text-lg font-medium text-foreground">No items found</p>
+                  <p className="text-muted-foreground">No items match the current criteria</p>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
+            
+            {/* Bulk actions footer */}
+            {selectedItems.size > 0 && dialogData.type === 'critical' && (
+              <div className="flex-shrink-0 border-t bg-muted/30 p-4 mt-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-foreground">
+                    {selectedItems.size} item{selectedItems.size !== 1 ? 's' : ''} selected
+                  </span>
+                  <Button
+                    onClick={handleBulkMarkAsOrdered}
+                    className="gap-2"
+                    style={{ backgroundColor: 'hsl(220, 70%, 50%)', color: 'white' }}
+                  >
+                    <Truck className="w-4 h-4" />
+                    Mark {selectedItems.size} as Ordered
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
