@@ -220,8 +220,8 @@ export function Replenishment() {
     
     if (!searchTerm.trim()) return true;
     
-    // Support bulk search - split by comma and search for any match
-    const searchTerms = searchTerm.toLowerCase().split(',').map(term => term.trim()).filter(Boolean);
+    // Support bulk search - split by space and search for any match
+    const searchTerms = searchTerm.toLowerCase().split(' ').map(term => term.trim()).filter(Boolean);
     
     return searchTerms.some(term => 
       item.identifier.toLowerCase().includes(term)
@@ -714,7 +714,7 @@ export function Replenishment() {
                 <div className="relative flex-1 min-w-80">
                   <Search className="w-4 h-4 absolute left-3 top-3 text-muted-foreground" />
                   <Input
-                    placeholder="Search items (separate multiple terms with commas: ASIN123, SKU456, serial789)..."
+                    placeholder="Search items (separate multiple terms with spaces: ASIN123 SKU456 serial789)..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10"
