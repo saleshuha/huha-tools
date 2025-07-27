@@ -62,7 +62,7 @@ interface RestockItem {
   current_quantity: number;
   table_name: string;
   days_since_last_restock: number | null;
-  status: 'pending' | 'ordered' | 'in-stock';
+  status: string; // Added status from database
 }
 
 interface SalesData {
@@ -107,11 +107,11 @@ export function Replenishment() {
       
       console.log('Raw restock data from function:', data);
       
-      // The database function now filters by user and country and quantity = 0
-      const itemsWithStatus = (data || []).map((item: any, index: number) => ({
+      // The database function now returns status from database
+      const itemsWithStatus = (data || []).map((item: any) => ({
         ...item,
         id: item.item_id, // Use item_id directly from the database function
-        status: 'pending' as const
+        // status comes directly from database now
       }));
       
       console.log('First item structure:', itemsWithStatus[0]);
@@ -232,10 +232,8 @@ export function Replenishment() {
     }
   };
 
-  // Filter restock items with bulk search support (moved up to be available for handlers)
+  // Filter restock items - show all critical stock items (qty=0) regardless of status
   const filteredRestockItems = restockItems.filter(item => {
-    if (item.status !== 'pending') return false;
-    
     if (!searchTerm.trim()) return true;
     
     // Support bulk search - split by space and search for any match
@@ -246,10 +244,14 @@ export function Replenishment() {
     );
   });
 
-  // Bulk selection handlers
+  // Separate items by status for better UX
+  const pendingItems = filteredRestockItems.filter(item => item.status === 'in-stock' || item.status === 'sold');
+  const orderedItems = filteredRestockItems.filter(item => item.status === 'ordered');
+
+  // Bulk selection handlers - only allow selection of pending items
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      const allItemIds = filteredRestockItems.map(item => item.id);
+      const allItemIds = pendingItems.map(item => item.id);
       setSelectedItems(new Set(allItemIds));
     } else {
       setSelectedItems(new Set());
@@ -299,11 +301,11 @@ export function Replenishment() {
         throw new Error(`Failed to update ${errors.length} items`);
       }
 
-      // Update local state
+      // Update local state - don't remove items, just update their status
       setRestockItems(prev => 
         prev.map(item => 
           selectedItems.has(item.id)
-            ? { ...item, status: 'ordered' as const }
+            ? { ...item, status: 'ordered' }
             : item
         )
       );
@@ -471,17 +473,16 @@ export function Replenishment() {
     setDialogData({
       isOpen: true,
       title: 'Critical Stock Items (0 Units)',
-      items: filteredRestockItems,
+      items: filteredRestockItems, // Show all critical items regardless of status
       type: 'critical'
     });
   };
 
   const openOrderedItemsDialog = () => {
-    const orderedItems = restockItems.filter(item => item.status === 'ordered');
     setDialogData({
       isOpen: true,
       title: 'Items Ordered from Supplier',
-      items: orderedItems,
+      items: orderedItems, // Show only ordered items
       type: 'ordered'
     });
   };
@@ -690,7 +691,7 @@ export function Replenishment() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Items Ordered</p>
-                <p className="text-3xl font-bold text-foreground">{restockItems.filter(item => item.status === 'ordered').length}</p>
+                <p className="text-3xl font-bold text-foreground">{orderedItems.length}</p>
                 <p className="text-sm" style={{ color: 'hsl(220, 70%, 50%)' }}>From supplier</p>
               </div>
               <div className="p-3 rounded-full" style={{ backgroundColor: 'hsl(220, 70%, 50%, 0.2)' }}>
@@ -926,16 +927,16 @@ export function Replenishment() {
               {filteredRestockItems.length > 0 && (
                 <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
                   <div className="flex items-center gap-4">
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="select-all"
-                        checked={selectedItems.size === filteredRestockItems.length && filteredRestockItems.length > 0}
-                        onCheckedChange={handleSelectAll}
-                      />
-                      <label htmlFor="select-all" className="text-sm font-medium">
-                        Select All ({filteredRestockItems.length} items)
-                      </label>
-                    </div>
+                     <div className="flex items-center space-x-2">
+                       <Checkbox
+                         id="select-all"
+                         checked={selectedItems.size === pendingItems.length && pendingItems.length > 0}
+                         onCheckedChange={handleSelectAll}
+                       />
+                       <label htmlFor="select-all" className="text-sm font-medium">
+                         Select All ({pendingItems.length} pending items)
+                       </label>
+                     </div>
                     {selectedItems.size > 0 && (
                       <Badge variant="secondary">
                         {selectedItems.size} selected
@@ -963,55 +964,116 @@ export function Replenishment() {
               )}
 
               <div className="space-y-2 max-h-96 overflow-y-auto">
-                {filteredRestockItems.length > 0 ? filteredRestockItems.map((item) => (
-                  <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
-                    <div className="flex items-center gap-4">
-                      <Checkbox
-                        id={`select-${item.id}`}
-                        checked={selectedItems.has(item.id)}
-                        onCheckedChange={(checked) => {
-                          console.log('Individual checkbox clicked:', { itemId: item.id, checked });
-                          handleSelectItem(item.id, checked as boolean);
-                        }}
-                      />
-                      <div className="p-2 rounded-lg bg-destructive/20">
-                        {item.table_name === 'asin_inventory' ? (
-                          <Package className="w-4 h-4 text-destructive" />
-                        ) : (
-                          <Database className="w-4 h-4 text-destructive" />
-                        )}
-                      </div>
-                      <div>
-                        <p className="font-medium">{item.identifier}</p>
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <span className="font-medium text-destructive">Current: {item.status === 'ordered' ? 0 : item.current_quantity} units</span>
-                          {item.days_since_last_restock !== null ? (
-                            <span>Last restock: {item.days_since_last_restock} days ago</span>
-                          ) : (
-                            <span>Never restocked</span>
-                          )}
-                          <Badge variant="outline" className="text-xs">
-                            {item.table_name === 'asin_inventory' ? 'ASIN' : 'SKU'}
-                          </Badge>
+                {filteredRestockItems.length > 0 ? (
+                  <>
+                    {/* Pending Items Section */}
+                    {pendingItems.length > 0 && (
+                      <>
+                        <div className="text-sm font-medium text-muted-foreground mb-2 px-2">
+                          Items Needing Order ({pendingItems.length})
                         </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="destructive" className="text-xs">
-                        Critical Stock
-                      </Badge>
-                      <Button
-                        size="sm"
-                        onClick={() => markAsOrdered(item.id)}
-                        disabled={item.status === 'ordered'}
-                        className="gap-2"
-                      >
-                        <Truck className="w-4 h-4" />
-                        {item.status === 'ordered' ? 'Ordered' : 'Mark as Ordered'}
-                      </Button>
-                    </div>
-                  </div>
-                )) : (
+                        {pendingItems.map((item) => (
+                          <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
+                            <div className="flex items-center gap-4">
+                              <Checkbox
+                                id={`select-${item.id}`}
+                                checked={selectedItems.has(item.id)}
+                                onCheckedChange={(checked) => {
+                                  console.log('Individual checkbox clicked:', { itemId: item.id, checked });
+                                  handleSelectItem(item.id, checked as boolean);
+                                }}
+                              />
+                              <div className="p-2 rounded-lg bg-destructive/20">
+                                {item.table_name === 'asin_inventory' ? (
+                                  <Package className="w-4 h-4 text-destructive" />
+                                ) : (
+                                  <Database className="w-4 h-4 text-destructive" />
+                                )}
+                              </div>
+                              <div>
+                                <p className="font-medium">{item.identifier}</p>
+                                <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                                  <span className="font-medium text-destructive">Critical: {item.current_quantity} units</span>
+                                  {item.days_since_last_restock !== null ? (
+                                    <span>Last restock: {item.days_since_last_restock} days ago</span>
+                                  ) : (
+                                    <span>Never restocked</span>
+                                  )}
+                                  <Badge variant="outline" className="text-xs">
+                                    {item.table_name === 'asin_inventory' ? 'ASIN' : 'SKU'}
+                                  </Badge>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="destructive" className="text-xs">
+                                Critical Stock
+                              </Badge>
+                              <Button
+                                size="sm"
+                                onClick={() => markAsOrdered(item.id)}
+                                className="gap-2"
+                              >
+                                <Truck className="w-4 h-4" />
+                                Mark as Ordered
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </>
+                    )}
+
+                    {/* Ordered Items Section */}
+                    {orderedItems.length > 0 && (
+                      <>
+                        <div className="text-sm font-medium text-muted-foreground mb-2 px-2 mt-6">
+                          Items Already Ordered ({orderedItems.length})
+                        </div>
+                        {orderedItems.map((item) => (
+                          <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg bg-blue-50/50 opacity-80">
+                            <div className="flex items-center gap-4">
+                              <div className="p-2 rounded-lg bg-blue-500/20">
+                                {item.table_name === 'asin_inventory' ? (
+                                  <Package className="w-4 h-4 text-blue-600" />
+                                ) : (
+                                  <Database className="w-4 h-4 text-blue-600" />
+                                )}
+                              </div>
+                              <div>
+                                <p className="font-medium text-muted-foreground">{item.identifier}</p>
+                                <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                                  <span className="font-medium">Ordered: {item.current_quantity} units</span>
+                                  {item.days_since_last_restock !== null ? (
+                                    <span>Last restock: {item.days_since_last_restock} days ago</span>
+                                  ) : (
+                                    <span>Never restocked</span>
+                                  )}
+                                  <Badge variant="outline" className="text-xs">
+                                    {item.table_name === 'asin_inventory' ? 'ASIN' : 'SKU'}
+                                  </Badge>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="text-xs" style={{ borderColor: 'hsl(220, 70%, 50%)', color: 'hsl(220, 70%, 50%)' }}>
+                                Order Placed
+                              </Badge>
+                              <Button
+                                size="sm"
+                                disabled
+                                className="gap-2"
+                                style={{ backgroundColor: 'hsl(220, 70%, 50%)', opacity: 0.6 }}
+                              >
+                                <Truck className="w-4 h-4" />
+                                Ordered
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </>
+                    )}
+                  </>
+                ) : (
                   <div className="text-center py-8 text-muted-foreground">
                     <CheckCircle className="w-12 h-12 mx-auto mb-4 text-primary" />
                     <p className="text-lg font-medium">
