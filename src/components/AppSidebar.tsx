@@ -27,8 +27,7 @@ const navigationItems = [
   {
     title: "Homepage",
     url: "/",
-    icon: Home,
-    description: "Calendar, tasks, and dashboard overview"
+    icon: Home
   }
 ]
 
@@ -36,26 +35,22 @@ const toolsItems = [
   {
     title: "Excel File Mapper",
     url: "/excel-mapper",
-    icon: File,
-    description: "Map one source file to one target file"
+    icon: File
   },
   {
     title: "Batch Processor",
     url: "/batch",
-    icon: Files,
-    description: "Process multiple source files with one target template"
+    icon: Files
   },
   {
     title: "ASIN QTY Sum",
     url: "/asin-sum",
-    icon: Calculator,
-    description: "Sum quantities by unique ASIN"
+    icon: Calculator
   },
   {
     title: "Zip Splitter",
     url: "/zip-splitter",
-    icon: Archive,
-    description: "Split ZIP files by size or file count limits"
+    icon: Archive
   }
 ]
 
@@ -63,14 +58,12 @@ const coreItems = [
   {
     title: "Instock Inventory",
     url: "/inventory",
-    icon: Package,
-    description: "Track product inventory with ASIN and serial numbers"
+    icon: Package
   },
   {
     title: "Sales & Replenishment",
     url: "/replenishment",
-    icon: TrendingUp,
-    description: "AI-powered inventory forecasting and restock recommendations"
+    icon: TrendingUp
   },
 ]
 
@@ -113,40 +106,35 @@ export function AppSidebar() {
   }
 
   return (
-    <Sidebar collapsible="icon" className="border-r border-sidebar-border w-72 bg-sidebar shadow-strong">
-      <SidebarContent className="bg-gradient-surface">
+    <Sidebar collapsible="icon" className="border-r border-sidebar-border w-64 bg-sidebar">
+      <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/80 font-bold px-6 py-4 text-base">
+          <SidebarGroupLabel className="text-sidebar-foreground/80 font-semibold px-4 py-3 text-sm">
             HuHa Dashboard
           </SidebarGroupLabel>
-          <SidebarGroupContent className="px-3">
-            <SidebarMenu className="space-y-2">
+          <SidebarGroupContent className="px-2">
+            <SidebarMenu className="space-y-1">
               {/* Navigation items */}
               {navigationItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton 
                     asChild
-                    className={`w-full p-4 rounded-xl transition-all duration-300 min-h-[80px] hover:scale-[1.02] group ${
+                    className={`w-full p-3 rounded-lg transition-colors ${
                       isActive(item.url)
-                        ? "bg-gradient-primary text-primary-foreground shadow-medium animate-glow-pulse" 
-                        : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground glass-container"
+                        ? "bg-primary text-primary-foreground" 
+                        : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                     }`}
                   >
                     <NavLink 
                       to={item.url} 
                       end
-                      className="flex items-start gap-4 no-underline w-full h-full"
+                      className="flex items-center gap-3 no-underline w-full"
                     >
-                      <item.icon className="h-6 w-6 flex-shrink-0 mt-1 group-hover:scale-110 transition-transform duration-300" />
+                      <item.icon className="h-4 w-4 flex-shrink-0" />
                       {!isCollapsed && (
-                        <div className="flex flex-col text-left flex-1 space-y-1">
-                          <span className="font-bold text-base leading-tight">
-                            {item.title}
-                          </span>
-                          <span className="text-sm opacity-80 leading-relaxed">
-                            {item.description}
-                          </span>
-                        </div>
+                        <span className="font-medium text-sm">
+                          {item.title}
+                        </span>
                       )}
                     </NavLink>
                   </SidebarMenuButton>
@@ -158,120 +146,100 @@ export function AppSidebar() {
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton 
                     asChild
-                    className={`w-full p-4 rounded-xl transition-all duration-300 min-h-[80px] hover:scale-[1.02] group ${
+                    className={`w-full p-3 rounded-lg transition-colors ${
                       isActive(item.url)
-                        ? "bg-gradient-primary text-primary-foreground shadow-medium animate-glow-pulse" 
-                        : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground glass-container"
+                        ? "bg-primary text-primary-foreground" 
+                        : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                     }`}
                   >
                     <NavLink 
                       to={item.url} 
                       end
-                      className="flex items-start gap-4 no-underline w-full h-full"
+                      className="flex items-center gap-3 no-underline w-full"
                     >
-                      <item.icon className="h-6 w-6 flex-shrink-0 mt-1 group-hover:scale-110 transition-transform duration-300" />
+                      <item.icon className="h-4 w-4 flex-shrink-0" />
                       {!isCollapsed && (
-                        <div className="flex flex-col text-left flex-1 space-y-1">
-                          <span className="font-bold text-base leading-tight">
-                            {item.title}
-                          </span>
-                          <span className="text-sm opacity-80 leading-relaxed">
-                            {item.description}
-                          </span>
-                        </div>
+                        <span className="font-medium text-sm">
+                          {item.title}
+                        </span>
                       )}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
 
-              {/* User Management - Always show for now */}
+              {/* User Management */}
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   asChild
-                  className={`w-full p-4 rounded-xl transition-all duration-300 min-h-[80px] hover:scale-[1.02] group ${
+                  className={`w-full p-3 rounded-lg transition-colors ${
                     isActive("/users")
-                      ? "bg-gradient-primary text-primary-foreground shadow-medium animate-glow-pulse" 
-                      : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground glass-container"
+                      ? "bg-primary text-primary-foreground" 
+                      : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                   }`}
                 >
                   <NavLink 
                     to="/users" 
                     end
-                    className="flex items-start gap-4 no-underline w-full h-full"
+                    className="flex items-center gap-3 no-underline w-full"
                   >
-                    <Users className="h-6 w-6 flex-shrink-0 mt-1 group-hover:scale-110 transition-transform duration-300" />
+                    <Users className="h-4 w-4 flex-shrink-0" />
                     {!isCollapsed && (
-                      <div className="flex flex-col text-left flex-1 space-y-1">
-                        <span className="font-bold text-base leading-tight">
-                          User Management
-                        </span>
-                        <span className="text-sm opacity-80 leading-relaxed">
-                          Manage user accounts and permissions
-                        </span>
-                      </div>
+                      <span className="font-medium text-sm">
+                        User Management
+                      </span>
                     )}
                   </NavLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>
 
-              {/* Enhanced Tools dropdown */}
+              {/* Tools dropdown */}
               <SidebarMenuItem>
                 <Collapsible open={isToolsOpen} onOpenChange={setIsToolsOpen}>
                   <CollapsibleTrigger asChild>
                     <SidebarMenuButton
-                      className={`w-full p-4 rounded-xl transition-all duration-300 min-h-[80px] hover:scale-[1.02] group ${
+                      className={`w-full p-3 rounded-lg transition-colors ${
                         isToolsSectionActive()
-                          ? "bg-gradient-accent text-accent-foreground shadow-medium" 
-                          : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground glass-container"
+                          ? "bg-accent text-accent-foreground" 
+                          : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                       }`}
                     >
-                      <div className="flex items-start gap-4 w-full">
-                        <Wrench className="h-6 w-6 flex-shrink-0 mt-1 group-hover:scale-110 transition-transform duration-300" />
+                      <div className="flex items-center gap-3 w-full">
+                        <Wrench className="h-4 w-4 flex-shrink-0" />
                         {!isCollapsed && (
-                          <div className="flex flex-col text-left flex-1 space-y-1">
-                            <div className="flex items-center justify-between">
-                              <span className="font-bold text-base leading-tight">
-                                Tools
-                              </span>
-                              <ChevronDown className={`h-4 w-4 transition-transform duration-300 ${
-                                isToolsOpen ? "rotate-180" : ""
-                              }`} />
-                            </div>
-                            <span className="text-sm opacity-80 leading-relaxed">
-                              Excel and utility tools
+                          <div className="flex items-center justify-between w-full">
+                            <span className="font-medium text-sm">
+                              Tools
                             </span>
+                            <ChevronDown className={`h-3 w-3 transition-transform ${
+                              isToolsOpen ? "rotate-180" : ""
+                            }`} />
                           </div>
                         )}
                       </div>
                     </SidebarMenuButton>
                   </CollapsibleTrigger>
-                  <CollapsibleContent className="ml-6 mt-2 space-y-2 animate-accordion-down">
+                  <CollapsibleContent className="ml-4 mt-1 space-y-1">
                     {toolsItems.map((item) => (
                       <SidebarMenuButton 
                         key={item.title}
                         asChild
-                        className={`w-full p-3 rounded-lg transition-all duration-300 min-h-[60px] hover:scale-[1.02] group ${
+                        className={`w-full p-2 rounded-md transition-colors ${
                           isActive(item.url)
-                            ? "bg-gradient-primary text-primary-foreground shadow-medium" 
-                            : "hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground glass-container border border-sidebar-border/30"
+                            ? "bg-primary text-primary-foreground" 
+                            : "hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
                         }`}
                       >
                         <NavLink 
                           to={item.url} 
                           end
-                          className="flex items-start gap-3 no-underline w-full h-full"
+                          className="flex items-center gap-2 no-underline w-full"
                         >
-                          <item.icon className="h-5 w-5 flex-shrink-0 mt-1 group-hover:scale-110 transition-transform duration-300" />
+                          <item.icon className="h-3 w-3 flex-shrink-0" />
                           {!isCollapsed && (
-                            <div className="flex flex-col text-left flex-1 space-y-1">
-                              <span className="font-semibold text-sm leading-tight">
-                                {item.title}
-                              </span>
-                              <span className="text-xs opacity-80 leading-relaxed">
-                                {item.description}
-                              </span>
-                            </div>
+                            <span className="font-medium text-xs">
+                              {item.title}
+                            </span>
                           )}
                         </NavLink>
                       </SidebarMenuButton>
@@ -283,13 +251,14 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="p-4 border-t border-sidebar-border bg-sidebar">
+      <SidebarFooter className="p-3 border-t border-sidebar-border">
         <Button 
           onClick={handleLogout}
           variant="outline"
-          className="w-full flex items-center gap-2 text-sm hover:scale-105 transition-all duration-300 bg-gradient-to-r from-destructive/10 to-destructive/5 hover:from-destructive hover:to-destructive/80 hover:text-destructive-foreground border-destructive/20 hover:border-destructive"
+          className="w-full flex items-center gap-2 text-sm"
+          size="sm"
         >
-          <LogOut className="h-4 w-4" />
+          <LogOut className="h-3 w-3" />
           {!isCollapsed && "Sign Out"}
         </Button>
       </SidebarFooter>
