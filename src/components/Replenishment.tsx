@@ -672,66 +672,103 @@ export function Replenishment() {
         </Button>
       </div>
 
-      {/* Key Metrics Overview - Enhanced with optimized cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* Advanced Metrics Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
         {/* Critical Stock Items */}
-        <Card className="glass-container hover-scale cursor-pointer transition-all hover:shadow-lg" onClick={openCriticalStockDialog}>
-          <CardContent className="p-6">
+        <Card className="glass-container hover-scale cursor-pointer transition-all duration-300 hover:shadow-glow border-l-4 border-l-destructive" onClick={openCriticalStockDialog}>
+          <CardContent className="p-4">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Critical Stock (0 Units)</p>
-                <p className="text-3xl font-bold text-foreground">{pendingItems.length}</p>
-                <p className="text-sm text-destructive">Out of stock</p>
-              </div>
-              <div className="p-3 rounded-full bg-destructive/20">
-                <AlertTriangle className="w-6 h-6 text-destructive" />
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <AlertTriangle className="w-4 h-4 text-destructive" />
+                  <p className="text-xs font-medium text-muted-foreground">Critical Stock</p>
+                </div>
+                <p className="text-2xl font-bold text-foreground">{pendingItems.length}</p>
+                <p className="text-xs text-destructive">Out of stock</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="glass-container hover-scale cursor-pointer transition-all hover:shadow-lg" onClick={openOrderedItemsDialog}>
-          <CardContent className="p-6">
+        {/* Items Ordered */}
+        <Card className="glass-container hover-scale cursor-pointer transition-all duration-300 hover:shadow-glow border-l-4" style={{ borderLeftColor: 'hsl(220, 70%, 50%)' }} onClick={openOrderedItemsDialog}>
+          <CardContent className="p-4">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Items Ordered</p>
-                <p className="text-3xl font-bold text-foreground">{orderedItems.length}</p>
-                <p className="text-sm" style={{ color: 'hsl(220, 70%, 50%)' }}>From supplier</p>
-              </div>
-              <div className="p-3 rounded-full" style={{ backgroundColor: 'hsl(220, 70%, 50%, 0.2)' }}>
-                <Truck className="w-6 h-6" style={{ color: 'hsl(220, 70%, 50%)' }} />
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <Truck className="w-4 h-4" style={{ color: 'hsl(220, 70%, 50%)' }} />
+                  <p className="text-xs font-medium text-muted-foreground">Ordered</p>
+                </div>
+                <p className="text-2xl font-bold text-foreground">{orderedItems.length}</p>
+                <p className="text-xs" style={{ color: 'hsl(220, 70%, 50%)' }}>From supplier</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Total Sales (30 days) */}
-        <Card className="glass-container hover-scale cursor-pointer transition-all hover:shadow-lg" onClick={openActiveItemsDialog}>
-          <CardContent className="p-6">
+        <Card className="glass-container hover-scale cursor-pointer transition-all duration-300 hover:shadow-glow border-l-4 border-l-primary" onClick={openActiveItemsDialog}>
+          <CardContent className="p-4">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Sales (30d)</p>
-                <p className="text-3xl font-bold text-foreground">{totalSales30d}</p>
-                <p className="text-sm text-primary">Units sold</p>
-              </div>
-              <div className="p-3 rounded-full bg-primary/20">
-                <TrendingUp className="w-6 h-6 text-primary" />
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <TrendingUp className="w-4 h-4 text-primary" />
+                  <p className="text-xs font-medium text-muted-foreground">Sales (30d)</p>
+                </div>
+                <p className="text-2xl font-bold text-foreground">{totalSales30d}</p>
+                <p className="text-xs text-primary">Units sold</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Total Restocks (30 days) */}
-        <Card className="glass-container hover-scale cursor-pointer transition-all hover:shadow-lg">
-          <CardContent className="p-6">
+        <Card className="glass-container hover-scale cursor-pointer transition-all duration-300 hover:shadow-glow border-l-4 border-l-secondary">
+          <CardContent className="p-4">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Restocks (30d)</p>
-                <p className="text-3xl font-bold text-foreground">{totalRestocks30d}</p>
-                <p className="text-sm text-secondary">Units restocked</p>
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <Package className="w-4 h-4 text-secondary" />
+                  <p className="text-xs font-medium text-muted-foreground">Restocks (30d)</p>
+                </div>
+                <p className="text-2xl font-bold text-foreground">{totalRestocks30d}</p>
+                <p className="text-xs text-secondary">Units restocked</p>
               </div>
-              <div className="p-3 rounded-full bg-secondary/20">
-                <Package className="w-6 h-6 text-secondary" />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Daily Sell Rate */}
+        <Card className="glass-container hover-scale transition-all duration-300 hover:shadow-glow border-l-4 border-l-accent">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <Zap className="w-4 h-4 text-accent" />
+                  <p className="text-xs font-medium text-muted-foreground">Daily Rate</p>
+                </div>
+                <p className="text-2xl font-bold text-foreground">
+                  {salesData.find(d => d.period === '30d')?.sell_rate?.toFixed(1) || '0'}
+                </p>
+                <p className="text-xs text-accent">Units/day</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Stock Ratio */}
+        <Card className="glass-container hover-scale transition-all duration-300 hover:shadow-glow border-l-4 border-l-chart-1">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <Target className="w-4 h-4 text-chart-1" />
+                  <p className="text-xs font-medium text-muted-foreground">Stock Ratio</p>
+                </div>
+                <p className="text-2xl font-bold text-foreground">
+                  {totalRestocks30d > 0 ? ((totalSales30d / totalRestocks30d) * 100).toFixed(0) : '0'}%
+                </p>
+                <p className="text-xs text-chart-1">Efficiency</p>
               </div>
             </div>
           </CardContent>
