@@ -83,6 +83,17 @@ interface DialogData {
   type: 'critical' | 'ordered' | 'active' | 'sales' | 'restocks';
 }
 
+interface TrendsItem {
+  id: string;
+  identifier: string;
+  table_name: string;
+  current_quantity: number;
+  sold_quantity: number;
+  last_sold_date: string | null;
+  days_since_last_restock: number | null;
+  sell_rate: number;
+}
+
 export function Replenishment() {
   const { selectedCountry } = useCountry();
   const { inventoryMetrics, loading: analyticsLoading, loadAnalytics } = useInventoryAnalytics();
@@ -95,6 +106,14 @@ export function Replenishment() {
   const [restockItems, setRestockItems] = useState<RestockItem[]>([]);
   const [salesData, setSalesData] = useState<SalesData[]>([]);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+
+  // Trends state
+  const [trendsSearchTerm, setTrendsSearchTerm] = useState('');
+  const [trendsDateRange, setTrendsDateRange] = useState('30d');
+  const [trendsItemType, setTrendsItemType] = useState('all');
+  const [trendsSortBy, setTrendsSortBy] = useState('sold_desc');
+  const [trendsItems, setTrendsItems] = useState<any[]>([]);
+  const [trendsLoading, setTrendsLoading] = useState(false);
 
   // Load restock items needing attention (excludes already ordered items)
   const loadRestockItems = async () => {
@@ -512,6 +531,136 @@ export function Replenishment() {
     });
   };
 
+  // Load trends data
+  const loadTrendsData = async () => {
+    setTrendsLoading(true);
+    try {
+      const daysNum = parseInt(trendsDateRange.replace('d', ''));
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - daysNum);
+
+      // Get ASIN data
+      const asinQuery = supabase
+        .from('asin_inventory')
+        .select('*')
+        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
+        .eq('country', selectedCountry);
+
+      // Get SKU data
+      const skuQuery = supabase
+        .from('sku_inventory')
+        .select('*')
+        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
+        .eq('country', selectedCountry);
+
+      const [asinResult, skuResult] = await Promise.all([asinQuery, skuQuery]);
+
+      if (asinResult.error) throw asinResult.error;
+      if (skuResult.error) throw skuResult.error;
+
+      // Process ASIN items
+      const asinItems: TrendsItem[] = (asinResult.data || []).map(item => {
+        const soldInPeriod = item.date_sold && new Date(item.date_sold) >= startDate ? 1 : 0;
+        const sellRate = soldInPeriod / daysNum;
+
+        return {
+          id: item.id,
+          identifier: `${item.asin} (${item.serial_number})`,
+          table_name: 'asin_inventory',
+          current_quantity: item.quantity || 0,
+          sold_quantity: soldInPeriod,
+          last_sold_date: item.date_sold,
+          days_since_last_restock: item.last_restock_date ? 
+            Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null,
+          sell_rate: sellRate
+        };
+      });
+
+      // Process SKU items
+      const skuItems: TrendsItem[] = (skuResult.data || []).map(item => {
+        const soldInPeriod = item.date_sold && new Date(item.date_sold) >= startDate ? 1 : 0;
+        const sellRate = soldInPeriod / daysNum;
+
+        return {
+          id: item.id,
+          identifier: `${item.sku_number} (${item.bin_serial_number})`,
+          table_name: 'sku_inventory',
+          current_quantity: item.quantity || 0,
+          sold_quantity: soldInPeriod,
+          last_sold_date: item.date_sold,
+          days_since_last_restock: item.last_restock_date ? 
+            Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null,
+          sell_rate: sellRate
+        };
+      });
+
+      // Combine and filter by type
+      let combinedItems = [...asinItems, ...skuItems];
+      
+      if (trendsItemType === 'asin') {
+        combinedItems = asinItems;
+      } else if (trendsItemType === 'sku') {
+        combinedItems = skuItems;
+      }
+
+      setTrendsItems(combinedItems);
+    } catch (error: any) {
+      console.error('Error loading trends data:', error);
+      toast({
+        title: "Error loading trends data",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setTrendsLoading(false);
+    }
+  };
+
+  // Filter and sort trends items
+  const filteredTrendsItems = trendsItems
+    .filter(item => {
+      if (!trendsSearchTerm.trim()) return true;
+      const searchLower = trendsSearchTerm.toLowerCase();
+      return item.identifier.toLowerCase().includes(searchLower);
+    })
+    .sort((a, b) => {
+      switch (trendsSortBy) {
+        case 'sold_desc':
+          return b.sold_quantity - a.sold_quantity;
+        case 'sold_asc':
+          return a.sold_quantity - b.sold_quantity;
+        case 'recent':
+          if (!a.last_sold_date && !b.last_sold_date) return 0;
+          if (!a.last_sold_date) return 1;
+          if (!b.last_sold_date) return -1;
+          return new Date(b.last_sold_date).getTime() - new Date(a.last_sold_date).getTime();
+        case 'quantity_low':
+          return a.current_quantity - b.current_quantity;
+        default:
+          return 0;
+      }
+    });
+
+  // Export trends data
+  const exportTrendsData = () => {
+    const csvContent = [
+      ['Type', 'Identifier', 'Current Stock', 'Sold Quantity', 'Sell Rate/Day', 'Last Sold', 'Days Since Restock', 'Stock Status'],
+      ...filteredTrendsItems.map(item => [
+        item.table_name === 'asin_inventory' ? 'ASIN' : 'SKU',
+        item.identifier,
+        item.current_quantity,
+        item.sold_quantity,
+        item.sell_rate.toFixed(2),
+        item.last_sold_date ? new Date(item.last_sold_date).toLocaleDateString() : 'Never',
+        item.days_since_last_restock || 'Never',
+        item.current_quantity <= 5 ? 'Critical' : 
+        item.current_quantity <= 10 ? 'Low' : 'Good'
+      ])
+    ].map(row => row.join(',')).join('\n');
+
+    downloadCSV(csvContent, `trends-analysis-${selectedCountry}-${trendsDateRange}-${new Date().toISOString().split('T')[0]}.csv`);
+  };
+
   // Dialog handlers for metric cards
   const openCriticalStockDialog = () => {
     setDialogData({
@@ -632,6 +781,11 @@ export function Replenishment() {
     };
     loadData();
   }, [selectedCountry]);
+
+  // Load trends data when filters change
+  useEffect(() => {
+    loadTrendsData();
+  }, [selectedCountry, trendsDateRange, trendsItemType]);
 
   if (loading) {
     return (
@@ -1150,6 +1304,22 @@ export function Replenishment() {
 
         {/* Restock Management Tab with Separate Tabs */}
         <TabsContent value="restock" className="space-y-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-semibold">Restock Management Dashboard</h3>
+              <p className="text-muted-foreground">Manage items that need restocking and track order status</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button onClick={exportRestockData} variant="outline" size="sm" className="gap-2">
+                <Download className="w-4 h-4" />
+                Export Restock Data
+              </Button>
+              <Button onClick={exportOrderedData} variant="outline" size="sm" className="gap-2">
+                <Download className="w-4 h-4" />
+                Export Ordered Items
+              </Button>
+            </div>
+          </div>
           <Card className="glass-container">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -1357,8 +1527,195 @@ export function Replenishment() {
           </Card>
         </TabsContent>
 
-        {/* Advanced Trends & Forecasting Tab */}
+        {/* Enhanced Trends & Forecasting Tab */}
         <TabsContent value="trends" className="space-y-6">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h3 className="text-lg font-semibold">Trends & Forecasting Analytics</h3>
+              <p className="text-muted-foreground">Track item-level sales trends and forecast replenishment needs</p>
+            </div>
+            <Button onClick={exportTrendsData} variant="outline" size="sm" className="gap-2">
+              <Download className="w-4 h-4" />
+              Export Trends
+            </Button>
+          </div>
+
+          {/* Trends Filters */}
+          <Card className="glass-container">
+            <CardContent className="p-4">
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <Search className="w-4 h-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search items by ASIN, SKU, or serial number..."
+                    value={trendsSearchTerm}
+                    onChange={(e) => setTrendsSearchTerm(e.target.value)}
+                    className="w-80"
+                  />
+                </div>
+                <Select value={trendsDateRange} onValueChange={setTrendsDateRange}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue placeholder="Date Range" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="7d">Last 7 days</SelectItem>
+                    <SelectItem value="14d">Last 14 days</SelectItem>
+                    <SelectItem value="30d">Last 30 days</SelectItem>
+                    <SelectItem value="60d">Last 60 days</SelectItem>
+                    <SelectItem value="90d">Last 90 days</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={trendsItemType} onValueChange={setTrendsItemType}>
+                  <SelectTrigger className="w-32">
+                    <SelectValue placeholder="Type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Items</SelectItem>
+                    <SelectItem value="asin">ASIN Only</SelectItem>
+                    <SelectItem value="sku">SKU Only</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={trendsSortBy} onValueChange={setTrendsSortBy}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue placeholder="Sort By" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="sold_desc">Most Sold</SelectItem>
+                    <SelectItem value="sold_asc">Least Sold</SelectItem>
+                    <SelectItem value="recent">Recently Sold</SelectItem>
+                    <SelectItem value="quantity_low">Low Stock</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button
+                  onClick={loadTrendsData}
+                  variant="outline"
+                  size="sm"
+                  disabled={trendsLoading}
+                  className="gap-2"
+                >
+                  <RefreshCw className={`w-4 h-4 ${trendsLoading ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Items Trends Table */}
+          <Card className="glass-container">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5" />
+                  Item Sales Trends ({trendsDateRange})
+                </CardTitle>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <span>{filteredTrendsItems.length} items found</span>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {trendsLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" />
+                  <span className="ml-2 text-muted-foreground">Loading trends data...</span>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {filteredTrendsItems.length > 0 ? (
+                    <div className="space-y-2">
+                      {filteredTrendsItems.slice(0, 50).map((item, index) => (
+                        <div key={item.id} className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-accent/50 transition-colors">
+                          <div className="flex items-center gap-4">
+                            <div className={`p-2 rounded-lg ${
+                              item.table_name === 'asin_inventory' 
+                                ? 'bg-primary/20' 
+                                : 'bg-secondary/20'
+                            }`}>
+                              {item.table_name === 'asin_inventory' ? (
+                                <Package className={`w-4 h-4 text-primary`} />
+                              ) : (
+                                <Database className={`w-4 h-4 text-secondary`} />
+                              )}
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <p className="font-medium text-foreground">{item.identifier}</p>
+                                <Badge variant="outline" className="text-xs">
+                                  {item.table_name === 'asin_inventory' ? 'ASIN' : 'SKU'}
+                                </Badge>
+                              </div>
+                              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                                <span>Current Stock: {item.current_quantity}</span>
+                                <span>Sold: {item.sold_quantity} units</span>
+                                {item.last_sold_date && (
+                                  <span>Last Sold: {new Date(item.last_sold_date).toLocaleDateString()}</span>
+                                )}
+                                {item.days_since_last_restock && (
+                                  <span>Last Restock: {item.days_since_last_restock}d ago</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <div className="text-right">
+                              <div className="text-lg font-semibold text-foreground">
+                                {item.sold_quantity || 0}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                Units Sold
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className={`text-lg font-semibold ${
+                                item.current_quantity <= 5 ? 'text-destructive' : 
+                                item.current_quantity <= 10 ? 'text-amber-600' : 'text-chart-1'
+                              }`}>
+                                {item.current_quantity}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                In Stock
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-lg font-semibold text-accent">
+                                {item.sell_rate?.toFixed(1) || '0.0'}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                Rate/Day
+                              </div>
+                            </div>
+                            <Badge 
+                              variant={
+                                item.current_quantity <= 5 ? "destructive" : 
+                                item.current_quantity <= 10 ? "default" : "secondary"
+                              } 
+                              className="text-xs"
+                            >
+                              {item.current_quantity <= 5 ? "Critical" : 
+                               item.current_quantity <= 10 ? "Low" : "Good"}
+                            </Badge>
+                          </div>
+                        </div>
+                      ))}
+                      {filteredTrendsItems.length > 50 && (
+                        <div className="text-center py-4 text-muted-foreground">
+                          <p>Showing first 50 items. Use filters to narrow down results.</p>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center py-12 text-muted-foreground">
+                      <BarChart3 className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      <p className="text-lg font-medium">No trends data found</p>
+                      <p className="text-sm">Try adjusting your filters or date range</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Existing Analytics Component */}
           <InventoryAnalytics />
         </TabsContent>
       </Tabs>
