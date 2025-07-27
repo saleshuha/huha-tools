@@ -428,8 +428,6 @@ export function Replenishment() {
         description: "Item marked as ordered from supplier",
       });
 
-      // Don't refresh immediately - let the local state update handle the UI
-
     } catch (error: any) {
       console.error('Error marking item as ordered:', error);
       toast({
@@ -480,11 +478,11 @@ export function Replenishment() {
   };
 
   const exportOrderedData = () => {
-    const orderedItems = restockItems.filter(item => item.status === 'ordered');
+    const orderedItemsList = orderedItems.filter(item => item.status === 'ordered');
 
     const csvContent = [
       ['Type', 'Identifier', 'Current Quantity', 'Days Since Restock', 'Order Status', 'Date Marked'],
-      ...orderedItems.map(item => [
+      ...orderedItemsList.map(item => [
         item.table_name === 'asin_inventory' ? 'ASIN' : 'SKU',
         item.identifier,
         item.current_quantity,
@@ -550,59 +548,43 @@ export function Replenishment() {
           .eq('status', 'in-stock')
       ]);
 
-      const activeItems: RestockItem[] = [
+      if (asinData.error) throw asinData.error;
+      if (skuData.error) throw skuData.error;
+
+      const activeItemsData = [
         ...(asinData.data || []).map(item => ({
           id: item.id,
           identifier: `${item.asin} (${item.serial_number})`,
           current_quantity: item.quantity,
-          table_name: 'asin_inventory' as const,
-          days_since_last_restock: item.last_restock_date 
-            ? Math.floor((new Date().getTime() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24))
-            : null,
-          status: 'in-stock' as const
+          table_name: 'asin_inventory',
+          status: item.status,
+          days_since_last_restock: item.last_restock_date ? 
+            Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null
         })),
         ...(skuData.data || []).map(item => ({
           id: item.id,
           identifier: `${item.sku_number} (${item.bin_serial_number})`,
           current_quantity: item.quantity,
-          table_name: 'sku_inventory' as const,
-          days_since_last_restock: item.last_restock_date 
-            ? Math.floor((new Date().getTime() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24))
-            : null,
-          status: 'in-stock' as const
+          table_name: 'sku_inventory',
+          status: item.status,
+          days_since_last_restock: item.last_restock_date ? 
+            Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null
         }))
       ];
 
       setDialogData({
         isOpen: true,
         title: 'Active Inventory Items',
-        items: activeItems,
+        items: activeItemsData,
         type: 'active'
       });
-    } catch (error) {
-      console.error('Error loading active items:', error);
+    } catch (error: any) {
       toast({
-        title: "Error",
-        description: "Failed to load active items",
+        title: "Error loading active items",
+        description: error.message,
         variant: "destructive",
       });
     }
-  };
-
-  const exportDialogData = () => {
-    const { items, type, title } = dialogData;
-    const csvContent = [
-      ['Type', 'Identifier', 'Current Quantity', 'Days Since Restock', 'Status'],
-      ...items.map(item => [
-        item.table_name === 'asin_inventory' ? 'ASIN' : 'SKU',
-        item.identifier,
-        item.current_quantity,
-        item.days_since_last_restock || 'Never',
-        item.status
-      ])
-    ].map(row => row.join(',')).join('\n');
-
-    downloadCSV(csvContent, `${type}-items-${selectedCountry}-${new Date().toISOString().split('T')[0]}.csv`);
   };
 
   // Optimized real-time subscriptions - only reload specific data that changed
@@ -618,19 +600,18 @@ export function Replenishment() {
           table: 'asin_inventory',
           filter: `country=eq.${selectedCountry}`
         }, () => {
-          // Only reload restock items, not all data
+          // Only reload critical stock items on quantity changes
           loadRestockItems();
         }),
-        
       supabase
         .channel('sku-inventory-realtime')
         .on('postgres_changes', {
           event: 'UPDATE',
           schema: 'public',
-          table: 'sku_inventory', 
+          table: 'sku_inventory',
           filter: `country=eq.${selectedCountry}`
         }, () => {
-          // Only reload restock items, not all data
+          // Only reload critical stock items on quantity changes
           loadRestockItems();
         })
     ];
@@ -683,46 +664,17 @@ export function Replenishment() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-foreground">Sales & Replenishment Dashboard</h2>
-          <p className="text-muted-foreground">Real-time inventory analytics for {selectedCountry}</p>
+          <p className="text-muted-foreground">Real-time analytics for {selectedCountry}</p>
         </div>
-        <Button onClick={loadAllData} disabled={loading} className="gap-2">
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+        <Button onClick={loadAllData} variant="outline" size="sm" className="gap-2">
+          <RefreshCw className="w-4 h-4" />
           Refresh Data
         </Button>
       </div>
 
-      {/* Key Metrics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <Card className="glass-container hover-scale">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">30-Day Sales</p>
-                <p className="text-3xl font-bold text-foreground">{totalSales30d}</p>
-                <p className="text-sm text-primary">{(totalSales30d / 30).toFixed(1)} per day</p>
-              </div>
-              <div className="p-3 rounded-full bg-primary/20">
-                <TrendingUp className="w-6 h-6 text-primary" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="glass-container hover-scale">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">30-Day Restocks</p>
-                <p className="text-3xl font-bold text-foreground">{totalRestocks30d}</p>
-                <p className="text-sm text-secondary">{(totalRestocks30d / 30).toFixed(1)} per day</p>
-              </div>
-              <div className="p-3 rounded-full bg-secondary/20">
-                <Package className="w-6 h-6 text-secondary" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
+      {/* Key Metrics Overview - Enhanced with optimized cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Critical Stock Items */}
         <Card className="glass-container hover-scale cursor-pointer transition-all hover:shadow-lg" onClick={openCriticalStockDialog}>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -753,16 +705,33 @@ export function Replenishment() {
           </CardContent>
         </Card>
 
+        {/* Total Sales (30 days) */}
         <Card className="glass-container hover-scale cursor-pointer transition-all hover:shadow-lg" onClick={openActiveItemsDialog}>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Active Items</p>
-                <p className="text-3xl font-bold text-foreground">{inventoryMetrics.forecasting?.totalActiveItems || 0}</p>
-                <p className="text-sm text-accent">In inventory</p>
+                <p className="text-sm font-medium text-muted-foreground">Total Sales (30d)</p>
+                <p className="text-3xl font-bold text-foreground">{totalSales30d}</p>
+                <p className="text-sm text-primary">Units sold</p>
               </div>
-              <div className="p-3 rounded-full bg-accent/20">
-                <Database className="w-6 h-6 text-accent" />
+              <div className="p-3 rounded-full bg-primary/20">
+                <TrendingUp className="w-6 h-6 text-primary" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Total Restocks (30 days) */}
+        <Card className="glass-container hover-scale cursor-pointer transition-all hover:shadow-lg">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Total Restocks (30d)</p>
+                <p className="text-3xl font-bold text-foreground">{totalRestocks30d}</p>
+                <p className="text-sm text-secondary">Units restocked</p>
+              </div>
+              <div className="p-3 rounded-full bg-secondary/20">
+                <Package className="w-6 h-6 text-secondary" />
               </div>
             </div>
           </CardContent>
@@ -784,147 +753,130 @@ export function Replenishment() {
               <h3 className="text-lg font-semibold">Sales Performance Analytics</h3>
               <p className="text-muted-foreground">Track sales across different time periods</p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-4">
               <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
                 <SelectTrigger className="w-32">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {salesData.map(item => (
-                    <SelectItem key={item.period} value={item.period}>
-                      {item.period}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="1d">1 Day</SelectItem>
+                  <SelectItem value="3d">3 Days</SelectItem>
+                  <SelectItem value="7d">7 Days</SelectItem>
+                  <SelectItem value="15d">15 Days</SelectItem>
+                  <SelectItem value="30d">30 Days</SelectItem>
+                  <SelectItem value="45d">45 Days</SelectItem>
+                  <SelectItem value="60d">60 Days</SelectItem>
+                  <SelectItem value="90d">90 Days</SelectItem>
                 </SelectContent>
               </Select>
               <Button onClick={exportSalesData} variant="outline" size="sm" className="gap-2">
                 <Download className="w-4 h-4" />
-                Export
+                Export Data
               </Button>
             </div>
           </div>
 
-          {/* Sales Performance Cards Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
-            {salesData.map((period, index) => (
-              <Card key={period.period} className={`glass-container hover-scale cursor-pointer transition-all ${selectedPeriod === period.period ? 'ring-2 ring-primary' : ''}`} onClick={() => setSelectedPeriod(period.period)}>
-                <CardContent className="p-4">
-                  <div className="text-center space-y-2">
-                    <div className="text-xs text-muted-foreground font-medium">{period.period}</div>
-                    <div className="space-y-1">
-                      <div className="text-lg font-bold text-primary">{period.total_sold}</div>
-                      <div className="text-xs text-muted-foreground">Total Sold</div>
-                    </div>
-                    <div className="space-y-1">
-                      <div className="text-sm font-semibold text-secondary">{period.total_restocked}</div>
-                      <div className="text-xs text-muted-foreground">Restocked</div>
-                    </div>
-                    <div className="text-xs text-accent">{period.sell_rate.toFixed(1)}/day</div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Sales vs Restocks Line Chart */}
+            <Card className="glass-container">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <LineChart className="w-5 h-5" />
+                  Sales vs Restocks Trend
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ChartContainer config={chartConfig} className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RechartsLineChart data={salesData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="period" stroke="hsl(var(--muted-foreground))" />
+                      <YAxis stroke="hsl(var(--muted-foreground))" />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Line 
+                        type="monotone" 
+                        dataKey="total_sold" 
+                        stroke="hsl(var(--primary))" 
+                        strokeWidth={3}
+                        dot={{ fill: "hsl(var(--primary))", strokeWidth: 2, r: 4 }}
+                        name="Total Sold"
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="total_restocked" 
+                        stroke="hsl(var(--secondary))" 
+                        strokeWidth={3}
+                        dot={{ fill: "hsl(var(--secondary))", strokeWidth: 2, r: 4 }}
+                        name="Total Restocked"
+                      />
+                    </RechartsLineChart>
+                  </ResponsiveContainer>
+                </ChartContainer>
+              </CardContent>
+            </Card>
 
-          {/* Selected Period Details */}
-          {selectedPeriodData && (
+            {/* ASIN vs SKU Performance */}
             <Card className="glass-container">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <BarChart3 className="w-5 h-5" />
-                  Detailed Analytics for {selectedPeriod}
+                  ASIN vs SKU Sales
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="space-y-4">
-                    <h4 className="font-medium text-primary">ASIN Performance</h4>
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center p-3 rounded-lg bg-primary/10">
-                        <span className="text-sm">Items Sold</span>
-                        <span className="font-bold text-primary">{selectedPeriodData.asin_sold}</span>
-                      </div>
-                      <div className="flex justify-between items-center p-3 rounded-lg bg-primary/10">
-                        <span className="text-sm">Restocked</span>
-                        <span className="font-bold text-primary">{selectedPeriodData.asin_restocked}</span>
-                      </div>
-                      <div className="flex justify-between items-center p-3 rounded-lg bg-primary/10">
-                        <span className="text-sm">Daily Rate</span>
-                        <span className="font-bold text-primary">{(selectedPeriodData.asin_sold / parseInt(selectedPeriod)).toFixed(1)}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <h4 className="font-medium" style={{ color: 'hsl(220, 70%, 50%)' }}>SKU Performance</h4>
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center p-3 rounded-lg" style={{ backgroundColor: 'hsl(220, 70%, 50%, 0.1)' }}>
-                        <span className="text-sm">Items Sold</span>
-                        <span className="font-bold" style={{ color: 'hsl(220, 70%, 50%)' }}>{selectedPeriodData.sku_sold}</span>
-                      </div>
-                      <div className="flex justify-between items-center p-3 rounded-lg" style={{ backgroundColor: 'hsl(220, 70%, 50%, 0.1)' }}>
-                        <span className="text-sm">Restocked</span>
-                        <span className="font-bold" style={{ color: 'hsl(220, 70%, 50%)' }}>{selectedPeriodData.sku_restocked}</span>
-                      </div>
-                      <div className="flex justify-between items-center p-3 rounded-lg" style={{ backgroundColor: 'hsl(220, 70%, 50%, 0.1)' }}>
-                        <span className="text-sm">Daily Rate</span>
-                        <span className="font-bold" style={{ color: 'hsl(220, 70%, 50%)' }}>{(selectedPeriodData.sku_sold / parseInt(selectedPeriod)).toFixed(1)}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <h4 className="font-medium text-accent">Overall Metrics</h4>
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center p-3 rounded-lg bg-accent/10">
-                        <span className="text-sm">Total Performance</span>
-                        <span className="font-bold text-accent">{selectedPeriodData.total_sold}</span>
-                      </div>
-                      <div className="flex justify-between items-center p-3 rounded-lg bg-accent/10">
-                        <span className="text-sm">Efficiency Rate</span>
-                        <span className="font-bold text-accent">{selectedPeriodData.total_restocked > 0 ? ((selectedPeriodData.total_sold / selectedPeriodData.total_restocked) * 100).toFixed(0) : 0}%</span>
-                      </div>
-                      <div className="flex justify-between items-center p-3 rounded-lg bg-accent/10">
-                        <span className="text-sm">Sales Velocity</span>
-                        <span className="font-bold text-accent">{selectedPeriodData.sell_rate.toFixed(2)}/day</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <ChartContainer config={chartConfig} className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RechartsBarChart data={salesData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="period" stroke="hsl(var(--muted-foreground))" />
+                      <YAxis stroke="hsl(var(--muted-foreground))" />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Bar dataKey="asin_sold" fill="hsl(var(--chart-1))" name="ASIN Sold" />
+                      <Bar dataKey="sku_sold" fill="hsl(220, 70%, 50%)" name="SKU Sold" />
+                    </RechartsBarChart>
+                  </ResponsiveContainer>
+                </ChartContainer>
               </CardContent>
             </Card>
-          )}
+          </div>
 
-          {/* Quick Comparison Table */}
+          {/* Detailed Sales Table */}
           <Card className="glass-container">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Activity className="w-5 h-5" />
-                Sales Comparison Table
-              </CardTitle>
+              <CardTitle>Detailed Analytics Table</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b">
-                      <th className="text-left p-2">Period</th>
-                      <th className="text-center p-2">ASIN Sold</th>
-                      <th className="text-center p-2">SKU Sold</th>
-                      <th className="text-center p-2">Total Sold</th>
-                      <th className="text-center p-2">Restocked</th>
-                      <th className="text-center p-2">Daily Rate</th>
+                      <th className="text-left p-3">Period</th>
+                      <th className="text-center p-3">ASIN Sold</th>
+                      <th className="text-center p-3">SKU Sold</th>
+                      <th className="text-center p-3">Total Sold</th>
+                      <th className="text-center p-3">Total Restocked</th>
+                      <th className="text-center p-3">Daily Rate</th>
+                      <th className="text-center p-3">Performance</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {salesData.map((item) => (
-                      <tr key={item.period} className={`border-b hover:bg-muted/50 ${selectedPeriod === item.period ? 'bg-primary/10' : ''}`}>
-                        <td className="p-2 font-medium">{item.period}</td>
-                        <td className="p-2 text-center">{item.asin_sold}</td>
-                        <td className="p-2 text-center">{item.sku_sold}</td>
-                        <td className="p-2 text-center font-bold">{item.total_sold}</td>
-                        <td className="p-2 text-center">{item.total_restocked}</td>
-                        <td className="p-2 text-center">{item.sell_rate.toFixed(1)}</td>
+                    {salesData.map((data, index) => (
+                      <tr key={index} className="border-b hover:bg-muted/50 transition-colors">
+                        <td className="p-3 font-medium">{data.period}</td>
+                        <td className="text-center p-3">{data.asin_sold}</td>
+                        <td className="text-center p-3">{data.sku_sold}</td>
+                        <td className="text-center p-3 font-semibold">{data.total_sold}</td>
+                        <td className="text-center p-3">{data.total_restocked}</td>
+                        <td className="text-center p-3">{data.sell_rate.toFixed(2)}/day</td>
+                        <td className="text-center p-3">
+                          {data.total_sold > data.total_restocked ? (
+                            <Badge variant="destructive" className="text-xs">Undersupplied</Badge>
+                          ) : data.total_sold === data.total_restocked ? (
+                            <Badge variant="default" className="text-xs">Balanced</Badge>
+                          ) : (
+                            <Badge variant="secondary" className="text-xs">Well Stocked</Badge>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -934,209 +886,211 @@ export function Replenishment() {
           </Card>
         </TabsContent>
 
-        {/* Restock Management Tab */}
+        {/* Restock Management Tab with Separate Tabs */}
         <TabsContent value="restock" className="space-y-6">
           <Card className="glass-container">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <Package className="w-5 h-5" />
-                  Items Needing Restock
-                </CardTitle>
-                <p className="text-muted-foreground">Manage items that require replenishment (≤5 units)</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button onClick={exportOrderedData} variant="outline" size="sm" className="gap-2" style={{ backgroundColor: 'hsl(220, 70%, 50%, 0.1)', borderColor: 'hsl(220, 70%, 50%)', color: 'hsl(220, 70%, 50%)' }}>
-                  <Download className="w-4 h-4" />
-                  Export Ordered Items
-                </Button>
-                <Button onClick={exportRestockData} variant="outline" size="sm" className="gap-2">
-                  <Download className="w-4 h-4" />
-                  Export Restock Data
-                </Button>
-              </div>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Package className="w-5 h-5" />
+                Restock Management
+              </CardTitle>
+              <p className="text-muted-foreground">Manage critical stock items and track orders</p>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center gap-4 flex-wrap">
-                <div className="relative flex-1 min-w-80">
-                  <Search className="w-4 h-4 absolute left-3 top-3 text-muted-foreground" />
-                  <Input
-                    placeholder="Search items (separate multiple terms with spaces: ASIN123 SKU456 serial789)..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-                <Badge variant="outline" className="text-sm whitespace-nowrap">
-                  {pendingItems.length} items need attention
-                </Badge>
-                <div className="text-xs text-muted-foreground">
-                  Critical stock (0 units)
-                </div>
-              </div>
+            <CardContent>
+              <Tabs defaultValue="critical" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="critical" className="flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4" />
+                    Critical Stock ({pendingItems.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="ordered" className="flex items-center gap-2">
+                    <Truck className="w-4 h-4" />
+                    Ordered Items ({orderedItems.length})
+                  </TabsTrigger>
+                </TabsList>
 
-              {/* Bulk Actions */}
-              {pendingItems.length > 0 && (
-                <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                  <div className="flex items-center gap-4">
-                     <div className="flex items-center space-x-2">
-                       <Checkbox
-                         id="select-all"
-                         checked={selectedItems.size === pendingItems.length && pendingItems.length > 0}
-                         onCheckedChange={handleSelectAll}
-                       />
-                       <label htmlFor="select-all" className="text-sm font-medium">
-                         Select All ({pendingItems.length} pending items)
-                       </label>
-                     </div>
-                    {selectedItems.size > 0 && (
-                      <Badge variant="secondary">
-                        {selectedItems.size} selected
-                      </Badge>
-                    )}
+                {/* Critical Stock Tab */}
+                <TabsContent value="critical" className="space-y-4 mt-6">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                      <Input
+                        placeholder="Search ASINs, SKUs, or serials... (use spaces for multiple)"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-10"
+                      />
+                    </div>
+                    <Badge variant="outline" className="text-sm whitespace-nowrap">
+                      {pendingItems.length} items need attention
+                    </Badge>
                   </div>
-                  {selectedItems.size > 0 && (
-                    <Button
-                      onClick={handleBulkMarkAsOrdered}
-                      className="gap-2"
-                      style={{ backgroundColor: 'hsl(220, 70%, 50%)', color: 'white' }}
-                    >
-                      <Truck className="w-4 h-4" />
-                      Mark {selectedItems.size} as Ordered
-                    </Button>
+
+                  {/* Bulk Actions for Critical Items */}
+                  {pendingItems.length > 0 && (
+                    <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                      <div className="flex items-center gap-4">
+                         <div className="flex items-center space-x-2">
+                           <Checkbox
+                             id="select-all"
+                             checked={selectedItems.size === pendingItems.length && pendingItems.length > 0}
+                             onCheckedChange={handleSelectAll}
+                           />
+                           <label htmlFor="select-all" className="text-sm font-medium cursor-pointer">
+                             Select All ({pendingItems.length})
+                           </label>
+                         </div>
+                         {selectedItems.size > 0 && (
+                           <Badge variant="secondary" className="text-xs">
+                             {selectedItems.size} selected
+                           </Badge>
+                         )}
+                      </div>
+                      <Button 
+                        onClick={handleBulkMarkAsOrdered}
+                        disabled={selectedItems.size === 0}
+                        size="sm"
+                        className="gap-2"
+                      >
+                        <ShoppingCart className="w-4 h-4" />
+                        Mark {selectedItems.size || 'Selected'} as Ordered
+                      </Button>
+                    </div>
                   )}
-                </div>
-              )}
 
-              {/* Search Guide */}
-              {searchTerm && (
-                <div className="text-xs text-muted-foreground p-2 bg-muted/30 rounded-lg">
-                  <strong>Bulk Search Active:</strong> Searching for: {searchTerm.split(',').map(term => term.trim()).filter(Boolean).join(', ')}
-                </div>
-              )}
+                  {searchTerm.trim() && (
+                    <div className="text-xs text-muted-foreground p-2 bg-muted/30 rounded-lg">
+                      <strong>Search Active:</strong> {searchTerm.split(' ').map(term => term.trim()).filter(Boolean).join(', ')}
+                    </div>
+                  )}
 
-              <div className="space-y-2 max-h-96 overflow-y-auto">
-                {pendingItems.length > 0 || orderedItems.length > 0 ? (
-                  <>
-                    {/* Pending Items Section */}
-                    {pendingItems.length > 0 && (
-                      <>
-                        <div className="text-sm font-medium text-muted-foreground mb-2 px-2">
-                          Items Needing Order ({pendingItems.length})
-                        </div>
-                        {pendingItems.map((item) => (
-                          <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
-                            <div className="flex items-center gap-4">
-                              <Checkbox
-                                id={`select-${item.id}`}
-                                checked={selectedItems.has(item.id)}
-                                onCheckedChange={(checked) => {
-                                  console.log('Individual checkbox clicked:', { itemId: item.id, checked });
-                                  handleSelectItem(item.id, checked as boolean);
-                                }}
-                              />
-                              <div className="p-2 rounded-lg bg-destructive/20">
-                                {item.table_name === 'asin_inventory' ? (
-                                  <Package className="w-4 h-4 text-destructive" />
-                                ) : (
-                                  <Database className="w-4 h-4 text-destructive" />
-                                )}
-                              </div>
-                              <div>
-                                <p className="font-medium">{item.identifier}</p>
-                                <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                                  <span className="font-medium text-destructive">Critical: {item.current_quantity} units</span>
-                                  {item.days_since_last_restock !== null ? (
-                                    <span>Last restock: {item.days_since_last_restock} days ago</span>
-                                  ) : (
-                                    <span>Never restocked</span>
-                                  )}
-                                  <Badge variant="outline" className="text-xs">
-                                    {item.table_name === 'asin_inventory' ? 'ASIN' : 'SKU'}
-                                  </Badge>
-                                </div>
-                              </div>
+                  <div className="space-y-2 max-h-96 overflow-y-auto">
+                    {pendingItems.length > 0 ? (
+                      pendingItems.map((item) => (
+                        <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg bg-destructive/5 hover:bg-destructive/10 transition-colors">
+                          <div className="flex items-center gap-4">
+                            <Checkbox
+                              id={`item-${item.id}`}
+                              checked={selectedItems.has(item.id)}
+                              onCheckedChange={(checked) => handleSelectItem(item.id, checked as boolean)}
+                            />
+                            <div className="p-2 rounded-lg bg-destructive/20">
+                              {item.table_name === 'asin_inventory' ? (
+                                <Package className="w-4 h-4 text-destructive" />
+                              ) : (
+                                <Database className="w-4 h-4 text-destructive" />
+                              )}
                             </div>
-                            <div className="flex items-center gap-2">
-                              <Badge variant="destructive" className="text-xs">
-                                Critical Stock
-                              </Badge>
-                              <Button
-                                size="sm"
-                                onClick={() => markAsOrdered(item.id)}
-                                className="gap-2"
-                              >
-                                <Truck className="w-4 h-4" />
-                                Mark as Ordered
-                              </Button>
+                            <div>
+                              <p className="font-medium text-foreground">{item.identifier}</p>
+                              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                                <span>Qty: {item.current_quantity}</span>
+                                <span>Last Restock: {item.days_since_last_restock ? `${item.days_since_last_restock}d ago` : 'Never'}</span>
+                                <Badge variant="destructive" className="text-xs">
+                                  Out of Stock
+                                </Badge>
+                              </div>
                             </div>
                           </div>
-                        ))}
-                      </>
-                    )}
-
-                    {/* Ordered Items Section */}
-                    {orderedItems.length > 0 && (
-                      <>
-                        <div className="text-sm font-medium text-muted-foreground mb-2 px-2 mt-6">
-                          Items Already Ordered ({orderedItems.length})
+                          <Button
+                            onClick={() => markAsOrdered(item.id)}
+                            size="sm"
+                            variant="outline"
+                            className="gap-2"
+                          >
+                            <ShoppingCart className="w-4 h-4" />
+                            Mark as Ordered
+                          </Button>
                         </div>
-                        {orderedItems.map((item) => (
-                          <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg bg-blue-50/50 opacity-80">
-                            <div className="flex items-center gap-4">
-                              <div className="p-2 rounded-lg bg-blue-500/20">
-                                {item.table_name === 'asin_inventory' ? (
-                                  <Package className="w-4 h-4 text-blue-600" />
-                                ) : (
-                                  <Database className="w-4 h-4 text-blue-600" />
-                                )}
-                              </div>
-                              <div>
-                                <p className="font-medium text-muted-foreground">{item.identifier}</p>
-                                <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                                  <span className="font-medium">Ordered: {item.current_quantity} units</span>
-                                  {item.days_since_last_restock !== null ? (
-                                    <span>Last restock: {item.days_since_last_restock} days ago</span>
-                                  ) : (
-                                    <span>Never restocked</span>
-                                  )}
-                                  <Badge variant="outline" className="text-xs">
-                                    {item.table_name === 'asin_inventory' ? 'ASIN' : 'SKU'}
-                                  </Badge>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Badge variant="outline" className="text-xs" style={{ borderColor: 'hsl(220, 70%, 50%)', color: 'hsl(220, 70%, 50%)' }}>
-                                Order Placed
-                              </Badge>
-                              <Button
-                                size="sm"
-                                disabled
-                                className="gap-2"
-                                style={{ backgroundColor: 'hsl(220, 70%, 50%)', opacity: 0.6 }}
-                              >
-                                <Truck className="w-4 h-4" />
-                                Ordered
-                              </Button>
-                            </div>
-                          </div>
-                        ))}
-                      </>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                        <p className="text-lg font-medium">No critical stock items</p>
+                        <p className="text-sm">All items are well stocked!</p>
+                      </div>
                     )}
-                  </>
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <CheckCircle className="w-12 h-12 mx-auto mb-4 text-primary" />
-                    <p className="text-lg font-medium">
-                      {searchTerm ? 'No matching items found' : 'All items are well stocked!'}
-                    </p>
-                    <p>
-                      {searchTerm ? 'Try adjusting your search terms' : 'No items currently have critical stock (0 units)'}
-                    </p>
                   </div>
-                )}
-              </div>
+
+                  {/* Export button for critical items */}
+                  {pendingItems.length > 0 && (
+                    <div className="pt-4 border-t">
+                      <Button 
+                        onClick={exportRestockData} 
+                        variant="outline" 
+                        size="sm" 
+                        className="gap-2"
+                      >
+                        <Download className="w-4 h-4" />
+                        Export Critical Items
+                      </Button>
+                    </div>
+                  )}
+                </TabsContent>
+
+                {/* Ordered Items Tab */}
+                <TabsContent value="ordered" className="space-y-4 mt-6">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm text-muted-foreground">
+                      Items that have been ordered from suppliers
+                    </div>
+                    {orderedItems.length > 0 && (
+                      <Button 
+                        onClick={() => exportOrderedData()} 
+                        size="sm" 
+                        variant="outline"
+                        className="gap-2"
+                      >
+                        <Download className="w-4 h-4" />
+                        Export Ordered Items
+                      </Button>
+                    )}
+                  </div>
+
+                  <div className="space-y-2 max-h-96 overflow-y-auto">
+                    {orderedItems.length > 0 ? (
+                      orderedItems.map((item) => (
+                        <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg bg-blue-50/50 opacity-80">
+                          <div className="flex items-center gap-4">
+                            <div className="p-2 rounded-lg bg-blue-500/20">
+                              {item.table_name === 'asin_inventory' ? (
+                                <Package className="w-4 h-4 text-blue-600" />
+                              ) : (
+                                <Database className="w-4 h-4 text-blue-600" />
+                              )}
+                            </div>
+                            <div>
+                              <p className="font-medium text-foreground">{item.identifier}</p>
+                              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                                <span>Qty: {item.current_quantity}</span>
+                                <span>Last Restock: {item.days_since_last_restock ? `${item.days_since_last_restock}d ago` : 'Never'}</span>
+                                <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700">
+                                  Order Placed
+                                </Badge>
+                              </div>
+                            </div>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled
+                            className="gap-2 opacity-60"
+                          >
+                            <CheckCircle className="w-4 h-4" />
+                            Ordered
+                          </Button>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Truck className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                        <p className="text-lg font-medium">No ordered items</p>
+                        <p className="text-sm">Items you mark as ordered will appear here</p>
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+              </Tabs>
             </CardContent>
           </Card>
         </TabsContent>
@@ -1155,130 +1109,97 @@ export function Replenishment() {
               <span className="flex items-center gap-2">
                 {dialogData.type === 'critical' && <AlertTriangle className="w-5 h-5 text-destructive" />}
                 {dialogData.type === 'ordered' && <Truck className="w-5 h-5" style={{ color: 'hsl(220, 70%, 50%)' }} />}
-                {dialogData.type === 'active' && <Database className="w-5 h-5 text-accent" />}
+                {dialogData.type === 'active' && <Activity className="w-5 h-5 text-primary" />}
                 {dialogData.title}
               </span>
-              <div className="flex items-center gap-2">
-                <Badge variant="outline">{dialogData.items.length} items</Badge>
-                <Button onClick={exportDialogData} variant="outline" size="sm" className="gap-2">
-                  <Download className="w-4 h-4" />
-                  Export
-                </Button>
-              </div>
+              <Badge variant="outline" className="text-sm">
+                {dialogData.items.length} items
+              </Badge>
             </DialogTitle>
           </DialogHeader>
           
-          {/* Scrollable content area */}
-          <div className="flex-1 overflow-hidden flex flex-col min-h-0">
+          <div className="flex-1 overflow-y-auto space-y-2 pt-4">
             {dialogData.items.length > 0 ? (
-              <div className="overflow-y-auto flex-1 space-y-3 p-4 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
-                {dialogData.items.map((item, index) => (
-                  <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors bg-card shadow-sm">
-                    <div className="flex items-center gap-4 flex-1">
-                      {/* Checkbox for selection */}
-                      <Checkbox
-                        id={`dialog-item-${item.id}`}
-                        checked={selectedItems.has(item.id)}
-                        onCheckedChange={(checked) => handleSelectItem(item.id, checked as boolean)}
-                        className="flex-shrink-0"
-                      />
-                      
-                      {/* Item icon */}
-                      <div className={`p-2 rounded-lg flex-shrink-0 ${
-                        dialogData.type === 'critical' ? 'bg-destructive/20' :
-                        dialogData.type === 'ordered' ? 'bg-blue-500/20' :
-                        'bg-accent/20'
+              dialogData.items.map((item) => (
+                <div
+                  key={item.id}
+                  className={`p-4 border rounded-lg transition-colors ${
+                    dialogData.type === 'critical' 
+                      ? 'bg-destructive/5 hover:bg-destructive/10 border-destructive/20' 
+                      : dialogData.type === 'ordered'
+                      ? 'bg-blue-50/50 border-blue-200/50'
+                      : 'bg-primary/5 hover:bg-primary/10 border-primary/20'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className={`p-2 rounded-lg ${
+                        dialogData.type === 'critical' 
+                          ? 'bg-destructive/20' 
+                          : dialogData.type === 'ordered'
+                          ? 'bg-blue-500/20'
+                          : 'bg-primary/20'
                       }`}>
                         {item.table_name === 'asin_inventory' ? (
                           <Package className={`w-4 h-4 ${
-                            dialogData.type === 'critical' ? 'text-destructive' :
-                            dialogData.type === 'ordered' ? 'text-blue-500' :
-                            'text-accent'
+                            dialogData.type === 'critical' 
+                              ? 'text-destructive' 
+                              : dialogData.type === 'ordered'
+                              ? 'text-blue-600'
+                              : 'text-primary'
                           }`} />
                         ) : (
                           <Database className={`w-4 h-4 ${
-                            dialogData.type === 'critical' ? 'text-destructive' :
-                            dialogData.type === 'ordered' ? 'text-blue-500' :
-                            'text-accent'
+                            dialogData.type === 'critical' 
+                              ? 'text-destructive' 
+                              : dialogData.type === 'ordered'
+                              ? 'text-blue-600'
+                              : 'text-primary'
                           }`} />
                         )}
                       </div>
-                      
-                      {/* Item details */}
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{item.identifier}</p>
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
-                          <span className={`font-medium ${
-                            dialogData.type === 'critical' ? 'text-destructive' :
-                            dialogData.type === 'ordered' ? 'text-blue-500' :
-                            'text-foreground'
-                          }`}>
-                            Quantity: {dialogData.type === 'ordered' && item.status === 'ordered' ? 0 : item.current_quantity} units
-                          </span>
-                          {item.days_since_last_restock !== null ? (
-                            <span>Last restock: {item.days_since_last_restock} days ago</span>
-                          ) : (
-                            <span>Never restocked</span>
-                          )}
-                          <Badge variant="outline" className="text-xs flex-shrink-0">
+                      <div>
+                        <p className="font-medium text-foreground">{item.identifier}</p>
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                          <span>Quantity: {item.current_quantity}</span>
+                          <span>Last Restock: {item.days_since_last_restock ? `${item.days_since_last_restock}d ago` : 'Never'}</span>
+                          <Badge variant="outline" className="text-xs">
                             {item.table_name === 'asin_inventory' ? 'ASIN' : 'SKU'}
                           </Badge>
                         </div>
                       </div>
                     </div>
-                    
-                    {/* Action buttons */}
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <Badge variant={
-                        dialogData.type === 'critical' ? 'destructive' :
-                        dialogData.type === 'ordered' ? 'outline' :
-                        'secondary'
-                      } className="text-xs">
-                        {dialogData.type === 'critical' ? 'Critical Stock' :
-                         dialogData.type === 'ordered' ? 'Ordered' :
-                         'Active'}
-                      </Badge>
+                    <div className="flex items-center gap-2">
                       {dialogData.type === 'critical' && (
-                        <Button
-                          size="sm"
-                          onClick={() => markAsOrdered(item.id)}
-                          disabled={item.status === 'ordered'}
-                          className="gap-2"
+                        <>
+                          <Badge variant="destructive" className="text-xs">Critical</Badge>
+                          <Button size="sm" onClick={() => markAsOrdered(item.id)}>
+                            Mark as Ordered
+                          </Button>
+                        </>
+                      )}
+                      {dialogData.type === 'ordered' && (
+                        <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700">
+                          Order Placed
+                        </Badge>
+                      )}
+                      {dialogData.type === 'active' && (
+                        <Badge 
+                          variant={item.current_quantity <= 5 ? "destructive" : "default"} 
+                          className="text-xs"
                         >
-                          <Truck className="w-4 h-4" />
-                          {item.status === 'ordered' ? 'Ordered' : 'Mark as Ordered'}
-                        </Button>
+                          {item.current_quantity <= 5 ? "Low Stock" : "In Stock"}
+                        </Badge>
                       )}
                     </div>
                   </div>
-                ))}
-              </div>
+                </div>
+              ))
             ) : (
-              <div className="flex-1 flex items-center justify-center text-center py-12">
-                <div>
-                  <CheckCircle className="w-16 h-16 mx-auto mb-4 text-primary" />
-                  <p className="text-lg font-medium text-foreground">No items found</p>
-                  <p className="text-muted-foreground">No items match the current criteria</p>
-                </div>
-              </div>
-            )}
-            
-            {/* Bulk actions footer */}
-            {selectedItems.size > 0 && dialogData.type === 'critical' && (
-              <div className="flex-shrink-0 border-t bg-muted/30 p-4 mt-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-foreground">
-                    {selectedItems.size} item{selectedItems.size !== 1 ? 's' : ''} selected
-                  </span>
-                  <Button
-                    onClick={handleBulkMarkAsOrdered}
-                    className="gap-2"
-                    style={{ backgroundColor: 'hsl(220, 70%, 50%)', color: 'white' }}
-                  >
-                    <Truck className="w-4 h-4" />
-                    Mark {selectedItems.size} as Ordered
-                  </Button>
-                </div>
+              <div className="text-center py-8 text-muted-foreground">
+                <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p className="text-lg font-medium">No items found</p>
+                <p className="text-sm">No items match the current criteria</p>
               </div>
             )}
           </div>
