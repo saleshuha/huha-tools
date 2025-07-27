@@ -67,7 +67,7 @@ const coreItems = [
     description: "Track product inventory with ASIN and serial numbers"
   },
   {
-    title: "Replenishment",
+    title: "Sales & Replenishment",
     url: "/replenishment",
     icon: TrendingUp,
     description: "AI-powered inventory forecasting and restock recommendations"
