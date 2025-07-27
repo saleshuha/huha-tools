@@ -48,6 +48,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { QuantityEditor } from './QuantityEditor';
 import { StockHistoryDialog } from './StockHistoryDialog';
 import { Textarea } from './ui/textarea';
+import { SkuInventoryMetrics } from './SkuInventoryMetrics';
 
 export function SSInventory() {
   const { inventory, loading, addItem, updateItemStatus, updateQuantity, bulkAdd, updateBinLocation, refetch } = useSkuInventory();
@@ -477,6 +478,9 @@ export function SSInventory() {
             Advanced SKU management with real-time analytics
           </p>
         </div>
+
+        {/* SKU Inventory Metrics */}
+        <SkuInventoryMetrics />
 
         {/* Quick Stats Dashboard */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4 auto-fit-columns">
