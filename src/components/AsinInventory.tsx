@@ -9,40 +9,7 @@ import { Badge } from './ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Progress } from './ui/progress';
 import { useToast } from '@/hooks/use-toast';
-import { 
-  Package, 
-  Plus, 
-  Search, 
-  Edit, 
-  Download, 
-  Upload,
-  Check,
-  X,
-  RefreshCw,
-  AlertTriangle,
-  Printer,
-  Hash,
-  Mail,
-  BarChart3,
-  Filter,
-  Grid3X3,
-  List,
-  SortAsc,
-  SortDesc,
-  Calendar,
-  TrendingUp,
-  TrendingDown,
-  Eye,
-  Archive,
-  Zap,
-  Clock,
-  ShoppingCart,
-  Trash2,
-  Settings,
-  FileText,
-  Copy,
-  Star
-} from 'lucide-react';
+import { Package, Plus, Search, Edit, Download, Upload, Check, X, RefreshCw, AlertTriangle, Printer, Hash, Mail, BarChart3, Filter, Grid3X3, List, SortAsc, SortDesc, Calendar, TrendingUp, TrendingDown, Eye, Archive, Zap, Clock, ShoppingCart, Trash2, Settings, FileText, Copy, Star } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from './ui/dialog';
 import { Textarea } from './ui/textarea';
 import { useAsinInventory, AsinInventoryItem } from '@/hooks/useAsinInventory';
@@ -50,10 +17,21 @@ import { useUserProfile } from '@/hooks/useUserProfile';
 import { supabase } from '@/integrations/supabase/client';
 import { QuantityEditor } from './QuantityEditor';
 import { StockHistoryDialog } from './StockHistoryDialog';
-
 export function AsinInventory() {
-  const { inventory, loading, addItem, updateItemStatus, bulkAdd, restockItem, updateQuantity, updateBin, refetch } = useAsinInventory();
-  const { user } = useUserProfile();
+  const {
+    inventory,
+    loading,
+    addItem,
+    updateItemStatus,
+    bulkAdd,
+    restockItem,
+    updateQuantity,
+    updateBin,
+    refetch
+  } = useAsinInventory();
+  const {
+    user
+  } = useUserProfile();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'dateAdded' | 'asin' | 'quantity' | 'status'>('dateAdded');
@@ -70,7 +48,9 @@ export function AsinInventory() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
   const [quickFilter, setQuickFilter] = useState<'all' | 'low-stock' | 'out-of-stock' | 'recent'>('all');
-  const { toast } = useToast();
+  const {
+    toast
+  } = useToast();
 
   // Form states
   const [newItem, setNewItem] = useState<{
@@ -87,20 +67,13 @@ export function AsinInventory() {
     notes: ''
   });
   const [bulkText, setBulkText] = useState('');
-
   const filteredInventory = useMemo(() => {
     let filtered = inventory;
 
     // Apply search filter
     if (searchTerm) {
       const searchTerms = searchTerm.toLowerCase().split(' ').filter(term => term.length > 0);
-      filtered = filtered.filter(item => 
-        searchTerms.every(term =>
-          item.asin.toLowerCase().includes(term) ||
-          item.serialNumber.toLowerCase().includes(term) ||
-          (item.notes && item.notes.toLowerCase().includes(term))
-        )
-      );
+      filtered = filtered.filter(item => searchTerms.every(term => item.asin.toLowerCase().includes(term) || item.serialNumber.toLowerCase().includes(term) || item.notes && item.notes.toLowerCase().includes(term)));
     }
 
     // Apply status filter
@@ -123,26 +96,21 @@ export function AsinInventory() {
     filtered.sort((a, b) => {
       let aValue: any = a[sortBy];
       let bValue: any = b[sortBy];
-
       if (sortBy === 'dateAdded') {
         aValue = new Date(aValue).getTime();
         bValue = new Date(bValue).getTime();
       }
-
       if (sortOrder === 'asc') {
         return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
       } else {
         return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
       }
     });
-
     return filtered;
   }, [inventory, searchTerm, statusFilter, sortBy, sortOrder, quickFilter]);
-
   const totalPages = Math.ceil(filteredInventory.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedInventory = filteredInventory.slice(startIndex, startIndex + itemsPerPage);
-
   const handleAddItem = async () => {
     if (!newItem.asin.trim() || !newItem.serialNumber.trim()) {
       toast({
@@ -152,7 +120,6 @@ export function AsinInventory() {
       });
       return;
     }
-
     await addItem({
       ...newItem,
       dateAdded: new Date().toISOString()
@@ -166,7 +133,6 @@ export function AsinInventory() {
       notes: ''
     });
   };
-
   const handleBulkAdd = async () => {
     if (!bulkText.trim()) {
       toast({
@@ -176,10 +142,8 @@ export function AsinInventory() {
       });
       return;
     }
-
     const lines = bulkText.trim().split('\n');
     const items = [];
-
     for (const line of lines) {
       const parts = line.split('\t');
       if (parts.length >= 4) {
@@ -193,7 +157,6 @@ export function AsinInventory() {
         });
       }
     }
-
     if (items.length === 0) {
       toast({
         title: "No Valid Data",
@@ -202,31 +165,20 @@ export function AsinInventory() {
       });
       return;
     }
-
     await bulkAdd(items);
     setBulkText('');
     setIsBulkDialogOpen(false);
     toast({
       title: "Success",
-      description: `Added ${items.length} items to inventory`,
+      description: `Added ${items.length} items to inventory`
     });
   };
-
   const exportInventory = () => {
-    const csvData = [
-      ['ASIN', 'Serial Number', 'Status', 'Quantity', 'Date Added', 'Notes'],
-      ...filteredInventory.map(item => [
-        item.asin,
-        item.serialNumber,
-        item.status,
-        item.quantity.toString(),
-        new Date(item.dateAdded).toLocaleDateString(),
-        item.notes || ''
-      ])
-    ];
-
+    const csvData = [['ASIN', 'Serial Number', 'Status', 'Quantity', 'Date Added', 'Notes'], ...filteredInventory.map(item => [item.asin, item.serialNumber, item.status, item.quantity.toString(), new Date(item.dateAdded).toLocaleDateString(), item.notes || ''])];
     const csvContent = csvData.map(row => row.map(field => `"${field}"`).join(',')).join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob([csvContent], {
+      type: 'text/csv;charset=utf-8;'
+    });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
@@ -235,27 +187,26 @@ export function AsinInventory() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-
     toast({
       title: "Export Complete",
-      description: "Inventory data exported to CSV file",
+      description: "Inventory data exported to CSV file"
     });
   };
-
   const emailInventory = async () => {
     try {
-      const { data, error } = await supabase.functions.invoke('send-inventory-email', {
+      const {
+        data,
+        error
+      } = await supabase.functions.invoke('send-inventory-email', {
         body: {
           inventory: filteredInventory,
           userEmail: user?.email
         }
       });
-
       if (error) throw error;
-
       toast({
         title: "Email Sent",
-        description: "Inventory report sent to your email",
+        description: "Inventory report sent to your email"
       });
     } catch (error) {
       toast({
@@ -265,43 +216,25 @@ export function AsinInventory() {
       });
     }
   };
-
   const handleRefresh = () => {
     refetch();
     toast({
       title: "Refreshed",
-      description: "Inventory data refreshed",
+      description: "Inventory data refreshed"
     });
   };
-
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
+    return <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex flex-col items-center gap-4">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
           <p className="text-muted-foreground animate-pulse">Loading your inventory...</p>
         </div>
-      </div>
-    );
+      </div>;
   }
-
-  return (
-    <div className="space-y-6 max-w-[95vw] mx-auto p-6">
+  return <div className="space-y-6 max-w-[95vw] mx-auto p-6">
       {/* Header with Stats */}
       <div className="space-y-6">
-        <div className="text-center">
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <div className="p-3 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10">
-              <Package className="w-8 h-8 text-primary" />
-            </div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
-              ASIN Inventory
-            </h1>
-          </div>
-          <p className="text-muted-foreground text-lg">
-            Advanced inventory management with real-time analytics
-          </p>
-        </div>
+        
       </div>
 
       {/* Prominent Search Bar */}
@@ -311,12 +244,7 @@ export function AsinInventory() {
             {/* Enhanced Search Bar */}
             <div className="relative">
               <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground w-6 h-6" />
-              <Input
-                placeholder="🔍 Advanced search: ASIN, Serial Number, Notes (use spaces for multiple terms)..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-14 h-16 text-xl font-medium shadow-lg border-2 focus:border-primary/50 bg-background/50"
-              />
+              <Input placeholder="🔍 Advanced search: ASIN, Serial Number, Notes (use spaces for multiple terms)..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-14 h-16 text-xl font-medium shadow-lg border-2 focus:border-primary/50 bg-background/50" />
             </div>
 
             {/* Action Buttons Row */}
@@ -343,38 +271,31 @@ export function AsinInventory() {
                     <div className="space-y-4">
                       <div>
                         <Label htmlFor="asin">ASIN</Label>
-                        <Input
-                          id="asin"
-                          value={newItem.asin}
-                          onChange={(e) => setNewItem({ ...newItem, asin: e.target.value })}
-                          placeholder="Enter ASIN..."
-                        />
+                        <Input id="asin" value={newItem.asin} onChange={e => setNewItem({
+                        ...newItem,
+                        asin: e.target.value
+                      })} placeholder="Enter ASIN..." />
                       </div>
                       <div>
                         <Label htmlFor="serialNumber">Serial Number</Label>
-                        <Input
-                          id="serialNumber"
-                          value={newItem.serialNumber}
-                          onChange={(e) => setNewItem({ ...newItem, serialNumber: e.target.value })}
-                          placeholder="Enter Serial Number..."
-                        />
+                        <Input id="serialNumber" value={newItem.serialNumber} onChange={e => setNewItem({
+                        ...newItem,
+                        serialNumber: e.target.value
+                      })} placeholder="Enter Serial Number..." />
                       </div>
                       <div>
                         <Label htmlFor="quantity">Quantity</Label>
-                        <Input
-                          id="quantity"
-                          type="number"
-                          min="1"
-                          value={newItem.quantity}
-                          onChange={(e) => setNewItem({ ...newItem, quantity: parseInt(e.target.value) || 1 })}
-                        />
+                        <Input id="quantity" type="number" min="1" value={newItem.quantity} onChange={e => setNewItem({
+                        ...newItem,
+                        quantity: parseInt(e.target.value) || 1
+                      })} />
                       </div>
                       <div>
                         <Label htmlFor="status">Status</Label>
-                        <Select
-                          value={newItem.status}
-                          onValueChange={(value: AsinInventoryItem['status']) => setNewItem({ ...newItem, status: value })}
-                        >
+                        <Select value={newItem.status} onValueChange={(value: AsinInventoryItem['status']) => setNewItem({
+                        ...newItem,
+                        status: value
+                      })}>
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>
@@ -388,13 +309,10 @@ export function AsinInventory() {
                       </div>
                       <div>
                         <Label htmlFor="notes">Notes (Optional)</Label>
-                        <Textarea
-                          id="notes"
-                          value={newItem.notes}
-                          onChange={(e) => setNewItem({ ...newItem, notes: e.target.value })}
-                          placeholder="Add any notes..."
-                          rows={2}
-                        />
+                        <Textarea id="notes" value={newItem.notes} onChange={e => setNewItem({
+                        ...newItem,
+                        notes: e.target.value
+                      })} placeholder="Add any notes..." rows={2} />
                       </div>
                     </div>
                     <DialogFooter>
@@ -422,14 +340,7 @@ export function AsinInventory() {
                         <Label htmlFor="bulkText">
                           Paste tab-separated data (ASIN, Serial Number, Status, Quantity, Notes)
                         </Label>
-                        <Textarea
-                          id="bulkText"
-                          value={bulkText}
-                          onChange={(e) => setBulkText(e.target.value)}
-                          placeholder="B123456789	SN001	in-stock	5	Optional notes&#10;B987654321	SN002	sold	1	Another item"
-                          rows={8}
-                          className="font-mono text-sm"
-                        />
+                        <Textarea id="bulkText" value={bulkText} onChange={e => setBulkText(e.target.value)} placeholder="B123456789	SN001	in-stock	5	Optional notes&#10;B987654321	SN002	sold	1	Another item" rows={8} className="font-mono text-sm" />
                       </div>
                       <div className="text-sm text-muted-foreground">
                         <p><strong>Format:</strong> Each line should contain tab-separated values</p>
@@ -467,39 +378,19 @@ export function AsinInventory() {
                 <Filter className="w-5 h-5" />
                 Quick Filters:
               </Label>
-              <Button
-                variant={quickFilter === 'all' ? 'default' : 'outline'}
-                size="lg"
-                onClick={() => setQuickFilter('all')}
-                className="flex items-center gap-2"
-              >
+              <Button variant={quickFilter === 'all' ? 'default' : 'outline'} size="lg" onClick={() => setQuickFilter('all')} className="flex items-center gap-2">
                 <Package className="w-5 h-5" />
                 All Items
               </Button>
-              <Button
-                variant={quickFilter === 'low-stock' ? 'default' : 'outline'}
-                size="lg"
-                onClick={() => setQuickFilter('low-stock')}
-                className="flex items-center gap-2"
-              >
+              <Button variant={quickFilter === 'low-stock' ? 'default' : 'outline'} size="lg" onClick={() => setQuickFilter('low-stock')} className="flex items-center gap-2">
                 <AlertTriangle className="w-5 h-5" />
                 Low Stock
               </Button>
-              <Button
-                variant={quickFilter === 'out-of-stock' ? 'default' : 'outline'}
-                size="lg"
-                onClick={() => setQuickFilter('out-of-stock')}
-                className="flex items-center gap-2"
-              >
+              <Button variant={quickFilter === 'out-of-stock' ? 'default' : 'outline'} size="lg" onClick={() => setQuickFilter('out-of-stock')} className="flex items-center gap-2">
                 <AlertTriangle className="w-5 h-5" />
                 Out of Stock
               </Button>
-              <Button
-                variant={quickFilter === 'recent' ? 'default' : 'outline'}
-                size="lg"
-                onClick={() => setQuickFilter('recent')}
-                className="flex items-center gap-2"
-              >
+              <Button variant={quickFilter === 'recent' ? 'default' : 'outline'} size="lg" onClick={() => setQuickFilter('recent')} className="flex items-center gap-2">
                 <Clock className="w-5 h-5" />
                 Recent (7 days)
               </Button>
@@ -528,21 +419,11 @@ export function AsinInventory() {
               <div className="flex items-center gap-3">
                 <Label className="text-sm font-medium whitespace-nowrap">View:</Label>
                 <div className="flex border rounded-lg p-1 bg-background">
-                  <Button
-                    variant={viewMode === 'table' ? 'default' : 'ghost'}
-                    size="sm"
-                    onClick={() => setViewMode('table')}
-                    className="h-8"
-                  >
+                  <Button variant={viewMode === 'table' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('table')} className="h-8">
                     <List className="w-4 h-4 mr-1" />
                     Table
                   </Button>
-                  <Button
-                    variant={viewMode === 'grid' ? 'default' : 'ghost'}
-                    size="sm"
-                    onClick={() => setViewMode('grid')}
-                    className="h-8"
-                  >
+                  <Button variant={viewMode === 'grid' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('grid')} className="h-8">
                     <Grid3X3 className="w-4 h-4 mr-1" />
                     Grid
                   </Button>
@@ -552,7 +433,7 @@ export function AsinInventory() {
               {/* Items per page */}
               <div className="flex items-center gap-3">
                 <Label className="text-sm font-medium whitespace-nowrap">Show:</Label>
-                <Select value={itemsPerPage.toString()} onValueChange={(value) => setItemsPerPage(Number(value))}>
+                <Select value={itemsPerPage.toString()} onValueChange={value => setItemsPerPage(Number(value))}>
                   <SelectTrigger className="w-20 bg-background border">
                     <SelectValue />
                   </SelectTrigger>
@@ -578,43 +459,32 @@ export function AsinInventory() {
       </Card>
 
       {/* Inventory Display */}
-      {filteredInventory.length === 0 ? (
-        <Card className="border-dashed border-2 border-muted">
+      {filteredInventory.length === 0 ? <Card className="border-dashed border-2 border-muted">
           <CardContent className="flex flex-col items-center justify-center py-16">
             <Package className="w-16 h-16 text-muted-foreground mb-4" />
             <h3 className="text-xl font-semibold text-muted-foreground mb-2">No inventory items found</h3>
             <p className="text-muted-foreground text-center mb-6">
-              {searchTerm || statusFilter !== 'all' || quickFilter !== 'all' 
-                ? "Try adjusting your filters or search terms"
-                : "Get started by adding your first inventory item"
-              }
+              {searchTerm || statusFilter !== 'all' || quickFilter !== 'all' ? "Try adjusting your filters or search terms" : "Get started by adding your first inventory item"}
             </p>
-            {!searchTerm && statusFilter === 'all' && quickFilter === 'all' && (
-              <Button onClick={() => setIsAddDialogOpen(true)}>
+            {!searchTerm && statusFilter === 'all' && quickFilter === 'all' && <Button onClick={() => setIsAddDialogOpen(true)}>
                 <Plus className="w-4 h-4 mr-2" />
                 Add Your First Item
-              </Button>
-            )}
+              </Button>}
           </CardContent>
-        </Card>
-      ) : viewMode === 'table' ? (
-        <Card>
+        </Card> : viewMode === 'table' ? <Card>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-muted/50">
                   <tr className="border-b">
                     <th className="p-4 text-left">
-                      <Checkbox
-                        checked={selectedItems.size === paginatedInventory.length && paginatedInventory.length > 0}
-                        onCheckedChange={(checked) => {
-                          if (checked) {
-                            setSelectedItems(new Set(paginatedInventory.map(item => item.id)));
-                          } else {
-                            setSelectedItems(new Set());
-                          }
-                        }}
-                      />
+                      <Checkbox checked={selectedItems.size === paginatedInventory.length && paginatedInventory.length > 0} onCheckedChange={checked => {
+                    if (checked) {
+                      setSelectedItems(new Set(paginatedInventory.map(item => item.id)));
+                    } else {
+                      setSelectedItems(new Set());
+                    }
+                  }} />
                     </th>
                     <th className="p-4 text-left font-medium">ASIN</th>
                     <th className="p-4 text-left font-medium">Serial Number</th>
@@ -625,44 +495,31 @@ export function AsinInventory() {
                   </tr>
                 </thead>
                 <tbody>
-                  {paginatedInventory.map((item) => (
-                    <tr key={item.id} className="border-b hover:bg-muted/25 transition-colors">
+                  {paginatedInventory.map(item => <tr key={item.id} className="border-b hover:bg-muted/25 transition-colors">
                       <td className="p-4">
-                        <Checkbox
-                          checked={selectedItems.has(item.id)}
-                          onCheckedChange={(checked) => {
-                            const newSelected = new Set(selectedItems);
-                            if (checked) {
-                              newSelected.add(item.id);
-                            } else {
-                              newSelected.delete(item.id);
-                            }
-                            setSelectedItems(newSelected);
-                          }}
-                        />
+                        <Checkbox checked={selectedItems.has(item.id)} onCheckedChange={checked => {
+                    const newSelected = new Set(selectedItems);
+                    if (checked) {
+                      newSelected.add(item.id);
+                    } else {
+                      newSelected.delete(item.id);
+                    }
+                    setSelectedItems(newSelected);
+                  }} />
                       </td>
                       <td className="p-4 font-mono text-sm">{item.asin}</td>
                       <td className="p-4 font-mono text-sm">{item.serialNumber}</td>
                       <td className="p-4">
-                        <Badge variant={
-                          item.status === 'in-stock' ? 'default' :
-                          item.status === 'sold' ? 'secondary' :
-                          item.status === 'reserved' ? 'outline' : 'destructive'
-                        }>
+                        <Badge variant={item.status === 'in-stock' ? 'default' : item.status === 'sold' ? 'secondary' : item.status === 'reserved' ? 'outline' : 'destructive'}>
                           {item.status.replace('-', ' ').toUpperCase()}
                         </Badge>
                       </td>
                       <td className="p-4">
                         <div className="flex items-center gap-2">
-                          <span className={`font-semibold ${
-                            item.quantity === 0 ? 'text-red-500' :
-                            item.quantity <= 5 ? 'text-yellow-500' : 'text-green-500'
-                          }`}>
+                          <span className={`font-semibold ${item.quantity === 0 ? 'text-red-500' : item.quantity <= 5 ? 'text-yellow-500' : 'text-green-500'}`}>
                             {item.quantity}
                           </span>
-                          {item.quantity <= 5 && (
-                            <AlertTriangle className="w-4 h-4 text-yellow-500" />
-                          )}
+                          {item.quantity <= 5 && <AlertTriangle className="w-4 h-4 text-yellow-500" />}
                         </div>
                       </td>
                       <td className="p-4 text-sm text-muted-foreground">
@@ -670,49 +527,31 @@ export function AsinInventory() {
                       </td>
                        <td className="p-4">
                          <div className="flex items-center gap-2">
-                           <QuantityEditor
-                             currentQuantity={item.quantity}
-                             onUpdate={(newQuantity, reason) => updateQuantity(item.id, newQuantity, reason)}
-                           />
-                           <StockHistoryDialog
-                             inventoryId={item.id}
-                             itemIdentifier={`${item.asin} (${item.serialNumber})`}
-                             inventoryType="asin"
-                           />
+                           <QuantityEditor currentQuantity={item.quantity} onUpdate={(newQuantity, reason) => updateQuantity(item.id, newQuantity, reason)} />
+                           <StockHistoryDialog inventoryId={item.id} itemIdentifier={`${item.asin} (${item.serialNumber})`} inventoryType="asin" />
                          </div>
                        </td>
-                    </tr>
-                  ))}
+                    </tr>)}
                 </tbody>
               </table>
             </div>
           </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {paginatedInventory.map((item) => (
-            <Card key={item.id} className="hover:shadow-lg transition-all duration-300 border-0 shadow-md">
+        </Card> : <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {paginatedInventory.map(item => <Card key={item.id} className="hover:shadow-lg transition-all duration-300 border-0 shadow-md">
               <CardContent className="p-6">
                 <div className="space-y-4">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-2">
-                      <Checkbox
-                        checked={selectedItems.has(item.id)}
-                        onCheckedChange={(checked) => {
-                          const newSelected = new Set(selectedItems);
-                          if (checked) {
-                            newSelected.add(item.id);
-                          } else {
-                            newSelected.delete(item.id);
-                          }
-                          setSelectedItems(newSelected);
-                        }}
-                      />
-                      <Badge variant={
-                        item.status === 'in-stock' ? 'default' :
-                        item.status === 'sold' ? 'secondary' :
-                        item.status === 'reserved' ? 'outline' : 'destructive'
-                      }>
+                      <Checkbox checked={selectedItems.has(item.id)} onCheckedChange={checked => {
+                  const newSelected = new Set(selectedItems);
+                  if (checked) {
+                    newSelected.add(item.id);
+                  } else {
+                    newSelected.delete(item.id);
+                  }
+                  setSelectedItems(newSelected);
+                }} />
+                      <Badge variant={item.status === 'in-stock' ? 'default' : item.status === 'sold' ? 'secondary' : item.status === 'reserved' ? 'outline' : 'destructive'}>
                         {item.status.replace('-', ' ').toUpperCase()}
                       </Badge>
                     </div>
@@ -729,15 +568,10 @@ export function AsinInventory() {
                     <div>
                       <Label className="text-xs text-muted-foreground">Quantity</Label>
                       <div className="flex items-center gap-2">
-                        <span className={`font-semibold ${
-                          item.quantity === 0 ? 'text-red-500' :
-                          item.quantity <= 5 ? 'text-yellow-500' : 'text-green-500'
-                        }`}>
+                        <span className={`font-semibold ${item.quantity === 0 ? 'text-red-500' : item.quantity <= 5 ? 'text-yellow-500' : 'text-green-500'}`}>
                           {item.quantity}
                         </span>
-                        {item.quantity <= 5 && (
-                          <AlertTriangle className="w-4 h-4 text-yellow-500" />
-                        )}
+                        {item.quantity <= 5 && <AlertTriangle className="w-4 h-4 text-yellow-500" />}
                       </div>
                     </div>
                     <div>
@@ -746,22 +580,12 @@ export function AsinInventory() {
                     </div>
                   </div>
                    <div className="flex items-center gap-2">
-                     <QuantityEditor
-                       currentQuantity={item.quantity}
-                       onUpdate={(newQuantity, reason) => updateQuantity(item.id, newQuantity, reason)}
-                     />
-                     <StockHistoryDialog
-                       inventoryId={item.id}
-                       itemIdentifier={`${item.asin} (${item.serialNumber})`}
-                       inventoryType="asin"
-                     />
+                     <QuantityEditor currentQuantity={item.quantity} onUpdate={(newQuantity, reason) => updateQuantity(item.id, newQuantity, reason)} />
+                     <StockHistoryDialog inventoryId={item.id} itemIdentifier={`${item.asin} (${item.serialNumber})`} inventoryType="asin" />
                    </div>
                 </div>
               </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+            </Card>)}
+        </div>}
+    </div>;
 }
