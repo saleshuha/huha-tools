@@ -1540,183 +1540,223 @@ export function Replenishment() {
             </Button>
           </div>
 
-          {/* Trends Filters */}
-          <Card className="glass-container">
-            <CardContent className="p-4">
-              <div className="flex flex-wrap items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <Search className="w-4 h-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search items by ASIN, SKU, or serial number..."
-                    value={trendsSearchTerm}
-                    onChange={(e) => setTrendsSearchTerm(e.target.value)}
-                    className="w-80"
-                  />
-                </div>
-                <Select value={trendsDateRange} onValueChange={setTrendsDateRange}>
-                  <SelectTrigger className="w-40">
-                    <SelectValue placeholder="Date Range" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="7d">Last 7 days</SelectItem>
-                    <SelectItem value="14d">Last 14 days</SelectItem>
-                    <SelectItem value="30d">Last 30 days</SelectItem>
-                    <SelectItem value="60d">Last 60 days</SelectItem>
-                    <SelectItem value="90d">Last 90 days</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={trendsItemType} onValueChange={setTrendsItemType}>
-                  <SelectTrigger className="w-32">
-                    <SelectValue placeholder="Type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Items</SelectItem>
-                    <SelectItem value="asin">ASIN Only</SelectItem>
-                    <SelectItem value="sku">SKU Only</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={trendsSortBy} onValueChange={setTrendsSortBy}>
-                  <SelectTrigger className="w-40">
-                    <SelectValue placeholder="Sort By" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="sold_desc">Most Sold</SelectItem>
-                    <SelectItem value="sold_asc">Least Sold</SelectItem>
-                    <SelectItem value="recent">Recently Sold</SelectItem>
-                    <SelectItem value="quantity_low">Low Stock</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button
-                  onClick={loadTrendsData}
-                  variant="outline"
-                  size="sm"
-                  disabled={trendsLoading}
-                  className="gap-2"
-                >
-                  <RefreshCw className={`w-4 h-4 ${trendsLoading ? 'animate-spin' : ''}`} />
-                  Refresh
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Sub-tabs for Trends & Forecasting features */}
+          <Tabs defaultValue="item-trends" className="w-full">
+            <TabsList className="grid w-full grid-cols-3 h-12 p-1 bg-gradient-subtle rounded-lg shadow-elegant">
+              <TabsTrigger value="item-trends" className="text-sm font-medium px-4 py-2 rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all duration-300 hover:bg-white/10">
+                📊 Item Trends
+              </TabsTrigger>
+              <TabsTrigger value="forecasting" className="text-sm font-medium px-4 py-2 rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all duration-300 hover:bg-white/10">
+                🔮 AI Forecasting
+              </TabsTrigger>
+              <TabsTrigger value="analytics" className="text-sm font-medium px-4 py-2 rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all duration-300 hover:bg-white/10">
+                📈 Analytics
+              </TabsTrigger>
+            </TabsList>
 
-          {/* Items Trends Table */}
-          <Card className="glass-container">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <BarChart3 className="w-5 h-5" />
-                  Item Sales Trends ({trendsDateRange})
-                </CardTitle>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <span>{filteredTrendsItems.length} items found</span>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {trendsLoading ? (
-                <div className="flex items-center justify-center py-12">
-                  <RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" />
-                  <span className="ml-2 text-muted-foreground">Loading trends data...</span>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {filteredTrendsItems.length > 0 ? (
-                    <div className="space-y-2">
-                      {filteredTrendsItems.slice(0, 50).map((item, index) => (
-                        <div key={item.id} className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-accent/50 transition-colors">
-                          <div className="flex items-center gap-4">
-                            <div className={`p-2 rounded-lg ${
-                              item.table_name === 'asin_inventory' 
-                                ? 'bg-primary/20' 
-                                : 'bg-secondary/20'
-                            }`}>
-                              {item.table_name === 'asin_inventory' ? (
-                                <Package className={`w-4 h-4 text-primary`} />
-                              ) : (
-                                <Database className={`w-4 h-4 text-secondary`} />
-                              )}
-                            </div>
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                <p className="font-medium text-foreground">{item.identifier}</p>
-                                <Badge variant="outline" className="text-xs">
-                                  {item.table_name === 'asin_inventory' ? 'ASIN' : 'SKU'}
+            {/* Item Trends Tab */}
+            <TabsContent value="item-trends" className="space-y-6 mt-6">
+              {/* Trends Filters */}
+              <Card className="glass-container">
+                <CardContent className="p-4">
+                  <div className="flex flex-wrap items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <Search className="w-4 h-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search items by ASIN, SKU, or serial number..."
+                        value={trendsSearchTerm}
+                        onChange={(e) => setTrendsSearchTerm(e.target.value)}
+                        className="w-80"
+                      />
+                    </div>
+                    <Select value={trendsDateRange} onValueChange={setTrendsDateRange}>
+                      <SelectTrigger className="w-40">
+                        <SelectValue placeholder="Date Range" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="7d">Last 7 days</SelectItem>
+                        <SelectItem value="14d">Last 14 days</SelectItem>
+                        <SelectItem value="30d">Last 30 days</SelectItem>
+                        <SelectItem value="60d">Last 60 days</SelectItem>
+                        <SelectItem value="90d">Last 90 days</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select value={trendsItemType} onValueChange={setTrendsItemType}>
+                      <SelectTrigger className="w-32">
+                        <SelectValue placeholder="Type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Items</SelectItem>
+                        <SelectItem value="asin">ASIN Only</SelectItem>
+                        <SelectItem value="sku">SKU Only</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select value={trendsSortBy} onValueChange={setTrendsSortBy}>
+                      <SelectTrigger className="w-40">
+                        <SelectValue placeholder="Sort By" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="sold_desc">Most Sold</SelectItem>
+                        <SelectItem value="sold_asc">Least Sold</SelectItem>
+                        <SelectItem value="recent">Recently Sold</SelectItem>
+                        <SelectItem value="quantity_low">Low Stock</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      onClick={loadTrendsData}
+                      variant="outline"
+                      size="sm"
+                      disabled={trendsLoading}
+                      className="gap-2"
+                    >
+                      <RefreshCw className={`w-4 h-4 ${trendsLoading ? 'animate-spin' : ''}`} />
+                      Refresh
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Items Trends Table */}
+              <Card className="glass-container">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2">
+                      <BarChart3 className="w-5 h-5" />
+                      Item Sales Trends ({trendsDateRange})
+                    </CardTitle>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <span>{filteredTrendsItems.length} items found</span>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {trendsLoading ? (
+                    <div className="flex items-center justify-center py-12">
+                      <RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" />
+                      <span className="ml-2 text-muted-foreground">Loading trends data...</span>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {filteredTrendsItems.length > 0 ? (
+                        <div className="space-y-2">
+                          {filteredTrendsItems.slice(0, 50).map((item, index) => (
+                            <div key={item.id} className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-accent/50 transition-colors">
+                              <div className="flex items-center gap-4">
+                                <div className={`p-2 rounded-lg ${
+                                  item.table_name === 'asin_inventory' 
+                                    ? 'bg-primary/20' 
+                                    : 'bg-secondary/20'
+                                }`}>
+                                  {item.table_name === 'asin_inventory' ? (
+                                    <Package className={`w-4 h-4 text-primary`} />
+                                  ) : (
+                                    <Database className={`w-4 h-4 text-secondary`} />
+                                  )}
+                                </div>
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <p className="font-medium text-foreground">{item.identifier}</p>
+                                    <Badge variant="outline" className="text-xs">
+                                      {item.table_name === 'asin_inventory' ? 'ASIN' : 'SKU'}
+                                    </Badge>
+                                  </div>
+                                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                                    <span>Current Stock: {item.current_quantity}</span>
+                                    <span>Sold: {item.sold_quantity} units</span>
+                                    {item.last_sold_date && (
+                                      <span>Last Sold: {new Date(item.last_sold_date).toLocaleDateString()}</span>
+                                    )}
+                                    {item.days_since_last_restock && (
+                                      <span>Last Restock: {item.days_since_last_restock}d ago</span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-4">
+                                <div className="text-right">
+                                  <div className="text-lg font-semibold text-foreground">
+                                    {item.sold_quantity || 0}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">
+                                    Units Sold
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <div className={`text-lg font-semibold ${
+                                    item.current_quantity <= 5 ? 'text-destructive' : 
+                                    item.current_quantity <= 10 ? 'text-amber-600' : 'text-chart-1'
+                                  }`}>
+                                    {item.current_quantity}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">
+                                    In Stock
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <div className="text-lg font-semibold text-accent">
+                                    {item.sell_rate?.toFixed(1) || '0.0'}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">
+                                    Rate/Day
+                                  </div>
+                                </div>
+                                <Badge 
+                                  variant={
+                                    item.current_quantity <= 5 ? "destructive" : 
+                                    item.current_quantity <= 10 ? "default" : "secondary"
+                                  } 
+                                  className="text-xs"
+                                >
+                                  {item.current_quantity <= 5 ? "Critical" : 
+                                   item.current_quantity <= 10 ? "Low" : "Good"}
                                 </Badge>
                               </div>
-                              <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                                <span>Current Stock: {item.current_quantity}</span>
-                                <span>Sold: {item.sold_quantity} units</span>
-                                {item.last_sold_date && (
-                                  <span>Last Sold: {new Date(item.last_sold_date).toLocaleDateString()}</span>
-                                )}
-                                {item.days_since_last_restock && (
-                                  <span>Last Restock: {item.days_since_last_restock}d ago</span>
-                                )}
-                              </div>
                             </div>
-                          </div>
-                          <div className="flex items-center gap-4">
-                            <div className="text-right">
-                              <div className="text-lg font-semibold text-foreground">
-                                {item.sold_quantity || 0}
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                Units Sold
-                              </div>
+                          ))}
+                          {filteredTrendsItems.length > 50 && (
+                            <div className="text-center py-4 text-muted-foreground">
+                              <p>Showing first 50 items. Use filters to narrow down results.</p>
                             </div>
-                            <div className="text-right">
-                              <div className={`text-lg font-semibold ${
-                                item.current_quantity <= 5 ? 'text-destructive' : 
-                                item.current_quantity <= 10 ? 'text-amber-600' : 'text-chart-1'
-                              }`}>
-                                {item.current_quantity}
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                In Stock
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <div className="text-lg font-semibold text-accent">
-                                {item.sell_rate?.toFixed(1) || '0.0'}
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                Rate/Day
-                              </div>
-                            </div>
-                            <Badge 
-                              variant={
-                                item.current_quantity <= 5 ? "destructive" : 
-                                item.current_quantity <= 10 ? "default" : "secondary"
-                              } 
-                              className="text-xs"
-                            >
-                              {item.current_quantity <= 5 ? "Critical" : 
-                               item.current_quantity <= 10 ? "Low" : "Good"}
-                            </Badge>
-                          </div>
+                          )}
                         </div>
-                      ))}
-                      {filteredTrendsItems.length > 50 && (
-                        <div className="text-center py-4 text-muted-foreground">
-                          <p>Showing first 50 items. Use filters to narrow down results.</p>
+                      ) : (
+                        <div className="text-center py-12 text-muted-foreground">
+                          <BarChart3 className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                          <p className="text-lg font-medium">No trends data found</p>
+                          <p className="text-sm">Try adjusting your filters or date range</p>
                         </div>
                       )}
                     </div>
-                  ) : (
-                    <div className="text-center py-12 text-muted-foreground">
-                      <BarChart3 className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                      <p className="text-lg font-medium">No trends data found</p>
-                      <p className="text-sm">Try adjusting your filters or date range</p>
-                    </div>
                   )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
+            </TabsContent>
 
-          {/* Existing Analytics Component */}
-          <InventoryAnalytics />
+            {/* AI Forecasting Tab */}
+            <TabsContent value="forecasting" className="space-y-6 mt-6">
+              <Card className="glass-container">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Zap className="w-5 h-5" />
+                    AI-Powered Forecasting
+                  </CardTitle>
+                  <p className="text-muted-foreground">Intelligent predictions for inventory replenishment</p>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Zap className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                    <p className="text-lg font-medium">AI Forecasting Coming Soon</p>
+                    <p className="text-sm">Advanced machine learning models for predictive analytics</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Analytics Tab */}
+            <TabsContent value="analytics" className="space-y-6 mt-6">
+              <InventoryAnalytics />
+            </TabsContent>
+          </Tabs>
         </TabsContent>
       </Tabs>
 
