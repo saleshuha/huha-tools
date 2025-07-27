@@ -776,7 +776,25 @@ export function Replenishment() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Chart Type Selector */}
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h4 className="text-lg font-semibold mb-2">Visual Analytics</h4>
+              <p className="text-sm text-muted-foreground">Choose your preferred chart layout and style</p>
+            </div>
+            <Select value="default" onValueChange={() => {}}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="Chart Layout" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="default">Side by Side</SelectItem>
+                <SelectItem value="stacked">Stacked View</SelectItem>
+                <SelectItem value="grid">Grid Layout</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-8">
             {/* Sales vs Restocks Line Chart */}
             <Card className="glass-container">
               <CardHeader>
@@ -786,9 +804,9 @@ export function Replenishment() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <ChartContainer config={chartConfig} className="h-80">
+                <ChartContainer config={chartConfig} className="h-96">
                   <ResponsiveContainer width="100%" height="100%">
-                    <RechartsLineChart data={salesData}>
+                    <RechartsLineChart data={salesData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis dataKey="period" stroke="hsl(var(--muted-foreground))" />
                       <YAxis stroke="hsl(var(--muted-foreground))" />
@@ -820,22 +838,92 @@ export function Replenishment() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <BarChart3 className="w-5 h-5" />
-                  ASIN vs SKU Sales
+                  ASIN vs SKU Sales Comparison
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ChartContainer config={chartConfig} className="h-96">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RechartsBarChart data={salesData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="period" stroke="hsl(var(--muted-foreground))" />
+                      <YAxis stroke="hsl(var(--muted-foreground))" />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Bar dataKey="asin_sold" fill="hsl(var(--chart-1))" name="ASIN Sold" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="sku_sold" fill="hsl(220, 70%, 50%)" name="SKU Sold" radius={[4, 4, 0, 0]} />
+                    </RechartsBarChart>
+                  </ResponsiveContainer>
+                </ChartContainer>
+              </CardContent>
+            </Card>
+
+            {/* Daily Sell Rate Chart */}
+            <Card className="glass-container">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Activity className="w-5 h-5" />
+                  Daily Sell Rate Analysis
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <ChartContainer config={chartConfig} className="h-80">
                   <ResponsiveContainer width="100%" height="100%">
-                    <RechartsBarChart data={salesData}>
+                    <AreaChart data={salesData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis dataKey="period" stroke="hsl(var(--muted-foreground))" />
                       <YAxis stroke="hsl(var(--muted-foreground))" />
                       <ChartTooltip content={<ChartTooltipContent />} />
-                      <Bar dataKey="asin_sold" fill="hsl(var(--chart-1))" name="ASIN Sold" />
-                      <Bar dataKey="sku_sold" fill="hsl(220, 70%, 50%)" name="SKU Sold" />
-                    </RechartsBarChart>
+                      <Area 
+                        type="monotone" 
+                        dataKey="sell_rate" 
+                        stroke="hsl(var(--accent))" 
+                        fill="hsl(var(--accent) / 0.2)"
+                        strokeWidth={2}
+                        name="Daily Sell Rate"
+                      />
+                    </AreaChart>
                   </ResponsiveContainer>
                 </ChartContainer>
+              </CardContent>
+            </Card>
+
+            {/* Performance Distribution Pie Chart */}
+            <Card className="glass-container">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <PieChart className="w-5 h-5" />
+                  Sales Distribution ({selectedPeriod})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {selectedPeriodData && (
+                  <ChartContainer config={chartConfig} className="h-80">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RechartsPieChart margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                        <Pie
+                          data={[
+                            { name: 'ASIN Sales', value: selectedPeriodData.asin_sold, fill: 'hsl(var(--chart-1))' },
+                            { name: 'SKU Sales', value: selectedPeriodData.sku_sold, fill: 'hsl(220, 70%, 50%)' }
+                          ]}
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={100}
+                          dataKey="value"
+                          label={({ name, value, percent }) => `${name}: ${value} (${(percent * 100).toFixed(1)}%)`}
+                        >
+                          {[
+                            { name: 'ASIN Sales', value: selectedPeriodData.asin_sold, fill: 'hsl(var(--chart-1))' },
+                            { name: 'SKU Sales', value: selectedPeriodData.sku_sold, fill: 'hsl(220, 70%, 50%)' }
+                          ].map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.fill} />
+                          ))}
+                        </Pie>
+                        <ChartTooltip content={<ChartTooltipContent />} />
+                        <Legend />
+                      </RechartsPieChart>
+                    </ResponsiveContainer>
+                  </ChartContainer>
+                )}
               </CardContent>
             </Card>
           </div>
