@@ -1290,7 +1290,7 @@ export function Replenishment() {
 
           {/* Sub-tabs for Trends & Forecasting features */}
           <Tabs defaultValue="item-trends" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 h-12 p-1 bg-gradient-subtle rounded-lg shadow-elegant">
+            <TabsList className="grid w-full grid-cols-2 h-12 p-1 bg-gradient-subtle rounded-lg shadow-elegant">
               <TabsTrigger value="item-trends" className="text-sm font-medium px-4 py-2 rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all duration-300 hover:bg-white/10">
                 📊 Item Trends
               </TabsTrigger>
