@@ -103,7 +103,7 @@ serve(async (req) => {
 
     console.log(`Analyzing ${filteredItems.length} inventory items`);
 
-    // Prepare data summary for AI analysis
+    // Prepare data summary for AI analysis (limit to reduce token usage)
     const dataForAnalysis = filteredItems.map(item => {
       const daysInStock = item.date_added ? 
         Math.floor((Date.now() - new Date(item.date_added).getTime()) / (1000 * 60 * 60 * 24)) : 0;
@@ -124,112 +124,26 @@ serve(async (req) => {
         days_since_restock: daysSinceRestock,
         restock_quantity: item.restock_quantity || 0
       };
-    }).slice(0, 50); // Limit to 50 items for API efficiency
+    }).slice(0, 25); // Limit to 25 items to reduce API costs and avoid rate limits
 
-    // Call OpenAI for intelligent analysis
-    const prompt = `
-You are an AI inventory management expert. Analyze the following inventory data and provide forecasting insights.
+    console.log(`Prepared ${dataForAnalysis.length} items for AI analysis`);
 
-Country: ${country}
-Analysis Type: ${itemType}
-Analysis Depth: ${analysisDepth}
+    // Generate fallback analysis first
+    const fallbackAnalysis = generateFallbackAnalysis(dataForAnalysis, country);
 
-Inventory Data:
-${JSON.stringify(dataForAnalysis, null, 2)}
-
-For each item, analyze:
-1. Stock depletion patterns based on sale history
-2. Seasonal trends and demand patterns
-3. Optimal reorder points
-4. Risk assessment for stockouts
-5. Recommended actions
-
-Provide your analysis in the following JSON format:
-{
-  "forecasts": [
-    {
-      "identifier": "item_identifier",
-      "current_stock": number,
-      "predicted_days_until_stockout": number,
-      "recommended_reorder_point": number,
-      "seasonal_trend": "increasing|decreasing|stable|seasonal",
-      "confidence_score": number (0-100),
-      "insights": ["insight1", "insight2", "insight3"],
-      "risk_level": "low|medium|high|critical"
-    }
-  ],
-  "overall_insights": {
-    "total_items_analyzed": number,
-    "high_risk_items": number,
-    "avg_turnover_rate": number,
-    "seasonal_patterns": ["pattern1", "pattern2"],
-    "recommendations": ["rec1", "rec2", "rec3"]
-  }
-}
-
-Focus on practical, actionable insights. Consider factors like:
-- Items with 0 stock that sold recently need immediate attention
-- Items with high stock but no recent sales may be overstocked
-- Seasonal patterns based on sale timing
-- Restock patterns and effectiveness
-`;
-
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openaiApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4.1-2025-04-14',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are an expert inventory management AI that provides accurate, data-driven forecasting insights. Always respond with valid JSON.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        temperature: 0.3,
-        max_tokens: 3000,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status}`);
-    }
-
-    const aiResponse = await response.json();
-    console.log('AI Response received');
-
-    let forecastData;
+    let aiAnalysis = null;
+    
+    // Try AI analysis with retry logic
     try {
-      forecastData = JSON.parse(aiResponse.choices[0].message.content);
-    } catch (parseError) {
-      console.error('Error parsing AI response:', parseError);
-      // Fallback analysis if AI response can't be parsed
-      forecastData = {
-        forecasts: dataForAnalysis.slice(0, 10).map(item => ({
-          identifier: item.identifier,
-          current_stock: item.current_stock,
-          predicted_days_until_stockout: item.current_stock === 0 ? 0 : Math.max(7, item.days_since_sold || 30),
-          recommended_reorder_point: Math.max(5, Math.floor(item.restock_quantity * 0.3)),
-          seasonal_trend: 'stable',
-          confidence_score: 65,
-          insights: ['Basic analysis due to AI parsing error'],
-          risk_level: item.current_stock === 0 ? 'critical' : item.current_stock < 5 ? 'high' : 'low'
-        })),
-        overall_insights: {
-          total_items_analyzed: dataForAnalysis.length,
-          high_risk_items: dataForAnalysis.filter(item => item.current_stock < 5).length,
-          avg_turnover_rate: 15,
-          seasonal_patterns: ['Stable demand pattern'],
-          recommendations: ['Monitor low stock items', 'Review reorder points', 'Analyze sales patterns']
-        }
-      };
+      aiAnalysis = await callOpenAIWithRetry(dataForAnalysis, country, itemType, analysisDepth, openaiApiKey);
+      console.log('AI analysis completed successfully');
+    } catch (error) {
+      console.log('AI analysis failed, using fallback:', error.message);
+      // Continue with fallback analysis
     }
+
+    // Use AI analysis if available, otherwise use fallback
+    const forecastData = aiAnalysis || fallbackAnalysis;
 
     console.log('Forecast analysis completed');
 
@@ -239,7 +153,8 @@ Focus on practical, actionable insights. Consider factors like:
       analysis_timestamp: new Date().toISOString(),
       forecasts: forecastData.forecasts || [],
       overall_insights: forecastData.overall_insights || {},
-      items_analyzed: dataForAnalysis.length
+      items_analyzed: dataForAnalysis.length,
+      ai_powered: !!aiAnalysis
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -255,3 +170,158 @@ Focus on practical, actionable insights. Consider factors like:
     });
   }
 });
+
+// Retry logic for OpenAI API calls
+async function callOpenAIWithRetry(dataForAnalysis: any[], country: string, itemType: string, analysisDepth: string, apiKey: string, maxRetries = 2) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`OpenAI API attempt ${attempt}/${maxRetries}`);
+      
+      const prompt = `
+You are an AI inventory management expert. Analyze the following inventory data and provide forecasting insights.
+
+Country: ${country}
+Analysis Type: ${itemType}
+Items: ${dataForAnalysis.length}
+
+Sample Data (${Math.min(dataForAnalysis.length, 10)} items):
+${JSON.stringify(dataForAnalysis.slice(0, 10), null, 2)}
+
+Provide concise analysis in this JSON format:
+{
+  "forecasts": [
+    {
+      "identifier": "item_identifier",
+      "current_stock": number,
+      "predicted_days_until_stockout": number,
+      "recommended_reorder_point": number,
+      "seasonal_trend": "increasing|decreasing|stable",
+      "confidence_score": number (60-95),
+      "insights": ["brief insight"],
+      "risk_level": "low|medium|high|critical"
+    }
+  ],
+  "overall_insights": {
+    "total_items_analyzed": ${dataForAnalysis.length},
+    "high_risk_items": number,
+    "avg_turnover_rate": number,
+    "recommendations": ["brief rec1", "brief rec2"]
+  }
+}
+
+Keep insights brief and actionable. Focus on practical recommendations.`;
+
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4.1-mini-2025-04-14', // Use mini model to reduce costs and rate limits
+          messages: [
+            {
+              role: 'system',
+              content: 'You are an expert inventory analyst. Respond only with valid JSON.'
+            },
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          temperature: 0.3,
+          max_tokens: 1500, // Reduced token limit
+        }),
+      });
+
+      if (response.status === 429) {
+        const waitTime = Math.pow(2, attempt) * 1000; // Exponential backoff
+        console.log(`Rate limited, waiting ${waitTime}ms before retry`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        continue;
+      }
+
+      if (!response.ok) {
+        throw new Error(`OpenAI API error: ${response.status} - ${await response.text()}`);
+      }
+
+      const aiResponse = await response.json();
+      const parsedData = JSON.parse(aiResponse.choices[0].message.content);
+      console.log('OpenAI analysis successful');
+      return parsedData;
+
+    } catch (error) {
+      console.log(`Attempt ${attempt} failed:`, error.message);
+      if (attempt === maxRetries) {
+        throw error;
+      }
+      
+      // Wait before retry
+      const waitTime = Math.pow(2, attempt) * 1000;
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+    }
+  }
+}
+
+// Fallback analysis when AI is unavailable
+function generateFallbackAnalysis(dataForAnalysis: any[], country: string) {
+  console.log('Generating fallback analysis');
+  
+  const forecasts = dataForAnalysis.map(item => {
+    // Simple rule-based analysis
+    let riskLevel = 'low';
+    let predictedDays = 30;
+    let reorderPoint = 5;
+    
+    if (item.current_stock === 0) {
+      riskLevel = 'critical';
+      predictedDays = 0;
+    } else if (item.current_stock <= 2) {
+      riskLevel = 'high';
+      predictedDays = 3;
+    } else if (item.current_stock <= 5) {
+      riskLevel = 'medium';
+      predictedDays = 7;
+    }
+    
+    // Estimate based on days since sold
+    if (item.days_since_sold && item.days_since_sold < 7) {
+      predictedDays = Math.max(predictedDays, item.current_stock * 3);
+    }
+    
+    reorderPoint = Math.max(3, Math.floor(item.current_stock * 0.3));
+    
+    const insights = [];
+    if (item.current_stock === 0) insights.push('Immediate restocking required');
+    if (item.days_since_sold && item.days_since_sold < 3) insights.push('Fast-moving item');
+    if (!item.days_since_sold) insights.push('No recent sales activity');
+    
+    return {
+      identifier: item.identifier,
+      current_stock: item.current_stock,
+      predicted_days_until_stockout: predictedDays,
+      recommended_reorder_point: reorderPoint,
+      seasonal_trend: 'stable',
+      confidence_score: 70,
+      insights: insights.length > 0 ? insights : ['Standard monitoring recommended'],
+      risk_level: riskLevel
+    };
+  });
+  
+  const highRiskCount = forecasts.filter(f => ['high', 'critical'].includes(f.risk_level)).length;
+  
+  return {
+    forecasts,
+    overall_insights: {
+      total_items_analyzed: dataForAnalysis.length,
+      high_risk_items: highRiskCount,
+      avg_turnover_rate: 15,
+      recommendations: [
+        `Monitor ${highRiskCount} high-risk items closely`,
+        'Consider bulk ordering for critical items',
+        'Review sales patterns for optimization'
+      ]
+    }
+  };
+
+}
