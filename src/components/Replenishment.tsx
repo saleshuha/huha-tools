@@ -208,15 +208,25 @@ export function Replenishment() {
     }
   };
 
-  // Load all data
+  // Load all data with optimized parallel loading
   const loadAllData = async () => {
     setLoading(true);
     try {
-      await Promise.all([
-        loadRestockItems(),
+      // Load critical data first (restock items), then load analytics in background
+      await loadRestockItems();
+      
+      // Load analytics data in parallel without blocking the UI
+      Promise.all([
         calculateSalesData(),
         loadAnalytics(selectedCountry)
-      ]);
+      ]).catch(error => {
+        console.error('Error loading analytics data:', error);
+        toast({
+          title: "Analytics Error",
+          description: "Some analytics data may not be available",
+          variant: "destructive",
+        });
+      });
     } finally {
       setLoading(false);
     }
@@ -369,10 +379,8 @@ export function Replenishment() {
         description: "Item marked as ordered from supplier",
       });
 
-      // Refresh the data to ensure consistency
-      setTimeout(() => {
-        loadRestockItems();
-      }, 1000);
+      // Refresh the data immediately since database function now excludes ordered items
+      loadRestockItems();
 
     } catch (error: any) {
       console.error('Error marking item as ordered:', error);
@@ -549,7 +557,7 @@ export function Replenishment() {
     downloadCSV(csvContent, `${type}-items-${selectedCountry}-${new Date().toISOString().split('T')[0]}.csv`);
   };
 
-  // Real-time subscriptions
+  // Optimized real-time subscriptions - only reload specific data that changed
   useEffect(() => {
     if (!selectedCountry) return;
 
@@ -557,28 +565,26 @@ export function Replenishment() {
       supabase
         .channel('asin-inventory-realtime')
         .on('postgres_changes', {
-          event: '*',
+          event: 'UPDATE',
           schema: 'public',
           table: 'asin_inventory',
           filter: `country=eq.${selectedCountry}`
-        }, () => loadAllData()),
+        }, () => {
+          // Only reload restock items, not all data
+          loadRestockItems();
+        }),
         
       supabase
         .channel('sku-inventory-realtime')
         .on('postgres_changes', {
-          event: '*',
+          event: 'UPDATE',
           schema: 'public',
           table: 'sku_inventory', 
           filter: `country=eq.${selectedCountry}`
-        }, () => loadAllData()),
-        
-      supabase
-        .channel('stock-changes-realtime')
-        .on('postgres_changes', {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'stock_changes'
-        }, () => loadAllData())
+        }, () => {
+          // Only reload restock items, not all data
+          loadRestockItems();
+        })
     ];
 
     channels.forEach(channel => channel.subscribe());
