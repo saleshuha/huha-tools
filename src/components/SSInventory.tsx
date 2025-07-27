@@ -591,7 +591,7 @@ export function SSInventory() {
                 placeholder="🔍 Advanced search: SKU Number, Bin/Serial Number (use spaces for multiple terms)..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-14 h-16 text-xl font-medium shadow-lg border-2 focus:border-primary/50 bg-background/50"
+                className="pl-14 h-16 text-xl font-medium shadow-lg border-2 border-border/50 focus:border-primary ring-2 ring-transparent focus:ring-primary/20 bg-background/50"
               />
             </div>
 

@@ -244,7 +244,7 @@ export function AsinInventory() {
             {/* Enhanced Search Bar */}
             <div className="relative">
               <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground w-6 h-6" />
-              <Input placeholder="🔍 Advanced search: ASIN, Serial Number, Notes (use spaces for multiple terms)..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-14 h-16 text-xl font-medium shadow-lg border-2 focus:border-primary/50 bg-background/50" />
+              <Input placeholder="🔍 Advanced search: ASIN, Serial Number, Notes (use spaces for multiple terms)..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-14 h-16 text-xl font-medium shadow-lg border-2 border-border/50 focus:border-primary ring-2 ring-transparent focus:ring-primary/20 bg-background/50" />
             </div>
 
             {/* Action Buttons Row */}
