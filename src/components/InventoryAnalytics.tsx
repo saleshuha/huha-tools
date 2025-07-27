@@ -10,50 +10,8 @@ import { useInventoryAnalytics } from '@/hooks/useInventoryAnalytics';
 import { useCountry } from '@/contexts/CountryContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { 
-  AlertTriangle, 
-  TrendingUp, 
-  TrendingDown,
-  Package, 
-  RefreshCw,
-  Brain,
-  Clock,
-  Target,
-  Activity,
-  Calendar,
-  BarChart3,
-  LineChart,
-  Zap,
-  Timer,
-  ShoppingCart,
-  Truck,
-  Database,
-  ArrowRight,
-  ArrowUp,
-  ArrowDown
-} from 'lucide-react';
-import { 
-  LineChart as RechartsLineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  ResponsiveContainer,
-  AreaChart,
-  Area,
-  BarChart as RechartsBarChart,
-  Bar,
-  PieChart as RechartsPieChart,
-  Cell,
-  Pie,
-  ComposedChart,
-  Scatter,
-  ScatterChart,
-  ReferenceLine,
-  Tooltip,
-  Legend
-} from 'recharts';
-
+import { AlertTriangle, TrendingUp, TrendingDown, Package, RefreshCw, Brain, Clock, Target, Activity, Calendar, BarChart3, LineChart, Zap, Timer, ShoppingCart, Truck, Database, ArrowRight, ArrowUp, ArrowDown } from 'lucide-react';
+import { LineChart as RechartsLineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, AreaChart, Area, BarChart as RechartsBarChart, Bar, PieChart as RechartsPieChart, Cell, Pie, ComposedChart, Scatter, ScatterChart, ReferenceLine, Tooltip, Legend } from 'recharts';
 interface ReplenishmentForecast {
   id: string;
   identifier: string;
@@ -71,7 +29,6 @@ interface ReplenishmentForecast {
   averageRestockCycle: number;
   sellVelocityTrend: number;
 }
-
 interface TrendData {
   date: string;
   sales: number;
@@ -80,7 +37,6 @@ interface TrendData {
   stockLevel: number;
   predicted: boolean;
 }
-
 interface VelocityAnalysis {
   item: string;
   velocity7d: number;
@@ -89,12 +45,18 @@ interface VelocityAnalysis {
   trend: 'accelerating' | 'stable' | 'decelerating';
   seasonal_factor: number;
 }
-
 export function InventoryAnalytics() {
-  const { selectedCountry } = useCountry();
-  const { inventoryMetrics, loading: analyticsLoading, loadAnalytics } = useInventoryAnalytics();
-  const { toast } = useToast();
-  
+  const {
+    selectedCountry
+  } = useCountry();
+  const {
+    inventoryMetrics,
+    loading: analyticsLoading,
+    loadAnalytics
+  } = useInventoryAnalytics();
+  const {
+    toast
+  } = useToast();
   const [loading, setLoading] = useState(true);
   const [forecastData, setForecastData] = useState<ReplenishmentForecast[]>([]);
   const [trendData, setTrendData] = useState<TrendData[]>([]);
@@ -106,43 +68,28 @@ export function InventoryAnalytics() {
   const generateReplenishmentForecast = async () => {
     try {
       setLoading(true);
-      
+
       // Use simplified forecast directly since advanced RPC doesn't exist
       await generateSimplifiedForecast();
     } catch (error: any) {
       console.error('Forecast generation error:', error);
       toast({
-        title: "Forecast Error", 
+        title: "Forecast Error",
         description: "Unable to generate forecast data",
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setLoading(false);
     }
   };
 
-
   // Simplified forecast implementation
   const generateSimplifiedForecast = async () => {
     try {
       // Get basic inventory data with simple calculations - limit to prevent slowness
-      const [asinData, skuData] = await Promise.all([
-        supabase
-          .from('asin_inventory')
-          .select('id, asin, serial_number, quantity, last_restock_date')
-          .eq('country', selectedCountry)
-          .gt('quantity', 0)
-          .limit(50),
-        supabase
-          .from('sku_inventory')
-          .select('id, sku_number, bin_serial_number, quantity, last_restock_date')
-          .eq('country', selectedCountry)
-          .gt('quantity', 0)
-          .limit(50)
-      ]);
-
+      const [asinData, skuData] = await Promise.all([supabase.from('asin_inventory').select('id, asin, serial_number, quantity, last_restock_date').eq('country', selectedCountry).gt('quantity', 0).limit(50), supabase.from('sku_inventory').select('id, sku_number, bin_serial_number, quantity, last_restock_date').eq('country', selectedCountry).gt('quantity', 0).limit(50)]);
       const forecasts: ReplenishmentForecast[] = [];
-      
+
       // Simple forecast logic for ASINs
       (asinData.data || []).forEach(item => {
         const forecast = generateSimpleItemForecast(item, 'asin');
@@ -154,14 +101,13 @@ export function InventoryAnalytics() {
         const forecast = generateSimpleItemForecast(item, 'sku');
         if (forecast) forecasts.push(forecast);
       });
-
       setForecastData(forecasts.sort((a, b) => a.daysToStockOut - b.daysToStockOut));
     } catch (error: any) {
       console.error('Simplified forecast error:', error);
       toast({
         title: "Forecast Error",
         description: "Unable to generate forecast data",
-        variant: "destructive",
+        variant: "destructive"
       });
     }
   };
@@ -175,25 +121,15 @@ export function InventoryAnalytics() {
     const baseVelocity = 0.1; // Base daily velocity
     const qtyFactor = Math.min(currentQty / 10, 3); // Lower velocity for higher quantities
     const avgVelocity = baseVelocity / qtyFactor;
-    
     const daysToStockOut = Math.ceil(currentQty / avgVelocity);
-    
     let riskLevel: 'low' | 'medium' | 'high' | 'critical' = 'low';
-    if (daysToStockOut <= 7) riskLevel = 'critical';
-    else if (daysToStockOut <= 14) riskLevel = 'high';
-    else if (daysToStockOut <= 30) riskLevel = 'medium';
-
+    if (daysToStockOut <= 7) riskLevel = 'critical';else if (daysToStockOut <= 14) riskLevel = 'high';else if (daysToStockOut <= 30) riskLevel = 'medium';
     const recommendedOrderDate = new Date();
     recommendedOrderDate.setDate(recommendedOrderDate.getDate() + Math.max(0, daysToStockOut - 21)); // 3 week buffer
 
     // Calculate seasonal trend based on last restock
-    const daysSinceRestock = item.last_restock_date ? 
-      Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : 100;
-    
-    const seasonalTrend: 'increasing' | 'decreasing' | 'stable' = 
-      daysSinceRestock < 15 ? 'increasing' : 
-      daysSinceRestock > 60 ? 'decreasing' : 'stable';
-
+    const daysSinceRestock = item.last_restock_date ? Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : 100;
+    const seasonalTrend: 'increasing' | 'decreasing' | 'stable' = daysSinceRestock < 15 ? 'increasing' : daysSinceRestock > 60 ? 'decreasing' : 'stable';
     return {
       id: item.id,
       identifier: type === 'asin' ? `${item.asin} (${item.serial_number})` : `${item.sku_number} (${item.bin_serial_number})`,
@@ -202,10 +138,12 @@ export function InventoryAnalytics() {
       averageSellRate: avgVelocity,
       daysToStockOut,
       recommendedOrderDate,
-      recommendedOrderQuantity: Math.ceil(avgVelocity * 45), // 45 days worth
+      recommendedOrderQuantity: Math.ceil(avgVelocity * 45),
+      // 45 days worth
       leadTime: 14,
       seasonalTrend,
-      confidence: 0.75, // Good confidence for simplified model
+      confidence: 0.75,
+      // Good confidence for simplified model
       riskLevel,
       lastRestockDate: item.last_restock_date ? new Date(item.last_restock_date) : undefined,
       averageRestockCycle: 30,
@@ -217,7 +155,7 @@ export function InventoryAnalytics() {
   const generateTrendData = async () => {
     try {
       const days = selectedTimeframe === '7d' ? 7 : selectedTimeframe === '30d' ? 30 : 90;
-      
+
       // Use basic trend generation since advanced RPC doesn't exist
       await generateBasicTrendData(days);
     } catch (error) {
@@ -229,18 +167,19 @@ export function InventoryAnalytics() {
   // Basic trend data for fallback
   const generateBasicTrendData = async (days: number) => {
     const trends: TrendData[] = [];
-    
+
     // Generate last 7 days of basic data
     for (let i = 6; i >= 0; i--) {
       const date = new Date();
       date.setDate(date.getDate() - i);
-      
       trends.push({
         date: date.toISOString().split('T')[0],
-        sales: Math.floor(Math.random() * 10) + 1, // Random sales data
+        sales: Math.floor(Math.random() * 10) + 1,
+        // Random sales data
         restocks: Math.floor(Math.random() * 3),
         velocity: Math.random() * 5,
-        stockLevel: 100 - (i * 5), // Declining stock
+        stockLevel: 100 - i * 5,
+        // Declining stock
         predicted: false
       });
     }
@@ -249,7 +188,6 @@ export function InventoryAnalytics() {
     for (let i = 1; i <= 7; i++) {
       const futureDate = new Date();
       futureDate.setDate(futureDate.getDate() + i);
-      
       trends.push({
         date: futureDate.toISOString().split('T')[0],
         sales: Math.floor(Math.random() * 8) + 2,
@@ -259,7 +197,6 @@ export function InventoryAnalytics() {
         predicted: true
       });
     }
-
     setTrendData(trends);
   };
 
@@ -267,41 +204,33 @@ export function InventoryAnalytics() {
   const loadAllAnalytics = async () => {
     // Show immediate loading state
     setLoading(true);
-    
     try {
       // Load critical forecasting data first
       await generateReplenishmentForecast();
-      
+
       // Load other analytics in background
-      Promise.all([
-        generateTrendData(),
-        loadAnalytics(selectedCountry)
-      ]).catch(error => {
+      Promise.all([generateTrendData(), loadAnalytics(selectedCountry)]).catch(error => {
         console.error('Background analytics loading error:', error);
         // Don't show error to user as main functionality works
       });
-      
     } catch (error) {
       console.error('Critical analytics error:', error);
       toast({
         title: "Analytics Loading Error",
         description: "Some features may be limited",
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setLoading(false);
     }
   };
-
   useEffect(() => {
     if (selectedCountry) {
       loadAllAnalytics();
     }
   }, [selectedCountry, selectedTimeframe]);
-
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
+    return <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center space-y-4">
           <div className="relative">
             <RefreshCw className="w-8 h-8 animate-spin mx-auto text-primary" />
@@ -315,16 +244,12 @@ export function InventoryAnalytics() {
             </div>
           </div>
         </div>
-      </div>
-    );
+      </div>;
   }
-
   const criticalItems = forecastData.filter(f => f.riskLevel === 'critical').length;
   const highRiskItems = forecastData.filter(f => f.riskLevel === 'high').length;
   const avgConfidence = forecastData.length > 0 ? forecastData.reduce((sum, f) => sum + f.confidence, 0) / forecastData.length : 0;
-
-  return (
-    <div className="space-y-6 animate-fade-in">
+  return <div className="space-y-6 animate-fade-in">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -410,7 +335,7 @@ export function InventoryAnalytics() {
       <Tabs defaultValue="forecast" className="space-y-4">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="forecast">Replenishment Forecast</TabsTrigger>
-          <TabsTrigger value="trends">Sales Trends & Predictions</TabsTrigger>
+          
           <TabsTrigger value="velocity">Velocity Analysis</TabsTrigger>
         </TabsList>
 
@@ -424,8 +349,7 @@ export function InventoryAnalytics() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {forecastData.slice(0, 10).map((forecast) => (
-                  <div key={forecast.id} className="p-4 rounded-lg bg-muted/30 border border-border/50">
+                {forecastData.slice(0, 10).map(forecast => <div key={forecast.id} className="p-4 rounded-lg bg-muted/30 border border-border/50">
                     <div className="flex items-center justify-between mb-3">
                       <div>
                         <h4 className="font-medium text-foreground">{forecast.identifier}</h4>
@@ -433,11 +357,7 @@ export function InventoryAnalytics() {
                           <Badge variant={forecast.type === 'asin' ? 'default' : 'secondary'}>
                             {forecast.type.toUpperCase()}
                           </Badge>
-                          <Badge variant={
-                            forecast.riskLevel === 'critical' ? 'destructive' :
-                            forecast.riskLevel === 'high' ? 'default' :
-                            forecast.riskLevel === 'medium' ? 'secondary' : 'outline'
-                          }>
+                          <Badge variant={forecast.riskLevel === 'critical' ? 'destructive' : forecast.riskLevel === 'high' ? 'default' : forecast.riskLevel === 'medium' ? 'secondary' : 'outline'}>
                             {forecast.riskLevel.toUpperCase()} RISK
                           </Badge>
                         </div>
@@ -456,18 +376,14 @@ export function InventoryAnalytics() {
                       <div>
                         <p className="text-muted-foreground">Sell Rate</p>
                         <p className="font-medium">{forecast.averageSellRate.toFixed(2)}/day</p>
-                        {forecast.sellVelocityTrend > 0 && (
-                          <div className="flex items-center gap-1 text-green-500">
+                        {forecast.sellVelocityTrend > 0 && <div className="flex items-center gap-1 text-green-500">
                             <ArrowUp className="w-3 h-3" />
                             <span className="text-xs">Accelerating</span>
-                          </div>
-                        )}
-                        {forecast.sellVelocityTrend < 0 && (
-                          <div className="flex items-center gap-1 text-red-500">
+                          </div>}
+                        {forecast.sellVelocityTrend < 0 && <div className="flex items-center gap-1 text-red-500">
                             <ArrowDown className="w-3 h-3" />
                             <span className="text-xs">Slowing</span>
-                          </div>
-                        )}
+                          </div>}
                       </div>
                       <div>
                         <p className="text-muted-foreground">Recommended Order</p>
@@ -484,8 +400,7 @@ export function InventoryAnalytics() {
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  </div>)}
               </div>
             </CardContent>
           </Card>
@@ -502,47 +417,39 @@ export function InventoryAnalytics() {
             <CardContent>
               <div className="h-80">
                 <ChartContainer config={{
-                  sales: { label: "Actual Sales", color: "hsl(var(--primary))" },
-                  predicted: { label: "Predicted Sales", color: "hsl(var(--secondary))" },
-                  stockLevel: { label: "Stock Level", color: "hsl(var(--muted-foreground))" }
-                }}>
+                sales: {
+                  label: "Actual Sales",
+                  color: "hsl(var(--primary))"
+                },
+                predicted: {
+                  label: "Predicted Sales",
+                  color: "hsl(var(--secondary))"
+                },
+                stockLevel: {
+                  label: "Stock Level",
+                  color: "hsl(var(--muted-foreground))"
+                }
+              }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <ComposedChart data={trendData}>
                       <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                      <XAxis dataKey="date" tick={{
+                      fontSize: 12
+                    }} />
                       <YAxis yAxisId="left" />
                       <YAxis yAxisId="right" orientation="right" />
                       <ChartTooltip content={<ChartTooltipContent />} />
                       <Legend />
                       
-                      <Area
-                        yAxisId="right"
-                        type="monotone"
-                        dataKey="stockLevel"
-                        stroke="hsl(var(--muted-foreground))"
-                        fill="hsl(var(--muted-foreground))"
-                        fillOpacity={0.1}
-                      />
+                      <Area yAxisId="right" type="monotone" dataKey="stockLevel" stroke="hsl(var(--muted-foreground))" fill="hsl(var(--muted-foreground))" fillOpacity={0.1} />
                       
-                      <Line
-                        yAxisId="left"
-                        type="monotone"
-                        dataKey="sales"
-                        stroke="hsl(var(--primary))"
-                        strokeWidth={2}
-                        dot={{ fill: "hsl(var(--primary))", strokeWidth: 2, r: 3 }}
-                      />
+                      <Line yAxisId="left" type="monotone" dataKey="sales" stroke="hsl(var(--primary))" strokeWidth={2} dot={{
+                      fill: "hsl(var(--primary))",
+                      strokeWidth: 2,
+                      r: 3
+                    }} />
                       
-                      <Line
-                        yAxisId="left"
-                        type="monotone"
-                        dataKey="sales"
-                        stroke="hsl(var(--secondary))"
-                        strokeWidth={2}
-                        strokeDasharray="5 5"
-                        dot={false}
-                        connectNulls={false}
-                      />
+                      <Line yAxisId="left" type="monotone" dataKey="sales" stroke="hsl(var(--secondary))" strokeWidth={2} strokeDasharray="5 5" dot={false} connectNulls={false} />
                     </ComposedChart>
                   </ResponsiveContainer>
                 </ChartContainer>
@@ -569,6 +476,5 @@ export function InventoryAnalytics() {
           </Card>
         </TabsContent>
       </Tabs>
-    </div>
-  );
+    </div>;
 }
