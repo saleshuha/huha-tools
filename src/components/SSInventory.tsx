@@ -717,7 +717,7 @@ export function SSInventory() {
                     </td>
                     <td className="p-4">
                       <div className="flex gap-2">
-                        <StockHistoryDialog inventoryId={item.id} itemIdentifier={item.skuNumber} />
+                         <StockHistoryDialog inventoryId={item.id} itemIdentifier={item.skuNumber} inventoryType="sku" />
                         <Button
                           variant="outline"
                           size="sm"
@@ -776,7 +776,7 @@ export function SSInventory() {
                   <p className="text-sm">{new Date(item.dateAdded).toLocaleDateString()}</p>
                 </div>
                 <div className="flex gap-2 pt-2">
-                  <StockHistoryDialog inventoryId={item.id} itemIdentifier={item.skuNumber} />
+                  <StockHistoryDialog inventoryId={item.id} itemIdentifier={item.skuNumber} inventoryType="sku" />
                   <Button
                     variant="outline"
                     size="sm"
