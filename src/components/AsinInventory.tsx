@@ -17,6 +17,7 @@ import { useUserProfile } from '@/hooks/useUserProfile';
 import { supabase } from '@/integrations/supabase/client';
 import { QuantityEditor } from './QuantityEditor';
 import { StockHistoryDialog } from './StockHistoryDialog';
+import { InventoryMetrics } from './InventoryMetrics';
 export function AsinInventory() {
   const {
     inventory,
@@ -234,7 +235,7 @@ export function AsinInventory() {
   return <div className="space-y-6 max-w-[95vw] mx-auto p-6">
       {/* Header with Stats */}
       <div className="space-y-6">
-        
+        <InventoryMetrics />
       </div>
 
       {/* Prominent Search Bar */}

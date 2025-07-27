@@ -4,7 +4,7 @@ import { Card } from './ui/card';
 import { Package, Hash, ArrowRight } from 'lucide-react';
 import { AsinInventory } from './AsinInventory';
 import { SSInventory } from './SSInventory';
-import { InventoryMetrics } from './InventoryMetrics';
+
 type InventoryView = 'main' | 'asin' | 'ss';
 export function Inventory() {
   console.log('Inventory component loaded, current view:', 'main');
@@ -83,8 +83,6 @@ export function Inventory() {
           </Card>
         </div>
 
-        {/* Inventory Metrics */}
-        <InventoryMetrics />
         
       </div>
     </div>;
