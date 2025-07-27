@@ -87,6 +87,9 @@ export function Replenishment() {
   const [trendsCurrentPage, setTrendsCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
+  // Visual Analytics layout state
+  const [chartLayout, setChartLayout] = useState('default');
+
   // Reset pagination when filters change
   useEffect(() => {
     setTrendsCurrentPage(1);
@@ -849,7 +852,7 @@ export function Replenishment() {
               <h4 className="text-lg font-semibold mb-2">Visual Analytics</h4>
               <p className="text-sm text-muted-foreground">Choose your preferred chart layout and style</p>
             </div>
-            <Select value="default" onValueChange={() => {}}>
+            <Select value={chartLayout} onValueChange={setChartLayout}>
               <SelectTrigger className="w-48">
                 <SelectValue placeholder="Chart Layout" />
               </SelectTrigger>
@@ -861,7 +864,12 @@ export function Replenishment() {
             </Select>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+          <div className={
+            chartLayout === 'default' ? 'grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4' :
+            chartLayout === 'stacked' ? 'space-y-4' :
+            chartLayout === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 gap-4' :
+            'grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4'
+          }>
             {/* Sales vs Restocks Compact Chart */}
             <Card className="glass-container hover-scale transition-all duration-300">
               <CardHeader className="pb-2">
