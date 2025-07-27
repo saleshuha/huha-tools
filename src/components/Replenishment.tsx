@@ -381,8 +381,7 @@ export function Replenishment() {
         description: "Item marked as ordered from supplier",
       });
 
-      // Refresh the data immediately since database function now excludes ordered items
-      loadRestockItems();
+      // Don't refresh immediately - let the local state update handle the UI
 
     } catch (error: any) {
       console.error('Error marking item as ordered:', error);
