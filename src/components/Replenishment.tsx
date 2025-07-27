@@ -1374,107 +1374,113 @@ export function Replenishment() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  {trendsLoading ? <div className="flex items-center justify-center py-12">
+                  {trendsLoading ? (
+                    <div className="flex items-center justify-center py-12">
                       <RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" />
                       <span className="ml-2 text-muted-foreground">Loading trends data...</span>
-                    </div> : <div className="space-y-4">
-                      {filteredTrendsItems.length > 0 ? <div className="space-y-4">
-                        <div className="space-y-2">
-                          {filteredTrendsItems.slice((trendsCurrentPage - 1) * itemsPerPage, trendsCurrentPage * itemsPerPage).map((item, index) => <div key={item.id} className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-accent/50 transition-colors">
-                              <div className="flex items-center gap-4">
-                                <div className={`p-2 rounded-lg ${item.table_name === 'asin_inventory' ? 'bg-primary/20' : 'bg-secondary/20'}`}>
-                                  {item.table_name === 'asin_inventory' ? <Package className={`w-4 h-4 text-primary`} /> : <Database className={`w-4 h-4 text-secondary`} />}
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {filteredTrendsItems.length > 0 ? (
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            {filteredTrendsItems.slice((trendsCurrentPage - 1) * itemsPerPage, trendsCurrentPage * itemsPerPage).map((item, index) => (
+                              <div key={item.id} className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-accent/50 transition-colors">
+                                <div className="flex items-center gap-4">
+                                  <div className={`p-2 rounded-lg ${item.table_name === 'asin_inventory' ? 'bg-primary/20' : 'bg-secondary/20'}`}>
+                                    {item.table_name === 'asin_inventory' ? <Package className={`w-4 h-4 text-primary`} /> : <Database className={`w-4 h-4 text-secondary`} />}
+                                  </div>
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <p className="font-medium text-foreground">{item.identifier}</p>
+                                      <Badge variant="outline" className="text-xs">
+                                        {item.table_name === 'asin_inventory' ? 'ASIN' : 'SKU'}
+                                      </Badge>
+                                    </div>
+                                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                                      <span>Current Stock: {item.current_quantity}</span>
+                                      <span>Sold: {item.sold_quantity} units</span>
+                                      {item.last_sold_date && <span>Last Sold: {new Date(item.last_sold_date).toLocaleDateString()}</span>}
+                                      {item.days_since_last_restock && <span>Last Restock: {item.days_since_last_restock}d ago</span>}
+                                    </div>
+                                  </div>
                                 </div>
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <p className="font-medium text-foreground">{item.identifier}</p>
-                                    <Badge variant="outline" className="text-xs">
-                                      {item.table_name === 'asin_inventory' ? 'ASIN' : 'SKU'}
-                                    </Badge>
+                                <div className="flex items-center gap-4">
+                                  <div className="text-right">
+                                    <div className="text-lg font-semibold text-foreground">
+                                      {item.sold_quantity || 0}
+                                    </div>
+                                    <div className="text-xs text-muted-foreground">
+                                      Units Sold
+                                    </div>
                                   </div>
-                                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                                    <span>Current Stock: {item.current_quantity}</span>
-                                    <span>Sold: {item.sold_quantity} units</span>
-                                    {item.last_sold_date && <span>Last Sold: {new Date(item.last_sold_date).toLocaleDateString()}</span>}
-                                    {item.days_since_last_restock && <span>Last Restock: {item.days_since_last_restock}d ago</span>}
+                                  <div className="text-right">
+                                    <div className={`text-lg font-semibold ${item.current_quantity <= 5 ? 'text-destructive' : item.current_quantity <= 10 ? 'text-amber-600' : 'text-chart-1'}`}>
+                                      {item.current_quantity}
+                                    </div>
+                                    <div className="text-xs text-muted-foreground">
+                                      In Stock
+                                    </div>
                                   </div>
+                                  <div className="text-right">
+                                    <div className="text-lg font-semibold text-accent">
+                                      {item.sell_rate?.toFixed(1) || '0.0'}
+                                    </div>
+                                    <div className="text-xs text-muted-foreground">
+                                      Rate/Day
+                                    </div>
+                                  </div>
+                                  <Badge variant={item.current_quantity <= 5 ? "destructive" : item.current_quantity <= 10 ? "default" : "secondary"} className="text-xs">
+                                    {item.current_quantity <= 5 ? "Critical" : item.current_quantity <= 10 ? "Low" : "Good"}
+                                  </Badge>
                                 </div>
                               </div>
-                              <div className="flex items-center gap-4">
-                                <div className="text-right">
-                                  <div className="text-lg font-semibold text-foreground">
-                                    {item.sold_quantity || 0}
-                                  </div>
-                                  <div className="text-xs text-muted-foreground">
-                                    Units Sold
-                                  </div>
-                                </div>
-                                <div className="text-right">
-                                  <div className={`text-lg font-semibold ${item.current_quantity <= 5 ? 'text-destructive' : item.current_quantity <= 10 ? 'text-amber-600' : 'text-chart-1'}`}>
-                                    {item.current_quantity}
-                                  </div>
-                                  <div className="text-xs text-muted-foreground">
-                                    In Stock
-                                  </div>
-                                </div>
-                                <div className="text-right">
-                                  <div className="text-lg font-semibold text-accent">
-                                    {item.sell_rate?.toFixed(1) || '0.0'}
-                                  </div>
-                                  <div className="text-xs text-muted-foreground">
-                                    Rate/Day
-                                  </div>
-                                </div>
-                                <Badge variant={item.current_quantity <= 5 ? "destructive" : item.current_quantity <= 10 ? "default" : "secondary"} className="text-xs">
-                                  {item.current_quantity <= 5 ? "Critical" : item.current_quantity <= 10 ? "Low" : "Good"}
-                                </Badge>
-                              </div>
-                             </div>)}
-                           
-                           {/* Pagination */}
-                           {filteredTrendsItems.length > itemsPerPage && (
-                             <div className="flex items-center justify-between mt-6 pt-4 border-t border-border">
-                               <p className="text-sm text-muted-foreground">
-                                 Showing {((trendsCurrentPage - 1) * itemsPerPage) + 1} to {Math.min(trendsCurrentPage * itemsPerPage, filteredTrendsItems.length)} of {filteredTrendsItems.length} items
-                               </p>
-                               <div className="flex items-center gap-2">
-                                 <Button 
-                                   variant="outline" 
-                                   size="sm" 
-                                   onClick={() => setTrendsCurrentPage(prev => Math.max(1, prev - 1))}
-                                   disabled={trendsCurrentPage === 1}
-                                   className="gap-1"
-                                 >
-                                   <ChevronLeft className="w-4 h-4" />
-                                   Previous
-                                 </Button>
-                                 <span className="text-sm text-muted-foreground px-3">
-                                   Page {trendsCurrentPage} of {Math.ceil(filteredTrendsItems.length / itemsPerPage)}
-                                 </span>
-                                 <Button 
-                                   variant="outline" 
-                                   size="sm" 
-                                   onClick={() => setTrendsCurrentPage(prev => Math.min(Math.ceil(filteredTrendsItems.length / itemsPerPage), prev + 1))}
-                                   disabled={trendsCurrentPage >= Math.ceil(filteredTrendsItems.length / itemsPerPage)}
-                                   className="gap-1"
-                                 >
-                                   Next
-                                   <ChevronRight className="w-4 h-4" />
-                                 </Button>
-                               </div>
-                             </div>
-                           )}
-                         </div> : <div className="text-center py-12 text-muted-foreground">
-                           <BarChart3 className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                           <p className="text-lg font-medium">No trends data found</p>
-                           <p className="text-sm">Try adjusting your filters or date range</p>
+                            ))}
                           </div>
-                        )}
-                      </div>
-                    )}
-                       </div>
-                    )}
-                 </CardContent>
+                          
+                          {/* Pagination */}
+                          {filteredTrendsItems.length > itemsPerPage && (
+                            <div className="flex items-center justify-between mt-6 pt-4 border-t border-border">
+                              <p className="text-sm text-muted-foreground">
+                                Showing {((trendsCurrentPage - 1) * itemsPerPage) + 1} to {Math.min(trendsCurrentPage * itemsPerPage, filteredTrendsItems.length)} of {filteredTrendsItems.length} items
+                              </p>
+                              <div className="flex items-center gap-2">
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  onClick={() => setTrendsCurrentPage(prev => Math.max(1, prev - 1))}
+                                  disabled={trendsCurrentPage === 1}
+                                  className="gap-1"
+                                >
+                                  <ChevronLeft className="w-4 h-4" />
+                                  Previous
+                                </Button>
+                                <span className="text-sm text-muted-foreground px-3">
+                                  Page {trendsCurrentPage} of {Math.ceil(filteredTrendsItems.length / itemsPerPage)}
+                                </span>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  onClick={() => setTrendsCurrentPage(prev => Math.min(Math.ceil(filteredTrendsItems.length / itemsPerPage), prev + 1))}
+                                  disabled={trendsCurrentPage >= Math.ceil(filteredTrendsItems.length / itemsPerPage)}
+                                  className="gap-1"
+                                >
+                                  Next
+                                  <ChevronRight className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="text-center py-12 text-muted-foreground">
+                          <BarChart3 className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                          <p className="text-lg font-medium">No trends data found</p>
+                          <p className="text-sm">Try adjusting your filters or date range</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
