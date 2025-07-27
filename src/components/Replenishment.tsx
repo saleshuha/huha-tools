@@ -115,6 +115,11 @@ export function Replenishment() {
   const [trendsItems, setTrendsItems] = useState<any[]>([]);
   const [trendsLoading, setTrendsLoading] = useState(false);
 
+  // AI Forecasting state
+  const [forecastData, setForecastData] = useState<any>(null);
+  const [forecastLoading, setForecastLoading] = useState(false);
+  const [forecastError, setForecastError] = useState<string | null>(null);
+
   // Load restock items needing attention (excludes already ordered items)
   const loadRestockItems = async () => {
     try {
@@ -659,6 +664,64 @@ export function Replenishment() {
     ].map(row => row.join(',')).join('\n');
 
     downloadCSV(csvContent, `trends-analysis-${selectedCountry}-${trendsDateRange}-${new Date().toISOString().split('T')[0]}.csv`);
+  };
+
+  // AI Forecasting functions
+  const generateForecast = async () => {
+    setForecastLoading(true);
+    setForecastError(null);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('ai-inventory-forecast', {
+        body: {
+          country: selectedCountry,
+          itemType: 'all',
+          analysisDepth: 'standard'
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
+      setForecastData(data);
+      toast({
+        title: "AI Forecast Generated",
+        description: `Analysis completed for ${data?.items_analyzed || 0} items`,
+      });
+    } catch (error: any) {
+      console.error('Error generating forecast:', error);
+      setForecastError(error.message);
+      toast({
+        title: "Forecast Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setForecastLoading(false);
+    }
+  };
+
+  const exportForecastData = () => {
+    if (!forecastData?.forecasts) return;
+
+    const csvContent = [
+      ['Item', 'Current Stock', 'Days Until Stockout', 'Reorder Point', 'Risk Level', 'Confidence', 'Trend', 'Key Insights'],
+      ...forecastData.forecasts.map((item: any) => [
+        item.identifier,
+        item.current_stock,
+        item.predicted_days_until_stockout,
+        item.recommended_reorder_point,
+        item.risk_level,
+        `${item.confidence_score}%`,
+        item.seasonal_trend,
+        (item.insights || []).join('; ')
+      ])
+    ].map(row => row.join(',')).join('\n');
+
+    downloadCSV(csvContent, `ai-forecast-${selectedCountry}-${new Date().toISOString().split('T')[0]}.csv`);
   };
 
   // Dialog handlers for metric cards
@@ -1734,22 +1797,206 @@ export function Replenishment() {
 
             {/* AI Forecasting Tab */}
             <TabsContent value="forecasting" className="space-y-6 mt-6">
-              <Card className="glass-container">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Zap className="w-5 h-5" />
-                    AI-Powered Forecasting
-                  </CardTitle>
-                  <p className="text-muted-foreground">Intelligent predictions for inventory replenishment</p>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-center py-12 text-muted-foreground">
-                    <Zap className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                    <p className="text-lg font-medium">AI Forecasting Coming Soon</p>
-                    <p className="text-sm">Advanced machine learning models for predictive analytics</p>
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h4 className="text-lg font-semibold">AI-Powered Inventory Forecasting</h4>
+                  <p className="text-muted-foreground">Advanced machine learning analysis of your inventory patterns</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button 
+                    onClick={generateForecast} 
+                    disabled={forecastLoading}
+                    className="gap-2"
+                  >
+                    <Zap className={`w-4 h-4 ${forecastLoading ? 'animate-pulse' : ''}`} />
+                    {forecastLoading ? 'Analyzing...' : 'Generate Forecast'}
+                  </Button>
+                  {forecastData && (
+                    <Button onClick={exportForecastData} variant="outline" size="sm" className="gap-2">
+                      <Download className="w-4 h-4" />
+                      Export
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {forecastError && (
+                <Card className="glass-container border-destructive/50">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2 text-destructive">
+                      <XCircle className="w-5 h-5" />
+                      <div>
+                        <p className="font-medium">Forecast Generation Failed</p>
+                        <p className="text-sm">{forecastError}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {forecastLoading && (
+                <Card className="glass-container">
+                  <CardContent className="p-8">
+                    <div className="text-center">
+                      <Zap className="w-12 h-12 mx-auto mb-4 text-primary animate-pulse" />
+                      <h3 className="text-lg font-semibold mb-2">AI Analysis in Progress</h3>
+                      <p className="text-muted-foreground mb-4">
+                        Analyzing inventory patterns, sales history, and market trends...
+                      </p>
+                      <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        <span>Processing {selectedCountry} inventory data</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {!forecastLoading && !forecastData && !forecastError && (
+                <Card className="glass-container">
+                  <CardContent className="p-8">
+                    <div className="text-center">
+                      <Zap className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+                      <h3 className="text-lg font-semibold mb-2">Ready for AI Analysis</h3>
+                      <p className="text-muted-foreground mb-6">
+                        Click "Generate Forecast" to analyze your inventory with advanced AI algorithms
+                      </p>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                        <div className="p-4 bg-primary/10 rounded-lg">
+                          <Target className="w-6 h-6 mx-auto mb-2 text-primary" />
+                          <p className="font-medium">Predictive Analytics</p>
+                          <p className="text-muted-foreground">Forecast stockout dates</p>
+                        </div>
+                        <div className="p-4 bg-secondary/10 rounded-lg">
+                          <TrendingUp className="w-6 h-6 mx-auto mb-2 text-secondary" />
+                          <p className="font-medium">Trend Analysis</p>
+                          <p className="text-muted-foreground">Identify seasonal patterns</p>
+                        </div>
+                        <div className="p-4 bg-accent/10 rounded-lg">
+                          <AlertTriangle className="w-6 h-6 mx-auto mb-2 text-accent" />
+                          <p className="font-medium">Risk Assessment</p>
+                          <p className="text-muted-foreground">Prioritize critical items</p>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {forecastData && (
+                <div className="space-y-6">
+                  {/* Overall Insights */}
+                  <Card className="glass-container">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <BarChart3 className="w-5 h-5" />
+                        Overall Insights
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="text-center p-4 bg-gradient-to-br from-primary/10 to-primary/5 rounded-lg">
+                          <div className="text-2xl font-bold text-primary">
+                            {forecastData.overall_insights?.total_items_analyzed || 0}
+                          </div>
+                          <div className="text-sm text-muted-foreground">Items Analyzed</div>
+                        </div>
+                        <div className="text-center p-4 bg-gradient-to-br from-destructive/10 to-destructive/5 rounded-lg">
+                          <div className="text-2xl font-bold text-destructive">
+                            {forecastData.overall_insights?.high_risk_items || 0}
+                          </div>
+                          <div className="text-sm text-muted-foreground">High Risk Items</div>
+                        </div>
+                        <div className="text-center p-4 bg-gradient-to-br from-chart-1/10 to-chart-1/5 rounded-lg">
+                          <div className="text-2xl font-bold text-chart-1">
+                            {forecastData.overall_insights?.avg_turnover_rate || 0}
+                          </div>
+                          <div className="text-sm text-muted-foreground">Avg Turnover (Days)</div>
+                        </div>
+                        <div className="text-center p-4 bg-gradient-to-br from-accent/10 to-accent/5 rounded-lg">
+                          <div className="text-2xl font-bold text-accent">
+                            {new Date(forecastData.analysis_timestamp).toLocaleDateString()}
+                          </div>
+                          <div className="text-sm text-muted-foreground">Analysis Date</div>
+                        </div>
+                      </div>
+
+                      {forecastData.overall_insights?.recommendations && (
+                        <div className="mt-6">
+                          <h4 className="font-semibold mb-3">AI Recommendations</h4>
+                          <div className="space-y-2">
+                            {forecastData.overall_insights.recommendations.map((rec: string, index: number) => (
+                              <div key={index} className="flex items-start gap-2 p-3 bg-accent/10 rounded-lg">
+                                <ArrowRight className="w-4 h-4 mt-0.5 text-accent" />
+                                <span className="text-sm">{rec}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Forecast Results */}
+                  <Card className="glass-container">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Zap className="w-5 h-5" />
+                        Item Forecasts
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {forecastData.forecasts?.map((item: any, index: number) => (
+                          <div key={index} className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-accent/30 transition-colors">
+                            <div className="flex items-center gap-4">
+                              <div className={`p-2 rounded-lg ${
+                                item.risk_level === 'critical' ? 'bg-destructive/20' :
+                                item.risk_level === 'high' ? 'bg-amber-500/20' :
+                                item.risk_level === 'medium' ? 'bg-blue-500/20' : 'bg-chart-1/20'
+                              }`}>
+                                <Package className={`w-4 h-4 ${
+                                  item.risk_level === 'critical' ? 'text-destructive' :
+                                  item.risk_level === 'high' ? 'text-amber-600' :
+                                  item.risk_level === 'medium' ? 'text-blue-600' : 'text-chart-1'
+                                }`} />
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <p className="font-medium text-foreground">{item.identifier}</p>
+                                  <Badge 
+                                    variant={
+                                      item.risk_level === 'critical' ? 'destructive' :
+                                      item.risk_level === 'high' ? 'default' : 'secondary'
+                                    } 
+                                    className="text-xs"
+                                  >
+                                    {item.risk_level}
+                                  </Badge>
+                                </div>
+                                <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                                  <span>Stock: {item.current_stock}</span>
+                                  <span>Stockout: {item.predicted_days_until_stockout}d</span>
+                                  <span>Reorder: {item.recommended_reorder_point}</span>
+                                  <span>Trend: {item.seasonal_trend}</span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-lg font-semibold text-foreground">
+                                {item.confidence_score}%
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                Confidence
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
             </TabsContent>
 
             {/* Analytics Tab */}
