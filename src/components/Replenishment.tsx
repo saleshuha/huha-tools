@@ -112,7 +112,7 @@ export function Replenishment() {
         ...item,
         id: item.item_id, // Use item_id directly from the database function
         // status comes directly from database now
-      }));
+      })).filter(item => item.status !== 'ordered'); // Extra filter to ensure no ordered items
       
       console.log('First item structure:', itemsWithStatus[0]);
       setRestockItems(itemsWithStatus);
