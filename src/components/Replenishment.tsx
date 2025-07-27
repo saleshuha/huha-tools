@@ -1068,34 +1068,34 @@ export function Replenishment() {
                   Key Performance Indicators
                 </CardTitle>
               </CardHeader>
-              <CardContent className="pt-0">
-                <div className="grid grid-cols-2 gap-3 h-48">
-                  <div className="flex flex-col justify-center items-center p-3 bg-gradient-to-br from-primary/10 to-primary/5 rounded-lg border border-primary/20">
-                    <div className="text-2xl font-bold text-primary mb-1">
+              <CardContent className="p-4">
+                <div className="grid grid-cols-2 gap-2 h-44">
+                  <div className="flex flex-col justify-center items-center p-2 bg-gradient-to-br from-primary/10 to-primary/5 rounded-md border border-primary/20">
+                    <div className="text-lg font-bold text-primary mb-1">
                       {salesData.find(d => d.period === selectedPeriod)?.sell_rate?.toFixed(1) || '0'}
                     </div>
-                    <div className="text-xs text-muted-foreground text-center">Daily Sell Rate</div>
+                    <div className="text-xs text-muted-foreground text-center leading-tight">Daily Sell Rate</div>
                   </div>
                   
-                  <div className="flex flex-col justify-center items-center p-3 bg-gradient-to-br from-secondary/10 to-secondary/5 rounded-lg border border-secondary/20">
-                    <div className="text-2xl font-bold text-secondary mb-1">
+                  <div className="flex flex-col justify-center items-center p-2 bg-gradient-to-br from-secondary/10 to-secondary/5 rounded-md border border-secondary/20">
+                    <div className="text-lg font-bold text-secondary mb-1">
                       {totalRestocks30d > 0 ? Math.round((totalSales30d / totalRestocks30d) * 100) : 0}%
                     </div>
-                    <div className="text-xs text-muted-foreground text-center">Stock Efficiency</div>
+                    <div className="text-xs text-muted-foreground text-center leading-tight">Stock Efficiency</div>
                   </div>
                   
-                  <div className="flex flex-col justify-center items-center p-3 bg-gradient-to-br from-chart-1/10 to-chart-1/5 rounded-lg border border-chart-1/20">
-                    <div className="text-2xl font-bold text-chart-1 mb-1">
+                  <div className="flex flex-col justify-center items-center p-2 bg-gradient-to-br from-chart-1/10 to-chart-1/5 rounded-md border border-chart-1/20">
+                    <div className="text-lg font-bold text-chart-1 mb-1">
                       {salesData.length > 0 ? Math.round(salesData.reduce((sum, d) => sum + d.total_sold, 0) / salesData.length) : 0}
                     </div>
-                    <div className="text-xs text-muted-foreground text-center">Avg Period Sales</div>
+                    <div className="text-xs text-muted-foreground text-center leading-tight">Avg Period Sales</div>
                   </div>
                   
-                  <div className="flex flex-col justify-center items-center p-3 bg-gradient-to-br from-accent/10 to-accent/5 rounded-lg border border-accent/20">
-                    <div className="text-2xl font-bold text-accent mb-1">
+                  <div className="flex flex-col justify-center items-center p-2 bg-gradient-to-br from-accent/10 to-accent/5 rounded-md border border-accent/20">
+                    <div className="text-lg font-bold text-accent mb-1">
                       {salesData.find(d => d.period === '7d')?.total_sold || 0}
                     </div>
-                    <div className="text-xs text-muted-foreground text-center">Weekly Sales</div>
+                    <div className="text-xs text-muted-foreground text-center leading-tight">Weekly Sales</div>
                   </div>
                 </div>
               </CardContent>
