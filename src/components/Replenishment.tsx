@@ -96,7 +96,7 @@ export function Replenishment() {
   const [salesData, setSalesData] = useState<SalesData[]>([]);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
 
-  // Load restock items needing attention - Real-time data
+  // Load restock items needing attention (excludes already ordered items)
   const loadRestockItems = async () => {
     try {
       console.log('Loading restock items for country:', selectedCountry);
@@ -107,7 +107,7 @@ export function Replenishment() {
       
       console.log('Raw restock data from function:', data);
       
-      // The database function now returns status from database
+      // The database function now excludes ordered items and returns status
       const itemsWithStatus = (data || []).map((item: any) => ({
         ...item,
         id: item.item_id, // Use item_id directly from the database function
@@ -124,6 +124,55 @@ export function Replenishment() {
         description: error.message,
         variant: "destructive",
       });
+    }
+  };
+
+  // Load ordered items separately for analytics and display
+  const loadOrderedItems = async () => {
+    try {
+      const [asinOrdered, skuOrdered] = await Promise.all([
+        supabase
+          .from('asin_inventory')
+          .select('id, asin, serial_number, quantity, status, days_since_last_restock:last_restock_date')
+          .eq('country', selectedCountry)
+          .eq('status', 'ordered')
+          .eq('quantity', 0),
+        supabase
+          .from('sku_inventory')
+          .select('id, sku_number, bin_serial_number, quantity, status, days_since_last_restock:last_restock_date')
+          .eq('country', selectedCountry)
+          .eq('status', 'ordered')
+          .eq('quantity', 0)
+      ]);
+
+      if (asinOrdered.error) throw asinOrdered.error;
+      if (skuOrdered.error) throw skuOrdered.error;
+
+      const orderedItemsData = [
+        ...(asinOrdered.data || []).map(item => ({
+          id: item.id,
+          identifier: `${item.asin} (${item.serial_number})`,
+          current_quantity: item.quantity,
+          table_name: 'asin_inventory',
+          status: item.status,
+          days_since_last_restock: item.days_since_last_restock ? 
+            Math.floor((Date.now() - new Date(item.days_since_last_restock).getTime()) / (1000 * 60 * 60 * 24)) : null
+        })),
+        ...(skuOrdered.data || []).map(item => ({
+          id: item.id,
+          identifier: `${item.sku_number} (${item.bin_serial_number})`,
+          current_quantity: item.quantity,
+          table_name: 'sku_inventory',
+          status: item.status,
+          days_since_last_restock: item.days_since_last_restock ? 
+            Math.floor((Date.now() - new Date(item.days_since_last_restock).getTime()) / (1000 * 60 * 60 * 24)) : null
+        }))
+      ];
+
+      return orderedItemsData;
+    } catch (error: any) {
+      console.error('Error loading ordered items:', error);
+      return [];
     }
   };
 
@@ -244,9 +293,9 @@ export function Replenishment() {
     );
   });
 
-  // Separate items by status for better UX
-  const pendingItems = filteredRestockItems.filter(item => item.status === 'in-stock' || item.status === 'sold');
-  const orderedItems = filteredRestockItems.filter(item => item.status === 'ordered');
+  // Since database function now excludes ordered items, all filtered items are pending
+  const pendingItems = filteredRestockItems;
+  const [orderedItems, setOrderedItems] = useState<RestockItem[]>([]);
 
   // Bulk selection handlers - only allow selection of pending items
   const handleSelectAll = (checked: boolean) => {
@@ -301,14 +350,14 @@ export function Replenishment() {
         throw new Error(`Failed to update ${errors.length} items`);
       }
 
-      // Update local state - don't remove items, just update their status
-      setRestockItems(prev => 
-        prev.map(item => 
-          selectedItems.has(item.id)
-            ? { ...item, status: 'ordered' }
-            : item
-        )
-      );
+      // Remove items from restock list and add to ordered items
+      const updatedItems = Array.from(selectedItems).map(itemId => {
+        const item = restockItems.find(i => i.id === itemId);
+        return item ? { ...item, status: 'ordered' } : null;
+      }).filter(Boolean) as RestockItem[];
+
+      setRestockItems(prev => prev.filter(item => !selectedItems.has(item.id)));
+      setOrderedItems(prev => [...prev, ...updatedItems]);
       setSelectedItems(new Set());
       
       toast({
@@ -367,14 +416,12 @@ export function Replenishment() {
 
       console.log('Database update successful, updating local state...');
 
-      // Update local state
-      setRestockItems(prev => 
-        prev.map(item => 
-          item.id === itemId 
-            ? { ...item, status: 'ordered' }
-            : item
-        )
-      );
+      // Remove item from restock list and add to ordered items
+      const updatedItem = restockItems.find(i => i.id === itemId);
+      if (updatedItem) {
+        setRestockItems(prev => prev.filter(item => item.id !== itemId));
+        setOrderedItems(prev => [...prev, { ...updatedItem, status: 'ordered' }]);
+      }
       
       toast({
         title: "Order Status Updated",
@@ -477,11 +524,12 @@ export function Replenishment() {
     });
   };
 
-  const openOrderedItemsDialog = () => {
+  const openOrderedItemsDialog = async () => {
+    const orderedItemsData = await loadOrderedItems();
     setDialogData({
       isOpen: true,
       title: 'Items Ordered from Supplier',
-      items: orderedItems, // Show only ordered items
+      items: orderedItemsData,
       type: 'ordered'
     });
   };
@@ -596,7 +644,12 @@ export function Replenishment() {
 
   // Load data on country change
   useEffect(() => {
-    loadAllData();
+    const loadData = async () => {
+      await loadAllData();
+      const orderedItemsData = await loadOrderedItems();
+      setOrderedItems(orderedItemsData);
+    };
+    loadData();
   }, [selectedCountry]);
 
   if (loading) {
@@ -675,7 +728,7 @@ export function Replenishment() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Critical Stock (0 Units)</p>
-                <p className="text-3xl font-bold text-foreground">{filteredRestockItems.length}</p>
+                <p className="text-3xl font-bold text-foreground">{pendingItems.length}</p>
                 <p className="text-sm text-destructive">Out of stock</p>
               </div>
               <div className="p-3 rounded-full bg-destructive/20">
@@ -915,7 +968,7 @@ export function Replenishment() {
                   />
                 </div>
                 <Badge variant="outline" className="text-sm whitespace-nowrap">
-                  {filteredRestockItems.length} items need attention
+                  {pendingItems.length} items need attention
                 </Badge>
                 <div className="text-xs text-muted-foreground">
                   Critical stock (0 units)
@@ -923,7 +976,7 @@ export function Replenishment() {
               </div>
 
               {/* Bulk Actions */}
-              {filteredRestockItems.length > 0 && (
+              {pendingItems.length > 0 && (
                 <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
                   <div className="flex items-center gap-4">
                      <div className="flex items-center space-x-2">
@@ -963,7 +1016,7 @@ export function Replenishment() {
               )}
 
               <div className="space-y-2 max-h-96 overflow-y-auto">
-                {filteredRestockItems.length > 0 ? (
+                {pendingItems.length > 0 || orderedItems.length > 0 ? (
                   <>
                     {/* Pending Items Section */}
                     {pendingItems.length > 0 && (
