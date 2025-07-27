@@ -13,49 +13,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useCountry } from '@/contexts/CountryContext';
 import { useInventoryAnalytics } from '@/hooks/useInventoryAnalytics';
 import { InventoryAnalytics } from './InventoryAnalytics';
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  AlertTriangle, 
-  Package, 
-  Download,
-  RefreshCw,
-  Search,
-  BarChart3,
-  Clock,
-  ShoppingCart,
-  Activity,
-  DollarSign,
-  Database,
-  PieChart,
-  LineChart,
-  Calendar,
-  CheckCircle,
-  XCircle,
-  Eye,
-  Truck,
-  ArrowRight,
-  Target,
-  Zap
-} from 'lucide-react';
+import { TrendingUp, TrendingDown, AlertTriangle, Package, Download, RefreshCw, Search, BarChart3, Clock, ShoppingCart, Activity, DollarSign, Database, PieChart, LineChart, Calendar, CheckCircle, XCircle, Eye, Truck, ArrowRight, Target, Zap } from 'lucide-react';
 import { Checkbox } from './ui/checkbox';
-import { 
-  LineChart as RechartsLineChart, 
-  Line, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  ResponsiveContainer,
-  AreaChart,
-  Area,
-  BarChart as RechartsBarChart,
-  Bar,
-  PieChart as RechartsPieChart,
-  Cell,
-  Pie,
-  Legend
-} from 'recharts';
-
+import { LineChart as RechartsLineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, AreaChart, Area, BarChart as RechartsBarChart, Bar, PieChart as RechartsPieChart, Cell, Pie, Legend } from 'recharts';
 interface RestockItem {
   id: string;
   identifier: string;
@@ -64,7 +24,6 @@ interface RestockItem {
   days_since_last_restock: number | null;
   status: string; // Added status from database
 }
-
 interface SalesData {
   period: string;
   asin_sold: number;
@@ -75,14 +34,12 @@ interface SalesData {
   total_restocked: number;
   sell_rate: number;
 }
-
 interface DialogData {
   isOpen: boolean;
   title: string;
   items: RestockItem[];
   type: 'critical' | 'ordered' | 'active' | 'sales' | 'restocks';
 }
-
 interface TrendsItem {
   id: string;
   identifier: string;
@@ -93,13 +50,24 @@ interface TrendsItem {
   days_since_last_restock: number | null;
   sell_rate: number;
 }
-
 export function Replenishment() {
-  const { selectedCountry } = useCountry();
-  const { inventoryMetrics, loading: analyticsLoading, loadAnalytics } = useInventoryAnalytics();
-  const { toast } = useToast();
-  
-  const [dialogData, setDialogData] = useState<DialogData>({ isOpen: false, title: '', items: [], type: 'critical' });
+  const {
+    selectedCountry
+  } = useCountry();
+  const {
+    inventoryMetrics,
+    loading: analyticsLoading,
+    loadAnalytics
+  } = useInventoryAnalytics();
+  const {
+    toast
+  } = useToast();
+  const [dialogData, setDialogData] = useState<DialogData>({
+    isOpen: false,
+    title: '',
+    items: [],
+    type: 'critical'
+  });
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPeriod, setSelectedPeriod] = useState('30d');
@@ -124,20 +92,22 @@ export function Replenishment() {
   const loadRestockItems = async () => {
     try {
       console.log('Loading restock items for country:', selectedCountry);
-      const { data, error } = await supabase.rpc('get_items_needing_restock', { 
-        country_filter: selectedCountry 
+      const {
+        data,
+        error
+      } = await supabase.rpc('get_items_needing_restock', {
+        country_filter: selectedCountry
       });
       if (error) throw error;
-      
       console.log('Raw restock data from function:', data);
-      
+
       // The database function now excludes ordered items and returns status
       const itemsWithStatus = (data || []).map((item: any) => ({
         ...item,
-        id: item.item_id, // Use item_id directly from the database function
+        id: item.item_id // Use item_id directly from the database function
         // status comes directly from database now
       })).filter(item => item.status !== 'ordered'); // Extra filter to ensure no ordered items
-      
+
       console.log('First item structure:', itemsWithStatus[0]);
       setRestockItems(itemsWithStatus);
       console.log('Set restock items for', selectedCountry, ':', itemsWithStatus.length, 'items');
@@ -146,7 +116,7 @@ export function Replenishment() {
       toast({
         title: "Error loading restock items",
         description: error.message,
-        variant: "destructive",
+        variant: "destructive"
       });
     }
   };
@@ -154,45 +124,24 @@ export function Replenishment() {
   // Load ordered items separately for analytics and display
   const loadOrderedItems = async () => {
     try {
-      const [asinOrdered, skuOrdered] = await Promise.all([
-        supabase
-          .from('asin_inventory')
-          .select('id, asin, serial_number, quantity, status, days_since_last_restock:last_restock_date')
-          .eq('country', selectedCountry)
-          .eq('status', 'ordered')
-          .eq('quantity', 0),
-        supabase
-          .from('sku_inventory')
-          .select('id, sku_number, bin_serial_number, quantity, status, days_since_last_restock:last_restock_date')
-          .eq('country', selectedCountry)
-          .eq('status', 'ordered')
-          .eq('quantity', 0)
-      ]);
-
+      const [asinOrdered, skuOrdered] = await Promise.all([supabase.from('asin_inventory').select('id, asin, serial_number, quantity, status, days_since_last_restock:last_restock_date').eq('country', selectedCountry).eq('status', 'ordered').eq('quantity', 0), supabase.from('sku_inventory').select('id, sku_number, bin_serial_number, quantity, status, days_since_last_restock:last_restock_date').eq('country', selectedCountry).eq('status', 'ordered').eq('quantity', 0)]);
       if (asinOrdered.error) throw asinOrdered.error;
       if (skuOrdered.error) throw skuOrdered.error;
-
-      const orderedItemsData = [
-        ...(asinOrdered.data || []).map(item => ({
-          id: item.id,
-          identifier: `${item.asin} (${item.serial_number})`,
-          current_quantity: item.quantity,
-          table_name: 'asin_inventory',
-          status: item.status,
-          days_since_last_restock: item.days_since_last_restock ? 
-            Math.floor((Date.now() - new Date(item.days_since_last_restock).getTime()) / (1000 * 60 * 60 * 24)) : null
-        })),
-        ...(skuOrdered.data || []).map(item => ({
-          id: item.id,
-          identifier: `${item.sku_number} (${item.bin_serial_number})`,
-          current_quantity: item.quantity,
-          table_name: 'sku_inventory',
-          status: item.status,
-          days_since_last_restock: item.days_since_last_restock ? 
-            Math.floor((Date.now() - new Date(item.days_since_last_restock).getTime()) / (1000 * 60 * 60 * 24)) : null
-        }))
-      ];
-
+      const orderedItemsData = [...(asinOrdered.data || []).map(item => ({
+        id: item.id,
+        identifier: `${item.asin} (${item.serial_number})`,
+        current_quantity: item.quantity,
+        table_name: 'asin_inventory',
+        status: item.status,
+        days_since_last_restock: item.days_since_last_restock ? Math.floor((Date.now() - new Date(item.days_since_last_restock).getTime()) / (1000 * 60 * 60 * 24)) : null
+      })), ...(skuOrdered.data || []).map(item => ({
+        id: item.id,
+        identifier: `${item.sku_number} (${item.bin_serial_number})`,
+        current_quantity: item.quantity,
+        table_name: 'sku_inventory',
+        status: item.status,
+        days_since_last_restock: item.days_since_last_restock ? Math.floor((Date.now() - new Date(item.days_since_last_restock).getTime()) / (1000 * 60 * 60 * 24)) : null
+      }))];
       return orderedItemsData;
     } catch (error: any) {
       console.error('Error loading ordered items:', error);
@@ -205,60 +154,30 @@ export function Replenishment() {
     try {
       const periods = [1, 3, 7, 15, 30, 45, 60, 90];
       const salesAnalytics: SalesData[] = [];
-
       for (const days of periods) {
         const startDate = new Date();
         startDate.setDate(startDate.getDate() - days);
 
         // Query ASIN inventory for sales data
-        let asinSalesQuery = supabase
-          .from('asin_inventory')
-          .select('*')
-          .eq('status', 'sold')
-          .eq('country', selectedCountry)  // Filter by selected country
-          .gte('date_sold', startDate.toISOString());
-
-        let asinRestockQuery = supabase
-          .from('asin_inventory')
-          .select('restock_quantity')
-          .eq('country', selectedCountry)  // Filter by selected country
-          .not('last_restock_date', 'is', null)
-          .gte('last_restock_date', startDate.toISOString());
-
-        let skuSalesQuery = supabase
-          .from('sku_inventory')
-          .select('*')
-          .eq('status', 'sold')
-          .eq('country', selectedCountry)  // Filter by selected country
-          .gte('date_sold', startDate.toISOString());
-
-        let skuRestockQuery = supabase
-          .from('sku_inventory')
-          .select('restock_quantity')
-          .eq('country', selectedCountry)  // Filter by selected country
-          .not('last_restock_date', 'is', null)
-          .gte('last_restock_date', startDate.toISOString());
-
-        const [asinSalesData, asinRestockData, skuSalesData, skuRestockData] = await Promise.all([
-          asinSalesQuery,
-          asinRestockQuery,
-          skuSalesQuery,
-          skuRestockQuery
-        ]);
-
+        let asinSalesQuery = supabase.from('asin_inventory').select('*').eq('status', 'sold').eq('country', selectedCountry) // Filter by selected country
+        .gte('date_sold', startDate.toISOString());
+        let asinRestockQuery = supabase.from('asin_inventory').select('restock_quantity').eq('country', selectedCountry) // Filter by selected country
+        .not('last_restock_date', 'is', null).gte('last_restock_date', startDate.toISOString());
+        let skuSalesQuery = supabase.from('sku_inventory').select('*').eq('status', 'sold').eq('country', selectedCountry) // Filter by selected country
+        .gte('date_sold', startDate.toISOString());
+        let skuRestockQuery = supabase.from('sku_inventory').select('restock_quantity').eq('country', selectedCountry) // Filter by selected country
+        .not('last_restock_date', 'is', null).gte('last_restock_date', startDate.toISOString());
+        const [asinSalesData, asinRestockData, skuSalesData, skuRestockData] = await Promise.all([asinSalesQuery, asinRestockQuery, skuSalesQuery, skuRestockQuery]);
         if (asinSalesData.error) throw asinSalesData.error;
         if (asinRestockData.error) throw asinRestockData.error;
         if (skuSalesData.error) throw skuSalesData.error;
         if (skuRestockData.error) throw skuRestockData.error;
-
         const asinSoldCount = asinSalesData.data?.length || 0;
         const skuSoldCount = skuSalesData.data?.length || 0;
         const totalSold = asinSoldCount + skuSoldCount;
-
         const asinRestockedQty = asinRestockData.data?.reduce((sum, item) => sum + (item.restock_quantity || 0), 0) || 0;
         const skuRestockedQty = skuRestockData.data?.reduce((sum, item) => sum + (item.restock_quantity || 0), 0) || 0;
         const totalRestocked = asinRestockedQty + skuRestockedQty;
-
         salesAnalytics.push({
           period: `${days}d`,
           asin_sold: asinSoldCount,
@@ -270,13 +189,12 @@ export function Replenishment() {
           sell_rate: totalSold / days
         });
       }
-
       setSalesData(salesAnalytics);
     } catch (error: any) {
       toast({
         title: "Error calculating sales data",
         description: error.message,
-        variant: "destructive",
+        variant: "destructive"
       });
     }
   };
@@ -287,17 +205,14 @@ export function Replenishment() {
     try {
       // Load critical data first (restock items), then load analytics in background
       await loadRestockItems();
-      
+
       // Load analytics data in parallel without blocking the UI
-      Promise.all([
-        calculateSalesData(),
-        loadAnalytics(selectedCountry)
-      ]).catch(error => {
+      Promise.all([calculateSalesData(), loadAnalytics(selectedCountry)]).catch(error => {
         console.error('Error loading analytics data:', error);
         toast({
           title: "Analytics Error",
           description: "Some analytics data may not be available",
-          variant: "destructive",
+          variant: "destructive"
         });
       });
     } finally {
@@ -308,13 +223,10 @@ export function Replenishment() {
   // Filter restock items - show all critical stock items (qty=0) regardless of status
   const filteredRestockItems = restockItems.filter(item => {
     if (!searchTerm.trim()) return true;
-    
+
     // Support bulk search - split by space and search for any match
     const searchTerms = searchTerm.toLowerCase().split(' ').map(term => term.trim()).filter(Boolean);
-    
-    return searchTerms.some(term => 
-      item.identifier.toLowerCase().includes(term)
-    );
+    return searchTerms.some(term => item.identifier.toLowerCase().includes(term));
   });
 
   // Since database function now excludes ordered items, all filtered items are pending
@@ -330,9 +242,12 @@ export function Replenishment() {
       setSelectedItems(new Set());
     }
   };
-
   const handleSelectItem = (itemId: string, checked: boolean) => {
-    console.log('handleSelectItem called with:', { itemId, checked, currentSelected: Array.from(selectedItems) });
+    console.log('handleSelectItem called with:', {
+      itemId,
+      checked,
+      currentSelected: Array.from(selectedItems)
+    });
     setSelectedItems(prev => {
       const newSelected = new Set(prev);
       if (checked) {
@@ -344,32 +259,25 @@ export function Replenishment() {
       return newSelected;
     });
   };
-
   const handleBulkMarkAsOrdered = async () => {
     if (selectedItems.size === 0) return;
-    
     try {
       // Update each item in database
-      const updatePromises = Array.from(selectedItems).map(async (itemId) => {
+      const updatePromises = Array.from(selectedItems).map(async itemId => {
         const item = restockItems.find(i => i.id === itemId);
         if (!item) return;
-
         if (item.table_name === 'asin_inventory') {
-          return supabase
-            .from('asin_inventory')
-            .update({ status: 'ordered' })
-            .eq('id', itemId);
+          return supabase.from('asin_inventory').update({
+            status: 'ordered'
+          }).eq('id', itemId);
         } else if (item.table_name === 'sku_inventory') {
-          return supabase
-            .from('sku_inventory')
-            .update({ status: 'ordered' })
-            .eq('id', itemId);
+          return supabase.from('sku_inventory').update({
+            status: 'ordered'
+          }).eq('id', itemId);
         }
       });
-
       const results = await Promise.all(updatePromises);
       const errors = results.filter(result => result?.error);
-      
       if (errors.length > 0) {
         throw new Error(`Failed to update ${errors.length} items`);
       }
@@ -377,23 +285,24 @@ export function Replenishment() {
       // Remove items from restock list and add to ordered items
       const updatedItems = Array.from(selectedItems).map(itemId => {
         const item = restockItems.find(i => i.id === itemId);
-        return item ? { ...item, status: 'ordered' } : null;
+        return item ? {
+          ...item,
+          status: 'ordered'
+        } : null;
       }).filter(Boolean) as RestockItem[];
-
       setRestockItems(prev => prev.filter(item => !selectedItems.has(item.id)));
       setOrderedItems(prev => [...prev, ...updatedItems]);
       setSelectedItems(new Set());
-      
       toast({
         title: "Bulk Order Status Updated",
-        description: `${selectedItems.size} items marked as ordered from supplier`,
+        description: `${selectedItems.size} items marked as ordered from supplier`
       });
     } catch (error) {
       console.error('Error bulk updating order status:', error);
       toast({
         title: "Error",
         description: "Failed to update some items",
-        variant: "destructive",
+        variant: "destructive"
       });
     }
   };
@@ -406,121 +315,80 @@ export function Replenishment() {
       toast({
         title: "Error",
         description: "Item not found",
-        variant: "destructive",
+        variant: "destructive"
       });
       return;
     }
-
-    console.log('Marking item as ordered:', { itemId, tableType: item.table_name, item });
-
+    console.log('Marking item as ordered:', {
+      itemId,
+      tableType: item.table_name,
+      item
+    });
     try {
       let updateResult;
-      
+
       // Update status in database using the correct ID
       if (item.table_name === 'asin_inventory') {
-        updateResult = await supabase
-          .from('asin_inventory')
-          .update({ status: 'ordered' })
-          .eq('id', itemId);
+        updateResult = await supabase.from('asin_inventory').update({
+          status: 'ordered'
+        }).eq('id', itemId);
         console.log('ASIN update result:', updateResult);
       } else if (item.table_name === 'sku_inventory') {
-        updateResult = await supabase
-          .from('sku_inventory')
-          .update({ status: 'ordered' })
-          .eq('id', itemId);
+        updateResult = await supabase.from('sku_inventory').update({
+          status: 'ordered'
+        }).eq('id', itemId);
         console.log('SKU update result:', updateResult);
       } else {
         throw new Error(`Unknown table type: ${item.table_name}`);
       }
-
       if (updateResult.error) {
         console.error('Database update error:', updateResult.error);
         throw updateResult.error;
       }
-
       console.log('Database update successful, updating local state...');
 
       // Remove item from restock list and add to ordered items
       const updatedItem = restockItems.find(i => i.id === itemId);
       if (updatedItem) {
         setRestockItems(prev => prev.filter(item => item.id !== itemId));
-        setOrderedItems(prev => [...prev, { ...updatedItem, status: 'ordered' }]);
+        setOrderedItems(prev => [...prev, {
+          ...updatedItem,
+          status: 'ordered'
+        }]);
       }
-      
       toast({
         title: "Order Status Updated",
-        description: "Item marked as ordered from supplier",
+        description: "Item marked as ordered from supplier"
       });
-
     } catch (error: any) {
       console.error('Error marking item as ordered:', error);
       toast({
         title: "Error",
         description: `Failed to update order status: ${error.message}`,
-        variant: "destructive",
+        variant: "destructive"
       });
     }
   };
 
   // Export data functions
   const exportSalesData = () => {
-    const csvContent = [
-      ['Period', 'ASIN Sold', 'SKU Sold', 'Total Sold', 'ASIN Restocked', 'SKU Restocked', 'Total Restocked', 'Daily Sell Rate'],
-      ...salesData.map(item => [
-        item.period,
-        item.asin_sold,
-        item.sku_sold, 
-        item.total_sold,
-        item.asin_restocked,
-        item.sku_restocked,
-        item.total_restocked,
-        item.sell_rate.toFixed(2)
-      ])
-    ].map(row => row.join(',')).join('\n');
-
+    const csvContent = [['Period', 'ASIN Sold', 'SKU Sold', 'Total Sold', 'ASIN Restocked', 'SKU Restocked', 'Total Restocked', 'Daily Sell Rate'], ...salesData.map(item => [item.period, item.asin_sold, item.sku_sold, item.total_sold, item.asin_restocked, item.sku_restocked, item.total_restocked, item.sell_rate.toFixed(2)])].map(row => row.join(',')).join('\n');
     downloadCSV(csvContent, `sales-data-${selectedCountry}-${new Date().toISOString().split('T')[0]}.csv`);
   };
-
   const exportRestockData = () => {
-    const filteredItems = restockItems.filter(item => 
-      item.status === 'pending' &&
-      item.identifier.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
-    const csvContent = [
-      ['Type', 'Identifier', 'Current Quantity', 'Days Since Restock', 'Status'],
-      ...filteredItems.map(item => [
-        item.table_name === 'asin_inventory' ? 'ASIN' : 'SKU',
-        item.identifier,
-        item.current_quantity,
-        item.days_since_last_restock || 'Never',
-        item.status
-      ])
-    ].map(row => row.join(',')).join('\n');
-
+    const filteredItems = restockItems.filter(item => item.status === 'pending' && item.identifier.toLowerCase().includes(searchTerm.toLowerCase()));
+    const csvContent = [['Type', 'Identifier', 'Current Quantity', 'Days Since Restock', 'Status'], ...filteredItems.map(item => [item.table_name === 'asin_inventory' ? 'ASIN' : 'SKU', item.identifier, item.current_quantity, item.days_since_last_restock || 'Never', item.status])].map(row => row.join(',')).join('\n');
     downloadCSV(csvContent, `restock-items-${selectedCountry}-${new Date().toISOString().split('T')[0]}.csv`);
   };
-
   const exportOrderedData = () => {
     const orderedItemsList = orderedItems.filter(item => item.status === 'ordered');
-
-    const csvContent = [
-      ['Type', 'Identifier', 'Current Quantity', 'Days Since Restock', 'Order Status', 'Date Marked'],
-      ...orderedItemsList.map(item => [
-        item.table_name === 'asin_inventory' ? 'ASIN' : 'SKU',
-        item.identifier,
-        item.current_quantity,
-        item.days_since_last_restock || 'Never',
-        item.status,
-        new Date().toLocaleDateString()
-      ])
-    ].map(row => row.join(',')).join('\n');
-
+    const csvContent = [['Type', 'Identifier', 'Current Quantity', 'Days Since Restock', 'Order Status', 'Date Marked'], ...orderedItemsList.map(item => [item.table_name === 'asin_inventory' ? 'ASIN' : 'SKU', item.identifier, item.current_quantity, item.days_since_last_restock || 'Never', item.status, new Date().toLocaleDateString()])].map(row => row.join(',')).join('\n');
     downloadCSV(csvContent, `ordered-items-${selectedCountry}-${new Date().toISOString().split('T')[0]}.csv`);
   };
-
   const downloadCSV = (content: string, filename: string) => {
-    const blob = new Blob([content], { type: 'text/csv' });
+    const blob = new Blob([content], {
+      type: 'text/csv'
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -529,10 +397,9 @@ export function Replenishment() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    
     toast({
       title: "Export Complete",
-      description: `Data exported as ${filename}`,
+      description: `Data exported as ${filename}`
     });
   };
 
@@ -545,21 +412,11 @@ export function Replenishment() {
       startDate.setDate(startDate.getDate() - daysNum);
 
       // Get ASIN data
-      const asinQuery = supabase
-        .from('asin_inventory')
-        .select('*')
-        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
-        .eq('country', selectedCountry);
+      const asinQuery = supabase.from('asin_inventory').select('*').eq('user_id', (await supabase.auth.getUser()).data.user?.id).eq('country', selectedCountry);
 
       // Get SKU data
-      const skuQuery = supabase
-        .from('sku_inventory')
-        .select('*')
-        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
-        .eq('country', selectedCountry);
-
+      const skuQuery = supabase.from('sku_inventory').select('*').eq('user_id', (await supabase.auth.getUser()).data.user?.id).eq('country', selectedCountry);
       const [asinResult, skuResult] = await Promise.all([asinQuery, skuQuery]);
-
       if (asinResult.error) throw asinResult.error;
       if (skuResult.error) throw skuResult.error;
 
@@ -567,7 +424,6 @@ export function Replenishment() {
       const asinItems: TrendsItem[] = (asinResult.data || []).map(item => {
         const soldInPeriod = item.date_sold && new Date(item.date_sold) >= startDate ? 1 : 0;
         const sellRate = soldInPeriod / daysNum;
-
         return {
           id: item.id,
           identifier: `${item.asin} (${item.serial_number})`,
@@ -575,8 +431,7 @@ export function Replenishment() {
           current_quantity: item.quantity || 0,
           sold_quantity: soldInPeriod,
           last_sold_date: item.date_sold,
-          days_since_last_restock: item.last_restock_date ? 
-            Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null,
+          days_since_last_restock: item.last_restock_date ? Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null,
           sell_rate: sellRate
         };
       });
@@ -585,7 +440,6 @@ export function Replenishment() {
       const skuItems: TrendsItem[] = (skuResult.data || []).map(item => {
         const soldInPeriod = item.date_sold && new Date(item.date_sold) >= startDate ? 1 : 0;
         const sellRate = soldInPeriod / daysNum;
-
         return {
           id: item.id,
           identifier: `${item.sku_number} (${item.bin_serial_number})`,
@@ -593,28 +447,25 @@ export function Replenishment() {
           current_quantity: item.quantity || 0,
           sold_quantity: soldInPeriod,
           last_sold_date: item.date_sold,
-          days_since_last_restock: item.last_restock_date ? 
-            Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null,
+          days_since_last_restock: item.last_restock_date ? Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null,
           sell_rate: sellRate
         };
       });
 
       // Combine and filter by type
       let combinedItems = [...asinItems, ...skuItems];
-      
       if (trendsItemType === 'asin') {
         combinedItems = asinItems;
       } else if (trendsItemType === 'sku') {
         combinedItems = skuItems;
       }
-
       setTrendsItems(combinedItems);
     } catch (error: any) {
       console.error('Error loading trends data:', error);
       toast({
         title: "Error loading trends data",
         description: error.message,
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setTrendsLoading(false);
@@ -622,47 +473,31 @@ export function Replenishment() {
   };
 
   // Filter and sort trends items
-  const filteredTrendsItems = trendsItems
-    .filter(item => {
-      if (!trendsSearchTerm.trim()) return true;
-      const searchLower = trendsSearchTerm.toLowerCase();
-      return item.identifier.toLowerCase().includes(searchLower);
-    })
-    .sort((a, b) => {
-      switch (trendsSortBy) {
-        case 'sold_desc':
-          return b.sold_quantity - a.sold_quantity;
-        case 'sold_asc':
-          return a.sold_quantity - b.sold_quantity;
-        case 'recent':
-          if (!a.last_sold_date && !b.last_sold_date) return 0;
-          if (!a.last_sold_date) return 1;
-          if (!b.last_sold_date) return -1;
-          return new Date(b.last_sold_date).getTime() - new Date(a.last_sold_date).getTime();
-        case 'quantity_low':
-          return a.current_quantity - b.current_quantity;
-        default:
-          return 0;
-      }
-    });
+  const filteredTrendsItems = trendsItems.filter(item => {
+    if (!trendsSearchTerm.trim()) return true;
+    const searchLower = trendsSearchTerm.toLowerCase();
+    return item.identifier.toLowerCase().includes(searchLower);
+  }).sort((a, b) => {
+    switch (trendsSortBy) {
+      case 'sold_desc':
+        return b.sold_quantity - a.sold_quantity;
+      case 'sold_asc':
+        return a.sold_quantity - b.sold_quantity;
+      case 'recent':
+        if (!a.last_sold_date && !b.last_sold_date) return 0;
+        if (!a.last_sold_date) return 1;
+        if (!b.last_sold_date) return -1;
+        return new Date(b.last_sold_date).getTime() - new Date(a.last_sold_date).getTime();
+      case 'quantity_low':
+        return a.current_quantity - b.current_quantity;
+      default:
+        return 0;
+    }
+  });
 
   // Export trends data
   const exportTrendsData = () => {
-    const csvContent = [
-      ['Type', 'Identifier', 'Current Stock', 'Sold Quantity', 'Sell Rate/Day', 'Last Sold', 'Days Since Restock', 'Stock Status'],
-      ...filteredTrendsItems.map(item => [
-        item.table_name === 'asin_inventory' ? 'ASIN' : 'SKU',
-        item.identifier,
-        item.current_quantity,
-        item.sold_quantity,
-        item.sell_rate.toFixed(2),
-        item.last_sold_date ? new Date(item.last_sold_date).toLocaleDateString() : 'Never',
-        item.days_since_last_restock || 'Never',
-        item.current_quantity <= 5 ? 'Critical' : 
-        item.current_quantity <= 10 ? 'Low' : 'Good'
-      ])
-    ].map(row => row.join(',')).join('\n');
-
+    const csvContent = [['Type', 'Identifier', 'Current Stock', 'Sold Quantity', 'Sell Rate/Day', 'Last Sold', 'Days Since Restock', 'Stock Status'], ...filteredTrendsItems.map(item => [item.table_name === 'asin_inventory' ? 'ASIN' : 'SKU', item.identifier, item.current_quantity, item.sold_quantity, item.sell_rate.toFixed(2), item.last_sold_date ? new Date(item.last_sold_date).toLocaleDateString() : 'Never', item.days_since_last_restock || 'Never', item.current_quantity <= 5 ? 'Critical' : item.current_quantity <= 10 ? 'Low' : 'Good'])].map(row => row.join(',')).join('\n');
     downloadCSV(csvContent, `trends-analysis-${selectedCountry}-${trendsDateRange}-${new Date().toISOString().split('T')[0]}.csv`);
   };
 
@@ -670,26 +505,25 @@ export function Replenishment() {
   const generateForecast = async () => {
     setForecastLoading(true);
     setForecastError(null);
-    
     try {
-      const { data, error } = await supabase.functions.invoke('ai-inventory-forecast', {
+      const {
+        data,
+        error
+      } = await supabase.functions.invoke('ai-inventory-forecast', {
         body: {
           country: selectedCountry,
           itemType: 'all',
           analysisDepth: 'standard'
         }
       });
-
       if (error) throw error;
-
       if (data?.error) {
         throw new Error(data.error);
       }
-
       setForecastData(data);
       toast({
         title: "AI Forecast Generated",
-        description: `Analysis completed for ${data?.items_analyzed || 0} items`,
+        description: `Analysis completed for ${data?.items_analyzed || 0} items`
       });
     } catch (error: any) {
       console.error('Error generating forecast:', error);
@@ -697,30 +531,15 @@ export function Replenishment() {
       toast({
         title: "Forecast Error",
         description: error.message,
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setForecastLoading(false);
     }
   };
-
   const exportForecastData = () => {
     if (!forecastData?.forecasts) return;
-
-    const csvContent = [
-      ['Item', 'Current Stock', 'Days Until Stockout', 'Reorder Point', 'Risk Level', 'Confidence', 'Trend', 'Key Insights'],
-      ...forecastData.forecasts.map((item: any) => [
-        item.identifier,
-        item.current_stock,
-        item.predicted_days_until_stockout,
-        item.recommended_reorder_point,
-        item.risk_level,
-        `${item.confidence_score}%`,
-        item.seasonal_trend,
-        (item.insights || []).join('; ')
-      ])
-    ].map(row => row.join(',')).join('\n');
-
+    const csvContent = [['Item', 'Current Stock', 'Days Until Stockout', 'Reorder Point', 'Risk Level', 'Confidence', 'Trend', 'Key Insights'], ...forecastData.forecasts.map((item: any) => [item.identifier, item.current_stock, item.predicted_days_until_stockout, item.recommended_reorder_point, item.risk_level, `${item.confidence_score}%`, item.seasonal_trend, (item.insights || []).join('; ')])].map(row => row.join(',')).join('\n');
     downloadCSV(csvContent, `ai-forecast-${selectedCountry}-${new Date().toISOString().split('T')[0]}.csv`);
   };
 
@@ -729,11 +548,11 @@ export function Replenishment() {
     setDialogData({
       isOpen: true,
       title: 'Critical Stock Items (0 Units)',
-      items: filteredRestockItems, // Show all critical items regardless of status
+      items: filteredRestockItems,
+      // Show all critical items regardless of status
       type: 'critical'
     });
   };
-
   const openOrderedItemsDialog = async () => {
     const orderedItemsData = await loadOrderedItems();
     setDialogData({
@@ -743,47 +562,27 @@ export function Replenishment() {
       type: 'ordered'
     });
   };
-
   const openActiveItemsDialog = async () => {
     try {
       // Get all active items from both tables
-      const [asinData, skuData] = await Promise.all([
-        supabase
-          .from('asin_inventory')
-          .select('*')
-          .eq('country', selectedCountry)
-          .eq('status', 'in-stock'),
-        supabase
-          .from('sku_inventory')
-          .select('*')
-          .eq('country', selectedCountry)
-          .eq('status', 'in-stock')
-      ]);
-
+      const [asinData, skuData] = await Promise.all([supabase.from('asin_inventory').select('*').eq('country', selectedCountry).eq('status', 'in-stock'), supabase.from('sku_inventory').select('*').eq('country', selectedCountry).eq('status', 'in-stock')]);
       if (asinData.error) throw asinData.error;
       if (skuData.error) throw skuData.error;
-
-      const activeItemsData = [
-        ...(asinData.data || []).map(item => ({
-          id: item.id,
-          identifier: `${item.asin} (${item.serial_number})`,
-          current_quantity: item.quantity,
-          table_name: 'asin_inventory',
-          status: item.status,
-          days_since_last_restock: item.last_restock_date ? 
-            Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null
-        })),
-        ...(skuData.data || []).map(item => ({
-          id: item.id,
-          identifier: `${item.sku_number} (${item.bin_serial_number})`,
-          current_quantity: item.quantity,
-          table_name: 'sku_inventory',
-          status: item.status,
-          days_since_last_restock: item.last_restock_date ? 
-            Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null
-        }))
-      ];
-
+      const activeItemsData = [...(asinData.data || []).map(item => ({
+        id: item.id,
+        identifier: `${item.asin} (${item.serial_number})`,
+        current_quantity: item.quantity,
+        table_name: 'asin_inventory',
+        status: item.status,
+        days_since_last_restock: item.last_restock_date ? Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null
+      })), ...(skuData.data || []).map(item => ({
+        id: item.id,
+        identifier: `${item.sku_number} (${item.bin_serial_number})`,
+        current_quantity: item.quantity,
+        table_name: 'sku_inventory',
+        status: item.status,
+        days_since_last_restock: item.last_restock_date ? Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null
+      }))];
       setDialogData({
         isOpen: true,
         title: 'Active Inventory Items',
@@ -794,7 +593,7 @@ export function Replenishment() {
       toast({
         title: "Error loading active items",
         description: error.message,
-        variant: "destructive",
+        variant: "destructive"
       });
     }
   };
@@ -802,34 +601,24 @@ export function Replenishment() {
   // Optimized real-time subscriptions - only reload specific data that changed
   useEffect(() => {
     if (!selectedCountry) return;
-
-    const channels = [
-      supabase
-        .channel('asin-inventory-realtime')
-        .on('postgres_changes', {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'asin_inventory',
-          filter: `country=eq.${selectedCountry}`
-        }, () => {
-          // Only reload critical stock items on quantity changes
-          loadRestockItems();
-        }),
-      supabase
-        .channel('sku-inventory-realtime')
-        .on('postgres_changes', {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'sku_inventory',
-          filter: `country=eq.${selectedCountry}`
-        }, () => {
-          // Only reload critical stock items on quantity changes
-          loadRestockItems();
-        })
-    ];
-
+    const channels = [supabase.channel('asin-inventory-realtime').on('postgres_changes', {
+      event: 'UPDATE',
+      schema: 'public',
+      table: 'asin_inventory',
+      filter: `country=eq.${selectedCountry}`
+    }, () => {
+      // Only reload critical stock items on quantity changes
+      loadRestockItems();
+    }), supabase.channel('sku-inventory-realtime').on('postgres_changes', {
+      event: 'UPDATE',
+      schema: 'public',
+      table: 'sku_inventory',
+      filter: `country=eq.${selectedCountry}`
+    }, () => {
+      // Only reload critical stock items on quantity changes
+      loadRestockItems();
+    })];
     channels.forEach(channel => channel.subscribe());
-
     return () => {
       channels.forEach(channel => supabase.removeChannel(channel));
     };
@@ -849,34 +638,43 @@ export function Replenishment() {
   useEffect(() => {
     loadTrendsData();
   }, [selectedCountry, trendsDateRange, trendsItemType]);
-
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
+    return <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center space-y-4">
           <RefreshCw className="w-8 h-8 animate-spin mx-auto text-primary" />
           <p className="text-muted-foreground">Loading sales & replenishment data...</p>
         </div>
-      </div>
-    );
+      </div>;
   }
-
 
   // Chart configurations with updated SKU color scheme
   const chartConfig = {
-    total_sold: { label: "Total Sold", color: "hsl(var(--primary))" },
-    total_restocked: { label: "Total Restocked", color: "hsl(var(--secondary))" },
-    asin_sold: { label: "ASIN Sold", color: "hsl(var(--chart-1))" },
-    sku_sold: { label: "SKU Sold", color: "hsl(220, 70%, 50%)" }, // Changed to blue scheme
-    sell_rate: { label: "Daily Rate", color: "hsl(var(--accent))" }
+    total_sold: {
+      label: "Total Sold",
+      color: "hsl(var(--primary))"
+    },
+    total_restocked: {
+      label: "Total Restocked",
+      color: "hsl(var(--secondary))"
+    },
+    asin_sold: {
+      label: "ASIN Sold",
+      color: "hsl(var(--chart-1))"
+    },
+    sku_sold: {
+      label: "SKU Sold",
+      color: "hsl(220, 70%, 50%)"
+    },
+    // Changed to blue scheme
+    sell_rate: {
+      label: "Daily Rate",
+      color: "hsl(var(--accent))"
+    }
   };
-
   const selectedPeriodData = salesData.find(d => d.period === selectedPeriod);
   const totalSales30d = salesData.find(d => d.period === '30d')?.total_sold || 0;
   const totalRestocks30d = salesData.find(d => d.period === '30d')?.total_restocked || 0;
-
-  return (
-    <div className="space-y-6 animate-fade-in w-full max-w-none">
+  return <div className="space-y-6 animate-fade-in w-full max-w-none">
       {/* Header with refresh button */}
       <div className="flex items-center justify-between">
         <div>
@@ -908,16 +706,22 @@ export function Replenishment() {
         </Card>
 
         {/* Items Ordered */}
-        <Card className="glass-container hover-scale cursor-pointer transition-all duration-300 hover:shadow-glow border-l-4" style={{ borderLeftColor: 'hsl(220, 70%, 50%)' }} onClick={openOrderedItemsDialog}>
+        <Card className="glass-container hover-scale cursor-pointer transition-all duration-300 hover:shadow-glow border-l-4" style={{
+        borderLeftColor: 'hsl(220, 70%, 50%)'
+      }} onClick={openOrderedItemsDialog}>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
-                  <Truck className="w-4 h-4" style={{ color: 'hsl(220, 70%, 50%)' }} />
+                  <Truck className="w-4 h-4" style={{
+                  color: 'hsl(220, 70%, 50%)'
+                }} />
                   <p className="text-xs font-medium text-muted-foreground">Ordered</p>
                 </div>
                 <p className="text-2xl font-bold text-foreground">{orderedItems.length}</p>
-                <p className="text-xs" style={{ color: 'hsl(220, 70%, 50%)' }}>From supplier</p>
+                <p className="text-xs" style={{
+                color: 'hsl(220, 70%, 50%)'
+              }}>From supplier</p>
               </div>
             </div>
           </CardContent>
@@ -983,7 +787,7 @@ export function Replenishment() {
                   <p className="text-xs font-medium text-muted-foreground">Stock Ratio</p>
                 </div>
                 <p className="text-2xl font-bold text-foreground">
-                  {totalRestocks30d > 0 ? ((totalSales30d / totalRestocks30d) * 100).toFixed(0) : '0'}%
+                  {totalRestocks30d > 0 ? (totalSales30d / totalRestocks30d * 100).toFixed(0) : '0'}%
                 </p>
                 <p className="text-xs text-chart-1">Efficiency</p>
               </div>
@@ -1060,51 +864,41 @@ export function Replenishment() {
               <CardContent className="pt-0">
                 <ChartContainer config={chartConfig} className="h-48">
                   <ResponsiveContainer width="100%" height="100%">
-                    <RechartsLineChart data={salesData} margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
+                    <RechartsLineChart data={salesData} margin={{
+                    top: 10,
+                    right: 10,
+                    left: 0,
+                    bottom: 10
+                  }}>
                       <CartesianGrid strokeDasharray="2 2" stroke="hsl(var(--border))" opacity={0.3} />
-                      <XAxis 
-                        dataKey="period" 
-                        stroke="hsl(var(--muted-foreground))" 
-                        fontSize={10}
-                        tick={{ fontSize: 10 }}
-                        axisLine={false}
-                        tickLine={false}
-                      />
-                      <YAxis 
-                        stroke="hsl(var(--muted-foreground))" 
-                        fontSize={10}
-                        tick={{ fontSize: 10 }}
-                        axisLine={false}
-                        tickLine={false}
-                        width={30}
-                      />
-                      <ChartTooltip 
-                        content={<ChartTooltipContent />}
-                        contentStyle={{ 
-                          backgroundColor: 'hsl(var(--background))',
-                          border: '1px solid hsl(var(--border))',
-                          borderRadius: '8px',
-                          fontSize: '12px'
-                        }}
-                      />
-                      <Line 
-                        type="monotone" 
-                        dataKey="total_sold" 
-                        stroke="hsl(var(--primary))" 
-                        strokeWidth={2}
-                        dot={{ fill: "hsl(var(--primary))", strokeWidth: 0, r: 3 }}
-                        activeDot={{ r: 4, fill: "hsl(var(--primary))" }}
-                        name="Sold"
-                      />
-                      <Line 
-                        type="monotone" 
-                        dataKey="total_restocked" 
-                        stroke="hsl(var(--secondary))" 
-                        strokeWidth={2}
-                        dot={{ fill: "hsl(var(--secondary))", strokeWidth: 0, r: 3 }}
-                        activeDot={{ r: 4, fill: "hsl(var(--secondary))" }}
-                        name="Restocked"
-                      />
+                      <XAxis dataKey="period" stroke="hsl(var(--muted-foreground))" fontSize={10} tick={{
+                      fontSize: 10
+                    }} axisLine={false} tickLine={false} />
+                      <YAxis stroke="hsl(var(--muted-foreground))" fontSize={10} tick={{
+                      fontSize: 10
+                    }} axisLine={false} tickLine={false} width={30} />
+                      <ChartTooltip content={<ChartTooltipContent />} contentStyle={{
+                      backgroundColor: 'hsl(var(--background))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px',
+                      fontSize: '12px'
+                    }} />
+                      <Line type="monotone" dataKey="total_sold" stroke="hsl(var(--primary))" strokeWidth={2} dot={{
+                      fill: "hsl(var(--primary))",
+                      strokeWidth: 0,
+                      r: 3
+                    }} activeDot={{
+                      r: 4,
+                      fill: "hsl(var(--primary))"
+                    }} name="Sold" />
+                      <Line type="monotone" dataKey="total_restocked" stroke="hsl(var(--secondary))" strokeWidth={2} dot={{
+                      fill: "hsl(var(--secondary))",
+                      strokeWidth: 0,
+                      r: 3
+                    }} activeDot={{
+                      r: 4,
+                      fill: "hsl(var(--secondary))"
+                    }} name="Restocked" />
                     </RechartsLineChart>
                   </ResponsiveContainer>
                 </ChartContainer>
@@ -1122,47 +916,27 @@ export function Replenishment() {
               <CardContent className="pt-0">
                 <ChartContainer config={chartConfig} className="h-48">
                   <ResponsiveContainer width="100%" height="100%">
-                    <RechartsBarChart data={salesData.slice(-6)} margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
+                    <RechartsBarChart data={salesData.slice(-6)} margin={{
+                    top: 10,
+                    right: 10,
+                    left: 0,
+                    bottom: 10
+                  }}>
                       <CartesianGrid strokeDasharray="2 2" stroke="hsl(var(--border))" opacity={0.3} />
-                      <XAxis 
-                        dataKey="period" 
-                        stroke="hsl(var(--muted-foreground))" 
-                        fontSize={10}
-                        tick={{ fontSize: 10 }}
-                        axisLine={false}
-                        tickLine={false}
-                      />
-                      <YAxis 
-                        stroke="hsl(var(--muted-foreground))" 
-                        fontSize={10}
-                        tick={{ fontSize: 10 }}
-                        axisLine={false}
-                        tickLine={false}
-                        width={30}
-                      />
-                      <ChartTooltip 
-                        content={<ChartTooltipContent />}
-                        contentStyle={{ 
-                          backgroundColor: 'hsl(var(--background))',
-                          border: '1px solid hsl(var(--border))',
-                          borderRadius: '8px',
-                          fontSize: '12px'
-                        }}
-                      />
-                      <Bar 
-                        dataKey="asin_sold" 
-                        fill="hsl(var(--chart-1))" 
-                        name="ASIN" 
-                        radius={[2, 2, 0, 0]} 
-                        maxBarSize={40}
-                      />
-                      <Bar 
-                        dataKey="sku_sold" 
-                        fill="hsl(220, 70%, 50%)" 
-                        name="SKU" 
-                        radius={[2, 2, 0, 0]} 
-                        maxBarSize={40}
-                      />
+                      <XAxis dataKey="period" stroke="hsl(var(--muted-foreground))" fontSize={10} tick={{
+                      fontSize: 10
+                    }} axisLine={false} tickLine={false} />
+                      <YAxis stroke="hsl(var(--muted-foreground))" fontSize={10} tick={{
+                      fontSize: 10
+                    }} axisLine={false} tickLine={false} width={30} />
+                      <ChartTooltip content={<ChartTooltipContent />} contentStyle={{
+                      backgroundColor: 'hsl(var(--background))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px',
+                      fontSize: '12px'
+                    }} />
+                      <Bar dataKey="asin_sold" fill="hsl(var(--chart-1))" name="ASIN" radius={[2, 2, 0, 0]} maxBarSize={40} />
+                      <Bar dataKey="sku_sold" fill="hsl(220, 70%, 50%)" name="SKU" radius={[2, 2, 0, 0]} maxBarSize={40} />
                     </RechartsBarChart>
                   </ResponsiveContainer>
                 </ChartContainer>
@@ -1180,48 +954,36 @@ export function Replenishment() {
               <CardContent className="pt-0">
                 <ChartContainer config={chartConfig} className="h-48">
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={salesData} margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
+                    <AreaChart data={salesData} margin={{
+                    top: 10,
+                    right: 10,
+                    left: 0,
+                    bottom: 10
+                  }}>
                       <defs>
                         <linearGradient id="sellRateGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="hsl(var(--accent))" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="hsl(var(--accent))" stopOpacity={0.05}/>
+                          <stop offset="5%" stopColor="hsl(var(--accent))" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="hsl(var(--accent))" stopOpacity={0.05} />
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="2 2" stroke="hsl(var(--border))" opacity={0.3} />
-                      <XAxis 
-                        dataKey="period" 
-                        stroke="hsl(var(--muted-foreground))" 
-                        fontSize={10}
-                        tick={{ fontSize: 10 }}
-                        axisLine={false}
-                        tickLine={false}
-                      />
-                      <YAxis 
-                        stroke="hsl(var(--muted-foreground))" 
-                        fontSize={10}
-                        tick={{ fontSize: 10 }}
-                        axisLine={false}
-                        tickLine={false}
-                        width={30}
-                      />
-                      <ChartTooltip 
-                        content={<ChartTooltipContent />}
-                        contentStyle={{ 
-                          backgroundColor: 'hsl(var(--background))',
-                          border: '1px solid hsl(var(--border))',
-                          borderRadius: '8px',
-                          fontSize: '12px'
-                        }}
-                      />
-                      <Area 
-                        type="monotone" 
-                        dataKey="sell_rate" 
-                        stroke="hsl(var(--accent))" 
-                        fill="url(#sellRateGradient)"
-                        strokeWidth={2}
-                        dot={{ fill: "hsl(var(--accent))", strokeWidth: 0, r: 2 }}
-                        name="Rate/Day"
-                      />
+                      <XAxis dataKey="period" stroke="hsl(var(--muted-foreground))" fontSize={10} tick={{
+                      fontSize: 10
+                    }} axisLine={false} tickLine={false} />
+                      <YAxis stroke="hsl(var(--muted-foreground))" fontSize={10} tick={{
+                      fontSize: 10
+                    }} axisLine={false} tickLine={false} width={30} />
+                      <ChartTooltip content={<ChartTooltipContent />} contentStyle={{
+                      backgroundColor: 'hsl(var(--background))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px',
+                      fontSize: '12px'
+                    }} />
+                      <Area type="monotone" dataKey="sell_rate" stroke="hsl(var(--accent))" fill="url(#sellRateGradient)" strokeWidth={2} dot={{
+                      fill: "hsl(var(--accent))",
+                      strokeWidth: 0,
+                      r: 2
+                    }} name="Rate/Day" />
                     </AreaChart>
                   </ResponsiveContainer>
                 </ChartContainer>
@@ -1237,43 +999,42 @@ export function Replenishment() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-0">
-                {selectedPeriodData && (
-                  <ChartContainer config={chartConfig} className="h-48">
+                {selectedPeriodData && <ChartContainer config={chartConfig} className="h-48">
                     <ResponsiveContainer width="100%" height="100%">
-                      <RechartsPieChart margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
-                        <Pie
-                          data={[
-                            { name: 'ASIN', value: selectedPeriodData.asin_sold, fill: 'hsl(var(--chart-1))' },
-                            { name: 'SKU', value: selectedPeriodData.sku_sold, fill: 'hsl(220, 70%, 50%)' }
-                          ]}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={25}
-                          outerRadius={70}
-                          dataKey="value"
-                          stroke="hsl(var(--background))"
-                          strokeWidth={2}
-                        >
-                          {[
-                            { name: 'ASIN', value: selectedPeriodData.asin_sold, fill: 'hsl(var(--chart-1))' },
-                            { name: 'SKU', value: selectedPeriodData.sku_sold, fill: 'hsl(220, 70%, 50%)' }
-                          ].map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.fill} />
-                          ))}
+                      <RechartsPieChart margin={{
+                    top: 5,
+                    right: 5,
+                    left: 5,
+                    bottom: 5
+                  }}>
+                        <Pie data={[{
+                      name: 'ASIN',
+                      value: selectedPeriodData.asin_sold,
+                      fill: 'hsl(var(--chart-1))'
+                    }, {
+                      name: 'SKU',
+                      value: selectedPeriodData.sku_sold,
+                      fill: 'hsl(220, 70%, 50%)'
+                    }]} cx="50%" cy="50%" innerRadius={25} outerRadius={70} dataKey="value" stroke="hsl(var(--background))" strokeWidth={2}>
+                          {[{
+                        name: 'ASIN',
+                        value: selectedPeriodData.asin_sold,
+                        fill: 'hsl(var(--chart-1))'
+                      }, {
+                        name: 'SKU',
+                        value: selectedPeriodData.sku_sold,
+                        fill: 'hsl(220, 70%, 50%)'
+                      }].map((entry, index) => <Cell key={`cell-${index}`} fill={entry.fill} />)}
                         </Pie>
-                        <ChartTooltip 
-                          content={<ChartTooltipContent />}
-                          contentStyle={{ 
-                            backgroundColor: 'hsl(var(--background))',
-                            border: '1px solid hsl(var(--border))',
-                            borderRadius: '8px',
-                            fontSize: '12px'
-                          }}
-                        />
+                        <ChartTooltip content={<ChartTooltipContent />} contentStyle={{
+                      backgroundColor: 'hsl(var(--background))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px',
+                      fontSize: '12px'
+                    }} />
                       </RechartsPieChart>
                     </ResponsiveContainer>
-                  </ChartContainer>
-                )}
+                  </ChartContainer>}
               </CardContent>
             </Card>
 
@@ -1296,7 +1057,7 @@ export function Replenishment() {
                   
                   <div className="flex flex-col justify-center items-center p-2 bg-gradient-to-br from-secondary/10 to-secondary/5 rounded-md border border-secondary/20">
                     <div className="text-lg font-bold text-secondary mb-1">
-                      {totalRestocks30d > 0 ? Math.round((totalSales30d / totalRestocks30d) * 100) : 0}%
+                      {totalRestocks30d > 0 ? Math.round(totalSales30d / totalRestocks30d * 100) : 0}%
                     </div>
                     <div className="text-xs text-muted-foreground text-center leading-tight">Stock Efficiency</div>
                   </div>
@@ -1339,8 +1100,7 @@ export function Replenishment() {
                     </tr>
                   </thead>
                   <tbody>
-                    {salesData.map((data, index) => (
-                      <tr key={index} className="border-b hover:bg-muted/50 transition-colors">
+                    {salesData.map((data, index) => <tr key={index} className="border-b hover:bg-muted/50 transition-colors">
                         <td className="p-3 font-medium">{data.period}</td>
                         <td className="text-center p-3">{data.asin_sold}</td>
                         <td className="text-center p-3">{data.sku_sold}</td>
@@ -1348,16 +1108,9 @@ export function Replenishment() {
                         <td className="text-center p-3">{data.total_restocked}</td>
                         <td className="text-center p-3">{data.sell_rate.toFixed(2)}/day</td>
                         <td className="text-center p-3">
-                          {data.total_sold > data.total_restocked ? (
-                            <Badge variant="destructive" className="text-xs">Undersupplied</Badge>
-                          ) : data.total_sold === data.total_restocked ? (
-                            <Badge variant="default" className="text-xs">Balanced</Badge>
-                          ) : (
-                            <Badge variant="secondary" className="text-xs">Well Stocked</Badge>
-                          )}
+                          {data.total_sold > data.total_restocked ? <Badge variant="destructive" className="text-xs">Undersupplied</Badge> : data.total_sold === data.total_restocked ? <Badge variant="default" className="text-xs">Balanced</Badge> : <Badge variant="secondary" className="text-xs">Well Stocked</Badge>}
                         </td>
-                      </tr>
-                    ))}
+                      </tr>)}
                   </tbody>
                 </table>
               </div>
@@ -1409,12 +1162,7 @@ export function Replenishment() {
                   <div className="flex items-center justify-between gap-4">
                     <div className="relative flex-1">
                       <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                      <Input
-                        placeholder="Search ASINs, SKUs, or serials... (use spaces for multiple)"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-10"
-                      />
+                      <Input placeholder="Search ASINs, SKUs, or serials... (use spaces for multiple)" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10" />
                     </div>
                     <Badge variant="outline" className="text-sm whitespace-nowrap">
                       {pendingItems.length} items need attention
@@ -1422,59 +1170,34 @@ export function Replenishment() {
                   </div>
 
                   {/* Bulk Actions for Critical Items */}
-                  {pendingItems.length > 0 && (
-                    <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                  {pendingItems.length > 0 && <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
                       <div className="flex items-center gap-4">
                          <div className="flex items-center space-x-2">
-                           <Checkbox
-                             id="select-all"
-                             checked={selectedItems.size === pendingItems.length && pendingItems.length > 0}
-                             onCheckedChange={handleSelectAll}
-                           />
+                           <Checkbox id="select-all" checked={selectedItems.size === pendingItems.length && pendingItems.length > 0} onCheckedChange={handleSelectAll} />
                            <label htmlFor="select-all" className="text-sm font-medium cursor-pointer">
                              Select All ({pendingItems.length})
                            </label>
                          </div>
-                         {selectedItems.size > 0 && (
-                           <Badge variant="secondary" className="text-xs">
+                         {selectedItems.size > 0 && <Badge variant="secondary" className="text-xs">
                              {selectedItems.size} selected
-                           </Badge>
-                         )}
+                           </Badge>}
                       </div>
-                      <Button 
-                        onClick={handleBulkMarkAsOrdered}
-                        disabled={selectedItems.size === 0}
-                        size="sm"
-                        className="gap-2"
-                      >
+                      <Button onClick={handleBulkMarkAsOrdered} disabled={selectedItems.size === 0} size="sm" className="gap-2">
                         <ShoppingCart className="w-4 h-4" />
                         Mark {selectedItems.size || 'Selected'} as Ordered
                       </Button>
-                    </div>
-                  )}
+                    </div>}
 
-                  {searchTerm.trim() && (
-                    <div className="text-xs text-muted-foreground p-2 bg-muted/30 rounded-lg">
+                  {searchTerm.trim() && <div className="text-xs text-muted-foreground p-2 bg-muted/30 rounded-lg">
                       <strong>Search Active:</strong> {searchTerm.split(' ').map(term => term.trim()).filter(Boolean).join(', ')}
-                    </div>
-                  )}
+                    </div>}
 
                   <div className="space-y-2 max-h-96 overflow-y-auto">
-                    {pendingItems.length > 0 ? (
-                      pendingItems.map((item) => (
-                        <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg bg-destructive/5 hover:bg-destructive/10 transition-colors">
+                    {pendingItems.length > 0 ? pendingItems.map(item => <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg bg-destructive/5 hover:bg-destructive/10 transition-colors">
                           <div className="flex items-center gap-4">
-                            <Checkbox
-                              id={`item-${item.id}`}
-                              checked={selectedItems.has(item.id)}
-                              onCheckedChange={(checked) => handleSelectItem(item.id, checked as boolean)}
-                            />
+                            <Checkbox id={`item-${item.id}`} checked={selectedItems.has(item.id)} onCheckedChange={checked => handleSelectItem(item.id, checked as boolean)} />
                             <div className="p-2 rounded-lg bg-destructive/20">
-                              {item.table_name === 'asin_inventory' ? (
-                                <Package className="w-4 h-4 text-destructive" />
-                              ) : (
-                                <Database className="w-4 h-4 text-destructive" />
-                              )}
+                              {item.table_name === 'asin_inventory' ? <Package className="w-4 h-4 text-destructive" /> : <Database className="w-4 h-4 text-destructive" />}
                             </div>
                             <div>
                               <p className="font-medium text-foreground">{item.identifier}</p>
@@ -1487,40 +1210,24 @@ export function Replenishment() {
                               </div>
                             </div>
                           </div>
-                          <Button
-                            onClick={() => markAsOrdered(item.id)}
-                            size="sm"
-                            variant="outline"
-                            className="gap-2"
-                          >
+                          <Button onClick={() => markAsOrdered(item.id)} size="sm" variant="outline" className="gap-2">
                             <ShoppingCart className="w-4 h-4" />
                             Mark as Ordered
                           </Button>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-center py-8 text-muted-foreground">
+                        </div>) : <div className="text-center py-8 text-muted-foreground">
                         <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
                         <p className="text-lg font-medium">No critical stock items</p>
                         <p className="text-sm">All items are well stocked!</p>
-                      </div>
-                    )}
+                      </div>}
                   </div>
 
                   {/* Export button for critical items */}
-                  {pendingItems.length > 0 && (
-                    <div className="pt-4 border-t">
-                      <Button 
-                        onClick={exportRestockData} 
-                        variant="outline" 
-                        size="sm" 
-                        className="gap-2"
-                      >
+                  {pendingItems.length > 0 && <div className="pt-4 border-t">
+                      <Button onClick={exportRestockData} variant="outline" size="sm" className="gap-2">
                         <Download className="w-4 h-4" />
                         Export Critical Items
                       </Button>
-                    </div>
-                  )}
+                    </div>}
                 </TabsContent>
 
                 {/* Ordered Items Tab */}
@@ -1529,30 +1236,17 @@ export function Replenishment() {
                     <div className="text-sm text-muted-foreground">
                       Items that have been ordered from suppliers
                     </div>
-                    {orderedItems.length > 0 && (
-                      <Button 
-                        onClick={() => exportOrderedData()} 
-                        size="sm" 
-                        variant="outline"
-                        className="gap-2"
-                      >
+                    {orderedItems.length > 0 && <Button onClick={() => exportOrderedData()} size="sm" variant="outline" className="gap-2">
                         <Download className="w-4 h-4" />
                         Export Ordered Items
-                      </Button>
-                    )}
+                      </Button>}
                   </div>
 
                   <div className="space-y-2 max-h-96 overflow-y-auto">
-                    {orderedItems.length > 0 ? (
-                      orderedItems.map((item) => (
-                        <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg bg-blue-50/50 opacity-80">
+                    {orderedItems.length > 0 ? orderedItems.map(item => <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg bg-blue-50/50 opacity-80">
                           <div className="flex items-center gap-4">
                             <div className="p-2 rounded-lg bg-blue-500/20">
-                              {item.table_name === 'asin_inventory' ? (
-                                <Package className="w-4 h-4 text-blue-600" />
-                              ) : (
-                                <Database className="w-4 h-4 text-blue-600" />
-                              )}
+                              {item.table_name === 'asin_inventory' ? <Package className="w-4 h-4 text-blue-600" /> : <Database className="w-4 h-4 text-blue-600" />}
                             </div>
                             <div>
                               <p className="font-medium text-foreground">{item.identifier}</p>
@@ -1565,24 +1259,15 @@ export function Replenishment() {
                               </div>
                             </div>
                           </div>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled
-                            className="gap-2 opacity-60"
-                          >
+                          <Button size="sm" variant="outline" disabled className="gap-2 opacity-60">
                             <CheckCircle className="w-4 h-4" />
                             Ordered
                           </Button>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-center py-8 text-muted-foreground">
+                        </div>) : <div className="text-center py-8 text-muted-foreground">
                         <Truck className="w-12 h-12 mx-auto mb-4 opacity-50" />
                         <p className="text-lg font-medium">No ordered items</p>
                         <p className="text-sm">Items you mark as ordered will appear here</p>
-                      </div>
-                    )}
+                      </div>}
                   </div>
                 </TabsContent>
               </Tabs>
@@ -1612,9 +1297,7 @@ export function Replenishment() {
               <TabsTrigger value="forecasting" className="text-sm font-medium px-4 py-2 rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all duration-300 hover:bg-white/10">
                 🔮 AI Forecasting
               </TabsTrigger>
-              <TabsTrigger value="analytics" className="text-sm font-medium px-4 py-2 rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all duration-300 hover:bg-white/10">
-                📈 Analytics
-              </TabsTrigger>
+              
             </TabsList>
 
             {/* Item Trends Tab */}
@@ -1625,12 +1308,7 @@ export function Replenishment() {
                   <div className="flex flex-wrap items-center gap-4">
                     <div className="flex items-center gap-2">
                       <Search className="w-4 h-4 text-muted-foreground" />
-                      <Input
-                        placeholder="Search items by ASIN, SKU, or serial number..."
-                        value={trendsSearchTerm}
-                        onChange={(e) => setTrendsSearchTerm(e.target.value)}
-                        className="w-80"
-                      />
+                      <Input placeholder="Search items by ASIN, SKU, or serial number..." value={trendsSearchTerm} onChange={e => setTrendsSearchTerm(e.target.value)} className="w-80" />
                     </div>
                     <Select value={trendsDateRange} onValueChange={setTrendsDateRange}>
                       <SelectTrigger className="w-40">
@@ -1665,13 +1343,7 @@ export function Replenishment() {
                         <SelectItem value="quantity_low">Low Stock</SelectItem>
                       </SelectContent>
                     </Select>
-                    <Button
-                      onClick={loadTrendsData}
-                      variant="outline"
-                      size="sm"
-                      disabled={trendsLoading}
-                      className="gap-2"
-                    >
+                    <Button onClick={loadTrendsData} variant="outline" size="sm" disabled={trendsLoading} className="gap-2">
                       <RefreshCw className={`w-4 h-4 ${trendsLoading ? 'animate-spin' : ''}`} />
                       Refresh
                     </Button>
@@ -1693,28 +1365,15 @@ export function Replenishment() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  {trendsLoading ? (
-                    <div className="flex items-center justify-center py-12">
+                  {trendsLoading ? <div className="flex items-center justify-center py-12">
                       <RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" />
                       <span className="ml-2 text-muted-foreground">Loading trends data...</span>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {filteredTrendsItems.length > 0 ? (
-                        <div className="space-y-2">
-                          {filteredTrendsItems.slice(0, 50).map((item, index) => (
-                            <div key={item.id} className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-accent/50 transition-colors">
+                    </div> : <div className="space-y-4">
+                      {filteredTrendsItems.length > 0 ? <div className="space-y-2">
+                          {filteredTrendsItems.slice(0, 50).map((item, index) => <div key={item.id} className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-accent/50 transition-colors">
                               <div className="flex items-center gap-4">
-                                <div className={`p-2 rounded-lg ${
-                                  item.table_name === 'asin_inventory' 
-                                    ? 'bg-primary/20' 
-                                    : 'bg-secondary/20'
-                                }`}>
-                                  {item.table_name === 'asin_inventory' ? (
-                                    <Package className={`w-4 h-4 text-primary`} />
-                                  ) : (
-                                    <Database className={`w-4 h-4 text-secondary`} />
-                                  )}
+                                <div className={`p-2 rounded-lg ${item.table_name === 'asin_inventory' ? 'bg-primary/20' : 'bg-secondary/20'}`}>
+                                  {item.table_name === 'asin_inventory' ? <Package className={`w-4 h-4 text-primary`} /> : <Database className={`w-4 h-4 text-secondary`} />}
                                 </div>
                                 <div className="flex-1">
                                   <div className="flex items-center gap-2 mb-1">
@@ -1726,12 +1385,8 @@ export function Replenishment() {
                                   <div className="flex items-center gap-4 text-sm text-muted-foreground">
                                     <span>Current Stock: {item.current_quantity}</span>
                                     <span>Sold: {item.sold_quantity} units</span>
-                                    {item.last_sold_date && (
-                                      <span>Last Sold: {new Date(item.last_sold_date).toLocaleDateString()}</span>
-                                    )}
-                                    {item.days_since_last_restock && (
-                                      <span>Last Restock: {item.days_since_last_restock}d ago</span>
-                                    )}
+                                    {item.last_sold_date && <span>Last Sold: {new Date(item.last_sold_date).toLocaleDateString()}</span>}
+                                    {item.days_since_last_restock && <span>Last Restock: {item.days_since_last_restock}d ago</span>}
                                   </div>
                                 </div>
                               </div>
@@ -1745,10 +1400,7 @@ export function Replenishment() {
                                   </div>
                                 </div>
                                 <div className="text-right">
-                                  <div className={`text-lg font-semibold ${
-                                    item.current_quantity <= 5 ? 'text-destructive' : 
-                                    item.current_quantity <= 10 ? 'text-amber-600' : 'text-chart-1'
-                                  }`}>
+                                  <div className={`text-lg font-semibold ${item.current_quantity <= 5 ? 'text-destructive' : item.current_quantity <= 10 ? 'text-amber-600' : 'text-chart-1'}`}>
                                     {item.current_quantity}
                                   </div>
                                   <div className="text-xs text-muted-foreground">
@@ -1763,34 +1415,20 @@ export function Replenishment() {
                                     Rate/Day
                                   </div>
                                 </div>
-                                <Badge 
-                                  variant={
-                                    item.current_quantity <= 5 ? "destructive" : 
-                                    item.current_quantity <= 10 ? "default" : "secondary"
-                                  } 
-                                  className="text-xs"
-                                >
-                                  {item.current_quantity <= 5 ? "Critical" : 
-                                   item.current_quantity <= 10 ? "Low" : "Good"}
+                                <Badge variant={item.current_quantity <= 5 ? "destructive" : item.current_quantity <= 10 ? "default" : "secondary"} className="text-xs">
+                                  {item.current_quantity <= 5 ? "Critical" : item.current_quantity <= 10 ? "Low" : "Good"}
                                 </Badge>
                               </div>
-                            </div>
-                          ))}
-                          {filteredTrendsItems.length > 50 && (
-                            <div className="text-center py-4 text-muted-foreground">
+                            </div>)}
+                          {filteredTrendsItems.length > 50 && <div className="text-center py-4 text-muted-foreground">
                               <p>Showing first 50 items. Use filters to narrow down results.</p>
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="text-center py-12 text-muted-foreground">
+                            </div>}
+                        </div> : <div className="text-center py-12 text-muted-foreground">
                           <BarChart3 className="w-12 h-12 mx-auto mb-4 opacity-50" />
                           <p className="text-lg font-medium">No trends data found</p>
                           <p className="text-sm">Try adjusting your filters or date range</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                        </div>}
+                    </div>}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -1803,25 +1441,18 @@ export function Replenishment() {
                   <p className="text-muted-foreground">Advanced machine learning analysis of your inventory patterns</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button 
-                    onClick={generateForecast} 
-                    disabled={forecastLoading}
-                    className="gap-2"
-                  >
+                  <Button onClick={generateForecast} disabled={forecastLoading} className="gap-2">
                     <Zap className={`w-4 h-4 ${forecastLoading ? 'animate-pulse' : ''}`} />
                     {forecastLoading ? 'Analyzing...' : 'Generate Forecast'}
                   </Button>
-                  {forecastData && (
-                    <Button onClick={exportForecastData} variant="outline" size="sm" className="gap-2">
+                  {forecastData && <Button onClick={exportForecastData} variant="outline" size="sm" className="gap-2">
                       <Download className="w-4 h-4" />
                       Export
-                    </Button>
-                  )}
+                    </Button>}
                 </div>
               </div>
 
-              {forecastError && (
-                <Card className="glass-container border-destructive/50">
+              {forecastError && <Card className="glass-container border-destructive/50">
                   <CardContent className="p-4">
                     <div className="flex items-center gap-2 text-destructive">
                       <XCircle className="w-5 h-5" />
@@ -1831,11 +1462,9 @@ export function Replenishment() {
                       </div>
                     </div>
                   </CardContent>
-                </Card>
-              )}
+                </Card>}
 
-              {forecastLoading && (
-                <Card className="glass-container">
+              {forecastLoading && <Card className="glass-container">
                   <CardContent className="p-8">
                     <div className="text-center">
                       <Zap className="w-12 h-12 mx-auto mb-4 text-primary animate-pulse" />
@@ -1849,11 +1478,9 @@ export function Replenishment() {
                       </div>
                     </div>
                   </CardContent>
-                </Card>
-              )}
+                </Card>}
 
-              {!forecastLoading && !forecastData && !forecastError && (
-                <Card className="glass-container">
+              {!forecastLoading && !forecastData && !forecastError && <Card className="glass-container">
                   <CardContent className="p-8">
                     <div className="text-center">
                       <Zap className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
@@ -1880,11 +1507,9 @@ export function Replenishment() {
                       </div>
                     </div>
                   </CardContent>
-                </Card>
-              )}
+                </Card>}
 
-              {forecastData && (
-                <div className="space-y-6">
+              {forecastData && <div className="space-y-6">
                   {/* Overall Insights */}
                   <Card className="glass-container">
                     <CardHeader>
@@ -1921,19 +1546,15 @@ export function Replenishment() {
                         </div>
                       </div>
 
-                      {forecastData.overall_insights?.recommendations && (
-                        <div className="mt-6">
+                      {forecastData.overall_insights?.recommendations && <div className="mt-6">
                           <h4 className="font-semibold mb-3">AI Recommendations</h4>
                           <div className="space-y-2">
-                            {forecastData.overall_insights.recommendations.map((rec: string, index: number) => (
-                              <div key={index} className="flex items-start gap-2 p-3 bg-accent/10 rounded-lg">
+                            {forecastData.overall_insights.recommendations.map((rec: string, index: number) => <div key={index} className="flex items-start gap-2 p-3 bg-accent/10 rounded-lg">
                                 <ArrowRight className="w-4 h-4 mt-0.5 text-accent" />
                                 <span className="text-sm">{rec}</span>
-                              </div>
-                            ))}
+                              </div>)}
                           </div>
-                        </div>
-                      )}
+                        </div>}
                     </CardContent>
                   </Card>
 
@@ -1947,30 +1568,15 @@ export function Replenishment() {
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-3">
-                        {forecastData.forecasts?.map((item: any, index: number) => (
-                          <div key={index} className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-accent/30 transition-colors">
+                        {forecastData.forecasts?.map((item: any, index: number) => <div key={index} className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-accent/30 transition-colors">
                             <div className="flex items-center gap-4">
-                              <div className={`p-2 rounded-lg ${
-                                item.risk_level === 'critical' ? 'bg-destructive/20' :
-                                item.risk_level === 'high' ? 'bg-amber-500/20' :
-                                item.risk_level === 'medium' ? 'bg-blue-500/20' : 'bg-chart-1/20'
-                              }`}>
-                                <Package className={`w-4 h-4 ${
-                                  item.risk_level === 'critical' ? 'text-destructive' :
-                                  item.risk_level === 'high' ? 'text-amber-600' :
-                                  item.risk_level === 'medium' ? 'text-blue-600' : 'text-chart-1'
-                                }`} />
+                              <div className={`p-2 rounded-lg ${item.risk_level === 'critical' ? 'bg-destructive/20' : item.risk_level === 'high' ? 'bg-amber-500/20' : item.risk_level === 'medium' ? 'bg-blue-500/20' : 'bg-chart-1/20'}`}>
+                                <Package className={`w-4 h-4 ${item.risk_level === 'critical' ? 'text-destructive' : item.risk_level === 'high' ? 'text-amber-600' : item.risk_level === 'medium' ? 'text-blue-600' : 'text-chart-1'}`} />
                               </div>
                               <div className="flex-1">
                                 <div className="flex items-center gap-2 mb-1">
                                   <p className="font-medium text-foreground">{item.identifier}</p>
-                                  <Badge 
-                                    variant={
-                                      item.risk_level === 'critical' ? 'destructive' :
-                                      item.risk_level === 'high' ? 'default' : 'secondary'
-                                    } 
-                                    className="text-xs"
-                                  >
+                                  <Badge variant={item.risk_level === 'critical' ? 'destructive' : item.risk_level === 'high' ? 'default' : 'secondary'} className="text-xs">
                                     {item.risk_level}
                                   </Badge>
                                 </div>
@@ -1990,13 +1596,11 @@ export function Replenishment() {
                                 Confidence
                               </div>
                             </div>
-                          </div>
-                        ))}
+                          </div>)}
                       </div>
                     </CardContent>
                   </Card>
-                </div>
-              )}
+                </div>}
             </TabsContent>
 
             {/* Analytics Tab */}
@@ -2008,13 +1612,18 @@ export function Replenishment() {
       </Tabs>
 
       {/* Dialog for displaying filtered items */}
-      <Dialog open={dialogData.isOpen} onOpenChange={(open) => setDialogData(prev => ({ ...prev, isOpen: open }))}>
+      <Dialog open={dialogData.isOpen} onOpenChange={open => setDialogData(prev => ({
+      ...prev,
+      isOpen: open
+    }))}>
         <DialogContent className="max-w-5xl max-h-[85vh] flex flex-col bg-background border border-border">
           <DialogHeader className="flex-shrink-0 pb-4 border-b">
             <DialogTitle className="flex items-center justify-between">
               <span className="flex items-center gap-2">
                 {dialogData.type === 'critical' && <AlertTriangle className="w-5 h-5 text-destructive" />}
-                {dialogData.type === 'ordered' && <Truck className="w-5 h-5" style={{ color: 'hsl(220, 70%, 50%)' }} />}
+                {dialogData.type === 'ordered' && <Truck className="w-5 h-5" style={{
+                color: 'hsl(220, 70%, 50%)'
+              }} />}
                 {dialogData.type === 'active' && <Activity className="w-5 h-5 text-primary" />}
                 {dialogData.title}
               </span>
@@ -2025,44 +1634,11 @@ export function Replenishment() {
           </DialogHeader>
           
           <div className="flex-1 overflow-y-auto space-y-2 pt-4">
-            {dialogData.items.length > 0 ? (
-              dialogData.items.map((item) => (
-                <div
-                  key={item.id}
-                  className={`p-4 border rounded-lg transition-colors ${
-                    dialogData.type === 'critical' 
-                      ? 'bg-destructive/5 hover:bg-destructive/10 border-destructive/20' 
-                      : dialogData.type === 'ordered'
-                      ? 'bg-blue-50/50 border-blue-200/50'
-                      : 'bg-primary/5 hover:bg-primary/10 border-primary/20'
-                  }`}
-                >
+            {dialogData.items.length > 0 ? dialogData.items.map(item => <div key={item.id} className={`p-4 border rounded-lg transition-colors ${dialogData.type === 'critical' ? 'bg-destructive/5 hover:bg-destructive/10 border-destructive/20' : dialogData.type === 'ordered' ? 'bg-blue-50/50 border-blue-200/50' : 'bg-primary/5 hover:bg-primary/10 border-primary/20'}`}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                      <div className={`p-2 rounded-lg ${
-                        dialogData.type === 'critical' 
-                          ? 'bg-destructive/20' 
-                          : dialogData.type === 'ordered'
-                          ? 'bg-blue-500/20'
-                          : 'bg-primary/20'
-                      }`}>
-                        {item.table_name === 'asin_inventory' ? (
-                          <Package className={`w-4 h-4 ${
-                            dialogData.type === 'critical' 
-                              ? 'text-destructive' 
-                              : dialogData.type === 'ordered'
-                              ? 'text-blue-600'
-                              : 'text-primary'
-                          }`} />
-                        ) : (
-                          <Database className={`w-4 h-4 ${
-                            dialogData.type === 'critical' 
-                              ? 'text-destructive' 
-                              : dialogData.type === 'ordered'
-                              ? 'text-blue-600'
-                              : 'text-primary'
-                          }`} />
-                        )}
+                      <div className={`p-2 rounded-lg ${dialogData.type === 'critical' ? 'bg-destructive/20' : dialogData.type === 'ordered' ? 'bg-blue-500/20' : 'bg-primary/20'}`}>
+                        {item.table_name === 'asin_inventory' ? <Package className={`w-4 h-4 ${dialogData.type === 'critical' ? 'text-destructive' : dialogData.type === 'ordered' ? 'text-blue-600' : 'text-primary'}`} /> : <Database className={`w-4 h-4 ${dialogData.type === 'critical' ? 'text-destructive' : dialogData.type === 'ordered' ? 'text-blue-600' : 'text-primary'}`} />}
                       </div>
                       <div>
                         <p className="font-medium text-foreground">{item.identifier}</p>
@@ -2076,41 +1652,27 @@ export function Replenishment() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      {dialogData.type === 'critical' && (
-                        <>
+                      {dialogData.type === 'critical' && <>
                           <Badge variant="destructive" className="text-xs">Critical</Badge>
                           <Button size="sm" onClick={() => markAsOrdered(item.id)}>
                             Mark as Ordered
                           </Button>
-                        </>
-                      )}
-                      {dialogData.type === 'ordered' && (
-                        <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700">
+                        </>}
+                      {dialogData.type === 'ordered' && <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700">
                           Order Placed
-                        </Badge>
-                      )}
-                      {dialogData.type === 'active' && (
-                        <Badge 
-                          variant={item.current_quantity <= 5 ? "destructive" : "default"} 
-                          className="text-xs"
-                        >
+                        </Badge>}
+                      {dialogData.type === 'active' && <Badge variant={item.current_quantity <= 5 ? "destructive" : "default"} className="text-xs">
                           {item.current_quantity <= 5 ? "Low Stock" : "In Stock"}
-                        </Badge>
-                      )}
+                        </Badge>}
                     </div>
                   </div>
-                </div>
-              ))
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
+                </div>) : <div className="text-center py-8 text-muted-foreground">
                 <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
                 <p className="text-lg font-medium">No items found</p>
                 <p className="text-sm">No items match the current criteria</p>
-              </div>
-            )}
+              </div>}
           </div>
         </DialogContent>
       </Dialog>
-    </div>
-  );
+    </div>;
 }
