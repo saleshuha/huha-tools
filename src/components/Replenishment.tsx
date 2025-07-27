@@ -13,7 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useCountry } from '@/contexts/CountryContext';
 import { useInventoryAnalytics } from '@/hooks/useInventoryAnalytics';
 import { InventoryAnalytics } from './InventoryAnalytics';
-import { TrendingUp, TrendingDown, AlertTriangle, Package, Download, RefreshCw, Search, BarChart3, Clock, ShoppingCart, Activity, DollarSign, Database, PieChart, LineChart, Calendar, CheckCircle, XCircle, Eye, Truck, ArrowRight, Target, Zap } from 'lucide-react';
+import { TrendingUp, TrendingDown, AlertTriangle, Package, Download, RefreshCw, Search, BarChart3, Clock, ShoppingCart, Activity, DollarSign, Database, PieChart, LineChart, Calendar, CheckCircle, XCircle, Eye, Truck, ArrowRight, Target, Zap, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Checkbox } from './ui/checkbox';
 import { LineChart as RechartsLineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, AreaChart, Area, BarChart as RechartsBarChart, Bar, PieChart as RechartsPieChart, Cell, Pie, Legend } from 'recharts';
 interface RestockItem {
@@ -82,6 +82,15 @@ export function Replenishment() {
   const [trendsSortBy, setTrendsSortBy] = useState('sold_desc');
   const [trendsItems, setTrendsItems] = useState<any[]>([]);
   const [trendsLoading, setTrendsLoading] = useState(false);
+  
+  // Pagination state for trends
+  const [trendsCurrentPage, setTrendsCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    setTrendsCurrentPage(1);
+  }, [trendsSearchTerm, trendsDateRange, trendsItemType, trendsSortBy]);
 
   // AI Forecasting state
   const [forecastData, setForecastData] = useState<any>(null);
@@ -1369,8 +1378,9 @@ export function Replenishment() {
                       <RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" />
                       <span className="ml-2 text-muted-foreground">Loading trends data...</span>
                     </div> : <div className="space-y-4">
-                      {filteredTrendsItems.length > 0 ? <div className="space-y-2">
-                          {filteredTrendsItems.slice(0, 50).map((item, index) => <div key={item.id} className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-accent/50 transition-colors">
+                      {filteredTrendsItems.length > 0 ? <div className="space-y-4">
+                        <div className="space-y-2">
+                          {filteredTrendsItems.slice((trendsCurrentPage - 1) * itemsPerPage, trendsCurrentPage * itemsPerPage).map((item, index) => <div key={item.id} className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-accent/50 transition-colors">
                               <div className="flex items-center gap-4">
                                 <div className={`p-2 rounded-lg ${item.table_name === 'asin_inventory' ? 'bg-primary/20' : 'bg-secondary/20'}`}>
                                   {item.table_name === 'asin_inventory' ? <Package className={`w-4 h-4 text-primary`} /> : <Database className={`w-4 h-4 text-secondary`} />}
@@ -1419,16 +1429,52 @@ export function Replenishment() {
                                   {item.current_quantity <= 5 ? "Critical" : item.current_quantity <= 10 ? "Low" : "Good"}
                                 </Badge>
                               </div>
-                            </div>)}
-                          {filteredTrendsItems.length > 50 && <div className="text-center py-4 text-muted-foreground">
-                              <p>Showing first 50 items. Use filters to narrow down results.</p>
-                            </div>}
-                        </div> : <div className="text-center py-12 text-muted-foreground">
-                          <BarChart3 className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                          <p className="text-lg font-medium">No trends data found</p>
-                          <p className="text-sm">Try adjusting your filters or date range</p>
-                        </div>}
-                    </div>}
+                             </div>)}
+                           
+                           {/* Pagination */}
+                           {filteredTrendsItems.length > itemsPerPage && (
+                             <div className="flex items-center justify-between mt-6 pt-4 border-t border-border">
+                               <p className="text-sm text-muted-foreground">
+                                 Showing {((trendsCurrentPage - 1) * itemsPerPage) + 1} to {Math.min(trendsCurrentPage * itemsPerPage, filteredTrendsItems.length)} of {filteredTrendsItems.length} items
+                               </p>
+                               <div className="flex items-center gap-2">
+                                 <Button 
+                                   variant="outline" 
+                                   size="sm" 
+                                   onClick={() => setTrendsCurrentPage(prev => Math.max(1, prev - 1))}
+                                   disabled={trendsCurrentPage === 1}
+                                   className="gap-1"
+                                 >
+                                   <ChevronLeft className="w-4 h-4" />
+                                   Previous
+                                 </Button>
+                                 <span className="text-sm text-muted-foreground px-3">
+                                   Page {trendsCurrentPage} of {Math.ceil(filteredTrendsItems.length / itemsPerPage)}
+                                 </span>
+                                 <Button 
+                                   variant="outline" 
+                                   size="sm" 
+                                   onClick={() => setTrendsCurrentPage(prev => Math.min(Math.ceil(filteredTrendsItems.length / itemsPerPage), prev + 1))}
+                                   disabled={trendsCurrentPage >= Math.ceil(filteredTrendsItems.length / itemsPerPage)}
+                                   className="gap-1"
+                                 >
+                                   Next
+                                   <ChevronRight className="w-4 h-4" />
+                                 </Button>
+                               </div>
+                             </div>
+                           )}
+                         </div> : <div className="text-center py-12 text-muted-foreground">
+                           <BarChart3 className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                           <p className="text-lg font-medium">No trends data found</p>
+                           <p className="text-sm">Try adjusting your filters or date range</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                       </div>
+                    )}
+                 </CardContent>
                 </CardContent>
               </Card>
             </TabsContent>
