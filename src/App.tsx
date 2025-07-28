@@ -16,6 +16,7 @@ import ExcelMapperPage from "./pages/ExcelMapper";
 import BatchProcessor from "./pages/BatchProcessor";
 import AsinQtySum from "./pages/AsinQtySum";
 import ZipSplitter from "./pages/ZipSplitter";
+import FileMergerPage from "./pages/FileMerger";
 import Inventory from "./pages/Inventory";
 import UserManagementPage from "./pages/UserManagement";
 import ReplenishmentPage from "./pages/Replenishment";
@@ -114,6 +115,7 @@ const App = () => {
                     <Route path="/batch" element={<BatchProcessor />} />
                     <Route path="/asin-sum" element={<AsinQtySum />} />
                     <Route path="/zip-splitter" element={<ZipSplitter />} />
+                    <Route path="/file-merger" element={<FileMergerPage />} />
                     <Route path="/inventory" element={<Inventory />} />
                     <Route path="/users" element={<UserManagementPage />} />
                     <Route path="/replenishment" element={<ReplenishmentPage />} />
