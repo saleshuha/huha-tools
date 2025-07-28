@@ -18,6 +18,7 @@ import { useUserProfile } from '@/hooks/useUserProfile';
 import { supabase } from '@/integrations/supabase/client';
 import { DualQuantityEditor } from './DualQuantityEditor';
 import { StockHistoryDialog } from './StockHistoryDialog';
+import { MultiBinEditor } from './MultiBinEditor';
 import { SkuInventoryMetrics } from './SkuInventoryMetrics';
 
 export function SSInventory() {
@@ -689,7 +690,12 @@ export function SSInventory() {
                       />
                     </td>
                     <td className="p-4 font-medium">{item.skuNumber}</td>
-                    <td className="p-4">{item.binSerialNumber}</td>
+                    <td className="p-4">
+                      <MultiBinEditor
+                        currentBinSerial={item.binSerialNumber}
+                        onUpdate={(newBinSerial, reason) => updateBinLocation(item.id, newBinSerial)}
+                      />
+                    </td>
                     <td className="p-4">
                       <Select
                         value={item.status}
@@ -760,7 +766,10 @@ export function SSInventory() {
               <CardContent className="space-y-3">
                 <div>
                   <Label className="text-sm text-muted-foreground">Bin/Serial Number</Label>
-                  <p className="font-medium">{item.binSerialNumber}</p>
+                  <MultiBinEditor
+                    currentBinSerial={item.binSerialNumber}
+                    onUpdate={(newBinSerial, reason) => updateBinLocation(item.id, newBinSerial)}
+                  />
                 </div>
                 <div>
                   <Label className="text-sm text-muted-foreground">Quantity</Label>
