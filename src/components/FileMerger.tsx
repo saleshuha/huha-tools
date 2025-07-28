@@ -24,6 +24,7 @@ export function FileMerger() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [mergedData, setMergedData] = useState<ExcelData | null>(null);
   const [outputFileName, setOutputFileName] = useState('merged_files');
+  const [exportRowLimit, setExportRowLimit] = useState<number>(0); // 0 means export all
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
 
@@ -239,14 +240,24 @@ export function FileMerger() {
       });
 
       const totalRows = mergedData.data.length;
+      const rowsToExport = exportRowLimit > 0 && exportRowLimit < totalRows 
+        ? exportRowLimit 
+        : totalRows;
+      
+      const dataToExport = exportRowLimit > 0 && exportRowLimit < totalRows
+        ? mergedData.data.slice(0, exportRowLimit)
+        : mergedData.data;
+
       const maxRowsPerFile = 50000; // Limit to 50k rows per file to avoid memory issues
       const filename = outputFileName.trim();
 
-      if (totalRows <= maxRowsPerFile) {
+      console.log(`Exporting ${rowsToExport} rows of ${totalRows} total rows`);
+
+      if (rowsToExport <= maxRowsPerFile) {
         // Small file - export as single CSV
         const csvContent = [
           mergedData.headers.join(','),
-          ...mergedData.data.map(row => 
+          ...dataToExport.map(row => 
             row.map(cell => {
               const cellStr = String(cell || '');
               if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n') || cellStr.includes('\r')) {
@@ -272,14 +283,14 @@ export function FileMerger() {
 
         toast({
           title: "Export Complete",
-          description: `Merged file exported as ${filename}.csv`
+          description: `Exported ${rowsToExport} rows as ${filename}.csv`
         });
       } else {
         // Large file - split into multiple CSV files and create ZIP
         console.log('Large dataset detected, creating multiple files...');
         
         const zip = new JSZip();
-        const fileCount = Math.ceil(totalRows / maxRowsPerFile);
+        const fileCount = Math.ceil(rowsToExport / maxRowsPerFile);
         
         // Helper function to convert array to CSV content
         const arrayToCSV = (data: string[][]): string => {
@@ -294,9 +305,9 @@ export function FileMerger() {
           ).join('\n');
         };
 
-        for (let i = 0; i < totalRows; i += maxRowsPerFile) {
-          const endIndex = Math.min(i + maxRowsPerFile, totalRows);
-          const rowsChunk = mergedData.data.slice(i, endIndex);
+        for (let i = 0; i < rowsToExport; i += maxRowsPerFile) {
+          const endIndex = Math.min(i + maxRowsPerFile, rowsToExport);
+          const rowsChunk = dataToExport.slice(i, endIndex);
           
           // Create CSV with headers + data chunk
           const csvData = [mergedData.headers, ...rowsChunk];
@@ -328,7 +339,7 @@ export function FileMerger() {
 
         toast({
           title: "Export Complete",
-          description: `Exported ${totalRows} rows in ${fileCount} CSV file(s) as ${filename}_merged_files.zip`
+          description: `Exported ${rowsToExport} rows in ${fileCount} CSV file(s) as ${filename}_merged_files.zip`
         });
       }
       
@@ -346,6 +357,7 @@ export function FileMerger() {
     setFiles([]);
     setMergedData(null);
     setOutputFileName('merged_files');
+    setExportRowLimit(0);
   };
 
   const totalSize = files.reduce((sum, file) => sum + file.size, 0);
@@ -468,15 +480,32 @@ export function FileMerger() {
             <CardTitle>Merge Settings</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div>
-              <Label htmlFor="outputFileName">Output File Name</Label>
-              <Input
-                id="outputFileName"
-                value={outputFileName}
-                onChange={(e) => setOutputFileName(e.target.value)}
-                placeholder="Enter output file name"
-                className="mt-1"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="outputFileName">Output File Name</Label>
+                <Input
+                  id="outputFileName"
+                  value={outputFileName}
+                  onChange={(e) => setOutputFileName(e.target.value)}
+                  placeholder="Enter output file name"
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label htmlFor="exportRowLimit">
+                  Export Rows (0 = all {mergedData?.data.length.toLocaleString()} rows)
+                </Label>
+                <Input
+                  id="exportRowLimit"
+                  type="number"
+                  min="0"
+                  max={mergedData?.data.length || 0}
+                  value={exportRowLimit}
+                  onChange={(e) => setExportRowLimit(parseInt(e.target.value) || 0)}
+                  placeholder={`Max: ${mergedData?.data.length.toLocaleString()}`}
+                  className="mt-1"
+                />
+              </div>
             </div>
 
             <div className="flex gap-2">
