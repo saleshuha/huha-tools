@@ -16,7 +16,7 @@ import { Textarea } from './ui/textarea';
 import { useSkuInventory, SkuInventoryItem } from '@/hooks/useSkuInventory';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { supabase } from '@/integrations/supabase/client';
-import { QuantityEditor } from './QuantityEditor';
+import { DualQuantityEditor } from './DualQuantityEditor';
 import { StockHistoryDialog } from './StockHistoryDialog';
 import { SkuInventoryMetrics } from './SkuInventoryMetrics';
 
@@ -707,7 +707,7 @@ export function SSInventory() {
                       </Select>
                     </td>
                     <td className="p-4">
-                      <QuantityEditor
+                      <DualQuantityEditor
                         currentQuantity={item.quantity}
                         onUpdate={(newQuantity, reason) => updateQuantity(item.id, newQuantity, reason)}
                       />
@@ -765,7 +765,7 @@ export function SSInventory() {
                 <div>
                   <Label className="text-sm text-muted-foreground">Quantity</Label>
                   <div className="flex items-center gap-2">
-                    <QuantityEditor
+                    <DualQuantityEditor
                       currentQuantity={item.quantity}
                       onUpdate={(newQuantity, reason) => updateQuantity(item.id, newQuantity, reason)}
                     />
