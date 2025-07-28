@@ -46,7 +46,11 @@ interface InventoryStats {
   skuSoldUnits: number;
 }
 
-export function InventoryMetrics() {
+interface InventoryMetricsProps {
+  showOnlyAsin?: boolean;
+}
+
+export function InventoryMetrics({ showOnlyAsin = false }: InventoryMetricsProps) {
   const { selectedCountry } = useCountry();
   const { toast } = useToast();
   
@@ -70,53 +74,79 @@ export function InventoryMetrics() {
     try {
       setLoading(true);
       
-      const [asinData, skuData] = await Promise.all([
-        supabase
+      if (showOnlyAsin) {
+        // Load only ASIN data
+        const { data: asinData } = await supabase
           .from('asin_inventory')
           .select('*')
-          .eq('country', selectedCountry),
-        supabase
-          .from('sku_inventory')
-          .select('*')
-          .eq('country', selectedCountry)
-      ]);
+          .eq('country', selectedCountry);
 
-      // Calculate metrics
-      const allItems = [
-        ...(asinData.data || []).map(item => ({
-          ...item,
-          type: 'asin' as const,
-          identifier: `${item.asin} (${item.serial_number})`
-        })),
-        ...(skuData.data || []).map(item => ({
-          ...item,
-          type: 'sku' as const,
-          identifier: `${item.sku_number} (${item.bin_serial_number})`
-        }))
-      ];
+        const asinItems = asinData || [];
+        const activeItems = asinItems.length;
+        const inStockItems = asinItems.filter(item => item.quantity > 0).length;
+        const outOfStockItems = asinItems.filter(item => item.quantity === 0).length;
+        const asinTotalUnits = asinItems.reduce((sum, item) => sum + item.quantity, 0);
+        const asinSoldUnits = asinItems.filter(item => item.status === 'sold').reduce((sum, item) => sum + item.quantity, 0);
 
-      const activeItems = allItems.length;
-      const inStockItems = allItems.filter(item => item.quantity > 0).length;
-      const outOfStockItems = allItems.filter(item => item.quantity === 0).length;
-      
-      // Calculate separate totals for ASIN and SKU
-      const asinItems = asinData.data || [];
-      const skuItems = skuData.data || [];
-      
-      const asinTotalUnits = asinItems.reduce((sum, item) => sum + item.quantity, 0);
-      const asinSoldUnits = asinItems.filter(item => item.status === 'sold').reduce((sum, item) => sum + item.quantity, 0);
-      const skuTotalUnits = skuItems.reduce((sum, item) => sum + item.quantity, 0);
-      const skuSoldUnits = skuItems.filter(item => item.status === 'sold').reduce((sum, item) => sum + item.quantity, 0);
+        setStats({
+          activeItems,
+          inStockItems,
+          outOfStockItems,
+          asinTotalUnits,
+          asinSoldUnits,
+          skuTotalUnits: 0,
+          skuSoldUnits: 0
+        });
+      } else {
+        // Load both ASIN and SKU data
+        const [asinData, skuData] = await Promise.all([
+          supabase
+            .from('asin_inventory')
+            .select('*')
+            .eq('country', selectedCountry),
+          supabase
+            .from('sku_inventory')
+            .select('*')
+            .eq('country', selectedCountry)
+        ]);
 
-      setStats({
-        activeItems,
-        inStockItems,
-        outOfStockItems,
-        asinTotalUnits,
-        asinSoldUnits,
-        skuTotalUnits,
-        skuSoldUnits
-      });
+        // Calculate metrics
+        const allItems = [
+          ...(asinData.data || []).map(item => ({
+            ...item,
+            type: 'asin' as const,
+            identifier: `${item.asin} (${item.serial_number})`
+          })),
+          ...(skuData.data || []).map(item => ({
+            ...item,
+            type: 'sku' as const,
+            identifier: `${item.sku_number} (${item.bin_serial_number})`
+          }))
+        ];
+
+        const activeItems = allItems.length;
+        const inStockItems = allItems.filter(item => item.quantity > 0).length;
+        const outOfStockItems = allItems.filter(item => item.quantity === 0).length;
+        
+        // Calculate separate totals for ASIN and SKU
+        const asinItems = asinData.data || [];
+        const skuItems = skuData.data || [];
+        
+        const asinTotalUnits = asinItems.reduce((sum, item) => sum + item.quantity, 0);
+        const asinSoldUnits = asinItems.filter(item => item.status === 'sold').reduce((sum, item) => sum + item.quantity, 0);
+        const skuTotalUnits = skuItems.reduce((sum, item) => sum + item.quantity, 0);
+        const skuSoldUnits = skuItems.filter(item => item.status === 'sold').reduce((sum, item) => sum + item.quantity, 0);
+
+        setStats({
+          activeItems,
+          inStockItems,
+          outOfStockItems,
+          asinTotalUnits,
+          asinSoldUnits,
+          skuTotalUnits,
+          skuSoldUnits
+        });
+      }
     } catch (error: any) {
       toast({
         title: "Error loading metrics",
@@ -130,38 +160,62 @@ export function InventoryMetrics() {
 
   const loadDetailedItems = async (metric: 'active' | 'instock' | 'outofstock') => {
     try {
-      const [asinData, skuData] = await Promise.all([
-        supabase
+      if (showOnlyAsin) {
+        // Load only ASIN data
+        const { data: asinData } = await supabase
           .from('asin_inventory')
           .select('*')
-          .eq('country', selectedCountry),
-        supabase
-          .from('sku_inventory')
-          .select('*')
-          .eq('country', selectedCountry)
-      ]);
+          .eq('country', selectedCountry);
 
-      let allItems = [
-        ...(asinData.data || []).map(item => ({
+        let allItems = (asinData || []).map(item => ({
           ...item,
           type: 'asin' as const,
           identifier: `${item.asin} (${item.serial_number})`
-        })),
-        ...(skuData.data || []).map(item => ({
-          ...item,
-          type: 'sku' as const,
-          identifier: `${item.sku_number} (${item.bin_serial_number})`
-        }))
-      ];
+        }));
 
-      // Filter based on metric
-      if (metric === 'instock') {
-        allItems = allItems.filter(item => item.quantity > 0);
-      } else if (metric === 'outofstock') {
-        allItems = allItems.filter(item => item.quantity === 0);
+        // Filter based on metric
+        if (metric === 'instock') {
+          allItems = allItems.filter(item => item.quantity > 0);
+        } else if (metric === 'outofstock') {
+          allItems = allItems.filter(item => item.quantity === 0);
+        }
+
+        setInventoryItems(allItems);
+      } else {
+        // Load both ASIN and SKU data
+        const [asinData, skuData] = await Promise.all([
+          supabase
+            .from('asin_inventory')
+            .select('*')
+            .eq('country', selectedCountry),
+          supabase
+            .from('sku_inventory')
+            .select('*')
+            .eq('country', selectedCountry)
+        ]);
+
+        let allItems = [
+          ...(asinData.data || []).map(item => ({
+            ...item,
+            type: 'asin' as const,
+            identifier: `${item.asin} (${item.serial_number})`
+          })),
+          ...(skuData.data || []).map(item => ({
+            ...item,
+            type: 'sku' as const,
+            identifier: `${item.sku_number} (${item.bin_serial_number})`
+          }))
+        ];
+
+        // Filter based on metric
+        if (metric === 'instock') {
+          allItems = allItems.filter(item => item.quantity > 0);
+        } else if (metric === 'outofstock') {
+          allItems = allItems.filter(item => item.quantity === 0);
+        }
+
+        setInventoryItems(allItems);
       }
-
-      setInventoryItems(allItems);
     } catch (error: any) {
       toast({
         title: "Error loading items",
@@ -287,7 +341,7 @@ export function InventoryMetrics() {
       </div>
 
       {/* ASIN and SKU Units Section */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 ${showOnlyAsin ? 'lg:grid-cols-2' : 'lg:grid-cols-4'}`}>
         {/* ASIN Total Units */}
         <Card className="glass-container">
           <CardContent className="p-4">
@@ -316,33 +370,37 @@ export function InventoryMetrics() {
           </CardContent>
         </Card>
 
-        {/* SKU Total Units */}
-        <Card className="glass-container">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">SKU Total Units</p>
-                <p className="text-2xl font-bold text-purple-600">{stats.skuTotalUnits}</p>
-                <p className="text-xs text-muted-foreground">SKU inventory</p>
+        {/* SKU Total Units - Only show when not ASIN-only mode */}
+        {!showOnlyAsin && (
+          <Card className="glass-container">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">SKU Total Units</p>
+                  <p className="text-2xl font-bold text-purple-600">{stats.skuTotalUnits}</p>
+                  <p className="text-xs text-muted-foreground">SKU inventory</p>
+                </div>
+                <BarChart3 className="w-6 h-6 text-purple-600" />
               </div>
-              <BarChart3 className="w-6 h-6 text-purple-600" />
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
 
-        {/* SKU Sold Units */}
-        <Card className="glass-container">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">SKU Sold Units</p>
-                <p className="text-2xl font-bold text-pink-600">{stats.skuSoldUnits}</p>
-                <p className="text-xs text-muted-foreground">SKU sold</p>
+        {/* SKU Sold Units - Only show when not ASIN-only mode */}
+        {!showOnlyAsin && (
+          <Card className="glass-container">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">SKU Sold Units</p>
+                  <p className="text-2xl font-bold text-pink-600">{stats.skuSoldUnits}</p>
+                  <p className="text-xs text-muted-foreground">SKU sold</p>
+                </div>
+                <TrendingDown className="w-6 h-6 text-pink-600" />
               </div>
-              <TrendingDown className="w-6 h-6 text-pink-600" />
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Details Modal */}

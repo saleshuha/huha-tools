@@ -236,7 +236,7 @@ export function AsinInventory() {
   return <div className="space-y-6 max-w-[95vw] mx-auto p-6">
       {/* Header with Stats */}
       <div className="space-y-6">
-        <InventoryMetrics />
+        <InventoryMetrics showOnlyAsin={true} />
       </div>
 
       {/* Prominent Search Bar */}
