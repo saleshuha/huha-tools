@@ -40,8 +40,10 @@ interface InventoryStats {
   activeItems: number;
   inStockItems: number;
   outOfStockItems: number;
-  totalUnits: number;
-  soldUnits: number;
+  asinTotalUnits: number;
+  asinSoldUnits: number;
+  skuTotalUnits: number;
+  skuSoldUnits: number;
 }
 
 export function InventoryMetrics() {
@@ -52,8 +54,10 @@ export function InventoryMetrics() {
     activeItems: 0,
     inStockItems: 0,
     outOfStockItems: 0,
-    totalUnits: 0,
-    soldUnits: 0
+    asinTotalUnits: 0,
+    asinSoldUnits: 0,
+    skuTotalUnits: 0,
+    skuSoldUnits: 0
   });
   
   const [loading, setLoading] = useState(true);
@@ -94,15 +98,24 @@ export function InventoryMetrics() {
       const activeItems = allItems.length;
       const inStockItems = allItems.filter(item => item.quantity > 0).length;
       const outOfStockItems = allItems.filter(item => item.quantity === 0).length;
-      const totalUnits = allItems.reduce((sum, item) => sum + item.quantity, 0);
-      const soldUnits = allItems.filter(item => item.status === 'sold').reduce((sum, item) => sum + item.quantity, 0);
+      
+      // Calculate separate totals for ASIN and SKU
+      const asinItems = asinData.data || [];
+      const skuItems = skuData.data || [];
+      
+      const asinTotalUnits = asinItems.reduce((sum, item) => sum + item.quantity, 0);
+      const asinSoldUnits = asinItems.filter(item => item.status === 'sold').reduce((sum, item) => sum + item.quantity, 0);
+      const skuTotalUnits = skuItems.reduce((sum, item) => sum + item.quantity, 0);
+      const skuSoldUnits = skuItems.filter(item => item.status === 'sold').reduce((sum, item) => sum + item.quantity, 0);
 
       setStats({
         activeItems,
         inStockItems,
         outOfStockItems,
-        totalUnits,
-        soldUnits
+        asinTotalUnits,
+        asinSoldUnits,
+        skuTotalUnits,
+        skuSoldUnits
       });
     } catch (error: any) {
       toast({
@@ -220,7 +233,7 @@ export function InventoryMetrics() {
 
   return (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         {/* Active Items */}
         <Card 
           className="glass-container cursor-pointer hover:shadow-lg transition-all duration-300 hover:border-primary/30"
@@ -271,31 +284,62 @@ export function InventoryMetrics() {
             </div>
           </CardContent>
         </Card>
+      </div>
 
-        {/* Total Units */}
+      {/* ASIN and SKU Units Section */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* ASIN Total Units */}
         <Card className="glass-container">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Units</p>
-                <p className="text-2xl font-bold text-blue-600">{stats.totalUnits}</p>
-                <p className="text-xs text-muted-foreground">Total quantity</p>
+                <p className="text-sm font-medium text-muted-foreground">ASIN Total Units</p>
+                <p className="text-2xl font-bold text-blue-600">{stats.asinTotalUnits}</p>
+                <p className="text-xs text-muted-foreground">ASIN inventory</p>
               </div>
               <BarChart3 className="w-6 h-6 text-blue-600" />
             </div>
           </CardContent>
         </Card>
 
-        {/* Sold Units */}
+        {/* ASIN Sold Units */}
         <Card className="glass-container">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Sold Units</p>
-                <p className="text-2xl font-bold text-orange-600">{stats.soldUnits}</p>
-                <p className="text-xs text-muted-foreground">Units sold</p>
+                <p className="text-sm font-medium text-muted-foreground">ASIN Sold Units</p>
+                <p className="text-2xl font-bold text-orange-600">{stats.asinSoldUnits}</p>
+                <p className="text-xs text-muted-foreground">ASIN sold</p>
               </div>
               <TrendingDown className="w-6 h-6 text-orange-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* SKU Total Units */}
+        <Card className="glass-container">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">SKU Total Units</p>
+                <p className="text-2xl font-bold text-purple-600">{stats.skuTotalUnits}</p>
+                <p className="text-xs text-muted-foreground">SKU inventory</p>
+              </div>
+              <BarChart3 className="w-6 h-6 text-purple-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* SKU Sold Units */}
+        <Card className="glass-container">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">SKU Sold Units</p>
+                <p className="text-2xl font-bold text-pink-600">{stats.skuSoldUnits}</p>
+                <p className="text-xs text-muted-foreground">SKU sold</p>
+              </div>
+              <TrendingDown className="w-6 h-6 text-pink-600" />
             </div>
           </CardContent>
         </Card>
