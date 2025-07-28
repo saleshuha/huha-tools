@@ -106,6 +106,9 @@ const App = () => {
                         <p className="text-[10px] text-muted-foreground font-medium leading-tight">Professional Inventory & Analytics Platform</p>
                       </div>
                     </div>
+                    <div className="flex-1 flex justify-center">
+                      <span className="text-sm font-medium text-foreground">اللَّهُمَّ صل عَلَى مُحَمَّدٍ وَعَلَى آلِ مُحَمَّدٍ</span>
+                    </div>
                     <CountrySwitcher />
                   </div>
                 </header>
