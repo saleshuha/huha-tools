@@ -22,6 +22,7 @@ import UserManagementPage from "./pages/UserManagement";
 import ReplenishmentPage from "./pages/Replenishment";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import ExcelEditorPage from "./pages/ExcelEditor";
 
 const queryClient = new QueryClient();
 
@@ -119,6 +120,7 @@ const App = () => {
                     <Route path="/inventory" element={<Inventory />} />
                     <Route path="/users" element={<UserManagementPage />} />
                     <Route path="/replenishment" element={<ReplenishmentPage />} />
+                    <Route path="/excel-editor" element={<ExcelEditorPage />} />
                     <Route path="/auth" element={<Navigate to="/" replace />} />
                     
                     {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

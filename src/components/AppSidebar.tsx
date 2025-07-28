@@ -1,4 +1,4 @@
-import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, Wrench, LogOut, Home, Users, TrendingUp, Merge } from "lucide-react"
+import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, Wrench, LogOut, Home, Users, TrendingUp, Merge, Edit3 } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
 import { useState } from "react"
 import { supabase } from "@/integrations/supabase/client"
@@ -56,6 +56,11 @@ const toolsItems = [
     title: "File Merger",
     url: "/file-merger",
     icon: Merge
+  },
+  {
+    title: "Excel Editor",
+    url: "/excel-editor",
+    icon: Edit3
   }
 ]
 
