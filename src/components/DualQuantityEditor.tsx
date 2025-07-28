@@ -68,10 +68,6 @@ export function DualQuantityEditor({ currentQuantity, onUpdate, disabled = false
 
   return (
     <div className="flex items-center gap-3">
-      <span className="font-medium">{currentQuantity}</span>
-      
-      <Separator orientation="vertical" className="h-8" />
-      
       <div className="flex items-center gap-3">
         {/* Add Stock Section */}
         <div className="flex items-center gap-2">
