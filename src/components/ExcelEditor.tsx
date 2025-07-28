@@ -30,9 +30,16 @@ interface NewColumn {
   increment?: number;
 }
 
+interface ColumnPrefix {
+  id: string;
+  columnName: string;
+  prefix: string;
+}
+
 export function ExcelEditor() {
   const [uploadedFiles, setUploadedFiles] = useState<FileData[]>([]);
   const [newColumns, setNewColumns] = useState<NewColumn[]>([]);
+  const [columnPrefixes, setColumnPrefixes] = useState<ColumnPrefix[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -217,10 +224,10 @@ export function ExcelEditor() {
       return;
     }
 
-    if (newColumns.length === 0) {
+    if (newColumns.length === 0 && columnPrefixes.length === 0) {
       toast({
         title: "No Changes",
-        description: "Please add at least one new column.",
+        description: "Please add at least one new column or column prefix.",
         variant: "destructive"
       });
       return;
@@ -232,6 +239,17 @@ export function ExcelEditor() {
       toast({
         title: "Invalid Headers",
         description: "All new columns must have a header name.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validate column prefixes
+    const invalidPrefixes = columnPrefixes.filter(prefix => !prefix.columnName || !prefix.prefix.trim());
+    if (invalidPrefixes.length > 0) {
+      toast({
+        title: "Invalid Prefixes",
+        description: "All prefixes must have a column selected and prefix text.",
         variant: "destructive"
       });
       return;
@@ -256,9 +274,19 @@ export function ExcelEditor() {
 
         setExportProgress(40);
 
-        // Combine original data with new columns
+        // Apply column prefixes to existing data and then add new columns
         const modifiedData = file.data.map((row, index) => {
           const newRow = [...row];
+          
+          // Apply prefixes to existing columns
+          columnPrefixes.forEach(prefix => {
+            const columnIndex = file.headers.indexOf(prefix.columnName);
+            if (columnIndex !== -1 && newRow[columnIndex] !== undefined) {
+              newRow[columnIndex] = prefix.prefix + String(newRow[columnIndex] || '');
+            }
+          });
+          
+          // Add new columns
           newColumns.forEach((_, colIndex) => {
             newRow.push(newColumnsData[colIndex][index] || '');
           });
@@ -301,7 +329,7 @@ export function ExcelEditor() {
 
         toast({
           title: "Export Complete",
-          description: `Successfully exported file with ${newColumns.length} new column(s) and ${modifiedData.length} rows.`
+          description: `Successfully exported file with ${newColumns.length} new column(s), ${columnPrefixes.length} prefix modification(s), and ${modifiedData.length} rows.`
         });
       } else {
         // Multiple files - create ZIP with processed files
@@ -321,9 +349,19 @@ export function ExcelEditor() {
             generateColumnData(column, file.data.length)
           );
 
-          // Combine original data with new columns for this file
+          // Apply prefixes and combine original data with new columns for this file
           const modifiedData = file.data.map((row, index) => {
             const newRow = [...row];
+            
+            // Apply prefixes to existing columns
+            columnPrefixes.forEach(prefix => {
+              const columnIndex = file.headers.indexOf(prefix.columnName);
+              if (columnIndex !== -1 && newRow[columnIndex] !== undefined) {
+                newRow[columnIndex] = prefix.prefix + String(newRow[columnIndex] || '');
+              }
+            });
+            
+            // Add new columns
             newColumns.forEach((_, colIndex) => {
               newRow.push(newColumnsData[colIndex][index] || '');
             });
@@ -377,7 +415,7 @@ export function ExcelEditor() {
 
         toast({
           title: "Export Complete",
-          description: `Successfully exported ${uploadedFiles.length} files with ${newColumns.length} new column(s) each.`
+          description: `Successfully exported ${uploadedFiles.length} files with ${newColumns.length} new column(s) and ${columnPrefixes.length} prefix modification(s) each.`
         });
       }
 
@@ -396,9 +434,30 @@ export function ExcelEditor() {
     }
   };
 
+  // Column prefix functions
+  const addColumnPrefix = () => {
+    const newPrefix: ColumnPrefix = {
+      id: Math.random().toString(36).substr(2, 9),
+      columnName: '',
+      prefix: ''
+    };
+    setColumnPrefixes(prev => [...prev, newPrefix]);
+  };
+
+  const updateColumnPrefix = (id: string, updates: Partial<ColumnPrefix>) => {
+    setColumnPrefixes(prev => prev.map(prefix => 
+      prefix.id === id ? { ...prefix, ...updates } : prefix
+    ));
+  };
+
+  const removeColumnPrefix = (id: string) => {
+    setColumnPrefixes(prev => prev.filter(prefix => prefix.id !== id));
+  };
+
   const clearAll = () => {
     setUploadedFiles([]);
     setNewColumns([]);
+    setColumnPrefixes([]);
     setOutputFileName('modified_files');
     setExportProgress(0);
     setIsExporting(false);
@@ -666,8 +725,83 @@ export function ExcelEditor() {
         </Card>
       )}
 
+      {/* Add Column Prefix */}
+      {uploadedFiles.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <Edit3 className="h-5 w-5" />
+                Add Prefix to Existing Columns
+              </span>
+              <Button onClick={addColumnPrefix} size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Prefix
+              </Button>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {columnPrefixes.length === 0 ? (
+              <Alert>
+                <AlertDescription>
+                  Click "Add Prefix" to add prefix text to existing columns.
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <div className="space-y-4">
+                {columnPrefixes.map((prefix, index) => (
+                  <div key={prefix.id} className="border rounded-lg p-4 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <Badge variant="outline">Prefix {index + 1}</Badge>
+                      <Button 
+                        onClick={() => removeColumnPrefix(prefix.id)}
+                        variant="outline"
+                        size="sm"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor={`column-${prefix.id}`}>Select Column</Label>
+                        <Select 
+                          value={prefix.columnName} 
+                          onValueChange={(value) => updateColumnPrefix(prefix.id, { columnName: value })}
+                        >
+                          <SelectTrigger className="mt-1">
+                            <SelectValue placeholder="Choose a column" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {uploadedFiles[0]?.headers.map((header, idx) => (
+                              <SelectItem key={idx} value={header}>
+                                {header}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label htmlFor={`prefix-${prefix.id}`}>Prefix Text</Label>
+                        <Input
+                          id={`prefix-${prefix.id}`}
+                          value={prefix.prefix}
+                          onChange={(e) => updateColumnPrefix(prefix.id, { prefix: e.target.value })}
+                          placeholder="Enter prefix text"
+                          className="mt-1"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Export Controls */}
-      {uploadedFiles.length > 0 && newColumns.length > 0 && (
+      {uploadedFiles.length > 0 && (newColumns.length > 0 || columnPrefixes.length > 0) && (
         <Card>
           <CardHeader>
             <CardTitle>Export Modified File</CardTitle>
