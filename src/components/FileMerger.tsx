@@ -26,6 +26,8 @@ export function FileMerger() {
   const [outputFileName, setOutputFileName] = useState('merged_files');
   const [exportRowLimit, setExportRowLimit] = useState<number>(0); // 0 means export all
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState(0);
   const { toast } = useToast();
 
   // Helper function to validate file headers match
@@ -232,6 +234,9 @@ export function FileMerger() {
       return;
     }
 
+    setIsExporting(true);
+    setExportProgress(0);
+
     try {
       console.log('Starting export process...', {
         headers: mergedData.headers.length,
@@ -255,6 +260,8 @@ export function FileMerger() {
 
       if (rowsToExport <= maxRowsPerFile) {
         // Small file - export as single CSV
+        setExportProgress(25);
+        
         const csvContent = [
           mergedData.headers.join(','),
           ...dataToExport.map(row => 
@@ -267,6 +274,8 @@ export function FileMerger() {
             }).join(',')
           )
         ].join('\n');
+
+        setExportProgress(75);
 
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
@@ -288,6 +297,7 @@ export function FileMerger() {
       } else {
         // Large file - split into multiple CSV files and create ZIP
         console.log('Large dataset detected, creating multiple files...');
+        setExportProgress(10);
         
         const zip = new JSZip();
         const fileCount = Math.ceil(rowsToExport / maxRowsPerFile);
@@ -306,8 +316,13 @@ export function FileMerger() {
         };
 
         for (let i = 0; i < rowsToExport; i += maxRowsPerFile) {
+          const fileIndex = Math.floor(i / maxRowsPerFile);
           const endIndex = Math.min(i + maxRowsPerFile, rowsToExport);
           const rowsChunk = dataToExport.slice(i, endIndex);
+          
+          // Update progress for file creation (10% to 80%)
+          const fileProgress = 10 + (fileIndex / fileCount) * 70;
+          setExportProgress(Math.round(fileProgress));
           
           // Create CSV with headers + data chunk
           const csvData = [mergedData.headers, ...rowsChunk];
@@ -315,16 +330,22 @@ export function FileMerger() {
           
           // Create filename for this part
           const partFileName = fileCount > 1 
-            ? `${filename}_part${Math.floor(i / maxRowsPerFile) + 1}.csv`
+            ? `${filename}_part${fileIndex + 1}.csv`
             : `${filename}.csv`;
           
           zip.file(partFileName, csvContent);
-          console.log(`Created part ${Math.floor(i / maxRowsPerFile) + 1}/${fileCount}`);
+          console.log(`Created part ${fileIndex + 1}/${fileCount}`);
         }
 
-        // Download the zip file
+        // Generate ZIP file (80% to 95%)
+        setExportProgress(80);
         console.log('Generating ZIP file...');
-        const zipBlob = await zip.generateAsync({ type: 'blob' });
+        const zipBlob = await zip.generateAsync({ 
+          type: 'blob',
+          streamFiles: true
+        });
+        
+        setExportProgress(95);
         const link = document.createElement('a');
         const url = URL.createObjectURL(zipBlob);
         
@@ -336,6 +357,8 @@ export function FileMerger() {
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
+
+        setExportProgress(100);
 
         toast({
           title: "Export Complete",
@@ -350,6 +373,9 @@ export function FileMerger() {
         description: error instanceof Error ? error.message : "Failed to export merged file.",
         variant: "destructive"
       });
+    } finally {
+      setIsExporting(false);
+      setTimeout(() => setExportProgress(0), 2000); // Reset progress after 2 seconds
     }
   };
 
@@ -358,6 +384,8 @@ export function FileMerger() {
     setMergedData(null);
     setOutputFileName('merged_files');
     setExportRowLimit(0);
+    setExportProgress(0);
+    setIsExporting(false);
   };
 
   const totalSize = files.reduce((sum, file) => sum + file.size, 0);
@@ -511,19 +539,35 @@ export function FileMerger() {
             <div className="flex gap-2">
               <Button 
                 onClick={mergeFiles} 
-                disabled={isProcessing || files.length < 2}
+                disabled={isProcessing || files.length < 2 || isExporting}
                 className="flex-1"
               >
                 {isProcessing ? 'Merging...' : 'Merge Files'}
               </Button>
               
               {mergedData && (
-                <Button onClick={exportMergedFile} variant="outline">
+                <Button 
+                  onClick={exportMergedFile} 
+                  disabled={isExporting}
+                  variant="outline"
+                >
                   <Download className="h-4 w-4 mr-2" />
-                  Export
+                  {isExporting ? 'Exporting...' : 'Export'}
                 </Button>
               )}
             </div>
+
+            {isExporting && (
+              <div className="mt-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-muted-foreground">
+                    Exporting merged data...
+                  </span>
+                  <span className="text-sm font-medium">{Math.round(exportProgress)}%</span>
+                </div>
+                <Progress value={exportProgress} className="w-full" />
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
