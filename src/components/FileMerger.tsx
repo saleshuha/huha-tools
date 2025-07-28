@@ -248,33 +248,53 @@ export function FileMerger() {
       const rowsToExport = exportRowLimit > 0 && exportRowLimit < totalRows 
         ? exportRowLimit 
         : totalRows;
-      
-      const dataToExport = exportRowLimit > 0 && exportRowLimit < totalRows
-        ? mergedData.data.slice(0, exportRowLimit)
-        : mergedData.data;
 
-      const maxRowsPerFile = 50000; // Limit to 50k rows per file to avoid memory issues
+      const maxRowsPerFile = 25000; // Reduced to 25k rows per file for better memory management
       const filename = outputFileName.trim();
+      const chunkSize = 1000; // Process data in smaller chunks
 
       console.log(`Exporting ${rowsToExport} rows of ${totalRows} total rows`);
 
-      if (rowsToExport <= maxRowsPerFile) {
-        // Small file - export as single CSV
-        setExportProgress(25);
-        
-        const csvContent = [
-          mergedData.headers.join(','),
-          ...dataToExport.map(row => 
-            row.map(cell => {
-              const cellStr = String(cell || '');
-              if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n') || cellStr.includes('\r')) {
-                return `"${cellStr.replace(/"/g, '""')}"`;
-              }
-              return cellStr;
-            }).join(',')
-          )
-        ].join('\n');
+      // Helper function to process CSV row with proper escaping
+      const processCSVRow = (row: any[]): string => {
+        return row.map(cell => {
+          const cellStr = String(cell || '');
+          if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n') || cellStr.includes('\r')) {
+            return `"${cellStr.replace(/"/g, '""')}"`;
+          }
+          return cellStr;
+        }).join(',');
+      };
 
+      // Helper function to create CSV content in chunks to avoid memory issues
+      const createCSVContent = async (startRow: number, endRow: number, includeHeaders: boolean = true): Promise<string> => {
+        const chunks: string[] = [];
+        
+        if (includeHeaders) {
+          chunks.push(processCSVRow(mergedData.headers));
+        }
+
+        // Process data in smaller chunks to avoid memory overflow
+        for (let i = startRow; i < endRow; i += chunkSize) {
+          const chunkEnd = Math.min(i + chunkSize, endRow);
+          const dataSlice = mergedData.data.slice(i, chunkEnd);
+          
+          const chunkLines = dataSlice.map(row => processCSVRow(row));
+          chunks.push(...chunkLines);
+          
+          // Allow browser to breathe between chunks
+          await new Promise(resolve => setTimeout(resolve, 1));
+        }
+        
+        return chunks.join('\n');
+      };
+
+      if (rowsToExport <= maxRowsPerFile) {
+        // Small file - export as single CSV with chunked processing
+        setExportProgress(10);
+        
+        const csvContent = await createCSVContent(0, rowsToExport, true);
+        
         setExportProgress(75);
 
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -290,6 +310,8 @@ export function FileMerger() {
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
 
+        setExportProgress(100);
+
         toast({
           title: "Export Complete",
           description: `Exported ${rowsToExport} rows as ${filename}.csv`
@@ -297,36 +319,23 @@ export function FileMerger() {
       } else {
         // Large file - split into multiple CSV files and create ZIP
         console.log('Large dataset detected, creating multiple files...');
-        setExportProgress(10);
+        setExportProgress(5);
         
         const zip = new JSZip();
         const fileCount = Math.ceil(rowsToExport / maxRowsPerFile);
-        
-        // Helper function to convert array to CSV content
-        const arrayToCSV = (data: string[][]): string => {
-          return data.map(row => 
-            row.map(field => {
-              const fieldStr = String(field || '');
-              if (fieldStr.includes(',') || fieldStr.includes('"') || fieldStr.includes('\n') || fieldStr.includes('\r')) {
-                return `"${fieldStr.replace(/"/g, '""')}"`;
-              }
-              return fieldStr;
-            }).join(',')
-          ).join('\n');
-        };
 
-        for (let i = 0; i < rowsToExport; i += maxRowsPerFile) {
-          const fileIndex = Math.floor(i / maxRowsPerFile);
-          const endIndex = Math.min(i + maxRowsPerFile, rowsToExport);
-          const rowsChunk = dataToExport.slice(i, endIndex);
+        for (let fileIndex = 0; fileIndex < fileCount; fileIndex++) {
+          const startRow = fileIndex * maxRowsPerFile;
+          const endRow = Math.min(startRow + maxRowsPerFile, rowsToExport);
           
-          // Update progress for file creation (10% to 80%)
-          const fileProgress = 10 + (fileIndex / fileCount) * 70;
+          // Update progress for file creation (5% to 85%)
+          const fileProgress = 5 + ((fileIndex + 1) / fileCount) * 80;
           setExportProgress(Math.round(fileProgress));
           
-          // Create CSV with headers + data chunk
-          const csvData = [mergedData.headers, ...rowsChunk];
-          const csvContent = arrayToCSV(csvData);
+          console.log(`Processing part ${fileIndex + 1}/${fileCount} (rows ${startRow + 1}-${endRow})`);
+          
+          // Create CSV content for this chunk
+          const csvContent = await createCSVContent(startRow, endRow, true);
           
           // Create filename for this part
           const partFileName = fileCount > 1 
@@ -334,15 +343,26 @@ export function FileMerger() {
             : `${filename}.csv`;
           
           zip.file(partFileName, csvContent);
+          
+          // Clear processed data from memory
+          if (global.gc) {
+            global.gc();
+          }
+          
           console.log(`Created part ${fileIndex + 1}/${fileCount}`);
         }
 
-        // Generate ZIP file (80% to 95%)
-        setExportProgress(80);
+        // Generate ZIP file (85% to 95%)
+        setExportProgress(85);
         console.log('Generating ZIP file...');
+        
         const zipBlob = await zip.generateAsync({ 
           type: 'blob',
-          streamFiles: true
+          streamFiles: true,
+          compression: 'DEFLATE',
+          compressionOptions: {
+            level: 6 // Balanced compression
+          }
         });
         
         setExportProgress(95);
@@ -370,12 +390,12 @@ export function FileMerger() {
       console.error('Export error:', error);
       toast({
         title: "Export Error",
-        description: error instanceof Error ? error.message : "Failed to export merged file.",
+        description: error instanceof Error ? error.message : "Failed to export merged file. Try reducing the number of rows.",
         variant: "destructive"
       });
     } finally {
       setIsExporting(false);
-      setTimeout(() => setExportProgress(0), 2000); // Reset progress after 2 seconds
+      setTimeout(() => setExportProgress(0), 2000);
     }
   };
 
