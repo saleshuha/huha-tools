@@ -17,7 +17,9 @@ import {
   Download,
   FileText,
   RefreshCw,
-  Activity
+  Activity,
+  BarChart3,
+  TrendingDown
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -38,6 +40,8 @@ interface InventoryStats {
   activeItems: number;
   inStockItems: number;
   outOfStockItems: number;
+  totalUnits: number;
+  soldUnits: number;
 }
 
 export function InventoryMetrics() {
@@ -47,7 +51,9 @@ export function InventoryMetrics() {
   const [stats, setStats] = useState<InventoryStats>({
     activeItems: 0,
     inStockItems: 0,
-    outOfStockItems: 0
+    outOfStockItems: 0,
+    totalUnits: 0,
+    soldUnits: 0
   });
   
   const [loading, setLoading] = useState(true);
@@ -88,11 +94,15 @@ export function InventoryMetrics() {
       const activeItems = allItems.length;
       const inStockItems = allItems.filter(item => item.quantity > 0).length;
       const outOfStockItems = allItems.filter(item => item.quantity === 0).length;
+      const totalUnits = allItems.reduce((sum, item) => sum + item.quantity, 0);
+      const soldUnits = allItems.filter(item => item.status === 'sold').reduce((sum, item) => sum + item.quantity, 0);
 
       setStats({
         activeItems,
         inStockItems,
-        outOfStockItems
+        outOfStockItems,
+        totalUnits,
+        soldUnits
       });
     } catch (error: any) {
       toast({
@@ -210,20 +220,20 @@ export function InventoryMetrics() {
 
   return (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         {/* Active Items */}
         <Card 
           className="glass-container cursor-pointer hover:shadow-lg transition-all duration-300 hover:border-primary/30"
           onClick={() => handleMetricClick('active')}
         >
-          <CardContent className="p-6">
+          <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Active Items</p>
-                <p className="text-3xl font-bold text-primary">{stats.activeItems}</p>
+                <p className="text-2xl font-bold text-primary">{stats.activeItems}</p>
                 <p className="text-xs text-muted-foreground">Total inventory items</p>
               </div>
-              <Activity className="w-8 h-8 text-primary" />
+              <Activity className="w-6 h-6 text-primary" />
             </div>
           </CardContent>
         </Card>
@@ -233,14 +243,14 @@ export function InventoryMetrics() {
           className="glass-container cursor-pointer hover:shadow-lg transition-all duration-300 hover:border-green-500/30"
           onClick={() => handleMetricClick('instock')}
         >
-          <CardContent className="p-6">
+          <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">In Stock</p>
-                <p className="text-3xl font-bold text-green-600">{stats.inStockItems}</p>
+                <p className="text-2xl font-bold text-green-600">{stats.inStockItems}</p>
                 <p className="text-xs text-muted-foreground">Available for sale</p>
               </div>
-              <CheckCircle className="w-8 h-8 text-green-600" />
+              <CheckCircle className="w-6 h-6 text-green-600" />
             </div>
           </CardContent>
         </Card>
@@ -250,14 +260,42 @@ export function InventoryMetrics() {
           className="glass-container cursor-pointer hover:shadow-lg transition-all duration-300 hover:border-red-500/30"
           onClick={() => handleMetricClick('outofstock')}
         >
-          <CardContent className="p-6">
+          <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Out of Stock</p>
-                <p className="text-3xl font-bold text-red-600">{stats.outOfStockItems}</p>
+                <p className="text-2xl font-bold text-red-600">{stats.outOfStockItems}</p>
                 <p className="text-xs text-muted-foreground">Need restock</p>
               </div>
-              <XCircle className="w-8 h-8 text-red-600" />
+              <XCircle className="w-6 h-6 text-red-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Total Units */}
+        <Card className="glass-container">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Total Units</p>
+                <p className="text-2xl font-bold text-blue-600">{stats.totalUnits}</p>
+                <p className="text-xs text-muted-foreground">Total quantity</p>
+              </div>
+              <BarChart3 className="w-6 h-6 text-blue-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Sold Units */}
+        <Card className="glass-container">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Sold Units</p>
+                <p className="text-2xl font-bold text-orange-600">{stats.soldUnits}</p>
+                <p className="text-xs text-muted-foreground">Units sold</p>
+              </div>
+              <TrendingDown className="w-6 h-6 text-orange-600" />
             </div>
           </CardContent>
         </Card>
