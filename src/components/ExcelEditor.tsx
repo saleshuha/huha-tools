@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { Upload, Download, X, FileSpreadsheet, Plus, Trash2, Edit3 } from 'lucide-react';
+import { Upload, Download, X, FileSpreadsheet, Plus, Trash2, Edit3, Check } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -13,6 +13,12 @@ import { useToast } from '@/hooks/use-toast';
 import { ExcelData } from '@/types/excel';
 import { useDropzone } from 'react-dropzone';
 import * as XLSX from 'xlsx';
+import JSZip from 'jszip';
+
+interface FileData extends ExcelData {
+  id: string;
+  size: number;
+}
 
 interface NewColumn {
   id: string;
@@ -25,18 +31,18 @@ interface NewColumn {
 }
 
 export function ExcelEditor() {
-  const [originalData, setOriginalData] = useState<ExcelData | null>(null);
+  const [uploadedFiles, setUploadedFiles] = useState<FileData[]>([]);
   const [newColumns, setNewColumns] = useState<NewColumn[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
-  const [outputFileName, setOutputFileName] = useState('modified_file');
+  const [outputFileName, setOutputFileName] = useState('modified_files');
   const { toast } = useToast();
 
   // Process uploaded file
-  const processFile = useCallback(async (file: File): Promise<ExcelData> => {
+  const processFile = useCallback(async (file: File): Promise<FileData> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -79,13 +85,15 @@ export function ExcelEditor() {
             data = jsonData.slice(1);
           }
 
-          const excelData: ExcelData = {
+          const fileData: FileData = {
+            id: Math.random().toString(36).substr(2, 9),
             headers,
             data,
-            fileName: file.name
+            fileName: file.name,
+            size: file.size
           };
 
-          resolve(excelData);
+          resolve(fileData);
         } catch (error) {
           reject(new Error(`Failed to process ${file.name}: ${error}`));
         }
@@ -98,27 +106,38 @@ export function ExcelEditor() {
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     if (acceptedFiles.length === 0) return;
 
-    const file = acceptedFiles[0]; // Only process the first file
     setIsUploading(true);
     setUploadProgress(0);
 
     try {
-      setUploadProgress(50);
-      const processedFile = await processFile(file);
-      setOriginalData(processedFile);
-      setOutputFileName(file.name.replace(/\.(xlsx|xls|csv)$/i, '_modified'));
+      const newFiles: FileData[] = [];
+      
+      for (let i = 0; i < acceptedFiles.length; i++) {
+        const file = acceptedFiles[i];
+        setUploadProgress((i / acceptedFiles.length) * 100);
+
+        try {
+          const processedFile = await processFile(file);
+          newFiles.push(processedFile);
+        } catch (error) {
+          toast({
+            title: "Processing Error",
+            description: error instanceof Error ? error.message : `Failed to process ${file.name}`,
+            variant: "destructive"
+          });
+        }
+      }
+
+      setUploadedFiles(prev => [...prev, ...newFiles]);
+      setOutputFileName('modified_files');
       setUploadProgress(100);
 
-      toast({
-        title: "File Uploaded",
-        description: `Successfully uploaded ${file.name} with ${processedFile.headers.length} columns and ${processedFile.data.length} rows.`
-      });
-    } catch (error) {
-      toast({
-        title: "Upload Error",
-        description: error instanceof Error ? error.message : `Failed to process ${file.name}`,
-        variant: "destructive"
-      });
+      if (newFiles.length > 0) {
+        toast({
+          title: "Files Uploaded",
+          description: `Successfully uploaded ${newFiles.length} file(s).`
+        });
+      }
     } finally {
       setIsUploading(false);
       setTimeout(() => setUploadProgress(0), 1000);
@@ -133,8 +152,12 @@ export function ExcelEditor() {
       'text/csv': ['.csv']
     },
     maxSize: 1024 * 1024 * 1024, // 1GB
-    multiple: false
+    multiple: true
   });
+
+  const removeFile = (id: string) => {
+    setUploadedFiles(prev => prev.filter(file => file.id !== id));
+  };
 
   const addNewColumn = () => {
     const newColumn: NewColumn = {
@@ -185,10 +208,10 @@ export function ExcelEditor() {
   };
 
   const processAndExport = async () => {
-    if (!originalData) {
+    if (uploadedFiles.length === 0) {
       toast({
-        title: "No File",
-        description: "Please upload a file first.",
+        title: "No Files",
+        description: "Please upload at least one file first.",
         variant: "destructive"
       });
       return;
@@ -219,70 +242,149 @@ export function ExcelEditor() {
     setExportProgress(0);
 
     try {
-      // Create new headers
-      const modifiedHeaders = [...originalData.headers, ...newColumns.map(col => col.header)];
-      
-      setExportProgress(20);
+      if (uploadedFiles.length === 1) {
+        // Single file - export as single CSV
+        const file = uploadedFiles[0];
+        const modifiedHeaders = [...file.headers, ...newColumns.map(col => col.header)];
+        
+        setExportProgress(20);
 
-      // Generate data for new columns
-      const newColumnsData: string[][] = newColumns.map(column => 
-        generateColumnData(column, originalData.data.length)
-      );
+        // Generate data for new columns
+        const newColumnsData: string[][] = newColumns.map(column => 
+          generateColumnData(column, file.data.length)
+        );
 
-      setExportProgress(40);
+        setExportProgress(40);
 
-      // Combine original data with new columns
-      const modifiedData = originalData.data.map((row, index) => {
-        const newRow = [...row];
-        newColumns.forEach((_, colIndex) => {
-          newRow.push(newColumnsData[colIndex][index] || '');
+        // Combine original data with new columns
+        const modifiedData = file.data.map((row, index) => {
+          const newRow = [...row];
+          newColumns.forEach((_, colIndex) => {
+            newRow.push(newColumnsData[colIndex][index] || '');
+          });
+          return newRow;
         });
-        return newRow;
-      });
 
-      setExportProgress(60);
+        setExportProgress(60);
 
-      // Create CSV content
-      const csvContent = [
-        modifiedHeaders.join(','),
-        ...modifiedData.map(row => 
-          row.map(cell => {
-            const cellStr = String(cell || '');
-            if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n') || cellStr.includes('\r')) {
-              return `"${cellStr.replace(/"/g, '""')}"`;
-            }
-            return cellStr;
-          }).join(',')
-        )
-      ].join('\n');
+        // Create CSV content
+        const csvContent = [
+          modifiedHeaders.join(','),
+          ...modifiedData.map(row => 
+            row.map(cell => {
+              const cellStr = String(cell || '');
+              if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n') || cellStr.includes('\r')) {
+                return `"${cellStr.replace(/"/g, '""')}"`;
+              }
+              return cellStr;
+            }).join(',')
+          )
+        ].join('\n');
 
-      setExportProgress(80);
+        setExportProgress(80);
 
-      // Create and download file
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      const url = URL.createObjectURL(blob);
-      
-      link.setAttribute('href', url);
-      link.setAttribute('download', `${outputFileName}.csv`);
-      link.style.visibility = 'hidden';
-      
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+        // Create and download file
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        
+        link.setAttribute('href', url);
+        link.setAttribute('download', `${outputFileName}.csv`);
+        link.style.visibility = 'hidden';
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
 
-      setExportProgress(100);
+        setExportProgress(100);
 
-      toast({
-        title: "Export Complete",
-        description: `Successfully exported file with ${newColumns.length} new column(s) and ${modifiedData.length} rows.`
-      });
+        toast({
+          title: "Export Complete",
+          description: `Successfully exported file with ${newColumns.length} new column(s) and ${modifiedData.length} rows.`
+        });
+      } else {
+        // Multiple files - create ZIP with processed files
+        setExportProgress(10);
+        const zip = new JSZip();
+
+        for (let fileIndex = 0; fileIndex < uploadedFiles.length; fileIndex++) {
+          const file = uploadedFiles[fileIndex];
+          const fileProgress = 10 + ((fileIndex + 1) / uploadedFiles.length) * 70;
+          setExportProgress(Math.round(fileProgress));
+
+          // Create new headers for this file
+          const modifiedHeaders = [...file.headers, ...newColumns.map(col => col.header)];
+          
+          // Generate data for new columns for this file
+          const newColumnsData: string[][] = newColumns.map(column => 
+            generateColumnData(column, file.data.length)
+          );
+
+          // Combine original data with new columns for this file
+          const modifiedData = file.data.map((row, index) => {
+            const newRow = [...row];
+            newColumns.forEach((_, colIndex) => {
+              newRow.push(newColumnsData[colIndex][index] || '');
+            });
+            return newRow;
+          });
+
+          // Create CSV content for this file
+          const csvContent = [
+            modifiedHeaders.join(','),
+            ...modifiedData.map(row => 
+              row.map(cell => {
+                const cellStr = String(cell || '');
+                if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n') || cellStr.includes('\r')) {
+                  return `"${cellStr.replace(/"/g, '""')}"`;
+                }
+                return cellStr;
+              }).join(',')
+            )
+          ].join('\n');
+
+          // Add file to ZIP
+          const fileName = file.fileName.replace(/\.(xlsx|xls|csv)$/i, '_modified.csv');
+          zip.file(fileName, csvContent);
+        }
+
+        // Generate ZIP file
+        setExportProgress(85);
+        const zipBlob = await zip.generateAsync({ 
+          type: 'blob',
+          streamFiles: true,
+          compression: 'DEFLATE',
+          compressionOptions: {
+            level: 6
+          }
+        });
+        
+        setExportProgress(95);
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(zipBlob);
+        
+        link.setAttribute('href', url);
+        link.setAttribute('download', `${outputFileName}.zip`);
+        link.style.visibility = 'hidden';
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        setExportProgress(100);
+
+        toast({
+          title: "Export Complete",
+          description: `Successfully exported ${uploadedFiles.length} files with ${newColumns.length} new column(s) each.`
+        });
+      }
 
     } catch (error) {
       toast({
         title: "Processing Error",
-        description: error instanceof Error ? error.message : "Failed to process and export file.",
+        description: error instanceof Error ? error.message : "Failed to process and export files.",
         variant: "destructive"
       });
     } finally {
@@ -295,11 +397,19 @@ export function ExcelEditor() {
   };
 
   const clearAll = () => {
-    setOriginalData(null);
+    setUploadedFiles([]);
     setNewColumns([]);
-    setOutputFileName('modified_file');
+    setOutputFileName('modified_files');
     setExportProgress(0);
     setIsExporting(false);
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
   return (
@@ -312,7 +422,7 @@ export function ExcelEditor() {
           </p>
         </div>
         <div className="flex gap-2">
-          {originalData && (
+          {uploadedFiles.length > 0 && (
             <Button onClick={clearAll} variant="outline" size="sm">
               <X className="h-4 w-4 mr-2" />
               Clear All
@@ -344,9 +454,9 @@ export function ExcelEditor() {
               {isDragActive ? 'Drop file here...' : 'Drag & drop a file here'}
             </p>
             <p className="text-muted-foreground text-sm mb-4">
-              or click to select file (Excel .xlsx, .xls or CSV files, up to 1GB)
+              or click to select files (Excel .xlsx, .xls or CSV files, up to 1GB each)
             </p>
-            <Badge variant="secondary">Single file only</Badge>
+            <Badge variant="secondary">Multiple files supported</Badge>
           </div>
 
           {isUploading && (
@@ -361,45 +471,71 @@ export function ExcelEditor() {
         </CardContent>
       </Card>
 
-      {/* File Preview */}
-      {originalData && (
+      {/* Files Preview */}
+      {uploadedFiles.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
-              <span>Original File Preview</span>
-              <Badge variant="outline">{originalData.fileName}</Badge>
+              <span>Uploaded Files ({uploadedFiles.length})</span>
+              <Badge variant="outline">{formatFileSize(uploadedFiles.reduce((sum, file) => sum + file.size, 0))} total</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-3 gap-4 text-center mb-4">
+            <div className="space-y-3">
+              {uploadedFiles.map((file) => (
+                <div key={file.id} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <FileSpreadsheet className="h-5 w-5 text-primary" />
+                    <div>
+                      <p className="font-medium">{file.fileName}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {file.headers.length} columns • {file.data.length} rows • {formatFileSize(file.size)}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    onClick={() => removeFile(file.id)}
+                    variant="outline"
+                    size="sm"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 grid grid-cols-3 gap-4 text-center">
               <div>
-                <p className="text-2xl font-bold text-primary">{originalData.headers.length}</p>
-                <p className="text-sm text-muted-foreground">Columns</p>
+                <p className="text-2xl font-bold text-primary">{uploadedFiles.reduce((sum, file) => sum + file.headers.length, 0) / uploadedFiles.length}</p>
+                <p className="text-sm text-muted-foreground">Avg Columns</p>
               </div>
               <div>
-                <p className="text-2xl font-bold text-primary">{originalData.data.length}</p>
-                <p className="text-sm text-muted-foreground">Rows</p>
+                <p className="text-2xl font-bold text-primary">{uploadedFiles.reduce((sum, file) => sum + file.data.length, 0)}</p>
+                <p className="text-sm text-muted-foreground">Total Rows</p>
               </div>
               <div>
-                <p className="text-2xl font-bold text-primary">{originalData.headers.length + newColumns.length}</p>
-                <p className="text-sm text-muted-foreground">Total Columns</p>
+                <p className="text-2xl font-bold text-primary">{uploadedFiles.length}</p>
+                <p className="text-sm text-muted-foreground">Files</p>
               </div>
             </div>
-            
-            <div className="border rounded-lg p-4 bg-muted/30">
-              <p className="text-sm font-medium mb-2">Current Headers:</p>
-              <div className="flex flex-wrap gap-2">
-                {originalData.headers.map((header, index) => (
-                  <Badge key={index} variant="secondary">{header}</Badge>
-                ))}
-              </div>
-            </div>
+
+            {uploadedFiles.length > 0 && (
+              <Alert className="mt-4">
+                <Check className="h-4 w-4" />
+                <AlertDescription>
+                  {uploadedFiles.length === 1 
+                    ? "Ready to add new columns to your file!" 
+                    : `Ready to add new columns to all ${uploadedFiles.length} files!`
+                  }
+                </AlertDescription>
+              </Alert>
+            )}
           </CardContent>
         </Card>
       )}
 
       {/* Add New Columns */}
-      {originalData && (
+      {uploadedFiles.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
@@ -531,7 +667,7 @@ export function ExcelEditor() {
       )}
 
       {/* Export Controls */}
-      {originalData && newColumns.length > 0 && (
+      {uploadedFiles.length > 0 && newColumns.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle>Export Modified File</CardTitle>
