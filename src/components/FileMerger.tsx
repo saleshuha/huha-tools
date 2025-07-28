@@ -211,15 +211,40 @@ export function FileMerger() {
   };
 
   const exportMergedFile = async () => {
-    if (!mergedData) return;
+    if (!mergedData) {
+      console.log('No merged data available for export');
+      toast({
+        title: "Export Error",
+        description: "No merged data available. Please merge files first.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!outputFileName || outputFileName.trim() === '') {
+      console.log('Invalid output filename');
+      toast({
+        title: "Export Error",
+        description: "Please enter a valid output filename.",
+        variant: "destructive"
+      });
+      return;
+    }
 
     try {
+      console.log('Starting export process...', {
+        headers: mergedData.headers.length,
+        rows: mergedData.data.length,
+        filename: outputFileName
+      });
+
+      // Ensure all data is properly formatted
       const csvContent = [
         mergedData.headers.join(','),
         ...mergedData.data.map(row => 
           row.map(cell => {
             const cellStr = String(cell || '');
-            if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n')) {
+            if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n') || cellStr.includes('\r')) {
               return `"${cellStr.replace(/"/g, '""')}"`;
             }
             return cellStr;
@@ -227,28 +252,61 @@ export function FileMerger() {
         )
       ].join('\n');
 
+      console.log('CSV content generated, size:', csvContent.length, 'characters');
+
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      const url = URL.createObjectURL(blob);
+      console.log('Blob created, size:', blob.size, 'bytes');
       
+      const link = document.createElement('a');
+      
+      // Check if browser supports download attribute
+      if (typeof link.download === 'undefined') {
+        throw new Error('Browser does not support file downloads');
+      }
+      
+      const url = URL.createObjectURL(blob);
+      console.log('Object URL created:', url);
+      
+      const filename = `${outputFileName.trim()}.csv`;
       link.setAttribute('href', url);
-      link.setAttribute('download', `${outputFileName}.csv`);
+      link.setAttribute('download', filename);
       link.style.visibility = 'hidden';
       
       document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      console.log('Download link added to DOM');
       
-      URL.revokeObjectURL(url);
-
-      toast({
-        title: "Export Complete",
-        description: `Merged file exported as ${outputFileName}.csv`
-      });
+      // Add a small delay to ensure the link is in the DOM
+      setTimeout(() => {
+        try {
+          link.click();
+          console.log('Download triggered');
+          
+          // Clean up after a short delay
+          setTimeout(() => {
+            if (document.body.contains(link)) {
+              document.body.removeChild(link);
+            }
+            URL.revokeObjectURL(url);
+            console.log('Cleanup completed');
+          }, 100);
+          
+          toast({
+            title: "Export Complete",
+            description: `Merged file exported as ${filename}`
+          });
+        } catch (clickError) {
+          console.error('Error during download click:', clickError);
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+          throw clickError;
+        }
+      }, 10);
+      
     } catch (error) {
+      console.error('Export error:', error);
       toast({
         title: "Export Error",
-        description: "Failed to export merged file.",
+        description: error instanceof Error ? error.message : "Failed to export merged file.",
         variant: "destructive"
       });
     }
