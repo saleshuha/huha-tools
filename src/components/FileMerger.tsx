@@ -238,69 +238,99 @@ export function FileMerger() {
         filename: outputFileName
       });
 
-      // Ensure all data is properly formatted
-      const csvContent = [
-        mergedData.headers.join(','),
-        ...mergedData.data.map(row => 
-          row.map(cell => {
-            const cellStr = String(cell || '');
-            if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n') || cellStr.includes('\r')) {
-              return `"${cellStr.replace(/"/g, '""')}"`;
-            }
-            return cellStr;
-          }).join(',')
-        )
-      ].join('\n');
+      const totalRows = mergedData.data.length;
+      const maxRowsPerFile = 50000; // Limit to 50k rows per file to avoid memory issues
+      const filename = outputFileName.trim();
 
-      console.log('CSV content generated, size:', csvContent.length, 'characters');
+      if (totalRows <= maxRowsPerFile) {
+        // Small file - export as single CSV
+        const csvContent = [
+          mergedData.headers.join(','),
+          ...mergedData.data.map(row => 
+            row.map(cell => {
+              const cellStr = String(cell || '');
+              if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n') || cellStr.includes('\r')) {
+                return `"${cellStr.replace(/"/g, '""')}"`;
+              }
+              return cellStr;
+            }).join(',')
+          )
+        ].join('\n');
 
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      console.log('Blob created, size:', blob.size, 'bytes');
-      
-      const link = document.createElement('a');
-      
-      // Check if browser supports download attribute
-      if (typeof link.download === 'undefined') {
-        throw new Error('Browser does not support file downloads');
-      }
-      
-      const url = URL.createObjectURL(blob);
-      console.log('Object URL created:', url);
-      
-      const filename = `${outputFileName.trim()}.csv`;
-      link.setAttribute('href', url);
-      link.setAttribute('download', filename);
-      link.style.visibility = 'hidden';
-      
-      document.body.appendChild(link);
-      console.log('Download link added to DOM');
-      
-      // Add a small delay to ensure the link is in the DOM
-      setTimeout(() => {
-        try {
-          link.click();
-          console.log('Download triggered');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        
+        link.setAttribute('href', url);
+        link.setAttribute('download', `${filename}.csv`);
+        link.style.visibility = 'hidden';
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        toast({
+          title: "Export Complete",
+          description: `Merged file exported as ${filename}.csv`
+        });
+      } else {
+        // Large file - split into multiple CSV files and create ZIP
+        console.log('Large dataset detected, creating multiple files...');
+        
+        const zip = new JSZip();
+        const fileCount = Math.ceil(totalRows / maxRowsPerFile);
+        
+        // Helper function to convert array to CSV content
+        const arrayToCSV = (data: string[][]): string => {
+          return data.map(row => 
+            row.map(field => {
+              const fieldStr = String(field || '');
+              if (fieldStr.includes(',') || fieldStr.includes('"') || fieldStr.includes('\n') || fieldStr.includes('\r')) {
+                return `"${fieldStr.replace(/"/g, '""')}"`;
+              }
+              return fieldStr;
+            }).join(',')
+          ).join('\n');
+        };
+
+        for (let i = 0; i < totalRows; i += maxRowsPerFile) {
+          const endIndex = Math.min(i + maxRowsPerFile, totalRows);
+          const rowsChunk = mergedData.data.slice(i, endIndex);
           
-          // Clean up after a short delay
-          setTimeout(() => {
-            if (document.body.contains(link)) {
-              document.body.removeChild(link);
-            }
-            URL.revokeObjectURL(url);
-            console.log('Cleanup completed');
-          }, 100);
+          // Create CSV with headers + data chunk
+          const csvData = [mergedData.headers, ...rowsChunk];
+          const csvContent = arrayToCSV(csvData);
           
-          toast({
-            title: "Export Complete",
-            description: `Merged file exported as ${filename}`
-          });
-        } catch (clickError) {
-          console.error('Error during download click:', clickError);
-          document.body.removeChild(link);
-          URL.revokeObjectURL(url);
-          throw clickError;
+          // Create filename for this part
+          const partFileName = fileCount > 1 
+            ? `${filename}_part${Math.floor(i / maxRowsPerFile) + 1}.csv`
+            : `${filename}.csv`;
+          
+          zip.file(partFileName, csvContent);
+          console.log(`Created part ${Math.floor(i / maxRowsPerFile) + 1}/${fileCount}`);
         }
-      }, 10);
+
+        // Download the zip file
+        console.log('Generating ZIP file...');
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(zipBlob);
+        
+        link.setAttribute('href', url);
+        link.setAttribute('download', `${filename}_merged_files.zip`);
+        link.style.visibility = 'hidden';
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        toast({
+          title: "Export Complete",
+          description: `Exported ${totalRows} rows in ${fileCount} CSV file(s) as ${filename}_merged_files.zip`
+        });
+      }
       
     } catch (error) {
       console.error('Export error:', error);
