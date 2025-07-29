@@ -8,9 +8,11 @@ import { Checkbox } from './ui/checkbox';
 import { Badge } from './ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Progress } from './ui/progress';
+import { Calendar } from './ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { useToast } from '@/hooks/use-toast';
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from './ui/pagination';
-import { Package, Plus, Search, Edit, Download, Upload, Check, X, RefreshCw, AlertTriangle, Printer, Hash, Mail, BarChart3, Filter, Grid3X3, List, SortAsc, SortDesc, Calendar, TrendingUp, TrendingDown, Eye, Archive, Zap, Clock, ShoppingCart, Trash2, Settings, FileText, Copy, Star } from 'lucide-react';
+import { Package, Plus, Search, Edit, Download, Upload, Check, X, RefreshCw, AlertTriangle, Printer, Hash, Mail, BarChart3, Filter, Grid3X3, List, SortAsc, SortDesc, Calendar as CalendarIcon, TrendingUp, TrendingDown, Eye, Archive, Zap, Clock, ShoppingCart, Trash2, Settings, FileText, Copy, Star } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from './ui/dialog';
 import { Textarea } from './ui/textarea';
 import { useAsinInventory, AsinInventoryItem } from '@/hooks/useAsinInventory';
@@ -19,6 +21,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { DualQuantityEditor } from './DualQuantityEditor';
 import { StockHistoryDialog } from './StockHistoryDialog';
 import { InventoryMetrics } from './InventoryMetrics';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 export function AsinInventory() {
   const {
     inventory,
@@ -50,6 +54,8 @@ export function AsinInventory() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
   const [quickFilter, setQuickFilter] = useState<'all' | 'low-stock' | 'out-of-stock' | 'recent'>('all');
+  const [dateFilterFrom, setDateFilterFrom] = useState<Date>();
+  const [dateFilterTo, setDateFilterTo] = useState<Date>();
   const {
     toast
   } = useToast();
@@ -100,6 +106,24 @@ export function AsinInventory() {
       filtered = filtered.filter(item => item.quantity > 0 && item.quantity <= 5);
     } else if (quickFilter === 'out-of-stock') {
       filtered = filtered.filter(item => item.quantity === 0);
+      
+      // Apply date filter for out-of-stock items
+      if (dateFilterFrom || dateFilterTo) {
+        filtered = filtered.filter(item => {
+          const itemDate = new Date(item.dateAdded);
+          const fromDate = dateFilterFrom ? new Date(dateFilterFrom.setHours(0, 0, 0, 0)) : null;
+          const toDate = dateFilterTo ? new Date(dateFilterTo.setHours(23, 59, 59, 999)) : null;
+          
+          if (fromDate && toDate) {
+            return itemDate >= fromDate && itemDate <= toDate;
+          } else if (fromDate) {
+            return itemDate >= fromDate;
+          } else if (toDate) {
+            return itemDate <= toDate;
+          }
+          return true;
+        });
+      }
     } else if (quickFilter === 'recent') {
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
@@ -121,7 +145,7 @@ export function AsinInventory() {
       }
     });
     return filtered;
-  }, [inventory, searchTerm, statusFilter, sortBy, sortOrder, quickFilter]);
+  }, [inventory, searchTerm, statusFilter, sortBy, sortOrder, quickFilter, dateFilterFrom, dateFilterTo]);
   const totalPages = Math.ceil(filteredInventory.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedInventory = filteredInventory.slice(startIndex, startIndex + itemsPerPage);
@@ -409,6 +433,84 @@ export function AsinInventory() {
                 Recent (7 days)
               </Button>
             </div>
+
+            {/* Date Filter Section - Only show when out-of-stock filter is active */}
+            {quickFilter === 'out-of-stock' && (
+              <div className="flex flex-wrap items-center gap-4 p-4 bg-muted/30 rounded-lg border">
+                <Label className="text-base font-semibold flex items-center gap-2">
+                  <CalendarIcon className="w-5 h-5" />
+                  Date Filter:
+                </Label>
+                <div className="flex flex-wrap items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <Label className="text-sm font-medium whitespace-nowrap">From:</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-[160px] justify-start text-left font-normal",
+                            !dateFilterFrom && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {dateFilterFrom ? format(dateFilterFrom, "PPP") : <span>Pick a date</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={dateFilterFrom}
+                          onSelect={setDateFilterFrom}
+                          initialFocus
+                          className="p-3 pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <Label className="text-sm font-medium whitespace-nowrap">To:</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-[160px] justify-start text-left font-normal",
+                            !dateFilterTo && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {dateFilterTo ? format(dateFilterTo, "PPP") : <span>Pick a date</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={dateFilterTo}
+                          onSelect={setDateFilterTo}
+                          initialFocus
+                          className="p-3 pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => {
+                      setDateFilterFrom(undefined);
+                      setDateFilterTo(undefined);
+                    }}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="w-4 h-4 mr-2" />
+                    Clear Dates
+                  </Button>
+                </div>
+              </div>
+            )}
 
             {/* Controls Row */}
             <div className="flex flex-wrap items-center gap-6">
