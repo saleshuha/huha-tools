@@ -288,7 +288,7 @@ export function InventoryMetrics({ showOnlyAsin = false }: InventoryMetricsProps
   return (
     <>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-        {/* Active Items */}
+        {/* Active ASIN Items */}
         <Card 
           className="glass-container cursor-pointer hover:shadow-lg transition-all duration-300 hover:border-primary/30"
           onClick={() => handleMetricClick('active')}
@@ -296,16 +296,20 @@ export function InventoryMetrics({ showOnlyAsin = false }: InventoryMetricsProps
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Active Items</p>
+                <p className="text-sm font-medium text-muted-foreground">
+                  {showOnlyAsin ? 'Active ASIN Items' : 'Active Items'}
+                </p>
                 <p className="text-2xl font-bold text-primary">{stats.activeItems}</p>
-                <p className="text-xs text-muted-foreground">Total inventory items</p>
+                <p className="text-xs text-muted-foreground">
+                  {showOnlyAsin ? 'Total ASIN items' : 'Total inventory items'}
+                </p>
               </div>
               <Activity className="w-6 h-6 text-primary" />
             </div>
           </CardContent>
         </Card>
 
-        {/* In Stock Items */}
+        {/* ASIN In Stock */}
         <Card 
           className="glass-container cursor-pointer hover:shadow-lg transition-all duration-300 hover:border-green-500/30"
           onClick={() => handleMetricClick('instock')}
@@ -313,7 +317,9 @@ export function InventoryMetrics({ showOnlyAsin = false }: InventoryMetricsProps
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">In Stock</p>
+                <p className="text-sm font-medium text-muted-foreground">
+                  {showOnlyAsin ? 'ASIN In Stock' : 'In Stock'}
+                </p>
                 <p className="text-2xl font-bold text-green-600">{stats.inStockItems}</p>
                 <p className="text-xs text-muted-foreground">Available for sale</p>
               </div>
@@ -322,7 +328,7 @@ export function InventoryMetrics({ showOnlyAsin = false }: InventoryMetricsProps
           </CardContent>
         </Card>
 
-        {/* Out of Stock Items */}
+        {/* ASIN Out of Stock */}
         <Card 
           className="glass-container cursor-pointer hover:shadow-lg transition-all duration-300 hover:border-red-500/30"
           onClick={() => handleMetricClick('outofstock')}
@@ -330,7 +336,9 @@ export function InventoryMetrics({ showOnlyAsin = false }: InventoryMetricsProps
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Out of Stock</p>
+                <p className="text-sm font-medium text-muted-foreground">
+                  {showOnlyAsin ? 'ASIN Out of Stock' : 'Out of Stock'}
+                </p>
                 <p className="text-2xl font-bold text-red-600">{stats.outOfStockItems}</p>
                 <p className="text-xs text-muted-foreground">Need restock</p>
               </div>
@@ -342,28 +350,36 @@ export function InventoryMetrics({ showOnlyAsin = false }: InventoryMetricsProps
 
       {/* ASIN and SKU Units Section */}
       <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 ${showOnlyAsin ? 'lg:grid-cols-2' : 'lg:grid-cols-4'}`}>
-        {/* ASIN Total Units */}
+        {/* Total Units */}
         <Card className="glass-container">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">ASIN Total Units</p>
+                <p className="text-sm font-medium text-muted-foreground">
+                  {showOnlyAsin ? 'Total Units' : 'ASIN Total Units'}
+                </p>
                 <p className="text-2xl font-bold text-blue-600">{stats.asinTotalUnits}</p>
-                <p className="text-xs text-muted-foreground">ASIN inventory</p>
+                <p className="text-xs text-muted-foreground">
+                  {showOnlyAsin ? 'Total inventory units' : 'ASIN inventory'}
+                </p>
               </div>
               <BarChart3 className="w-6 h-6 text-blue-600" />
             </div>
           </CardContent>
         </Card>
 
-        {/* ASIN Sold Units */}
+        {/* Sold Units */}
         <Card className="glass-container">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">ASIN Sold Units</p>
+                <p className="text-sm font-medium text-muted-foreground">
+                  {showOnlyAsin ? 'Sold Units' : 'ASIN Sold Units'}
+                </p>
                 <p className="text-2xl font-bold text-orange-600">{stats.asinSoldUnits}</p>
-                <p className="text-xs text-muted-foreground">ASIN sold</p>
+                <p className="text-xs text-muted-foreground">
+                  {showOnlyAsin ? 'Units sold' : 'ASIN sold'}
+                </p>
               </div>
               <TrendingDown className="w-6 h-6 text-orange-600" />
             </div>
