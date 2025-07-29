@@ -75,7 +75,19 @@ export function AsinInventory() {
     // Apply search filter
     if (searchTerm) {
       const searchTerms = searchTerm.toLowerCase().split(' ').filter(term => term.length > 0);
-      filtered = filtered.filter(item => searchTerms.every(term => item.asin.toLowerCase().includes(term) || item.serialNumber.toLowerCase().includes(term) || item.notes && item.notes.toLowerCase().includes(term)));
+      console.log('Search Terms:', searchTerms);
+      console.log('Total Inventory Items:', inventory.length);
+      
+      filtered = filtered.filter(item => {
+        const matches = searchTerms.every(term => 
+          item.asin.toLowerCase().includes(term) || 
+          item.serialNumber.toLowerCase().includes(term) || 
+          (item.notes && item.notes.toLowerCase().includes(term))
+        );
+        return matches;
+      });
+      
+      console.log('Filtered Results:', filtered.length);
     }
 
     // Apply status filter
