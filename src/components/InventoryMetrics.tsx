@@ -287,7 +287,11 @@ export function InventoryMetrics({ showOnlyAsin = false }: InventoryMetricsProps
 
   return (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+      <div className={`grid gap-4 mb-6 ${
+        showOnlyAsin 
+          ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5' 
+          : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'
+      }`}>
         {/* Active ASIN Items */}
         <Card 
           className="glass-container cursor-pointer hover:shadow-lg transition-all duration-300 hover:border-primary/30"
@@ -346,48 +350,72 @@ export function InventoryMetrics({ showOnlyAsin = false }: InventoryMetricsProps
             </div>
           </CardContent>
         </Card>
+
+        {/* Total Units - Show in ASIN-only mode */}
+        {showOnlyAsin && (
+          <Card className="glass-container">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Total Units</p>
+                  <p className="text-2xl font-bold text-blue-600">{stats.asinTotalUnits}</p>
+                  <p className="text-xs text-muted-foreground">Total inventory units</p>
+                </div>
+                <BarChart3 className="w-6 h-6 text-blue-600" />
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Sold Units - Show in ASIN-only mode */}
+        {showOnlyAsin && (
+          <Card className="glass-container">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Sold Units</p>
+                  <p className="text-2xl font-bold text-orange-600">{stats.asinSoldUnits}</p>
+                  <p className="text-xs text-muted-foreground">Units sold</p>
+                </div>
+                <TrendingDown className="w-6 h-6 text-orange-600" />
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
-      {/* ASIN and SKU Units Section */}
-      <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 ${showOnlyAsin ? 'lg:grid-cols-2' : 'lg:grid-cols-4'}`}>
-        {/* Total Units */}
-        <Card className="glass-container">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  {showOnlyAsin ? 'Total Units' : 'ASIN Total Units'}
-                </p>
-                <p className="text-2xl font-bold text-blue-600">{stats.asinTotalUnits}</p>
-                <p className="text-xs text-muted-foreground">
-                  {showOnlyAsin ? 'Total inventory units' : 'ASIN inventory'}
-                </p>
+      {/* ASIN and SKU Units Section - Only show when not ASIN-only mode */}
+      {!showOnlyAsin && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* ASIN Total Units */}
+          <Card className="glass-container">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">ASIN Total Units</p>
+                  <p className="text-2xl font-bold text-blue-600">{stats.asinTotalUnits}</p>
+                  <p className="text-xs text-muted-foreground">ASIN inventory</p>
+                </div>
+                <BarChart3 className="w-6 h-6 text-blue-600" />
               </div>
-              <BarChart3 className="w-6 h-6 text-blue-600" />
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        {/* Sold Units */}
-        <Card className="glass-container">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  {showOnlyAsin ? 'Sold Units' : 'ASIN Sold Units'}
-                </p>
-                <p className="text-2xl font-bold text-orange-600">{stats.asinSoldUnits}</p>
-                <p className="text-xs text-muted-foreground">
-                  {showOnlyAsin ? 'Units sold' : 'ASIN sold'}
-                </p>
+          {/* ASIN Sold Units */}
+          <Card className="glass-container">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">ASIN Sold Units</p>
+                  <p className="text-2xl font-bold text-orange-600">{stats.asinSoldUnits}</p>
+                  <p className="text-xs text-muted-foreground">ASIN sold</p>
+                </div>
+                <TrendingDown className="w-6 h-6 text-orange-600" />
               </div>
-              <TrendingDown className="w-6 h-6 text-orange-600" />
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        {/* SKU Total Units - Only show when not ASIN-only mode */}
-        {!showOnlyAsin && (
+          {/* SKU Total Units */}
           <Card className="glass-container">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
@@ -400,10 +428,8 @@ export function InventoryMetrics({ showOnlyAsin = false }: InventoryMetricsProps
               </div>
             </CardContent>
           </Card>
-        )}
 
-        {/* SKU Sold Units - Only show when not ASIN-only mode */}
-        {!showOnlyAsin && (
+          {/* SKU Sold Units */}
           <Card className="glass-container">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
@@ -416,8 +442,8 @@ export function InventoryMetrics({ showOnlyAsin = false }: InventoryMetricsProps
               </div>
             </CardContent>
           </Card>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Details Modal */}
       <Dialog open={!!selectedMetric} onOpenChange={() => setSelectedMetric(null)}>
