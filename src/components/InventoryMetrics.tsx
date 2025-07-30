@@ -11,22 +11,9 @@ import { Calendar } from './ui/calendar';
 import { useCountry } from '@/contexts/CountryContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { 
-  Package, 
-  CheckCircle, 
-  XCircle, 
-  Search,
-  Download,
-  FileText,
-  RefreshCw,
-  Activity,
-  BarChart3,
-  TrendingDown,
-  CalendarIcon
-} from 'lucide-react';
+import { Package, CheckCircle, XCircle, Search, Download, FileText, RefreshCw, Activity, BarChart3, TrendingDown, CalendarIcon } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
-
 interface InventoryItem {
   id: string;
   identifier: string;
@@ -39,7 +26,6 @@ interface InventoryItem {
   serial_number?: string;
   bin_serial_number?: string;
 }
-
 interface InventoryStats {
   activeItems: number;
   inStockItems: number;
@@ -49,15 +35,18 @@ interface InventoryStats {
   skuTotalUnits: number;
   skuSoldUnits: number;
 }
-
 interface InventoryMetricsProps {
   showOnlyAsin?: boolean;
 }
-
-export function InventoryMetrics({ showOnlyAsin = false }: InventoryMetricsProps) {
-  const { selectedCountry } = useCountry();
-  const { toast } = useToast();
-  
+export function InventoryMetrics({
+  showOnlyAsin = false
+}: InventoryMetricsProps) {
+  const {
+    selectedCountry
+  } = useCountry();
+  const {
+    toast
+  } = useToast();
   const [stats, setStats] = useState<InventoryStats>({
     activeItems: 0,
     inStockItems: 0,
@@ -67,7 +56,6 @@ export function InventoryMetrics({ showOnlyAsin = false }: InventoryMetricsProps
     skuTotalUnits: 0,
     skuSoldUnits: 0
   });
-  
   const [loading, setLoading] = useState(true);
   const [selectedMetric, setSelectedMetric] = useState<'active' | 'instock' | 'outofstock' | 'sold' | null>(null);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
@@ -76,31 +64,26 @@ export function InventoryMetrics({ showOnlyAsin = false }: InventoryMetricsProps
   const [soldDateFrom, setSoldDateFrom] = useState<Date>();
   const [soldDateTo, setSoldDateTo] = useState<Date>();
   const [showSoldModal, setShowSoldModal] = useState(false);
-
   const loadMetrics = async () => {
     try {
       setLoading(true);
-      
       if (showOnlyAsin) {
         // Load only ASIN data
-        const { data: asinData } = await supabase
-          .from('asin_inventory')
-          .select('*')
-          .eq('country', selectedCountry);
-
+        const {
+          data: asinData
+        } = await supabase.from('asin_inventory').select('*').eq('country', selectedCountry);
         const asinItems = asinData || [];
         const activeItems = asinItems.length;
         const inStockItems = asinItems.filter(item => item.quantity > 0).length;
         const outOfStockItems = asinItems.filter(item => item.quantity === 0).length;
         const asinTotalUnits = asinItems.reduce((sum, item) => sum + item.quantity, 0);
-        
+
         // Filter sold units based on date filters
         let soldItems = asinItems.filter(item => item.status === 'sold');
         if (soldDateFrom || soldDateTo) {
           soldItems = soldItems.filter(item => {
             if (!item.date_sold) return false;
             const soldDate = new Date(item.date_sold);
-            
             if (soldDateFrom && soldDate < soldDateFrom) return false;
             if (soldDateTo) {
               const endDate = new Date(soldDateTo);
@@ -110,9 +93,7 @@ export function InventoryMetrics({ showOnlyAsin = false }: InventoryMetricsProps
             return true;
           });
         }
-        
         const asinSoldUnits = soldItems.reduce((sum, item) => sum + item.quantity, 0);
-
         setStats({
           activeItems,
           inStockItems,
@@ -124,44 +105,29 @@ export function InventoryMetrics({ showOnlyAsin = false }: InventoryMetricsProps
         });
       } else {
         // Load both ASIN and SKU data
-        const [asinData, skuData] = await Promise.all([
-          supabase
-            .from('asin_inventory')
-            .select('*')
-            .eq('country', selectedCountry),
-          supabase
-            .from('sku_inventory')
-            .select('*')
-            .eq('country', selectedCountry)
-        ]);
+        const [asinData, skuData] = await Promise.all([supabase.from('asin_inventory').select('*').eq('country', selectedCountry), supabase.from('sku_inventory').select('*').eq('country', selectedCountry)]);
 
         // Calculate metrics
-        const allItems = [
-          ...(asinData.data || []).map(item => ({
-            ...item,
-            type: 'asin' as const,
-            identifier: `${item.asin} (${item.serial_number})`
-          })),
-          ...(skuData.data || []).map(item => ({
-            ...item,
-            type: 'sku' as const,
-            identifier: `${item.sku_number} (${item.bin_serial_number})`
-          }))
-        ];
-
+        const allItems = [...(asinData.data || []).map(item => ({
+          ...item,
+          type: 'asin' as const,
+          identifier: `${item.asin} (${item.serial_number})`
+        })), ...(skuData.data || []).map(item => ({
+          ...item,
+          type: 'sku' as const,
+          identifier: `${item.sku_number} (${item.bin_serial_number})`
+        }))];
         const activeItems = allItems.length;
         const inStockItems = allItems.filter(item => item.quantity > 0).length;
         const outOfStockItems = allItems.filter(item => item.quantity === 0).length;
-        
+
         // Calculate separate totals for ASIN and SKU
         const asinItems = asinData.data || [];
         const skuItems = skuData.data || [];
-        
         const asinTotalUnits = asinItems.reduce((sum, item) => sum + item.quantity, 0);
         const asinSoldUnits = asinItems.filter(item => item.status === 'sold').reduce((sum, item) => sum + item.quantity, 0);
         const skuTotalUnits = skuItems.reduce((sum, item) => sum + item.quantity, 0);
         const skuSoldUnits = skuItems.filter(item => item.status === 'sold').reduce((sum, item) => sum + item.quantity, 0);
-
         setStats({
           activeItems,
           inStockItems,
@@ -176,22 +142,19 @@ export function InventoryMetrics({ showOnlyAsin = false }: InventoryMetricsProps
       toast({
         title: "Error loading metrics",
         description: error.message,
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setLoading(false);
     }
   };
-
   const loadDetailedItems = async (metric: 'active' | 'instock' | 'outofstock') => {
     try {
       if (showOnlyAsin) {
         // Load only ASIN data
-        const { data: asinData } = await supabase
-          .from('asin_inventory')
-          .select('*')
-          .eq('country', selectedCountry);
-
+        const {
+          data: asinData
+        } = await supabase.from('asin_inventory').select('*').eq('country', selectedCountry);
         let allItems = (asinData || []).map(item => ({
           ...item,
           type: 'asin' as const,
@@ -204,33 +167,19 @@ export function InventoryMetrics({ showOnlyAsin = false }: InventoryMetricsProps
         } else if (metric === 'outofstock') {
           allItems = allItems.filter(item => item.quantity === 0);
         }
-
         setInventoryItems(allItems);
       } else {
         // Load both ASIN and SKU data
-        const [asinData, skuData] = await Promise.all([
-          supabase
-            .from('asin_inventory')
-            .select('*')
-            .eq('country', selectedCountry),
-          supabase
-            .from('sku_inventory')
-            .select('*')
-            .eq('country', selectedCountry)
-        ]);
-
-        let allItems = [
-          ...(asinData.data || []).map(item => ({
-            ...item,
-            type: 'asin' as const,
-            identifier: `${item.asin} (${item.serial_number})`
-          })),
-          ...(skuData.data || []).map(item => ({
-            ...item,
-            type: 'sku' as const,
-            identifier: `${item.sku_number} (${item.bin_serial_number})`
-          }))
-        ];
+        const [asinData, skuData] = await Promise.all([supabase.from('asin_inventory').select('*').eq('country', selectedCountry), supabase.from('sku_inventory').select('*').eq('country', selectedCountry)]);
+        let allItems = [...(asinData.data || []).map(item => ({
+          ...item,
+          type: 'asin' as const,
+          identifier: `${item.asin} (${item.serial_number})`
+        })), ...(skuData.data || []).map(item => ({
+          ...item,
+          type: 'sku' as const,
+          identifier: `${item.sku_number} (${item.bin_serial_number})`
+        }))];
 
         // Filter based on metric
         if (metric === 'instock') {
@@ -238,27 +187,21 @@ export function InventoryMetrics({ showOnlyAsin = false }: InventoryMetricsProps
         } else if (metric === 'outofstock') {
           allItems = allItems.filter(item => item.quantity === 0);
         }
-
         setInventoryItems(allItems);
       }
     } catch (error: any) {
       toast({
         title: "Error loading items",
         description: error.message,
-        variant: "destructive",
+        variant: "destructive"
       });
     }
   };
-
   const loadSoldItems = async () => {
     try {
       if (showOnlyAsin) {
         // Load only ASIN data
-        let query = supabase
-          .from('asin_inventory')
-          .select('*')
-          .eq('country', selectedCountry)
-          .eq('status', 'sold');
+        let query = supabase.from('asin_inventory').select('*').eq('country', selectedCountry).eq('status', 'sold');
 
         // Apply date filters if set
         if (soldDateFrom) {
@@ -269,29 +212,19 @@ export function InventoryMetrics({ showOnlyAsin = false }: InventoryMetricsProps
           endDate.setHours(23, 59, 59, 999);
           query = query.lte('date_sold', endDate.toISOString());
         }
-
-        const { data: asinData } = await query;
-
+        const {
+          data: asinData
+        } = await query;
         const allItems = (asinData || []).map(item => ({
           ...item,
           type: 'asin' as const,
           identifier: `${item.asin} (${item.serial_number})`
         }));
-
         setInventoryItems(allItems);
       } else {
         // Load both ASIN and SKU data
-        let asinQuery = supabase
-          .from('asin_inventory')
-          .select('*')
-          .eq('country', selectedCountry)
-          .eq('status', 'sold');
-
-        let skuQuery = supabase
-          .from('sku_inventory')
-          .select('*')
-          .eq('country', selectedCountry)
-          .eq('status', 'sold');
+        let asinQuery = supabase.from('asin_inventory').select('*').eq('country', selectedCountry).eq('status', 'sold');
+        let skuQuery = supabase.from('sku_inventory').select('*').eq('country', selectedCountry).eq('status', 'sold');
 
         // Apply date filters if set
         if (soldDateFrom) {
@@ -304,42 +237,33 @@ export function InventoryMetrics({ showOnlyAsin = false }: InventoryMetricsProps
           asinQuery = asinQuery.lte('date_sold', endDate.toISOString());
           skuQuery = skuQuery.lte('date_sold', endDate.toISOString());
         }
-
         const [asinData, skuData] = await Promise.all([asinQuery, skuQuery]);
-
-        const allItems = [
-          ...(asinData.data || []).map(item => ({
-            ...item,
-            type: 'asin' as const,
-            identifier: `${item.asin} (${item.serial_number})`
-          })),
-          ...(skuData.data || []).map(item => ({
-            ...item,
-            type: 'sku' as const,
-            identifier: `${item.sku_number} (${item.bin_serial_number})`
-          }))
-        ];
-
+        const allItems = [...(asinData.data || []).map(item => ({
+          ...item,
+          type: 'asin' as const,
+          identifier: `${item.asin} (${item.serial_number})`
+        })), ...(skuData.data || []).map(item => ({
+          ...item,
+          type: 'sku' as const,
+          identifier: `${item.sku_number} (${item.bin_serial_number})`
+        }))];
         setInventoryItems(allItems);
       }
     } catch (error: any) {
       toast({
         title: "Error loading sold items",
         description: error.message,
-        variant: "destructive",
+        variant: "destructive"
       });
     }
   };
-
   const handleMetricClick = async (metric: 'active' | 'instock' | 'outofstock') => {
     setSelectedMetric(metric);
     await loadDetailedItems(metric);
   };
-
   const exportToExcel = async () => {
     try {
       setExportLoading(true);
-      
       const exportData = filteredItems.map(item => ({
         'Type': item.type.toUpperCase(),
         'Identifier': item.identifier,
@@ -347,128 +271,45 @@ export function InventoryMetrics({ showOnlyAsin = false }: InventoryMetricsProps
         'Status': item.status,
         'Country': item.country,
         'Date Added': new Date(item.date_added).toLocaleDateString(),
-        'Date Sold': item.date_sold ? new Date(item.date_sold).toLocaleDateString() : '',
+        'Date Sold': item.date_sold ? new Date(item.date_sold).toLocaleDateString() : ''
       }));
-
       const worksheet = XLSX.utils.json_to_sheet(exportData);
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, `${selectedMetric}_inventory`);
-      
       const filename = `${selectedMetric}_inventory_${selectedCountry}_${new Date().toISOString().split('T')[0]}.xlsx`;
       XLSX.writeFile(workbook, filename);
-      
       toast({
         title: "Export successful",
-        description: `Exported ${filteredItems.length} items to ${filename}`,
+        description: `Exported ${filteredItems.length} items to ${filename}`
       });
     } catch (error: any) {
       toast({
         title: "Export failed",
         description: error.message,
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setExportLoading(false);
     }
   };
-
   useEffect(() => {
     if (selectedCountry) {
       loadMetrics();
     }
   }, [selectedCountry, soldDateFrom, soldDateTo]);
-
-  const filteredItems = inventoryItems.filter(item =>
-    item.identifier.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.status.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
+  const filteredItems = inventoryItems.filter(item => item.identifier.toLowerCase().includes(searchTerm.toLowerCase()) || item.status.toLowerCase().includes(searchTerm.toLowerCase()));
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-8">
+    return <div className="flex items-center justify-center py-8">
         <RefreshCw className="w-6 h-6 animate-spin text-primary" />
-      </div>
-    );
+      </div>;
   }
-
-  return (
-    <>
+  return <>
       {/* Date Filter for Sold Units - Show only in ASIN mode */}
-      {showOnlyAsin && (
-        <div className="mb-4 p-4 glass-container rounded-lg">
-          <div className="flex items-center gap-4">
-            <h3 className="text-sm font-medium text-muted-foreground">Filter Sold Units by Date:</h3>
-            
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="w-auto justify-start text-left font-normal"
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {soldDateFrom ? format(soldDateFrom, "PPP") : "From Date"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={soldDateFrom}
-                  onSelect={setSoldDateFrom}
-                  initialFocus
-                  className="p-3 pointer-events-auto"
-                />
-              </PopoverContent>
-            </Popover>
+      {showOnlyAsin}
 
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="w-auto justify-start text-left font-normal"
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {soldDateTo ? format(soldDateTo, "PPP") : "To Date"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={soldDateTo}
-                  onSelect={setSoldDateTo}
-                  initialFocus
-                  className="p-3 pointer-events-auto"
-                />
-              </PopoverContent>
-            </Popover>
-
-            <Button onClick={loadMetrics} variant="default">
-              Apply Filters
-            </Button>
-
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                setSoldDateFrom(undefined);
-                setSoldDateTo(undefined);
-                loadMetrics();
-              }}
-            >
-              Clear Dates
-            </Button>
-          </div>
-        </div>
-      )}
-
-      <div className={`grid gap-4 mb-6 ${
-        showOnlyAsin 
-          ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5' 
-          : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'
-      }`}>
+      <div className={`grid gap-4 mb-6 ${showOnlyAsin ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'}`}>
         {/* Active ASIN Items */}
-        <Card 
-          className="glass-container cursor-pointer hover:shadow-lg transition-all duration-300 hover:border-primary/30"
-          onClick={() => handleMetricClick('active')}
-        >
+        <Card className="glass-container cursor-pointer hover:shadow-lg transition-all duration-300 hover:border-primary/30" onClick={() => handleMetricClick('active')}>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -486,10 +327,7 @@ export function InventoryMetrics({ showOnlyAsin = false }: InventoryMetricsProps
         </Card>
 
         {/* ASIN In Stock */}
-        <Card 
-          className="glass-container cursor-pointer hover:shadow-lg transition-all duration-300 hover:border-green-500/30"
-          onClick={() => handleMetricClick('instock')}
-        >
+        <Card className="glass-container cursor-pointer hover:shadow-lg transition-all duration-300 hover:border-green-500/30" onClick={() => handleMetricClick('instock')}>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -505,10 +343,7 @@ export function InventoryMetrics({ showOnlyAsin = false }: InventoryMetricsProps
         </Card>
 
         {/* ASIN Out of Stock */}
-        <Card 
-          className="glass-container cursor-pointer hover:shadow-lg transition-all duration-300 hover:border-red-500/30"
-          onClick={() => handleMetricClick('outofstock')}
-        >
+        <Card className="glass-container cursor-pointer hover:shadow-lg transition-all duration-300 hover:border-red-500/30" onClick={() => handleMetricClick('outofstock')}>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -524,8 +359,7 @@ export function InventoryMetrics({ showOnlyAsin = false }: InventoryMetricsProps
         </Card>
 
         {/* Total Units - Show in ASIN-only mode */}
-        {showOnlyAsin && (
-          <Card className="glass-container">
+        {showOnlyAsin && <Card className="glass-container">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -536,32 +370,14 @@ export function InventoryMetrics({ showOnlyAsin = false }: InventoryMetricsProps
                 <BarChart3 className="w-6 h-6 text-blue-600" />
               </div>
             </CardContent>
-          </Card>
-        )}
+          </Card>}
 
         {/* Sold Units - Show in ASIN-only mode */}
-        {showOnlyAsin && (
-          <Card 
-            className="glass-container cursor-pointer hover:shadow-lg transition-all duration-300 hover:border-orange-500/30"
-            onClick={() => setShowSoldModal(true)}
-          >
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Sold Units</p>
-                  <p className="text-2xl font-bold text-orange-600">{stats.asinSoldUnits}</p>
-                  <p className="text-xs text-muted-foreground">Units sold</p>
-                </div>
-                <TrendingDown className="w-6 h-6 text-orange-600" />
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        {showOnlyAsin}
       </div>
 
       {/* ASIN and SKU Units Section - Only show when not ASIN-only mode */}
-      {!showOnlyAsin && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {!showOnlyAsin && <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* ASIN Total Units */}
           <Card className="glass-container">
             <CardContent className="p-4">
@@ -617,8 +433,7 @@ export function InventoryMetrics({ showOnlyAsin = false }: InventoryMetricsProps
               </div>
             </CardContent>
           </Card>
-        </div>
-      )}
+        </div>}
 
       {/* Details Modal */}
       <Dialog open={!!selectedMetric} onOpenChange={() => setSelectedMetric(null)}>
@@ -638,23 +453,10 @@ export function InventoryMetrics({ showOnlyAsin = false }: InventoryMetricsProps
           <div className="flex items-center gap-4 py-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Search items..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 border-2 focus:border-primary/50"
-              />
+              <Input placeholder="Search items..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10 border-2 focus:border-primary/50" />
             </div>
-            <Button 
-              onClick={exportToExcel}
-              disabled={exportLoading || filteredItems.length === 0}
-              className="gap-2"
-            >
-              {exportLoading ? (
-                <RefreshCw className="w-4 h-4 animate-spin" />
-              ) : (
-                <Download className="w-4 h-4" />
-              )}
+            <Button onClick={exportToExcel} disabled={exportLoading || filteredItems.length === 0} className="gap-2">
+              {exportLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
               Export
             </Button>
           </div>
@@ -672,8 +474,7 @@ export function InventoryMetrics({ showOnlyAsin = false }: InventoryMetricsProps
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredItems.map((item) => (
-                  <TableRow key={item.id}>
+                {filteredItems.map(item => <TableRow key={item.id}>
                     <TableCell>
                       <Badge variant={item.type === 'asin' ? 'default' : 'secondary'}>
                         {item.type.toUpperCase()}
@@ -681,18 +482,12 @@ export function InventoryMetrics({ showOnlyAsin = false }: InventoryMetricsProps
                     </TableCell>
                     <TableCell className="font-medium">{item.identifier}</TableCell>
                     <TableCell>
-                      <span className={`font-medium ${
-                        item.quantity === 0 ? 'text-red-600' : 'text-green-600'
-                      }`}>
+                      <span className={`font-medium ${item.quantity === 0 ? 'text-red-600' : 'text-green-600'}`}>
                         {item.quantity}
                       </span>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={
-                        item.status === 'in-stock' ? 'default' :
-                        item.status === 'sold' ? 'secondary' :
-                        item.status === 'ordered' ? 'outline' : 'destructive'
-                      }>
+                      <Badge variant={item.status === 'in-stock' ? 'default' : item.status === 'sold' ? 'secondary' : item.status === 'ordered' ? 'outline' : 'destructive'}>
                         {item.status}
                       </Badge>
                     </TableCell>
@@ -700,8 +495,7 @@ export function InventoryMetrics({ showOnlyAsin = false }: InventoryMetricsProps
                     <TableCell>
                       {item.date_sold ? new Date(item.date_sold).toLocaleDateString() : '-'}
                     </TableCell>
-                  </TableRow>
-                ))}
+                  </TableRow>)}
               </TableBody>
             </Table>
           </ScrollArea>
@@ -725,43 +519,25 @@ export function InventoryMetrics({ showOnlyAsin = false }: InventoryMetricsProps
             <div className="flex items-center gap-2">
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-auto justify-start text-left font-normal"
-                  >
+                  <Button variant="outline" className="w-auto justify-start text-left font-normal">
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {soldDateFrom ? format(soldDateFrom, "PPP") : "From Date"}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={soldDateFrom}
-                    onSelect={setSoldDateFrom}
-                    initialFocus
-                    className="p-3 pointer-events-auto"
-                  />
+                  <Calendar mode="single" selected={soldDateFrom} onSelect={setSoldDateFrom} initialFocus className="p-3 pointer-events-auto" />
                 </PopoverContent>
               </Popover>
 
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-auto justify-start text-left font-normal"
-                  >
+                  <Button variant="outline" className="w-auto justify-start text-left font-normal">
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {soldDateTo ? format(soldDateTo, "PPP") : "To Date"}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={soldDateTo}
-                    onSelect={setSoldDateTo}
-                    initialFocus
-                    className="p-3 pointer-events-auto"
-                  />
+                  <Calendar mode="single" selected={soldDateTo} onSelect={setSoldDateTo} initialFocus className="p-3 pointer-events-auto" />
                 </PopoverContent>
               </Popover>
 
@@ -769,38 +545,22 @@ export function InventoryMetrics({ showOnlyAsin = false }: InventoryMetricsProps
                 Apply Filters
               </Button>
 
-              <Button 
-                variant="outline" 
-                onClick={() => {
-                  setSoldDateFrom(undefined);
-                  setSoldDateTo(undefined);
-                  loadSoldItems();
-                }}
-              >
+              <Button variant="outline" onClick={() => {
+              setSoldDateFrom(undefined);
+              setSoldDateTo(undefined);
+              loadSoldItems();
+            }}>
                 Clear Dates
               </Button>
             </div>
 
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Search sold items..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 border-2 focus:border-primary/50"
-              />
+              <Input placeholder="Search sold items..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10 border-2 focus:border-primary/50" />
             </div>
 
-            <Button 
-              onClick={exportToExcel}
-              disabled={exportLoading || filteredItems.length === 0}
-              className="gap-2"
-            >
-              {exportLoading ? (
-                <RefreshCw className="w-4 h-4 animate-spin" />
-              ) : (
-                <Download className="w-4 h-4" />
-              )}
+            <Button onClick={exportToExcel} disabled={exportLoading || filteredItems.length === 0} className="gap-2">
+              {exportLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
               Export
             </Button>
           </div>
@@ -818,8 +578,7 @@ export function InventoryMetrics({ showOnlyAsin = false }: InventoryMetricsProps
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredItems.map((item) => (
-                  <TableRow key={item.id}>
+                {filteredItems.map(item => <TableRow key={item.id}>
                     <TableCell>
                       <Badge variant={item.type === 'asin' ? 'default' : 'secondary'}>
                         {item.type.toUpperCase()}
@@ -840,13 +599,11 @@ export function InventoryMetrics({ showOnlyAsin = false }: InventoryMetricsProps
                     <TableCell>
                       {item.date_sold ? new Date(item.date_sold).toLocaleDateString() : '-'}
                     </TableCell>
-                  </TableRow>
-                ))}
+                  </TableRow>)}
               </TableBody>
             </Table>
           </ScrollArea>
         </DialogContent>
       </Dialog>
-    </>
-  );
+    </>;
 }
