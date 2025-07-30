@@ -6,6 +6,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { Input } from './ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { ScrollArea } from './ui/scroll-area';
+import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
+import { Calendar } from './ui/calendar';
 import { useCountry } from '@/contexts/CountryContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -19,9 +21,11 @@ import {
   RefreshCw,
   Activity,
   BarChart3,
-  TrendingDown
+  TrendingDown,
+  CalendarIcon
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { format } from 'date-fns';
 
 interface InventoryItem {
   id: string;
@@ -65,10 +69,13 @@ export function InventoryMetrics({ showOnlyAsin = false }: InventoryMetricsProps
   });
   
   const [loading, setLoading] = useState(true);
-  const [selectedMetric, setSelectedMetric] = useState<'active' | 'instock' | 'outofstock' | null>(null);
+  const [selectedMetric, setSelectedMetric] = useState<'active' | 'instock' | 'outofstock' | 'sold' | null>(null);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [exportLoading, setExportLoading] = useState(false);
+  const [soldDateFrom, setSoldDateFrom] = useState<Date>();
+  const [soldDateTo, setSoldDateTo] = useState<Date>();
+  const [showSoldModal, setShowSoldModal] = useState(false);
 
   const loadMetrics = async () => {
     try {
@@ -225,6 +232,87 @@ export function InventoryMetrics({ showOnlyAsin = false }: InventoryMetricsProps
     }
   };
 
+  const loadSoldItems = async () => {
+    try {
+      if (showOnlyAsin) {
+        // Load only ASIN data
+        let query = supabase
+          .from('asin_inventory')
+          .select('*')
+          .eq('country', selectedCountry)
+          .eq('status', 'sold');
+
+        // Apply date filters if set
+        if (soldDateFrom) {
+          query = query.gte('date_sold', soldDateFrom.toISOString());
+        }
+        if (soldDateTo) {
+          const endDate = new Date(soldDateTo);
+          endDate.setHours(23, 59, 59, 999);
+          query = query.lte('date_sold', endDate.toISOString());
+        }
+
+        const { data: asinData } = await query;
+
+        const allItems = (asinData || []).map(item => ({
+          ...item,
+          type: 'asin' as const,
+          identifier: `${item.asin} (${item.serial_number})`
+        }));
+
+        setInventoryItems(allItems);
+      } else {
+        // Load both ASIN and SKU data
+        let asinQuery = supabase
+          .from('asin_inventory')
+          .select('*')
+          .eq('country', selectedCountry)
+          .eq('status', 'sold');
+
+        let skuQuery = supabase
+          .from('sku_inventory')
+          .select('*')
+          .eq('country', selectedCountry)
+          .eq('status', 'sold');
+
+        // Apply date filters if set
+        if (soldDateFrom) {
+          asinQuery = asinQuery.gte('date_sold', soldDateFrom.toISOString());
+          skuQuery = skuQuery.gte('date_sold', soldDateFrom.toISOString());
+        }
+        if (soldDateTo) {
+          const endDate = new Date(soldDateTo);
+          endDate.setHours(23, 59, 59, 999);
+          asinQuery = asinQuery.lte('date_sold', endDate.toISOString());
+          skuQuery = skuQuery.lte('date_sold', endDate.toISOString());
+        }
+
+        const [asinData, skuData] = await Promise.all([asinQuery, skuQuery]);
+
+        const allItems = [
+          ...(asinData.data || []).map(item => ({
+            ...item,
+            type: 'asin' as const,
+            identifier: `${item.asin} (${item.serial_number})`
+          })),
+          ...(skuData.data || []).map(item => ({
+            ...item,
+            type: 'sku' as const,
+            identifier: `${item.sku_number} (${item.bin_serial_number})`
+          }))
+        ];
+
+        setInventoryItems(allItems);
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error loading sold items",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleMetricClick = async (metric: 'active' | 'instock' | 'outofstock') => {
     setSelectedMetric(metric);
     await loadDetailedItems(metric);
@@ -369,7 +457,10 @@ export function InventoryMetrics({ showOnlyAsin = false }: InventoryMetricsProps
 
         {/* Sold Units - Show in ASIN-only mode */}
         {showOnlyAsin && (
-          <Card className="glass-container">
+          <Card 
+            className="glass-container cursor-pointer hover:shadow-lg transition-all duration-300 hover:border-orange-500/30"
+            onClick={() => setShowSoldModal(true)}
+          >
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -518,6 +609,146 @@ export function InventoryMetrics({ showOnlyAsin = false }: InventoryMetricsProps
                         item.status === 'sold' ? 'secondary' :
                         item.status === 'ordered' ? 'outline' : 'destructive'
                       }>
+                        {item.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{new Date(item.date_added).toLocaleDateString()}</TableCell>
+                    <TableCell>
+                      {item.date_sold ? new Date(item.date_sold).toLocaleDateString() : '-'}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+      {/* Sold Units Modal */}
+      <Dialog open={showSoldModal} onOpenChange={setShowSoldModal}>
+        <DialogContent className="max-w-6xl h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <TrendingDown className="w-5 h-5" />
+              Sold Units
+              <Badge variant="outline" className="ml-2">
+                {inventoryItems.length} items
+              </Badge>
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="flex items-center gap-4 py-4">
+            <div className="flex items-center gap-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-auto justify-start text-left font-normal"
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {soldDateFrom ? format(soldDateFrom, "PPP") : "From Date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={soldDateFrom}
+                    onSelect={setSoldDateFrom}
+                    initialFocus
+                    className="p-3 pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-auto justify-start text-left font-normal"
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {soldDateTo ? format(soldDateTo, "PPP") : "To Date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={soldDateTo}
+                    onSelect={setSoldDateTo}
+                    initialFocus
+                    className="p-3 pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+
+              <Button onClick={loadSoldItems}>
+                Apply Filters
+              </Button>
+
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setSoldDateFrom(undefined);
+                  setSoldDateTo(undefined);
+                  loadSoldItems();
+                }}
+              >
+                Clear Dates
+              </Button>
+            </div>
+
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Search sold items..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 border-2 focus:border-primary/50"
+              />
+            </div>
+
+            <Button 
+              onClick={exportToExcel}
+              disabled={exportLoading || filteredItems.length === 0}
+              className="gap-2"
+            >
+              {exportLoading ? (
+                <RefreshCw className="w-4 h-4 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4" />
+              )}
+              Export
+            </Button>
+          </div>
+
+          <ScrollArea className="flex-1 border rounded-lg">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Identifier</TableHead>
+                  <TableHead>Quantity</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Date Added</TableHead>
+                  <TableHead>Date Sold</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredItems.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell>
+                      <Badge variant={item.type === 'asin' ? 'default' : 'secondary'}>
+                        {item.type.toUpperCase()}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="font-medium">{item.identifier}</TableCell>
+                    <TableCell>
+                      <span className="font-medium text-orange-600">
+                        {item.quantity}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="secondary">
                         {item.status}
                       </Badge>
                     </TableCell>
