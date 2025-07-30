@@ -307,7 +307,7 @@ export function InventoryMetrics({
       {/* Date Filter for Sold Units - Show only in ASIN mode */}
       {showOnlyAsin}
 
-      <div className={`grid gap-4 mb-6 ${showOnlyAsin ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'}`}>
+      <div className={`grid gap-4 mb-6 ${showOnlyAsin ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-4' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'}`}>
         {/* Active ASIN Items */}
         <Card className="glass-container cursor-pointer hover:shadow-lg transition-all duration-300 hover:border-primary/30" onClick={() => handleMetricClick('active')}>
           <CardContent className="p-4">
@@ -358,22 +358,23 @@ export function InventoryMetrics({
           </CardContent>
         </Card>
 
-        {/* Total Units - Show in ASIN-only mode */}
-        {showOnlyAsin && <Card className="glass-container">
+
+        {/* Sold Units - Show in ASIN-only mode */}
+        {showOnlyAsin && <Card className="glass-container cursor-pointer hover:shadow-lg transition-all duration-300 hover:border-orange-500/30" onClick={() => {
+              setShowSoldModal(true);
+              loadSoldItems();
+            }}>
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Total Units</p>
-                  <p className="text-2xl font-bold text-blue-600">{stats.asinTotalUnits}</p>
-                  <p className="text-xs text-muted-foreground">Total inventory units</p>
+                  <p className="text-sm font-medium text-muted-foreground">Sold Units</p>
+                  <p className="text-2xl font-bold text-orange-600">{stats.asinSoldUnits}</p>
+                  <p className="text-xs text-muted-foreground">Units sold</p>
                 </div>
-                <BarChart3 className="w-6 h-6 text-blue-600" />
+                <TrendingDown className="w-6 h-6 text-orange-600" />
               </div>
             </CardContent>
           </Card>}
-
-        {/* Sold Units - Show in ASIN-only mode */}
-        {showOnlyAsin}
       </div>
 
       {/* ASIN and SKU Units Section - Only show when not ASIN-only mode */}
