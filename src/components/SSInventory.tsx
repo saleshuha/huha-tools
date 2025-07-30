@@ -20,8 +20,7 @@ import { useUserProfile } from '@/hooks/useUserProfile';
 import { supabase } from '@/integrations/supabase/client';
 import { DualQuantityEditor } from './DualQuantityEditor';
 import { StockHistoryDialog } from './StockHistoryDialog';
-import { MultiBinEditor } from './MultiBinEditor';
-import { SkuInventoryMetrics } from './SkuInventoryMetrics';
+import { InventoryMetrics } from './InventoryMetrics';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -61,7 +60,7 @@ export function SSInventory() {
     toast
   } = useToast();
 
-  // Form states - keeping SKU-specific fields
+  // Form states
   const [newItem, setNewItem] = useState<{
     skuNumber: string;
     binSerialNumber: string;
@@ -74,19 +73,24 @@ export function SSInventory() {
     quantity: 1
   });
   const [bulkText, setBulkText] = useState('');
-
   const filteredInventory = useMemo(() => {
     let filtered = inventory;
 
     // Apply search filter
     if (searchTerm) {
       const searchTerms = searchTerm.toLowerCase().split(' ').filter(term => term.length > 0);
-      filtered = filtered.filter(item => 
-        searchTerms.every(term => 
+      console.log('Search Terms:', searchTerms);
+      console.log('Total Inventory Items:', inventory.length);
+      
+      filtered = filtered.filter(item => {
+        const matches = searchTerms.every(term => 
           item.skuNumber.toLowerCase().includes(term) || 
           item.binSerialNumber.toLowerCase().includes(term)
-        )
-      );
+        );
+        return matches;
+      });
+      
+      console.log('Filtered Results:', filtered.length);
     }
 
     // Apply status filter
@@ -139,11 +143,9 @@ export function SSInventory() {
     });
     return filtered;
   }, [inventory, searchTerm, statusFilter, sortBy, sortOrder, quickFilter, dateFilterFrom, dateFilterTo]);
-
   const totalPages = Math.ceil(filteredInventory.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedInventory = filteredInventory.slice(startIndex, startIndex + itemsPerPage);
-
   const handleAddItem = async () => {
     if (!newItem.skuNumber.trim() || !newItem.binSerialNumber.trim()) {
       toast({
@@ -165,7 +167,6 @@ export function SSInventory() {
       quantity: 1
     });
   };
-
   const handleBulkAdd = async () => {
     if (!bulkText.trim()) {
       toast({
@@ -205,18 +206,8 @@ export function SSInventory() {
       description: `Added ${items.length} items to inventory`
     });
   };
-
   const exportInventory = () => {
-    const csvData = [
-      ['SKU Number', 'Bin/Serial Number', 'Status', 'Quantity', 'Date Added'],
-      ...filteredInventory.map(item => [
-        item.skuNumber,
-        item.binSerialNumber,
-        item.status,
-        item.quantity.toString(),
-        new Date(item.dateAdded).toLocaleDateString()
-      ])
-    ];
+    const csvData = [['SKU Number', 'Bin/Serial Number', 'Status', 'Quantity', 'Date Added'], ...filteredInventory.map(item => [item.skuNumber, item.binSerialNumber, item.status, item.quantity.toString(), new Date(item.dateAdded).toLocaleDateString()])];
     const csvContent = csvData.map(row => row.map(field => `"${field}"`).join(',')).join('\n');
     const blob = new Blob([csvContent], {
       type: 'text/csv;charset=utf-8;'
@@ -234,7 +225,6 @@ export function SSInventory() {
       description: "Inventory data exported to CSV file"
     });
   };
-
   const emailInventory = async () => {
     try {
       const {
@@ -259,7 +249,6 @@ export function SSInventory() {
       });
     }
   };
-
   const handleRefresh = () => {
     refetch();
     toast({
@@ -267,7 +256,6 @@ export function SSInventory() {
       description: "Inventory data refreshed"
     });
   };
-
   if (loading) {
     return <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex flex-col items-center gap-4">
@@ -276,12 +264,10 @@ export function SSInventory() {
         </div>
       </div>;
   }
-
-  return (
-    <div className="space-y-6 max-w-[95vw] mx-auto p-6">
+  return <div className="space-y-6 max-w-[95vw] mx-auto p-6">
       {/* Header with Stats */}
       <div className="space-y-6">
-        <SkuInventoryMetrics />
+        <InventoryMetrics showOnlySku={true} />
       </div>
 
       {/* Prominent Search Bar */}
@@ -291,12 +277,7 @@ export function SSInventory() {
             {/* Enhanced Search Bar */}
             <div className="relative">
               <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground w-6 h-6" />
-              <Input 
-                placeholder="🔍 Advanced search: SKU Number, Bin/Serial Number (use spaces for multiple terms)..." 
-                value={searchTerm} 
-                onChange={e => setSearchTerm(e.target.value)} 
-                className="pl-14 h-16 text-xl font-medium shadow-lg border-2 border-primary/60 focus:border-primary ring-2 ring-primary/10 focus:ring-primary/20 bg-background/50" 
-              />
+              <Input placeholder="🔍 Advanced search: SKU Number, Bin/Serial Number (use spaces for multiple terms)..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-14 h-16 text-xl font-medium shadow-lg border-2 border-primary/60 focus:border-primary ring-2 ring-primary/10 focus:ring-primary/20 bg-background/50" />
             </div>
 
             {/* Action Buttons Row */}
@@ -323,50 +304,31 @@ export function SSInventory() {
                     <div className="space-y-4">
                       <div>
                         <Label htmlFor="skuNumber">SKU Number</Label>
-                        <Input 
-                          id="skuNumber" 
-                          value={newItem.skuNumber} 
-                          onChange={e => setNewItem({
-                            ...newItem,
-                            skuNumber: e.target.value
-                          })} 
-                          placeholder="Enter SKU Number..." 
-                        />
+                        <Input id="skuNumber" value={newItem.skuNumber} onChange={e => setNewItem({
+                        ...newItem,
+                        skuNumber: e.target.value
+                      })} placeholder="Enter SKU Number..." />
                       </div>
                       <div>
                         <Label htmlFor="binSerialNumber">Bin/Serial Number</Label>
-                        <Input 
-                          id="binSerialNumber" 
-                          value={newItem.binSerialNumber} 
-                          onChange={e => setNewItem({
-                            ...newItem,
-                            binSerialNumber: e.target.value
-                          })} 
-                          placeholder="Enter Bin/Serial Number..." 
-                        />
+                        <Input id="binSerialNumber" value={newItem.binSerialNumber} onChange={e => setNewItem({
+                        ...newItem,
+                        binSerialNumber: e.target.value
+                      })} placeholder="Enter Bin/Serial Number..." />
                       </div>
                       <div>
                         <Label htmlFor="quantity">Quantity</Label>
-                        <Input 
-                          id="quantity" 
-                          type="number" 
-                          min="1" 
-                          value={newItem.quantity} 
-                          onChange={e => setNewItem({
-                            ...newItem,
-                            quantity: parseInt(e.target.value) || 1
-                          })} 
-                        />
+                        <Input id="quantity" type="number" min="1" value={newItem.quantity} onChange={e => setNewItem({
+                        ...newItem,
+                        quantity: parseInt(e.target.value) || 1
+                      })} />
                       </div>
                       <div>
                         <Label htmlFor="status">Status</Label>
-                        <Select 
-                          value={newItem.status} 
-                          onValueChange={(value: SkuInventoryItem['status']) => setNewItem({
-                            ...newItem,
-                            status: value
-                          })}
-                        >
+                        <Select value={newItem.status} onValueChange={(value: SkuInventoryItem['status']) => setNewItem({
+                        ...newItem,
+                        status: value
+                      })}>
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>
@@ -404,14 +366,7 @@ export function SSInventory() {
                         <Label htmlFor="bulkText">
                           Paste tab-separated data (SKU Number, Bin/Serial Number, Status, Quantity)
                         </Label>
-                        <Textarea 
-                          id="bulkText" 
-                          value={bulkText} 
-                          onChange={e => setBulkText(e.target.value)} 
-                          placeholder="SKU001	BIN001	in-stock	5&#10;SKU002	BIN002	sold	1" 
-                          rows={8} 
-                          className="font-mono text-sm" 
-                        />
+                        <Textarea id="bulkText" value={bulkText} onChange={e => setBulkText(e.target.value)} placeholder="SKU001	BIN001	in-stock	5&#10;SKU002	BIN002	sold	1" rows={8} className="font-mono text-sm" />
                       </div>
                       <div className="text-sm text-muted-foreground">
                         <p><strong>Format:</strong> Each line should contain tab-separated values</p>
@@ -449,510 +404,319 @@ export function SSInventory() {
                 <Filter className="w-5 h-5" />
                 Quick Filters:
               </Label>
-              <Button 
-                variant={quickFilter === 'all' ? 'default' : 'outline'} 
-                size="lg" 
-                onClick={() => setQuickFilter('all')} 
-                className="flex items-center gap-2"
-              >
+              <Button variant={quickFilter === 'all' ? 'default' : 'outline'} size="lg" onClick={() => setQuickFilter('all')} className="flex items-center gap-2">
                 <Package className="w-5 h-5" />
                 All Items
               </Button>
-              <Button 
-                variant={quickFilter === 'low-stock' ? 'default' : 'outline'} 
-                size="lg" 
-                onClick={() => setQuickFilter('low-stock')} 
-                className="flex items-center gap-2"
-              >
+              <Button variant={quickFilter === 'low-stock' ? 'default' : 'outline'} size="lg" onClick={() => setQuickFilter('low-stock')} className="flex items-center gap-2">
                 <AlertTriangle className="w-5 h-5" />
                 Low Stock
               </Button>
-              <Button 
-                variant={quickFilter === 'out-of-stock' ? 'default' : 'outline'} 
-                size="lg" 
-                onClick={() => setQuickFilter('out-of-stock')} 
-                className="flex items-center gap-2"
-              >
+              <Button variant={quickFilter === 'out-of-stock' ? 'default' : 'outline'} size="lg" onClick={() => setQuickFilter('out-of-stock')} className="flex items-center gap-2">
                 <AlertTriangle className="w-5 h-5" />
                 Out of Stock
               </Button>
-              <Button 
-                variant={quickFilter === 'recent' ? 'default' : 'outline'} 
-                size="lg" 
-                onClick={() => setQuickFilter('recent')} 
-                className="flex items-center gap-2"
-              >
+              <Button variant={quickFilter === 'recent' ? 'default' : 'outline'} size="lg" onClick={() => setQuickFilter('recent')} className="flex items-center gap-2">
                 <Clock className="w-5 h-5" />
                 Recent (7 days)
               </Button>
             </div>
 
-             {/* Date Filters for Out of Stock items */}
-             {quickFilter === 'out-of-stock' && (
-               <div className="flex flex-wrap items-center gap-3 pt-4 border-t">
-                 <Label className="text-base font-semibold flex items-center gap-2">
-                   <CalendarIcon className="w-5 h-5" />
-                   Date Filter:
-                 </Label>
-                 <div className="flex items-center gap-2">
-                   <Popover>
-                     <PopoverTrigger asChild>
-                       <Button
-                         variant="outline"
-                         className={cn(
-                           "w-[280px] justify-start text-left font-normal",
-                           !dateFilterFrom && "text-muted-foreground"
-                         )}
-                       >
-                         <CalendarIcon className="mr-2 h-4 w-4" />
-                         {dateFilterFrom ? format(dateFilterFrom, "PPP") : "Pick start date"}
-                       </Button>
-                     </PopoverTrigger>
-                     <PopoverContent className="w-auto p-0">
-                       <Calendar
-                         mode="single"
-                         selected={dateFilterFrom}
-                         onSelect={setDateFilterFrom}
-                         initialFocus
-                       />
-                     </PopoverContent>
-                   </Popover>
-                   
-                   <span className="text-muted-foreground">to</span>
-                   
-                   <Popover>
-                     <PopoverTrigger asChild>
-                       <Button
-                         variant="outline"
-                         className={cn(
-                           "w-[280px] justify-start text-left font-normal",
-                           !dateFilterTo && "text-muted-foreground"
-                         )}
-                       >
-                         <CalendarIcon className="mr-2 h-4 w-4" />
-                         {dateFilterTo ? format(dateFilterTo, "PPP") : "Pick end date"}
-                       </Button>
-                     </PopoverTrigger>
-                     <PopoverContent className="w-auto p-0">
-                       <Calendar
-                         mode="single"
-                         selected={dateFilterTo}
-                         onSelect={setDateFilterTo}
-                         initialFocus
-                       />
-                     </PopoverContent>
-                   </Popover>
-                   
-                   {(dateFilterFrom || dateFilterTo) && (
-                     <Button
-                       variant="ghost"
-                       size="sm"
-                       onClick={() => {
-                         setDateFilterFrom(undefined);
-                         setDateFilterTo(undefined);
-                       }}
-                       className="h-8 px-2 lg:px-3"
-                     >
-                       Clear Dates
-                     </Button>
-                   )}
-                 </div>
-               </div>
-             )}
-           </div>
-          </CardContent>
-        </Card>
+            {/* Date Filter Section - Only show when out-of-stock filter is active */}
+            {quickFilter === 'out-of-stock' && (
+              <div className="flex flex-wrap items-center gap-4 p-4 bg-muted/30 rounded-lg border">
+                <Label className="text-base font-semibold flex items-center gap-2">
+                  <CalendarIcon className="w-5 h-5" />
+                  Date Filter:
+                </Label>
+                <div className="flex flex-wrap items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <Label className="text-sm font-medium whitespace-nowrap">From:</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-[160px] justify-start text-left font-normal",
+                            !dateFilterFrom && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {dateFilterFrom ? format(dateFilterFrom, "PPP") : <span>Pick a date</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={dateFilterFrom}
+                          onSelect={setDateFilterFrom}
+                          initialFocus
+                          className="p-3 pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <Label className="text-sm font-medium whitespace-nowrap">To:</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-[160px] justify-start text-left font-normal",
+                            !dateFilterTo && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {dateFilterTo ? format(dateFilterTo, "PPP") : <span>Pick a date</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={dateFilterTo}
+                          onSelect={setDateFilterTo}
+                          initialFocus
+                          className="p-3 pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => {
+                      setDateFilterFrom(undefined);
+                      setDateFilterTo(undefined);
+                    }}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="w-4 h-4 mr-2" />
+                    Clear Dates
+                  </Button>
+                </div>
+              </div>
+            )}
 
-      {/* Controls Row */}
-      <Card>
-        <CardContent className="p-6">
-          <div className="space-y-6">
+            {/* Controls Row */}
             <div className="flex flex-wrap items-center gap-6">
               {/* Status Filter */}
               <div className="flex items-center gap-3">
-                <Label htmlFor="statusFilter" className="font-semibold flex items-center gap-2">
-                  <Filter className="w-5 h-5" />
-                  Status:
-                </Label>
+                <Label className="text-sm font-medium whitespace-nowrap">Status:</Label>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-40">
-                    <SelectValue />
+                  <SelectTrigger className="w-40 bg-background border">
+                    <SelectValue placeholder="Filter by status" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-background border">
                     <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="in-stock">In Stock</SelectItem>
-                    <SelectItem value="sold">Sold</SelectItem>
-                    <SelectItem value="reserved">Reserved</SelectItem>
-                    <SelectItem value="damaged">Damaged</SelectItem>
+                    <SelectItem value="in-stock">In Stock Only</SelectItem>
+                    <SelectItem value="sold">Sold Only</SelectItem>
+                    <SelectItem value="reserved">Reserved Only</SelectItem>
+                    <SelectItem value="damaged">Damaged Only</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-
-              {/* Sort Controls */}
-              <div className="flex items-center gap-3">
-                <Label className="font-semibold flex items-center gap-2">
-                  <SortAsc className="w-5 h-5" />
-                  Sort:
-                </Label>
-                <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
-                  <SelectTrigger className="w-40">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="dateAdded">Date Added</SelectItem>
-                    <SelectItem value="skuNumber">SKU Number</SelectItem>
-                    <SelectItem value="quantity">Quantity</SelectItem>
-                    <SelectItem value="status">Status</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                  className="px-3"
-                >
-                  {sortOrder === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />}
-                </Button>
               </div>
 
               {/* View Mode */}
               <div className="flex items-center gap-3">
-                <Label className="font-semibold">View:</Label>
-                <div className="flex border rounded-lg overflow-hidden">
-                  <Button
-                    variant={viewMode === 'table' ? 'default' : 'ghost'}
-                    size="sm"
-                    onClick={() => setViewMode('table')}
-                    className="rounded-none"
-                  >
-                    <List className="w-4 h-4" />
+                <Label className="text-sm font-medium whitespace-nowrap">View:</Label>
+                <div className="flex border rounded-lg p-1 bg-background">
+                  <Button variant={viewMode === 'table' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('table')} className="h-8">
+                    <List className="w-4 h-4 mr-1" />
+                    Table
                   </Button>
-                  <Button
-                    variant={viewMode === 'grid' ? 'default' : 'ghost'}
-                    size="sm"
-                    onClick={() => setViewMode('grid')}
-                    className="rounded-none"
-                  >
-                    <Grid3X3 className="w-4 h-4" />
+                  <Button variant={viewMode === 'grid' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('grid')} className="h-8">
+                    <Grid3X3 className="w-4 h-4 mr-1" />
+                    Grid
                   </Button>
                 </div>
               </div>
-            </div>
 
-            {/* Results Summary */}
-            <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t">
-              <div className="flex items-center gap-4">
-                <Badge variant="secondary" className="text-lg px-4 py-2">
-                  {filteredInventory.length} of {inventory.length} items
-                </Badge>
-                {selectedItems.size > 0 && (
-                  <Badge variant="default" className="text-lg px-4 py-2">
-                    {selectedItems.size} selected
-                  </Badge>
-                )}
+              {/* Items per page */}
+              <div className="flex items-center gap-3">
+                <Label className="text-sm font-medium whitespace-nowrap">Show:</Label>
+                <Select value={itemsPerPage.toString()} onValueChange={value => setItemsPerPage(Number(value))}>
+                  <SelectTrigger className="w-20 bg-background border">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border">
+                    <SelectItem value="25">25</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                    <SelectItem value="100">100</SelectItem>
+                    <SelectItem value="150">150</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              
-              {/* Bulk Actions */}
-              {selectedItems.size > 0 && (
-                <div className="flex gap-2">
-                  <Dialog open={isBulkStatusDialogOpen} onOpenChange={setIsBulkStatusDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button variant="outline" size="sm">
-                        <Edit className="w-4 h-4 mr-2" />
-                        Bulk Status
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Update Status for {selectedItems.size} items</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        <Select value={bulkStatusValue} onValueChange={(value: SkuInventoryItem['status']) => setBulkStatusValue(value)}>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="in-stock">In Stock</SelectItem>
-                            <SelectItem value="sold">Sold</SelectItem>
-                            <SelectItem value="reserved">Reserved</SelectItem>
-                            <SelectItem value="damaged">Damaged</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsBulkStatusDialogOpen(false)}>
-                          Cancel
-                        </Button>
-                        <Button onClick={() => {
-                          selectedItems.forEach(id => updateItemStatus(id, bulkStatusValue));
-                          setSelectedItems(new Set());
-                          setIsBulkStatusDialogOpen(false);
-                        }}>
-                          Update Status
-                        </Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
 
-                  <Dialog open={isBulkQuantityDialogOpen} onOpenChange={setIsBulkQuantityDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button variant="outline" size="sm">
-                        <Hash className="w-4 h-4 mr-2" />
-                        Bulk Quantity
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Update Quantity for {selectedItems.size} items</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        <div>
-                          <Label htmlFor="bulkQuantity">New Quantity</Label>
-                          <Input
-                            id="bulkQuantity"
-                            type="number"
-                            min="0"
-                            value={bulkQuantityValue}
-                            onChange={e => setBulkQuantityValue(parseInt(e.target.value) || 0)}
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="bulkReason">Reason (optional)</Label>
-                          <Input
-                            id="bulkReason"
-                            value={bulkQuantityReason}
-                            onChange={e => setBulkQuantityReason(e.target.value)}
-                            placeholder="e.g., Inventory adjustment, Stock recount..."
-                          />
-                        </div>
-                      </div>
-                      <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsBulkQuantityDialogOpen(false)}>
-                          Cancel
-                        </Button>
-                        <Button onClick={() => {
-                          selectedItems.forEach(id => updateQuantity(id, bulkQuantityValue, bulkQuantityReason || 'Bulk quantity update'));
-                          setSelectedItems(new Set());
-                          setIsBulkQuantityDialogOpen(false);
-                          setBulkQuantityValue(1);
-                          setBulkQuantityReason('');
-                        }}>
-                          Update Quantity
-                        </Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
+              {/* Results Info */}
+              <div className="flex items-center gap-3">
+                <Label className="text-sm font-medium whitespace-nowrap">Results:</Label>
+                <div className="text-sm text-muted-foreground bg-muted/30 rounded-md px-3 py-2">
+                  {Math.min(startIndex + 1, filteredInventory.length)}-{Math.min(startIndex + itemsPerPage, filteredInventory.length)} of {filteredInventory.length}
                 </div>
-               )}
+              </div>
             </div>
           </div>
         </CardContent>
       </Card>
 
       {/* Inventory Display */}
-      {viewMode === 'table' ? (
-        <Card className="overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-muted/50">
-                <tr>
-                  <th className="p-4 text-left">
-                    <Checkbox
-                      checked={selectedItems.size === paginatedInventory.length && paginatedInventory.length > 0}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setSelectedItems(new Set(paginatedInventory.map(item => item.id)));
-                        } else {
-                          setSelectedItems(new Set());
-                        }
-                      }}
-                    />
-                  </th>
-                  <th className="p-4 text-left font-semibold">SKU Number</th>
-                  <th className="p-4 text-left font-semibold">Bin/Serial Number</th>
-                  <th className="p-4 text-left font-semibold">Status</th>
-                  <th className="p-4 text-left font-semibold">Quantity</th>
-                  <th className="p-4 text-left font-semibold">Date Added</th>
-                  <th className="p-4 text-left font-semibold">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginatedInventory.map((item) => (
-                  <tr key={item.id} className="border-b hover:bg-muted/30 transition-colors">
-                    <td className="p-4">
-                      <Checkbox
-                        checked={selectedItems.has(item.id)}
-                        onCheckedChange={(checked) => {
-                          const newSelected = new Set(selectedItems);
-                          if (checked) {
-                            newSelected.add(item.id);
-                          } else {
-                            newSelected.delete(item.id);
-                          }
-                          setSelectedItems(newSelected);
-                        }}
-                      />
-                    </td>
-                    <td className="p-4 font-medium">{item.skuNumber}</td>
-                    <td className="p-4">
-                      <MultiBinEditor
-                        currentBinSerial={item.binSerialNumber}
-                        onUpdate={(newBinSerial, reason) => updateBinLocation(item.id, newBinSerial)}
-                      />
-                    </td>
-                    <td className="p-4">
-                      <Select
-                        value={item.status}
-                        onValueChange={(value: SkuInventoryItem['status']) => updateItemStatus(item.id, value)}
-                      >
-                        <SelectTrigger className="w-32">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="in-stock">In Stock</SelectItem>
-                          <SelectItem value="sold">Sold</SelectItem>
-                          <SelectItem value="reserved">Reserved</SelectItem>
-                          <SelectItem value="damaged">Damaged</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </td>
-                    <td className="p-4">
-                      <DualQuantityEditor
-                        currentQuantity={item.quantity}
-                        onUpdate={(newQuantity, reason) => updateQuantity(item.id, newQuantity, reason)}
-                      />
-                    </td>
-                    <td className="p-4 text-muted-foreground">
-                      {new Date(item.dateAdded).toLocaleDateString()}
-                    </td>
-                    <td className="p-4">
-                      <div className="flex gap-2">
-                         <StockHistoryDialog inventoryId={item.id} itemIdentifier={item.skuNumber} inventoryType="sku" />
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => updateBinLocation(item.id, prompt('Enter new bin location:') || item.binSerialNumber)}
-                        >
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </td>
+      {filteredInventory.length === 0 ? <Card className="border-dashed border-2 border-muted">
+          <CardContent className="flex flex-col items-center justify-center py-16">
+            <Package className="w-16 h-16 text-muted-foreground mb-4" />
+            <h3 className="text-xl font-semibold text-muted-foreground mb-2">No inventory items found</h3>
+            <p className="text-muted-foreground text-center mb-6">
+              {searchTerm || statusFilter !== 'all' || quickFilter !== 'all' ? "Try adjusting your filters or search terms" : "Get started by adding your first inventory item"}
+            </p>
+            {!searchTerm && statusFilter === 'all' && quickFilter === 'all' && <Button onClick={() => setIsAddDialogOpen(true)}>
+                <Plus className="w-4 h-4 mr-2" />
+                Add Your First Item
+              </Button>}
+          </CardContent>
+        </Card> : viewMode === 'table' ? <Card>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-muted/50">
+                  <tr className="border-b">
+                    <th className="p-4 text-left">
+                      <Checkbox checked={selectedItems.size === paginatedInventory.length && paginatedInventory.length > 0} onCheckedChange={checked => {
+                    if (checked) {
+                      setSelectedItems(new Set(paginatedInventory.map(item => item.id)));
+                    } else {
+                      setSelectedItems(new Set());
+                    }
+                  }} />
+                    </th>
+                    <th className="p-4 text-left font-medium">SKU Number</th>
+                    <th className="p-4 text-left font-medium">Bin/Serial Number</th>
+                    <th className="p-4 text-left font-medium">Status</th>
+                    <th className="p-4 text-left font-medium">Quantity</th>
+                    <th className="p-4 text-left font-medium">Date Added</th>
+                    <th className="p-4 text-left font-medium">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {paginatedInventory.map((item) => (
-            <Card key={item.id} className="hover:shadow-lg transition-shadow duration-200">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <Checkbox
-                    checked={selectedItems.has(item.id)}
-                    onCheckedChange={(checked) => {
-                      const newSelected = new Set(selectedItems);
-                      if (checked) {
-                        newSelected.add(item.id);
-                      } else {
-                        newSelected.delete(item.id);
-                      }
-                      setSelectedItems(newSelected);
-                    }}
-                  />
-                  <Badge variant={item.quantity === 0 ? 'destructive' : item.quantity <= 5 ? 'secondary' : 'default'}>
-                    {item.status}
-                  </Badge>
-                </div>
-                <CardTitle className="text-lg">{item.skuNumber}</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div>
-                  <Label className="text-sm text-muted-foreground">Bin/Serial Number</Label>
-                  <MultiBinEditor
-                    currentBinSerial={item.binSerialNumber}
-                    onUpdate={(newBinSerial, reason) => updateBinLocation(item.id, newBinSerial)}
-                  />
-                </div>
-                <div>
-                  <Label className="text-sm text-muted-foreground">Quantity</Label>
-                  <div className="flex items-center gap-2">
-                    <DualQuantityEditor
-                      currentQuantity={item.quantity}
-                      onUpdate={(newQuantity, reason) => updateQuantity(item.id, newQuantity, reason)}
-                    />
+                </thead>
+                <tbody>
+                  {paginatedInventory.map(item => <tr key={item.id} className="border-b hover:bg-muted/25 transition-colors">
+                      <td className="p-4">
+                        <Checkbox checked={selectedItems.has(item.id)} onCheckedChange={checked => {
+                    const newSelected = new Set(selectedItems);
+                    if (checked) {
+                      newSelected.add(item.id);
+                    } else {
+                      newSelected.delete(item.id);
+                    }
+                    setSelectedItems(newSelected);
+                  }} />
+                      </td>
+                      <td className="p-4 font-mono text-sm">{item.skuNumber}</td>
+                      <td className="p-4 font-mono text-sm">{item.binSerialNumber}</td>
+                      <td className="p-4">
+                        <Badge variant={item.status === 'in-stock' ? 'default' : item.status === 'sold' ? 'secondary' : item.status === 'reserved' ? 'outline' : 'destructive'}>
+                          {item.status.replace('-', ' ').toUpperCase()}
+                        </Badge>
+                      </td>
+                      <td className="p-4">
+                        <div className="flex items-center gap-2">
+                          <span className={`font-semibold ${item.quantity === 0 ? 'text-red-500' : item.quantity <= 5 ? 'text-yellow-500' : 'text-green-500'}`}>
+                            {item.quantity}
+                          </span>
+                          {item.quantity <= 5 && <AlertTriangle className="w-4 h-4 text-yellow-500" />}
+                        </div>
+                      </td>
+                      <td className="p-4 text-sm text-muted-foreground">
+                        {new Date(item.dateAdded).toLocaleDateString()}
+                      </td>
+                       <td className="p-4">
+                         <div className="flex items-center gap-2">
+                            <DualQuantityEditor currentQuantity={item.quantity} onUpdate={(newQuantity, reason) => updateQuantity(item.id, newQuantity, reason)} />
+                           <StockHistoryDialog inventoryId={item.id} itemIdentifier={`${item.skuNumber} (${item.binSerialNumber})`} inventoryType="sku" />
+                         </div>
+                       </td>
+                    </tr>)}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card> : <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {paginatedInventory.map(item => <Card key={item.id} className="hover:shadow-lg transition-all duration-300 border-0 shadow-md">
+              <CardContent className="p-6">
+                <div className="space-y-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-2">
+                      <Checkbox checked={selectedItems.has(item.id)} onCheckedChange={checked => {
+                  const newSelected = new Set(selectedItems);
+                  if (checked) {
+                    newSelected.add(item.id);
+                  } else {
+                    newSelected.delete(item.id);
+                  }
+                  setSelectedItems(newSelected);
+                }} />
+                      <Badge variant={item.status === 'in-stock' ? 'default' : item.status === 'sold' ? 'secondary' : item.status === 'reserved' ? 'outline' : 'destructive'}>
+                        {item.status.replace('-', ' ').toUpperCase()}
+                      </Badge>
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <Label className="text-sm text-muted-foreground">Date Added</Label>
-                  <p className="text-sm">{new Date(item.dateAdded).toLocaleDateString()}</p>
-                </div>
-                <div className="flex gap-2 pt-2">
-                  <StockHistoryDialog inventoryId={item.id} itemIdentifier={item.skuNumber} inventoryType="sku" />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => updateBinLocation(item.id, prompt('Enter new bin location:') || item.binSerialNumber)}
-                  >
-                    <Edit className="w-4 h-4" />
-                  </Button>
+                  <div className="space-y-2">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">SKU Number</Label>
+                      <p className="font-mono text-sm">{item.skuNumber}</p>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Bin/Serial Number</Label>
+                      <p className="font-mono text-sm">{item.binSerialNumber}</p>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Quantity</Label>
+                      <div className="flex items-center gap-2">
+                        <span className={`font-semibold ${item.quantity === 0 ? 'text-red-500' : item.quantity <= 5 ? 'text-yellow-500' : 'text-green-500'}`}>
+                          {item.quantity}
+                        </span>
+                        {item.quantity <= 5 && <AlertTriangle className="w-4 h-4 text-yellow-500" />}
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Date Added</Label>
+                      <p className="text-sm">{new Date(item.dateAdded).toLocaleDateString()}</p>
+                    </div>
+                  </div>
+                   <div className="flex items-center gap-2">
+                     <DualQuantityEditor currentQuantity={item.quantity} onUpdate={(newQuantity, reason) => updateQuantity(item.id, newQuantity, reason)} />
+                     <StockHistoryDialog inventoryId={item.id} itemIdentifier={`${item.skuNumber} (${item.binSerialNumber})`} inventoryType="sku" />
+                   </div>
                 </div>
               </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <Card className="p-6">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <Label htmlFor="itemsPerPage" className="text-sm font-medium">
-                Items per page:
-              </Label>
-              <Select
-                value={itemsPerPage.toString()}
-                onValueChange={(value) => {
-                  setItemsPerPage(parseInt(value));
-                  setCurrentPage(1);
-                }}
-              >
-                <SelectTrigger className="w-20">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="25">25</SelectItem>
-                  <SelectItem value="50">50</SelectItem>
-                  <SelectItem value="100">100</SelectItem>
-                  <SelectItem value="200">200</SelectItem>
-                </SelectContent>
-              </Select>
-              <span className="text-sm text-muted-foreground">
-                Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredInventory.length)} of {filteredInventory.length} results
-              </span>
+            </Card>)}
+        </div>}
+        
+        {/* Pagination */}
+        {filteredInventory.length > itemsPerPage && (
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-muted-foreground">
+              Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, filteredInventory.length)} of {filteredInventory.length} items
             </div>
-
             <Pagination>
               <PaginationContent>
                 <PaginationItem>
                   <PaginationPrevious 
-                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                    className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
                   />
                 </PaginationItem>
                 
                 {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  let pageNum;
-                  if (totalPages <= 5) {
-                    pageNum = i + 1;
-                  } else if (currentPage <= 3) {
-                    pageNum = i + 1;
-                  } else if (currentPage >= totalPages - 2) {
-                    pageNum = totalPages - 4 + i;
-                  } else {
-                    pageNum = currentPage - 2 + i;
+                  let pageNum = i + 1;
+                  if (totalPages > 5) {
+                    if (currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
                   }
                   
                   return (
@@ -976,17 +740,27 @@ export function SSInventory() {
                 
                 <PaginationItem>
                   <PaginationNext 
-                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                    className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
                   />
                 </PaginationItem>
               </PaginationContent>
             </Pagination>
+            
+            <Select value={itemsPerPage.toString()} onValueChange={(value) => {
+              setItemsPerPage(Number(value));
+              setCurrentPage(1);
+            }}>
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="25">25 per page</SelectItem>
+                <SelectItem value="50">50 per page</SelectItem>
+                <SelectItem value="100">100 per page</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-        </Card>
-      )}
-    </div>
-  );
+        )}
+    </div>;
 }
-
-export default SSInventory;

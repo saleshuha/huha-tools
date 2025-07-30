@@ -37,9 +37,11 @@ interface InventoryStats {
 }
 interface InventoryMetricsProps {
   showOnlyAsin?: boolean;
+  showOnlySku?: boolean;
 }
 export function InventoryMetrics({
-  showOnlyAsin = false
+  showOnlyAsin = false,
+  showOnlySku = false
 }: InventoryMetricsProps) {
   const {
     selectedCountry
@@ -102,6 +104,42 @@ export function InventoryMetrics({
           asinSoldUnits,
           skuTotalUnits: 0,
           skuSoldUnits: 0
+        });
+      } else if (showOnlySku) {
+        // Load only SKU data
+        const {
+          data: skuData
+        } = await supabase.from('sku_inventory').select('*').eq('country', selectedCountry);
+        const skuItems = skuData || [];
+        const activeItems = skuItems.length;
+        const inStockItems = skuItems.filter(item => item.quantity > 0).length;
+        const outOfStockItems = skuItems.filter(item => item.quantity === 0).length;
+        const skuTotalUnits = skuItems.reduce((sum, item) => sum + item.quantity, 0);
+
+        // Filter sold units based on date filters
+        let soldItems = skuItems.filter(item => item.status === 'sold');
+        if (soldDateFrom || soldDateTo) {
+          soldItems = soldItems.filter(item => {
+            if (!item.date_sold) return false;
+            const soldDate = new Date(item.date_sold);
+            if (soldDateFrom && soldDate < soldDateFrom) return false;
+            if (soldDateTo) {
+              const endDate = new Date(soldDateTo);
+              endDate.setHours(23, 59, 59, 999);
+              if (soldDate > endDate) return false;
+            }
+            return true;
+          });
+        }
+        const skuSoldUnits = soldItems.reduce((sum, item) => sum + item.quantity, 0);
+        setStats({
+          activeItems,
+          inStockItems,
+          outOfStockItems,
+          asinTotalUnits: 0,
+          asinSoldUnits: 0,
+          skuTotalUnits,
+          skuSoldUnits
         });
       } else {
         // Load both ASIN and SKU data
@@ -168,6 +206,24 @@ export function InventoryMetrics({
           allItems = allItems.filter(item => item.quantity === 0);
         }
         setInventoryItems(allItems);
+      } else if (showOnlySku) {
+        // Load only SKU data
+        const {
+          data: skuData
+        } = await supabase.from('sku_inventory').select('*').eq('country', selectedCountry);
+        let allItems = (skuData || []).map(item => ({
+          ...item,
+          type: 'sku' as const,
+          identifier: `${item.sku_number} (${item.bin_serial_number})`
+        }));
+
+        // Filter based on metric
+        if (metric === 'instock') {
+          allItems = allItems.filter(item => item.quantity > 0);
+        } else if (metric === 'outofstock') {
+          allItems = allItems.filter(item => item.quantity === 0);
+        }
+        setInventoryItems(allItems);
       } else {
         // Load both ASIN and SKU data
         const [asinData, skuData] = await Promise.all([supabase.from('asin_inventory').select('*').eq('country', selectedCountry), supabase.from('sku_inventory').select('*').eq('country', selectedCountry)]);
@@ -219,6 +275,28 @@ export function InventoryMetrics({
           ...item,
           type: 'asin' as const,
           identifier: `${item.asin} (${item.serial_number})`
+        }));
+        setInventoryItems(allItems);
+      } else if (showOnlySku) {
+        // Load only SKU data
+        let query = supabase.from('sku_inventory').select('*').eq('country', selectedCountry).eq('status', 'sold');
+
+        // Apply date filters if set
+        if (soldDateFrom) {
+          query = query.gte('date_sold', soldDateFrom.toISOString());
+        }
+        if (soldDateTo) {
+          const endDate = new Date(soldDateTo);
+          endDate.setHours(23, 59, 59, 999);
+          query = query.lte('date_sold', endDate.toISOString());
+        }
+        const {
+          data: skuData
+        } = await query;
+        const allItems = (skuData || []).map(item => ({
+          ...item,
+          type: 'sku' as const,
+          identifier: `${item.sku_number} (${item.bin_serial_number})`
         }));
         setInventoryItems(allItems);
       } else {
@@ -307,18 +385,18 @@ export function InventoryMetrics({
       {/* Date Filter for Sold Units - Show only in ASIN mode */}
       {showOnlyAsin}
 
-      <div className={`grid gap-4 mb-6 ${showOnlyAsin ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-4' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'}`}>
+      <div className={`grid gap-4 mb-6 ${showOnlyAsin || showOnlySku ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-4' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'}`}>
         {/* Active ASIN Items */}
         <Card className="glass-container cursor-pointer hover:shadow-lg transition-all duration-300 hover:border-primary/30" onClick={() => handleMetricClick('active')}>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">
-                  {showOnlyAsin ? 'Active ASIN Items' : 'Active Items'}
+                  {showOnlyAsin ? 'Active ASIN Items' : showOnlySku ? 'Active SKU Items' : 'Active Items'}
                 </p>
                 <p className="text-2xl font-bold text-primary">{stats.activeItems}</p>
                 <p className="text-xs text-muted-foreground">
-                  {showOnlyAsin ? 'Total ASIN items' : 'Total inventory items'}
+                  {showOnlyAsin ? 'Total ASIN items' : showOnlySku ? 'Total SKU items' : 'Total inventory items'}
                 </p>
               </div>
               <Activity className="w-6 h-6 text-primary" />
@@ -332,7 +410,7 @@ export function InventoryMetrics({
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">
-                  {showOnlyAsin ? 'ASIN In Stock' : 'In Stock'}
+                  {showOnlyAsin ? 'ASIN In Stock' : showOnlySku ? 'SKU In Stock' : 'In Stock'}
                 </p>
                 <p className="text-2xl font-bold text-green-600">{stats.inStockItems}</p>
                 <p className="text-xs text-muted-foreground">Available for sale</p>
@@ -348,7 +426,7 @@ export function InventoryMetrics({
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">
-                  {showOnlyAsin ? 'ASIN Out of Stock' : 'Out of Stock'}
+                  {showOnlyAsin ? 'ASIN Out of Stock' : showOnlySku ? 'SKU Out of Stock' : 'Out of Stock'}
                 </p>
                 <p className="text-2xl font-bold text-red-600">{stats.outOfStockItems}</p>
                 <p className="text-xs text-muted-foreground">Need restock</p>
@@ -359,13 +437,13 @@ export function InventoryMetrics({
         </Card>
 
 
-        {/* Total Units - Show in ASIN-only mode */}
-        {showOnlyAsin && <Card className="glass-container">
+        {/* Total Units - Show in ASIN-only or SKU-only mode */}
+        {(showOnlyAsin || showOnlySku) && <Card className="glass-container">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Total Units</p>
-                  <p className="text-2xl font-bold text-blue-600">{stats.asinTotalUnits}</p>
+                  <p className="text-2xl font-bold text-blue-600">{showOnlyAsin ? stats.asinTotalUnits : stats.skuTotalUnits}</p>
                   <p className="text-xs text-muted-foreground">Total inventory units</p>
                 </div>
                 <BarChart3 className="w-6 h-6 text-blue-600" />
