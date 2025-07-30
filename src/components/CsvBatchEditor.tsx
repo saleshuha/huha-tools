@@ -235,11 +235,10 @@ export function CsvBatchEditor() {
       return;
     }
 
-    const maxZipSizeMB = 50; // 50MB limit per zip
+    const maxZipSizeMB = 50; // 50MB limit per zip after compression
     const maxZipSizeBytes = maxZipSizeMB * 1024 * 1024;
     
     let currentZip = new JSZip();
-    let currentZipSize = 0;
     let zipIndex = 1;
     const zipsToDownload: { zip: JSZip; name: string }[] = [];
 
@@ -249,23 +248,38 @@ export function CsvBatchEditor() {
         ...file.data.map(row => row.map(cell => `"${cell || ''}"`).join(','))
       ].join('\n');
 
-      const fileSizeBytes = new Blob([csvContent]).size;
+      const fileName = `modified_${file.fileName.replace(/\.[^/.]+$/, '')}.csv`;
       
-      // If adding this file would exceed the limit, start a new zip
-      if (currentZipSize + fileSizeBytes > maxZipSizeBytes && Object.keys(currentZip.files).length > 0) {
+      // Create a temporary zip to test the compressed size
+      const tempZip = new JSZip();
+      // Copy current files to temp zip
+      Object.keys(currentZip.files).forEach(name => {
+        const currentFile = currentZip.files[name];
+        if (!currentFile.dir) {
+          tempZip.file(name, currentFile.async('string'));
+        }
+      });
+      tempZip.file(fileName, csvContent);
+      
+      // Check compressed size
+      const compressedContent = await tempZip.generateAsync({ 
+        type: 'blob', 
+        compression: 'DEFLATE', 
+        compressionOptions: { level: 6 } 
+      });
+
+      // If adding this file would exceed the compressed size limit, start a new zip
+      if (compressedContent.size > maxZipSizeBytes && Object.keys(currentZip.files).length > 0) {
         zipsToDownload.push({ 
           zip: currentZip, 
           name: `modified_files_part_${zipIndex}.zip` 
         });
         currentZip = new JSZip();
-        currentZipSize = 0;
         zipIndex++;
       }
 
       // Add file to current zip
-      const fileName = `modified_${file.fileName.replace(/\.[^/.]+$/, '')}.csv`;
       currentZip.file(fileName, csvContent);
-      currentZipSize += fileSizeBytes;
     }
 
     // Add the last zip if it has files
@@ -278,7 +292,11 @@ export function CsvBatchEditor() {
 
     // Download all zip files
     for (const { zip, name } of zipsToDownload) {
-      const content = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } });
+      const content = await zip.generateAsync({ 
+        type: 'blob', 
+        compression: 'DEFLATE', 
+        compressionOptions: { level: 6 } 
+      });
       const link = document.createElement('a');
       const url = URL.createObjectURL(content);
       link.setAttribute('href', url);
