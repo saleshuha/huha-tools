@@ -1,4 +1,4 @@
-import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, Wrench, LogOut, Home, Users, TrendingUp, Merge, Edit3 } from "lucide-react"
+import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, Wrench, LogOut, Home, Users, TrendingUp, Merge, Edit3, Database } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
 import { useState } from "react"
 import { supabase } from "@/integrations/supabase/client"
@@ -61,6 +61,11 @@ const toolsItems = [
     title: "Excel Editor",
     url: "/excel-editor",
     icon: Edit3
+  },
+  {
+    title: "CSV Batch Editor",
+    url: "/csv-batch-editor",
+    icon: Database
   }
 ]
 
