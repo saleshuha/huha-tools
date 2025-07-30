@@ -31,6 +31,13 @@ interface ColumnEdit {
   specificRows?: number[];
 }
 
+interface ExportOptions {
+  compressionLevel: number;
+  splitMethod: 'size' | 'files';
+  maxSizeMB: number;
+  maxFiles: number;
+}
+
 export function CsvBatchEditor() {
   const [csvFiles, setCsvFiles] = useState<CSVFile[]>([]);
   const [selectedFile, setSelectedFile] = useState<CSVFile | null>(null);
@@ -40,6 +47,12 @@ export function CsvBatchEditor() {
     column: '',
     newValue: '',
     applyToRows: 'all'
+  });
+  const [exportOptions, setExportOptions] = useState<ExportOptions>({
+    compressionLevel: 6,
+    splitMethod: 'size',
+    maxSizeMB: 50,
+    maxFiles: 100
   });
   const { toast } = useToast();
 
@@ -235,11 +248,12 @@ export function CsvBatchEditor() {
       return;
     }
 
-    const maxZipSizeMB = 50; // 50MB limit per zip after compression
-    const maxZipSizeBytes = maxZipSizeMB * 1024 * 1024;
+    const { compressionLevel, splitMethod, maxSizeMB, maxFiles } = exportOptions;
+    const maxZipSizeBytes = maxSizeMB * 1024 * 1024;
     
     let currentZip = new JSZip();
     let zipIndex = 1;
+    let filesInCurrentZip = 0;
     const zipsToDownload: { zip: JSZip; name: string }[] = [];
 
     for (const file of csvFiles) {
@@ -250,36 +264,47 @@ export function CsvBatchEditor() {
 
       const fileName = `modified_${file.fileName.replace(/\.[^/.]+$/, '')}.csv`;
       
-      // Create a temporary zip to test the compressed size
-      const tempZip = new JSZip();
-      // Copy current files to temp zip
-      Object.keys(currentZip.files).forEach(name => {
-        const currentFile = currentZip.files[name];
-        if (!currentFile.dir) {
-          tempZip.file(name, currentFile.async('string'));
-        }
-      });
-      tempZip.file(fileName, csvContent);
-      
-      // Check compressed size
-      const compressedContent = await tempZip.generateAsync({ 
-        type: 'blob', 
-        compression: 'DEFLATE', 
-        compressionOptions: { level: 6 } 
-      });
+      let shouldCreateNewZip = false;
 
-      // If adding this file would exceed the compressed size limit, start a new zip
-      if (compressedContent.size > maxZipSizeBytes && Object.keys(currentZip.files).length > 0) {
+      if (splitMethod === 'size') {
+        // Create a temporary zip to test the compressed size
+        const tempZip = new JSZip();
+        // Copy current files to temp zip
+        Object.keys(currentZip.files).forEach(name => {
+          const currentFile = currentZip.files[name];
+          if (!currentFile.dir) {
+            tempZip.file(name, currentFile.async('string'));
+          }
+        });
+        tempZip.file(fileName, csvContent);
+        
+        // Check compressed size
+        const compressedContent = await tempZip.generateAsync({ 
+          type: 'blob', 
+          compression: 'DEFLATE', 
+          compressionOptions: { level: compressionLevel } 
+        });
+
+        shouldCreateNewZip = compressedContent.size > maxZipSizeBytes && Object.keys(currentZip.files).length > 0;
+      } else {
+        // Split by file count
+        shouldCreateNewZip = filesInCurrentZip >= maxFiles && Object.keys(currentZip.files).length > 0;
+      }
+
+      // If we need to start a new zip
+      if (shouldCreateNewZip) {
         zipsToDownload.push({ 
           zip: currentZip, 
           name: `modified_files_part_${zipIndex}.zip` 
         });
         currentZip = new JSZip();
+        filesInCurrentZip = 0;
         zipIndex++;
       }
 
       // Add file to current zip
       currentZip.file(fileName, csvContent);
+      filesInCurrentZip++;
     }
 
     // Add the last zip if it has files
@@ -295,7 +320,7 @@ export function CsvBatchEditor() {
       const content = await zip.generateAsync({ 
         type: 'blob', 
         compression: 'DEFLATE', 
-        compressionOptions: { level: 6 } 
+        compressionOptions: { level: compressionLevel } 
       });
       const link = document.createElement('a');
       const url = URL.createObjectURL(content);
@@ -310,7 +335,7 @@ export function CsvBatchEditor() {
 
     toast({
       title: "Export Complete",
-      description: `Exported ${csvFiles.length} files in ${zipsToDownload.length} compressed zip archive(s)`
+      description: `Exported ${csvFiles.length} files in ${zipsToDownload.length} compressed zip archive(s) (Level ${compressionLevel})`
     });
   };
 
@@ -380,6 +405,89 @@ export function CsvBatchEditor() {
         </CardContent>
       </Card>
 
+      {/* Export Options */}
+      {csvFiles.length > 0 && (
+        <Card className="border-0 shadow-lg">
+          <CardHeader className="bg-gradient-to-r from-accent/5 to-accent/10 rounded-t-lg">
+            <CardTitle className="flex items-center gap-3 text-lg">
+              <Settings className="w-6 h-6 text-accent-foreground" />
+              Export Options
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Compression Level</Label>
+                <Select 
+                  value={exportOptions.compressionLevel.toString()} 
+                  onValueChange={(value) => setExportOptions(prev => ({ ...prev, compressionLevel: parseInt(value) }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="0">0 - No Compression</SelectItem>
+                    <SelectItem value="1">1 - Fastest</SelectItem>
+                    <SelectItem value="3">3 - Fast</SelectItem>
+                    <SelectItem value="6">6 - Balanced (Default)</SelectItem>
+                    <SelectItem value="9">9 - Maximum</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Split Method</Label>
+                <Select 
+                  value={exportOptions.splitMethod} 
+                  onValueChange={(value: 'size' | 'files') => setExportOptions(prev => ({ ...prev, splitMethod: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="size">Split by Size</SelectItem>
+                    <SelectItem value="files">Split by File Count</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {exportOptions.splitMethod === 'size' ? (
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Max Size (MB)</Label>
+                  <Input
+                    type="number"
+                    value={exportOptions.maxSizeMB}
+                    onChange={(e) => setExportOptions(prev => ({ ...prev, maxSizeMB: parseInt(e.target.value) || 50 }))}
+                    placeholder="50"
+                    min="1"
+                    max="500"
+                  />
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Max Files per ZIP</Label>
+                  <Input
+                    type="number"
+                    value={exportOptions.maxFiles}
+                    onChange={(e) => setExportOptions(prev => ({ ...prev, maxFiles: parseInt(e.target.value) || 100 }))}
+                    placeholder="100"
+                    min="1"
+                    max="1000"
+                  />
+                </div>
+              )}
+
+              <div className="flex items-end">
+                <Button onClick={exportModifiedFiles} className="w-full">
+                  <Download className="w-4 h-4 mr-2" />
+                  Export with Options
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {csvFiles.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* File List */}
@@ -433,11 +541,7 @@ export function CsvBatchEditor() {
                   ))}
                 </div>
               </ScrollArea>
-              <div className="mt-6 space-y-3">
-                <Button onClick={exportModifiedFiles} className="w-full" size="lg">
-                  <Download className="w-5 h-5 mr-2" />
-                  Export All as ZIP
-                </Button>
+              <div className="mt-6">
                 <Button onClick={clearAllFiles} variant="outline" className="w-full">
                   <Trash2 className="w-4 h-4 mr-2" />
                   Clear All Files
