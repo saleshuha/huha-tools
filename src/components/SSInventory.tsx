@@ -8,9 +8,11 @@ import { Checkbox } from './ui/checkbox';
 import { Badge } from './ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Progress } from './ui/progress';
+import { Calendar } from './ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { useToast } from '@/hooks/use-toast';
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from './ui/pagination';
-import { Package, Plus, Search, Edit, Download, Upload, Check, X, RefreshCw, AlertTriangle, Printer, Hash, Mail, BarChart3, Filter, Grid3X3, List, SortAsc, SortDesc, Calendar, TrendingUp, TrendingDown, Eye, Archive, Zap, Clock, ShoppingCart, Trash2, Settings, FileText, Copy, Star } from 'lucide-react';
+import { Package, Plus, Search, Edit, Download, Upload, Check, X, RefreshCw, AlertTriangle, Printer, Hash, Mail, BarChart3, Filter, Grid3X3, List, SortAsc, SortDesc, Calendar as CalendarIcon, TrendingUp, TrendingDown, Eye, Archive, Zap, Clock, ShoppingCart, Trash2, Settings, FileText, Copy, Star } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from './ui/dialog';
 import { Textarea } from './ui/textarea';
 import { useSkuInventory, SkuInventoryItem } from '@/hooks/useSkuInventory';
@@ -20,6 +22,8 @@ import { DualQuantityEditor } from './DualQuantityEditor';
 import { StockHistoryDialog } from './StockHistoryDialog';
 import { MultiBinEditor } from './MultiBinEditor';
 import { SkuInventoryMetrics } from './SkuInventoryMetrics';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 export function SSInventory() {
   const {
@@ -51,6 +55,8 @@ export function SSInventory() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
   const [quickFilter, setQuickFilter] = useState<'all' | 'low-stock' | 'out-of-stock' | 'recent'>('all');
+  const [dateFilterFrom, setDateFilterFrom] = useState<Date>();
+  const [dateFilterTo, setDateFilterTo] = useState<Date>();
   const {
     toast
   } = useToast();
@@ -93,6 +99,24 @@ export function SSInventory() {
       filtered = filtered.filter(item => item.quantity > 0 && item.quantity <= 5);
     } else if (quickFilter === 'out-of-stock') {
       filtered = filtered.filter(item => item.quantity === 0);
+      
+      // Apply date filter for out-of-stock items
+      if (dateFilterFrom || dateFilterTo) {
+        filtered = filtered.filter(item => {
+          const itemDate = new Date(item.dateAdded);
+          const fromDate = dateFilterFrom ? new Date(dateFilterFrom.setHours(0, 0, 0, 0)) : null;
+          const toDate = dateFilterTo ? new Date(dateFilterTo.setHours(23, 59, 59, 999)) : null;
+          
+          if (fromDate && toDate) {
+            return itemDate >= fromDate && itemDate <= toDate;
+          } else if (fromDate) {
+            return itemDate >= fromDate;
+          } else if (toDate) {
+            return itemDate <= toDate;
+          }
+          return true;
+        });
+      }
     } else if (quickFilter === 'recent') {
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
@@ -114,7 +138,7 @@ export function SSInventory() {
       }
     });
     return filtered;
-  }, [inventory, searchTerm, statusFilter, sortBy, sortOrder, quickFilter]);
+  }, [inventory, searchTerm, statusFilter, sortBy, sortOrder, quickFilter, dateFilterFrom, dateFilterTo]);
 
   const totalPages = Math.ceil(filteredInventory.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -458,11 +482,90 @@ export function SSInventory() {
                 className="flex items-center gap-2"
               >
                 <Clock className="w-5 h-5" />
-                Recent (7 days)
-              </Button>
-            </div>
+                 Recent (7 days)
+               </Button>
+             </div>
 
-            {/* Controls Row */}
+             {/* Date Filters for Out of Stock items */}
+             {quickFilter === 'out-of-stock' && (
+               <div className="flex flex-wrap items-center gap-3 pt-4 border-t">
+                 <Label className="text-base font-semibold flex items-center gap-2">
+                   <CalendarIcon className="w-5 h-5" />
+                   Date Filter:
+                 </Label>
+                 <div className="flex items-center gap-2">
+                   <Popover>
+                     <PopoverTrigger asChild>
+                       <Button
+                         variant="outline"
+                         className={cn(
+                           "w-[280px] justify-start text-left font-normal",
+                           !dateFilterFrom && "text-muted-foreground"
+                         )}
+                       >
+                         <CalendarIcon className="mr-2 h-4 w-4" />
+                         {dateFilterFrom ? format(dateFilterFrom, "PPP") : "Pick start date"}
+                       </Button>
+                     </PopoverTrigger>
+                     <PopoverContent className="w-auto p-0">
+                       <Calendar
+                         mode="single"
+                         selected={dateFilterFrom}
+                         onSelect={setDateFilterFrom}
+                         initialFocus
+                       />
+                     </PopoverContent>
+                   </Popover>
+                   
+                   <span className="text-muted-foreground">to</span>
+                   
+                   <Popover>
+                     <PopoverTrigger asChild>
+                       <Button
+                         variant="outline"
+                         className={cn(
+                           "w-[280px] justify-start text-left font-normal",
+                           !dateFilterTo && "text-muted-foreground"
+                         )}
+                       >
+                         <CalendarIcon className="mr-2 h-4 w-4" />
+                         {dateFilterTo ? format(dateFilterTo, "PPP") : "Pick end date"}
+                       </Button>
+                     </PopoverTrigger>
+                     <PopoverContent className="w-auto p-0">
+                       <Calendar
+                         mode="single"
+                         selected={dateFilterTo}
+                         onSelect={setDateFilterTo}
+                         initialFocus
+                       />
+                     </PopoverContent>
+                   </Popover>
+                   
+                   {(dateFilterFrom || dateFilterTo) && (
+                     <Button
+                       variant="ghost"
+                       size="sm"
+                       onClick={() => {
+                         setDateFilterFrom(undefined);
+                         setDateFilterTo(undefined);
+                       }}
+                       className="h-8 px-2 lg:px-3"
+                     >
+                       Clear Dates
+                     </Button>
+                   )}
+                 </div>
+               </div>
+             )}
+           </div>
+          </CardContent>
+        </Card>
+
+      {/* Controls Row */}
+      <Card>
+        <CardContent className="p-6">
+          <div className="space-y-6">
             <div className="flex flex-wrap items-center gap-6">
               {/* Status Filter */}
               <div className="flex items-center gap-3">
@@ -639,7 +742,7 @@ export function SSInventory() {
                     </DialogContent>
                   </Dialog>
                 </div>
-              )}
+               )}
             </div>
           </div>
         </CardContent>
@@ -881,5 +984,6 @@ export function SSInventory() {
           </div>
         </Card>
       )}
-    </div>;
+    </div>
+  );
 }
