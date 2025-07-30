@@ -279,54 +279,78 @@ export function CsvBatchEditor() {
         return headerRow + '\n' + dataRows.join('\n');
       };
 
-      // Fast size estimation (compression ratio ~65% for CSV data)
+      // More accurate size estimation for CSV data (compression ratio ~40-50% for CSV)
       const estimateCompressedSize = (content: string) => {
-        return Math.ceil(new Blob([content]).size * 0.65);
+        return Math.ceil(new Blob([content]).size * 0.45);
       };
 
-      // Process files in batches for better performance
-      const batchSize = 50;
-      for (let batchStart = 0; batchStart < csvFiles.length; batchStart += batchSize) {
-        const batchEnd = Math.min(batchStart + batchSize, csvFiles.length);
-        
-        for (let i = batchStart; i < batchEnd; i++) {
-          const file = csvFiles[i];
-          const csvContent = toCsv(file.headers, file.data);
-          const fileName = `modified_${file.fileName.replace(/\.[^/.]+$/, '')}.csv`;
-          const estimatedSize = estimateCompressedSize(csvContent);
+      // Test actual compressed size periodically for accuracy
+      const testCompressedSize = async (zip: JSZip) => {
+        const compressed = await zip.generateAsync({ 
+          type: 'blob',
+          compression: 'DEFLATE',
+          compressionOptions: { level: compressionLevel }
+        });
+        return compressed.size;
+      };
 
-          let shouldCreateNewZip = false;
+      // Process files and pack them efficiently
+      let testCounter = 0;
+      for (let i = 0; i < csvFiles.length; i++) {
+        const file = csvFiles[i];
+        const csvContent = toCsv(file.headers, file.data);
+        const fileName = `modified_${file.fileName.replace(/\.[^/.]+$/, '')}.csv`;
+        const estimatedSize = estimateCompressedSize(csvContent);
 
-          if (splitMethod === 'size' && filesInCurrentZip > 0) {
-            shouldCreateNewZip = (currentZipEstimatedSize + estimatedSize) > maxZipSizeBytes;
-          } else if (splitMethod === 'files') {
-            shouldCreateNewZip = filesInCurrentZip >= maxFiles && filesInCurrentZip > 0;
+        let shouldCreateNewZip = false;
+
+        if (splitMethod === 'size' && filesInCurrentZip > 0) {
+          // Test actual size every 10 files or when approaching limit
+          if (testCounter % 10 === 0 || (currentZipEstimatedSize + estimatedSize) > (maxZipSizeBytes * 0.8)) {
+            const actualSize = await testCompressedSize(currentZip);
+            
+            // If adding this file would exceed the limit, create new zip
+            if ((actualSize + estimatedSize) > maxZipSizeBytes) {
+              shouldCreateNewZip = true;
+            } else {
+              // Update our estimate based on actual compression
+              currentZipEstimatedSize = actualSize;
+            }
+            testCounter = 0;
+          } else {
+            // Use estimation for speed
+            shouldCreateNewZip = (currentZipEstimatedSize + estimatedSize) > (maxZipSizeBytes * 0.9);
           }
-
-          // Create new zip if needed
-          if (shouldCreateNewZip) {
-            zipsToDownload.push({ 
-              zip: currentZip, 
-              name: `modified_files_part_${zipIndex}.zip` 
-            });
-            currentZip = new JSZip();
-            filesInCurrentZip = 0;
-            currentZipEstimatedSize = 0;
-            zipIndex++;
-          }
-
-          // Add file to current zip
-          currentZip.file(fileName, csvContent);
-          filesInCurrentZip++;
-          currentZipEstimatedSize += estimatedSize;
-
-          // Update progress for processing
-          const progress = Math.round(((i + 1) / csvFiles.length) * 70);
-          setExportProgress(progress);
+        } else if (splitMethod === 'files') {
+          shouldCreateNewZip = filesInCurrentZip >= maxFiles && filesInCurrentZip > 0;
         }
-        
-        // Allow UI to update between batches
-        await new Promise(resolve => setTimeout(resolve, 0));
+
+        // Create new zip if needed
+        if (shouldCreateNewZip) {
+          zipsToDownload.push({ 
+            zip: currentZip, 
+            name: `modified_files_part_${zipIndex}.zip` 
+          });
+          currentZip = new JSZip();
+          filesInCurrentZip = 0;
+          currentZipEstimatedSize = 0;
+          zipIndex++;
+        }
+
+        // Add file to current zip
+        currentZip.file(fileName, csvContent);
+        filesInCurrentZip++;
+        currentZipEstimatedSize += estimatedSize;
+        testCounter++;
+
+        // Update progress for processing
+        const progress = Math.round(((i + 1) / csvFiles.length) * 70);
+        setExportProgress(progress);
+
+        // Allow UI to update every 20 files
+        if (i % 20 === 0) {
+          await new Promise(resolve => setTimeout(resolve, 0));
+        }
       }
 
       // Add the last zip if it has files
