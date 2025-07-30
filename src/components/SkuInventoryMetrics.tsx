@@ -145,7 +145,7 @@ export function SkuInventoryMetrics() {
       </div>;
   }
   return <>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {/* Active SKU Items */}
         <Card className="glass-container cursor-pointer hover:shadow-lg transition-all duration-300 hover:border-primary/30" onClick={() => handleMetricClick('active')}>
           <CardContent className="p-4">
@@ -204,7 +204,16 @@ export function SkuInventoryMetrics() {
 
         {/* Sold Units */}
         <Card className="glass-container">
-          
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Sold Units</p>
+                <p className="text-2xl font-bold text-orange-600">{stats.soldUnits}</p>
+                <p className="text-xs text-muted-foreground">Units sold</p>
+              </div>
+              <TrendingDown className="w-6 h-6 text-orange-600" />
+            </div>
+          </CardContent>
         </Card>
       </div>
 

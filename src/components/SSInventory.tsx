@@ -20,7 +20,7 @@ import { useUserProfile } from '@/hooks/useUserProfile';
 import { supabase } from '@/integrations/supabase/client';
 import { DualQuantityEditor } from './DualQuantityEditor';
 import { StockHistoryDialog } from './StockHistoryDialog';
-import { InventoryMetrics } from './InventoryMetrics';
+import { SkuInventoryMetrics } from './SkuInventoryMetrics';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -267,7 +267,7 @@ export function SSInventory() {
   return <div className="space-y-6 max-w-[95vw] mx-auto p-6">
       {/* Header with Stats */}
       <div className="space-y-6">
-        <InventoryMetrics showOnlySku={true} />
+        <SkuInventoryMetrics />
       </div>
 
       {/* Prominent Search Bar */}
