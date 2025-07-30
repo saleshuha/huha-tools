@@ -96,57 +96,42 @@ export function MultiBinEditor({ currentBinSerial, onUpdate, disabled }: MultiBi
         {currentBinSerial || 'N/A'}
       </span>
       
-      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogTrigger asChild>
-          <Button variant="outline" size="sm" className="h-6 w-6 p-0">
+      {/* Quick Add Input - Shows inline when adding */}
+      {isAddDialogOpen ? (
+        <div className="flex items-center gap-2 ml-2">
+          <Input
+            value={addBinSerial}
+            onChange={(e) => setAddBinSerial(e.target.value)}
+            placeholder="Enter bin/serial"
+            className="h-8 w-32 text-xs"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleAdd();
+              if (e.key === 'Escape') handleCancel('add');
+            }}
+            autoFocus
+          />
+          <Button variant="outline" size="sm" className="h-8 px-2" onClick={handleAdd} disabled={isLoading}>
             <Plus className="h-3 w-3" />
           </Button>
-        </DialogTrigger>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add Bin/Serial Number</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="add-bin-serial">New Bin/Serial Number</Label>
-              <Input
-                id="add-bin-serial"
-                value={addBinSerial}
-                onChange={(e) => setAddBinSerial(e.target.value)}
-                placeholder="Enter bin/serial number"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="add-reason">Reason (Optional)</Label>
-              <Textarea
-                id="add-reason"
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                placeholder="Enter reason for adding..."
-                rows={3}
-              />
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => handleCancel('add')}>
-                Cancel
-              </Button>
-              <Button onClick={handleAdd} disabled={isLoading}>
-                {isLoading ? 'Adding...' : 'Add'}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+          <Button variant="outline" size="sm" className="h-8 px-2" onClick={() => handleCancel('add')}>
+            <Minus className="h-3 w-3" />
+          </Button>
+        </div>
+      ) : (
+        <Button variant="outline" size="sm" className="h-6 w-6 p-0" onClick={() => setIsAddDialogOpen(true)}>
+          <Plus className="h-3 w-3" />
+        </Button>
+      )}
 
       <Dialog open={isRemoveDialogOpen} onOpenChange={setIsRemoveDialogOpen}>
         <DialogTrigger asChild>
           <Button variant="outline" size="sm" className="h-6 w-6 p-0">
-            <Minus className="h-3 w-3" />
+            <Edit className="h-3 w-3" />
           </Button>
         </DialogTrigger>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Remove Bin/Serial Number</DialogTitle>
+            <DialogTitle>Edit Bin/Serial Numbers</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
