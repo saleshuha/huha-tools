@@ -93,7 +93,25 @@ export function InventoryMetrics({ showOnlyAsin = false }: InventoryMetricsProps
         const inStockItems = asinItems.filter(item => item.quantity > 0).length;
         const outOfStockItems = asinItems.filter(item => item.quantity === 0).length;
         const asinTotalUnits = asinItems.reduce((sum, item) => sum + item.quantity, 0);
-        const asinSoldUnits = asinItems.filter(item => item.status === 'sold').reduce((sum, item) => sum + item.quantity, 0);
+        
+        // Filter sold units based on date filters
+        let soldItems = asinItems.filter(item => item.status === 'sold');
+        if (soldDateFrom || soldDateTo) {
+          soldItems = soldItems.filter(item => {
+            if (!item.date_sold) return false;
+            const soldDate = new Date(item.date_sold);
+            
+            if (soldDateFrom && soldDate < soldDateFrom) return false;
+            if (soldDateTo) {
+              const endDate = new Date(soldDateTo);
+              endDate.setHours(23, 59, 59, 999);
+              if (soldDate > endDate) return false;
+            }
+            return true;
+          });
+        }
+        
+        const asinSoldUnits = soldItems.reduce((sum, item) => sum + item.quantity, 0);
 
         setStats({
           activeItems,
@@ -358,7 +376,7 @@ export function InventoryMetrics({ showOnlyAsin = false }: InventoryMetricsProps
     if (selectedCountry) {
       loadMetrics();
     }
-  }, [selectedCountry]);
+  }, [selectedCountry, soldDateFrom, soldDateTo]);
 
   const filteredItems = inventoryItems.filter(item =>
     item.identifier.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -375,6 +393,72 @@ export function InventoryMetrics({ showOnlyAsin = false }: InventoryMetricsProps
 
   return (
     <>
+      {/* Date Filter for Sold Units - Show only in ASIN mode */}
+      {showOnlyAsin && (
+        <div className="mb-4 p-4 glass-container rounded-lg">
+          <div className="flex items-center gap-4">
+            <h3 className="text-sm font-medium text-muted-foreground">Filter Sold Units by Date:</h3>
+            
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="w-auto justify-start text-left font-normal"
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {soldDateFrom ? format(soldDateFrom, "PPP") : "From Date"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={soldDateFrom}
+                  onSelect={setSoldDateFrom}
+                  initialFocus
+                  className="p-3 pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
+
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="w-auto justify-start text-left font-normal"
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {soldDateTo ? format(soldDateTo, "PPP") : "To Date"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={soldDateTo}
+                  onSelect={setSoldDateTo}
+                  initialFocus
+                  className="p-3 pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
+
+            <Button onClick={loadMetrics} variant="default">
+              Apply Filters
+            </Button>
+
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setSoldDateFrom(undefined);
+                setSoldDateTo(undefined);
+                loadMetrics();
+              }}
+            >
+              Clear Dates
+            </Button>
+          </div>
+        </div>
+      )}
+
       <div className={`grid gap-4 mb-6 ${
         showOnlyAsin 
           ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5' 
