@@ -261,83 +261,97 @@ export function CsvBatchEditor() {
       let currentZip = new JSZip();
       let zipIndex = 1;
       let filesInCurrentZip = 0;
+      let currentZipSize = 0;
       const zipsToDownload: { zip: JSZip; name: string }[] = [];
 
-      // Process files with progress tracking
-      for (let i = 0; i < csvFiles.length; i++) {
-        const file = csvFiles[i];
-        const csvContent = [
-          file.headers.join(','),
-          ...file.data.map(row => row.map(cell => `"${cell || ''}"`).join(','))
-        ].join('\n');
-
-        const fileName = `modified_${file.fileName.replace(/\.[^/.]+$/, '')}.csv`;
+      // Optimized CSV conversion function
+      const toCsv = (headers: string[], data: any[][]) => {
+        const escapeField = (field: any) => {
+          if (field == null) return '';
+          const str = String(field);
+          return str.includes(',') || str.includes('"') || str.includes('\n') 
+            ? `"${str.replace(/"/g, '""')}"` 
+            : str;
+        };
         
-        let shouldCreateNewZip = false;
+        const headerRow = headers.map(escapeField).join(',');
+        const dataRows = data.map(row => row.map(escapeField).join(','));
+        return headerRow + '\n' + dataRows.join('\n');
+      };
 
-        if (splitMethod === 'size') {
-          // Create a temporary zip to test the compressed size
-          const tempZip = new JSZip();
-          // Copy current files to temp zip
-          Object.keys(currentZip.files).forEach(name => {
-            const currentFile = currentZip.files[name];
-            if (!currentFile.dir) {
-              tempZip.file(name, currentFile.async('string'));
-            }
-          });
-          tempZip.file(fileName, csvContent);
-          
-          // Check compressed size
-          const compressedContent = await tempZip.generateAsync({ 
-            type: 'blob', 
-            compression: 'DEFLATE', 
-            compressionOptions: { level: compressionLevel } 
-          });
+      // Process files in chunks for better performance
+      const CHUNK_SIZE = 10;
+      for (let chunkStart = 0; chunkStart < csvFiles.length; chunkStart += CHUNK_SIZE) {
+        const chunk = csvFiles.slice(chunkStart, Math.min(chunkStart + CHUNK_SIZE, csvFiles.length));
+        
+        // Process chunk in parallel
+        const processedChunk = await Promise.all(
+          chunk.map(async (file) => ({
+            file,
+            csvContent: toCsv(file.headers, file.data),
+            fileName: `modified_${file.fileName.replace(/\.[^/.]+$/, '')}.csv`
+          }))
+        );
 
-          shouldCreateNewZip = compressedContent.size > maxZipSizeBytes && Object.keys(currentZip.files).length > 0;
-        } else {
-          // Split by file count
-          shouldCreateNewZip = filesInCurrentZip >= maxFiles && Object.keys(currentZip.files).length > 0;
+        for (const { file, csvContent, fileName } of processedChunk) {
+          let shouldCreateNewZip = false;
+          const estimatedSize = new Blob([csvContent]).size;
+
+          if (splitMethod === 'size') {
+            // Estimate compressed size (rough approximation: 30-70% of original)
+            const estimatedCompressedSize = estimatedSize * (compressionLevel <= 3 ? 0.7 : compressionLevel <= 6 ? 0.5 : 0.3);
+            shouldCreateNewZip = (currentZipSize + estimatedCompressedSize) > maxZipSizeBytes && filesInCurrentZip > 0;
+          } else {
+            shouldCreateNewZip = filesInCurrentZip >= maxFiles && filesInCurrentZip > 0;
+          }
+
+          if (shouldCreateNewZip) {
+            zipsToDownload.push({ 
+              zip: currentZip, 
+              name: `modified_files_part_${zipIndex}.zip` 
+            });
+            currentZip = new JSZip();
+            filesInCurrentZip = 0;
+            currentZipSize = 0;
+            zipIndex++;
+          }
+
+          currentZip.file(fileName, csvContent);
+          filesInCurrentZip++;
+          currentZipSize += estimatedSize;
         }
 
-        // If we need to start a new zip
-        if (shouldCreateNewZip) {
-          zipsToDownload.push({ 
-            zip: currentZip, 
-            name: `modified_files_part_${zipIndex}.zip` 
-          });
-          currentZip = new JSZip();
-          filesInCurrentZip = 0;
-          zipIndex++;
-        }
-
-        // Add file to current zip
-        currentZip.file(fileName, csvContent);
-        filesInCurrentZip++;
-
-        // Update progress
-        const progress = Math.round(((i + 1) / csvFiles.length) * 70); // 70% for processing files
+        // Update progress for processing
+        const progress = Math.round(((chunkStart + chunk.length) / csvFiles.length) * 60);
         setExportProgress(progress);
+        
+        // Allow UI to update
+        await new Promise(resolve => setTimeout(resolve, 0));
       }
 
       // Add the last zip if it has files
-      if (Object.keys(currentZip.files).length > 0) {
+      if (filesInCurrentZip > 0) {
         zipsToDownload.push({ 
           zip: currentZip, 
           name: zipIndex === 1 ? 'modified_files.zip' : `modified_files_part_${zipIndex}.zip` 
         });
       }
 
-      setExportProgress(75);
+      setExportProgress(65);
 
-      // Download all zip files with progress tracking
+      // Generate and download zip files
       for (let i = 0; i < zipsToDownload.length; i++) {
         const { zip, name } = zipsToDownload[i];
+        
+        // Generate zip with streaming for better performance
         const content = await zip.generateAsync({ 
-          type: 'blob', 
-          compression: 'DEFLATE', 
-          compressionOptions: { level: compressionLevel } 
+          type: 'blob',
+          compression: 'DEFLATE',
+          compressionOptions: { level: compressionLevel },
+          streamFiles: true // Enable streaming for better memory usage
         });
+        
+        // Download immediately to reduce memory usage
         const link = document.createElement('a');
         const url = URL.createObjectURL(content);
         link.setAttribute('href', url);
@@ -346,18 +360,23 @@ export function CsvBatchEditor() {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        URL.revokeObjectURL(url);
+        
+        // Clean up blob URL immediately
+        setTimeout(() => URL.revokeObjectURL(url), 100);
 
-        // Update progress for downloads
-        const downloadProgress = 75 + Math.round(((i + 1) / zipsToDownload.length) * 25); // 25% for downloads
+        // Update progress
+        const downloadProgress = 65 + Math.round(((i + 1) / zipsToDownload.length) * 35);
         setExportProgress(downloadProgress);
+        
+        // Allow UI to update between downloads
+        await new Promise(resolve => setTimeout(resolve, 50));
       }
 
       setExportProgress(100);
 
       toast({
         title: "Export Complete",
-        description: `Exported ${csvFiles.length} files in ${zipsToDownload.length} compressed zip archive(s) (Level ${compressionLevel})`
+        description: `Exported ${csvFiles.length} files in ${zipsToDownload.length} zip archive(s) (Compression: ${compressionLevel})`
       });
     } catch (error) {
       console.error('Export error:', error);
