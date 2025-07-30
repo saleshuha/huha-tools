@@ -482,9 +482,9 @@ export function SSInventory() {
                 className="flex items-center gap-2"
               >
                 <Clock className="w-5 h-5" />
-                 Recent (7 days)
-               </Button>
-             </div>
+                Recent (7 days)
+              </Button>
+            </div>
 
              {/* Date Filters for Out of Stock items */}
              {quickFilter === 'out-of-stock' && (
@@ -987,3 +987,5 @@ export function SSInventory() {
     </div>
   );
 }
+
+export default SSInventory;
