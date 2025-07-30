@@ -381,43 +381,64 @@ export function CsvBatchEditor() {
       </Card>
 
       {csvFiles.length > 0 && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* File List */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FolderOpen className="w-5 h-5" />
+          <Card className="border-0 shadow-lg">
+            <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10 rounded-t-lg">
+              <CardTitle className="flex items-center gap-3 text-lg">
+                <FolderOpen className="w-6 h-6 text-primary" />
                 Loaded Files
+                <Badge variant="secondary" className="ml-auto">
+                  {csvFiles.length} files
+                </Badge>
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-64">
-                <div className="space-y-2">
+            <CardContent className="p-6">
+              <ScrollArea className="h-80">
+                <div className="space-y-3">
                   {csvFiles.map((file, index) => (
                     <div 
                       key={`${file.zipSource}-${file.fileName}-${index}`}
-                      className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                      className={`p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 hover:shadow-md ${
                         selectedFile?.fileName === file.fileName && selectedFile?.zipSource === file.zipSource
-                          ? 'bg-primary/10 border-primary' 
-                          : 'hover:bg-muted/50'
+                          ? 'bg-primary/10 border-primary shadow-lg transform scale-[1.02]' 
+                          : 'hover:bg-muted/30 border-muted hover:border-muted-foreground/30'
                       }`}
                       onClick={() => setSelectedFile(file)}
                     >
-                      <p className="font-medium text-sm">{file.fileName}</p>
-                      <p className="text-xs text-muted-foreground">From: {file.zipSource}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {file.data.length} rows, {file.headers.length} columns
-                      </p>
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-sm truncate">{file.fileName}</p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Source: {file.zipSource}
+                          </p>
+                          <div className="flex items-center gap-4 mt-2">
+                            <div className="flex items-center gap-1">
+                              <Database className="w-3 h-3 text-muted-foreground" />
+                              <span className="text-xs text-muted-foreground">{file.data.length} rows</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Columns className="w-3 h-3 text-muted-foreground" />
+                              <span className="text-xs text-muted-foreground">{file.headers.length} cols</span>
+                            </div>
+                          </div>
+                        </div>
+                        {selectedFile?.fileName === file.fileName && selectedFile?.zipSource === file.zipSource && (
+                          <div className="ml-2">
+                            <Badge variant="default" className="text-xs">Selected</Badge>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
               </ScrollArea>
-              <div className="mt-4 space-y-2">
-                <Button onClick={exportModifiedFiles} className="w-full" size="sm">
-                  <Download className="w-4 h-4 mr-2" />
-                  Export All Modified
+              <div className="mt-6 space-y-3">
+                <Button onClick={exportModifiedFiles} className="w-full" size="lg">
+                  <Download className="w-5 h-5 mr-2" />
+                  Export All as ZIP
                 </Button>
-                <Button onClick={clearAllFiles} variant="outline" className="w-full" size="sm">
+                <Button onClick={clearAllFiles} variant="outline" className="w-full">
                   <Trash2 className="w-4 h-4 mr-2" />
                   Clear All Files
                 </Button>
@@ -426,50 +447,59 @@ export function CsvBatchEditor() {
           </Card>
 
           {/* Column Editor */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Edit3 className="w-5 h-5" />
+          <Card className="border-0 shadow-lg">
+            <CardHeader className="bg-gradient-to-r from-secondary/5 to-secondary/10 rounded-t-lg">
+              <CardTitle className="flex items-center gap-3 text-lg">
+                <Edit3 className="w-6 h-6 text-secondary-foreground" />
                 Column Editor
+                {selectedFile && (
+                  <Badge variant="outline" className="ml-auto">
+                    {selectedFile.fileName}
+                  </Badge>
+                )}
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {selectedFile && (
+            <CardContent className="p-6 space-y-6">
+              {selectedFile ? (
                 <>
-                  <div className="space-y-3">
-                    <div>
-                      <Label>Column</Label>
+                  <div className="space-y-4 p-4 bg-muted/30 rounded-lg border">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Select Column</Label>
                       <Select value={newColumnEdit.column} onValueChange={(value) => 
                         setNewColumnEdit(prev => ({ ...prev, column: value }))
                       }>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select column" />
+                        <SelectTrigger className="h-11">
+                          <SelectValue placeholder="Choose a column to edit" />
                         </SelectTrigger>
                         <SelectContent>
                           {selectedFile.headers.map(header => (
-                            <SelectItem key={header} value={header}>
-                              {header}
+                            <SelectItem key={header} value={header} className="py-2">
+                              <div className="flex items-center gap-2">
+                                <Columns className="w-4 h-4 text-muted-foreground" />
+                                {header}
+                              </div>
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     </div>
 
-                    <div>
-                      <Label>New Value</Label>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">New Value</Label>
                       <Input
+                        className="h-11"
                         value={newColumnEdit.newValue}
                         onChange={(e) => setNewColumnEdit(prev => ({ ...prev, newValue: e.target.value }))}
-                        placeholder="Enter default value"
+                        placeholder="Enter the default value"
                       />
                     </div>
 
-                    <div>
-                      <Label>Apply To</Label>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Apply To</Label>
                       <Select value={newColumnEdit.applyToRows} onValueChange={(value: 'all' | 'empty' | 'specific') => 
                         setNewColumnEdit(prev => ({ ...prev, applyToRows: value }))
                       }>
-                        <SelectTrigger>
+                        <SelectTrigger className="h-11">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -480,82 +510,48 @@ export function CsvBatchEditor() {
                       </Select>
                     </div>
 
-                    <Button onClick={addColumnEdit} className="w-full">
+                    <Button onClick={addColumnEdit} className="w-full h-11" size="lg">
+                      <Settings className="w-4 h-4 mr-2" />
                       Add Column Edit
                     </Button>
                   </div>
 
                   {columnEdits.length > 0 && (
-                    <div className="space-y-2">
-                      <Label>Pending Edits</Label>
-                      <ScrollArea className="h-32">
-                        {columnEdits.map((edit, index) => (
-                          <div key={index} className="flex items-center justify-between p-2 bg-muted rounded text-sm">
-                            <div>
-                              <p className="font-medium">{edit.column}</p>
-                              <p className="text-xs text-muted-foreground">"{edit.newValue}" → {edit.applyToRows}</p>
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2">
+                        <Label className="text-sm font-medium">Pending Edits</Label>
+                        <Badge variant="secondary">{columnEdits.length}</Badge>
+                      </div>
+                      <ScrollArea className="h-40 w-full border rounded-lg p-2">
+                        <div className="space-y-2">
+                          {columnEdits.map((edit, index) => (
+                            <div key={index} className="flex items-center justify-between p-3 bg-card border rounded-lg shadow-sm">
+                              <div className="flex-1">
+                                <p className="font-medium text-sm">{edit.column}</p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  Set to: <span className="font-medium">"{edit.newValue}"</span> • Apply to: <span className="font-medium">{edit.applyToRows}</span>
+                                </p>
+                              </div>
+                              <Button size="sm" variant="ghost" onClick={() => removeColumnEdit(index)} className="h-8 w-8 p-0">
+                                <Trash2 className="w-4 h-4 text-destructive" />
+                              </Button>
                             </div>
-                            <Button size="sm" variant="ghost" onClick={() => removeColumnEdit(index)}>
-                              <Trash2 className="w-3 h-3" />
-                            </Button>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </ScrollArea>
-                      <Button onClick={applyColumnEdits} className="w-full" variant="default">
-                        Apply All Edits
+                      <Button onClick={applyColumnEdits} className="w-full h-11" size="lg">
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                        Apply All Edits ({columnEdits.length})
                       </Button>
                     </div>
                   )}
                 </>
-              )}
-              
-              {!selectedFile && (
-                <p className="text-center text-muted-foreground">Select a file to edit columns</p>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Data Preview */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Columns className="w-5 h-5" />
-                Data Preview
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {selectedFile ? (
-                <ScrollArea className="h-64 w-full">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        {selectedFile.headers.map(header => (
-                          <TableHead key={header} className="whitespace-nowrap">
-                            {header}
-                          </TableHead>
-                        ))}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {selectedFile.data.slice(0, 10).map((row, index) => (
-                        <TableRow key={index}>
-                          {row.map((cell, cellIndex) => (
-                            <TableCell key={cellIndex} className="whitespace-nowrap">
-                              {cell || '-'}
-                            </TableCell>
-                          ))}
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                  {selectedFile.data.length > 10 && (
-                    <p className="text-xs text-muted-foreground mt-2 text-center">
-                      Showing first 10 rows of {selectedFile.data.length} total rows
-                    </p>
-                  )}
-                </ScrollArea>
               ) : (
-                <p className="text-center text-muted-foreground">Select a file to preview data</p>
+                <div className="text-center py-12">
+                  <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground text-lg">Select a file to start editing columns</p>
+                  <p className="text-sm text-muted-foreground mt-2">Choose any file from the list to begin making column edits</p>
+                </div>
               )}
             </CardContent>
           </Card>
