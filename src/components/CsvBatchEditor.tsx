@@ -10,9 +10,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { ScrollArea } from './ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
+import { Checkbox } from './ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from './ui/progress';
-import { FileUp, Download, Settings, Trash2, RefreshCw, Database, FileText, Edit3, Columns, FolderOpen, FileArchive } from 'lucide-react';
+import { FileUp, Download, Settings, Trash2, RefreshCw, Database, FileText, Edit3, Columns, FolderOpen, FileArchive, CheckSquare, Square } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import JSZip from 'jszip';
 import * as XLSX from 'xlsx';
@@ -23,6 +24,7 @@ interface CSVFile {
   headers: string[];
   fileName: string;
   zipSource: string;
+  selected?: boolean;
 }
 
 interface ColumnEdit {
@@ -58,6 +60,11 @@ export function CsvBatchEditor() {
     maxFiles: 100
   });
   const { toast } = useToast();
+
+  // Get selected files for operations
+  const selectedFiles = csvFiles.filter(file => file.selected);
+  const allSelected = csvFiles.length > 0 && csvFiles.every(file => file.selected);
+  const someSelected = csvFiles.some(file => file.selected);
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     setProcessing(true);
@@ -98,7 +105,8 @@ export function CsvBatchEditor() {
                 data: data,
                 headers: headers,
                 fileName: fileName,
-                zipSource: file.name
+                zipSource: file.name,
+                selected: true
               });
             }
           }
@@ -130,7 +138,8 @@ export function CsvBatchEditor() {
             data: data,
             headers: headers,
             fileName: file.name,
-            zipSource: 'Direct Upload'
+            zipSource: 'Direct Upload',
+            selected: true
           });
         }
       }
@@ -241,11 +250,74 @@ export function CsvBatchEditor() {
     setColumnEdits([]);
   };
 
-  const exportModifiedFiles = async () => {
-    if (csvFiles.length === 0) {
+  const toggleFileSelection = (targetFile: CSVFile) => {
+    setCsvFiles(prev => prev.map(file =>
+      file.fileName === targetFile.fileName && file.zipSource === targetFile.zipSource
+        ? { ...file, selected: !file.selected }
+        : file
+    ));
+  };
+
+  const toggleAllSelection = () => {
+    const newSelected = !allSelected;
+    setCsvFiles(prev => prev.map(file => ({ ...file, selected: newSelected })));
+  };
+
+  const applyEditsToSelected = () => {
+    if (selectedFiles.length === 0 || columnEdits.length === 0) {
       toast({
-        title: "No Files",
-        description: "No files to export",
+        title: "No Files or Edits",
+        description: "Please select files and add column edits to apply",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    let updatedCount = 0;
+    setCsvFiles(prev => prev.map(file => {
+      if (!file.selected) return file;
+
+      const updatedData = [...file.data];
+      columnEdits.forEach(edit => {
+        const columnIndex = file.headers.indexOf(edit.column);
+        if (columnIndex === -1) return;
+
+        updatedData.forEach((row, rowIndex) => {
+          if (edit.applyToRows === 'all' || 
+             (edit.applyToRows === 'empty' && (!row[columnIndex] || row[columnIndex] === '')) ||
+             (edit.applyToRows === 'specific' && edit.specificRows?.includes(rowIndex))) {
+            row[columnIndex] = edit.newValue;
+          }
+        });
+      });
+
+      updatedCount++;
+      return { ...file, data: updatedData };
+    }));
+
+    // Update selected file if it was modified
+    if (selectedFile && selectedFile.selected) {
+      const updatedFile = csvFiles.find(f => 
+        f.fileName === selectedFile.fileName && f.zipSource === selectedFile.zipSource
+      );
+      if (updatedFile) {
+        setSelectedFile(updatedFile);
+      }
+    }
+
+    toast({
+      title: "Bulk Edits Applied",
+      description: `Applied ${columnEdits.length} column edits to ${updatedCount} selected files`
+    });
+
+    setColumnEdits([]);
+  };
+
+  const exportModifiedFiles = async () => {
+    if (selectedFiles.length === 0) {
+      toast({
+        title: "No Files Selected",
+        description: "Please select files to export",
         variant: "destructive"
       });
       return;
@@ -294,10 +366,10 @@ export function CsvBatchEditor() {
         return compressed.size;
       };
 
-      // Process files and pack them efficiently
+      // Process only selected files for much faster export
       let testCounter = 0;
-      for (let i = 0; i < csvFiles.length; i++) {
-        const file = csvFiles[i];
+      for (let i = 0; i < selectedFiles.length; i++) {
+        const file = selectedFiles[i];
         const csvContent = toCsv(file.headers, file.data);
         const fileName = `modified_${file.fileName.replace(/\.[^/.]+$/, '')}.csv`;
         const estimatedSize = estimateCompressedSize(csvContent);
@@ -344,11 +416,11 @@ export function CsvBatchEditor() {
         testCounter++;
 
         // Update progress for processing
-        const progress = Math.round(((i + 1) / csvFiles.length) * 70);
+        const progress = Math.round(((i + 1) / selectedFiles.length) * 70);
         setExportProgress(progress);
 
-        // Allow UI to update every 20 files
-        if (i % 20 === 0) {
+        // Allow UI to update every 50 files for better performance
+        if (i % 50 === 0) {
           await new Promise(resolve => setTimeout(resolve, 0));
         }
       }
@@ -396,7 +468,7 @@ export function CsvBatchEditor() {
 
       toast({
         title: "Export Complete",
-        description: `Exported ${csvFiles.length} files in ${zipsToDownload.length} zip archive(s)`
+        description: `Exported ${selectedFiles.length} selected files in ${zipsToDownload.length} zip archive(s)`
       });
     } catch (error) {
       console.error('Export error:', error);
@@ -431,9 +503,16 @@ export function CsvBatchEditor() {
           <CardTitle className="flex items-center gap-3 text-2xl font-bold">
             <Database className="w-8 h-8 text-primary" />
             CSV Batch Editor
-            <Badge variant="outline" className="ml-2">
-              {csvFiles.length} files loaded
-            </Badge>
+            <div className="flex items-center gap-2 ml-2">
+              <Badge variant="outline">
+                {csvFiles.length} files loaded
+              </Badge>
+              {selectedFiles.length > 0 && (
+                <Badge variant="secondary">
+                  {selectedFiles.length} selected
+                </Badge>
+              )}
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -487,26 +566,81 @@ export function CsvBatchEditor() {
               <CardTitle className="flex items-center gap-3 text-lg">
                 <FolderOpen className="w-6 h-6 text-primary" />
                 Loaded Files
-                <Badge variant="secondary" className="ml-auto">
-                  {csvFiles.length} files
-                </Badge>
+                <div className="flex items-center gap-2 ml-auto">
+                  <Badge variant="secondary">
+                    {csvFiles.length} files
+                  </Badge>
+                  {selectedFiles.length > 0 && (
+                    <Badge variant="default">
+                      {selectedFiles.length} selected
+                    </Badge>
+                  )}
+                </div>
               </CardTitle>
             </CardHeader>
             <CardContent className="p-6">
+              {/* Bulk Selection Controls */}
+              <div className="mb-4 p-3 bg-muted/30 rounded-lg border">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="select-all"
+                        checked={allSelected}
+                        onCheckedChange={toggleAllSelection}
+                        className="h-4 w-4"
+                      />
+                      <Label htmlFor="select-all" className="text-sm font-medium cursor-pointer">
+                        {allSelected ? 'Deselect All' : 'Select All'}
+                      </Label>
+                    </div>
+                    {someSelected && (
+                      <Badge variant="secondary" className="text-xs">
+                        {selectedFiles.length} of {csvFiles.length} selected
+                      </Badge>
+                    )}
+                  </div>
+                  {selectedFiles.length > 0 && columnEdits.length > 0 && (
+                    <Button 
+                      onClick={applyEditsToSelected} 
+                      size="sm" 
+                      className="h-8"
+                    >
+                      <Edit3 className="w-3 h-3 mr-1" />
+                      Apply to Selected ({selectedFiles.length})
+                    </Button>
+                  )}
+                </div>
+              </div>
+
               <ScrollArea className="h-80">
                 <div className="space-y-3">
                   {csvFiles.map((file, index) => (
                     <div 
                       key={`${file.zipSource}-${file.fileName}-${index}`}
-                      className={`p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 hover:shadow-md ${
-                        selectedFile?.fileName === file.fileName && selectedFile?.zipSource === file.zipSource
-                          ? 'bg-primary/10 border-primary shadow-lg transform scale-[1.02]' 
+                      className={`p-4 rounded-xl border-2 transition-all duration-200 hover:shadow-md ${
+                        file.selected
+                          ? 'bg-primary/10 border-primary/50 shadow-md' 
                           : 'hover:bg-muted/30 border-muted hover:border-muted-foreground/30'
+                      } ${
+                        selectedFile?.fileName === file.fileName && selectedFile?.zipSource === file.zipSource
+                          ? 'ring-2 ring-primary ring-offset-2' 
+                          : ''
                       }`}
-                      onClick={() => setSelectedFile(file)}
                     >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1 min-w-0">
+                      <div className="flex items-start gap-3">
+                        <div className="flex items-center pt-1">
+                          <Checkbox
+                            checked={file.selected || false}
+                            onCheckedChange={() => toggleFileSelection(file)}
+                            className="h-4 w-4"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </div>
+                        <div 
+                          className="flex-1 min-w-0 cursor-pointer"
+                          onClick={() => setSelectedFile(file)}
+                        >
                           <p className="font-semibold text-sm truncate">{file.fileName}</p>
                           <p className="text-xs text-muted-foreground mt-1">
                             Source: {file.zipSource}
@@ -522,17 +656,25 @@ export function CsvBatchEditor() {
                             </div>
                           </div>
                         </div>
-                        {selectedFile?.fileName === file.fileName && selectedFile?.zipSource === file.zipSource && (
-                          <div className="ml-2">
-                            <Badge variant="default" className="text-xs">Selected</Badge>
-                          </div>
-                        )}
+                        <div className="flex flex-col items-end gap-1">
+                          {selectedFile?.fileName === file.fileName && selectedFile?.zipSource === file.zipSource && (
+                            <Badge variant="outline" className="text-xs">
+                              Editing
+                            </Badge>
+                          )}
+                          {file.selected && (
+                            <div className="w-2 h-2 bg-primary rounded-full"></div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}
                 </div>
               </ScrollArea>
-              <div className="mt-6">
+              <div className="mt-6 space-y-2">
+                <div className="text-xs text-muted-foreground text-center">
+                  Selected files will be processed for edits and export
+                </div>
                 <Button onClick={clearAllFiles} variant="outline" className="w-full">
                   <Trash2 className="w-4 h-4 mr-2" />
                   Clear All Files
@@ -634,10 +776,18 @@ export function CsvBatchEditor() {
                           ))}
                         </div>
                       </ScrollArea>
-                      <Button onClick={applyColumnEdits} className="w-full h-11" size="lg">
-                        <RefreshCw className="w-4 h-4 mr-2" />
-                        Apply All Edits ({columnEdits.length})
-                      </Button>
+                      <div className="grid grid-cols-1 gap-2">
+                        <Button onClick={applyColumnEdits} className="w-full h-11" size="lg">
+                          <RefreshCw className="w-4 h-4 mr-2" />
+                          Apply to Current File ({columnEdits.length})
+                        </Button>
+                        {selectedFiles.length > 1 && (
+                          <Button onClick={applyEditsToSelected} variant="secondary" className="w-full h-11" size="lg">
+                            <Edit3 className="w-4 h-4 mr-2" />
+                            Apply to {selectedFiles.length} Selected Files
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   )}
                 </>
@@ -745,18 +895,18 @@ export function CsvBatchEditor() {
                 <Button 
                   onClick={exportModifiedFiles} 
                   className="w-full" 
-                  disabled={exporting}
+                  disabled={exporting || selectedFiles.length === 0}
                   size="lg"
                 >
                   {exporting ? (
                     <>
                       <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                      Exporting...
+                      Exporting {selectedFiles.length} files...
                     </>
                   ) : (
                     <>
                       <Download className="w-4 h-4 mr-2" />
-                      Export with Options
+                      Export {selectedFiles.length} Selected Files
                     </>
                   )}
                 </Button>
