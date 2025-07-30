@@ -20,6 +20,7 @@ import { useUserProfile } from '@/hooks/useUserProfile';
 import { supabase } from '@/integrations/supabase/client';
 import { DualQuantityEditor } from './DualQuantityEditor';
 import { StockHistoryDialog } from './StockHistoryDialog';
+import { MultiBinEditor } from './MultiBinEditor';
 import { SkuInventoryMetrics } from './SkuInventoryMetrics';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -612,7 +613,12 @@ export function SSInventory() {
                   }} />
                       </td>
                       <td className="p-4 font-mono text-sm">{item.skuNumber}</td>
-                      <td className="p-4 font-mono text-sm">{item.binSerialNumber}</td>
+                      <td className="p-4 font-mono text-sm">
+                        <MultiBinEditor 
+                          currentBinSerial={item.binSerialNumber}
+                          onUpdate={(newBinSerial, reason) => updateBinLocation(item.id, newBinSerial)}
+                        />
+                      </td>
                       <td className="p-4">
                         <Badge variant={item.status === 'in-stock' ? 'default' : item.status === 'sold' ? 'secondary' : item.status === 'reserved' ? 'outline' : 'destructive'}>
                           {item.status.replace('-', ' ').toUpperCase()}
