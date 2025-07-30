@@ -359,19 +359,16 @@ export function InventoryMetrics({
         </Card>
 
 
-        {/* Sold Units - Show in ASIN-only mode */}
-        {showOnlyAsin && <Card className="glass-container cursor-pointer hover:shadow-lg transition-all duration-300 hover:border-orange-500/30" onClick={() => {
-              setShowSoldModal(true);
-              loadSoldItems();
-            }}>
+        {/* Total Units - Show in ASIN-only mode */}
+        {showOnlyAsin && <Card className="glass-container">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Sold Units</p>
-                  <p className="text-2xl font-bold text-orange-600">{stats.asinSoldUnits}</p>
-                  <p className="text-xs text-muted-foreground">Units sold</p>
+                  <p className="text-sm font-medium text-muted-foreground">Total Units</p>
+                  <p className="text-2xl font-bold text-blue-600">{stats.asinTotalUnits}</p>
+                  <p className="text-xs text-muted-foreground">Total inventory units</p>
                 </div>
-                <TrendingDown className="w-6 h-6 text-orange-600" />
+                <BarChart3 className="w-6 h-6 text-blue-600" />
               </div>
             </CardContent>
           </Card>}
