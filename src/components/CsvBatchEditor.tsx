@@ -225,7 +225,7 @@ export function CsvBatchEditor() {
     setColumnEdits([]);
   };
 
-  const exportModifiedFiles = () => {
+  const exportModifiedFiles = async () => {
     if (csvFiles.length === 0) {
       toast({
         title: "No Files",
@@ -235,26 +235,64 @@ export function CsvBatchEditor() {
       return;
     }
 
-    csvFiles.forEach(file => {
+    const maxZipSizeMB = 50; // 50MB limit per zip
+    const maxZipSizeBytes = maxZipSizeMB * 1024 * 1024;
+    
+    let currentZip = new JSZip();
+    let currentZipSize = 0;
+    let zipIndex = 1;
+    const zipsToDownload: { zip: JSZip; name: string }[] = [];
+
+    for (const file of csvFiles) {
       const csvContent = [
         file.headers.join(','),
         ...file.data.map(row => row.map(cell => `"${cell || ''}"`).join(','))
       ].join('\n');
 
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const fileSizeBytes = new Blob([csvContent]).size;
+      
+      // If adding this file would exceed the limit, start a new zip
+      if (currentZipSize + fileSizeBytes > maxZipSizeBytes && Object.keys(currentZip.files).length > 0) {
+        zipsToDownload.push({ 
+          zip: currentZip, 
+          name: `modified_files_part_${zipIndex}.zip` 
+        });
+        currentZip = new JSZip();
+        currentZipSize = 0;
+        zipIndex++;
+      }
+
+      // Add file to current zip
+      const fileName = `modified_${file.fileName.replace(/\.[^/.]+$/, '')}.csv`;
+      currentZip.file(fileName, csvContent);
+      currentZipSize += fileSizeBytes;
+    }
+
+    // Add the last zip if it has files
+    if (Object.keys(currentZip.files).length > 0) {
+      zipsToDownload.push({ 
+        zip: currentZip, 
+        name: zipIndex === 1 ? 'modified_files.zip' : `modified_files_part_${zipIndex}.zip` 
+      });
+    }
+
+    // Download all zip files
+    for (const { zip, name } of zipsToDownload) {
+      const content = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } });
       const link = document.createElement('a');
-      const url = URL.createObjectURL(blob);
+      const url = URL.createObjectURL(content);
       link.setAttribute('href', url);
-      link.setAttribute('download', `modified_${file.fileName.replace(/\.[^/.]+$/, '')}.csv`);
+      link.setAttribute('download', name);
       link.style.visibility = 'hidden';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-    });
+      URL.revokeObjectURL(url);
+    }
 
     toast({
       title: "Export Complete",
-      description: `Exported ${csvFiles.length} modified CSV files`
+      description: `Exported ${csvFiles.length} files in ${zipsToDownload.length} compressed zip archive(s)`
     });
   };
 
