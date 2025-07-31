@@ -3,6 +3,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, Search, ShoppingCart, TrendingUp, Package, Calculator, BarChart3, Receipt, Download, X } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { CarrefourSalesOrdersTable } from "@/components/carrefour/CarrefourSalesOrdersTable";
 import { CarrefourSalesOrder } from "@/types/carrefour";
@@ -14,7 +16,17 @@ export default function CarrefourSalesTracker() {
   const [searchTerm, setSearchTerm] = useState("");
   const [salesOrders, setSalesOrders] = useState<CarrefourSalesOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeFilter, setActiveFilter] = useState<string | null>(null);
+  const [dialogData, setDialogData] = useState<{
+    isOpen: boolean;
+    title: string;
+    data: CarrefourSalesOrder[];
+    searchTerm: string;
+  }>({
+    isOpen: false,
+    title: '',
+    data: [],
+    searchTerm: ''
+  });
   const {
     selectedCountry
   } = useCountry();
@@ -50,47 +62,14 @@ export default function CarrefourSalesTracker() {
     fetchSalesOrders();
   };
 
-  // Filter sales orders based on search term and active filter
+  // Filter sales orders based on search term
   const filteredOrders = useMemo(() => {
-    let filtered = salesOrders;
-    
-    // Apply active filter first
-    if (activeFilter) {
-      switch (activeFilter) {
-        case 'delivered':
-          filtered = filtered.filter(o => o.status === 'Delivered');
-          break;
-        case 'shipped':
-          filtered = filtered.filter(o => o.status === 'Shipped');
-          break;
-        case 'returned':
-          filtered = filtered.filter(o => o.status === 'Returned');
-          break;
-        case 'cancelled':
-          filtered = filtered.filter(o => o.status === 'Cancelled');
-          break;
-        case 'other':
-          filtered = filtered.filter(o => o.status === 'Other');
-          break;
-        case 'pending':
-          filtered = filtered.filter(o => o.payment_status === 'Pending');
-          break;
-        case 'profitable':
-          filtered = filtered.filter(o => o.profit > 0);
-          break;
-      }
-    }
-    
-    // Apply search term
-    if (searchTerm.trim()) {
-      filtered = filtered.filter(order => 
-        order.order_number.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        order.status.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-    
-    return filtered;
-  }, [salesOrders, searchTerm, activeFilter]);
+    if (!searchTerm.trim()) return salesOrders;
+    return salesOrders.filter(order => 
+      order.order_number.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      order.status.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [salesOrders, searchTerm]);
 
   // Calculate metrics
   const metrics = useMemo(() => {
@@ -169,12 +148,42 @@ export default function CarrefourSalesTracker() {
     document.body.removeChild(link);
   };
 
-  const handleCardClick = (filterType: string) => {
-    if (activeFilter === filterType) {
-      setActiveFilter(null); // Remove filter if same card clicked
-    } else {
-      setActiveFilter(filterType);
+  const handleCardClick = (filterType: string, title: string) => {
+    let dataToShow = salesOrders;
+    
+    switch (filterType) {
+      case 'all':
+        dataToShow = salesOrders;
+        break;
+      case 'delivered':
+        dataToShow = salesOrders.filter(o => o.status === 'Delivered');
+        break;
+      case 'shipped':
+        dataToShow = salesOrders.filter(o => o.status === 'Shipped');
+        break;
+      case 'returned':
+        dataToShow = salesOrders.filter(o => o.status === 'Returned');
+        break;
+      case 'cancelled':
+        dataToShow = salesOrders.filter(o => o.status === 'Cancelled');
+        break;
+      case 'other':
+        dataToShow = salesOrders.filter(o => o.status === 'Other');
+        break;
+      case 'pending':
+        dataToShow = salesOrders.filter(o => o.payment_status === 'Pending');
+        break;
+      case 'profitable':
+        dataToShow = salesOrders.filter(o => o.profit > 0);
+        break;
     }
+    
+    setDialogData({
+      isOpen: true,
+      title,
+      data: dataToShow,
+      searchTerm: ''
+    });
   };
 
   const handleExport = (filterType: string, filename: string) => {
@@ -209,6 +218,16 @@ export default function CarrefourSalesTracker() {
     
     exportToCSV(dataToExport, filename);
   };
+
+  // Filter dialog data based on search term
+  const filteredDialogData = useMemo(() => {
+    if (!dialogData.searchTerm.trim()) return dialogData.data;
+    return dialogData.data.filter(order => 
+      order.order_number.toLowerCase().includes(dialogData.searchTerm.toLowerCase()) || 
+      order.status.toLowerCase().includes(dialogData.searchTerm.toLowerCase()) ||
+      order.payment_status.toLowerCase().includes(dialogData.searchTerm.toLowerCase())
+    );
+  }, [dialogData.data, dialogData.searchTerm]);
   return <div className="w-full max-w-none px-6 py-6 space-y-6 ml-0">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -228,31 +247,98 @@ export default function CarrefourSalesTracker() {
         
       </div>
 
-      {/* Active Filter Display */}
-      {activeFilter && (
-        <Card className="border-primary/20 bg-primary/5">
-          <CardContent className="pt-4">
+      {/* Metrics Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+        <Card 
+          className="cursor-pointer hover:shadow-lg transition-all border-emerald-200 hover:border-emerald-300" 
+          onClick={() => handleCardClick('all', 'Total Sales Revenue')}
+        >
+          <CardContent className="pt-4 pb-4">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Badge variant="secondary" className="bg-primary/10 text-primary">
-                  Active Filter: {activeFilter.charAt(0).toUpperCase() + activeFilter.slice(1)}
-                </Badge>
-                <span className="text-sm text-muted-foreground">
-                  Showing {filteredOrders.length} of {salesOrders.length} orders
-                </span>
+              <div>
+                <p className="text-xs font-semibold text-emerald-700">Total Sales Revenue</p>
+                <p className="text-lg font-bold text-emerald-600">{formatCurrency(metrics.totalRevenue)}</p>
+                <p className="text-xs text-muted-foreground">
+                  From {metrics.totalOrders} orders
+                </p>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setActiveFilter(null)}
-                className="h-8 w-8 p-0 hover:bg-primary/10"
-              >
-                <X className="h-4 w-4" />
-              </Button>
+              <ShoppingCart className="h-4 w-4 text-emerald-600" />
             </div>
           </CardContent>
         </Card>
-      )}
+
+        <Card 
+          className="cursor-pointer hover:shadow-lg transition-all border-blue-200 hover:border-blue-300" 
+          onClick={() => handleCardClick('profitable', 'Profitable Orders')}
+        >
+          <CardContent className="pt-4 pb-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold text-blue-700">Net Profit</p>
+                <p className="text-lg font-bold text-blue-600">{formatCurrency(metrics.totalProfit)}</p>
+                <p className="text-xs text-muted-foreground">
+                  {metrics.profitMargin.toFixed(1)}% margin
+                </p>
+              </div>
+              <TrendingUp className="h-4 w-4 text-blue-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card 
+          className="cursor-pointer hover:shadow-lg transition-all border-orange-200 hover:border-orange-300" 
+          onClick={() => handleCardClick('pending', 'Pending Payments')}
+        >
+          <CardContent className="pt-4 pb-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold text-orange-700">Pending Payments</p>
+                <p className="text-lg font-bold text-orange-600">{formatCurrency(metrics.totalPendingAmount)}</p>
+                <p className="text-xs text-muted-foreground">
+                  {metrics.totalPendingPayments} orders awaiting payment
+                </p>
+              </div>
+              <Calculator className="h-4 w-4 text-orange-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card 
+          className="cursor-pointer hover:shadow-lg transition-all border-purple-200 hover:border-purple-300" 
+          onClick={() => handleCardClick('profitable', 'Profitable Orders')}
+        >
+          <CardContent className="pt-4 pb-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold text-purple-700">Profitable Orders</p>
+                <p className="text-lg font-bold text-purple-600">{metrics.profitableOrders}</p>
+                <p className="text-xs text-muted-foreground">
+                  {metrics.totalOrders > 0 ? (metrics.profitableOrders / metrics.totalOrders * 100).toFixed(1) : 0}% success rate
+                </p>
+              </div>
+              <BarChart3 className="h-4 w-4 text-purple-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card 
+          className="cursor-pointer hover:shadow-lg transition-all border-red-200 hover:border-red-300" 
+          onClick={() => handleCardClick('all', 'Total Costs')}
+        >
+          <CardContent className="pt-4 pb-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold text-red-700">Total Costs</p>
+                <p className="text-lg font-bold text-red-600">{formatCurrency(metrics.totalCosts)}</p>
+                <p className="text-xs text-muted-foreground">
+                  Cost of goods sold
+                </p>
+              </div>
+              <Calculator className="h-4 w-4 text-red-600" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Search Bar */}
       <Card className="border-emerald-200">
@@ -264,311 +350,182 @@ export default function CarrefourSalesTracker() {
         </CardContent>
       </Card>
 
-      {/* Metrics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <Card 
-          className={`cursor-pointer hover:shadow-lg transition-all border-emerald-200 hover:border-emerald-300 ${activeFilter === 'revenue' ? 'ring-2 ring-emerald-500' : ''}`} 
-          onClick={() => handleCardClick('revenue')}
-        >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-semibold text-emerald-700">Total Sales Revenue</CardTitle>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleExport('all', 'total-sales-revenue');
-                }}
-                className="h-6 w-6 p-0 hover:bg-emerald-100"
-              >
-                <Download className="h-3 w-3" />
-              </Button>
-              <ShoppingCart className="h-5 w-5 text-emerald-600" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-emerald-600">{formatCurrency(metrics.totalRevenue)}</div>
-            <p className="text-xs text-muted-foreground">
-              From {metrics.totalOrders} orders
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card 
-          className={`cursor-pointer hover:shadow-lg transition-all border-blue-200 hover:border-blue-300 ${activeFilter === 'profitable' ? 'ring-2 ring-blue-500' : ''}`} 
-          onClick={() => handleCardClick('profitable')}
-        >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-semibold text-blue-700">Net Profit</CardTitle>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleExport('profitable', 'profitable-orders');
-                }}
-                className="h-6 w-6 p-0 hover:bg-blue-100"
-              >
-                <Download className="h-3 w-3" />
-              </Button>
-              <TrendingUp className="h-5 w-5 text-blue-600" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{formatCurrency(metrics.totalProfit)}</div>
-            <p className="text-xs text-muted-foreground">
-              {metrics.profitMargin.toFixed(1)}% margin
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card 
-          className={`cursor-pointer hover:shadow-lg transition-all border-orange-200 hover:border-orange-300 ${activeFilter === 'pending' ? 'ring-2 ring-orange-500' : ''}`} 
-          onClick={() => handleCardClick('pending')}
-        >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-semibold text-orange-700">Pending Payments</CardTitle>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleExport('pending', 'pending-payments');
-                }}
-                className="h-6 w-6 p-0 hover:bg-orange-100"
-              >
-                <Download className="h-3 w-3" />
-              </Button>
-              <Calculator className="h-5 w-5 text-orange-600" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-600">{formatCurrency(metrics.totalPendingAmount)}</div>
-            <p className="text-xs text-muted-foreground">
-              {metrics.totalPendingPayments} orders awaiting payment
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card 
-          className={`cursor-pointer hover:shadow-lg transition-all border-purple-200 hover:border-purple-300 ${activeFilter === 'profitable' ? 'ring-2 ring-purple-500' : ''}`} 
-          onClick={() => handleCardClick('profitable')}
-        >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-semibold text-purple-700">Profitable Orders</CardTitle>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleExport('profitable', 'profitable-orders');
-                }}
-                className="h-6 w-6 p-0 hover:bg-purple-100"
-              >
-                <Download className="h-3 w-3" />
-              </Button>
-              <BarChart3 className="h-5 w-5 text-purple-600" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-purple-600">{metrics.profitableOrders}</div>
-            <p className="text-xs text-muted-foreground">
-              {metrics.totalOrders > 0 ? (metrics.profitableOrders / metrics.totalOrders * 100).toFixed(1) : 0}% success rate
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card 
-          className={`cursor-pointer hover:shadow-lg transition-all border-red-200 hover:border-red-300 ${activeFilter === 'costs' ? 'ring-2 ring-red-500' : ''}`} 
-          onClick={() => handleCardClick('costs')}
-        >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-semibold text-red-700">Total Costs</CardTitle>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleExport('all', 'total-costs');
-                }}
-                className="h-6 w-6 p-0 hover:bg-red-100"
-              >
-                <Download className="h-3 w-3" />
-              </Button>
-              <Calculator className="h-5 w-5 text-red-600" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">{formatCurrency(metrics.totalCosts)}</div>
-            <p className="text-xs text-muted-foreground">
-              Cost of goods sold
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
       {/* Status-based Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
         <Card 
-          className={`cursor-pointer hover:shadow-lg transition-all border-green-200 hover:border-green-300 ${activeFilter === 'delivered' ? 'ring-2 ring-green-500' : ''}`}
-          onClick={() => handleCardClick('delivered')}
+          className="cursor-pointer hover:shadow-lg transition-all border-green-200 hover:border-green-300"
+          onClick={() => handleCardClick('delivered', 'Delivered Orders')}
         >
-          <CardContent className="pt-6">
+          <CardContent className="pt-4 pb-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-semibold text-green-700">Delivered Orders</p>
-                <p className="text-2xl font-bold text-green-600">{metrics.deliveredItems}</p>
+                <p className="text-xs font-semibold text-green-700">Delivered Orders</p>
+                <p className="text-lg font-bold text-green-600">{metrics.deliveredItems}</p>
                 <p className="text-xs text-muted-foreground">
                   Value: {formatCurrency(metrics.deliveredValue)}
                 </p>
               </div>
-              <div className="flex flex-col items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleExport('delivered', 'delivered-orders');
-                  }}
-                  className="h-6 w-6 p-0 hover:bg-green-100"
-                >
-                  <Download className="h-3 w-3" />
-                </Button>
-                <Badge variant="secondary" className="bg-green-100 text-green-800">Delivered</Badge>
-              </div>
+              <Package className="h-4 w-4 text-green-600" />
             </div>
           </CardContent>
         </Card>
 
         <Card 
-          className={`cursor-pointer hover:shadow-lg transition-all border-cyan-200 hover:border-cyan-300 ${activeFilter === 'shipped' ? 'ring-2 ring-cyan-500' : ''}`}
-          onClick={() => handleCardClick('shipped')}
+          className="cursor-pointer hover:shadow-lg transition-all border-cyan-200 hover:border-cyan-300"
+          onClick={() => handleCardClick('shipped', 'Shipped Orders')}
         >
-          <CardContent className="pt-6">
+          <CardContent className="pt-4 pb-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-semibold text-cyan-700">Shipped Orders</p>
-                <p className="text-2xl font-bold text-cyan-600">{metrics.shippedItems}</p>
+                <p className="text-xs font-semibold text-cyan-700">Shipped Orders</p>
+                <p className="text-lg font-bold text-cyan-600">{metrics.shippedItems}</p>
                 <p className="text-xs text-muted-foreground">
                   Value: {formatCurrency(metrics.shippedValue)}
                 </p>
               </div>
-              <div className="flex flex-col items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleExport('shipped', 'shipped-orders');
-                  }}
-                  className="h-6 w-6 p-0 hover:bg-cyan-100"
-                >
-                  <Download className="h-3 w-3" />
-                </Button>
-                <Badge variant="secondary" className="bg-cyan-100 text-cyan-800">Shipped</Badge>
-              </div>
+              <Package className="h-4 w-4 text-cyan-600" />
             </div>
           </CardContent>
         </Card>
 
         <Card 
-          className={`cursor-pointer hover:shadow-lg transition-all border-red-200 hover:border-red-300 ${activeFilter === 'returned' ? 'ring-2 ring-red-500' : ''}`}
-          onClick={() => handleCardClick('returned')}
+          className="cursor-pointer hover:shadow-lg transition-all border-red-200 hover:border-red-300"
+          onClick={() => handleCardClick('returned', 'Returned Orders')}
         >
-          <CardContent className="pt-6">
+          <CardContent className="pt-4 pb-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-semibold text-red-700">Returned Orders</p>
-                <p className="text-2xl font-bold text-red-600">{metrics.returnedItems}</p>
+                <p className="text-xs font-semibold text-red-700">Returned Orders</p>
+                <p className="text-lg font-bold text-red-600">{metrics.returnedItems}</p>
                 <p className="text-xs text-muted-foreground">
                   Value: {formatCurrency(metrics.returnedValue)}
                 </p>
               </div>
-              <div className="flex flex-col items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleExport('returned', 'returned-orders');
-                  }}
-                  className="h-6 w-6 p-0 hover:bg-red-100"
-                >
-                  <Download className="h-3 w-3" />
-                </Button>
-                <Badge variant="destructive">Returned</Badge>
-              </div>
+              <Package className="h-4 w-4 text-red-600" />
             </div>
           </CardContent>
         </Card>
 
         <Card 
-          className={`cursor-pointer hover:shadow-lg transition-all border-gray-200 hover:border-gray-300 ${activeFilter === 'cancelled' ? 'ring-2 ring-gray-500' : ''}`}
-          onClick={() => handleCardClick('cancelled')}
+          className="cursor-pointer hover:shadow-lg transition-all border-gray-200 hover:border-gray-300"
+          onClick={() => handleCardClick('cancelled', 'Cancelled Orders')}
         >
-          <CardContent className="pt-6">
+          <CardContent className="pt-4 pb-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-semibold text-gray-700">Cancelled Orders</p>
-                <p className="text-2xl font-bold text-gray-600">{metrics.cancelledItems}</p>
+                <p className="text-xs font-semibold text-gray-700">Cancelled Orders</p>
+                <p className="text-lg font-bold text-gray-600">{metrics.cancelledItems}</p>
                 <p className="text-xs text-muted-foreground">
                   Value: {formatCurrency(metrics.cancelledValue)}
                 </p>
               </div>
-              <div className="flex flex-col items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleExport('cancelled', 'cancelled-orders');
-                  }}
-                  className="h-6 w-6 p-0 hover:bg-gray-100"
-                >
-                  <Download className="h-3 w-3" />
-                </Button>
-                <Badge variant="outline" className="border-gray-300">Cancelled</Badge>
-              </div>
+              <Package className="h-4 w-4 text-gray-600" />
             </div>
           </CardContent>
         </Card>
 
         <Card 
-          className={`cursor-pointer hover:shadow-lg transition-all border-indigo-200 hover:border-indigo-300 ${activeFilter === 'other' ? 'ring-2 ring-indigo-500' : ''}`}
-          onClick={() => handleCardClick('other')}
+          className="cursor-pointer hover:shadow-lg transition-all border-indigo-200 hover:border-indigo-300"
+          onClick={() => handleCardClick('other', 'Other Orders')}
         >
-          <CardContent className="pt-6">
+          <CardContent className="pt-4 pb-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-semibold text-indigo-700">Other Orders</p>
-                <p className="text-2xl font-bold text-indigo-600">{metrics.otherItems}</p>
+                <p className="text-xs font-semibold text-indigo-700">Other Orders</p>
+                <p className="text-lg font-bold text-indigo-600">{metrics.otherItems}</p>
                 <p className="text-xs text-muted-foreground">
                   Value: {formatCurrency(metrics.otherValue)}
                 </p>
               </div>
-              <div className="flex flex-col items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleExport('other', 'other-orders');
-                  }}
-                  className="h-6 w-6 p-0 hover:bg-indigo-100"
-                >
-                  <Download className="h-3 w-3" />
-                </Button>
-                <Badge variant="secondary" className="bg-indigo-100 text-indigo-800">Other</Badge>
-              </div>
+              <Package className="h-4 w-4 text-indigo-600" />
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Dialog for showing filtered data */}
+      <Dialog open={dialogData.isOpen} onOpenChange={(open) => setDialogData(prev => ({ ...prev, isOpen: open }))}>
+        <DialogContent className="max-w-6xl max-h-[80vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between">
+              <span>{dialogData.title}</span>
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={() => exportToCSV(filteredDialogData, dialogData.title.toLowerCase().replace(/\s+/g, '-'))}
+                  className="gap-2 bg-emerald-600 hover:bg-emerald-700"
+                  size="sm"
+                >
+                  <Download className="h-4 w-4" />
+                  Export CSV
+                </Button>
+              </div>
+            </DialogTitle>
+            <DialogDescription>
+              Showing {filteredDialogData.length} orders
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* Search within dialog */}
+            <div className="relative">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input 
+                placeholder="Search orders..." 
+                value={dialogData.searchTerm} 
+                onChange={e => setDialogData(prev => ({ ...prev, searchTerm: e.target.value }))}
+                className="pl-10" 
+              />
+            </div>
+
+            {/* Table */}
+            <div className="border rounded-lg overflow-auto max-h-[50vh]">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Order Number</TableHead>
+                    <TableHead>Sale Value</TableHead>
+                    <TableHead>Seller Fees</TableHead>
+                    <TableHead>Cost</TableHead>
+                    <TableHead>Profit</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Payment Status</TableHead>
+                    <TableHead>Created At</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredDialogData.map((order) => (
+                    <TableRow key={order.id}>
+                      <TableCell className="font-medium">{order.order_number}</TableCell>
+                      <TableCell>{formatCurrency(order.sale_value)}</TableCell>
+                      <TableCell>{formatCurrency(order.seller_fees)}</TableCell>
+                      <TableCell>{formatCurrency(order.cost)}</TableCell>
+                      <TableCell className={order.profit > 0 ? 'text-green-600' : 'text-red-600'}>
+                        {formatCurrency(order.profit)}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={
+                          order.status === 'Delivered' ? 'default' :
+                          order.status === 'Shipped' ? 'secondary' :
+                          order.status === 'Returned' ? 'destructive' :
+                          'outline'
+                        }>
+                          {order.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={order.payment_status === 'Received' ? 'default' : 'secondary'}>
+                          {order.payment_status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{new Date(order.created_at).toLocaleDateString()}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Sales Orders Table */}
       <Card className="border-slate-200">
