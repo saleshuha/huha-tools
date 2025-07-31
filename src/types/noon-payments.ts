@@ -43,7 +43,6 @@ export interface NoonFileData {
   headers: string[];
   data: string[][];
   fileName: string;
-  fileType: 'invoice' | 'credit';
 }
 
 export interface NoonInvoiceData {

@@ -1,10 +1,7 @@
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Upload, FileText, CreditCard, AlertCircle } from "lucide-react";
+import { Upload, FileText, AlertCircle } from "lucide-react";
 import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,13 +15,13 @@ interface NoonPaymentUploadProps {
 
 const NoonPaymentUpload = ({ onDataUploaded }: NoonPaymentUploadProps) => {
   const [uploading, setUploading] = useState(false);
-  const [selectedFileType, setSelectedFileType] = useState<'invoice' | 'credit'>('invoice');
   const [uploadedFile, setUploadedFile] = useState<{
     name?: string;
-    type?: 'invoice' | 'credit';
+    invoiceCount?: number;
+    creditCount?: number;
   }>({});
 
-  const processFile = (file: File, fileType: 'invoice' | 'credit'): Promise<NoonFileData> => {
+  const processFile = (file: File): Promise<NoonFileData> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       
@@ -62,8 +59,7 @@ const NoonPaymentUpload = ({ onDataUploaded }: NoonPaymentUploadProps) => {
           resolve({
             headers,
             data,
-            fileName: file.name,
-            fileType
+            fileName: file.name
           });
         } catch (error) {
           reject(error);
@@ -75,46 +71,82 @@ const NoonPaymentUpload = ({ onDataUploaded }: NoonPaymentUploadProps) => {
     });
   };
 
-  const saveHeaders = async (headers: string[], fileType: 'invoice' | 'credit') => {
+  const saveHeaders = async (headers: string[]) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User not authenticated');
 
-    // Check if headers already exist for this file type
-    const { data: existingHeaders } = await supabase
-      .from('noon_file_headers')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('file_type', fileType)
-      .single();
+    // Save headers for both invoice and credit types (they're the same)
+    const fileTypes = ['invoice', 'credit'] as const;
+    
+    for (const fileType of fileTypes) {
+      // Check if headers already exist for this file type
+      const { data: existingHeaders } = await supabase
+        .from('noon_file_headers')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('file_type', fileType)
+        .single();
 
-    if (existingHeaders) {
-      // Update existing headers
-      const { error } = await supabase
-        .from('noon_file_headers')
-        .update({ headers })
-        .eq('id', existingHeaders.id);
-      
-      if (error) throw error;
-    } else {
-      // Insert new headers
-      const { error } = await supabase
-        .from('noon_file_headers')
-        .insert({
-          user_id: user.id,
-          file_type: fileType,
-          headers
-        });
-      
-      if (error) throw error;
+      if (existingHeaders) {
+        // Update existing headers
+        const { error } = await supabase
+          .from('noon_file_headers')
+          .update({ headers })
+          .eq('id', existingHeaders.id);
+        
+        if (error) throw error;
+      } else {
+        // Insert new headers
+        const { error } = await supabase
+          .from('noon_file_headers')
+          .insert({
+            user_id: user.id,
+            file_type: fileType,
+            headers
+          });
+        
+        if (error) throw error;
+      }
     }
+  };
+
+  const isCredutRow = (row: string[], headerMap: { [key: string]: number }): boolean => {
+    // Check if this row is a credit/return based on data content
+    // Look for credit note number or specific transaction types
+    const creditNoteIndex = headerMap['credit_note_nr'];
+    const transactionTypeIndex = headerMap['transaction_type'];
+    const documentTypeIndex = headerMap['document_type'];
+    
+    // If credit note number exists and is not empty, it's a credit row
+    if (creditNoteIndex !== undefined && row[creditNoteIndex] && row[creditNoteIndex].trim()) {
+      return true;
+    }
+    
+    // Check transaction type for credit indicators
+    if (transactionTypeIndex !== undefined && row[transactionTypeIndex]) {
+      const transactionType = row[transactionTypeIndex].toLowerCase();
+      if (transactionType.includes('credit') || transactionType.includes('return') || transactionType.includes('refund')) {
+        return true;
+      }
+    }
+    
+    // Check document type for credit indicators
+    if (documentTypeIndex !== undefined && row[documentTypeIndex]) {
+      const documentType = row[documentTypeIndex].toLowerCase();
+      if (documentType.includes('credit') || documentType.includes('return')) {
+        return true;
+      }
+    }
+    
+    return false;
   };
 
   const saveData = async (fileData: NoonFileData) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User not authenticated');
 
-    const tableName = fileData.fileType === 'invoice' ? 'noon_invoice_data' : 'noon_credit_data';
-    const records: (NoonInvoiceData | NoonCreditData)[] = [];
+    const invoiceRecords: NoonInvoiceData[] = [];
+    const creditRecords: NoonCreditData[] = [];
 
     // Convert headers to lowercase and replace spaces with underscores for mapping
     const headerMap = fileData.headers.reduce((acc, header, index) => {
@@ -127,7 +159,7 @@ const NoonPaymentUpload = ({ onDataUploaded }: NoonPaymentUploadProps) => {
     for (const row of fileData.data) {
       if (row.length === 0 || row.every(cell => !cell)) continue; // Skip empty rows
 
-      const record: any = {
+      const baseRecord: any = {
         user_id: user.id,
         file_name: fileData.fileName,
         country: 'UAE' // Default country
@@ -183,63 +215,96 @@ const NoonPaymentUpload = ({ onDataUploaded }: NoonPaymentUploadProps) => {
           // Handle numeric fields
           if (['vat_rate', 'fx_rate'].includes(dbField) || dbField.includes('amount') || dbField.includes('price')) {
             const numValue = parseFloat(value);
-            record[dbField] = isNaN(numValue) ? null : numValue;
+            baseRecord[dbField] = isNaN(numValue) ? null : numValue;
           } else if (dbField === 'document_date') {
             // Handle date conversion
-            record[dbField] = value ? new Date(value).toISOString() : null;
+            baseRecord[dbField] = value ? new Date(value).toISOString() : null;
           } else {
-            record[dbField] = value || null;
+            baseRecord[dbField] = value || null;
           }
         }
       });
 
-      records.push(record);
+      // Determine if this is a credit or invoice row and add to appropriate array
+      if (isCredutRow(row, headerMap)) {
+        // Add credit-specific fields
+        const creditRecord = {
+          ...baseRecord,
+          return_charges: 0, // Can be calculated or mapped if available
+          refund_amount: baseRecord.price_including_vat_doc_currency || 0
+        };
+        creditRecords.push(creditRecord);
+      } else {
+        // Add invoice-specific fields
+        const invoiceRecord = {
+          ...baseRecord,
+          commission_amount: 0, // Can be calculated or mapped if available
+          shipping_amount: 0, // Can be calculated or mapped if available
+          net_amount_received: baseRecord.price_including_vat_doc_currency || 0
+        };
+        invoiceRecords.push(invoiceRecord);
+      }
     }
 
-    // Insert data in batches
+    // Insert invoice data in batches
     const batchSize = 100;
-    for (let i = 0; i < records.length; i += batchSize) {
-      const batch = records.slice(i, i + batchSize);
-      const { error } = await supabase
-        .from(tableName)
-        .insert(batch);
-      
-      if (error) throw error;
+    if (invoiceRecords.length > 0) {
+      for (let i = 0; i < invoiceRecords.length; i += batchSize) {
+        const batch = invoiceRecords.slice(i, i + batchSize);
+        const { error } = await supabase
+          .from('noon_invoice_data')
+          .insert(batch);
+        
+        if (error) throw error;
+      }
     }
 
-    return records.length;
+    // Insert credit data in batches
+    if (creditRecords.length > 0) {
+      for (let i = 0; i < creditRecords.length; i += batchSize) {
+        const batch = creditRecords.slice(i, i + batchSize);
+        const { error } = await supabase
+          .from('noon_credit_data')
+          .insert(batch);
+        
+        if (error) throw error;
+      }
+    }
+
+    return {
+      invoiceCount: invoiceRecords.length,
+      creditCount: creditRecords.length,
+      totalCount: invoiceRecords.length + creditRecords.length
+    };
   };
 
   const onDrop = async (acceptedFiles: File[]) => {
     if (acceptedFiles.length === 0) return;
-    if (!selectedFileType) {
-      toast.error('Please select a file type first');
-      return;
-    }
 
     setUploading(true);
     try {
       const file = acceptedFiles[0];
       
       // Process the file
-      const fileData = await processFile(file, selectedFileType);
+      const fileData = await processFile(file);
       
       // Save headers permanently
-      await saveHeaders(fileData.headers, selectedFileType);
+      await saveHeaders(fileData.headers);
       
-      // Save data to database
-      const recordCount = await saveData(fileData);
+      // Save data to database (automatically separates invoice and credit rows)
+      const result = await saveData(fileData);
       
       setUploadedFile({
         name: file.name,
-        type: selectedFileType
+        invoiceCount: result.invoiceCount,
+        creditCount: result.creditCount
       });
 
-      toast.success(`${selectedFileType} file uploaded successfully! ${recordCount} records processed.`);
+      toast.success(`File uploaded successfully! ${result.invoiceCount} invoice records and ${result.creditCount} credit records processed.`);
       onDataUploaded();
     } catch (error) {
       console.error('Upload error:', error);
-      toast.error(`Failed to upload ${selectedFileType} file: ${error.message}`);
+      toast.error(`Failed to upload file: ${error.message}`);
     } finally {
       setUploading(false);
     }
@@ -255,43 +320,17 @@ const NoonPaymentUpload = ({ onDataUploaded }: NoonPaymentUploadProps) => {
     multiple: false
   });
 
-  const Icon = selectedFileType === 'invoice' ? FileText : CreditCard;
-
   return (
     <div className="space-y-6">
-      {/* File Type Selector */}
-      <div className="space-y-2">
-        <Label htmlFor="file-type">Report Type</Label>
-        <Select value={selectedFileType} onValueChange={(value: 'invoice' | 'credit') => setSelectedFileType(value)}>
-          <SelectTrigger className="w-full md:w-64">
-            <SelectValue placeholder="Select report type" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="invoice">
-              <div className="flex items-center gap-2">
-                <FileText className="h-4 w-4" />
-                Invoice Report
-              </div>
-            </SelectItem>
-            <SelectItem value="credit">
-              <div className="flex items-center gap-2">
-                <CreditCard className="h-4 w-4" />
-                Credit Report
-              </div>
-            </SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
       {/* Single Upload Area */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Icon className="h-5 w-5" />
-            Upload {selectedFileType === 'invoice' ? 'Invoice' : 'Credit'} Report
+            <FileText className="h-5 w-5" />
+            Upload Noon Payment Report
           </CardTitle>
           <CardDescription>
-            Upload your Noon {selectedFileType === 'invoice' ? 'invoice/payment' : 'credit/return'} report CSV or Excel file
+            Upload your Noon payment report CSV or Excel file. The system will automatically separate invoice and credit data.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -304,25 +343,30 @@ const NoonPaymentUpload = ({ onDataUploaded }: NoonPaymentUploadProps) => {
             `}
           >
             <input {...getInputProps()} disabled={uploading} />
-            {uploadedFile.name && uploadedFile.type === selectedFileType ? (
+            {uploadedFile.name ? (
               <div className="text-center">
                 <FileText className="h-12 w-12 text-green-600 mx-auto mb-4" />
                 <p className="text-lg text-green-600 font-medium">{uploadedFile.name}</p>
-                <p className="text-sm text-muted-foreground">File uploaded successfully</p>
-                <Badge variant="outline" className="mt-2">
-                  {selectedFileType} report
-                </Badge>
+                <p className="text-sm text-muted-foreground mb-2">File uploaded successfully</p>
+                <div className="flex gap-2 justify-center">
+                  <Badge variant="outline">
+                    {uploadedFile.invoiceCount || 0} invoices
+                  </Badge>
+                  <Badge variant="outline">
+                    {uploadedFile.creditCount || 0} credits
+                  </Badge>
+                </div>
               </div>
             ) : (
               <div className="text-center">
                 <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <p className="text-lg text-muted-foreground mb-2">
-                  {isDragActive ? `Drop ${selectedFileType} file here` : `Drag & drop ${selectedFileType} file or click to browse`}
+                  {isDragActive ? 'Drop payment report here' : 'Drag & drop payment report or click to browse'}
                 </p>
                 <p className="text-sm text-muted-foreground">CSV or Excel files only</p>
                 <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
-                  <Icon className="h-4 w-4" />
-                  <span>{selectedFileType === 'invoice' ? 'Invoice/Payment' : 'Credit/Return'} Report</span>
+                  <FileText className="h-4 w-4" />
+                  <span>Combined Invoice & Credit Report</span>
                 </div>
               </div>
             )}
@@ -335,7 +379,7 @@ const NoonPaymentUpload = ({ onDataUploaded }: NoonPaymentUploadProps) => {
           <CardContent className="p-4">
             <div className="flex items-center gap-2 text-blue-600">
               <AlertCircle className="h-4 w-4 animate-spin" />
-              <span className="text-sm">Processing {selectedFileType} file and saving to database...</span>
+              <span className="text-sm">Processing payment report and saving to database...</span>
             </div>
           </CardContent>
         </Card>
