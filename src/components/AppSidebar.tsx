@@ -92,6 +92,9 @@ export function AppSidebar() {
   const location = useLocation()
   const isCollapsed = state === "collapsed"
   const [isToolsOpen, setIsToolsOpen] = useState(true)
+  
+  // Force re-render by adding a key that changes
+  console.log('AppSidebar: Rendering with tools:', toolsItems.length, 'items')
   const { toast } = useToast()
   const { isAdmin } = useUserProfile()
 
