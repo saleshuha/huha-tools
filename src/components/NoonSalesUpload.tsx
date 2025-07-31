@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Upload, FileText, AlertCircle } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Upload, FileText, AlertCircle, Database, BarChart } from "lucide-react";
 import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,6 +21,13 @@ const NoonSalesUpload = ({ onDataUploaded }: NoonSalesUploadProps) => {
     invoiceCount?: number;
     creditCount?: number;
   }>({});
+  const [fileStructure, setFileStructure] = useState<{
+    headers: string[];
+    sampleData: string[][];
+    totalRows: number;
+    invoiceRows: number;
+    creditRows: number;
+  } | null>(null);
 
   const processFile = (file: File): Promise<NoonFileData> => {
     return new Promise((resolve, reject) => {
@@ -278,6 +286,36 @@ const NoonSalesUpload = ({ onDataUploaded }: NoonSalesUploadProps) => {
     };
   };
 
+  const analyzeFileStructure = (fileData: NoonFileData) => {
+    const headerMap = fileData.headers.reduce((acc, header, index) => {
+      const key = header.toLowerCase().replace(/\s+/g, '_').replace(/[()]/g, '');
+      acc[key] = index;
+      return acc;
+    }, {} as { [key: string]: number });
+
+    let invoiceRows = 0;
+    let creditRows = 0;
+
+    // Analyze each row to count types
+    for (const row of fileData.data) {
+      if (row.length === 0 || row.every(cell => !cell)) continue;
+      
+      if (isCredutRow(row, headerMap)) {
+        creditRows++;
+      } else {
+        invoiceRows++;
+      }
+    }
+
+    return {
+      headers: fileData.headers,
+      sampleData: fileData.data.slice(0, 5), // First 5 rows as sample
+      totalRows: fileData.data.length,
+      invoiceRows,
+      creditRows
+    };
+  };
+
   const onDrop = async (acceptedFiles: File[]) => {
     if (acceptedFiles.length === 0) return;
 
@@ -287,6 +325,10 @@ const NoonSalesUpload = ({ onDataUploaded }: NoonSalesUploadProps) => {
       
       // Process the file
       const fileData = await processFile(file);
+      
+      // Analyze file structure for preview
+      const structure = analyzeFileStructure(fileData);
+      setFileStructure(structure);
       
       // Save headers permanently
       await saveHeaders(fileData.headers);
@@ -383,6 +425,158 @@ const NoonSalesUpload = ({ onDataUploaded }: NoonSalesUploadProps) => {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* File Structure Analysis */}
+      {fileStructure && (
+        <div className="space-y-6">
+          {/* Statistics Overview */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BarChart className="h-5 w-5" />
+                File Analysis Summary
+              </CardTitle>
+              <CardDescription>
+                Analysis of your uploaded Noon sales report structure and content
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg">
+                  <div className="text-2xl font-bold text-blue-600">{fileStructure.totalRows}</div>
+                  <div className="text-sm text-blue-600/80">Total Rows</div>
+                </div>
+                <div className="bg-green-50 dark:bg-green-950 p-4 rounded-lg">
+                  <div className="text-2xl font-bold text-green-600">{fileStructure.invoiceRows}</div>
+                  <div className="text-sm text-green-600/80">Invoice Records</div>
+                </div>
+                <div className="bg-orange-50 dark:bg-orange-950 p-4 rounded-lg">
+                  <div className="text-2xl font-bold text-orange-600">{fileStructure.creditRows}</div>
+                  <div className="text-sm text-orange-600/80">Credit Records</div>
+                </div>
+                <div className="bg-purple-50 dark:bg-purple-950 p-4 rounded-lg">
+                  <div className="text-2xl font-bold text-purple-600">{fileStructure.headers.length}</div>
+                  <div className="text-sm text-purple-600/80">Data Columns</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Headers Structure */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Database className="h-5 w-5" />
+                File Headers Structure ({fileStructure.headers.length} columns)
+              </CardTitle>
+              <CardDescription>
+                All column headers found in your sales report file
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 max-h-60 overflow-y-auto">
+                {fileStructure.headers.map((header, index) => (
+                  <Badge key={index} variant="outline" className="justify-start text-xs">
+                    {index + 1}. {header}
+                  </Badge>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Sample Data Preview */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Sample Data Preview (First 5 rows)
+              </CardTitle>
+              <CardDescription>
+                Preview of the actual data structure to help design the UI
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      {fileStructure.headers.slice(0, 8).map((header, index) => (
+                        <TableHead key={index} className="text-xs whitespace-nowrap min-w-[120px]">
+                          {header}
+                        </TableHead>
+                      ))}
+                      {fileStructure.headers.length > 8 && (
+                        <TableHead className="text-xs text-muted-foreground">
+                          +{fileStructure.headers.length - 8} more columns...
+                        </TableHead>
+                      )}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {fileStructure.sampleData.slice(0, 5).map((row, rowIndex) => (
+                      <TableRow key={rowIndex}>
+                        {row.slice(0, 8).map((cell, cellIndex) => (
+                          <TableCell key={cellIndex} className="text-xs max-w-[120px] truncate">
+                            {cell || "-"}
+                          </TableCell>
+                        ))}
+                        {row.length > 8 && (
+                          <TableCell className="text-xs text-muted-foreground">
+                            ...
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Key Fields Analysis */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Key Financial Fields Detected</CardTitle>
+              <CardDescription>
+                Important financial columns identified for analysis and UI design
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <h4 className="font-medium mb-2 text-green-600">Revenue Fields</h4>
+                  <div className="space-y-1 text-sm">
+                    {fileStructure.headers.filter(h => 
+                      h.toLowerCase().includes('price') || 
+                      h.toLowerCase().includes('amount') ||
+                      h.toLowerCase().includes('total')
+                    ).map((field, index) => (
+                      <Badge key={index} variant="outline" className="mr-1 mb-1">
+                        {field}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <h4 className="font-medium mb-2 text-blue-600">Transaction Fields</h4>
+                  <div className="space-y-1 text-sm">
+                    {fileStructure.headers.filter(h => 
+                      h.toLowerCase().includes('invoice') || 
+                      h.toLowerCase().includes('credit') ||
+                      h.toLowerCase().includes('transaction') ||
+                      h.toLowerCase().includes('document')
+                    ).map((field, index) => (
+                      <Badge key={index} variant="outline" className="mr-1 mb-1">
+                        {field}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       )}
     </div>
   );
