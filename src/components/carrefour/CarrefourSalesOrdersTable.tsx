@@ -53,8 +53,8 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: 
   const [itemsPerPage] = useState(10);
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<FilterOptions>({
-    status: '',
-    paymentStatus: '',
+    status: 'all',
+    paymentStatus: 'all',
     minSaleValue: '',
     maxSaleValue: '',
     minCost: '',
@@ -81,10 +81,10 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: 
     const dataToFilter = filteredData || salesOrders;
     return dataToFilter.filter(order => {
       // Status filter
-      if (filters.status && order.status !== filters.status) return false;
+      if (filters.status && filters.status !== 'all' && order.status !== filters.status) return false;
       
       // Payment status filter
-      if (filters.paymentStatus && order.payment_status !== filters.paymentStatus) return false;
+      if (filters.paymentStatus && filters.paymentStatus !== 'all' && order.payment_status !== filters.paymentStatus) return false;
       
       // Sale value range filter
       if (filters.minSaleValue && order.sale_value < parseFloat(filters.minSaleValue)) return false;
@@ -587,7 +587,7 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: 
                     <SelectValue placeholder="All Statuses" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Statuses</SelectItem>
+                    <SelectItem value="all">All Statuses</SelectItem>
                     <SelectItem value="Delivered">Delivered</SelectItem>
                     <SelectItem value="Shipped">Shipped</SelectItem>
                     <SelectItem value="Returned">Returned</SelectItem>
@@ -605,7 +605,7 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: 
                     <SelectValue placeholder="All Payment Statuses" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Payment Statuses</SelectItem>
+                    <SelectItem value="all">All Payment Statuses</SelectItem>
                     <SelectItem value="Pending">Pending</SelectItem>
                     <SelectItem value="Received">Received</SelectItem>
                   </SelectContent>
@@ -700,8 +700,8 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: 
                   variant="outline"
                   onClick={() => {
                     setFilters({
-                      status: '',
-                      paymentStatus: '',
+                      status: 'all',
+                      paymentStatus: 'all',
                       minSaleValue: '',
                       maxSaleValue: '',
                       minCost: '',
