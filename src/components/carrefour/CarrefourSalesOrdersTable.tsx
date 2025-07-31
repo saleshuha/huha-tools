@@ -8,7 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Edit2, Trash2, Save, X, Plus, CheckSquare, CreditCard, Package, Download, Filter, CalendarIcon, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, DollarSign } from "lucide-react";
+import { Edit2, Trash2, Save, X, Plus, CheckSquare, CreditCard, Package, Download, Filter, CalendarIcon, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, DollarSign, Upload } from "lucide-react";
+import { BulkDataEntry } from "./BulkDataEntry";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useCountry } from "@/contexts/CountryContext";
@@ -72,6 +73,7 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh, st
     profit: 0,
     status: 'Delivered',
   });
+  const [showBulkEntry, setShowBulkEntry] = useState(false);
   
   const tableRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
@@ -570,6 +572,14 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh, st
             Export CSV
           </Button>
           <Button
+            onClick={() => setShowBulkEntry(true)}
+            className="gap-2 bg-blue-600 hover:bg-blue-700"
+            size="sm"
+          >
+            <Upload className="h-4 w-4" />
+            Bulk Import
+          </Button>
+          <Button
             onClick={() => setIsAddingNew(true)}
             className="gap-2 bg-emerald-600 hover:bg-emerald-700"
             disabled={isAddingNew}
@@ -1051,6 +1061,18 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh, st
           </div>
         </div>
       )}
+
+      {/* Bulk Data Entry Dialog */}
+      <BulkDataEntry
+        isOpen={showBulkEntry}
+        onClose={() => setShowBulkEntry(false)}
+        onSuccess={() => {
+          onRefresh();
+          setShowBulkEntry(false);
+        }}
+        storeId={storeId}
+        selectedCountry={selectedCountry}
+      />
     </div>
   );
 }
