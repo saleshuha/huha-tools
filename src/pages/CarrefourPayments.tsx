@@ -9,27 +9,28 @@ import { CarrefourSalesOrder } from "@/types/carrefour";
 import { supabase } from "@/integrations/supabase/client";
 import { useCountry } from "@/contexts/CountryContext";
 import { useToast } from "@/hooks/use-toast";
-
 export default function CarrefourSalesTracker() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
   const [salesOrders, setSalesOrders] = useState<CarrefourSalesOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const { selectedCountry } = useCountry();
-  const { toast } = useToast();
-
+  const {
+    selectedCountry
+  } = useCountry();
+  const {
+    toast
+  } = useToast();
   useEffect(() => {
     fetchSalesOrders();
   }, [selectedCountry]);
-
   const fetchSalesOrders = async () => {
     try {
-      const { data, error } = await supabase
-        .from("carrefour_payments")
-        .select("*")
-        .eq("country", selectedCountry)
-        .order("created_at", { ascending: false });
-
+      const {
+        data,
+        error
+      } = await supabase.from("carrefour_payments").select("*").eq("country", selectedCountry).order("created_at", {
+        ascending: false
+      });
       if (error) throw error;
       setSalesOrders(data || []);
     } catch (error) {
@@ -37,13 +38,12 @@ export default function CarrefourSalesTracker() {
       toast({
         title: "Error",
         description: "Failed to fetch sales order records",
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setIsLoading(false);
     }
   };
-
   const handleRefresh = () => {
     setRefreshKey(prev => prev + 1);
     fetchSalesOrders();
@@ -52,11 +52,7 @@ export default function CarrefourSalesTracker() {
   // Filter sales orders based on search term
   const filteredOrders = useMemo(() => {
     if (!searchTerm.trim()) return salesOrders;
-    
-    return salesOrders.filter(order => 
-      order.order_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.sku_number.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    return salesOrders.filter(order => order.order_number.toLowerCase().includes(searchTerm.toLowerCase()) || order.sku_number.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [salesOrders, searchTerm]);
 
   // Calculate metrics
@@ -66,8 +62,7 @@ export default function CarrefourSalesTracker() {
     const totalProfit = salesOrders.reduce((sum, o) => sum + o.profit, 0);
     const totalPending = salesOrders.reduce((sum, o) => sum + o.pending_amount, 0);
     const totalFees = salesOrders.reduce((sum, o) => sum + o.seller_fees, 0);
-    const profitMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
-
+    const profitMargin = totalRevenue > 0 ? totalProfit / totalRevenue * 100 : 0;
     return {
       totalRevenue,
       totalCosts,
@@ -79,9 +74,7 @@ export default function CarrefourSalesTracker() {
       profitableOrders: salesOrders.filter(o => o.profit > 0).length
     };
   }, [salesOrders]);
-
-  return (
-    <div className="container mx-auto py-6 space-y-6">
+  return <div className="container mx-auto py-6 space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
@@ -97,20 +90,7 @@ export default function CarrefourSalesTracker() {
           </p>
         </div>
         
-        <Button 
-          size="lg" 
-          className="gap-2 px-6 py-3 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 hover:to-emerald-600 shadow-lg hover:shadow-xl transition-all duration-200"
-          onClick={() => {
-            // The table component will handle adding new rows
-            const tableComponent = document.querySelector('[data-table-component]') as any;
-            if (tableComponent?.addNewRow) {
-              tableComponent.addNewRow();
-            }
-          }}
-        >
-          <Plus className="h-5 w-5" />
-          Add New Sales Order
-        </Button>
+        
       </div>
 
       {/* Search Bar */}
@@ -118,12 +98,7 @@ export default function CarrefourSalesTracker() {
         <CardContent className="pt-6">
           <div className="relative">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search by order number or SKU number..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 h-12 border-emerald-200 focus:border-emerald-400"
-            />
+            <Input placeholder="Search by order number or SKU number..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10 h-12 border-emerald-200 focus:border-emerald-400" />
           </div>
         </CardContent>
       </Card>
@@ -177,7 +152,7 @@ export default function CarrefourSalesTracker() {
           <CardContent>
             <div className="text-2xl font-bold text-purple-600">{metrics.profitableOrders}</div>
             <p className="text-xs text-muted-foreground">
-              {metrics.totalOrders > 0 ? ((metrics.profitableOrders / metrics.totalOrders) * 100).toFixed(1) : 0}% success rate
+              {metrics.totalOrders > 0 ? (metrics.profitableOrders / metrics.totalOrders * 100).toFixed(1) : 0}% success rate
             </p>
           </CardContent>
         </Card>
@@ -230,23 +205,17 @@ export default function CarrefourSalesTracker() {
           <CardTitle className="flex items-center gap-2">
             <Package className="h-5 w-5 text-emerald-600" />
             Sales Orders & Profit Analysis
-            {searchTerm && (
-              <Badge variant="secondary" className="ml-2">
+            {searchTerm && <Badge variant="secondary" className="ml-2">
                 {filteredOrders.length} of {salesOrders.length}
-              </Badge>
-            )}
+              </Badge>}
           </CardTitle>
           <CardDescription>
-            {searchTerm 
-              ? `Showing filtered results for "${searchTerm}"`
-              : "Complete overview of your Carrefour sales orders with profit calculations"
-            }
+            {searchTerm ? `Showing filtered results for "${searchTerm}"` : "Complete overview of your Carrefour sales orders with profit calculations"}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <CarrefourSalesOrdersTable refresh={refreshKey} filteredData={filteredOrders} onRefresh={handleRefresh} />
         </CardContent>
       </Card>
-    </div>
-  );
+    </div>;
 }
