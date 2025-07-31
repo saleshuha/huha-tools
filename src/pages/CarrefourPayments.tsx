@@ -63,6 +63,13 @@ export default function CarrefourSalesTracker() {
     const totalPendingPayments = salesOrders.filter(o => o.payment_status === 'Pending').length;
     const totalFees = salesOrders.reduce((sum, o) => sum + o.seller_fees, 0);
     const profitMargin = totalRevenue > 0 ? totalProfit / totalRevenue * 100 : 0;
+    
+    // Status-based metrics
+    const deliveredOrders = salesOrders.filter(o => o.status === 'Delivered');
+    const returnedOrders = salesOrders.filter(o => o.status === 'Returned');
+    const cancelledOrders = salesOrders.filter(o => o.status === 'Cancelled');
+    const otherOrders = salesOrders.filter(o => o.status === 'Other');
+    
     return {
       totalRevenue,
       totalCosts,
@@ -71,7 +78,15 @@ export default function CarrefourSalesTracker() {
       totalFees,
       profitMargin,
       totalOrders: salesOrders.length,
-      profitableOrders: salesOrders.filter(o => o.profit > 0).length
+      profitableOrders: salesOrders.filter(o => o.profit > 0).length,
+      deliveredItems: deliveredOrders.length,
+      deliveredValue: deliveredOrders.reduce((sum, o) => sum + o.sale_value, 0),
+      returnedItems: returnedOrders.length,
+      returnedValue: returnedOrders.reduce((sum, o) => sum + o.sale_value, 0),
+      cancelledItems: cancelledOrders.length,
+      cancelledValue: cancelledOrders.reduce((sum, o) => sum + o.sale_value, 0),
+      otherItems: otherOrders.length,
+      otherValue: otherOrders.reduce((sum, o) => sum + o.sale_value, 0)
     };
   }, [salesOrders]);
   return <div className="container mx-auto py-6 space-y-6">
@@ -194,6 +209,69 @@ export default function CarrefourSalesTracker() {
               <Badge variant="outline" className="border-slate-300">
                 {searchTerm ? "Filtered" : "All Orders"}
               </Badge>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Status-based Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="border-green-200">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-green-700">Delivered Orders</p>
+                <p className="text-2xl font-bold text-green-600">{metrics.deliveredItems}</p>
+                <p className="text-xs text-muted-foreground">
+                  Value: {metrics.deliveredValue.toFixed(2)}
+                </p>
+              </div>
+              <Badge variant="secondary" className="bg-green-100 text-green-800">Delivered</Badge>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-red-200">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-red-700">Returned Orders</p>
+                <p className="text-2xl font-bold text-red-600">{metrics.returnedItems}</p>
+                <p className="text-xs text-muted-foreground">
+                  Value: {metrics.returnedValue.toFixed(2)}
+                </p>
+              </div>
+              <Badge variant="destructive">Returned</Badge>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-gray-200">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-gray-700">Cancelled Orders</p>
+                <p className="text-2xl font-bold text-gray-600">{metrics.cancelledItems}</p>
+                <p className="text-xs text-muted-foreground">
+                  Value: {metrics.cancelledValue.toFixed(2)}
+                </p>
+              </div>
+              <Badge variant="outline" className="border-gray-300">Cancelled</Badge>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-indigo-200">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-indigo-700">Other Orders</p>
+                <p className="text-2xl font-bold text-indigo-600">{metrics.otherItems}</p>
+                <p className="text-xs text-muted-foreground">
+                  Value: {metrics.otherValue.toFixed(2)}
+                </p>
+              </div>
+              <Badge variant="secondary" className="bg-indigo-100 text-indigo-800">Other</Badge>
             </div>
           </CardContent>
         </Card>
