@@ -1,15 +1,30 @@
 import { useState, useEffect, useRef } from "react";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Edit, Trash2, TrendingUp, TrendingDown, Package, DollarSign, Save, X, Plus, CheckSquare, CreditCard } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useToast } from "@/hooks/use-toast";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { Edit2, Trash2, Save, X, Plus, CheckSquare, CreditCard, Package, Download, Filter, CalendarIcon, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, DollarSign } from "lucide-react";
+import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
-import { CarrefourSalesOrder } from "@/types/carrefour";
 import { useCountry } from "@/contexts/CountryContext";
+import { useToast } from "@/hooks/use-toast";
+import { CarrefourSalesOrder, CreateCarrefourSalesOrder } from "@/types/carrefour";
+
+interface FilterOptions {
+  status: string;
+  paymentStatus: string;
+  minSaleValue: string;
+  maxSaleValue: string;
+  minCost: string;
+  maxCost: string;
+  startDate: Date | undefined;
+  endDate: Date | undefined;
+}
 
 interface CarrefourSalesOrdersTableProps {
   refresh: number;
@@ -34,6 +49,19 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: 
   const [editingData, setEditingData] = useState<EditingOrder | null>(null);
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState<FilterOptions>({
+    status: '',
+    paymentStatus: '',
+    minSaleValue: '',
+    maxSaleValue: '',
+    minCost: '',
+    maxCost: '',
+    startDate: undefined,
+    endDate: undefined,
+  });
   const [newOrderData, setNewOrderData] = useState<EditingOrder>({
     order_number: "",
     sale_value: 0,
@@ -43,42 +71,92 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: 
     profit: 0,
     status: 'Delivered',
   });
+  
   const tableRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const { selectedCountry } = useCountry();
 
-  // Use filtered data if provided, otherwise use all sales orders
-  const displayData = filteredData || salesOrders;
+  // Apply filters and get filtered data
+  const getFilteredData = () => {
+    const dataToFilter = filteredData || salesOrders;
+    return dataToFilter.filter(order => {
+      // Status filter
+      if (filters.status && order.status !== filters.status) return false;
+      
+      // Payment status filter
+      if (filters.paymentStatus && order.payment_status !== filters.paymentStatus) return false;
+      
+      // Sale value range filter
+      if (filters.minSaleValue && order.sale_value < parseFloat(filters.minSaleValue)) return false;
+      if (filters.maxSaleValue && order.sale_value > parseFloat(filters.maxSaleValue)) return false;
+      
+      // Cost range filter
+      if (filters.minCost && order.cost < parseFloat(filters.minCost)) return false;
+      if (filters.maxCost && order.cost > parseFloat(filters.maxCost)) return false;
+      
+      // Date range filter
+      const orderDate = new Date(order.created_at);
+      if (filters.startDate && orderDate < filters.startDate) return false;
+      if (filters.endDate && orderDate > filters.endDate) return false;
+      
+      return true;
+    });
+  };
 
-  // Expose addNewRow function to parent component
-  useEffect(() => {
-    if (tableRef.current) {
-      (tableRef.current as any).addNewRow = () => {
-        setIsAddingNew(true);
-        setNewOrderData({
-          order_number: "",
-          sale_value: 0,
-          seller_fees: 0,
-          payment_status: 'Pending',
-          cost: 0,
-          profit: 0,
-          status: 'Delivered',
-        });
-      };
-    }
-  }, []);
+  const filteredAndSearchedData = getFilteredData();
+  
+  // Pagination
+  const totalPages = Math.ceil(filteredAndSearchedData.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentData = filteredAndSearchedData.slice(startIndex, endIndex);
+
+  // Currency helper function
+  const getCurrency = () => {
+    return selectedCountry === 'KSA' ? 'SAR' : 'AED';
+  };
+
+  const formatCurrency = (amount: number) => {
+    const currency = getCurrency();
+    return `${amount.toFixed(2)} ${currency}`;
+  };
+
+  // Export functionality
+  const exportToCSV = (data: CarrefourSalesOrder[]) => {
+    const headers = ['Order Number', 'Sale Value', 'Seller Fees', 'Cost', 'Profit', 'Status', 'Payment Status', 'Country', 'Created At'];
+    const csvContent = [
+      headers.join(','),
+      ...data.map(order => [
+        order.order_number,
+        order.sale_value,
+        order.seller_fees,
+        order.cost,
+        order.profit,
+        order.status,
+        order.payment_status,
+        order.country,
+        new Date(order.created_at).toLocaleDateString()
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `carrefour-sales-${selectedCountry}-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleExportAll = () => {
+    exportToCSV(filteredAndSearchedData);
+  };
 
   useEffect(() => {
     fetchSalesOrders();
-  }, [refresh, selectedCountry]);
+  }, [selectedCountry, refresh]);
 
   const fetchSalesOrders = async () => {
-    // Only fetch if no filtered data is provided
-    if (filteredData) {
-      setIsLoading(false);
-      return;
-    }
-    
     try {
       const { data, error } = await supabase
         .from("carrefour_payments")
@@ -424,10 +502,12 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: 
     return <div className="text-center py-8">Loading sales orders...</div>;
   }
 
+  const displayData = currentData;
+
   return (
     <div ref={tableRef} data-table-component className="space-y-4">
-      {/* Bulk Actions and Add New Row */}
-      <div className="flex justify-between items-center gap-4">
+      {/* Bulk Actions and Controls */}
+      <div className="flex justify-between items-center gap-4 mb-4">
         <div className="flex items-center gap-2">
           {selectedOrders.size > 0 && (
             <>
@@ -462,28 +542,197 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: 
           )}
         </div>
         
-        <Button
-          onClick={() => setIsAddingNew(true)}
-          className="gap-2 bg-emerald-600 hover:bg-emerald-700"
-          disabled={isAddingNew}
-        >
-          <Plus className="h-4 w-4" />
-          Add Row
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={() => setShowFilters(!showFilters)}
+            variant="outline"
+            className="gap-2"
+            size="sm"
+          >
+            <Filter className="h-4 w-4" />
+            Filters
+          </Button>
+          <Button
+            onClick={handleExportAll}
+            className="gap-2 bg-green-600 hover:bg-green-700"
+            size="sm"
+          >
+            <Download className="h-4 w-4" />
+            Export CSV
+          </Button>
+          <Button
+            onClick={() => setIsAddingNew(true)}
+            className="gap-2 bg-emerald-600 hover:bg-emerald-700"
+            disabled={isAddingNew}
+          >
+            <Plus className="h-4 w-4" />
+            Add Row
+          </Button>
+        </div>
       </div>
 
-      {displayData.length === 0 && !isAddingNew ? (
+      {/* Filter Panel */}
+      {showFilters && (
+        <Card className="mb-4 border-slate-200">
+          <CardHeader>
+            <CardTitle className="text-sm">Filter Options</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Status Filter */}
+              <div>
+                <label className="text-sm font-medium">Status</label>
+                <Select value={filters.status} onValueChange={(value) => setFilters(prev => ({ ...prev, status: value }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All Statuses" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">All Statuses</SelectItem>
+                    <SelectItem value="Delivered">Delivered</SelectItem>
+                    <SelectItem value="Shipped">Shipped</SelectItem>
+                    <SelectItem value="Returned">Returned</SelectItem>
+                    <SelectItem value="Cancelled">Cancelled</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Payment Status Filter */}
+              <div>
+                <label className="text-sm font-medium">Payment Status</label>
+                <Select value={filters.paymentStatus} onValueChange={(value) => setFilters(prev => ({ ...prev, paymentStatus: value }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All Payment Statuses" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">All Payment Statuses</SelectItem>
+                    <SelectItem value="Pending">Pending</SelectItem>
+                    <SelectItem value="Received">Received</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Sale Value Range */}
+              <div>
+                <label className="text-sm font-medium">Sale Value Range</label>
+                <div className="flex gap-2">
+                  <Input
+                    type="number"
+                    placeholder="Min"
+                    value={filters.minSaleValue}
+                    onChange={(e) => setFilters(prev => ({ ...prev, minSaleValue: e.target.value }))}
+                    className="w-20"
+                  />
+                  <Input
+                    type="number"
+                    placeholder="Max"
+                    value={filters.maxSaleValue}
+                    onChange={(e) => setFilters(prev => ({ ...prev, maxSaleValue: e.target.value }))}
+                    className="w-20"
+                  />
+                </div>
+              </div>
+
+              {/* Cost Range */}
+              <div>
+                <label className="text-sm font-medium">Cost Range</label>
+                <div className="flex gap-2">
+                  <Input
+                    type="number"
+                    placeholder="Min"
+                    value={filters.minCost}
+                    onChange={(e) => setFilters(prev => ({ ...prev, minCost: e.target.value }))}
+                    className="w-20"
+                  />
+                  <Input
+                    type="number"
+                    placeholder="Max"
+                    value={filters.maxCost}
+                    onChange={(e) => setFilters(prev => ({ ...prev, maxCost: e.target.value }))}
+                    className="w-20"
+                  />
+                </div>
+              </div>
+
+              {/* Date Range */}
+              <div className="col-span-2">
+                <label className="text-sm font-medium">Order Date Range</label>
+                <div className="flex gap-2">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="w-40 justify-start text-left font-normal">
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {filters.startDate ? format(filters.startDate, "PPP") : "Start Date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={filters.startDate}
+                        onSelect={(date) => setFilters(prev => ({ ...prev, startDate: date }))}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="w-40 justify-start text-left font-normal">
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {filters.endDate ? format(filters.endDate, "PPP") : "End Date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={filters.endDate}
+                        onSelect={(date) => setFilters(prev => ({ ...prev, endDate: date }))}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </div>
+
+              {/* Clear Filters */}
+              <div className="flex items-end">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setFilters({
+                      status: '',
+                      paymentStatus: '',
+                      minSaleValue: '',
+                      maxSaleValue: '',
+                      minCost: '',
+                      maxCost: '',
+                      startDate: undefined,
+                      endDate: undefined,
+                    });
+                    setCurrentPage(1);
+                  }}
+                  className="w-full"
+                >
+                  Clear All Filters
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {filteredAndSearchedData.length === 0 && !isAddingNew ? (
         <div className="text-center py-12">
           <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-muted-foreground mb-2">No Sales Orders Found</h3>
           <p className="text-sm text-muted-foreground">Start by adding your first sales order to track profit.</p>
         </div>
       ) : (
-        <div className="rounded-lg border overflow-hidden bg-background">
+        <div className="rounded-md border">
           <Table>
             <TableHeader>
-              <TableRow className="bg-muted/30 hover:bg-muted/40">
-                <TableHead className="w-8">
+              <TableRow>
+                <TableHead className="w-12">
                   <Checkbox
                     checked={selectedOrders.size === displayData.length && displayData.length > 0}
                     onCheckedChange={(checked) => {
@@ -529,7 +778,7 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: 
                     <div className="flex items-center gap-1">
                       <TrendingUp className="h-3 w-3 text-emerald-500" />
                       <span className="font-bold text-emerald-600">
-                        {newOrderData.profit.toFixed(2)}
+                        {formatCurrency(newOrderData.profit)}
                       </span>
                     </div>
                   </TableCell>
@@ -617,7 +866,7 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: 
                         <div className="flex items-center gap-1">
                           <DollarSign className="h-3 w-3 text-emerald-500" />
                           <span className="font-semibold text-emerald-600">
-                            {order.sale_value.toFixed(2)}
+                            {formatCurrency(order.sale_value)}
                           </span>
                         </div>
                       )}
@@ -628,7 +877,7 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: 
                         renderEditableCell(order.cost, "cost", "number", true)
                       ) : (
                         <span className="font-medium text-red-600">
-                          {order.cost.toFixed(2)}
+                          {formatCurrency(order.cost)}
                         </span>
                       )}
                     </TableCell>
@@ -638,7 +887,7 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: 
                         renderEditableCell(order.seller_fees, "seller_fees", "number", true)
                       ) : (
                         <span className="font-medium text-yellow-600">
-                          {order.seller_fees.toFixed(2)}
+                          {formatCurrency(order.seller_fees)}
                         </span>
                       )}
                     </TableCell>
@@ -648,7 +897,7 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: 
                         <div className="flex items-center gap-1">
                           <TrendingUp className="h-3 w-3 text-blue-500" />
                           <span className="font-bold text-blue-600">
-                            {editingData?.profit?.toFixed(2)}
+                            {formatCurrency(editingData?.profit || 0)}
                           </span>
                         </div>
                       ) : (
@@ -662,7 +911,7 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: 
                             <span className={`font-bold ${
                               order.profit >= 0 ? "text-emerald-600" : "text-red-600"
                             }`}>
-                              {order.profit.toFixed(2)}
+                              {formatCurrency(order.profit)}
                             </span>
                           </div>
                           <Badge 
@@ -717,7 +966,7 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: 
                               onClick={() => handleEditClick(order)}
                               disabled={editingId !== null || isAddingNew}
                             >
-                              <Edit className="h-3 w-3 text-blue-600" />
+                              <Edit2 className="h-3 w-3 text-blue-600" />
                             </Button>
                             <Button 
                               variant="ghost" 
@@ -737,6 +986,60 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: 
               })}
             </TableBody>
           </Table>
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-4">
+          <div className="text-sm text-muted-foreground">
+            Showing {startIndex + 1} to {Math.min(endIndex, filteredAndSearchedData.length)} of {filteredAndSearchedData.length} results
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={currentPage === 1}
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Previous
+            </Button>
+            
+            <div className="flex items-center gap-1">
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                const pageNum = currentPage <= 3 
+                  ? i + 1 
+                  : currentPage > totalPages - 3 
+                    ? totalPages - 4 + i 
+                    : currentPage - 2 + i;
+                
+                if (pageNum < 1 || pageNum > totalPages) return null;
+                
+                return (
+                  <Button
+                    key={pageNum}
+                    variant={currentPage === pageNum ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setCurrentPage(pageNum)}
+                    className="w-8 h-8 p-0"
+                  >
+                    {pageNum}
+                  </Button>
+                );
+              })}
+            </div>
+            
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              disabled={currentPage === totalPages}
+            >
+              Next
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       )}
     </div>
