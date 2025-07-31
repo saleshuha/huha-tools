@@ -88,6 +88,9 @@ const paymentReportsItems = [
     url: "/profit-analyzer",
     icon: TrendingUp
   },
+]
+
+const storeTrackersItems = [
   {
     title: "Store Management",
     url: "/stores",
@@ -101,6 +104,7 @@ export function AppSidebar() {
   const isCollapsed = state === "collapsed"
   const [isToolsOpen, setIsToolsOpen] = useState(true)
   const [isPaymentReportsOpen, setIsPaymentReportsOpen] = useState(true)
+  const [isStoreTrackersOpen, setIsStoreTrackersOpen] = useState(true)
   
   const { toast } = useToast()
   const { isAdmin } = useUserProfile()
@@ -137,6 +141,10 @@ export function AppSidebar() {
 
   const isPaymentReportsSectionActive = () => {
     return paymentReportsItems.some(item => isActive(item.url))
+  }
+
+  const isStoreTrackersSectionActive = () => {
+    return storeTrackersItems.some(item => isActive(item.url))
   }
 
   return (
@@ -258,6 +266,61 @@ export function AppSidebar() {
                           </CollapsibleContent>
                         </Collapsible>
                       </SidebarMenuItem>
+
+                      {/* Store Trackers sub-section */}
+                      <SidebarMenuItem>
+                        <Collapsible open={isStoreTrackersOpen} onOpenChange={setIsStoreTrackersOpen}>
+                          <CollapsibleTrigger asChild>
+                            <SidebarMenuButton
+                              className={`w-full p-3 rounded-lg transition-colors text-left ${
+                                isStoreTrackersSectionActive()
+                                  ? "bg-accent text-accent-foreground" 
+                                  : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                              }`}
+                            >
+                              <div className="flex items-center gap-3 w-full">
+                                <Store className="h-4 w-4 flex-shrink-0" />
+                                {!isCollapsed && (
+                                  <>
+                                    <span className="font-medium text-sm flex-1 text-left">
+                                      Store Trackers
+                                    </span>
+                                    <ChevronDown className={`h-3 w-3 transition-transform ml-auto ${
+                                      isStoreTrackersOpen ? "rotate-180" : ""
+                                    }`} />
+                                  </>
+                                )}
+                              </div>
+                            </SidebarMenuButton>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent className="ml-8 mt-1 space-y-1">
+                            {storeTrackersItems.map((storeItem) => (
+                              <SidebarMenuButton 
+                                key={storeItem.title}
+                                asChild
+                                className={`w-full p-2 rounded-md transition-colors ${
+                                  isActive(storeItem.url)
+                                    ? "bg-primary text-primary-foreground" 
+                                    : "hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+                                }`}
+                              >
+                                <NavLink 
+                                  to={storeItem.url} 
+                                  end
+                                  className="flex items-center gap-2 no-underline w-full"
+                                >
+                                  <storeItem.icon className="h-3 w-3 flex-shrink-0" />
+                                  {!isCollapsed && (
+                                    <span className="font-medium text-xs">
+                                      {storeItem.title}
+                                    </span>
+                                  )}
+                                </NavLink>
+                              </SidebarMenuButton>
+                            ))}
+                          </CollapsibleContent>
+                        </Collapsible>
+                      </SidebarMenuItem>
                     </div>
                   )
                 }
@@ -288,7 +351,6 @@ export function AppSidebar() {
                   </SidebarMenuItem>
                 )
               })}
-
 
               {/* Tools dropdown */}
               <SidebarMenuItem>
