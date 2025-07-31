@@ -210,20 +210,18 @@ export function AppSidebar() {
                                   : "from-sidebar-accent/10 to-sidebar-accent/5 hover:from-sidebar-accent/20 hover:to-sidebar-accent/10 hover:text-sidebar-accent-foreground border border-transparent hover:border-sidebar-accent/20"
                               }`}
                             >
-                              <div className="flex flex-col gap-2 w-full">
-                                <div className="flex items-center gap-3 w-full">
-                                  <CreditCard className="h-5 w-5 flex-shrink-0" />
-                                  {!isCollapsed && (
-                                    <span className="font-semibold text-base flex-1 text-left">
+                              <div className="flex items-center gap-3 w-full">
+                                <CreditCard className="h-5 w-5 flex-shrink-0" />
+                                {!isCollapsed && (
+                                  <>
+                                    <span className="font-semibold text-base flex-1 text-left whitespace-nowrap">
                                       Sales & Payment Reports
                                     </span>
-                                  )}
-                                  {!isCollapsed && (
-                                    <ChevronDown className={`h-4 w-4 transition-transform ml-auto ${
+                                    <ChevronDown className={`h-4 w-4 transition-transform flex-shrink-0 ${
                                       isPaymentReportsOpen ? "rotate-180" : ""
                                     }`} />
-                                  )}
-                                </div>
+                                  </>
+                                )}
                               </div>
                             </SidebarMenuButton>
                           </CollapsibleTrigger>
