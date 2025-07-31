@@ -30,6 +30,7 @@ interface CarrefourSalesOrdersTableProps {
   refresh: number;
   filteredData?: CarrefourSalesOrder[];
   onRefresh: () => void;
+  storeId?: string;
 }
 
 interface EditingOrder {
@@ -42,7 +43,7 @@ interface EditingOrder {
   status: 'Delivered' | 'Returned' | 'Cancelled' | 'Shipped' | 'Other';
 }
 
-export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: CarrefourSalesOrdersTableProps) {
+export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh, storeId }: CarrefourSalesOrdersTableProps) {
   const [salesOrders, setSalesOrders] = useState<CarrefourSalesOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -270,6 +271,7 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: 
         .insert([{
           ...newOrderData,
           user_id: user.id,
+          store_id: storeId,
           country: selectedCountry,
         }]);
 

@@ -1,17 +1,23 @@
 import { useState, useEffect, useMemo } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, ShoppingCart, TrendingUp, Package, Calculator, BarChart3, Receipt, Download, X } from "lucide-react";
+import { Plus, Search, ShoppingCart, TrendingUp, Package, Calculator, BarChart3, Receipt, Download, X, ArrowLeft, Store as StoreIcon } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { CarrefourSalesOrdersTable } from "@/components/carrefour/CarrefourSalesOrdersTable";
 import { CarrefourSalesOrder } from "@/types/carrefour";
+import { Store } from "@/types/store";
 import { supabase } from "@/integrations/supabase/client";
 import { useCountry } from "@/contexts/CountryContext";
 import { useToast } from "@/hooks/use-toast";
+
 export default function CarrefourSalesTracker() {
+  const { storeId } = useParams();
+  const navigate = useNavigate();
+  const [currentStore, setCurrentStore] = useState<Store | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
   const [salesOrders, setSalesOrders] = useState<CarrefourSalesOrder[]>([]);
@@ -34,16 +40,45 @@ export default function CarrefourSalesTracker() {
     toast
   } = useToast();
   useEffect(() => {
-    fetchSalesOrders();
-  }, [selectedCountry]);
-  const fetchSalesOrders = async () => {
+    if (storeId) {
+      fetchCurrentStore();
+      fetchSalesOrders();
+    }
+  }, [storeId]);
+
+  const fetchCurrentStore = async () => {
+    if (!storeId) return;
+    
     try {
-      const {
-        data,
-        error
-      } = await supabase.from("carrefour_payments").select("*").eq("country", selectedCountry).order("created_at", {
-        ascending: false
+      const { data, error } = await supabase
+        .from("stores")
+        .select("*")
+        .eq("id", storeId)
+        .single();
+
+      if (error) throw error;
+      setCurrentStore(data as Store);
+    } catch (error) {
+      console.error("Error fetching store:", error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch store information",
+        variant: "destructive",
       });
+      navigate("/stores");
+    }
+  };
+
+  const fetchSalesOrders = async () => {
+    if (!storeId) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from("carrefour_payments")
+        .select("*")
+        .eq("store_id", storeId)
+        .order("created_at", { ascending: false });
+
       if (error) throw error;
       setSalesOrders((data || []) as CarrefourSalesOrder[]);
     } catch (error) {
@@ -113,7 +148,7 @@ export default function CarrefourSalesTracker() {
 
   // Currency helper function
   const getCurrency = () => {
-    return selectedCountry === 'KSA' ? 'SAR' : 'AED';
+    return currentStore?.currency || 'AED';
   };
 
   const formatCurrency = (amount: number) => {
@@ -229,22 +264,34 @@ export default function CarrefourSalesTracker() {
     );
   }, [dialogData.data, dialogData.searchTerm]);
   return <div className="w-full max-w-none px-6 py-6 space-y-6 ml-0">
-      {/* Header */}
+      {/* Header with Back Button */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-3">
-            <ShoppingCart className="h-8 w-8 text-primary" />
-            Carrefour Sales Tracker
-            <Badge variant="secondary" className="text-xs">
-              Profit Analysis
-            </Badge>
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Track sales orders, analyze costs, and calculate profit margins for {selectedCountry}
-          </p>
+        <div className="flex items-center gap-4">
+          <Button
+            variant="outline"
+            onClick={() => navigate("/stores")}
+            className="gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Stores
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold flex items-center gap-3">
+              <ShoppingCart className="h-8 w-8 text-primary" />
+              {currentStore?.name || 'Store'} - Sales Tracker
+              <Badge variant="secondary" className="text-xs">
+                Profit Analysis
+              </Badge>
+            </h1>
+            <p className="text-muted-foreground mt-1 flex items-center gap-2">
+              <StoreIcon className="h-4 w-4" />
+              Track sales orders, analyze costs, and calculate profit margins
+              {currentStore?.location && (
+                <span>• {currentStore.location}</span>
+              )}
+            </p>
+          </div>
         </div>
-        
-        
       </div>
 
       {/* Metrics Cards */}
@@ -542,7 +589,7 @@ export default function CarrefourSalesTracker() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <CarrefourSalesOrdersTable refresh={refreshKey} filteredData={filteredOrders} onRefresh={handleRefresh} />
+          <CarrefourSalesOrdersTable refresh={refreshKey} filteredData={filteredOrders} onRefresh={handleRefresh} storeId={storeId} />
         </CardContent>
       </Card>
     </div>;

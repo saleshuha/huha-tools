@@ -80,6 +80,7 @@ export type Database = {
           sale_value: number
           seller_fees: number
           status: string
+          store_id: string | null
           updated_at: string
           user_id: string
         }
@@ -94,6 +95,7 @@ export type Database = {
           sale_value: number
           seller_fees: number
           status?: string
+          store_id?: string | null
           updated_at?: string
           user_id: string
         }
@@ -108,10 +110,19 @@ export type Database = {
           sale_value?: number
           seller_fees?: number
           status?: string
+          store_id?: string | null
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "carrefour_payments_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       noon_credit_data: {
         Row: {
@@ -610,6 +621,45 @@ export type Database = {
           previous_quantity?: number
           serial_number?: string | null
           sku_number?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      stores: {
+        Row: {
+          country: string
+          created_at: string
+          currency: string
+          description: string | null
+          id: string
+          is_active: boolean
+          location: string | null
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          country?: string
+          created_at?: string
+          currency?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          location?: string | null
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          country?: string
+          created_at?: string
+          currency?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          location?: string | null
+          name?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
