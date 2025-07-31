@@ -61,16 +61,6 @@ const toolsItems = [
     title: "Excel Editor",
     url: "/excel-editor",
     icon: Edit3
-  },
-  {
-    title: "Sales Data Upload",
-    url: "/sales-upload",
-    icon: Upload
-  },
-  {
-    title: "Profit Analyzer",
-    url: "/profit-analyzer",
-    icon: TrendingUp
   }
 ]
 
@@ -87,14 +77,26 @@ const coreItems = [
   },
 ]
 
+const paymentReportsItems = [
+  {
+    title: "Sales Data Upload",
+    url: "/sales-upload",
+    icon: Upload
+  },
+  {
+    title: "Profit Analyzer",
+    url: "/profit-analyzer",
+    icon: TrendingUp
+  }
+]
+
 export function AppSidebar() {
   const { state } = useSidebar()
   const location = useLocation()
   const isCollapsed = state === "collapsed"
   const [isToolsOpen, setIsToolsOpen] = useState(true)
+  const [isPaymentReportsOpen, setIsPaymentReportsOpen] = useState(true)
   
-  // Force re-render by adding a key that changes
-  console.log('AppSidebar: Rendering with tools:', toolsItems.length, 'items')
   const { toast } = useToast()
   const { isAdmin } = useUserProfile()
 
@@ -126,6 +128,10 @@ export function AppSidebar() {
 
   const isToolsSectionActive = () => {
     return toolsItems.some(item => isActive(item.url))
+  }
+
+  const isPaymentReportsSectionActive = () => {
+    return paymentReportsItems.some(item => isActive(item.url))
   }
 
   return (
@@ -165,31 +171,118 @@ export function AppSidebar() {
               ))}
 
               {/* Core Application Items */}
-              {coreItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton 
-                    asChild
-                    className={`w-full p-3 rounded-lg transition-colors ${
-                      isActive(item.url)
-                        ? "bg-primary text-primary-foreground" 
-                        : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                    }`}
-                  >
-                    <NavLink 
-                      to={item.url} 
-                      end
-                      className="flex items-center gap-3 no-underline w-full"
+              {coreItems.map((item) => {
+                if (item.title === "Sales & Replenishment") {
+                  return (
+                    <div key={item.title}>
+                      <SidebarMenuItem>
+                        <SidebarMenuButton 
+                          asChild
+                          className={`w-full p-3 rounded-lg transition-colors ${
+                            isActive(item.url)
+                              ? "bg-primary text-primary-foreground" 
+                              : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                          }`}
+                        >
+                          <NavLink 
+                            to={item.url} 
+                            end
+                            className="flex items-center gap-3 no-underline w-full"
+                          >
+                            <item.icon className="h-4 w-4 flex-shrink-0" />
+                            {!isCollapsed && (
+                              <span className="font-medium text-sm">
+                                {item.title}
+                              </span>
+                            )}
+                          </NavLink>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                      
+                      {/* Payment Reports sub-section */}
+                      <SidebarMenuItem>
+                        <Collapsible open={isPaymentReportsOpen} onOpenChange={setIsPaymentReportsOpen}>
+                          <CollapsibleTrigger asChild>
+                            <SidebarMenuButton
+                              className={`w-full p-3 rounded-lg transition-colors ml-4 ${
+                                isPaymentReportsSectionActive()
+                                  ? "bg-accent text-accent-foreground" 
+                                  : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                              }`}
+                            >
+                              <div className="flex items-center gap-3 w-full">
+                                <CreditCard className="h-4 w-4 flex-shrink-0" />
+                                {!isCollapsed && (
+                                  <div className="flex items-center justify-between w-full">
+                                    <span className="font-medium text-sm">
+                                      Payment Reports
+                                    </span>
+                                    <ChevronDown className={`h-3 w-3 transition-transform ${
+                                      isPaymentReportsOpen ? "rotate-180" : ""
+                                    }`} />
+                                  </div>
+                                )}
+                              </div>
+                            </SidebarMenuButton>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent className="ml-8 mt-1 space-y-1">
+                            {paymentReportsItems.map((reportItem) => (
+                              <SidebarMenuButton 
+                                key={reportItem.title}
+                                asChild
+                                className={`w-full p-2 rounded-md transition-colors ${
+                                  isActive(reportItem.url)
+                                    ? "bg-primary text-primary-foreground" 
+                                    : "hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+                                }`}
+                              >
+                                <NavLink 
+                                  to={reportItem.url} 
+                                  end
+                                  className="flex items-center gap-2 no-underline w-full"
+                                >
+                                  <reportItem.icon className="h-3 w-3 flex-shrink-0" />
+                                  {!isCollapsed && (
+                                    <span className="font-medium text-xs">
+                                      {reportItem.title}
+                                    </span>
+                                  )}
+                                </NavLink>
+                              </SidebarMenuButton>
+                            ))}
+                          </CollapsibleContent>
+                        </Collapsible>
+                      </SidebarMenuItem>
+                    </div>
+                  )
+                }
+                
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton 
+                      asChild
+                      className={`w-full p-3 rounded-lg transition-colors ${
+                        isActive(item.url)
+                          ? "bg-primary text-primary-foreground" 
+                          : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                      }`}
                     >
-                      <item.icon className="h-4 w-4 flex-shrink-0" />
-                      {!isCollapsed && (
-                        <span className="font-medium text-sm">
-                          {item.title}
-                        </span>
-                      )}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+                      <NavLink 
+                        to={item.url} 
+                        end
+                        className="flex items-center gap-3 no-underline w-full"
+                      >
+                        <item.icon className="h-4 w-4 flex-shrink-0" />
+                        {!isCollapsed && (
+                          <span className="font-medium text-sm">
+                            {item.title}
+                          </span>
+                        )}
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )
+              })}
 
               {/* User Management */}
               <SidebarMenuItem>
