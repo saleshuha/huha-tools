@@ -204,7 +204,7 @@ export function AppSidebar() {
                         <Collapsible open={isPaymentReportsOpen} onOpenChange={setIsPaymentReportsOpen}>
                           <CollapsibleTrigger asChild>
                             <SidebarMenuButton
-                              className={`w-full p-3 rounded-lg transition-colors ml-4 text-left ${
+                              className={`w-full p-3 rounded-lg transition-colors text-left ${
                                 isPaymentReportsSectionActive()
                                   ? "bg-accent text-accent-foreground" 
                                   : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
