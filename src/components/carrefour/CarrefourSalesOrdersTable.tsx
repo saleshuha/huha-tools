@@ -266,13 +266,20 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh, st
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
+      // Get store info to use store's country instead of user's selected country
+      const { data: storeData } = await supabase
+        .from("stores")
+        .select("country")
+        .eq("id", storeId)
+        .single();
+
       const { error } = await supabase
         .from("carrefour_payments")
         .insert([{
           ...newOrderData,
           user_id: user.id,
           store_id: storeId,
-          country: selectedCountry,
+          country: storeData?.country || selectedCountry, // Use store's country
         }]);
 
       if (error) throw error;

@@ -42,9 +42,14 @@ export default function CarrefourSalesTracker() {
   useEffect(() => {
     if (storeId) {
       fetchCurrentStore();
-      fetchSalesOrders();
     }
   }, [storeId]);
+
+  useEffect(() => {
+    if (currentStore && storeId) {
+      fetchSalesOrders();
+    }
+  }, [currentStore, storeId]);
 
   const fetchCurrentStore = async () => {
     if (!storeId) return;
@@ -70,13 +75,14 @@ export default function CarrefourSalesTracker() {
   };
 
   const fetchSalesOrders = async () => {
-    if (!storeId) return;
+    if (!storeId || !currentStore) return;
     
     try {
       const { data, error } = await supabase
         .from("carrefour_payments")
         .select("*")
         .eq("store_id", storeId)
+        .eq("country", currentStore.country) // Filter by store's country
         .order("created_at", { ascending: false });
 
       if (error) throw error;
