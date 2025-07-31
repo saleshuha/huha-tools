@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Store as StoreIcon, MapPin, Edit2, Trash2, BarChart3, ShoppingCart } from "lucide-react";
+import { Plus, Store as StoreIcon, MapPin, Edit2, Trash2, BarChart3, ShoppingCart, ShoppingBag } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -373,14 +373,25 @@ export default function StoreSelection() {
                       </Button>
                     </div>
                     
-                    <Button
-                      onClick={() => handleStoreSelect(store)}
-                      className="gap-2 bg-emerald-600 hover:bg-emerald-700"
-                      size="sm"
-                    >
-                      <BarChart3 className="h-4 w-4" />
-                      View Sales Data
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        onClick={() => handleStoreSelect(store)}
+                        className="gap-2 bg-emerald-600 hover:bg-emerald-700"
+                        size="sm"
+                      >
+                        <BarChart3 className="h-4 w-4" />
+                        Carrefour Tracker
+                      </Button>
+                      
+                      <Button
+                        onClick={() => navigate(`/noon-sales-tracker/${store.id}`)}
+                        className="gap-2 bg-orange-600 hover:bg-orange-700"
+                        size="sm"
+                      >
+                        <ShoppingBag className="h-4 w-4" />
+                        Noon Tracker
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>

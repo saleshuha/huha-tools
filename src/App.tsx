@@ -18,17 +18,16 @@ import AsinQtySum from "./pages/AsinQtySum";
 import ZipSplitter from "./pages/ZipSplitter";
 import FileMergerPage from "./pages/FileMerger";
 import Inventory from "./pages/Inventory";
-import UserManagementPage from "./pages/UserManagement";
+import UserManagement from "./pages/UserManagement";
 import ReplenishmentPage from "./pages/Replenishment";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import ExcelEditorPage from "./pages/ExcelEditor";
 import SalesDataUpload from "./pages/SalesDataUpload";
 import ProfitAnalyzer from "./pages/ProfitAnalyzer";
-import CarrefourSalesTracker from "./pages/CarrefourPayments";
+import NoonSalesTracker from "./pages/NoonSalesTracker";
+import CarrefourPayments from "./pages/CarrefourPayments";
 import StoreSelection from "./pages/StoreSelection";
-
-
 
 const queryClient = new QueryClient();
 
@@ -127,14 +126,15 @@ const App = () => {
                     <Route path="/zip-splitter" element={<ZipSplitter />} />
                     <Route path="/file-merger" element={<FileMergerPage />} />
                     <Route path="/inventory" element={<Inventory />} />
-                    <Route path="/users" element={<UserManagementPage />} />
+                    <Route path="/users" element={<UserManagement />} />
                     <Route path="/replenishment" element={<ReplenishmentPage />} />
                     <Route path="/excel-editor" element={<ExcelEditorPage />} />
                     <Route path="/sales-upload" element={<SalesDataUpload />} />
                     <Route path="/profit-analyzer" element={<ProfitAnalyzer />} />
                     <Route path="/carrefour-payments" element={<Navigate to="/stores" replace />} />
                     <Route path="/stores" element={<StoreSelection />} />
-                    <Route path="/carrefour-payments/:storeId" element={<CarrefourSalesTracker />} />
+                    <Route path="/carrefour-payments/:storeId" element={<CarrefourPayments />} />
+                    <Route path="/noon-sales-tracker/:storeId" element={<NoonSalesTracker />} />
                     
                     <Route path="/auth" element={<Navigate to="/" replace />} />
                     
