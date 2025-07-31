@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { Upload, FileText, CreditCard, AlertCircle } from "lucide-react";
 import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
@@ -15,9 +18,10 @@ interface NoonPaymentUploadProps {
 
 const NoonPaymentUpload = ({ onDataUploaded }: NoonPaymentUploadProps) => {
   const [uploading, setUploading] = useState(false);
-  const [uploadedFiles, setUploadedFiles] = useState<{
-    invoice?: string;
-    credit?: string;
+  const [selectedFileType, setSelectedFileType] = useState<'invoice' | 'credit'>('invoice');
+  const [uploadedFile, setUploadedFile] = useState<{
+    name?: string;
+    type?: 'invoice' | 'credit';
   }>({});
 
   const processFile = (file: File, fileType: 'invoice' | 'credit'): Promise<NoonFileData> => {
@@ -206,107 +210,132 @@ const NoonPaymentUpload = ({ onDataUploaded }: NoonPaymentUploadProps) => {
     return records.length;
   };
 
-  const onDrop = async (acceptedFiles: File[], fileType: 'invoice' | 'credit') => {
+  const onDrop = async (acceptedFiles: File[]) => {
     if (acceptedFiles.length === 0) return;
+    if (!selectedFileType) {
+      toast.error('Please select a file type first');
+      return;
+    }
 
     setUploading(true);
     try {
       const file = acceptedFiles[0];
       
       // Process the file
-      const fileData = await processFile(file, fileType);
+      const fileData = await processFile(file, selectedFileType);
       
       // Save headers permanently
-      await saveHeaders(fileData.headers, fileType);
+      await saveHeaders(fileData.headers, selectedFileType);
       
       // Save data to database
       const recordCount = await saveData(fileData);
       
-      setUploadedFiles(prev => ({
-        ...prev,
-        [fileType]: file.name
-      }));
+      setUploadedFile({
+        name: file.name,
+        type: selectedFileType
+      });
 
-      toast.success(`${fileType} file uploaded successfully! ${recordCount} records processed.`);
+      toast.success(`${selectedFileType} file uploaded successfully! ${recordCount} records processed.`);
       onDataUploaded();
     } catch (error) {
       console.error('Upload error:', error);
-      toast.error(`Failed to upload ${fileType} file: ${error.message}`);
+      toast.error(`Failed to upload ${selectedFileType} file: ${error.message}`);
     } finally {
       setUploading(false);
     }
   };
 
-  const createDropzone = (fileType: 'invoice' | 'credit') => {
-    const { getRootProps, getInputProps, isDragActive } = useDropzone({
-      onDrop: (files) => onDrop(files, fileType),
-      accept: {
-        'text/csv': ['.csv'],
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
-        'application/vnd.ms-excel': ['.xls']
-      },
-      multiple: false
-    });
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: {
+      'text/csv': ['.csv'],
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+      'application/vnd.ms-excel': ['.xls']
+    },
+    multiple: false
+  });
 
-    const Icon = fileType === 'invoice' ? FileText : CreditCard;
-    const title = fileType === 'invoice' ? 'Invoice Report' : 'Credit Report';
-    const description = fileType === 'invoice' 
-      ? 'Upload your Noon invoice/payment report CSV or Excel file'
-      : 'Upload your Noon credit/return report CSV or Excel file';
+  const Icon = selectedFileType === 'invoice' ? FileText : CreditCard;
 
-    return (
-      <Card className="h-64">
+  return (
+    <div className="space-y-6">
+      {/* File Type Selector */}
+      <div className="space-y-2">
+        <Label htmlFor="file-type">Report Type</Label>
+        <Select value={selectedFileType} onValueChange={(value: 'invoice' | 'credit') => setSelectedFileType(value)}>
+          <SelectTrigger className="w-full md:w-64">
+            <SelectValue placeholder="Select report type" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="invoice">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                Invoice Report
+              </div>
+            </SelectItem>
+            <SelectItem value="credit">
+              <div className="flex items-center gap-2">
+                <CreditCard className="h-4 w-4" />
+                Credit Report
+              </div>
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Single Upload Area */}
+      <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Icon className="h-5 w-5" />
-            {title}
+            Upload {selectedFileType === 'invoice' ? 'Invoice' : 'Credit'} Report
           </CardTitle>
-          <CardDescription>{description}</CardDescription>
+          <CardDescription>
+            Upload your Noon {selectedFileType === 'invoice' ? 'invoice/payment' : 'credit/return'} report CSV or Excel file
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div
             {...getRootProps()}
             className={`
-              border-2 border-dashed rounded-lg p-6 h-32 flex flex-col items-center justify-center cursor-pointer transition-colors
+              border-2 border-dashed rounded-lg p-8 h-48 flex flex-col items-center justify-center cursor-pointer transition-colors
               ${isDragActive ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 hover:border-primary/50'}
               ${uploading ? 'opacity-50 cursor-not-allowed' : ''}
             `}
           >
             <input {...getInputProps()} disabled={uploading} />
-            {uploadedFiles[fileType] ? (
+            {uploadedFile.name && uploadedFile.type === selectedFileType ? (
               <div className="text-center">
-                <FileText className="h-8 w-8 text-green-600 mx-auto mb-2" />
-                <p className="text-sm text-green-600 font-medium">{uploadedFiles[fileType]}</p>
-                <p className="text-xs text-muted-foreground">File uploaded successfully</p>
+                <FileText className="h-12 w-12 text-green-600 mx-auto mb-4" />
+                <p className="text-lg text-green-600 font-medium">{uploadedFile.name}</p>
+                <p className="text-sm text-muted-foreground">File uploaded successfully</p>
+                <Badge variant="outline" className="mt-2">
+                  {selectedFileType} report
+                </Badge>
               </div>
             ) : (
               <div className="text-center">
-                <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">
-                  {isDragActive ? `Drop ${fileType} file here` : `Drag & drop ${fileType} file or click to browse`}
+                <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-lg text-muted-foreground mb-2">
+                  {isDragActive ? `Drop ${selectedFileType} file here` : `Drag & drop ${selectedFileType} file or click to browse`}
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">CSV or Excel files only</p>
+                <p className="text-sm text-muted-foreground">CSV or Excel files only</p>
+                <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
+                  <Icon className="h-4 w-4" />
+                  <span>{selectedFileType === 'invoice' ? 'Invoice/Payment' : 'Credit/Return'} Report</span>
+                </div>
               </div>
             )}
           </div>
         </CardContent>
       </Card>
-    );
-  };
-
-  return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {createDropzone('invoice')}
-        {createDropzone('credit')}
-      </div>
 
       {uploading && (
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2 text-blue-600">
               <AlertCircle className="h-4 w-4 animate-spin" />
-              <span className="text-sm">Processing file and saving to database...</span>
+              <span className="text-sm">Processing {selectedFileType} file and saving to database...</span>
             </div>
           </CardContent>
         </Card>
