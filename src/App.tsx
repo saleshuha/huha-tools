@@ -23,6 +23,7 @@ import ReplenishmentPage from "./pages/Replenishment";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import ExcelEditorPage from "./pages/ExcelEditor";
+import NoonPaymentsReconciliation from "./pages/NoonPaymentsReconciliation";
 
 
 const queryClient = new QueryClient();
@@ -125,6 +126,7 @@ const App = () => {
                     <Route path="/users" element={<UserManagementPage />} />
                     <Route path="/replenishment" element={<ReplenishmentPage />} />
                     <Route path="/excel-editor" element={<ExcelEditorPage />} />
+                    <Route path="/noon-payments" element={<NoonPaymentsReconciliation />} />
                     <Route path="/auth" element={<Navigate to="/" replace />} />
                     
                     {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
