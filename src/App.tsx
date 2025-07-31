@@ -95,28 +95,26 @@ const App = () => {
             <div className="min-h-screen flex w-full">
               <AppSidebar />
               <div className="flex-1 flex flex-col">
-                <header className="h-16 flex items-center border-b bg-gradient-to-r from-background to-background/95 shadow-sm">
-                  <div className="flex items-center justify-between w-full gap-4 pl-8 pr-6">
-                    <div className="flex items-center gap-4">
+                <header className="h-14 flex items-center border-b bg-background shadow-sm">
+                  <div className="flex items-center justify-between w-full gap-4 pl-6 pr-4">
+                    <div className="flex items-center gap-3">
                       <SidebarTrigger className="bg-primary hover:bg-primary/90 text-primary-foreground border-primary" />
-                      <div className="bg-primary/10 rounded-md p-2">
+                      <div className="bg-primary/10 rounded-md p-1.5">
                         <img 
                           src="/lovable-uploads/4f9a15c5-2d12-4ee0-b0bd-e982c5b4ece7.png" 
                           alt="HuHa Logo" 
-                          className="h-8 w-8 object-contain"
+                          className="h-6 w-6 object-contain"
                         />
                       </div>
                       <div className="flex flex-col">
-                        <h1 className="font-semibold text-lg text-foreground tracking-wide">HuHa Product Management System</h1>
-                        <p className="text-xs text-muted-foreground font-medium leading-tight">Professional Inventory & Analytics Platform</p>
+                        <h1 className="font-semibold text-base text-foreground tracking-wide">HuHa Product Management System</h1>
+                        <p className="text-[10px] text-muted-foreground font-medium leading-tight">Professional Inventory & Analytics Platform</p>
                       </div>
                     </div>
-                    <div className="flex-1 flex justify-center max-w-md">
-                      <span className="text-base font-medium text-foreground px-4 py-2 bg-muted/30 rounded-md">اللَّهُمَّ صل عَلَى مُحَمَّدٍ وَعَلَى آلِ مُحَمَّدٍ</span>
+                    <div className="flex-1 flex justify-center">
+                      <span className="text-sm font-medium text-foreground">اللَّهُمَّ صل عَلَى مُحَمَّدٍ وَعَلَى آلِ مُحَمَّدٍ</span>
                     </div>
-                    <div className="flex-shrink-0">
-                      <CountrySwitcher />
-                    </div>
+                    <CountrySwitcher />
                   </div>
                 </header>
                 <main className="flex-1">

@@ -11,34 +11,26 @@ export function CountrySwitcher() {
   const { selectedCountry, setSelectedCountry } = useCountry();
 
   return (
-    <div className="flex items-center gap-4 bg-primary/5 px-4 py-2 rounded-lg border-2 border-primary/20">
+    <div className="flex items-center gap-3 bg-primary/5 px-3 py-2 rounded-lg border border-primary/20">
       <div className="flex items-center gap-2">
-        <span className="text-2xl">🌍</span>
-        <span className="text-sm font-bold text-primary uppercase tracking-wider">Country:</span>
+        <span className="text-lg">🌍</span>
+        <span className="text-xs font-semibold text-primary uppercase tracking-wide">Country:</span>
       </div>
       <Select value={selectedCountry} onValueChange={(value: 'UAE' | 'KSA') => setSelectedCountry(value)}>
-        <SelectTrigger className="w-[200px] h-12 bg-gradient-to-r from-primary/10 to-primary/5 border-2 border-primary/30 hover:border-primary transition-all duration-200 shadow-sm hover:shadow-md">
+        <SelectTrigger className="w-[140px] h-10 bg-background border border-primary/30 hover:border-primary transition-colors">
           <SelectValue>
-            <div className="flex items-center gap-3">
-              <span className="text-2xl">{countries.find(c => c.code === selectedCountry)?.flag}</span>
-              <div className="flex flex-col items-start">
-                <span className="font-bold text-lg text-primary">{selectedCountry}</span>
-                <span className="text-xs text-muted-foreground">
-                  {countries.find(c => c.code === selectedCountry)?.name}
-                </span>
-              </div>
+            <div className="flex items-center gap-2">
+              <span className="text-lg">{countries.find(c => c.code === selectedCountry)?.flag}</span>
+              <span className="font-semibold text-sm text-primary">{selectedCountry}</span>
             </div>
           </SelectValue>
         </SelectTrigger>
-        <SelectContent className="w-[200px]">
+        <SelectContent className="w-[140px] z-50">
           {countries.map((country) => (
-            <SelectItem key={country.code} value={country.code} className="h-14">
-              <div className="flex items-center gap-3 w-full">
-                <span className="text-2xl">{country.flag}</span>
-                <div className="flex flex-col items-start">
-                  <span className="font-bold text-lg">{country.code}</span>
-                  <span className="text-xs text-muted-foreground">{country.name}</span>
-                </div>
+            <SelectItem key={country.code} value={country.code} className="h-10">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">{country.flag}</span>
+                <span className="font-semibold text-sm">{country.code}</span>
               </div>
             </SelectItem>
           ))}
