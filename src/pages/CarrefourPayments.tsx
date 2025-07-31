@@ -61,6 +61,7 @@ export default function CarrefourSalesTracker() {
     const totalCosts = salesOrders.reduce((sum, o) => sum + o.cost, 0);
     const totalProfit = salesOrders.reduce((sum, o) => sum + o.profit, 0);
     const totalPendingPayments = salesOrders.filter(o => o.payment_status === 'Pending').length;
+    const totalPendingAmount = salesOrders.filter(o => o.payment_status === 'Pending').reduce((sum, o) => sum + o.sale_value, 0);
     const totalFees = salesOrders.reduce((sum, o) => sum + o.seller_fees, 0);
     const profitMargin = totalRevenue > 0 ? totalProfit / totalRevenue * 100 : 0;
     
@@ -75,6 +76,7 @@ export default function CarrefourSalesTracker() {
       totalRevenue,
       totalCosts,
       totalProfit,
+      totalPendingAmount,
       totalPendingPayments,
       totalFees,
       profitMargin,
@@ -92,6 +94,16 @@ export default function CarrefourSalesTracker() {
       otherValue: otherOrders.reduce((sum, o) => sum + o.sale_value, 0)
     };
   }, [salesOrders]);
+
+  // Currency helper function
+  const getCurrency = () => {
+    return selectedCountry === 'KSA' ? 'SAR' : 'AED';
+  };
+
+  const formatCurrency = (amount: number) => {
+    const currency = getCurrency();
+    return `${amount.toFixed(2)} ${currency}`;
+  };
   return <div className="container mx-auto py-6 space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -129,7 +141,7 @@ export default function CarrefourSalesTracker() {
             <ShoppingCart className="h-5 w-5 text-emerald-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-emerald-600">{metrics.totalRevenue.toFixed(2)}</div>
+            <div className="text-2xl font-bold text-emerald-600">{formatCurrency(metrics.totalRevenue)}</div>
             <p className="text-xs text-muted-foreground">
               From {metrics.totalOrders} orders
             </p>
@@ -142,7 +154,7 @@ export default function CarrefourSalesTracker() {
             <TrendingUp className="h-5 w-5 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{metrics.totalProfit.toFixed(2)}</div>
+            <div className="text-2xl font-bold text-blue-600">{formatCurrency(metrics.totalProfit)}</div>
             <p className="text-xs text-muted-foreground">
               {metrics.profitMargin.toFixed(1)}% margin
             </p>
@@ -155,9 +167,9 @@ export default function CarrefourSalesTracker() {
             <Calculator className="h-5 w-5 text-orange-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600">{metrics.totalPendingPayments}</div>
+            <div className="text-2xl font-bold text-orange-600">{formatCurrency(metrics.totalPendingAmount)}</div>
             <p className="text-xs text-muted-foreground">
-              Awaiting payment
+              {metrics.totalPendingPayments} orders awaiting payment
             </p>
           </CardContent>
         </Card>
@@ -181,7 +193,7 @@ export default function CarrefourSalesTracker() {
             <Calculator className="h-5 w-5 text-red-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">{metrics.totalCosts.toFixed(2)}</div>
+            <div className="text-2xl font-bold text-red-600">{formatCurrency(metrics.totalCosts)}</div>
             <p className="text-xs text-muted-foreground">
               Cost of goods sold
             </p>
@@ -198,7 +210,7 @@ export default function CarrefourSalesTracker() {
                 <p className="text-sm font-semibold text-green-700">Delivered Orders</p>
                 <p className="text-2xl font-bold text-green-600">{metrics.deliveredItems}</p>
                 <p className="text-xs text-muted-foreground">
-                  Value: {metrics.deliveredValue.toFixed(2)}
+                  Value: {formatCurrency(metrics.deliveredValue)}
                 </p>
               </div>
               <Badge variant="secondary" className="bg-green-100 text-green-800">Delivered</Badge>
@@ -213,7 +225,7 @@ export default function CarrefourSalesTracker() {
                 <p className="text-sm font-semibold text-cyan-700">Shipped Orders</p>
                 <p className="text-2xl font-bold text-cyan-600">{metrics.shippedItems}</p>
                 <p className="text-xs text-muted-foreground">
-                  Value: {metrics.shippedValue.toFixed(2)}
+                  Value: {formatCurrency(metrics.shippedValue)}
                 </p>
               </div>
               <Badge variant="secondary" className="bg-cyan-100 text-cyan-800">Shipped</Badge>
@@ -228,7 +240,7 @@ export default function CarrefourSalesTracker() {
                 <p className="text-sm font-semibold text-red-700">Returned Orders</p>
                 <p className="text-2xl font-bold text-red-600">{metrics.returnedItems}</p>
                 <p className="text-xs text-muted-foreground">
-                  Value: {metrics.returnedValue.toFixed(2)}
+                  Value: {formatCurrency(metrics.returnedValue)}
                 </p>
               </div>
               <Badge variant="destructive">Returned</Badge>
@@ -243,7 +255,7 @@ export default function CarrefourSalesTracker() {
                 <p className="text-sm font-semibold text-gray-700">Cancelled Orders</p>
                 <p className="text-2xl font-bold text-gray-600">{metrics.cancelledItems}</p>
                 <p className="text-xs text-muted-foreground">
-                  Value: {metrics.cancelledValue.toFixed(2)}
+                  Value: {formatCurrency(metrics.cancelledValue)}
                 </p>
               </div>
               <Badge variant="outline" className="border-gray-300">Cancelled</Badge>
@@ -258,7 +270,7 @@ export default function CarrefourSalesTracker() {
                 <p className="text-sm font-semibold text-indigo-700">Other Orders</p>
                 <p className="text-2xl font-bold text-indigo-600">{metrics.otherItems}</p>
                 <p className="text-xs text-muted-foreground">
-                  Value: {metrics.otherValue.toFixed(2)}
+                  Value: {formatCurrency(metrics.otherValue)}
                 </p>
               </div>
               <Badge variant="secondary" className="bg-indigo-100 text-indigo-800">Other</Badge>
