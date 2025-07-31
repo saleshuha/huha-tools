@@ -60,14 +60,14 @@ export default function CarrefourSalesTracker() {
     const totalRevenue = salesOrders.reduce((sum, o) => sum + o.sale_value, 0);
     const totalCosts = salesOrders.reduce((sum, o) => sum + o.cost, 0);
     const totalProfit = salesOrders.reduce((sum, o) => sum + o.profit, 0);
-    const totalPending = salesOrders.reduce((sum, o) => sum + o.pending_amount, 0);
+    const totalPendingPayments = salesOrders.filter(o => o.payment_status === 'Pending').length;
     const totalFees = salesOrders.reduce((sum, o) => sum + o.seller_fees, 0);
     const profitMargin = totalRevenue > 0 ? totalProfit / totalRevenue * 100 : 0;
     return {
       totalRevenue,
       totalCosts,
       totalProfit,
-      totalPending,
+      totalPendingPayments,
       totalFees,
       profitMargin,
       totalOrders: salesOrders.length,
@@ -133,13 +133,13 @@ export default function CarrefourSalesTracker() {
 
         <Card className="cursor-pointer hover:shadow-lg transition-all border-orange-200 hover:border-orange-300" onClick={() => {}}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-semibold text-orange-700">Outstanding Balance</CardTitle>
+            <CardTitle className="text-sm font-semibold text-orange-700">Pending Payments</CardTitle>
             <Calculator className="h-5 w-5 text-orange-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600">{metrics.totalPending.toFixed(2)}</div>
+            <div className="text-2xl font-bold text-orange-600">{metrics.totalPendingPayments}</div>
             <p className="text-xs text-muted-foreground">
-              Pending settlement
+              Awaiting payment
             </p>
           </CardContent>
         </Card>

@@ -3,7 +3,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Trash2, TrendingUp, TrendingDown, Package, DollarSign, Save, X, Plus } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Edit, Trash2, TrendingUp, TrendingDown, Package, DollarSign, Save, X, Plus, CheckSquare, CreditCard } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,7 +21,7 @@ interface EditingOrder {
   order_number: string;
   sale_value: number;
   seller_fees: number;
-  pending_amount: number;
+  payment_status: 'Pending' | 'Received';
   cost: number;
   profit: number;
   status: 'Delivered' | 'Returned' | 'Cancelled' | 'Other';
@@ -32,11 +33,12 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingData, setEditingData] = useState<EditingOrder | null>(null);
   const [isAddingNew, setIsAddingNew] = useState(false);
+  const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
   const [newOrderData, setNewOrderData] = useState<EditingOrder>({
     order_number: "",
     sale_value: 0,
     seller_fees: 0,
-    pending_amount: 0,
+    payment_status: 'Pending',
     cost: 0,
     profit: 0,
     status: 'Delivered',
@@ -57,7 +59,7 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: 
           order_number: "",
           sale_value: 0,
           seller_fees: 0,
-          pending_amount: 0,
+          payment_status: 'Pending',
           cost: 0,
           profit: 0,
           status: 'Delivered',
@@ -109,7 +111,7 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: 
       order_number: order.order_number,
       sale_value: order.sale_value,
       seller_fees: order.seller_fees,
-      pending_amount: order.pending_amount,
+      payment_status: order.payment_status,
       cost: order.cost,
       profit: order.profit,
       status: order.status,
@@ -127,7 +129,7 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: 
       order_number: "",
       sale_value: 0,
       seller_fees: 0,
-      pending_amount: 0,
+      payment_status: 'Pending',
       cost: 0,
       profit: 0,
       status: 'Delivered',
@@ -144,7 +146,7 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: 
           order_number: editingData.order_number,
           sale_value: editingData.sale_value,
           seller_fees: editingData.seller_fees,
-          pending_amount: editingData.pending_amount,
+          payment_status: editingData.payment_status,
           cost: editingData.cost,
           profit: editingData.profit,
           status: editingData.status,
@@ -205,7 +207,7 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: 
         order_number: "",
         sale_value: 0,
         seller_fees: 0,
-        pending_amount: 0,
+        payment_status: 'Pending',
         cost: 0,
         profit: 0,
         status: 'Delivered',
@@ -270,6 +272,63 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: 
     }
   };
 
+  // Bulk operations
+  const handleBulkStatusUpdate = async (status: 'Delivered' | 'Returned' | 'Cancelled' | 'Other') => {
+    if (selectedOrders.size === 0) return;
+
+    try {
+      const { error } = await supabase
+        .from("carrefour_payments")
+        .update({ status })
+        .in("id", Array.from(selectedOrders));
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: `${selectedOrders.size} orders marked as ${status}`,
+      });
+
+      setSelectedOrders(new Set());
+      onRefresh();
+    } catch (error) {
+      console.error("Error updating order status:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update order status",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleBulkPaymentUpdate = async (paymentStatus: 'Pending' | 'Received') => {
+    if (selectedOrders.size === 0) return;
+
+    try {
+      const { error } = await supabase
+        .from("carrefour_payments")
+        .update({ payment_status: paymentStatus })
+        .in("id", Array.from(selectedOrders));
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: `${selectedOrders.size} payments marked as ${paymentStatus}`,
+      });
+
+      setSelectedOrders(new Set());
+      onRefresh();
+    } catch (error) {
+      console.error("Error updating payment status:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update payment status",
+        variant: "destructive",
+      });
+    }
+  };
+
   const renderEditableCell = (
     value: string | number,
     field: keyof EditingOrder,
@@ -287,6 +346,17 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: 
         };
         return (
           <Badge className={`text-xs ${statusColors[value as keyof typeof statusColors] || statusColors.Other}`}>
+            {value}
+          </Badge>
+        );
+      }
+      if (field === 'payment_status' && typeof value === 'string') {
+        const paymentColors = {
+          'Pending': 'bg-orange-100 text-orange-800 border-orange-200',
+          'Received': 'bg-green-100 text-green-800 border-green-200'
+        };
+        return (
+          <Badge className={`text-xs ${paymentColors[value as keyof typeof paymentColors] || paymentColors.Pending}`}>
             {value}
           </Badge>
         );
@@ -316,6 +386,23 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: 
       );
     }
 
+    if (type === "select" && field === "payment_status") {
+      return (
+        <Select
+          value={currentData?.[field] as string || "Pending"}
+          onValueChange={(value) => updateFunction(field, value)}
+        >
+          <SelectTrigger className="h-8 text-sm">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Pending">Pending</SelectItem>
+            <SelectItem value="Received">Received</SelectItem>
+          </SelectContent>
+        </Select>
+      );
+    }
+
     return (
       <Input
         type={type}
@@ -337,8 +424,34 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: 
 
   return (
     <div ref={tableRef} data-table-component className="space-y-4">
-      {/* Add New Row Button */}
-      <div className="flex justify-end">
+      {/* Bulk Actions and Add New Row */}
+      <div className="flex justify-between items-center gap-4">
+        <div className="flex items-center gap-2">
+          {selectedOrders.size > 0 && (
+            <>
+              <Badge variant="secondary" className="px-3 py-1">
+                {selectedOrders.size} selected
+              </Badge>
+              <Button
+                onClick={() => handleBulkStatusUpdate('Delivered')}
+                className="gap-2 bg-emerald-600 hover:bg-emerald-700"
+                size="sm"
+              >
+                <CheckSquare className="h-3 w-3" />
+                Mark as Delivered
+              </Button>
+              <Button
+                onClick={() => handleBulkPaymentUpdate('Received')}
+                className="gap-2 bg-blue-600 hover:bg-blue-700"
+                size="sm"
+              >
+                <CreditCard className="h-3 w-3" />
+                Mark as Paid
+              </Button>
+            </>
+          )}
+        </div>
+        
         <Button
           onClick={() => setIsAddingNew(true)}
           className="gap-2 bg-emerald-600 hover:bg-emerald-700"
@@ -360,13 +473,25 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: 
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/30 hover:bg-muted/40">
+                <TableHead className="w-8">
+                  <Checkbox
+                    checked={selectedOrders.size === displayData.length && displayData.length > 0}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        setSelectedOrders(new Set(displayData.map(order => order.id)));
+                      } else {
+                        setSelectedOrders(new Set());
+                      }
+                    }}
+                  />
+                </TableHead>
                 <TableHead className="font-semibold text-emerald-700">Order Details</TableHead>
                 <TableHead className="font-semibold text-emerald-700">Sale Value</TableHead>
                 <TableHead className="font-semibold text-red-700">Cost</TableHead>
                 <TableHead className="font-semibold text-yellow-700">Platform Fees</TableHead>
                 <TableHead className="font-semibold text-blue-700">Net Profit</TableHead>
-                <TableHead className="font-semibold text-orange-700">Outstanding</TableHead>
-                <TableHead className="font-semibold text-purple-700">Status</TableHead>
+                <TableHead className="font-semibold text-orange-700">Payment Status</TableHead>
+                <TableHead className="font-semibold text-purple-700">Order Status</TableHead>
                 <TableHead className="font-semibold">Date</TableHead>
                 <TableHead className="font-semibold text-center">Actions</TableHead>
               </TableRow>
@@ -375,6 +500,9 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: 
               {/* New Row for Adding */}
               {isAddingNew && (
                 <TableRow className="bg-emerald-50 border-emerald-200">
+                  <TableCell>
+                    <Checkbox disabled />
+                  </TableCell>
                   <TableCell>
                     {renderEditableCell("", "order_number", "text", false, true)}
                   </TableCell>
@@ -396,7 +524,7 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: 
                     </div>
                   </TableCell>
                   <TableCell>
-                    {renderEditableCell(0, "pending_amount", "number", false, true)}
+                    {renderEditableCell("Pending", "payment_status", "select", false, true)}
                   </TableCell>
                   <TableCell>
                     {renderEditableCell("Delivered", "status", "select", false, true)}
@@ -440,6 +568,22 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: 
                       index % 2 === 0 ? "bg-background" : "bg-muted/5"
                     }`}
                   >
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedOrders.has(order.id)}
+                        onCheckedChange={(checked) => {
+                          const newSelected = new Set(selectedOrders);
+                          if (checked) {
+                            newSelected.add(order.id);
+                          } else {
+                            newSelected.delete(order.id);
+                          }
+                          setSelectedOrders(newSelected);
+                        }}
+                        disabled={editingId !== null || isAddingNew}
+                      />
+                    </TableCell>
+                    
                     <TableCell>
                       {isEditing ? (
                         renderEditableCell(order.order_number, "order_number", "text", true)
@@ -522,16 +666,7 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: 
                     </TableCell>
                     
                     <TableCell>
-                      {isEditing ? (
-                        renderEditableCell(order.pending_amount, "pending_amount", "number", true)
-                      ) : (
-                        <Badge 
-                          variant={order.pending_amount > 0 ? "destructive" : "secondary"}
-                          className="text-xs"
-                        >
-                          {order.pending_amount.toFixed(2)}
-                        </Badge>
-                      )}
+                      {renderEditableCell(order.payment_status, "payment_status", "select", isEditing)}
                     </TableCell>
                     
                     <TableCell>

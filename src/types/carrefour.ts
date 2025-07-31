@@ -4,7 +4,7 @@ export interface CarrefourSalesOrder {
   order_number: string;
   sale_value: number;
   seller_fees: number;
-  pending_amount: number;
+  payment_status: 'Pending' | 'Received';
   cost: number;
   profit: number;
   status: 'Delivered' | 'Returned' | 'Cancelled' | 'Other';
@@ -17,7 +17,7 @@ export interface CreateCarrefourSalesOrder {
   order_number: string;
   sale_value: number;
   seller_fees: number;
-  pending_amount: number;
+  payment_status: 'Pending' | 'Received';
   cost: number;
   profit: number;
   status: 'Delivered' | 'Returned' | 'Cancelled' | 'Other';

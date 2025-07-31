@@ -75,7 +75,7 @@ export type Database = {
           created_at: string
           id: string
           order_number: string
-          pending_amount: number
+          payment_status: string
           profit: number
           sale_value: number
           seller_fees: number
@@ -89,7 +89,7 @@ export type Database = {
           created_at?: string
           id?: string
           order_number: string
-          pending_amount: number
+          payment_status?: string
           profit: number
           sale_value: number
           seller_fees: number
@@ -103,7 +103,7 @@ export type Database = {
           created_at?: string
           id?: string
           order_number?: string
-          pending_amount?: number
+          payment_status?: string
           profit?: number
           sale_value?: number
           seller_fees?: number
