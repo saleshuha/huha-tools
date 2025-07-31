@@ -123,17 +123,17 @@ export function CarrefourPaymentsTable({ refresh, filteredData }: CarrefourPayme
               </TableCell>
               <TableCell>
                 <span className="font-semibold text-green-600">
-                  ${payment.sale_value.toFixed(2)}
+                  {payment.sale_value.toFixed(2)}
                 </span>
               </TableCell>
               <TableCell>
                 <span className="text-orange-600">
-                  ${payment.seller_fees.toFixed(2)}
+                  {payment.seller_fees.toFixed(2)}
                 </span>
               </TableCell>
               <TableCell>
                 <span className="text-red-600">
-                  ${payment.cost.toFixed(2)}
+                  {payment.cost.toFixed(2)}
                 </span>
               </TableCell>
               <TableCell>
@@ -146,7 +146,7 @@ export function CarrefourPaymentsTable({ refresh, filteredData }: CarrefourPayme
                   <span className={`font-semibold ${
                     payment.profit >= 0 ? "text-green-600" : "text-red-600"
                   }`}>
-                    ${payment.profit.toFixed(2)}
+                    {payment.profit.toFixed(2)}
                   </span>
                 </div>
               </TableCell>
@@ -155,7 +155,7 @@ export function CarrefourPaymentsTable({ refresh, filteredData }: CarrefourPayme
                   variant={payment.pending_amount > 0 ? "destructive" : "secondary"}
                   className="text-xs"
                 >
-                  ${payment.pending_amount.toFixed(2)}
+                  {payment.pending_amount.toFixed(2)}
                 </Badge>
               </TableCell>
               <TableCell className="text-sm text-muted-foreground">

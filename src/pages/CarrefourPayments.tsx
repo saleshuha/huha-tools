@@ -100,16 +100,24 @@ export default function CarrefourPayments() {
         
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="gap-2">
-              <Plus className="h-4 w-4" />
-              Add Payment
+            <Button size="lg" className="gap-2 px-6 py-3 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg hover:shadow-xl transition-all duration-200">
+              <Plus className="h-5 w-5" />
+              Add New Record
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Add New Carrefour Payment</DialogTitle>
+              <DialogTitle className="text-2xl font-bold flex items-center gap-2">
+                <Package className="h-6 w-6 text-primary" />
+                Add New Carrefour Payment Record
+              </DialogTitle>
+              <p className="text-muted-foreground">
+                Enter the payment details for your Carrefour transaction
+              </p>
             </DialogHeader>
-            <CarrefourPaymentForm onSuccess={handleSuccess} />
+            <div className="mt-4">
+              <CarrefourPaymentForm onSuccess={handleSuccess} />
+            </div>
           </DialogContent>
         </Dialog>
       </div>
@@ -137,7 +145,7 @@ export default function CarrefourPayments() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">${metrics.totalRevenue.toFixed(2)}</div>
+            <div className="text-2xl font-bold text-green-600">{metrics.totalRevenue.toFixed(2)}</div>
             <p className="text-xs text-muted-foreground">
               From {metrics.totalOrders} orders
             </p>
@@ -150,7 +158,7 @@ export default function CarrefourPayments() {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">${metrics.totalProfit.toFixed(2)}</div>
+            <div className="text-2xl font-bold text-blue-600">{metrics.totalProfit.toFixed(2)}</div>
             <p className="text-xs text-muted-foreground">
               {metrics.profitMargin.toFixed(1)}% margin
             </p>
@@ -163,7 +171,7 @@ export default function CarrefourPayments() {
             <AlertCircle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600">${metrics.totalPending.toFixed(2)}</div>
+            <div className="text-2xl font-bold text-orange-600">{metrics.totalPending.toFixed(2)}</div>
             <p className="text-xs text-muted-foreground">
               Awaiting payment
             </p>
@@ -191,7 +199,7 @@ export default function CarrefourPayments() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Total Costs</p>
-                <p className="text-2xl font-bold text-red-600">${metrics.totalCosts.toFixed(2)}</p>
+                <p className="text-2xl font-bold text-red-600">{metrics.totalCosts.toFixed(2)}</p>
               </div>
               <Badge variant="secondary">Costs</Badge>
             </div>
@@ -203,7 +211,7 @@ export default function CarrefourPayments() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Seller Fees</p>
-                <p className="text-2xl font-bold text-yellow-600">${metrics.totalFees.toFixed(2)}</p>
+                <p className="text-2xl font-bold text-yellow-600">{metrics.totalFees.toFixed(2)}</p>
               </div>
               <Badge variant="secondary">Fees</Badge>
             </div>

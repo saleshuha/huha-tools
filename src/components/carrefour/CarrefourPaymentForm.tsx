@@ -87,17 +87,18 @@ export function CarrefourPaymentForm({ onSuccess }: CarrefourPaymentFormProps) {
   };
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormField
+    <div className="bg-gradient-to-br from-background to-muted/20 p-6 rounded-lg border">
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <FormField
             control={form.control}
             name="order_number"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Order Number</FormLabel>
+                <FormLabel className="text-sm font-semibold">Order Number</FormLabel>
                 <FormControl>
-                  <Input placeholder="Enter order number" {...field} />
+                  <Input placeholder="Enter order number" className="h-11" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -109,9 +110,9 @@ export function CarrefourPaymentForm({ onSuccess }: CarrefourPaymentFormProps) {
             name="sku_number"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>SKU Number</FormLabel>
+                <FormLabel className="text-sm font-semibold">SKU Number</FormLabel>
                 <FormControl>
-                  <Input placeholder="Enter SKU number" {...field} />
+                  <Input placeholder="Enter SKU number" className="h-11" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -123,12 +124,13 @@ export function CarrefourPaymentForm({ onSuccess }: CarrefourPaymentFormProps) {
             name="sale_value"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Sale Value</FormLabel>
+                <FormLabel className="text-sm font-semibold">Sale Value</FormLabel>
                 <FormControl>
                   <Input 
                     type="number" 
                     step="0.01" 
                     placeholder="0.00" 
+                    className="h-11"
                     {...field} 
                     onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
                   />
@@ -143,12 +145,13 @@ export function CarrefourPaymentForm({ onSuccess }: CarrefourPaymentFormProps) {
             name="seller_fees"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Seller Fees</FormLabel>
+                <FormLabel className="text-sm font-semibold">Seller Fees</FormLabel>
                 <FormControl>
                   <Input 
                     type="number" 
                     step="0.01" 
                     placeholder="0.00" 
+                    className="h-11"
                     {...field} 
                     onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
                   />
@@ -163,12 +166,13 @@ export function CarrefourPaymentForm({ onSuccess }: CarrefourPaymentFormProps) {
             name="pending_amount"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Pending Amount</FormLabel>
+                <FormLabel className="text-sm font-semibold">Pending Amount</FormLabel>
                 <FormControl>
                   <Input 
                     type="number" 
                     step="0.01" 
                     placeholder="0.00" 
+                    className="h-11"
                     {...field} 
                     onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
                   />
@@ -183,12 +187,13 @@ export function CarrefourPaymentForm({ onSuccess }: CarrefourPaymentFormProps) {
             name="cost"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Cost</FormLabel>
+                <FormLabel className="text-sm font-semibold">Cost</FormLabel>
                 <FormControl>
                   <Input 
                     type="number" 
                     step="0.01" 
                     placeholder="0.00" 
+                    className="h-11"
                     {...field} 
                     onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
                   />
@@ -203,12 +208,13 @@ export function CarrefourPaymentForm({ onSuccess }: CarrefourPaymentFormProps) {
             name="profit"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Profit</FormLabel>
+                <FormLabel className="text-sm font-semibold">Profit</FormLabel>
                 <FormControl>
                   <Input 
                     type="number" 
                     step="0.01" 
                     placeholder="0.00" 
+                    className="h-11"
                     {...field} 
                     onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
                   />
@@ -219,10 +225,18 @@ export function CarrefourPaymentForm({ onSuccess }: CarrefourPaymentFormProps) {
           />
         </div>
 
-        <Button type="submit" disabled={isLoading} className="w-full">
-          {isLoading ? "Creating..." : "Create Payment Record"}
-        </Button>
+        <div className="flex justify-end pt-4 border-t">
+          <Button 
+            type="submit" 
+            disabled={isLoading} 
+            size="lg"
+            className="px-8 py-3 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
+          >
+            {isLoading ? "Creating Record..." : "Create Payment Record"}
+          </Button>
+        </div>
       </form>
     </Form>
+    </div>
   );
 }
