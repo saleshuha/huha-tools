@@ -204,23 +204,23 @@ export function AppSidebar() {
                         <Collapsible open={isPaymentReportsOpen} onOpenChange={setIsPaymentReportsOpen}>
                           <CollapsibleTrigger asChild>
                             <SidebarMenuButton
-                              className={`w-full p-3 rounded-lg transition-colors ml-4 ${
+                              className={`w-full p-3 rounded-lg transition-colors ml-4 text-left ${
                                 isPaymentReportsSectionActive()
                                   ? "bg-accent text-accent-foreground" 
                                   : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                               }`}
                             >
-                              <div className="flex items-center gap-3 w-full justify-start">
+                              <div className="flex items-center gap-3 w-full">
                                 <CreditCard className="h-4 w-4 flex-shrink-0" />
                                 {!isCollapsed && (
-                                  <div className="flex items-center justify-between w-full">
-                                    <span className="font-medium text-sm">
+                                  <>
+                                    <span className="font-medium text-sm flex-1 text-left">
                                       Payment Reports
                                     </span>
-                                    <ChevronDown className={`h-3 w-3 transition-transform ${
+                                    <ChevronDown className={`h-3 w-3 transition-transform ml-auto ${
                                       isPaymentReportsOpen ? "rotate-180" : ""
                                     }`} />
-                                  </div>
+                                  </>
                                 )}
                               </div>
                             </SidebarMenuButton>
