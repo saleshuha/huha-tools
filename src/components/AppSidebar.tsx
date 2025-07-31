@@ -61,11 +61,6 @@ const toolsItems = [
     title: "Excel Editor",
     url: "/excel-editor",
     icon: Edit3
-  },
-  {
-    title: "CSV Batch Editor",
-    url: "/csv-batch-editor",
-    icon: Database
   }
 ]
 
