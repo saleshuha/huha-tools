@@ -210,7 +210,7 @@ export function AppSidebar() {
                                   : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                               }`}
                             >
-                              <div className="flex items-center gap-3 w-full">
+                              <div className="flex items-center gap-3 w-full justify-start">
                                 <CreditCard className="h-4 w-4 flex-shrink-0" />
                                 {!isCollapsed && (
                                   <div className="flex items-center justify-between w-full">
@@ -284,30 +284,6 @@ export function AppSidebar() {
                 )
               })}
 
-              {/* User Management */}
-              <SidebarMenuItem>
-                <SidebarMenuButton 
-                  asChild
-                  className={`w-full p-3 rounded-lg transition-colors ${
-                    isActive("/users")
-                      ? "bg-primary text-primary-foreground" 
-                      : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                  }`}
-                >
-                  <NavLink 
-                    to="/users" 
-                    end
-                    className="flex items-center gap-3 no-underline w-full"
-                  >
-                    <Users className="h-4 w-4 flex-shrink-0" />
-                    {!isCollapsed && (
-                      <span className="font-medium text-sm">
-                        User Management
-                      </span>
-                    )}
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
 
               {/* Tools dropdown */}
               <SidebarMenuItem>
@@ -367,7 +343,29 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="p-3 border-t border-sidebar-border">
+      <SidebarFooter className="p-3 border-t border-sidebar-border space-y-2">
+        <SidebarMenuButton 
+          asChild
+          className={`w-full p-2 rounded-lg transition-colors ${
+            isActive("/users")
+              ? "bg-primary text-primary-foreground" 
+              : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+          }`}
+        >
+          <NavLink 
+            to="/users" 
+            end
+            className="flex items-center gap-2 no-underline w-full"
+          >
+            <Users className="h-3 w-3 flex-shrink-0" />
+            {!isCollapsed && (
+              <span className="font-medium text-xs">
+                User Management
+              </span>
+            )}
+          </NavLink>
+        </SidebarMenuButton>
+        
         <Button 
           onClick={handleLogout}
           variant="outline"
