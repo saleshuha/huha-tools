@@ -62,11 +62,6 @@ const toolsItems = [
     url: "/excel-editor",
     icon: Edit3
   },
-  {
-    title: "Noon Payments Reconciliation",
-    url: "/noon-payments",
-    icon: CreditCard
-  }
 ]
 
 const coreItems = [
