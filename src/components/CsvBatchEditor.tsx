@@ -336,18 +336,28 @@ export function CsvBatchEditor() {
       let currentZipEstimatedSize = 0;
       const zipsToDownload: { zip: JSZip; name: string }[] = [];
 
-      // Optimized CSV conversion function
+      // Optimized CSV conversion function with proper column alignment
       const toCsv = (headers: string[], data: any[][]) => {
         const escapeField = (field: any) => {
           if (field == null) return '';
           const str = String(field);
-          return str.includes(',') || str.includes('"') || str.includes('\n') 
+          return str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')
             ? `"${str.replace(/"/g, '""')}"` 
             : str;
         };
         
+        // Create header row
         const headerRow = headers.map(escapeField).join(',');
-        const dataRows = data.map(row => row.map(escapeField).join(','));
+        
+        // Ensure each data row has the same number of columns as headers
+        const dataRows = data.map(row => {
+          const normalizedRow = new Array(headers.length).fill('');
+          for (let i = 0; i < headers.length; i++) {
+            normalizedRow[i] = row[i] !== undefined ? escapeField(row[i]) : '';
+          }
+          return normalizedRow.join(',');
+        });
+        
         return headerRow + '\n' + dataRows.join('\n');
       };
 
