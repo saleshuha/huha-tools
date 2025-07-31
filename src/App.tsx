@@ -23,6 +23,8 @@ import ReplenishmentPage from "./pages/Replenishment";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import ExcelEditorPage from "./pages/ExcelEditor";
+import SalesDataUpload from "./pages/SalesDataUpload";
+import ProfitAnalyzer from "./pages/ProfitAnalyzer";
 
 
 
@@ -126,6 +128,8 @@ const App = () => {
                     <Route path="/users" element={<UserManagementPage />} />
                     <Route path="/replenishment" element={<ReplenishmentPage />} />
                     <Route path="/excel-editor" element={<ExcelEditorPage />} />
+                    <Route path="/sales-upload" element={<SalesDataUpload />} />
+                    <Route path="/profit-analyzer" element={<ProfitAnalyzer />} />
                     
                     <Route path="/auth" element={<Navigate to="/" replace />} />
                     

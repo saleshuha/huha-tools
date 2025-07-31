@@ -1,4 +1,4 @@
-import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, Wrench, LogOut, Home, Users, TrendingUp, Merge, Edit3, Database, CreditCard } from "lucide-react"
+import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, Wrench, LogOut, Home, Users, TrendingUp, Merge, Edit3, Database, CreditCard, Upload } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
 import { useState } from "react"
 import { supabase } from "@/integrations/supabase/client"
@@ -62,6 +62,16 @@ const toolsItems = [
     url: "/excel-editor",
     icon: Edit3
   },
+  {
+    title: "Sales Data Upload",
+    url: "/sales-upload",
+    icon: Upload
+  },
+  {
+    title: "Profit Analyzer",
+    url: "/profit-analyzer",
+    icon: TrendingUp
+  }
 ]
 
 const coreItems = [
