@@ -5,15 +5,15 @@ import { Upload, FileText, AlertCircle } from "lucide-react";
 import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { NoonFileData, NoonInvoiceData, NoonCreditData } from "@/types/noon-payments";
+import { NoonFileData, NoonInvoiceData, NoonCreditData } from "@/types/noon-sales";
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
 
-interface NoonPaymentUploadProps {
+interface NoonSalesUploadProps {
   onDataUploaded: () => void;
 }
 
-const NoonPaymentUpload = ({ onDataUploaded }: NoonPaymentUploadProps) => {
+const NoonSalesUpload = ({ onDataUploaded }: NoonSalesUploadProps) => {
   const [uploading, setUploading] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<{
     name?: string;
@@ -327,10 +327,10 @@ const NoonPaymentUpload = ({ onDataUploaded }: NoonPaymentUploadProps) => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
-            Upload Noon Payment Report
+            Upload Noon Sales Report
           </CardTitle>
           <CardDescription>
-            Upload your Noon payment report CSV or Excel file. The system will automatically separate invoice and credit data.
+            Upload your Noon sales report CSV or Excel file. The system will automatically separate invoice and credit transactions.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -361,12 +361,12 @@ const NoonPaymentUpload = ({ onDataUploaded }: NoonPaymentUploadProps) => {
               <div className="text-center">
                 <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <p className="text-lg text-muted-foreground mb-2">
-                  {isDragActive ? 'Drop payment report here' : 'Drag & drop payment report or click to browse'}
+                  {isDragActive ? 'Drop sales report here' : 'Drag & drop sales report or click to browse'}
                 </p>
                 <p className="text-sm text-muted-foreground">CSV or Excel files only</p>
                 <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
                   <FileText className="h-4 w-4" />
-                  <span>Combined Invoice & Credit Report</span>
+                  <span>Combined Invoice & Credit Sales Report</span>
                 </div>
               </div>
             )}
@@ -379,7 +379,7 @@ const NoonPaymentUpload = ({ onDataUploaded }: NoonPaymentUploadProps) => {
           <CardContent className="p-4">
             <div className="flex items-center gap-2 text-blue-600">
               <AlertCircle className="h-4 w-4 animate-spin" />
-              <span className="text-sm">Processing payment report and saving to database...</span>
+              <span className="text-sm">Processing sales report and saving to database...</span>
             </div>
           </CardContent>
         </Card>
@@ -388,4 +388,4 @@ const NoonPaymentUpload = ({ onDataUploaded }: NoonPaymentUploadProps) => {
   );
 };
 
-export default NoonPaymentUpload;
+export default NoonSalesUpload;

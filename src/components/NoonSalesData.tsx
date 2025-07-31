@@ -19,7 +19,7 @@ interface PaymentSummary {
   totalReturns: number;
 }
 
-const NoonPaymentData = () => {
+const NoonSalesData = () => {
   const [invoiceData, setInvoiceData] = useState<any[]>([]);
   const [creditData, setCreditData] = useState<any[]>([]);
   const [summary, setSummary] = useState<PaymentSummary>({
@@ -306,4 +306,4 @@ const NoonPaymentData = () => {
   );
 };
 
-export default NoonPaymentData;
+export default NoonSalesData;
