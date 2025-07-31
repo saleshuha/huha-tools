@@ -68,6 +68,51 @@ export type Database = {
         }
         Relationships: []
       }
+      carrefour_payments: {
+        Row: {
+          cost: number
+          country: string
+          created_at: string
+          id: string
+          order_number: string
+          pending_amount: number
+          profit: number
+          sale_value: number
+          seller_fees: number
+          sku_number: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cost: number
+          country?: string
+          created_at?: string
+          id?: string
+          order_number: string
+          pending_amount: number
+          profit: number
+          sale_value: number
+          seller_fees: number
+          sku_number: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cost?: number
+          country?: string
+          created_at?: string
+          id?: string
+          order_number?: string
+          pending_amount?: number
+          profit?: number
+          sale_value?: number
+          seller_fees?: number
+          sku_number?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       noon_credit_data: {
         Row: {
           business_unit: string | null

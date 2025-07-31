@@ -25,6 +25,7 @@ import NotFound from "./pages/NotFound";
 import ExcelEditorPage from "./pages/ExcelEditor";
 import SalesDataUpload from "./pages/SalesDataUpload";
 import ProfitAnalyzer from "./pages/ProfitAnalyzer";
+import CarrefourPayments from "./pages/CarrefourPayments";
 
 
 
@@ -130,6 +131,7 @@ const App = () => {
                     <Route path="/excel-editor" element={<ExcelEditorPage />} />
                     <Route path="/sales-upload" element={<SalesDataUpload />} />
                     <Route path="/profit-analyzer" element={<ProfitAnalyzer />} />
+                    <Route path="/carrefour-payments" element={<CarrefourPayments />} />
                     
                     <Route path="/auth" element={<Navigate to="/" replace />} />
                     
