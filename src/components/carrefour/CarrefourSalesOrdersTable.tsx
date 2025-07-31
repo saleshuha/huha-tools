@@ -24,7 +24,7 @@ interface EditingOrder {
   payment_status: 'Pending' | 'Received';
   cost: number;
   profit: number;
-  status: 'Delivered' | 'Returned' | 'Cancelled' | 'Other';
+  status: 'Delivered' | 'Returned' | 'Cancelled' | 'Shipped' | 'Other';
 }
 
 export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: CarrefourSalesOrdersTableProps) {
@@ -273,7 +273,7 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: 
   };
 
   // Bulk operations
-  const handleBulkStatusUpdate = async (status: 'Delivered' | 'Returned' | 'Cancelled' | 'Other') => {
+  const handleBulkStatusUpdate = async (status: 'Delivered' | 'Returned' | 'Cancelled' | 'Shipped' | 'Other') => {
     if (selectedOrders.size === 0) return;
 
     try {
@@ -342,7 +342,8 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: 
           'Delivered': 'bg-emerald-100 text-emerald-800 border-emerald-200',
           'Returned': 'bg-red-100 text-red-800 border-red-200',
           'Cancelled': 'bg-gray-100 text-gray-800 border-gray-200',
-          'Other': 'bg-blue-100 text-blue-800 border-blue-200'
+          'Shipped': 'bg-blue-100 text-blue-800 border-blue-200',
+          'Other': 'bg-purple-100 text-purple-800 border-purple-200'
         };
         return (
           <Badge className={`text-xs ${statusColors[value as keyof typeof statusColors] || statusColors.Other}`}>
@@ -380,6 +381,7 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: 
             <SelectItem value="Delivered">Delivered</SelectItem>
             <SelectItem value="Returned">Returned</SelectItem>
             <SelectItem value="Cancelled">Cancelled</SelectItem>
+            <SelectItem value="Shipped">Shipped</SelectItem>
             <SelectItem value="Other">Other</SelectItem>
           </SelectContent>
         </Select>
@@ -439,6 +441,14 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: 
               >
                 <CheckSquare className="h-3 w-3" />
                 Mark as Delivered
+              </Button>
+              <Button
+                onClick={() => handleBulkStatusUpdate('Shipped')}
+                className="gap-2 bg-cyan-600 hover:bg-cyan-700"
+                size="sm"
+              >
+                <Package className="h-3 w-3" />
+                Mark as Shipped
               </Button>
               <Button
                 onClick={() => handleBulkPaymentUpdate('Received')}

@@ -7,7 +7,7 @@ export interface CarrefourSalesOrder {
   payment_status: 'Pending' | 'Received';
   cost: number;
   profit: number;
-  status: 'Delivered' | 'Returned' | 'Cancelled' | 'Other';
+  status: 'Delivered' | 'Returned' | 'Cancelled' | 'Shipped' | 'Other';
   country: string;
   created_at: string;
   updated_at: string;
@@ -20,6 +20,6 @@ export interface CreateCarrefourSalesOrder {
   payment_status: 'Pending' | 'Received';
   cost: number;
   profit: number;
-  status: 'Delivered' | 'Returned' | 'Cancelled' | 'Other';
+  status: 'Delivered' | 'Returned' | 'Cancelled' | 'Shipped' | 'Other';
   country?: string;
 }
