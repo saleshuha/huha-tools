@@ -23,8 +23,7 @@ import ReplenishmentPage from "./pages/Replenishment";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import ExcelEditorPage from "./pages/ExcelEditor";
-import SalesDataUpload from "./pages/SalesDataUpload";
-import ProfitAnalyzer from "./pages/ProfitAnalyzer";
+import NoonSalesTracker from "./pages/NoonSalesTracker";
 import CarrefourSalesTracker from "./pages/CarrefourPayments";
 import StoreSelection from "./pages/StoreSelection";
 
@@ -130,8 +129,7 @@ const App = () => {
                     <Route path="/users" element={<UserManagementPage />} />
                     <Route path="/replenishment" element={<ReplenishmentPage />} />
                     <Route path="/excel-editor" element={<ExcelEditorPage />} />
-                    <Route path="/sales-upload" element={<SalesDataUpload />} />
-                    <Route path="/profit-analyzer" element={<ProfitAnalyzer />} />
+                    <Route path="/noon-sales-tracker" element={<NoonSalesTracker />} />
                     <Route path="/carrefour-payments" element={<Navigate to="/stores" replace />} />
                     <Route path="/stores" element={<StoreSelection />} />
                     <Route path="/carrefour-payments/:storeId" element={<CarrefourSalesTracker />} />

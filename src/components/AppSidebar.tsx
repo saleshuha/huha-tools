@@ -79,14 +79,9 @@ const coreItems = [
 
 const paymentReportsItems = [
   {
-    title: "Sales Data Upload",
-    url: "/sales-upload",
-    icon: Upload
-  },
-  {
-    title: "Profit Analyzer",
-    url: "/profit-analyzer",
-    icon: TrendingUp
+    title: "Noon Sales Tracker",
+    url: "/noon-sales-tracker",
+    icon: BarChart3
   },
   {
     title: "Carrefour Sales Tracker",
