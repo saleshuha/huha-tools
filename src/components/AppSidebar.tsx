@@ -204,20 +204,20 @@ export function AppSidebar() {
                         <Collapsible open={isPaymentReportsOpen} onOpenChange={setIsPaymentReportsOpen}>
                           <CollapsibleTrigger asChild>
                             <SidebarMenuButton
-                              className={`w-full p-4 rounded-lg transition-colors text-left bg-gradient-to-r ${
+                              className={`w-full p-3 rounded-lg transition-colors text-left ${
                                 isPaymentReportsSectionActive()
-                                  ? "from-accent/20 to-accent/10 text-accent-foreground border border-accent/30" 
-                                  : "from-sidebar-accent/10 to-sidebar-accent/5 hover:from-sidebar-accent/20 hover:to-sidebar-accent/10 hover:text-sidebar-accent-foreground border border-transparent hover:border-sidebar-accent/20"
+                                  ? "bg-accent text-accent-foreground" 
+                                  : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                               }`}
                             >
                               <div className="flex items-center gap-3 w-full">
-                                <CreditCard className="h-5 w-5 flex-shrink-0" />
+                                <CreditCard className="h-4 w-4 flex-shrink-0" />
                                 {!isCollapsed && (
                                   <>
-                                    <span className="font-semibold text-base flex-1 text-left whitespace-nowrap">
+                                    <span className="font-medium text-sm flex-1 text-left">
                                       Sales & Payment Reports
                                     </span>
-                                    <ChevronDown className={`h-4 w-4 transition-transform flex-shrink-0 ${
+                                    <ChevronDown className={`h-3 w-3 transition-transform ml-auto ${
                                       isPaymentReportsOpen ? "rotate-180" : ""
                                     }`} />
                                   </>
