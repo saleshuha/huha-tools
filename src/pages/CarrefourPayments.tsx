@@ -3,9 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, Search, ShoppingCart, TrendingUp, Package, Calculator, BarChart3, Receipt } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { CarrefourSalesOrderForm } from "@/components/carrefour/CarrefourSalesOrderForm";
 import { CarrefourSalesOrdersTable } from "@/components/carrefour/CarrefourSalesOrdersTable";
 import { CarrefourSalesOrder } from "@/types/carrefour";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,7 +11,6 @@ import { useCountry } from "@/contexts/CountryContext";
 import { useToast } from "@/hooks/use-toast";
 
 export default function CarrefourSalesTracker() {
-  const [dialogOpen, setDialogOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
   const [salesOrders, setSalesOrders] = useState<CarrefourSalesOrder[]>([]);
@@ -47,8 +44,7 @@ export default function CarrefourSalesTracker() {
     }
   };
 
-  const handleSuccess = () => {
-    setDialogOpen(false);
+  const handleRefresh = () => {
     setRefreshKey(prev => prev + 1);
     fetchSalesOrders();
   };
@@ -101,28 +97,20 @@ export default function CarrefourSalesTracker() {
           </p>
         </div>
         
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button size="lg" className="gap-2 px-6 py-3 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 hover:to-emerald-600 shadow-lg hover:shadow-xl transition-all duration-200">
-              <Plus className="h-5 w-5" />
-              Add Sales Order
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="text-2xl font-bold flex items-center gap-3">
-                <Receipt className="h-6 w-6 text-emerald-600" />
-                Add New Sales Order
-              </DialogTitle>
-              <p className="text-muted-foreground">
-                Enter the sales order details to track profit and analyze performance
-              </p>
-            </DialogHeader>
-            <div className="mt-4">
-              <CarrefourSalesOrderForm onSuccess={handleSuccess} />
-            </div>
-          </DialogContent>
-        </Dialog>
+        <Button 
+          size="lg" 
+          className="gap-2 px-6 py-3 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 hover:to-emerald-600 shadow-lg hover:shadow-xl transition-all duration-200"
+          onClick={() => {
+            // The table component will handle adding new rows
+            const tableComponent = document.querySelector('[data-table-component]') as any;
+            if (tableComponent?.addNewRow) {
+              tableComponent.addNewRow();
+            }
+          }}
+        >
+          <Plus className="h-5 w-5" />
+          Add New Sales Order
+        </Button>
       </div>
 
       {/* Search Bar */}
@@ -256,7 +244,7 @@ export default function CarrefourSalesTracker() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <CarrefourSalesOrdersTable refresh={refreshKey} filteredData={filteredOrders} />
+          <CarrefourSalesOrdersTable refresh={refreshKey} filteredData={filteredOrders} onRefresh={handleRefresh} />
         </CardContent>
       </Card>
     </div>
