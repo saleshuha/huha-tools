@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Edit, Trash2, TrendingUp, TrendingDown, Package, DollarSign, Save, X, Plus } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { CarrefourSalesOrder } from "@/types/carrefour";
@@ -17,12 +18,12 @@ interface CarrefourSalesOrdersTableProps {
 
 interface EditingOrder {
   order_number: string;
-  sku_number: string;
   sale_value: number;
   seller_fees: number;
   pending_amount: number;
   cost: number;
   profit: number;
+  status: 'Delivered' | 'Returned' | 'Cancelled' | 'Other';
 }
 
 export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: CarrefourSalesOrdersTableProps) {
@@ -33,12 +34,12 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: 
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [newOrderData, setNewOrderData] = useState<EditingOrder>({
     order_number: "",
-    sku_number: "",
     sale_value: 0,
     seller_fees: 0,
     pending_amount: 0,
     cost: 0,
     profit: 0,
+    status: 'Delivered',
   });
   const tableRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
@@ -54,12 +55,12 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: 
         setIsAddingNew(true);
         setNewOrderData({
           order_number: "",
-          sku_number: "",
           sale_value: 0,
           seller_fees: 0,
           pending_amount: 0,
           cost: 0,
           profit: 0,
+          status: 'Delivered',
         });
       };
     }
@@ -106,12 +107,12 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: 
     setEditingId(order.id);
     setEditingData({
       order_number: order.order_number,
-      sku_number: order.sku_number,
       sale_value: order.sale_value,
       seller_fees: order.seller_fees,
       pending_amount: order.pending_amount,
       cost: order.cost,
       profit: order.profit,
+      status: order.status,
     });
   };
 
@@ -124,12 +125,12 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: 
     setIsAddingNew(false);
     setNewOrderData({
       order_number: "",
-      sku_number: "",
       sale_value: 0,
       seller_fees: 0,
       pending_amount: 0,
       cost: 0,
       profit: 0,
+      status: 'Delivered',
     });
   };
 
@@ -141,12 +142,12 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: 
         .from("carrefour_payments")
         .update({
           order_number: editingData.order_number,
-          sku_number: editingData.sku_number,
           sale_value: editingData.sale_value,
           seller_fees: editingData.seller_fees,
           pending_amount: editingData.pending_amount,
           cost: editingData.cost,
           profit: editingData.profit,
+          status: editingData.status,
         })
         .eq("id", editingId);
 
@@ -171,10 +172,10 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: 
   };
 
   const handleNewOrderSave = async () => {
-    if (!newOrderData.order_number || !newOrderData.sku_number) {
+    if (!newOrderData.order_number) {
       toast({
         title: "Error",
-        description: "Order number and SKU number are required",
+        description: "Order number is required",
         variant: "destructive",
       });
       return;
@@ -202,12 +203,12 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: 
       setIsAddingNew(false);
       setNewOrderData({
         order_number: "",
-        sku_number: "",
         sale_value: 0,
         seller_fees: 0,
         pending_amount: 0,
         cost: 0,
         profit: 0,
+        status: 'Delivered',
       });
       onRefresh();
     } catch (error) {
@@ -272,16 +273,48 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: 
   const renderEditableCell = (
     value: string | number,
     field: keyof EditingOrder,
-    type: "text" | "number" = "text",
+    type: "text" | "number" | "select" = "text",
     isEditing: boolean = false,
     isNewRow: boolean = false
   ) => {
     if (!isEditing && !isNewRow) {
+      if (field === 'status' && typeof value === 'string') {
+        const statusColors = {
+          'Delivered': 'bg-emerald-100 text-emerald-800 border-emerald-200',
+          'Returned': 'bg-red-100 text-red-800 border-red-200',
+          'Cancelled': 'bg-gray-100 text-gray-800 border-gray-200',
+          'Other': 'bg-blue-100 text-blue-800 border-blue-200'
+        };
+        return (
+          <Badge className={`text-xs ${statusColors[value as keyof typeof statusColors] || statusColors.Other}`}>
+            {value}
+          </Badge>
+        );
+      }
       return <span>{value}</span>;
     }
 
     const currentData = isNewRow ? newOrderData : editingData;
     const updateFunction = isNewRow ? updateNewOrderData : updateEditingData;
+
+    if (type === "select" && field === "status") {
+      return (
+        <Select
+          value={currentData?.[field] as string || "Delivered"}
+          onValueChange={(value) => updateFunction(field, value)}
+        >
+          <SelectTrigger className="h-8 text-sm">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Delivered">Delivered</SelectItem>
+            <SelectItem value="Returned">Returned</SelectItem>
+            <SelectItem value="Cancelled">Cancelled</SelectItem>
+            <SelectItem value="Other">Other</SelectItem>
+          </SelectContent>
+        </Select>
+      );
+    }
 
     return (
       <Input
@@ -328,12 +361,12 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: 
             <TableHeader>
               <TableRow className="bg-muted/30 hover:bg-muted/40">
                 <TableHead className="font-semibold text-emerald-700">Order Details</TableHead>
-                <TableHead className="font-semibold text-emerald-700">SKU</TableHead>
                 <TableHead className="font-semibold text-emerald-700">Sale Value</TableHead>
                 <TableHead className="font-semibold text-red-700">Cost</TableHead>
                 <TableHead className="font-semibold text-yellow-700">Platform Fees</TableHead>
                 <TableHead className="font-semibold text-blue-700">Net Profit</TableHead>
                 <TableHead className="font-semibold text-orange-700">Outstanding</TableHead>
+                <TableHead className="font-semibold text-purple-700">Status</TableHead>
                 <TableHead className="font-semibold">Date</TableHead>
                 <TableHead className="font-semibold text-center">Actions</TableHead>
               </TableRow>
@@ -344,9 +377,6 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: 
                 <TableRow className="bg-emerald-50 border-emerald-200">
                   <TableCell>
                     {renderEditableCell("", "order_number", "text", false, true)}
-                  </TableCell>
-                  <TableCell>
-                    {renderEditableCell("", "sku_number", "text", false, true)}
                   </TableCell>
                   <TableCell>
                     {renderEditableCell(0, "sale_value", "number", false, true)}
@@ -367,6 +397,9 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: 
                   </TableCell>
                   <TableCell>
                     {renderEditableCell(0, "pending_amount", "number", false, true)}
+                  </TableCell>
+                  <TableCell>
+                    {renderEditableCell("Delivered", "status", "select", false, true)}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     New
@@ -420,16 +453,6 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: 
                             Order ID
                           </div>
                         </div>
-                      )}
-                    </TableCell>
-                    
-                    <TableCell>
-                      {isEditing ? (
-                        renderEditableCell(order.sku_number, "sku_number", "text", true)
-                      ) : (
-                        <Badge variant="secondary" className="font-mono text-xs bg-slate-50 border-slate-200">
-                          {order.sku_number}
-                        </Badge>
                       )}
                     </TableCell>
                     
@@ -509,6 +532,10 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: 
                           {order.pending_amount.toFixed(2)}
                         </Badge>
                       )}
+                    </TableCell>
+                    
+                    <TableCell>
+                      {renderEditableCell(order.status, "status", "select", isEditing)}
                     </TableCell>
                     
                     <TableCell className="text-sm text-muted-foreground">
