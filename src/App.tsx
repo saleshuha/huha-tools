@@ -23,7 +23,7 @@ import ReplenishmentPage from "./pages/Replenishment";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import ExcelEditorPage from "./pages/ExcelEditor";
-
+import CsvBatchEditorPage from "./pages/CsvBatchEditor";
 
 const queryClient = new QueryClient();
 
@@ -125,7 +125,7 @@ const App = () => {
                     <Route path="/users" element={<UserManagementPage />} />
                     <Route path="/replenishment" element={<ReplenishmentPage />} />
                     <Route path="/excel-editor" element={<ExcelEditorPage />} />
-                    
+                    <Route path="/csv-batch-editor" element={<CsvBatchEditorPage />} />
                     <Route path="/auth" element={<Navigate to="/" replace />} />
                     
                     {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
