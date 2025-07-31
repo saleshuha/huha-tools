@@ -2,30 +2,30 @@ import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, DollarSign, TrendingUp, Package, AlertCircle } from "lucide-react";
+import { Plus, Search, ShoppingCart, TrendingUp, Package, Calculator, BarChart3, Receipt } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { CarrefourPaymentForm } from "@/components/carrefour/CarrefourPaymentForm";
-import { CarrefourPaymentsTable } from "@/components/carrefour/CarrefourPaymentsTable";
-import { CarrefourPayment } from "@/types/carrefour";
+import { CarrefourSalesOrderForm } from "@/components/carrefour/CarrefourSalesOrderForm";
+import { CarrefourSalesOrdersTable } from "@/components/carrefour/CarrefourSalesOrdersTable";
+import { CarrefourSalesOrder } from "@/types/carrefour";
 import { supabase } from "@/integrations/supabase/client";
 import { useCountry } from "@/contexts/CountryContext";
 import { useToast } from "@/hooks/use-toast";
 
-export default function CarrefourPayments() {
+export default function CarrefourSalesTracker() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
-  const [payments, setPayments] = useState<CarrefourPayment[]>([]);
+  const [salesOrders, setSalesOrders] = useState<CarrefourSalesOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { selectedCountry } = useCountry();
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchPayments();
+    fetchSalesOrders();
   }, [selectedCountry]);
 
-  const fetchPayments = async () => {
+  const fetchSalesOrders = async () => {
     try {
       const { data, error } = await supabase
         .from("carrefour_payments")
@@ -34,12 +34,12 @@ export default function CarrefourPayments() {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setPayments(data || []);
+      setSalesOrders(data || []);
     } catch (error) {
-      console.error("Error fetching payments:", error);
+      console.error("Error fetching sales orders:", error);
       toast({
         title: "Error",
-        description: "Failed to fetch payment records",
+        description: "Failed to fetch sales order records",
         variant: "destructive",
       });
     } finally {
@@ -50,26 +50,26 @@ export default function CarrefourPayments() {
   const handleSuccess = () => {
     setDialogOpen(false);
     setRefreshKey(prev => prev + 1);
-    fetchPayments();
+    fetchSalesOrders();
   };
 
-  // Filter payments based on search term
-  const filteredPayments = useMemo(() => {
-    if (!searchTerm.trim()) return payments;
+  // Filter sales orders based on search term
+  const filteredOrders = useMemo(() => {
+    if (!searchTerm.trim()) return salesOrders;
     
-    return payments.filter(payment => 
-      payment.order_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      payment.sku_number.toLowerCase().includes(searchTerm.toLowerCase())
+    return salesOrders.filter(order => 
+      order.order_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.sku_number.toLowerCase().includes(searchTerm.toLowerCase())
     );
-  }, [payments, searchTerm]);
+  }, [salesOrders, searchTerm]);
 
   // Calculate metrics
   const metrics = useMemo(() => {
-    const totalRevenue = payments.reduce((sum, p) => sum + p.sale_value, 0);
-    const totalCosts = payments.reduce((sum, p) => sum + p.cost, 0);
-    const totalProfit = payments.reduce((sum, p) => sum + p.profit, 0);
-    const totalPending = payments.reduce((sum, p) => sum + p.pending_amount, 0);
-    const totalFees = payments.reduce((sum, p) => sum + p.seller_fees, 0);
+    const totalRevenue = salesOrders.reduce((sum, o) => sum + o.sale_value, 0);
+    const totalCosts = salesOrders.reduce((sum, o) => sum + o.cost, 0);
+    const totalProfit = salesOrders.reduce((sum, o) => sum + o.profit, 0);
+    const totalPending = salesOrders.reduce((sum, o) => sum + o.pending_amount, 0);
+    const totalFees = salesOrders.reduce((sum, o) => sum + o.seller_fees, 0);
     const profitMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
 
     return {
@@ -79,51 +79,54 @@ export default function CarrefourPayments() {
       totalPending,
       totalFees,
       profitMargin,
-      totalOrders: payments.length,
-      profitableOrders: payments.filter(p => p.profit > 0).length
+      totalOrders: salesOrders.length,
+      profitableOrders: salesOrders.filter(o => o.profit > 0).length
     };
-  }, [payments]);
+  }, [salesOrders]);
 
   return (
     <div className="container mx-auto py-6 space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <Package className="h-8 w-8 text-primary" />
-            Carrefour Payments
+          <h1 className="text-3xl font-bold flex items-center gap-3">
+            <ShoppingCart className="h-8 w-8 text-primary" />
+            Carrefour Sales Tracker
+            <Badge variant="secondary" className="text-xs">
+              Profit Analysis
+            </Badge>
           </h1>
-          <p className="text-muted-foreground">
-            Manage and track your Carrefour payment records for {selectedCountry}
+          <p className="text-muted-foreground mt-1">
+            Track sales orders, analyze costs, and calculate profit margins for {selectedCountry}
           </p>
         </div>
         
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button size="lg" className="gap-2 px-6 py-3 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg hover:shadow-xl transition-all duration-200">
+            <Button size="lg" className="gap-2 px-6 py-3 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 hover:to-emerald-600 shadow-lg hover:shadow-xl transition-all duration-200">
               <Plus className="h-5 w-5" />
-              Add New Record
+              Add Sales Order
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle className="text-2xl font-bold flex items-center gap-2">
-                <Package className="h-6 w-6 text-primary" />
-                Add New Carrefour Payment Record
+              <DialogTitle className="text-2xl font-bold flex items-center gap-3">
+                <Receipt className="h-6 w-6 text-emerald-600" />
+                Add New Sales Order
               </DialogTitle>
               <p className="text-muted-foreground">
-                Enter the payment details for your Carrefour transaction
+                Enter the sales order details to track profit and analyze performance
               </p>
             </DialogHeader>
             <div className="mt-4">
-              <CarrefourPaymentForm onSuccess={handleSuccess} />
+              <CarrefourSalesOrderForm onSuccess={handleSuccess} />
             </div>
           </DialogContent>
         </Dialog>
       </div>
 
       {/* Search Bar */}
-      <Card>
+      <Card className="border-emerald-200">
         <CardContent className="pt-6">
           <div className="relative">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -131,7 +134,7 @@ export default function CarrefourPayments() {
               placeholder="Search by order number or SKU number..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
+              className="pl-10 h-12 border-emerald-200 focus:border-emerald-400"
             />
           </div>
         </CardContent>
@@ -139,23 +142,23 @@ export default function CarrefourPayments() {
 
       {/* Metrics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => {}}>
+        <Card className="cursor-pointer hover:shadow-lg transition-all border-emerald-200 hover:border-emerald-300" onClick={() => {}}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-semibold text-emerald-700">Total Sales Revenue</CardTitle>
+            <ShoppingCart className="h-5 w-5 text-emerald-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{metrics.totalRevenue.toFixed(2)}</div>
+            <div className="text-2xl font-bold text-emerald-600">{metrics.totalRevenue.toFixed(2)}</div>
             <p className="text-xs text-muted-foreground">
               From {metrics.totalOrders} orders
             </p>
           </CardContent>
         </Card>
 
-        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => {}}>
+        <Card className="cursor-pointer hover:shadow-lg transition-all border-blue-200 hover:border-blue-300" onClick={() => {}}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Profit</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-semibold text-blue-700">Net Profit</CardTitle>
+            <TrendingUp className="h-5 w-5 text-blue-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-blue-600">{metrics.totalProfit.toFixed(2)}</div>
@@ -165,95 +168,95 @@ export default function CarrefourPayments() {
           </CardContent>
         </Card>
 
-        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => {}}>
+        <Card className="cursor-pointer hover:shadow-lg transition-all border-orange-200 hover:border-orange-300" onClick={() => {}}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Amount</CardTitle>
-            <AlertCircle className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-semibold text-orange-700">Outstanding Balance</CardTitle>
+            <Calculator className="h-5 w-5 text-orange-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-orange-600">{metrics.totalPending.toFixed(2)}</div>
             <p className="text-xs text-muted-foreground">
-              Awaiting payment
+              Pending settlement
             </p>
           </CardContent>
         </Card>
 
-        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => {}}>
+        <Card className="cursor-pointer hover:shadow-lg transition-all border-purple-200 hover:border-purple-300" onClick={() => {}}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Profitable Orders</CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-semibold text-purple-700">Profitable Orders</CardTitle>
+            <BarChart3 className="h-5 w-5 text-purple-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-purple-600">{metrics.profitableOrders}</div>
             <p className="text-xs text-muted-foreground">
-              {metrics.totalOrders > 0 ? ((metrics.profitableOrders / metrics.totalOrders) * 100).toFixed(1) : 0}% of total
+              {metrics.totalOrders > 0 ? ((metrics.profitableOrders / metrics.totalOrders) * 100).toFixed(1) : 0}% success rate
             </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Quick Stats Row */}
+      {/* Cost Analysis Row */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
+        <Card className="border-red-200">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Costs</p>
+                <p className="text-sm font-semibold text-red-700">Total Cost of Goods</p>
                 <p className="text-2xl font-bold text-red-600">{metrics.totalCosts.toFixed(2)}</p>
               </div>
-              <Badge variant="secondary">Costs</Badge>
+              <Badge variant="destructive">COGS</Badge>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-yellow-200">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Seller Fees</p>
+                <p className="text-sm font-semibold text-yellow-700">Platform Fees</p>
                 <p className="text-2xl font-bold text-yellow-600">{metrics.totalFees.toFixed(2)}</p>
               </div>
-              <Badge variant="secondary">Fees</Badge>
+              <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">Fees</Badge>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-slate-200">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Search Results</p>
-                <p className="text-2xl font-bold">{filteredPayments.length}</p>
+                <p className="text-sm font-semibold text-slate-700">Search Results</p>
+                <p className="text-2xl font-bold text-slate-600">{filteredOrders.length}</p>
               </div>
-              <Badge variant="outline">
-                {searchTerm ? "Filtered" : "All"}
+              <Badge variant="outline" className="border-slate-300">
+                {searchTerm ? "Filtered" : "All Orders"}
               </Badge>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Payments Table */}
-      <Card>
+      {/* Sales Orders Table */}
+      <Card className="border-slate-200">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Package className="h-5 w-5" />
-            Payment Records
+            <Package className="h-5 w-5 text-emerald-600" />
+            Sales Orders & Profit Analysis
             {searchTerm && (
               <Badge variant="secondary" className="ml-2">
-                {filteredPayments.length} of {payments.length}
+                {filteredOrders.length} of {salesOrders.length}
               </Badge>
             )}
           </CardTitle>
           <CardDescription>
             {searchTerm 
               ? `Showing filtered results for "${searchTerm}"`
-              : "All your Carrefour payment transactions and their details"
+              : "Complete overview of your Carrefour sales orders with profit calculations"
             }
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <CarrefourPaymentsTable refresh={refreshKey} filteredData={filteredPayments} />
+          <CarrefourSalesOrdersTable refresh={refreshKey} filteredData={filteredOrders} />
         </CardContent>
       </Card>
     </div>

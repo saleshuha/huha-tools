@@ -89,7 +89,7 @@ const paymentReportsItems = [
     icon: TrendingUp
   },
   {
-    title: "Carrefour Payments",
+    title: "Carrefour Sales Tracker",
     url: "/carrefour-payments",
     icon: BarChart3
   }

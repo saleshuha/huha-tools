@@ -1,4 +1,4 @@
-export interface CarrefourPayment {
+export interface CarrefourSalesOrder {
   id: string;
   user_id: string;
   order_number: string;
@@ -13,7 +13,7 @@ export interface CarrefourPayment {
   updated_at: string;
 }
 
-export interface CreateCarrefourPayment {
+export interface CreateCarrefourSalesOrder {
   order_number: string;
   sku_number: string;
   sale_value: number;
