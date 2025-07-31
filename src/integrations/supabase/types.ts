@@ -68,6 +68,336 @@ export type Database = {
         }
         Relationships: []
       }
+      noon_credit_data: {
+        Row: {
+          business_unit: string | null
+          contract: string | null
+          country: string
+          created_at: string
+          credit_note_line_nr: string | null
+          credit_note_nr: string | null
+          description: string | null
+          document_currency: string | null
+          document_date: string | null
+          document_subtype: string | null
+          document_type: string | null
+          file_name: string
+          fx_rate: number | null
+          id: string
+          invoice_line_nr: string | null
+          invoice_nr: string | null
+          invoice_type_code: string | null
+          issuer_city: string | null
+          issuer_country: string | null
+          issuer_legal_entity: string | null
+          issuer_legal_name: string | null
+          issuer_location: string | null
+          issuer_trn: string | null
+          price_excluding_vat_doc_currency: number | null
+          price_excluding_vat_vat_currency: number | null
+          price_including_vat_doc_currency: number | null
+          receiver_city: string | null
+          receiver_country: string | null
+          receiver_legal_entity: string | null
+          receiver_legal_name: string | null
+          receiver_location: string | null
+          receiver_trn: string | null
+          refund_amount: number | null
+          return_charges: number | null
+          sku: string | null
+          source_doc_line_nr: string | null
+          source_doc_line_type: string | null
+          source_doc_nr: string | null
+          source_doc_type: string | null
+          transaction_type: string | null
+          updated_at: string
+          upload_date: string
+          user_id: string
+          vat_amount_doc_currency: number | null
+          vat_amount_vat_currency: number | null
+          vat_currency: string | null
+          vat_rate: number | null
+        }
+        Insert: {
+          business_unit?: string | null
+          contract?: string | null
+          country?: string
+          created_at?: string
+          credit_note_line_nr?: string | null
+          credit_note_nr?: string | null
+          description?: string | null
+          document_currency?: string | null
+          document_date?: string | null
+          document_subtype?: string | null
+          document_type?: string | null
+          file_name: string
+          fx_rate?: number | null
+          id?: string
+          invoice_line_nr?: string | null
+          invoice_nr?: string | null
+          invoice_type_code?: string | null
+          issuer_city?: string | null
+          issuer_country?: string | null
+          issuer_legal_entity?: string | null
+          issuer_legal_name?: string | null
+          issuer_location?: string | null
+          issuer_trn?: string | null
+          price_excluding_vat_doc_currency?: number | null
+          price_excluding_vat_vat_currency?: number | null
+          price_including_vat_doc_currency?: number | null
+          receiver_city?: string | null
+          receiver_country?: string | null
+          receiver_legal_entity?: string | null
+          receiver_legal_name?: string | null
+          receiver_location?: string | null
+          receiver_trn?: string | null
+          refund_amount?: number | null
+          return_charges?: number | null
+          sku?: string | null
+          source_doc_line_nr?: string | null
+          source_doc_line_type?: string | null
+          source_doc_nr?: string | null
+          source_doc_type?: string | null
+          transaction_type?: string | null
+          updated_at?: string
+          upload_date?: string
+          user_id: string
+          vat_amount_doc_currency?: number | null
+          vat_amount_vat_currency?: number | null
+          vat_currency?: string | null
+          vat_rate?: number | null
+        }
+        Update: {
+          business_unit?: string | null
+          contract?: string | null
+          country?: string
+          created_at?: string
+          credit_note_line_nr?: string | null
+          credit_note_nr?: string | null
+          description?: string | null
+          document_currency?: string | null
+          document_date?: string | null
+          document_subtype?: string | null
+          document_type?: string | null
+          file_name?: string
+          fx_rate?: number | null
+          id?: string
+          invoice_line_nr?: string | null
+          invoice_nr?: string | null
+          invoice_type_code?: string | null
+          issuer_city?: string | null
+          issuer_country?: string | null
+          issuer_legal_entity?: string | null
+          issuer_legal_name?: string | null
+          issuer_location?: string | null
+          issuer_trn?: string | null
+          price_excluding_vat_doc_currency?: number | null
+          price_excluding_vat_vat_currency?: number | null
+          price_including_vat_doc_currency?: number | null
+          receiver_city?: string | null
+          receiver_country?: string | null
+          receiver_legal_entity?: string | null
+          receiver_legal_name?: string | null
+          receiver_location?: string | null
+          receiver_trn?: string | null
+          refund_amount?: number | null
+          return_charges?: number | null
+          sku?: string | null
+          source_doc_line_nr?: string | null
+          source_doc_line_type?: string | null
+          source_doc_nr?: string | null
+          source_doc_type?: string | null
+          transaction_type?: string | null
+          updated_at?: string
+          upload_date?: string
+          user_id?: string
+          vat_amount_doc_currency?: number | null
+          vat_amount_vat_currency?: number | null
+          vat_currency?: string | null
+          vat_rate?: number | null
+        }
+        Relationships: []
+      }
+      noon_file_headers: {
+        Row: {
+          created_at: string
+          file_type: string
+          headers: string[]
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          file_type: string
+          headers: string[]
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          file_type?: string
+          headers?: string[]
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      noon_invoice_data: {
+        Row: {
+          business_unit: string | null
+          commission_amount: number | null
+          contract: string | null
+          country: string
+          created_at: string
+          credit_note_line_nr: string | null
+          credit_note_nr: string | null
+          description: string | null
+          document_currency: string | null
+          document_date: string | null
+          document_subtype: string | null
+          document_type: string | null
+          file_name: string
+          fx_rate: number | null
+          id: string
+          invoice_line_nr: string | null
+          invoice_nr: string | null
+          invoice_type_code: string | null
+          issuer_city: string | null
+          issuer_country: string | null
+          issuer_legal_entity: string | null
+          issuer_legal_name: string | null
+          issuer_location: string | null
+          issuer_trn: string | null
+          net_amount_received: number | null
+          price_excluding_vat_doc_currency: number | null
+          price_excluding_vat_vat_currency: number | null
+          price_including_vat_doc_currency: number | null
+          receiver_city: string | null
+          receiver_country: string | null
+          receiver_legal_entity: string | null
+          receiver_legal_name: string | null
+          receiver_location: string | null
+          receiver_trn: string | null
+          shipping_amount: number | null
+          sku: string | null
+          source_doc_line_nr: string | null
+          source_doc_line_type: string | null
+          source_doc_nr: string | null
+          source_doc_type: string | null
+          transaction_type: string | null
+          updated_at: string
+          upload_date: string
+          user_id: string
+          vat_amount_doc_currency: number | null
+          vat_amount_vat_currency: number | null
+          vat_currency: string | null
+          vat_rate: number | null
+        }
+        Insert: {
+          business_unit?: string | null
+          commission_amount?: number | null
+          contract?: string | null
+          country?: string
+          created_at?: string
+          credit_note_line_nr?: string | null
+          credit_note_nr?: string | null
+          description?: string | null
+          document_currency?: string | null
+          document_date?: string | null
+          document_subtype?: string | null
+          document_type?: string | null
+          file_name: string
+          fx_rate?: number | null
+          id?: string
+          invoice_line_nr?: string | null
+          invoice_nr?: string | null
+          invoice_type_code?: string | null
+          issuer_city?: string | null
+          issuer_country?: string | null
+          issuer_legal_entity?: string | null
+          issuer_legal_name?: string | null
+          issuer_location?: string | null
+          issuer_trn?: string | null
+          net_amount_received?: number | null
+          price_excluding_vat_doc_currency?: number | null
+          price_excluding_vat_vat_currency?: number | null
+          price_including_vat_doc_currency?: number | null
+          receiver_city?: string | null
+          receiver_country?: string | null
+          receiver_legal_entity?: string | null
+          receiver_legal_name?: string | null
+          receiver_location?: string | null
+          receiver_trn?: string | null
+          shipping_amount?: number | null
+          sku?: string | null
+          source_doc_line_nr?: string | null
+          source_doc_line_type?: string | null
+          source_doc_nr?: string | null
+          source_doc_type?: string | null
+          transaction_type?: string | null
+          updated_at?: string
+          upload_date?: string
+          user_id: string
+          vat_amount_doc_currency?: number | null
+          vat_amount_vat_currency?: number | null
+          vat_currency?: string | null
+          vat_rate?: number | null
+        }
+        Update: {
+          business_unit?: string | null
+          commission_amount?: number | null
+          contract?: string | null
+          country?: string
+          created_at?: string
+          credit_note_line_nr?: string | null
+          credit_note_nr?: string | null
+          description?: string | null
+          document_currency?: string | null
+          document_date?: string | null
+          document_subtype?: string | null
+          document_type?: string | null
+          file_name?: string
+          fx_rate?: number | null
+          id?: string
+          invoice_line_nr?: string | null
+          invoice_nr?: string | null
+          invoice_type_code?: string | null
+          issuer_city?: string | null
+          issuer_country?: string | null
+          issuer_legal_entity?: string | null
+          issuer_legal_name?: string | null
+          issuer_location?: string | null
+          issuer_trn?: string | null
+          net_amount_received?: number | null
+          price_excluding_vat_doc_currency?: number | null
+          price_excluding_vat_vat_currency?: number | null
+          price_including_vat_doc_currency?: number | null
+          receiver_city?: string | null
+          receiver_country?: string | null
+          receiver_legal_entity?: string | null
+          receiver_legal_name?: string | null
+          receiver_location?: string | null
+          receiver_trn?: string | null
+          shipping_amount?: number | null
+          sku?: string | null
+          source_doc_line_nr?: string | null
+          source_doc_line_type?: string | null
+          source_doc_nr?: string | null
+          source_doc_type?: string | null
+          transaction_type?: string | null
+          updated_at?: string
+          upload_date?: string
+          user_id?: string
+          vat_amount_doc_currency?: number | null
+          vat_amount_vat_currency?: number | null
+          vat_currency?: string | null
+          vat_rate?: number | null
+        }
+        Relationships: []
+      }
       payments: {
         Row: {
           amount: number
