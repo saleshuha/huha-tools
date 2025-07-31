@@ -6,7 +6,7 @@ import { Upload, FileText, AlertCircle, Database, BarChart } from "lucide-react"
 import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { NoonFileData, NoonInvoiceData, NoonCreditData } from "@/types/noon-sales";
+import { NoonFileData, NoonTransaction } from "@/types/noon-sales";
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
 
@@ -153,8 +153,8 @@ const NoonSalesUpload = ({ onDataUploaded }: NoonSalesUploadProps) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User not authenticated');
 
-    const invoiceRecords: NoonInvoiceData[] = [];
-    const creditRecords: NoonCreditData[] = [];
+    const invoiceRecords: any[] = [];
+    const creditRecords: any[] = [];
 
     // Convert headers to lowercase and replace spaces with underscores for mapping
     const headerMap = fileData.headers.reduce((acc, header, index) => {
