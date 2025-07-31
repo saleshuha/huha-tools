@@ -1,4 +1,4 @@
-import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, Wrench, LogOut, Home, Users, TrendingUp, Merge, Edit3, Database, CreditCard, Upload, BarChart3 } from "lucide-react"
+import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, Wrench, LogOut, Home, Users, TrendingUp, Merge, Edit3, Database, CreditCard, Upload, BarChart3, Store } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
 import { useState } from "react"
 import { supabase } from "@/integrations/supabase/client"
@@ -89,9 +89,9 @@ const paymentReportsItems = [
     icon: TrendingUp
   },
   {
-    title: "Carrefour Sales Tracker",
-    url: "/carrefour-payments",
-    icon: BarChart3
+    title: "Store Management",
+    url: "/stores",
+    icon: Store
   }
 ]
 
