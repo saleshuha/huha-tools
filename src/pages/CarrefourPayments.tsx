@@ -174,6 +174,19 @@ export default function CarrefourSalesTracker() {
             </p>
           </CardContent>
         </Card>
+
+        <Card className="cursor-pointer hover:shadow-lg transition-all border-red-200 hover:border-red-300" onClick={() => {}}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-semibold text-red-700">Total Costs</CardTitle>
+            <Calculator className="h-5 w-5 text-red-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">{metrics.totalCosts.toFixed(2)}</div>
+            <p className="text-xs text-muted-foreground">
+              Cost of goods sold
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Status-based Metrics */}
@@ -189,6 +202,21 @@ export default function CarrefourSalesTracker() {
                 </p>
               </div>
               <Badge variant="secondary" className="bg-green-100 text-green-800">Delivered</Badge>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-cyan-200">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-cyan-700">Shipped Orders</p>
+                <p className="text-2xl font-bold text-cyan-600">{metrics.shippedItems}</p>
+                <p className="text-xs text-muted-foreground">
+                  Value: {metrics.shippedValue.toFixed(2)}
+                </p>
+              </div>
+              <Badge variant="secondary" className="bg-cyan-100 text-cyan-800">Shipped</Badge>
             </div>
           </CardContent>
         </Card>
@@ -219,21 +247,6 @@ export default function CarrefourSalesTracker() {
                 </p>
               </div>
               <Badge variant="outline" className="border-gray-300">Cancelled</Badge>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-cyan-200">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-semibold text-cyan-700">Shipped Orders</p>
-                <p className="text-2xl font-bold text-cyan-600">{metrics.shippedItems}</p>
-                <p className="text-xs text-muted-foreground">
-                  Value: {metrics.shippedValue.toFixed(2)}
-                </p>
-              </div>
-              <Badge variant="secondary" className="bg-cyan-100 text-cyan-800">Shipped</Badge>
             </div>
           </CardContent>
         </Card>
