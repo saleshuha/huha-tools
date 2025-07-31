@@ -215,7 +215,7 @@ export function AppSidebar() {
                                 {!isCollapsed && (
                                   <>
                                     <span className="font-medium text-sm flex-1 text-left">
-                                      Sales & Payment Reports
+                                      Payment Reports
                                     </span>
                                     <ChevronDown className={`h-3 w-3 transition-transform ml-auto ${
                                       isPaymentReportsOpen ? "rotate-180" : ""
