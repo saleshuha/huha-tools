@@ -85,7 +85,7 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh }: 
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setSalesOrders(data || []);
+      setSalesOrders((data || []) as CarrefourSalesOrder[]);
     } catch (error) {
       console.error("Error fetching sales orders:", error);
       toast({

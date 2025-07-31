@@ -32,7 +32,7 @@ export default function CarrefourSalesTracker() {
         ascending: false
       });
       if (error) throw error;
-      setSalesOrders(data || []);
+      setSalesOrders((data || []) as CarrefourSalesOrder[]);
     } catch (error) {
       console.error("Error fetching sales orders:", error);
       toast({
@@ -52,7 +52,7 @@ export default function CarrefourSalesTracker() {
   // Filter sales orders based on search term
   const filteredOrders = useMemo(() => {
     if (!searchTerm.trim()) return salesOrders;
-    return salesOrders.filter(order => order.order_number.toLowerCase().includes(searchTerm.toLowerCase()) || order.sku_number.toLowerCase().includes(searchTerm.toLowerCase()));
+    return salesOrders.filter(order => order.order_number.toLowerCase().includes(searchTerm.toLowerCase()) || order.status.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [salesOrders, searchTerm]);
 
   // Calculate metrics
@@ -98,7 +98,7 @@ export default function CarrefourSalesTracker() {
         <CardContent className="pt-6">
           <div className="relative">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Search by order number or SKU number..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10 h-12 border-emerald-200 focus:border-emerald-400" />
+            <Input placeholder="Search by order number or status..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10 h-12 border-emerald-200 focus:border-emerald-400" />
           </div>
         </CardContent>
       </Card>

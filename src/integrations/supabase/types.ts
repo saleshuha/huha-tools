@@ -79,7 +79,7 @@ export type Database = {
           profit: number
           sale_value: number
           seller_fees: number
-          sku_number: string
+          status: string
           updated_at: string
           user_id: string
         }
@@ -93,7 +93,7 @@ export type Database = {
           profit: number
           sale_value: number
           seller_fees: number
-          sku_number: string
+          status?: string
           updated_at?: string
           user_id: string
         }
@@ -107,7 +107,7 @@ export type Database = {
           profit?: number
           sale_value?: number
           seller_fees?: number
-          sku_number?: string
+          status?: string
           updated_at?: string
           user_id?: string
         }
