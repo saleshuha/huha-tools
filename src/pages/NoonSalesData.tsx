@@ -94,7 +94,8 @@ export default function NoonSalesData() {
       const { data: allRecords, error } = await supabase
         .from('noon_sales_data')
         .select('store_id, report_month, upload_date')
-        .eq('country_code', selectedCountry);
+        .eq('country_code', selectedCountry)
+        .limit(50000); // Set explicit high limit to ensure we get ALL records
 
       if (error) throw error;
 
