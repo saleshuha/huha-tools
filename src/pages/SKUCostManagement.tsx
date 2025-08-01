@@ -114,26 +114,30 @@ export default function SKUCostManagement() {
   };
 
   const fetchAvailableSkus = async () => {
+    if (!selectedStore) return;
+    
     try {
       setLoadingSkus(true);
       const skuSet = new Set<string>();
 
-      // Fetch SKUs from noon_sales_data
+      // Fetch SKUs from noon_sales_data for selected store
       const { data: salesSkus, error: salesError } = await supabase
         .from('noon_sales_data')
         .select('sku')
         .eq('country_code', selectedCountry)
+        .eq('store_id', selectedStore)
         .not('sku', 'is', null)
         .neq('sku', '');
 
       if (salesError) throw salesError;
       salesSkus?.forEach(item => item.sku && skuSet.add(item.sku));
 
-      // Fetch SKUs from noon_order_fees
+      // Fetch SKUs from noon_order_fees for selected store
       const { data: feesSkus, error: feesError } = await supabase
         .from('noon_order_fees')
         .select('sku')
         .eq('country_code', selectedCountry)
+        .eq('store_id', selectedStore)
         .not('sku', 'is', null)
         .neq('sku', '');
 
@@ -156,9 +160,10 @@ export default function SKUCostManagement() {
 
       setAllSkuData(skuData);
 
+      const storeName = stores.find(s => s.id === selectedStore)?.name;
       toast({
         title: "SKUs loaded",
-        description: `Found ${uniqueSkus.length} unique SKUs from uploaded data`,
+        description: `Found ${uniqueSkus.length} unique SKUs for ${storeName}`,
       });
 
     } catch (error) {
@@ -394,8 +399,10 @@ export default function SKUCostManagement() {
   };
 
   const exportMissingCosts = () => {
+    const storeName = stores.find(s => s.id === selectedStore)?.name || 'Unknown';
     const missingCosts = allSkuData.filter(item => !item.hasCost).map(item => ({
       sku: item.sku,
+      store: storeName,
       cost: "",
       notes: "",
       status: "Missing Cost"
@@ -406,19 +413,21 @@ export default function SKUCostManagement() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `missing_sku_costs_${selectedCountry.toLowerCase()}.csv`;
+    a.download = `missing_sku_costs_${storeName.replace(/\s+/g, '_')}_${selectedCountry.toLowerCase()}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
 
     toast({
       title: "Export completed",
-      description: `Exported ${missingCosts.length} SKUs missing costs`,
+      description: `Exported ${missingCosts.length} SKUs missing costs for ${storeName}`,
     });
   };
 
   const exportAllSkuStatus = () => {
+    const storeName = stores.find(s => s.id === selectedStore)?.name || 'Unknown';
     const statusData = allSkuData.map(item => ({
       sku: item.sku,
+      store: storeName,
       cost: item.cost || "",
       notes: item.notes || "",
       status: item.hasCost ? "Has Cost" : "Missing Cost"
@@ -429,13 +438,13 @@ export default function SKUCostManagement() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `all_sku_status_${selectedCountry.toLowerCase()}.csv`;
+    a.download = `all_sku_status_${storeName.replace(/\s+/g, '_')}_${selectedCountry.toLowerCase()}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
 
     toast({
       title: "Export completed",
-      description: `Exported ${statusData.length} SKUs with status`,
+      description: `Exported ${statusData.length} SKUs with status for ${storeName}`,
     });
   };
 
@@ -552,7 +561,7 @@ export default function SKUCostManagement() {
           </CardContent>
         </Card>
 
-        {/* SKU Metrics */}
+        {/* SKU Metrics - Store Specific */}
         {selectedStore && availableSkus.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <Card>
@@ -562,7 +571,7 @@ export default function SKUCostManagement() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{allSkuData.length}</div>
-                <p className="text-xs text-muted-foreground">From sales data</p>
+                <p className="text-xs text-muted-foreground">For {stores.find(s => s.id === selectedStore)?.name}</p>
               </CardContent>
             </Card>
             <Card>
@@ -626,7 +635,7 @@ export default function SKUCostManagement() {
                   <DollarSign className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-slate-900 mb-2">No SKUs Found</h3>
                   <p className="text-slate-600">
-                    No SKUs found in uploaded sales data for this store
+                    No SKUs found in uploaded sales data for {stores.find(s => s.id === selectedStore)?.name}
                   </p>
                 </div>
               )}
@@ -637,9 +646,9 @@ export default function SKUCostManagement() {
             <CardHeader>
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                  <CardTitle>SKU Cost Management</CardTitle>
+                  <CardTitle>SKU Cost Management - {stores.find(s => s.id === selectedStore)?.name}</CardTitle>
                   <p className="text-sm text-muted-foreground mt-1">
-                    {allSkuData.length} SKUs found • {skusWithCosts} with costs • {skusWithoutCosts} missing costs
+                    {allSkuData.length} SKUs found for this store • {skusWithCosts} with costs • {skusWithoutCosts} missing costs
                   </p>
                 </div>
                 <div className="flex gap-2">
