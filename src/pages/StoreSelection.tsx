@@ -44,6 +44,7 @@ export default function StoreSelection() {
         .from("stores")
         .select("*")
         .eq("is_active", true)
+        .eq("platform", "carrefour")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -79,6 +80,7 @@ export default function StoreSelection() {
         .insert([{
           ...newStore,
           user_id: user.id,
+          platform: "carrefour"
         }]);
 
       if (error) throw error;
@@ -194,13 +196,13 @@ export default function StoreSelection() {
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-3">
             <StoreIcon className="h-8 w-8 text-primary" />
-            Store Management
+            Carrefour Store Management
             <Badge variant="secondary" className="text-xs">
               Multi-Store
             </Badge>
           </h1>
           <p className="text-muted-foreground mt-1">
-            Manage your stores and access their sales data
+            Manage your Carrefour stores and access their sales data
           </p>
         </div>
 
@@ -208,14 +210,14 @@ export default function StoreSelection() {
           <DialogTrigger asChild>
             <Button className="gap-2 bg-emerald-600 hover:bg-emerald-700">
               <Plus className="h-4 w-4" />
-              Add New Store
+              Add New Carrefour Store
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>Create New Store</DialogTitle>
+              <DialogTitle>Create New Carrefour Store</DialogTitle>
               <DialogDescription>
-                Add a new store to manage its sales data separately.
+                Add a new Carrefour store to manage its sales data separately.
               </DialogDescription>
             </DialogHeader>
             
@@ -300,11 +302,11 @@ export default function StoreSelection() {
       {stores.length === 0 ? (
         <div className="text-center py-12">
           <StoreIcon className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-muted-foreground mb-2">No Stores Found</h3>
-          <p className="text-sm text-muted-foreground mb-4">Create your first store to start tracking sales data.</p>
+          <h3 className="text-lg font-semibold text-muted-foreground mb-2">No Carrefour Stores Found</h3>
+          <p className="text-sm text-muted-foreground mb-4">Create your first Carrefour store to start tracking sales data.</p>
           <Button onClick={() => setIsDialogOpen(true)} className="bg-emerald-600 hover:bg-emerald-700">
             <Plus className="h-4 w-4 mr-2" />
-            Add Your First Store
+            Add Your First Carrefour Store
           </Button>
         </div>
       ) : (
