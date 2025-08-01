@@ -225,12 +225,12 @@ export function AppSidebar() {
                               </div>
                             </SidebarMenuButton>
                           </CollapsibleTrigger>
-                          <CollapsibleContent className="ml-8 mt-1 space-y-1">
+                          <CollapsibleContent className="ml-6 mt-1 space-y-1">
                             {paymentReportsItems.map((reportItem) => (
                               <SidebarMenuButton 
                                 key={reportItem.title}
                                 asChild
-                                className={`w-full p-2 rounded-md transition-colors ${
+                                className={`w-full p-3 rounded-lg transition-colors ${
                                   isActive(reportItem.url)
                                     ? "bg-primary text-primary-foreground" 
                                     : "hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
@@ -239,14 +239,14 @@ export function AppSidebar() {
                                 <NavLink 
                                   to={reportItem.url} 
                                   end
-                                  className="flex items-center gap-2 no-underline w-full"
+                                  className="flex items-center gap-3 no-underline w-full"
                                 >
-                                  <reportItem.icon className="h-3 w-3 flex-shrink-0" />
-                                  {!isCollapsed && (
-                                    <span className="font-medium text-xs">
-                                      {reportItem.title}
-                                    </span>
-                                  )}
+                                   <reportItem.icon className="h-4 w-4 flex-shrink-0" />
+                                   {!isCollapsed && (
+                                     <span className="font-medium text-sm">
+                                       {reportItem.title}
+                                     </span>
+                                   )}
                                 </NavLink>
                               </SidebarMenuButton>
                             ))}
@@ -336,12 +336,12 @@ export function AppSidebar() {
                       </div>
                     </SidebarMenuButton>
                   </CollapsibleTrigger>
-                  <CollapsibleContent className="ml-4 mt-1 space-y-1">
+                  <CollapsibleContent className="ml-6 mt-1 space-y-1">
                     {toolsItems.map((item) => (
                       <SidebarMenuButton 
                         key={item.title}
                         asChild
-                        className={`w-full p-2 rounded-md transition-colors ${
+                        className={`w-full p-3 rounded-lg transition-colors ${
                           isActive(item.url)
                             ? "bg-primary text-primary-foreground" 
                             : "hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
@@ -350,11 +350,11 @@ export function AppSidebar() {
                         <NavLink 
                           to={item.url} 
                           end
-                          className="flex items-center gap-2 no-underline w-full"
+                          className="flex items-center gap-3 no-underline w-full"
                         >
-                          <item.icon className="h-3 w-3 flex-shrink-0" />
+                          <item.icon className="h-4 w-4 flex-shrink-0" />
                           {!isCollapsed && (
-                            <span className="font-medium text-xs">
+                            <span className="font-medium text-sm">
                               {item.title}
                             </span>
                           )}
@@ -371,7 +371,7 @@ export function AppSidebar() {
       <SidebarFooter className="p-3 border-t border-sidebar-border space-y-2">
         <SidebarMenuButton 
           asChild
-          className={`w-full p-2 rounded-lg transition-colors ${
+          className={`w-full p-3 rounded-lg transition-colors ${
             isActive("/users")
               ? "bg-primary text-primary-foreground" 
               : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
@@ -380,11 +380,11 @@ export function AppSidebar() {
           <NavLink 
             to="/users" 
             end
-            className="flex items-center gap-2 no-underline w-full"
+            className="flex items-center gap-3 no-underline w-full"
           >
-            <Users className="h-3 w-3 flex-shrink-0" />
+            <Users className="h-4 w-4 flex-shrink-0" />
             {!isCollapsed && (
-              <span className="font-medium text-xs">
+              <span className="font-medium text-sm">
                 User Management
               </span>
             )}
