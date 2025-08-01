@@ -1150,6 +1150,16 @@ export type Database = {
           days_since_last_restock: number
         }[]
       }
+      get_noon_sales_upload_summary: {
+        Args: { country_filter?: string }
+        Returns: {
+          id: string
+          store_name: string
+          report_month: string
+          upload_date: string
+          record_count: number
+        }[]
+      }
       get_sales_analytics: {
         Args: { start_date?: string; end_date?: string }
         Returns: {
