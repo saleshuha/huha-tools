@@ -147,6 +147,7 @@ export default function NoonSalesData() {
 
       console.log('Final upload history:', history);
       console.log('Total record count across all uploads:', history.reduce((sum, h) => sum + h.record_count, 0));
+      console.log('Upload history details:', history.map(h => ({ store: h.store_name, month: h.report_month, count: h.record_count })));
       
       setUploadHistory(history);
       
@@ -247,7 +248,10 @@ export default function NoonSalesData() {
   };
 
   const getTotalRecords = () => {
-    return uploadHistory.reduce((sum, upload) => sum + upload.record_count, 0);
+    const total = uploadHistory.reduce((sum, upload) => sum + upload.record_count, 0);
+    console.log('UI getTotalRecords() called - uploadHistory:', uploadHistory.length, 'items, total:', total);
+    console.log('Individual counts:', uploadHistory.map(h => h.record_count));
+    return total;
   };
 
   const getUniqueMonths = () => {
