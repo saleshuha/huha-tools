@@ -87,11 +87,6 @@ const paymentReportsItems = [
     title: "SKU Cost Management",
     url: "/sku-costs",
     icon: DollarSign
-  },
-  {
-    title: "Carrefour Sales Tracker",
-    url: "/carrefour-payments",
-    icon: BarChart3
   }
 ]
 
@@ -288,6 +283,31 @@ export function AppSidebar() {
                   </SidebarMenuItem>
                 )
               })}
+
+              {/* Carrefour Sales Tracker as standalone item */}
+              <SidebarMenuItem>
+                <SidebarMenuButton 
+                  asChild
+                  className={`w-full p-3 rounded-lg transition-colors ${
+                    isActive("/carrefour-payments")
+                      ? "bg-primary text-primary-foreground" 
+                      : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                  }`}
+                >
+                  <NavLink 
+                    to="/carrefour-payments" 
+                    end
+                    className="flex items-center gap-3 no-underline w-full"
+                  >
+                    <BarChart3 className="h-4 w-4 flex-shrink-0" />
+                    {!isCollapsed && (
+                      <span className="font-medium text-sm">
+                        Carrefour Sales Tracker
+                      </span>
+                    )}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
 
 
               {/* Tools dropdown */}
