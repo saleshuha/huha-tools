@@ -315,7 +315,8 @@ export function SKUCostManager({ feesData, onCostsUpdated }: SKUCostManagerProps
                 <TableHead className="text-right">Orders</TableHead>
                 <TableHead className="text-right">Revenue</TableHead>
                 <TableHead className="text-right">Net Payment</TableHead>
-                <TableHead className="text-right">Cost</TableHead>
+                <TableHead className="text-right">Unit Cost</TableHead>
+                <TableHead className="text-right">Total Cost</TableHead>
                 <TableHead className="text-right">Profit</TableHead>
                 <TableHead className="text-right">Margin %</TableHead>
                 <TableHead>Actions</TableHead>
@@ -343,20 +344,23 @@ export function SKUCostManager({ feesData, onCostsUpdated }: SKUCostManagerProps
                       stat.cost ? formatCurrency(stat.cost) : "-"
                     )}
                   </TableCell>
-                  <TableCell className="text-right">
-                    {stat.cost ? (
-                      <span className={stat.netPayment - stat.cost > 0 ? "text-green-600" : "text-red-600"}>
-                        {formatCurrency(stat.netPayment - stat.cost)}
-                      </span>
-                    ) : "-"}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {stat.cost ? (
-                      <span className={calculateProfitMargin(stat.netPayment, stat.cost) > 0 ? "text-green-600" : "text-red-600"}>
-                        {calculateProfitMargin(stat.netPayment, stat.cost).toFixed(1)}%
-                      </span>
-                    ) : "-"}
-                  </TableCell>
+                   <TableCell className="text-right">
+                     {stat.cost ? formatCurrency(stat.cost * stat.orders) : "-"}
+                   </TableCell>
+                   <TableCell className="text-right">
+                     {stat.cost ? (
+                       <span className={stat.netPayment - (stat.cost * stat.orders) > 0 ? "text-green-600" : "text-red-600"}>
+                         {formatCurrency(stat.netPayment - (stat.cost * stat.orders))}
+                       </span>
+                     ) : "-"}
+                   </TableCell>
+                   <TableCell className="text-right">
+                     {stat.cost ? (
+                       <span className={calculateProfitMargin(stat.netPayment, stat.cost * stat.orders) > 0 ? "text-green-600" : "text-red-600"}>
+                         {calculateProfitMargin(stat.netPayment, stat.cost * stat.orders).toFixed(1)}%
+                       </span>
+                     ) : "-"}
+                   </TableCell>
                   <TableCell>
                     {editingSku === stat.sku ? (
                       <div className="flex gap-1">
