@@ -80,11 +80,12 @@ export default function NoonSalesData() {
       setLoading(true);
       
       // Get actual counts per group using a direct aggregation query
+      console.log('Querying with country_code:', selectedCountry);
       const { data: countData, error: countError } = await supabase
         .from('noon_sales_data')
         .select('store_id, report_month, upload_date')
         .eq('country_code', selectedCountry)
-        .limit(10000); // Set explicit high limit to fetch all records
+        .range(0, 9999); // Use range instead of limit to ensure we get all records
 
       if (countError) throw countError;
       
