@@ -79,7 +79,8 @@ export default function NoonSalesData() {
     try {
       setLoading(true);
       
-      console.log('Loading upload history for country:', selectedCountry);
+      const timestamp = new Date().toISOString();
+      console.log(`[${timestamp}] Loading upload history for country:`, selectedCountry);
 
       // Step 1: Get all records to count them locally (avoiding Supabase count limitations)
       const { data: allRecords, error } = await supabase
