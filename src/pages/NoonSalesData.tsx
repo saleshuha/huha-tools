@@ -79,38 +79,49 @@ export default function NoonSalesData() {
     try {
       setLoading(true);
       
-      // Get upload history with store names and count records properly
+      // Get upload history with proper counts using aggregation
       const { data, error } = await supabase
         .from('noon_sales_data')
         .select(`
-          id,
           store_id,
           report_month,
           upload_date,
           stores(name)
         `)
         .eq('country_code', selectedCountry)
-        .order('upload_date', { ascending: false })
-        .limit(5000); // Increase limit to handle large uploads
+        .order('upload_date', { ascending: false });
 
       if (error) throw error;
 
       // Group by store and month to get unique uploads with proper counts
       const groupedData = new Map<string, UploadHistory>();
       
+      // Get actual counts per group using a separate query
+      const { data: countData, error: countError } = await supabase
+        .from('noon_sales_data')
+        .select('store_id, report_month, upload_date')
+        .eq('country_code', selectedCountry);
+
+      if (countError) throw countError;
+
+      // Count records per group
+      const counts = new Map<string, number>();
+      countData?.forEach(record => {
+        const key = `${record.store_id}-${record.report_month}`;
+        counts.set(key, (counts.get(key) || 0) + 1);
+      });
+      
+      // Create unique upload history entries
       data?.forEach(record => {
         const key = `${record.store_id}-${record.report_month}`;
         if (!groupedData.has(key)) {
           groupedData.set(key, {
-            id: record.id,
+            id: crypto.randomUUID(),
             store_name: (record.stores as any)?.name || 'Unknown Store',
             report_month: record.report_month,
             upload_date: record.upload_date,
-            record_count: 1
+            record_count: counts.get(key) || 0
           });
-        } else {
-          const existing = groupedData.get(key)!;
-          existing.record_count += 1;
         }
       });
 
