@@ -160,6 +160,8 @@ export function NoonSalesUpload({ onDataUploaded }: NoonSalesUploadProps) {
       batches.push(data.slice(i, i + batchSize));
     }
 
+    let totalInserted = 0;
+
     for (let i = 0; i < batches.length; i++) {
       const batch = batches[i].map(row => ({
         user_id: user.id,
@@ -192,13 +194,30 @@ export function NoonSalesUpload({ onDataUploaded }: NoonSalesUploadProps) {
         estimated_shipping_date: formatDateValue(row.estimated_shipping_date)
       }));
 
-      const { error } = await supabase
+      console.log(`Inserting batch ${i + 1}/${batches.length} with ${batch.length} records`);
+      
+      const { data: insertResult, error } = await supabase
         .from('noon_sales_data')
-        .insert(batch);
+        .insert(batch)
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error(`Error inserting batch ${i + 1}:`, error);
+        throw new Error(`Failed to insert batch ${i + 1}: ${error.message}`);
+      }
+
+      const insertedCount = insertResult?.length || 0;
+      totalInserted += insertedCount;
+      
+      console.log(`Successfully inserted ${insertedCount} records in batch ${i + 1}. Total so far: ${totalInserted}`);
 
       setUploadProgress(((i + 1) / batches.length) * 100);
+    }
+
+    console.log(`Upload completed. Total records processed: ${data.length}, Total inserted: ${totalInserted}`);
+    
+    if (totalInserted !== data.length) {
+      throw new Error(`Data mismatch: Processed ${data.length} records but only ${totalInserted} were inserted successfully`);
     }
   };
 
