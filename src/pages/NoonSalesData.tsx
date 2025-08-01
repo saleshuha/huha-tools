@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -45,6 +45,7 @@ export default function NoonSalesData() {
   const [uploadHistory, setUploadHistory] = useState<UploadHistory[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const loadingRef = useRef(false); // Prevent concurrent calls
   const { toast } = useToast();
   const { selectedCountry } = useCountry();
 
@@ -75,8 +76,15 @@ export default function NoonSalesData() {
     }
   };
 
-  const loadUploadHistory = async () => {
+  const loadUploadHistory = useCallback(async () => {
+    // Prevent concurrent calls during hot reloads
+    if (loadingRef.current) {
+      console.log('Load already in progress, skipping...');
+      return;
+    }
+
     try {
+      loadingRef.current = true;
       setLoading(true);
       
       const timestamp = new Date().toISOString();
@@ -150,8 +158,9 @@ export default function NoonSalesData() {
       });
     } finally {
       setLoading(false);
+      loadingRef.current = false; // Reset the ref
     }
-  };
+  }, [selectedCountry]); // Add dependency
 
   const handleDataUploaded = () => {
     toast({
