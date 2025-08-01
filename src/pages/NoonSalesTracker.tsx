@@ -1,7 +1,11 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Upload, BarChart3, FileText, Download, TrendingUp, DollarSign, Store } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Upload, BarChart3, FileText, Download, TrendingUp, DollarSign, Store, Plus } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -22,6 +26,13 @@ export default function NoonSalesTracker() {
   const [stores, setStores] = useState<Array<{id: string, name: string}>>([]);
   const [months, setMonths] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Store creation modal states
+  const [showStoreModal, setShowStoreModal] = useState(false);
+  const [newStoreName, setNewStoreName] = useState("");
+  const [newStoreLocation, setNewStoreLocation] = useState("");
+  const [newStoreDescription, setNewStoreDescription] = useState("");
+  const [isCreatingStore, setIsCreatingStore] = useState(false);
   
   const { toast } = useToast();
   const { selectedCountry } = useCountry();
@@ -166,6 +177,62 @@ export default function NoonSalesTracker() {
     });
   };
 
+  const handleCreateStore = async () => {
+    if (!newStoreName.trim()) {
+      toast({
+        title: "Store name required",
+        description: "Please enter a store name",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      setIsCreatingStore(true);
+      const user = await supabase.auth.getUser();
+      if (!user.data.user) throw new Error('User not authenticated');
+
+      const { data, error } = await supabase
+        .from('stores')
+        .insert({
+          user_id: user.data.user.id,
+          name: newStoreName.trim(),
+          location: newStoreLocation.trim() || null,
+          description: newStoreDescription.trim() || null,
+          country: selectedCountry,
+          currency: selectedCountry === 'UAE' ? 'AED' : 'SAR'
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Add to stores list and select it
+      setStores(prev => [...prev, { id: data.id, name: data.name }]);
+      setSelectedStore(data.id);
+      
+      // Reset modal
+      setNewStoreName("");
+      setNewStoreLocation("");
+      setNewStoreDescription("");
+      setShowStoreModal(false);
+
+      toast({
+        title: "Store created successfully",
+        description: `${data.name} has been added to your stores`,
+      });
+    } catch (error) {
+      console.error('Error creating store:', error);
+      toast({
+        title: "Error creating store",
+        description: "Please try again",
+        variant: "destructive"
+      });
+    } finally {
+      setIsCreatingStore(false);
+    }
+  };
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between mb-6">
@@ -180,7 +247,7 @@ export default function NoonSalesTracker() {
               <SelectTrigger className="w-48">
                 <SelectValue placeholder="Select store..." />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-background border z-50">
                 <SelectItem value="all">All Stores</SelectItem>
                 {stores.map((store) => (
                   <SelectItem key={store.id} value={store.id}>
@@ -189,12 +256,71 @@ export default function NoonSalesTracker() {
                 ))}
               </SelectContent>
             </Select>
+            <Dialog open={showStoreModal} onOpenChange={setShowStoreModal}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="flex items-center gap-1">
+                  <Plus className="h-3 w-3" />
+                  Add Store
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="bg-background border z-50">
+                <DialogHeader>
+                  <DialogTitle>Add New Noon Store</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="storeName">Store Name *</Label>
+                    <Input
+                      id="storeName"
+                      value={newStoreName}
+                      onChange={(e) => setNewStoreName(e.target.value)}
+                      placeholder="Enter store name..."
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="storeLocation">Location</Label>
+                    <Input
+                      id="storeLocation"
+                      value={newStoreLocation}
+                      onChange={(e) => setNewStoreLocation(e.target.value)}
+                      placeholder="Store location (optional)..."
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="storeDescription">Description</Label>
+                    <Textarea
+                      id="storeDescription"
+                      value={newStoreDescription}
+                      onChange={(e) => setNewStoreDescription(e.target.value)}
+                      placeholder="Store description (optional)..."
+                      rows={3}
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 pt-4">
+                    <Button 
+                      onClick={handleCreateStore} 
+                      disabled={isCreatingStore}
+                      className="flex-1"
+                    >
+                      {isCreatingStore ? "Creating..." : "Create Store"}
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setShowStoreModal(false)}
+                      disabled={isCreatingStore}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
           <Select value={selectedMonth} onValueChange={setSelectedMonth}>
             <SelectTrigger className="w-32">
               <SelectValue placeholder="Month..." />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="bg-background border z-50">
               <SelectItem value="all">All Months</SelectItem>
               {months.map((month) => (
                 <SelectItem key={month} value={month}>
