@@ -94,9 +94,19 @@ const paymentReportsItems = [
     icon: Upload
   },
   {
+    title: "Fees Reports",
+    url: "/noon-fees-reports",
+    icon: CreditCard
+  },
+  {
     title: "SKU Cost Management",
     url: "/noon-sku-costs",
     icon: DollarSign
+  },
+  {
+    title: "Analytics Dashboard",
+    url: "/noon-analytics",
+    icon: BarChart3
   }
 ]
 
