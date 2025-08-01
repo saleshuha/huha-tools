@@ -73,28 +73,60 @@ export default function PaymentReports() {
     try {
       setLoading(true);
       
-      const { data, error } = await supabase
+      // Step 1: Get exact total count
+      const { count: totalCount, error: countError } = await supabase
         .from('payment_reports')
-        .select(`
-          id,
-          store_id,
-          report_month,
-          upload_date,
-          file_name,
-          gross_amount,
-          net_amount,
-          stores(name)
-        `)
-        .eq('country_code', selectedCountry)
-        .order('upload_date', { ascending: false })
-        .limit(100);
+        .select('*', { count: 'exact', head: true })
+        .eq('country_code', selectedCountry);
 
-      if (error) throw error;
+      if (countError) throw countError;
+      
+      console.log('Total payment records in database:', totalCount);
 
-      // Group by report month and store to get summaries
+      if (!totalCount || totalCount === 0) {
+        setReportHistory([]);
+        return;
+      }
+
+      // Step 2: Fetch ALL records in batches to avoid limits
+      const batchSize = 1000;
+      const allRecords: any[] = [];
+      
+      for (let offset = 0; offset < totalCount; offset += batchSize) {
+        const { data: batchRecords, error: batchError } = await supabase
+          .from('payment_reports')
+          .select(`
+            id,
+            store_id,
+            report_month,
+            upload_date,
+            file_name,
+            gross_amount,
+            net_amount,
+            stores(name)
+          `)
+          .eq('country_code', selectedCountry)
+          .order('upload_date', { ascending: false })
+          .range(offset, offset + batchSize - 1);
+
+        if (batchError) throw batchError;
+        
+        if (batchRecords && batchRecords.length > 0) {
+          allRecords.push(...batchRecords);
+        }
+        
+        // Break if we got fewer records than expected (reached end)
+        if (!batchRecords || batchRecords.length < batchSize) {
+          break;
+        }
+      }
+
+      console.log('Total payment records fetched:', allRecords.length, 'of', totalCount);
+
+      // Step 3: Group by report month and store to get summaries
       const groupedData = new Map<string, PaymentReportHistory>();
       
-      data?.forEach(record => {
+      allRecords.forEach(record => {
         const key = `${record.store_id}-${record.report_month}`;
         if (!groupedData.has(key)) {
           groupedData.set(key, {
@@ -110,10 +142,21 @@ export default function PaymentReports() {
           const existing = groupedData.get(key)!;
           existing.record_count += 1;
           existing.total_amount += record.net_amount || 0;
+          // Keep the latest upload date
+          if (new Date(record.upload_date) > new Date(existing.upload_date)) {
+            existing.upload_date = record.upload_date;
+          }
         }
       });
 
-      setReportHistory(Array.from(groupedData.values()));
+      const summaryData = Array.from(groupedData.values()).sort((a, b) => 
+        new Date(b.upload_date).getTime() - new Date(a.upload_date).getTime()
+      );
+
+      console.log('Payment report summaries created:', summaryData.length);
+      console.log('Total records represented:', allRecords.length);
+
+      setReportHistory(summaryData);
     } catch (error) {
       console.error('Error loading report history:', error);
       toast({
