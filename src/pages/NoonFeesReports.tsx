@@ -74,7 +74,7 @@ export default function NoonFeesReports() {
     try {
       setLoading(true);
       
-      // Get total count first
+      // Step 1: Get exact total count
       const { count: totalCount, error: countError } = await supabase
         .from('noon_order_fees')
         .select('*', { count: 'exact', head: true })
@@ -83,25 +83,45 @@ export default function NoonFeesReports() {
       if (countError) throw countError;
       
       console.log('Total fees records in database:', totalCount);
+      setTotalRecords(totalCount || 0);
 
-      // Fetch ALL records using range with the exact count
-      const { data: allRecords, error } = await supabase
-        .from('noon_order_fees')
-        .select('store_id, report_month, upload_date')
-        .eq('country_code', selectedCountry)
-        .range(0, totalCount ? totalCount - 1 : 0);
-
-      if (error) throw error;
-
-      console.log('Fees records fetched:', allRecords?.length, 'of', totalCount);
-
-      if (!allRecords || allRecords.length === 0) {
+      if (!totalCount || totalCount === 0) {
         setFeesSummary([]);
         setTotalRecords(0);
         return;
       }
 
-      // Get store names
+      // Step 2: Fetch ALL records in batches to avoid limits
+      const batchSize = 1000;
+      const allRecords: Array<{ store_id: string; report_month: string; upload_date: string }> = [];
+      
+      for (let offset = 0; offset < totalCount; offset += batchSize) {
+        const { data: batchRecords, error: batchError } = await supabase
+          .from('noon_order_fees')
+          .select('store_id, report_month, upload_date')
+          .eq('country_code', selectedCountry)
+          .range(offset, offset + batchSize - 1);
+
+        if (batchError) throw batchError;
+        
+        if (batchRecords && batchRecords.length > 0) {
+          allRecords.push(...batchRecords);
+        }
+        
+        // Break if we got fewer records than expected (reached end)
+        if (!batchRecords || batchRecords.length < batchSize) {
+          break;
+        }
+      }
+
+      console.log('Total fees records fetched:', allRecords.length, 'of', totalCount);
+
+      if (allRecords.length === 0) {
+        setFeesSummary([]);
+        return;
+      }
+
+      // Step 3: Get store names
       const uniqueStoreIds = [...new Set(allRecords.map(r => r.store_id))];
       const { data: stores } = await supabase
         .from('stores')
@@ -110,7 +130,7 @@ export default function NoonFeesReports() {
 
       const storeMap = new Map(stores?.map(s => [s.id, s.name]) || []);
 
-      // Group and count
+      // Step 4: Group and aggregate
       const groupedSummary = new Map<string, FeesSummary>();
       
       allRecords.forEach(record => {
@@ -127,6 +147,7 @@ export default function NoonFeesReports() {
         } else {
           const existing = groupedSummary.get(key)!;
           existing.record_count += 1;
+          // Keep the latest upload date
           if (new Date(record.upload_date) > new Date(existing.upload_date)) {
             existing.upload_date = record.upload_date;
           }
@@ -137,11 +158,10 @@ export default function NoonFeesReports() {
         new Date(b.upload_date).getTime() - new Date(a.upload_date).getTime()
       );
 
-      const finalTotal = summary.reduce((sum, s) => sum + s.record_count, 0);
-      console.log('Final total for UI:', finalTotal);
+      console.log('Summary groups created:', summary.length);
+      console.log('Total records represented:', allRecords.length);
       
       setFeesSummary(summary);
-      setTotalRecords(finalTotal);
       
     } catch (error) {
       console.error('Error loading fees summary:', error);
