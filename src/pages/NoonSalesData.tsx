@@ -90,7 +90,8 @@ export default function NoonSalesData() {
           stores(name)
         `)
         .eq('country_code', selectedCountry)
-        .order('upload_date', { ascending: false });
+        .order('upload_date', { ascending: false })
+        .limit(5000); // Increase limit to handle large uploads
 
       if (error) throw error;
 
