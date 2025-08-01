@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Plus, Edit, Save, X, Upload, Download, DollarSign, Store, ArrowLeft } from "lucide-react";
+import { Search, Plus, Edit, Save, X, Upload, Download, DollarSign, Store, ArrowLeft, List } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
@@ -34,6 +34,7 @@ interface Store {
 export default function SKUCostManagement() {
   const [costs, setCosts] = useState<SKUCost[]>([]);
   const [stores, setStores] = useState<Store[]>([]);
+  const [availableSkus, setAvailableSkus] = useState<string[]>([]);
   const [selectedStore, setSelectedStore] = useState<string>("");
   const [editingSku, setEditingSku] = useState<string | null>(null);
   const [editingCost, setEditingCost] = useState<string>("");
@@ -45,7 +46,9 @@ export default function SKUCostManagement() {
   const [bulkCostData, setBulkCostData] = useState<string>("");
   const [showBulkDialog, setShowBulkDialog] = useState(false);
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showSkuListDialog, setShowSkuListDialog] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadingSkus, setLoadingSkus] = useState(false);
   const { selectedCountry } = useCountry();
   const { toast } = useToast();
 
@@ -107,6 +110,59 @@ export default function SKUCostManagement() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchAvailableSkus = async () => {
+    try {
+      setLoadingSkus(true);
+      const skuSet = new Set<string>();
+
+      // Fetch SKUs from noon_sales_data
+      const { data: salesSkus, error: salesError } = await supabase
+        .from('noon_sales_data')
+        .select('sku')
+        .eq('country_code', selectedCountry)
+        .not('sku', 'is', null)
+        .neq('sku', '');
+
+      if (salesError) throw salesError;
+      salesSkus?.forEach(item => item.sku && skuSet.add(item.sku));
+
+      // Fetch SKUs from noon_order_fees
+      const { data: feesSkus, error: feesError } = await supabase
+        .from('noon_order_fees')
+        .select('sku')
+        .eq('country_code', selectedCountry)
+        .not('sku', 'is', null)
+        .neq('sku', '');
+
+      if (feesError) throw feesError;
+      feesSkus?.forEach(item => item.sku && skuSet.add(item.sku));
+
+      const uniqueSkus = Array.from(skuSet).sort();
+      setAvailableSkus(uniqueSkus);
+
+      toast({
+        title: "SKUs loaded",
+        description: `Found ${uniqueSkus.length} unique SKUs from uploaded data`,
+      });
+
+    } catch (error) {
+      console.error('Error fetching available SKUs:', error);
+      toast({
+        title: "Error loading SKUs",
+        description: "Failed to load SKUs from sales data",
+        variant: "destructive"
+      });
+    } finally {
+      setLoadingSkus(false);
+    }
+  };
+
+  const addSkuCost = async (sku: string) => {
+    setNewSku(sku);
+    setShowSkuListDialog(false);
+    setShowAddDialog(true);
   };
 
   const saveCost = async (sku: string, cost: number, notes?: string, isUpdate = false) => {
@@ -497,6 +553,14 @@ export default function SKUCostManagement() {
                     </DialogContent>
                   </Dialog>
 
+                  <Button variant="outline" onClick={() => {
+                    fetchAvailableSkus();
+                    setShowSkuListDialog(true);
+                  }}>
+                    <List className="h-4 w-4 mr-2" />
+                    From Sales Data
+                  </Button>
+
                   <Dialog open={showBulkDialog} onOpenChange={setShowBulkDialog}>
                     <DialogTrigger asChild>
                       <Button variant="outline">
@@ -526,6 +590,70 @@ export default function SKUCostManagement() {
                           </Button>
                           <Button onClick={handleBulkImport}>
                             Import Costs
+                          </Button>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+
+                  {/* SKU List Dialog */}
+                  <Dialog open={showSkuListDialog} onOpenChange={setShowSkuListDialog}>
+                    <DialogContent className="max-w-4xl max-h-[80vh]">
+                      <DialogHeader>
+                        <DialogTitle>Available SKUs from Sales Data</DialogTitle>
+                        <p className="text-sm text-muted-foreground">
+                          Click on any SKU to add cost information
+                        </p>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        {loadingSkus ? (
+                          <div className="flex items-center justify-center py-8">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mr-2"></div>
+                            Loading SKUs...
+                          </div>
+                        ) : availableSkus.length === 0 ? (
+                          <div className="text-center py-8">
+                            <List className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                            <h3 className="text-lg font-medium text-slate-900 mb-2">No SKUs Found</h3>
+                            <p className="text-slate-600">
+                              No SKUs found in uploaded sales data for {selectedCountry}
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="max-h-96 overflow-y-auto">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                              {availableSkus.map((sku, index) => {
+                                const hasCost = costs.some(c => c.sku === sku);
+                                return (
+                                  <div
+                                    key={index}
+                                    className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                                      hasCost 
+                                        ? 'border-green-200 bg-green-50 hover:bg-green-100' 
+                                        : 'border-slate-200 hover:border-primary hover:bg-primary/5'
+                                    }`}
+                                    onClick={() => !hasCost && addSkuCost(sku)}
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <span className="font-medium text-sm">{sku}</span>
+                                      {hasCost && (
+                                        <Badge variant="secondary" className="text-xs">
+                                          Has Cost
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                        <div className="flex justify-between items-center pt-4 border-t">
+                          <p className="text-sm text-muted-foreground">
+                            {availableSkus.length} SKUs found • {costs.length} have costs assigned
+                          </p>
+                          <Button variant="outline" onClick={() => setShowSkuListDialog(false)}>
+                            Close
                           </Button>
                         </div>
                       </div>
