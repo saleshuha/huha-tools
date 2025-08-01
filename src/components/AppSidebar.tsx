@@ -1,4 +1,4 @@
-import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, Wrench, LogOut, Home, Users, TrendingUp, Merge, Edit3, Database, CreditCard, Upload, BarChart3 } from "lucide-react"
+import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, Wrench, LogOut, Home, Users, TrendingUp, Merge, Edit3, Database, CreditCard, Upload, BarChart3, DollarSign } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
 import { useState } from "react"
 import { supabase } from "@/integrations/supabase/client"
@@ -82,6 +82,11 @@ const paymentReportsItems = [
     title: "Noon Sales Tracker",
     url: "/noon-sales-tracker",
     icon: BarChart3
+  },
+  {
+    title: "SKU Cost Management",
+    url: "/sku-costs",
+    icon: DollarSign
   },
   {
     title: "Carrefour Sales Tracker",

@@ -5,17 +5,23 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { NoonOrderFeesData } from "@/types/noon-fees";
-import { Search, Plus, Edit, Save, X, Upload, Download } from "lucide-react";
+import { Search, Plus, Edit, Save, X, Upload, Download, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { useCountry } from "@/contexts/CountryContext";
+import { supabase } from "@/integrations/supabase/client";
+import { Link } from "react-router-dom";
 import Papa from "papaparse";
 
 export interface SKUCost {
+  id?: string;
   sku: string;
   cost: number;
-  lastUpdated: Date;
+  country: string;
   notes?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 interface SKUCostManagerProps {
@@ -109,7 +115,7 @@ export function SKUCostManager({ feesData, onCostsUpdated }: SKUCostManagerProps
     const costData: SKUCost = {
       sku: editingSku,
       cost,
-      lastUpdated: new Date(),
+      country: "UAE", // Default for now
       notes: editingNotes.trim() || undefined
     };
 
@@ -164,7 +170,7 @@ export function SKUCostManager({ feesData, onCostsUpdated }: SKUCostManagerProps
             const costData: SKUCost = {
               sku,
               cost,
-              lastUpdated: new Date(),
+              country: "UAE", // Default for now
               notes: notes || undefined
             };
 

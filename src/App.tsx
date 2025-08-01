@@ -26,6 +26,7 @@ import ExcelEditorPage from "./pages/ExcelEditor";
 import NoonSalesTracker from "./pages/NoonSalesTracker";
 import CarrefourSalesTracker from "./pages/CarrefourPayments";
 import StoreSelection from "./pages/StoreSelection";
+import SKUCostManagement from "./pages/SKUCostManagement";
 
 
 
@@ -130,6 +131,7 @@ const App = () => {
                     <Route path="/replenishment" element={<ReplenishmentPage />} />
                     <Route path="/excel-editor" element={<ExcelEditorPage />} />
                     <Route path="/noon-sales-tracker" element={<NoonSalesTracker />} />
+                    <Route path="/sku-costs" element={<SKUCostManagement />} />
                     <Route path="/carrefour-payments" element={<Navigate to="/stores" replace />} />
                     <Route path="/stores" element={<StoreSelection />} />
                     <Route path="/carrefour-payments/:storeId" element={<CarrefourSalesTracker />} />
