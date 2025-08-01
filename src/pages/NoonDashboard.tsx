@@ -46,9 +46,9 @@ const modules = [{
   title: "Payment Reports",
   description: "Upload and track payment reports from Noon",
   icon: CreditCard,
-  href: "/noon-payments",
+  href: "/payment-reports",
   color: "bg-indigo-500",
-  status: "coming-soon"
+  status: "active"
 }, {
   title: "Analytics Dashboard",
   description: "Comprehensive analytics and reports",
