@@ -99,9 +99,14 @@ const paymentReportsItems = [
     icon: CreditCard
   },
   {
+    title: "Payment Reports",
+    url: "/payment-reports",
+    icon: DollarSign
+  },
+  {
     title: "SKU Cost Management",
     url: "/noon-sku-costs",
-    icon: DollarSign
+    icon: Database
   },
   {
     title: "Analytics Dashboard",

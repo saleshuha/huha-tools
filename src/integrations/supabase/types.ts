@@ -764,6 +764,95 @@ export type Database = {
           },
         ]
       }
+      payment_reports: {
+        Row: {
+          adjustments: number | null
+          commission: number | null
+          country_code: string
+          created_at: string
+          currency: string | null
+          description: string | null
+          fees: number | null
+          file_name: string | null
+          gross_amount: number | null
+          id: string
+          net_amount: number | null
+          order_id: string | null
+          payment_date: string | null
+          payment_method: string | null
+          refunds: number | null
+          report_month: string
+          report_period_end: string | null
+          report_period_start: string | null
+          store_id: string | null
+          tax: number | null
+          transaction_id: string | null
+          updated_at: string
+          upload_date: string
+          user_id: string
+        }
+        Insert: {
+          adjustments?: number | null
+          commission?: number | null
+          country_code?: string
+          created_at?: string
+          currency?: string | null
+          description?: string | null
+          fees?: number | null
+          file_name?: string | null
+          gross_amount?: number | null
+          id?: string
+          net_amount?: number | null
+          order_id?: string | null
+          payment_date?: string | null
+          payment_method?: string | null
+          refunds?: number | null
+          report_month: string
+          report_period_end?: string | null
+          report_period_start?: string | null
+          store_id?: string | null
+          tax?: number | null
+          transaction_id?: string | null
+          updated_at?: string
+          upload_date?: string
+          user_id: string
+        }
+        Update: {
+          adjustments?: number | null
+          commission?: number | null
+          country_code?: string
+          created_at?: string
+          currency?: string | null
+          description?: string | null
+          fees?: number | null
+          file_name?: string | null
+          gross_amount?: number | null
+          id?: string
+          net_amount?: number | null
+          order_id?: string | null
+          payment_date?: string | null
+          payment_method?: string | null
+          refunds?: number | null
+          report_month?: string
+          report_period_end?: string | null
+          report_period_start?: string | null
+          store_id?: string | null
+          tax?: number | null
+          transaction_id?: string | null
+          updated_at?: string
+          upload_date?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_payment_reports_store"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payments: {
         Row: {
           amount: number
