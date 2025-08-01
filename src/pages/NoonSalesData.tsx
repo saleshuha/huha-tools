@@ -81,58 +81,71 @@ export default function NoonSalesData() {
       
       console.log('Loading upload history for country:', selectedCountry);
 
-      // Use a raw SQL query to get accurate counts and avoid client-side limitations
-      const { data: aggregatedData, error } = await supabase
-        .rpc('get_noon_sales_upload_summary', {
-          country_filter: selectedCountry
-        });
+      // First, get unique combinations of store_id and report_month
+      const { data: uniqueCombinations, error: uniqueError } = await supabase
+        .from('noon_sales_data')
+        .select('store_id, report_month, upload_date')
+        .eq('country_code', selectedCountry)
+        .order('upload_date', { ascending: false });
 
-      if (error) {
-        console.error('RPC error, falling back to manual aggregation:', error);
-        
-        // Fallback: Get unique combinations first, then count separately
-        const { data: uniqueUploads, error: uniqueError } = await supabase
-          .from('noon_sales_data')
-          .select('store_id, report_month, upload_date')
-          .eq('country_code', selectedCountry)
-          .order('upload_date', { ascending: false });
+      if (uniqueError) throw uniqueError;
 
-        if (uniqueError) throw uniqueError;
+      console.log('Total records fetched:', uniqueCombinations?.length);
 
-        // Get store names
-        const storeIds = [...new Set(uniqueUploads?.map(u => u.store_id) || [])];
-        const { data: stores, error: storeError } = await supabase
-          .from('stores')
-          .select('id, name')
-          .in('id', storeIds);
-
-        if (storeError) throw storeError;
-
-        const storeMap = new Map(stores?.map(s => [s.id, s.name]) || []);
-
-        // Group and count manually
-        const grouped = new Map<string, any>();
-        uniqueUploads?.forEach(upload => {
-          const key = `${upload.store_id}-${upload.report_month}`;
-          if (!grouped.has(key)) {
-            grouped.set(key, {
-              id: crypto.randomUUID(),
-              store_name: storeMap.get(upload.store_id) || 'Unknown Store',
-              report_month: upload.report_month,
-              upload_date: upload.upload_date,
-              record_count: 0
-            });
-          }
-          grouped.get(key)!.record_count += 1;
-        });
-
-        console.log('Manual aggregation result:', Array.from(grouped.values()));
-        setUploadHistory(Array.from(grouped.values()));
+      // Get unique store IDs for fetching store names
+      const storeIds = [...new Set(uniqueCombinations?.map(u => u.store_id) || [])];
+      
+      if (storeIds.length === 0) {
+        setUploadHistory([]);
         return;
       }
 
-      console.log('RPC aggregation result:', aggregatedData);
-      setUploadHistory(aggregatedData || []);
+      // Fetch store names
+      const { data: stores, error: storeError } = await supabase
+        .from('stores')
+        .select('id, name')
+        .in('id', storeIds);
+
+      if (storeError) throw storeError;
+
+      const storeMap = new Map(stores?.map(s => [s.id, s.name]) || []);
+
+      // Group by store_id and report_month, count records for each combination
+      const grouped = new Map<string, UploadHistory>();
+      
+      for (const record of uniqueCombinations || []) {
+        const key = `${record.store_id}-${record.report_month}`;
+        
+        if (!grouped.has(key)) {
+          // Count records for this specific combination
+          const { count, error: countError } = await supabase
+            .from('noon_sales_data')
+            .select('*', { count: 'exact', head: true })
+            .eq('country_code', selectedCountry)
+            .eq('store_id', record.store_id)
+            .eq('report_month', record.report_month);
+
+          if (countError) {
+            console.error('Error counting records for', key, countError);
+            continue;
+          }
+
+          grouped.set(key, {
+            id: crypto.randomUUID(),
+            store_name: storeMap.get(record.store_id) || 'Unknown Store',
+            report_month: record.report_month,
+            upload_date: record.upload_date,
+            record_count: count || 0
+          });
+        }
+      }
+
+      const result = Array.from(grouped.values()).sort((a, b) => 
+        new Date(b.upload_date).getTime() - new Date(a.upload_date).getTime()
+      );
+
+      console.log('Final upload history with accurate counts:', result);
+      setUploadHistory(result);
       
     } catch (error) {
       console.error('Error loading upload history:', error);
