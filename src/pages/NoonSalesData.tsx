@@ -79,53 +79,61 @@ export default function NoonSalesData() {
     try {
       setLoading(true);
       
-      // Get actual counts per group using a direct aggregation query
-      console.log('Querying with country_code:', selectedCountry);
-      const { data: countData, error: countError } = await supabase
-        .from('noon_sales_data')
-        .select('store_id, report_month, upload_date')
-        .eq('country_code', selectedCountry)
-        .range(0, 9999); // Use range instead of limit to ensure we get all records
+      console.log('Loading upload history for country:', selectedCountry);
 
-      if (countError) throw countError;
-      
-      console.log('Total records fetched for counting:', countData?.length);
+      // Use a raw SQL query to get accurate counts and avoid client-side limitations
+      const { data: aggregatedData, error } = await supabase
+        .rpc('get_noon_sales_upload_summary', {
+          country_filter: selectedCountry
+        });
 
-      // Count records per group
-      const counts = new Map<string, number>();
-      const uploads = new Map<string, any>();
-      
-      countData?.forEach(record => {
-        const key = `${record.store_id}-${record.report_month}`;
-        counts.set(key, (counts.get(key) || 0) + 1);
-        if (!uploads.has(key)) {
-          uploads.set(key, record);
-        }
-      });
-      
-      console.log('Grouped counts:', Array.from(counts.entries()));
-      
-      // Get store names for the uploads
-      const { data: storeData, error: storeError } = await supabase
-        .from('stores')
-        .select('id, name')
-        .in('id', Array.from(uploads.values()).map(u => u.store_id));
+      if (error) {
+        console.error('RPC error, falling back to manual aggregation:', error);
+        
+        // Fallback: Get unique combinations first, then count separately
+        const { data: uniqueUploads, error: uniqueError } = await supabase
+          .from('noon_sales_data')
+          .select('store_id, report_month, upload_date')
+          .eq('country_code', selectedCountry)
+          .order('upload_date', { ascending: false });
 
-      if (storeError) throw storeError;
+        if (uniqueError) throw uniqueError;
+
+        // Get store names
+        const storeIds = [...new Set(uniqueUploads?.map(u => u.store_id) || [])];
+        const { data: stores, error: storeError } = await supabase
+          .from('stores')
+          .select('id, name')
+          .in('id', storeIds);
+
+        if (storeError) throw storeError;
+
+        const storeMap = new Map(stores?.map(s => [s.id, s.name]) || []);
+
+        // Group and count manually
+        const grouped = new Map<string, any>();
+        uniqueUploads?.forEach(upload => {
+          const key = `${upload.store_id}-${upload.report_month}`;
+          if (!grouped.has(key)) {
+            grouped.set(key, {
+              id: crypto.randomUUID(),
+              store_name: storeMap.get(upload.store_id) || 'Unknown Store',
+              report_month: upload.report_month,
+              upload_date: upload.upload_date,
+              record_count: 0
+            });
+          }
+          grouped.get(key)!.record_count += 1;
+        });
+
+        console.log('Manual aggregation result:', Array.from(grouped.values()));
+        setUploadHistory(Array.from(grouped.values()));
+        return;
+      }
+
+      console.log('RPC aggregation result:', aggregatedData);
+      setUploadHistory(aggregatedData || []);
       
-      const storeNames = new Map(storeData?.map(s => [s.id, s.name]) || []);
-      
-      // Create upload history entries
-      const history = Array.from(uploads.entries()).map(([key, record]) => ({
-        id: crypto.randomUUID(),
-        store_name: storeNames.get(record.store_id) || 'Unknown Store',
-        report_month: record.report_month,
-        upload_date: record.upload_date,
-        record_count: counts.get(key) || 0
-      }));
-      
-      console.log('Final upload history:', history);
-      setUploadHistory(history);
     } catch (error) {
       console.error('Error loading upload history:', error);
       toast({
