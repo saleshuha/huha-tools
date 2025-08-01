@@ -454,6 +454,203 @@ export type Database = {
         }
         Relationships: []
       }
+      noon_order_fees: {
+        Row: {
+          awb_nr: string | null
+          base_price: number | null
+          brand: string | null
+          country_code: string
+          created_at: string
+          creditnote_nr: string | null
+          currency_code: string | null
+          delivered_date: string | null
+          family: string | null
+          fee_alternate_seller_fulfillment: number | null
+          fee_crossdock: number | null
+          fee_damaged_return: number | null
+          fee_direct_collection: number | null
+          fee_directship_outbound: number | null
+          fee_item_cancellation: number | null
+          fee_miscellaneous: number | null
+          fee_noon_markup: number | null
+          fee_noon_penalty: number | null
+          fee_noon_promo: number | null
+          fee_noon_rocket_referral: number | null
+          fee_outbound_fbn: number | null
+          fee_referral: number | null
+          fee_reinvoicing: number | null
+          fee_retention_penalty: number | null
+          fee_shipping: number | null
+          fee_warranty_penalty: number | null
+          fee_weight_handling: number | null
+          fulfillment_mode: string | null
+          id: string
+          id_partner: string | null
+          invoice_nr: string | null
+          invoice_price: number | null
+          item_nr: string | null
+          item_status: string | null
+          last_statement_date: string | null
+          marketplace: string | null
+          noon_markup: number | null
+          offer_price: number | null
+          order_nr: string
+          ordered_date: string | null
+          partner_sales_nr: string | null
+          partner_sku: string | null
+          product_title: string | null
+          product_type: string | null
+          promo_coupon: number | null
+          promo_deal: number | null
+          report_month: string
+          report_period_end: string | null
+          report_period_start: string | null
+          returned_date: string | null
+          seller_price: number | null
+          seller_promo: number | null
+          shipped_date: string | null
+          sku: string | null
+          statement_nr: string | null
+          store_id: string | null
+          total_payment: number | null
+          updated_at: string
+          upload_date: string
+          user_id: string
+        }
+        Insert: {
+          awb_nr?: string | null
+          base_price?: number | null
+          brand?: string | null
+          country_code?: string
+          created_at?: string
+          creditnote_nr?: string | null
+          currency_code?: string | null
+          delivered_date?: string | null
+          family?: string | null
+          fee_alternate_seller_fulfillment?: number | null
+          fee_crossdock?: number | null
+          fee_damaged_return?: number | null
+          fee_direct_collection?: number | null
+          fee_directship_outbound?: number | null
+          fee_item_cancellation?: number | null
+          fee_miscellaneous?: number | null
+          fee_noon_markup?: number | null
+          fee_noon_penalty?: number | null
+          fee_noon_promo?: number | null
+          fee_noon_rocket_referral?: number | null
+          fee_outbound_fbn?: number | null
+          fee_referral?: number | null
+          fee_reinvoicing?: number | null
+          fee_retention_penalty?: number | null
+          fee_shipping?: number | null
+          fee_warranty_penalty?: number | null
+          fee_weight_handling?: number | null
+          fulfillment_mode?: string | null
+          id?: string
+          id_partner?: string | null
+          invoice_nr?: string | null
+          invoice_price?: number | null
+          item_nr?: string | null
+          item_status?: string | null
+          last_statement_date?: string | null
+          marketplace?: string | null
+          noon_markup?: number | null
+          offer_price?: number | null
+          order_nr: string
+          ordered_date?: string | null
+          partner_sales_nr?: string | null
+          partner_sku?: string | null
+          product_title?: string | null
+          product_type?: string | null
+          promo_coupon?: number | null
+          promo_deal?: number | null
+          report_month: string
+          report_period_end?: string | null
+          report_period_start?: string | null
+          returned_date?: string | null
+          seller_price?: number | null
+          seller_promo?: number | null
+          shipped_date?: string | null
+          sku?: string | null
+          statement_nr?: string | null
+          store_id?: string | null
+          total_payment?: number | null
+          updated_at?: string
+          upload_date?: string
+          user_id: string
+        }
+        Update: {
+          awb_nr?: string | null
+          base_price?: number | null
+          brand?: string | null
+          country_code?: string
+          created_at?: string
+          creditnote_nr?: string | null
+          currency_code?: string | null
+          delivered_date?: string | null
+          family?: string | null
+          fee_alternate_seller_fulfillment?: number | null
+          fee_crossdock?: number | null
+          fee_damaged_return?: number | null
+          fee_direct_collection?: number | null
+          fee_directship_outbound?: number | null
+          fee_item_cancellation?: number | null
+          fee_miscellaneous?: number | null
+          fee_noon_markup?: number | null
+          fee_noon_penalty?: number | null
+          fee_noon_promo?: number | null
+          fee_noon_rocket_referral?: number | null
+          fee_outbound_fbn?: number | null
+          fee_referral?: number | null
+          fee_reinvoicing?: number | null
+          fee_retention_penalty?: number | null
+          fee_shipping?: number | null
+          fee_warranty_penalty?: number | null
+          fee_weight_handling?: number | null
+          fulfillment_mode?: string | null
+          id?: string
+          id_partner?: string | null
+          invoice_nr?: string | null
+          invoice_price?: number | null
+          item_nr?: string | null
+          item_status?: string | null
+          last_statement_date?: string | null
+          marketplace?: string | null
+          noon_markup?: number | null
+          offer_price?: number | null
+          order_nr?: string
+          ordered_date?: string | null
+          partner_sales_nr?: string | null
+          partner_sku?: string | null
+          product_title?: string | null
+          product_type?: string | null
+          promo_coupon?: number | null
+          promo_deal?: number | null
+          report_month?: string
+          report_period_end?: string | null
+          report_period_start?: string | null
+          returned_date?: string | null
+          seller_price?: number | null
+          seller_promo?: number | null
+          shipped_date?: string | null
+          sku?: string | null
+          statement_nr?: string | null
+          store_id?: string | null
+          total_payment?: number | null
+          updated_at?: string
+          upload_date?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "noon_order_fees_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payments: {
         Row: {
           amount: number
