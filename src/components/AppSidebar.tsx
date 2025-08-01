@@ -214,9 +214,9 @@ export function AppSidebar() {
                                 <CreditCard className="h-4 w-4 flex-shrink-0" />
                                 {!isCollapsed && (
                                   <>
-                                    <span className="font-medium text-sm flex-1 text-left">
-                                      Payment Reports
-                                    </span>
+                                     <span className="font-medium text-sm flex-1 text-left">
+                                       Noon Reports
+                                     </span>
                                     <ChevronDown className={`h-3 w-3 transition-transform ml-auto ${
                                       isPaymentReportsOpen ? "rotate-180" : ""
                                     }`} />
