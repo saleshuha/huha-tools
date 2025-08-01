@@ -93,8 +93,8 @@ export function ColumnMappingWizard({ fileData, expectedColumns, onMappingComple
   const isComplete = mappedCount >= Math.min(4, expectedColumns.length); // At least 4 core columns
 
   return (
-    <div className="space-y-6">
-      <Card>
+    <div className="space-y-6 max-h-[90vh] overflow-hidden flex flex-col">
+      <Card className="flex-shrink-0">
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             Column Mapping
@@ -114,21 +114,21 @@ export function ColumnMappingWizard({ fileData, expectedColumns, onMappingComple
               </Button>
             </div>
             
-            <div className="grid gap-4">
+            <div className="grid gap-4 max-h-64 overflow-y-auto pr-2">
               {expectedColumns.map((expectedCol) => (
                 <div key={expectedCol} className="flex items-center gap-4">
-                  <div className="w-48">
+                  <div className="w-48 flex-shrink-0">
                     <div className="flex items-center gap-2">
                       {autoMapped.includes(expectedCol) && (
                         <CheckCircle className="h-4 w-4 text-green-500" />
                       )}
-                      <span className="font-medium">{expectedCol}</span>
+                      <span className="font-medium text-sm">{expectedCol}</span>
                     </div>
                   </div>
                   
-                  <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                  <ArrowRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                   
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <Select
                       value={columnMapping[expectedCol] || ""}
                       onValueChange={(value) => handleColumnChange(expectedCol, value)}
@@ -136,7 +136,7 @@ export function ColumnMappingWizard({ fileData, expectedColumns, onMappingComple
                       <SelectTrigger>
                         <SelectValue placeholder="Select column from your file" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="bg-background border z-50">
                         {headers.map((header: string) => (
                           <SelectItem key={header} value={header}>
                             {header}
@@ -152,31 +152,31 @@ export function ColumnMappingWizard({ fileData, expectedColumns, onMappingComple
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
+      <Card className="flex-1 min-h-0 flex flex-col">
+        <CardHeader className="flex-shrink-0">
           <CardTitle>Sample Data Preview</CardTitle>
         </CardHeader>
-        <CardContent className="p-0">
-          <div className="max-h-96 overflow-auto border rounded-lg m-4">
-            <div className="overflow-x-auto">
+        <CardContent className="p-0 flex-1 min-h-0 flex flex-col">
+          <div className="flex-1 min-h-0 overflow-auto border rounded-lg m-4">
+            <div className="overflow-auto">
               <table className="w-full text-sm">
-                <thead className="sticky top-0 bg-background">
+                <thead className="sticky top-0 bg-background z-10 border-b">
                   <tr>
                     {Object.keys(columnMapping).map(expectedCol => (
-                      <th key={expectedCol} className="text-left p-3 border-b font-medium whitespace-nowrap">
+                      <th key={expectedCol} className="text-left p-3 font-medium whitespace-nowrap bg-background">
                         {expectedCol}
                       </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.slice(0, 5).map((row: any[], index: number) => (
+                  {rows.slice(0, 10).map((row: any[], index: number) => (
                     <tr key={index} className="hover:bg-muted/50">
                       {Object.values(columnMapping).map((headerCol, colIndex) => {
                         const headerIndex = headers.indexOf(headerCol);
                         const value = headerIndex !== -1 ? row[headerIndex] : '-';
                         return (
-                          <td key={colIndex} className="p-3 border-b whitespace-nowrap max-w-xs truncate" title={value}>
+                          <td key={colIndex} className="p-3 border-b whitespace-nowrap max-w-xs truncate" title={String(value)}>
                             {value}
                           </td>
                         );
@@ -190,7 +190,7 @@ export function ColumnMappingWizard({ fileData, expectedColumns, onMappingComple
         </CardContent>
       </Card>
 
-      <div className="flex justify-end">
+      <div className="flex justify-end flex-shrink-0">
         <Button 
           onClick={processData} 
           disabled={!isComplete}
