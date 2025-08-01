@@ -59,25 +59,18 @@ export function NoonFeesTable({ feesData }: NoonFeesTableProps) {
   const currentData = filteredData.slice(startIndex, endIndex);
 
   const calculateTotalFees = (order: NoonOrderFeesData) => {
-    return (
-      (order.fee_referral || 0) +
-      (order.fee_shipping || 0) +
-      (order.fee_noon_promo || 0) +
-      (order.fee_noon_markup || 0) +
-      (order.fee_outbound_fbn || 0) +
-      (order.fee_weight_handling || 0) +
-      (order.fee_crossdock || 0) +
-      (order.fee_directship_outbound || 0) +
-      (order.fee_damaged_return || 0) +
-      (order.fee_noon_penalty || 0) +
-      (order.fee_item_cancellation || 0) +
-      (order.fee_warranty_penalty || 0) +
-      (order.fee_retention_penalty || 0) +
-      (order.fee_alternate_seller_fulfillment || 0) +
-      (order.fee_miscellaneous || 0) +
-      (order.fee_direct_collection || 0) +
-      (order.fee_reinvoicing || 0)
-    );
+    const fees = [
+      'fee_referral', 'fee_shipping', 'fee_noon_promo', 'fee_noon_markup',
+      'fee_outbound_fbn', 'fee_weight_handling', 'fee_crossdock', 'fee_directship_outbound',
+      'fee_damaged_return', 'fee_noon_penalty', 'fee_item_cancellation', 'fee_warranty_penalty',
+      'fee_retention_penalty', 'fee_alternate_seller_fulfillment', 'fee_miscellaneous',
+      'fee_direct_collection', 'fee_reinvoicing', 'fee_noon_rocket_referral'
+    ];
+    
+    return fees.reduce((total, feeField) => {
+      const feeValue = Number(order[feeField as keyof NoonOrderFeesData]) || 0;
+      return total + feeValue;
+    }, 0);
   };
 
   const exportToCSV = () => {

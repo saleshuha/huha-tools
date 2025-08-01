@@ -21,35 +21,41 @@ export function NoonFeesAnalytics({ feesData }: NoonFeesAnalyticsProps) {
       };
     }
 
-    const totalOrders = feesData.length;
-    const totalRevenue = feesData.reduce((sum, order) => sum + (order.invoice_price || 0), 0);
-    const totalFees = feesData.reduce((sum, order) => {
-      return sum + (
-        (order.fee_referral || 0) +
-        (order.fee_shipping || 0) +
-        (order.fee_noon_promo || 0) +
-        (order.fee_noon_markup || 0) +
-        (order.fee_outbound_fbn || 0) +
-        (order.fee_weight_handling || 0) +
-        (order.fee_crossdock || 0) +
-        (order.fee_directship_outbound || 0) +
-        (order.fee_damaged_return || 0) +
-        (order.fee_noon_penalty || 0) +
-        (order.fee_item_cancellation || 0) +
-        (order.fee_warranty_penalty || 0) +
-        (order.fee_retention_penalty || 0) +
-        (order.fee_alternate_seller_fulfillment || 0) +
-        (order.fee_miscellaneous || 0) +
-        (order.fee_direct_collection || 0) +
-        (order.fee_reinvoicing || 0)
-      );
-    }, 0);
-    const netPayment = feesData.reduce((sum, order) => sum + (order.total_payment || 0), 0);
-    const averageOrderValue = totalRevenue / totalOrders;
-    const totalReturns = feesData.filter(order => order.returned_date).length;
-    const returnRate = (totalReturns / totalOrders) * 100;
+    console.log('Calculating summary for data:', feesData.slice(0, 2));
 
-    return {
+    const totalOrders = feesData.length;
+    const totalRevenue = feesData.reduce((sum, order) => {
+      const invoicePrice = Number(order.invoice_price) || 0;
+      return sum + invoicePrice;
+    }, 0);
+    
+    const totalFees = feesData.reduce((sum, order) => {
+      const fees = [
+        'fee_referral', 'fee_shipping', 'fee_noon_promo', 'fee_noon_markup',
+        'fee_outbound_fbn', 'fee_weight_handling', 'fee_crossdock', 'fee_directship_outbound',
+        'fee_damaged_return', 'fee_noon_penalty', 'fee_item_cancellation', 'fee_warranty_penalty',
+        'fee_retention_penalty', 'fee_alternate_seller_fulfillment', 'fee_miscellaneous',
+        'fee_direct_collection', 'fee_reinvoicing', 'fee_noon_rocket_referral'
+      ];
+      
+      const totalOrderFees = fees.reduce((feeSum, feeField) => {
+        const feeValue = Number(order[feeField as keyof NoonOrderFeesData]) || 0;
+        return feeSum + feeValue;
+      }, 0);
+      
+      return sum + totalOrderFees;
+    }, 0);
+    
+    const netPayment = feesData.reduce((sum, order) => {
+      const totalPayment = Number(order.total_payment) || 0;
+      return sum + totalPayment;
+    }, 0);
+    
+    const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+    const totalReturns = feesData.filter(order => order.returned_date && order.returned_date.trim() !== '').length;
+    const returnRate = totalOrders > 0 ? (totalReturns / totalOrders) * 100 : 0;
+
+    const summary = {
       totalOrders,
       totalRevenue,
       totalFees,
@@ -58,6 +64,9 @@ export function NoonFeesAnalytics({ feesData }: NoonFeesAnalyticsProps) {
       totalReturns,
       returnRate
     };
+
+    console.log('Calculated summary:', summary);
+    return summary;
   };
 
   const getTopPerformingSKUs = () => {

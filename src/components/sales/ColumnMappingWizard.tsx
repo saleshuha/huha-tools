@@ -63,33 +63,29 @@ export function ColumnMappingWizard({ fileData, expectedColumns, onMappingComple
         if (headerIndex !== -1) {
           let value = row[headerIndex];
           
-          // Convert numeric fields
+          // Convert numeric fields for Noon fees data
           if (expectedCol.toLowerCase().includes('price') || 
+              expectedCol.toLowerCase().includes('fee_') || 
+              expectedCol.toLowerCase().includes('total') ||
               expectedCol.toLowerCase().includes('amount') || 
               expectedCol.toLowerCase().includes('cost') ||
               expectedCol.toLowerCase().includes('payout') ||
               expectedCol.toLowerCase().includes('vat') ||
-              expectedCol.toLowerCase().includes('commission')) {
+              expectedCol.toLowerCase().includes('commission') ||
+              expectedCol.toLowerCase().includes('promo') ||
+              expectedCol.toLowerCase().includes('markup')) {
             value = parseFloat(value) || 0;
           }
           
-          // Convert field names to camelCase
-          const fieldName = expectedCol
-            .replace(/[^a-zA-Z0-9 ]/g, '')
-            .replace(/\s+/g, ' ')
-            .split(' ')
-            .map((word, index) => 
-              index === 0 ? word.toLowerCase() : word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-            )
-            .join('');
-            
-          processedRow[fieldName] = value;
+          // Keep original field names for Noon data structure
+          processedRow[expectedCol] = value;
         }
       });
       
       return processedRow;
     });
 
+    console.log('Processed data sample:', mappedData.slice(0, 2));
     onMappingComplete(mappedData.filter(row => Object.keys(row).length > 0));
   };
 
@@ -160,33 +156,36 @@ export function ColumnMappingWizard({ fileData, expectedColumns, onMappingComple
         <CardHeader>
           <CardTitle>Sample Data Preview</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr>
-                  {Object.keys(columnMapping).map(expectedCol => (
-                    <th key={expectedCol} className="text-left p-2 border-b">
-                      {expectedCol}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.slice(0, 3).map((row: any[], index: number) => (
-                  <tr key={index}>
-                    {Object.values(columnMapping).map((headerCol, colIndex) => {
-                      const headerIndex = headers.indexOf(headerCol);
-                      return (
-                        <td key={colIndex} className="p-2 border-b">
-                          {headerIndex !== -1 ? row[headerIndex] : '-'}
-                        </td>
-                      );
-                    })}
+        <CardContent className="p-0">
+          <div className="max-h-96 overflow-auto border rounded-lg m-4">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-background">
+                  <tr>
+                    {Object.keys(columnMapping).map(expectedCol => (
+                      <th key={expectedCol} className="text-left p-3 border-b font-medium whitespace-nowrap">
+                        {expectedCol}
+                      </th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {rows.slice(0, 5).map((row: any[], index: number) => (
+                    <tr key={index} className="hover:bg-muted/50">
+                      {Object.values(columnMapping).map((headerCol, colIndex) => {
+                        const headerIndex = headers.indexOf(headerCol);
+                        const value = headerIndex !== -1 ? row[headerIndex] : '-';
+                        return (
+                          <td key={colIndex} className="p-3 border-b whitespace-nowrap max-w-xs truncate" title={value}>
+                            {value}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </CardContent>
       </Card>
