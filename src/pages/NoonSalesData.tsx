@@ -79,53 +79,51 @@ export default function NoonSalesData() {
     try {
       setLoading(true);
       
-      // Get upload history with proper counts using aggregation
-      const { data, error } = await supabase
-        .from('noon_sales_data')
-        .select(`
-          store_id,
-          report_month,
-          upload_date,
-          stores(name)
-        `)
-        .eq('country_code', selectedCountry)
-        .order('upload_date', { ascending: false });
-
-      if (error) throw error;
-
-      // Group by store and month to get unique uploads with proper counts
-      const groupedData = new Map<string, UploadHistory>();
-      
-      // Get actual counts per group using a separate query
+      // Get actual counts per group using a direct aggregation query
       const { data: countData, error: countError } = await supabase
         .from('noon_sales_data')
         .select('store_id, report_month, upload_date')
         .eq('country_code', selectedCountry);
 
       if (countError) throw countError;
+      
+      console.log('Total records fetched for counting:', countData?.length);
 
       // Count records per group
       const counts = new Map<string, number>();
+      const uploads = new Map<string, any>();
+      
       countData?.forEach(record => {
         const key = `${record.store_id}-${record.report_month}`;
         counts.set(key, (counts.get(key) || 0) + 1);
-      });
-      
-      // Create unique upload history entries
-      data?.forEach(record => {
-        const key = `${record.store_id}-${record.report_month}`;
-        if (!groupedData.has(key)) {
-          groupedData.set(key, {
-            id: crypto.randomUUID(),
-            store_name: (record.stores as any)?.name || 'Unknown Store',
-            report_month: record.report_month,
-            upload_date: record.upload_date,
-            record_count: counts.get(key) || 0
-          });
+        if (!uploads.has(key)) {
+          uploads.set(key, record);
         }
       });
+      
+      console.log('Grouped counts:', Array.from(counts.entries()));
+      
+      // Get store names for the uploads
+      const { data: storeData, error: storeError } = await supabase
+        .from('stores')
+        .select('id, name')
+        .in('id', Array.from(uploads.values()).map(u => u.store_id));
 
-      setUploadHistory(Array.from(groupedData.values()));
+      if (storeError) throw storeError;
+      
+      const storeNames = new Map(storeData?.map(s => [s.id, s.name]) || []);
+      
+      // Create upload history entries
+      const history = Array.from(uploads.entries()).map(([key, record]) => ({
+        id: crypto.randomUUID(),
+        store_name: storeNames.get(record.store_id) || 'Unknown Store',
+        report_month: record.report_month,
+        upload_date: record.upload_date,
+        record_count: counts.get(key) || 0
+      }));
+      
+      console.log('Final upload history:', history);
+      setUploadHistory(history);
     } catch (error) {
       console.error('Error loading upload history:', error);
       toast({
