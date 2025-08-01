@@ -94,8 +94,8 @@ export function AppSidebar() {
   const { state } = useSidebar()
   const location = useLocation()
   const isCollapsed = state === "collapsed"
-  const [isToolsOpen, setIsToolsOpen] = useState(true)
-  const [isPaymentReportsOpen, setIsPaymentReportsOpen] = useState(true)
+  const [isToolsOpen, setIsToolsOpen] = useState(false)
+  const [isPaymentReportsOpen, setIsPaymentReportsOpen] = useState(false)
   
   const { toast } = useToast()
   const { isAdmin } = useUserProfile()
