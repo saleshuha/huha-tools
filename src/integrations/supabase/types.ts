@@ -651,6 +651,119 @@ export type Database = {
           },
         ]
       }
+      noon_sales_data: {
+        Row: {
+          awb_nr: string | null
+          base_price: number | null
+          brand_ar: string | null
+          brand_en: string | null
+          cancel_reason: string | null
+          cancelled_date: string | null
+          country_code: string
+          created_at: string
+          delivered_date: string | null
+          estimated_shipping_date: string | null
+          family: string | null
+          id: string
+          id_partner: string | null
+          invoice_price: number | null
+          is_fbn: boolean | null
+          item_nr: string | null
+          item_status: string | null
+          marketplace: string | null
+          ordered_date: string | null
+          product_subtype: string | null
+          product_type: string | null
+          purchase_item_nr: string | null
+          report_month: string
+          returned_date: string | null
+          shipped_date: string | null
+          sku: string | null
+          store_id: string | null
+          title_ar: string | null
+          title_en: string | null
+          updated_at: string
+          upload_date: string
+          user_id: string
+        }
+        Insert: {
+          awb_nr?: string | null
+          base_price?: number | null
+          brand_ar?: string | null
+          brand_en?: string | null
+          cancel_reason?: string | null
+          cancelled_date?: string | null
+          country_code?: string
+          created_at?: string
+          delivered_date?: string | null
+          estimated_shipping_date?: string | null
+          family?: string | null
+          id?: string
+          id_partner?: string | null
+          invoice_price?: number | null
+          is_fbn?: boolean | null
+          item_nr?: string | null
+          item_status?: string | null
+          marketplace?: string | null
+          ordered_date?: string | null
+          product_subtype?: string | null
+          product_type?: string | null
+          purchase_item_nr?: string | null
+          report_month: string
+          returned_date?: string | null
+          shipped_date?: string | null
+          sku?: string | null
+          store_id?: string | null
+          title_ar?: string | null
+          title_en?: string | null
+          updated_at?: string
+          upload_date?: string
+          user_id: string
+        }
+        Update: {
+          awb_nr?: string | null
+          base_price?: number | null
+          brand_ar?: string | null
+          brand_en?: string | null
+          cancel_reason?: string | null
+          cancelled_date?: string | null
+          country_code?: string
+          created_at?: string
+          delivered_date?: string | null
+          estimated_shipping_date?: string | null
+          family?: string | null
+          id?: string
+          id_partner?: string | null
+          invoice_price?: number | null
+          is_fbn?: boolean | null
+          item_nr?: string | null
+          item_status?: string | null
+          marketplace?: string | null
+          ordered_date?: string | null
+          product_subtype?: string | null
+          product_type?: string | null
+          purchase_item_nr?: string | null
+          report_month?: string
+          returned_date?: string | null
+          shipped_date?: string | null
+          sku?: string | null
+          store_id?: string | null
+          title_ar?: string | null
+          title_en?: string | null
+          updated_at?: string
+          upload_date?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_noon_sales_data_store"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payments: {
         Row: {
           amount: number

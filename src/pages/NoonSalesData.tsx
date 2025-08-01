@@ -22,7 +22,7 @@ import {
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { NoonFeesUpload } from "@/components/noon/NoonFeesUpload";
+import { NoonSalesUpload } from "@/components/noon/NoonSalesUpload";
 
 interface Store {
   id: string;
@@ -81,13 +81,13 @@ export default function NoonSalesData() {
       
       // Get upload history with store names
       const { data, error } = await supabase
-        .from('noon_order_fees')
+        .from('noon_sales_data')
         .select(`
           id,
           store_id,
           report_month,
           upload_date,
-          stores!inner(name)
+          stores(name)
         `)
         .eq('country_code', selectedCountry)
         .order('upload_date', { ascending: false })
@@ -142,7 +142,7 @@ export default function NoonSalesData() {
 
     try {
       const { error } = await supabase
-        .from('noon_order_fees')
+        .from('noon_sales_data')
         .delete()
         .eq('report_month', reportMonth)
         .eq('country_code', selectedCountry);
@@ -168,7 +168,7 @@ export default function NoonSalesData() {
   const exportData = async (reportMonth: string) => {
     try {
       const { data, error } = await supabase
-        .from('noon_order_fees')
+        .from('noon_sales_data')
         .select('*')
         .eq('report_month', reportMonth)
         .eq('country_code', selectedCountry);
@@ -314,7 +314,7 @@ export default function NoonSalesData() {
                 </Button>
               </div>
             ) : (
-              <NoonFeesUpload
+              <NoonSalesUpload
                 onDataUploaded={handleDataUploaded}
               />
             )}
