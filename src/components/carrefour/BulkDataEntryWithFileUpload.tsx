@@ -428,7 +428,7 @@ ORD003,200.00,20.00,100.00,Delivered,Received`;
                         {expected.required && <span className="text-red-500 ml-1">*</span>}
                       </Label>
                       <Select
-                        value={columnMapping[expected.key] || ''}
+                        value={columnMapping[expected.key] || undefined}
                         onValueChange={(value) => 
                           setColumnMapping(prev => ({ ...prev, [expected.key]: value }))
                         }
@@ -437,7 +437,6 @@ ORD003,200.00,20.00,100.00,Delivered,Received`;
                           <SelectValue placeholder="Select a column..." />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">None</SelectItem>
                           {fileHeaders.map((header) => (
                             <SelectItem key={header} value={header}>
                               {header}
