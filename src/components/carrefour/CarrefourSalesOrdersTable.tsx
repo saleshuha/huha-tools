@@ -9,7 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Edit2, Trash2, Save, X, Plus, CheckSquare, CreditCard, Package, Download, Filter, CalendarIcon, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, DollarSign, Upload } from "lucide-react";
-import { BulkDataEntryWithMapping } from "./BulkDataEntryWithMapping";
+import { BulkDataEntryWithFileUpload } from "./BulkDataEntryWithFileUpload";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useCountry } from "@/contexts/CountryContext";
@@ -1063,7 +1063,7 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh, st
       )}
 
       {/* Bulk Data Entry Dialog */}
-      <BulkDataEntryWithMapping
+      <BulkDataEntryWithFileUpload
         isOpen={showBulkEntry}
         onClose={() => setShowBulkEntry(false)}
         onSuccess={() => {
