@@ -79,7 +79,7 @@ export default function NoonSalesData() {
     try {
       setLoading(true);
       
-      // Get upload history with store names
+      // Get upload history with store names and count records properly
       const { data, error } = await supabase
         .from('noon_sales_data')
         .select(`
@@ -90,12 +90,11 @@ export default function NoonSalesData() {
           stores(name)
         `)
         .eq('country_code', selectedCountry)
-        .order('upload_date', { ascending: false })
-        .limit(50);
+        .order('upload_date', { ascending: false });
 
       if (error) throw error;
 
-      // Group by store and month to get unique uploads with counts
+      // Group by store and month to get unique uploads with proper counts
       const groupedData = new Map<string, UploadHistory>();
       
       data?.forEach(record => {
@@ -103,7 +102,7 @@ export default function NoonSalesData() {
         if (!groupedData.has(key)) {
           groupedData.set(key, {
             id: record.id,
-            store_name: (record.stores as any).name,
+            store_name: (record.stores as any)?.name || 'Unknown Store',
             report_month: record.report_month,
             upload_date: record.upload_date,
             record_count: 1
