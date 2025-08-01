@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,8 +27,8 @@ interface Store {
   location?: string;
 }
 
-interface UploadHistory {
-  id: string;
+interface FeesSummary {
+  store_id: string;
   store_name: string;
   report_month: string;
   upload_date: string;
@@ -37,16 +37,15 @@ interface UploadHistory {
 
 export default function NoonFeesReports() {
   const [stores, setStores] = useState<Store[]>([]);
-  const [uploadHistory, setUploadHistory] = useState<UploadHistory[]>([]);
-  const [feesData, setFeesData] = useState<NoonOrderFeesData[]>([]);
+  const [feesSummary, setFeesSummary] = useState<FeesSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [totalRecords, setTotalRecords] = useState(0);
   const { toast } = useToast();
   const { selectedCountry } = useCountry();
 
   useEffect(() => {
     loadStores();
-    loadUploadHistory();
-    loadFeesData();
+    loadFeesSummary();
   }, [selectedCountry]);
 
   const loadStores = async () => {
@@ -71,80 +70,97 @@ export default function NoonFeesReports() {
     }
   };
 
-  const loadUploadHistory = async () => {
+  const loadFeesSummary = useCallback(async () => {
     try {
       setLoading(true);
       
-      // Get upload history with store names
-      const { data, error } = await supabase
+      // Get total count first
+      const { count: totalCount, error: countError } = await supabase
         .from('noon_order_fees')
-        .select(`
-          id,
-          store_id,
-          report_month,
-          upload_date,
-          stores!inner(name)
-        `)
+        .select('*', { count: 'exact', head: true })
+        .eq('country_code', selectedCountry);
+
+      if (countError) throw countError;
+      
+      console.log('Total fees records in database:', totalCount);
+
+      // Fetch ALL records using range with the exact count
+      const { data: allRecords, error } = await supabase
+        .from('noon_order_fees')
+        .select('store_id, report_month, upload_date')
         .eq('country_code', selectedCountry)
-        .order('upload_date', { ascending: false })
-        .limit(50);
+        .range(0, totalCount ? totalCount - 1 : 0);
 
       if (error) throw error;
 
-      // Group by store and month to get unique uploads with counts
-      const groupedData = new Map<string, UploadHistory>();
+      console.log('Fees records fetched:', allRecords?.length, 'of', totalCount);
+
+      if (!allRecords || allRecords.length === 0) {
+        setFeesSummary([]);
+        setTotalRecords(0);
+        return;
+      }
+
+      // Get store names
+      const uniqueStoreIds = [...new Set(allRecords.map(r => r.store_id))];
+      const { data: stores } = await supabase
+        .from('stores')
+        .select('id, name')
+        .in('id', uniqueStoreIds);
+
+      const storeMap = new Map(stores?.map(s => [s.id, s.name]) || []);
+
+      // Group and count
+      const groupedSummary = new Map<string, FeesSummary>();
       
-      data?.forEach(record => {
+      allRecords.forEach(record => {
         const key = `${record.store_id}-${record.report_month}`;
-        if (!groupedData.has(key)) {
-          groupedData.set(key, {
-            id: record.id,
-            store_name: (record.stores as any).name,
+        
+        if (!groupedSummary.has(key)) {
+          groupedSummary.set(key, {
+            store_id: record.store_id,
+            store_name: storeMap.get(record.store_id) || 'Unknown Store',
             report_month: record.report_month,
             upload_date: record.upload_date,
             record_count: 1
           });
         } else {
-          const existing = groupedData.get(key)!;
+          const existing = groupedSummary.get(key)!;
           existing.record_count += 1;
+          if (new Date(record.upload_date) > new Date(existing.upload_date)) {
+            existing.upload_date = record.upload_date;
+          }
         }
       });
 
-      setUploadHistory(Array.from(groupedData.values()));
+      const summary = Array.from(groupedSummary.values()).sort((a, b) => 
+        new Date(b.upload_date).getTime() - new Date(a.upload_date).getTime()
+      );
+
+      const finalTotal = summary.reduce((sum, s) => sum + s.record_count, 0);
+      console.log('Final total for UI:', finalTotal);
+      
+      setFeesSummary(summary);
+      setTotalRecords(finalTotal);
+      
     } catch (error) {
-      console.error('Error loading upload history:', error);
+      console.error('Error loading fees summary:', error);
       toast({
-        title: "Error loading history",
-        description: "Failed to load upload history",
+        title: "Error loading data",
+        description: "Failed to load fees summary",
         variant: "destructive"
       });
     } finally {
       setLoading(false);
     }
-  };
-
-  const loadFeesData = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('noon_order_fees')
-        .select('*')
-        .eq('country_code', selectedCountry)
-        .order('upload_date', { ascending: false });
-
-      if (error) throw error;
-      setFeesData(data || []);
-    } catch (error) {
-      console.error('Error loading fees data:', error);
-    }
-  };
+  }, [selectedCountry, toast]);
 
   const handleDataUploaded = (data: NoonOrderFeesData[]) => {
     toast({
       title: "Fees data uploaded successfully",
       description: `${data.length} fee records processed and saved`
     });
-    loadUploadHistory();
-    loadFeesData();
+    loadFeesSummary();
   };
 
   const deleteUpload = async (reportMonth: string, storeName: string) => {
@@ -166,8 +182,7 @@ export default function NoonFeesReports() {
         description: "Fees data has been deleted successfully"
       });
 
-      loadUploadHistory();
-      loadFeesData();
+      loadFeesSummary();
     } catch (error) {
       console.error('Error deleting upload:', error);
       toast({
@@ -188,13 +203,11 @@ export default function NoonFeesReports() {
 
       if (error) throw error;
 
-      // Convert to CSV
       if (data && data.length > 0) {
         const headers = Object.keys(data[0]).join(',');
         const rows = data.map(row => Object.values(row).join(','));
         const csv = [headers, ...rows].join('\n');
 
-        // Download
         const blob = new Blob([csv], { type: 'text/csv' });
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -223,12 +236,8 @@ export default function NoonFeesReports() {
     });
   };
 
-  const getTotalRecords = () => {
-    return uploadHistory.reduce((sum, upload) => sum + upload.record_count, 0);
-  };
-
   const getUniqueMonths = () => {
-    return new Set(uploadHistory.map(upload => upload.report_month)).size;
+    return new Set(feesSummary.map(summary => summary.report_month)).size;
   };
 
   return (
@@ -263,7 +272,7 @@ export default function NoonFeesReports() {
               <Database className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{feesData.length.toLocaleString()}</div>
+              <div className="text-2xl font-bold">{totalRecords.toLocaleString()}</div>
               <p className="text-xs text-muted-foreground">
                 Fee transactions
               </p>
@@ -275,7 +284,7 @@ export default function NoonFeesReports() {
               <FileText className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{uploadHistory.length}</div>
+              <div className="text-2xl font-bold">{feesSummary.length}</div>
               <p className="text-xs text-muted-foreground">
                 Data uploads
               </p>
@@ -343,7 +352,7 @@ export default function NoonFeesReports() {
           <CardContent>
             {loading ? (
               <div className="text-center py-8">Loading upload history...</div>
-            ) : uploadHistory.length === 0 ? (
+            ) : feesSummary.length === 0 ? (
               <div className="text-center py-12">
                 <Receipt className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-slate-900 mb-2">No fees reports found</h3>
@@ -364,29 +373,29 @@ export default function NoonFeesReports() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {uploadHistory.map((upload, index) => (
+                    {feesSummary.map((summary, index) => (
                       <TableRow key={index}>
-                        <TableCell className="font-medium">{upload.store_name}</TableCell>
+                        <TableCell className="font-medium">{summary.store_name}</TableCell>
                         <TableCell>
                           <Badge variant="outline">
-                            {upload.report_month}
+                            {summary.report_month}
                           </Badge>
                         </TableCell>
-                        <TableCell>{upload.record_count.toLocaleString()}</TableCell>
-                        <TableCell>{formatDate(upload.upload_date)}</TableCell>
+                        <TableCell>{summary.record_count.toLocaleString()}</TableCell>
+                        <TableCell>{formatDate(summary.upload_date)}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <Button
                               size="sm"
                               variant="ghost"
-                              onClick={() => exportData(upload.report_month)}
+                              onClick={() => exportData(summary.report_month)}
                             >
                               <Download className="h-4 w-4" />
                             </Button>
                             <Button
                               size="sm"
                               variant="ghost"
-                              onClick={() => deleteUpload(upload.report_month, upload.store_name)}
+                              onClick={() => deleteUpload(summary.report_month, summary.store_name)}
                               className="text-red-600 hover:text-red-800"
                             >
                               <Trash2 className="h-4 w-4" />
