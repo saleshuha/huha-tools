@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Plus, Edit, Save, X, Upload, Download, DollarSign, Store, ArrowLeft, List } from "lucide-react";
+import { Search, Plus, Edit, Save, X, Upload, Download, DollarSign, Store, ArrowLeft, List, FileSpreadsheet, TrendingUp, TrendingDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
@@ -35,6 +35,7 @@ export default function SKUCostManagement() {
   const [costs, setCosts] = useState<SKUCost[]>([]);
   const [stores, setStores] = useState<Store[]>([]);
   const [availableSkus, setAvailableSkus] = useState<string[]>([]);
+  const [allSkuData, setAllSkuData] = useState<Array<{sku: string, cost?: number, notes?: string, hasCost: boolean}>>([]);
   const [selectedStore, setSelectedStore] = useState<string>("");
   const [editingSku, setEditingSku] = useState<string | null>(null);
   const [editingCost, setEditingCost] = useState<string>("");
@@ -46,7 +47,6 @@ export default function SKUCostManagement() {
   const [bulkCostData, setBulkCostData] = useState<string>("");
   const [showBulkDialog, setShowBulkDialog] = useState(false);
   const [showAddDialog, setShowAddDialog] = useState(false);
-  const [showSkuListDialog, setShowSkuListDialog] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingSkus, setLoadingSkus] = useState(false);
   const { selectedCountry } = useCountry();
@@ -59,6 +59,7 @@ export default function SKUCostManagement() {
   useEffect(() => {
     if (selectedStore) {
       fetchCosts();
+      fetchAvailableSkus();
     }
   }, [selectedCountry, selectedStore]);
 
@@ -142,6 +143,19 @@ export default function SKUCostManagement() {
       const uniqueSkus = Array.from(skuSet).sort();
       setAvailableSkus(uniqueSkus);
 
+      // Combine with cost data
+      const skuData = uniqueSkus.map(sku => {
+        const existingCost = costs.find(c => c.sku === sku);
+        return {
+          sku,
+          cost: existingCost?.cost,
+          notes: existingCost?.notes,
+          hasCost: !!existingCost
+        };
+      });
+
+      setAllSkuData(skuData);
+
       toast({
         title: "SKUs loaded",
         description: `Found ${uniqueSkus.length} unique SKUs from uploaded data`,
@@ -159,11 +173,21 @@ export default function SKUCostManagement() {
     }
   };
 
-  const addSkuCost = async (sku: string) => {
-    setNewSku(sku);
-    setShowSkuListDialog(false);
-    setShowAddDialog(true);
-  };
+  // Update allSkuData when costs change
+  useEffect(() => {
+    if (availableSkus.length > 0) {
+      const skuData = availableSkus.map(sku => {
+        const existingCost = costs.find(c => c.sku === sku);
+        return {
+          sku,
+          cost: existingCost?.cost,
+          notes: existingCost?.notes,
+          hasCost: !!existingCost
+        };
+      });
+      setAllSkuData(skuData);
+    }
+  }, [costs, availableSkus]);
 
   const saveCost = async (sku: string, cost: number, notes?: string, isUpdate = false) => {
     try {
@@ -369,9 +393,58 @@ export default function SKUCostManagement() {
     window.URL.revokeObjectURL(url);
   };
 
-  const filteredCosts = costs.filter(cost =>
-    cost.sku.toLowerCase().includes(searchTerm.toLowerCase())
+  const exportMissingCosts = () => {
+    const missingCosts = allSkuData.filter(item => !item.hasCost).map(item => ({
+      sku: item.sku,
+      cost: "",
+      notes: "",
+      status: "Missing Cost"
+    }));
+
+    const csv = Papa.unparse(missingCosts);
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `missing_sku_costs_${selectedCountry.toLowerCase()}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+
+    toast({
+      title: "Export completed",
+      description: `Exported ${missingCosts.length} SKUs missing costs`,
+    });
+  };
+
+  const exportAllSkuStatus = () => {
+    const statusData = allSkuData.map(item => ({
+      sku: item.sku,
+      cost: item.cost || "",
+      notes: item.notes || "",
+      status: item.hasCost ? "Has Cost" : "Missing Cost"
+    }));
+
+    const csv = Papa.unparse(statusData);
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `all_sku_status_${selectedCountry.toLowerCase()}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+
+    toast({
+      title: "Export completed",
+      description: `Exported ${statusData.length} SKUs with status`,
+    });
+  };
+
+  const filteredSkuData = allSkuData.filter(item =>
+    item.sku.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const skusWithCosts = allSkuData.filter(item => item.hasCost).length;
+  const skusWithoutCosts = allSkuData.length - skusWithCosts;
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-AE', {
@@ -479,15 +552,84 @@ export default function SKUCostManagement() {
           </CardContent>
         </Card>
 
+        {/* SKU Metrics */}
+        {selectedStore && availableSkus.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total SKUs</CardTitle>
+                <List className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{allSkuData.length}</div>
+                <p className="text-xs text-muted-foreground">From sales data</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">With Costs</CardTitle>
+                <TrendingUp className="h-4 w-4 text-green-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-600">{skusWithCosts}</div>
+                <p className="text-xs text-muted-foreground">
+                  {allSkuData.length > 0 ? Math.round((skusWithCosts / allSkuData.length) * 100) : 0}% complete
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Missing Costs</CardTitle>
+                <TrendingDown className="h-4 w-4 text-red-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-red-600">{skusWithoutCosts}</div>
+                <p className="text-xs text-muted-foreground">Need cost assignment</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Export Options</CardTitle>
+                <FileSpreadsheet className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <Button size="sm" variant="outline" onClick={exportMissingCosts} className="w-full">
+                  Missing Costs
+                </Button>
+                <Button size="sm" variant="outline" onClick={exportAllSkuStatus} className="w-full">
+                  All Status
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
         {/* SKU Costs Content - Only show if store is selected */}
         {!selectedStore ? (
           <Card>
-            <CardContent className="py-12 text-center">
-              <DollarSign className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-slate-900 mb-2">Select a Store</h3>
-              <p className="text-slate-600">
-                Please select a store to manage SKU costs
-              </p>
+            <CardContent>
+              {loadingSkus ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mr-2"></div>
+                  Loading SKUs from sales data...
+                </div>
+              ) : allSkuData.length === 0 ? (
+                <div className="text-center py-12">
+                  <DollarSign className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-slate-900 mb-2">Select a Store</h3>
+                  <p className="text-slate-600">
+                    Please select a store to manage SKU costs
+                  </p>
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <DollarSign className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-slate-900 mb-2">No SKUs Found</h3>
+                  <p className="text-slate-600">
+                    No SKUs found in uploaded sales data for this store
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
         ) : (
@@ -495,9 +637,9 @@ export default function SKUCostManagement() {
             <CardHeader>
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                  <CardTitle>SKU Costs for {stores.find(s => s.id === selectedStore)?.name}</CardTitle>
+                  <CardTitle>SKU Cost Management</CardTitle>
                   <p className="text-sm text-muted-foreground mt-1">
-                    {costs.length} SKUs with costs assigned
+                    {allSkuData.length} SKUs found • {skusWithCosts} with costs • {skusWithoutCosts} missing costs
                   </p>
                 </div>
                 <div className="flex gap-2">
@@ -553,14 +695,6 @@ export default function SKUCostManagement() {
                     </DialogContent>
                   </Dialog>
 
-                  <Button variant="outline" onClick={() => {
-                    fetchAvailableSkus();
-                    setShowSkuListDialog(true);
-                  }}>
-                    <List className="h-4 w-4 mr-2" />
-                    From Sales Data
-                  </Button>
-
                   <Dialog open={showBulkDialog} onOpenChange={setShowBulkDialog}>
                     <DialogTrigger asChild>
                       <Button variant="outline">
@@ -596,73 +730,9 @@ export default function SKUCostManagement() {
                     </DialogContent>
                   </Dialog>
 
-                  {/* SKU List Dialog */}
-                  <Dialog open={showSkuListDialog} onOpenChange={setShowSkuListDialog}>
-                    <DialogContent className="max-w-4xl max-h-[80vh]">
-                      <DialogHeader>
-                        <DialogTitle>Available SKUs from Sales Data</DialogTitle>
-                        <p className="text-sm text-muted-foreground">
-                          Click on any SKU to add cost information
-                        </p>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        {loadingSkus ? (
-                          <div className="flex items-center justify-center py-8">
-                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mr-2"></div>
-                            Loading SKUs...
-                          </div>
-                        ) : availableSkus.length === 0 ? (
-                          <div className="text-center py-8">
-                            <List className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                            <h3 className="text-lg font-medium text-slate-900 mb-2">No SKUs Found</h3>
-                            <p className="text-slate-600">
-                              No SKUs found in uploaded sales data for {selectedCountry}
-                            </p>
-                          </div>
-                        ) : (
-                          <div className="max-h-96 overflow-y-auto">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                              {availableSkus.map((sku, index) => {
-                                const hasCost = costs.some(c => c.sku === sku);
-                                return (
-                                  <div
-                                    key={index}
-                                    className={`p-3 border rounded-lg cursor-pointer transition-colors ${
-                                      hasCost 
-                                        ? 'border-green-200 bg-green-50 hover:bg-green-100' 
-                                        : 'border-slate-200 hover:border-primary hover:bg-primary/5'
-                                    }`}
-                                    onClick={() => !hasCost && addSkuCost(sku)}
-                                  >
-                                    <div className="flex items-center justify-between">
-                                      <span className="font-medium text-sm">{sku}</span>
-                                      {hasCost && (
-                                        <Badge variant="secondary" className="text-xs">
-                                          Has Cost
-                                        </Badge>
-                                      )}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
-                        <div className="flex justify-between items-center pt-4 border-t">
-                          <p className="text-sm text-muted-foreground">
-                            {availableSkus.length} SKUs found • {costs.length} have costs assigned
-                          </p>
-                          <Button variant="outline" onClick={() => setShowSkuListDialog(false)}>
-                            Close
-                          </Button>
-                        </div>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-
                   <Button variant="outline" onClick={exportCosts}>
                     <Download className="h-4 w-4 mr-2" />
-                    Export
+                    Export Costs
                   </Button>
                 </div>
               </div>
@@ -682,22 +752,23 @@ export default function SKUCostManagement() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>SKU</TableHead>
-                      <TableHead>Country</TableHead>
-                      <TableHead className="text-right">Cost</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Cost (AED)</TableHead>
                       <TableHead>Notes</TableHead>
-                      <TableHead>Last Updated</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredCosts.map((cost) => (
-                      <TableRow key={cost.id}>
-                        <TableCell className="font-medium">{cost.sku}</TableCell>
+                    {filteredSkuData.map((item) => (
+                      <TableRow key={item.sku}>
+                        <TableCell className="font-medium">{item.sku}</TableCell>
                         <TableCell>
-                          <Badge variant="outline">{cost.country}</Badge>
+                          <Badge variant={item.hasCost ? "default" : "secondary"}>
+                            {item.hasCost ? "Has Cost" : "Missing Cost"}
+                          </Badge>
                         </TableCell>
                         <TableCell className="text-right">
-                          {editingSku === cost.sku ? (
+                          {editingSku === item.sku ? (
                             <Input
                               type="number"
                               value={editingCost}
@@ -705,25 +776,27 @@ export default function SKUCostManagement() {
                               className="w-24"
                               step="0.01"
                               min="0"
+                              placeholder="0.00"
                             />
+                          ) : item.cost !== undefined ? (
+                            formatCurrency(item.cost)
                           ) : (
-                            formatCurrency(cost.cost)
+                            <span className="text-muted-foreground">-</span>
                           )}
                         </TableCell>
-                        <TableCell className="max-w-xs truncate" title={cost.notes}>
-                          {editingSku === cost.sku ? (
+                        <TableCell className="max-w-xs truncate" title={item.notes}>
+                          {editingSku === item.sku ? (
                             <Input
                               value={editingNotes}
                               onChange={(e) => setEditingNotes(e.target.value)}
                               placeholder="Add notes..."
                             />
                           ) : (
-                            cost.notes || "-"
+                            item.notes || "-"
                           )}
                         </TableCell>
-                        <TableCell>{cost.updated_at ? formatDate(cost.updated_at) : "-"}</TableCell>
                         <TableCell>
-                          {editingSku === cost.sku ? (
+                          {editingSku === item.sku ? (
                             <div className="flex gap-1">
                               <Button size="sm" variant="ghost" onClick={handleSaveEdit}>
                                 <Save className="h-4 w-4" />
@@ -737,17 +810,22 @@ export default function SKUCostManagement() {
                               <Button 
                                 size="sm" 
                                 variant="ghost" 
-                                onClick={() => startEditing(cost.sku)}
+                                onClick={() => startEditing(item.sku)}
                               >
                                 <Edit className="h-4 w-4" />
                               </Button>
-                              <Button 
-                                size="sm" 
-                                variant="ghost" 
-                                onClick={() => cost.id && deleteCost(cost.id, cost.sku)}
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
+                              {item.hasCost && (
+                                <Button 
+                                  size="sm" 
+                                  variant="ghost" 
+                                  onClick={() => {
+                                    const cost = costs.find(c => c.sku === item.sku);
+                                    if (cost?.id) deleteCost(cost.id, item.sku);
+                                  }}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              )}
                             </div>
                           )}
                         </TableCell>
@@ -756,12 +834,12 @@ export default function SKUCostManagement() {
                   </TableBody>
                 </Table>
 
-                {filteredCosts.length === 0 && (
+                {filteredSkuData.length === 0 && (
                   <div className="text-center py-8">
                     <DollarSign className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                    <h3 className="text-lg font-semibold mb-2">No SKU Costs Found</h3>
+                    <h3 className="text-lg font-semibold mb-2">No SKUs Found</h3>
                     <p className="text-muted-foreground">
-                      {searchTerm ? "No SKUs match your search" : `No costs added for this store yet`}
+                      {searchTerm ? "No SKUs match your search" : `No SKUs found from sales data`}
                     </p>
                   </div>
                 )}
