@@ -228,7 +228,7 @@ export default function NoonDashboard() {
           {modules.map((module, index) => {
             const Icon = module.icon;
             return (
-              <Card key={index} className="group hover:shadow-lg transition-all duration-300 border-2 hover:border-primary/20">
+              <Card key={index} className="group hover:shadow-lg transition-all duration-300 border-2 hover:border-primary/20 flex flex-col h-full">
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <div className={`${module.color} p-3 rounded-lg`}>
@@ -241,7 +241,7 @@ export default function NoonDashboard() {
                   </div>
                   <CardTitle className="text-xl">{module.title}</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="flex flex-col flex-1 justify-between space-y-4">
                   <p className="text-slate-600 text-sm leading-relaxed">
                     {module.description}
                   </p>
@@ -249,7 +249,7 @@ export default function NoonDashboard() {
                   {module.status === 'active' ? (
                     <Button 
                       asChild 
-                      className="w-full group-hover:bg-primary/90 transition-colors"
+                      className="w-full group-hover:bg-primary/90 transition-colors mt-auto"
                     >
                       <Link to={module.href} className="flex items-center justify-center gap-2">
                         Access Module
@@ -257,7 +257,7 @@ export default function NoonDashboard() {
                       </Link>
                     </Button>
                   ) : (
-                    <Button disabled className="w-full">
+                    <Button disabled className="w-full mt-auto">
                       Coming Soon
                     </Button>
                   )}
