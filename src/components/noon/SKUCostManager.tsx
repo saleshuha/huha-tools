@@ -37,7 +37,48 @@ export function SKUCostManager({ feesData, onCostsUpdated }: SKUCostManagerProps
   const [searchTerm, setSearchTerm] = useState("");
   const [bulkCostData, setBulkCostData] = useState<string>("");
   const [showBulkDialog, setShowBulkDialog] = useState(false);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { selectedCountry } = useCountry();
+
+  // Load existing costs from database
+  useEffect(() => {
+    loadCosts();
+  }, [selectedCountry]);
+
+  const loadCosts = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('sku_costs')
+        .select('*')
+        .eq('country', selectedCountry);
+
+      if (error) throw error;
+
+      const formattedCosts: SKUCost[] = data.map(item => ({
+        id: item.id,
+        sku: item.sku,
+        cost: Number(item.cost),
+        country: item.country,
+        notes: item.notes,
+        created_at: item.created_at,
+        updated_at: item.updated_at
+      }));
+
+      setCosts(formattedCosts);
+      onCostsUpdated(formattedCosts);
+    } catch (error) {
+      console.error('Error loading costs:', error);
+      toast({
+        title: "Error loading costs",
+        description: "Failed to load existing SKU costs from database",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Get unique SKUs from fees data
   const uniqueSKUs = Array.from(new Set(feesData.map(order => order.sku).filter(Boolean)));
@@ -96,7 +137,7 @@ export function SKUCostManager({ feesData, onCostsUpdated }: SKUCostManagerProps
     setEditingNotes(existingCost?.notes || "");
   };
 
-  const saveCost = () => {
+  const saveCost = async () => {
     if (!editingSku || !editingCost) return;
 
     const cost = parseFloat(editingCost);
@@ -109,32 +150,58 @@ export function SKUCostManager({ feesData, onCostsUpdated }: SKUCostManagerProps
       return;
     }
 
-    const newCosts = [...costs];
-    const existingIndex = newCosts.findIndex(c => c.sku === editingSku);
-    
-    const costData: SKUCost = {
-      sku: editingSku,
-      cost,
-      country: "UAE", // Default for now
-      notes: editingNotes.trim() || undefined
-    };
+    try {
+      const existingCost = costs.find(c => c.sku === editingSku);
+      
+      if (existingCost?.id) {
+        // Update existing cost
+        const { error } = await supabase
+          .from('sku_costs')
+          .update({
+            cost,
+            notes: editingNotes.trim() || null,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingCost.id);
 
-    if (existingIndex >= 0) {
-      newCosts[existingIndex] = costData;
-    } else {
-      newCosts.push(costData);
+        if (error) throw error;
+      } else {
+        // Create new cost
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error('User not authenticated');
+        
+        const { error } = await supabase
+          .from('sku_costs')
+          .insert({
+            sku: editingSku,
+            cost,
+            country: selectedCountry,
+            notes: editingNotes.trim() || null,
+            user_id: user.id
+          });
+
+        if (error) throw error;
+      }
+
+      // Reload costs from database
+      await loadCosts();
+      
+      setEditingSku(null);
+      setEditingCost("");
+      setEditingNotes("");
+
+      toast({
+        title: "Cost saved",
+        description: `Cost for ${editingSku} has been saved to database`,
+      });
+    } catch (error) {
+      console.error('Error saving cost:', error);
+      toast({
+        title: "Error saving cost",
+        description: "Failed to save cost to database",
+        variant: "destructive"
+      });
     }
-
-    setCosts(newCosts);
-    onCostsUpdated(newCosts);
-    setEditingSku(null);
-    setEditingCost("");
-    setEditingNotes("");
-
-    toast({
-      title: "Cost updated",
-      description: `Cost for ${editingSku} has been updated to ${cost.toFixed(2)} AED`,
-    });
   };
 
   const cancelEditing = () => {
@@ -143,7 +210,7 @@ export function SKUCostManager({ feesData, onCostsUpdated }: SKUCostManagerProps
     setEditingNotes("");
   };
 
-  const handleBulkImport = () => {
+  const handleBulkImport = async () => {
     if (!bulkCostData.trim()) {
       toast({
         title: "No data provided",
@@ -153,54 +220,103 @@ export function SKUCostManager({ feesData, onCostsUpdated }: SKUCostManagerProps
       return;
     }
 
-    Papa.parse(bulkCostData, {
-      header: true,
-      skipEmptyLines: true,
-      complete: (result) => {
-        const newCosts = [...costs];
-        let importedCount = 0;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
 
-        result.data.forEach((row: any) => {
-          const sku = row.sku || row.SKU;
-          const cost = parseFloat(row.cost || row.Cost || row.COST);
-          const notes = row.notes || row.Notes || row.NOTES;
+      Papa.parse(bulkCostData, {
+        header: true,
+        skipEmptyLines: true,
+        complete: async (result) => {
+          try {
+            let importedCount = 0;
+            const insertData = [];
+            const updateData = [];
 
-          if (sku && !isNaN(cost) && cost >= 0) {
-            const existingIndex = newCosts.findIndex(c => c.sku === sku);
-            const costData: SKUCost = {
-              sku,
-              cost,
-              country: "UAE", // Default for now
-              notes: notes || undefined
-            };
+            for (const row of result.data as any[]) {
+              const sku = row.sku || row.SKU;
+              const cost = parseFloat(row.cost || row.Cost || row.COST);
+              const notes = row.notes || row.Notes || row.NOTES;
 
-            if (existingIndex >= 0) {
-              newCosts[existingIndex] = costData;
-            } else {
-              newCosts.push(costData);
+              if (sku && !isNaN(cost) && cost >= 0) {
+                const existingCost = costs.find(c => c.sku === sku);
+                
+                if (existingCost?.id) {
+                  updateData.push({
+                    id: existingCost.id,
+                    cost,
+                    notes: notes || null,
+                    updated_at: new Date().toISOString()
+                  });
+                } else {
+                  insertData.push({
+                    sku,
+                    cost,
+                    country: selectedCountry,
+                    notes: notes || null,
+                    user_id: user.id
+                  });
+                }
+                importedCount++;
+              }
             }
-            importedCount++;
+
+            // Perform batch operations
+            if (insertData.length > 0) {
+              const { error: insertError } = await supabase
+                .from('sku_costs')
+                .insert(insertData);
+              if (insertError) throw insertError;
+            }
+
+            if (updateData.length > 0) {
+              for (const update of updateData) {
+                const { error: updateError } = await supabase
+                  .from('sku_costs')
+                  .update({
+                    cost: update.cost,
+                    notes: update.notes,
+                    updated_at: update.updated_at
+                  })
+                  .eq('id', update.id);
+                if (updateError) throw updateError;
+              }
+            }
+
+            // Reload costs from database
+            await loadCosts();
+            setBulkCostData("");
+            setShowBulkDialog(false);
+
+            toast({
+              title: "Bulk import completed",
+              description: `Imported costs for ${importedCount} SKUs to database`,
+            });
+          } catch (error) {
+            console.error('Error saving bulk costs:', error);
+            toast({
+              title: "Import failed",
+              description: "Error saving costs to database",
+              variant: "destructive"
+            });
           }
-        });
-
-        setCosts(newCosts);
-        onCostsUpdated(newCosts);
-        setBulkCostData("");
-        setShowBulkDialog(false);
-
-        toast({
-          title: "Bulk import completed",
-          description: `Imported costs for ${importedCount} SKUs`,
-        });
-      },
-      error: () => {
-        toast({
-          title: "Import failed",
-          description: "Error parsing the cost data",
-          variant: "destructive"
-        });
-      }
-    });
+        },
+        error: () => {
+          toast({
+            title: "Import failed",
+            description: "Error parsing the cost data",
+            variant: "destructive"
+          });
+        }
+      });
+    } catch (error) {
+      console.error('Error in bulk import:', error);
+      toast({
+        title: "Import failed",
+        description: "Authentication error",
+        variant: "destructive"
+      });
+    }
   };
 
   const exportCosts = () => {
