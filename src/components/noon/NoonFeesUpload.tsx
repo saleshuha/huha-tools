@@ -35,7 +35,7 @@ export function NoonFeesUpload({ onDataUploaded }: NoonFeesUploadProps) {
   const [showPeriodForm, setShowPeriodForm] = useState(false);
   
   // Form states
-  const [selectedStore, setSelectedStore] = useState<string>("");
+  const [selectedStore, setSelectedStore] = useState<string>("no-store");
   const [reportMonth, setReportMonth] = useState<string>("");
   const [periodStart, setPeriodStart] = useState<string>("");
   const [periodEnd, setPeriodEnd] = useState<string>("");
@@ -189,7 +189,7 @@ export function NoonFeesUpload({ onDataUploaded }: NoonFeesUploadProps) {
       // Prepare data for database insertion
       const dbData = mappedData.map(item => ({
         user_id: user.data.user.id,
-        store_id: selectedStore || null,
+        store_id: selectedStore === "no-store" ? null : selectedStore,
         report_month: reportMonth,
         report_period_start: periodStart || null,
         report_period_end: periodEnd || null,
@@ -300,7 +300,7 @@ export function NoonFeesUpload({ onDataUploaded }: NoonFeesUploadProps) {
     setFileData(null);
     setShowMapping(false);
     setShowPeriodForm(false);
-    setSelectedStore("");
+    setSelectedStore("no-store");
     setReportMonth("");
     setPeriodStart("");
     setPeriodEnd("");
@@ -348,7 +348,7 @@ export function NoonFeesUpload({ onDataUploaded }: NoonFeesUploadProps) {
                   <SelectValue placeholder="Select store..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No specific store</SelectItem>
+                  <SelectItem value="no-store">No specific store</SelectItem>
                   {stores.map((store) => (
                     <SelectItem key={store.id} value={store.id}>
                       {store.name}
