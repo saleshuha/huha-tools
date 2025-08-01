@@ -77,47 +77,48 @@ export default function NoonSalesData() {
   };
 
   const loadUploadHistory = useCallback(async () => {
-    // Prevent concurrent calls during hot reloads
-    if (loadingRef.current) {
-      console.log('Load already in progress, skipping...');
-      return;
-    }
+    if (loadingRef.current) return;
 
     try {
       loadingRef.current = true;
       setLoading(true);
       
-      const timestamp = new Date().toISOString();
-      console.log(`[${timestamp}] Loading upload history for country:`, selectedCountry);
+      // Get total count first
+      const { count: totalCount, error: countError } = await supabase
+        .from('noon_sales_data')
+        .select('*', { count: 'exact', head: true })
+        .eq('country_code', selectedCountry);
 
-      // Step 1: Get all records to count them locally (avoiding Supabase count limitations)
+      if (countError) throw countError;
+      
+      console.log('Total records in database:', totalCount);
+
+      // Fetch ALL records using range with the exact count
       const { data: allRecords, error } = await supabase
         .from('noon_sales_data')
         .select('store_id, report_month, upload_date')
         .eq('country_code', selectedCountry)
-        .limit(50000); // Set explicit high limit to ensure we get ALL records
+        .range(0, totalCount ? totalCount - 1 : 0);
 
       if (error) throw error;
 
-      console.log('Total records fetched from database:', allRecords?.length || 0);
+      console.log('Records fetched:', allRecords?.length, 'of', totalCount);
 
       if (!allRecords || allRecords.length === 0) {
         setUploadHistory([]);
         return;
       }
 
-      // Step 2: Get store names for all unique store IDs
+      // Get store names
       const uniqueStoreIds = [...new Set(allRecords.map(r => r.store_id))];
-      const { data: stores, error: storeError } = await supabase
+      const { data: stores } = await supabase
         .from('stores')
         .select('id, name')
         .in('id', uniqueStoreIds);
 
-      if (storeError) throw storeError;
-
       const storeMap = new Map(stores?.map(s => [s.id, s.name]) || []);
 
-      // Step 3: Group and count records manually for accuracy
+      // Group and count
       const groupedUploads = new Map<string, UploadHistory>();
       
       allRecords.forEach(record => {
@@ -134,7 +135,6 @@ export default function NoonSalesData() {
         } else {
           const existing = groupedUploads.get(key)!;
           existing.record_count += 1;
-          // Keep the latest upload date
           if (new Date(record.upload_date) > new Date(existing.upload_date)) {
             existing.upload_date = record.upload_date;
           }
@@ -145,9 +145,8 @@ export default function NoonSalesData() {
         new Date(b.upload_date).getTime() - new Date(a.upload_date).getTime()
       );
 
-      console.log('Final upload history:', history);
-      console.log('Total record count across all uploads:', history.reduce((sum, h) => sum + h.record_count, 0));
-      console.log('Upload history details:', history.map(h => ({ store: h.store_name, month: h.report_month, count: h.record_count })));
+      const finalTotal = history.reduce((sum, h) => sum + h.record_count, 0);
+      console.log('Final total for UI:', finalTotal);
       
       setUploadHistory(history);
       
@@ -160,9 +159,9 @@ export default function NoonSalesData() {
       });
     } finally {
       setLoading(false);
-      loadingRef.current = false; // Reset the ref
+      loadingRef.current = false;
     }
-  }, [selectedCountry]); // Add dependency
+  }, [selectedCountry, toast]);
 
   const handleDataUploaded = () => {
     toast({
