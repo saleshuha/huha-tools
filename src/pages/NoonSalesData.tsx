@@ -1,11 +1,8 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
 import { useCountry } from "@/contexts/CountryContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,7 +18,6 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
-import { cn } from "@/lib/utils";
 import { NoonSalesUpload } from "@/components/noon/NoonSalesUpload";
 
 interface Store {
@@ -30,8 +26,8 @@ interface Store {
   location?: string;
 }
 
-interface UploadHistory {
-  id: string;
+interface UploadSummary {
+  store_id: string;
   store_name: string;
   report_month: string;
   upload_date: string;
@@ -40,18 +36,15 @@ interface UploadHistory {
 
 export default function NoonSalesData() {
   const [stores, setStores] = useState<Store[]>([]);
-  const [selectedStore, setSelectedStore] = useState<string>("");
-  const [selectedDate, setSelectedDate] = useState<Date>();
-  const [uploadHistory, setUploadHistory] = useState<UploadHistory[]>([]);
+  const [uploadSummary, setUploadSummary] = useState<UploadSummary[]>([]);
   const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
-  const loadingRef = useRef(false); // Prevent concurrent calls
+  const [totalRecords, setTotalRecords] = useState(0);
   const { toast } = useToast();
   const { selectedCountry } = useCountry();
 
   useEffect(() => {
     loadStores();
-    loadUploadHistory();
+    loadUploadSummary();
   }, [selectedCountry]);
 
   const loadStores = async () => {
@@ -76,99 +69,108 @@ export default function NoonSalesData() {
     }
   };
 
-  const loadUploadHistory = useCallback(async () => {
-    if (loadingRef.current) return;
-
+  const loadUploadSummary = async () => {
     try {
-      loadingRef.current = true;
       setLoading(true);
       
-      // Get total count first
-      const { count: totalCount, error: countError } = await supabase
-        .from('noon_sales_data')
-        .select('*', { count: 'exact', head: true })
-        .eq('country_code', selectedCountry);
+      // Use SQL aggregation to get accurate counts directly from database
+      const { data, error } = await supabase
+        .rpc('get_noon_sales_upload_summary', { 
+          country_filter: selectedCountry 
+        });
 
-      if (countError) throw countError;
-      
-      console.log('Total records in database:', totalCount);
-
-      // Fetch ALL records using range with the exact count
-      const { data: allRecords, error } = await supabase
-        .from('noon_sales_data')
-        .select('store_id, report_month, upload_date')
-        .eq('country_code', selectedCountry)
-        .range(0, totalCount ? totalCount - 1 : 0);
-
-      if (error) throw error;
-
-      console.log('Records fetched:', allRecords?.length, 'of', totalCount);
-
-      if (!allRecords || allRecords.length === 0) {
-        setUploadHistory([]);
+      if (error) {
+        console.error('RPC function not available, using fallback');
+        await loadUploadSummaryFallback();
         return;
       }
 
-      // Get store names
-      const uniqueStoreIds = [...new Set(allRecords.map(r => r.store_id))];
-      const { data: stores } = await supabase
-        .from('stores')
-        .select('id, name')
-        .in('id', uniqueStoreIds);
-
-      const storeMap = new Map(stores?.map(s => [s.id, s.name]) || []);
-
-      // Group and count
-      const groupedUploads = new Map<string, UploadHistory>();
+      // Calculate total records and map data correctly
+      const mappedData = (data || []).map((item: any) => ({
+        store_id: item.id || crypto.randomUUID(),
+        store_name: item.store_name,
+        report_month: item.report_month,
+        upload_date: item.upload_date,
+        record_count: Number(item.record_count)
+      }));
       
-      allRecords.forEach(record => {
+      const total = mappedData.reduce((sum: number, item: any) => sum + item.record_count, 0);
+      
+      setUploadSummary(mappedData);
+      setTotalRecords(total);
+      
+    } catch (error) {
+      console.error('Error loading upload summary:', error);
+      await loadUploadSummaryFallback();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadUploadSummaryFallback = async () => {
+    try {
+      // Direct SQL query for aggregated data
+      const { data: rawData, error } = await supabase
+        .from('noon_sales_data')
+        .select(`
+          store_id,
+          report_month,
+          upload_date,
+          stores(name)
+        `)
+        .eq('country_code', selectedCountry);
+
+      if (error) throw error;
+
+      // Calculate aggregated summary
+      const summaryMap = new Map<string, UploadSummary>();
+      let total = 0;
+      
+      rawData?.forEach(record => {
         const key = `${record.store_id}-${record.report_month}`;
+        total++;
         
-        if (!groupedUploads.has(key)) {
-          groupedUploads.set(key, {
-            id: crypto.randomUUID(),
-            store_name: storeMap.get(record.store_id) || 'Unknown Store',
+        if (!summaryMap.has(key)) {
+          summaryMap.set(key, {
+            store_id: record.store_id,
+            store_name: (record.stores as any)?.name || 'Unknown Store',
             report_month: record.report_month,
             upload_date: record.upload_date,
             record_count: 1
           });
         } else {
-          const existing = groupedUploads.get(key)!;
+          const existing = summaryMap.get(key)!;
           existing.record_count += 1;
+          // Keep the latest upload date
           if (new Date(record.upload_date) > new Date(existing.upload_date)) {
             existing.upload_date = record.upload_date;
           }
         }
       });
 
-      const history = Array.from(groupedUploads.values()).sort((a, b) => 
+      const summary = Array.from(summaryMap.values()).sort((a, b) => 
         new Date(b.upload_date).getTime() - new Date(a.upload_date).getTime()
       );
 
-      const finalTotal = history.reduce((sum, h) => sum + h.record_count, 0);
-      console.log('Final total for UI:', finalTotal);
-      
-      setUploadHistory(history);
+      setUploadSummary(summary);
+      setTotalRecords(total);
       
     } catch (error) {
-      console.error('Error loading upload history:', error);
+      console.error('Fallback also failed:', error);
       toast({
-        title: "Error loading history",
-        description: "Failed to load upload history",
+        title: "Error loading data",
+        description: "Failed to load upload summary",
         variant: "destructive"
       });
-    } finally {
-      setLoading(false);
-      loadingRef.current = false;
     }
-  }, [selectedCountry, toast]);
+  };
 
   const handleDataUploaded = () => {
     toast({
       title: "Data uploaded successfully",
       description: "Sales data has been processed and saved"
     });
-    loadUploadHistory();
+    loadUploadSummary();
   };
 
   const deleteUpload = async (reportMonth: string, storeName: string) => {
@@ -190,7 +192,7 @@ export default function NoonSalesData() {
         description: "Upload data has been deleted successfully"
       });
 
-      loadUploadHistory();
+      loadUploadSummary();
     } catch (error) {
       console.error('Error deleting upload:', error);
       toast({
@@ -211,13 +213,11 @@ export default function NoonSalesData() {
 
       if (error) throw error;
 
-      // Convert to CSV
       if (data && data.length > 0) {
         const headers = Object.keys(data[0]).join(',');
         const rows = data.map(row => Object.values(row).join(','));
         const csv = [headers, ...rows].join('\n');
 
-        // Download
         const blob = new Blob([csv], { type: 'text/csv' });
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -246,15 +246,8 @@ export default function NoonSalesData() {
     });
   };
 
-  const getTotalRecords = () => {
-    const total = uploadHistory.reduce((sum, upload) => sum + upload.record_count, 0);
-    console.log('UI getTotalRecords() called - uploadHistory:', uploadHistory.length, 'items, total:', total);
-    console.log('Individual counts:', uploadHistory.map(h => h.record_count));
-    return total;
-  };
-
   const getUniqueMonths = () => {
-    return new Set(uploadHistory.map(upload => upload.report_month)).size;
+    return new Set(uploadSummary.map(upload => upload.report_month)).size;
   };
 
   return (
@@ -289,7 +282,7 @@ export default function NoonSalesData() {
               <Database className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{getTotalRecords().toLocaleString()}</div>
+              <div className="text-2xl font-bold">{totalRecords.toLocaleString()}</div>
               <p className="text-xs text-muted-foreground">
                 Sales data records
               </p>
@@ -301,7 +294,7 @@ export default function NoonSalesData() {
               <FileText className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{uploadHistory.length}</div>
+              <div className="text-2xl font-bold">{uploadSummary.length}</div>
               <p className="text-xs text-muted-foreground">
                 Upload sessions
               </p>
@@ -353,9 +346,7 @@ export default function NoonSalesData() {
                 </Button>
               </div>
             ) : (
-              <NoonSalesUpload
-                onDataUploaded={handleDataUploaded}
-              />
+              <NoonSalesUpload onDataUploaded={handleDataUploaded} />
             )}
           </CardContent>
         </Card>
@@ -368,7 +359,7 @@ export default function NoonSalesData() {
           <CardContent>
             {loading ? (
               <div className="text-center py-8">Loading upload history...</div>
-            ) : uploadHistory.length === 0 ? (
+            ) : uploadSummary.length === 0 ? (
               <div className="text-center py-12">
                 <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-slate-900 mb-2">No uploads found</h3>
@@ -389,7 +380,7 @@ export default function NoonSalesData() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {uploadHistory.map((upload, index) => (
+                    {uploadSummary.map((upload, index) => (
                       <TableRow key={index}>
                         <TableCell className="font-medium">{upload.store_name}</TableCell>
                         <TableCell>
