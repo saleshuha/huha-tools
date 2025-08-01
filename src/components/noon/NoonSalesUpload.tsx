@@ -1,16 +1,25 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useDropzone } from "react-dropzone";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useCountry } from "@/contexts/CountryContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Upload, FileText, CheckCircle2, AlertCircle, Database } from "lucide-react";
+import { Upload, FileText, CheckCircle2, Database, Calendar, X } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
+
+interface Store {
+  id: string;
+  name: string;
+}
 
 interface NoonSalesUploadProps {
   onDataUploaded: () => void;
@@ -33,12 +42,51 @@ const EXPECTED_HEADERS = [
 ];
 
 export function NoonSalesUpload({ onDataUploaded }: NoonSalesUploadProps) {
+  const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [fileAnalysis, setFileAnalysis] = useState<FileAnalysis | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [showPeriodForm, setShowPeriodForm] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Form states
+  const [selectedStore, setSelectedStore] = useState<string>("no-store");
+  const [reportMonth, setReportMonth] = useState<string>("");
+  const [periodStart, setPeriodStart] = useState<string>("");
+  const [periodEnd, setPeriodEnd] = useState<string>("");
+  const [stores, setStores] = useState<Store[]>([]);
+  
   const { toast } = useToast();
   const { selectedCountry } = useCountry();
+
+  // Load stores on component mount
+  const loadStores = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('stores')
+        .select('id, name')
+        .eq('country', selectedCountry)
+        .eq('platform', 'noon')
+        .eq('is_active', true)
+        .order('name');
+      
+      if (error) throw error;
+      setStores(data || []);
+    } catch (error) {
+      console.error('Error loading stores:', error);
+      toast({
+        title: "Error loading stores",
+        description: "Please try again",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Load stores on component mount
+  useEffect(() => {
+    loadStores();
+  }, [selectedCountry]);
 
   const parseFile = async (file: File): Promise<any[]> => {
     return new Promise((resolve, reject) => {
@@ -89,7 +137,7 @@ export function NoonSalesUpload({ onDataUploaded }: NoonSalesUploadProps) {
     return null;
   };
 
-  const saveToDatabase = async (data: any[], reportMonth: string) => {
+  const saveToDatabase = async (data: any[], reportMonth: string, fileName: string) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User not authenticated');
 
@@ -185,7 +233,7 @@ export function NoonSalesUpload({ onDataUploaded }: NoonSalesUploadProps) {
       setFileAnalysis(analysis);
 
       // Save to database
-      await saveToDatabase(data, reportMonth);
+      await saveToDatabase(data, reportMonth, file.name);
 
       setUploadSuccess(true);
       onDataUploaded();
@@ -208,7 +256,13 @@ export function NoonSalesUpload({ onDataUploaded }: NoonSalesUploadProps) {
   };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
+    onDrop: (acceptedFiles) => {
+      if (acceptedFiles.length > 0) {
+        setFile(acceptedFiles[0]);
+        setError(null);
+        setShowPeriodForm(true);
+      }
+    },
     accept: {
       'text/csv': ['.csv'],
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
@@ -221,6 +275,166 @@ export function NoonSalesUpload({ onDataUploaded }: NoonSalesUploadProps) {
   const getHeaderMatchStatus = (header: string) => {
     return EXPECTED_HEADERS.includes(header) ? 'match' : 'extra';
   };
+
+  const handlePeriodSubmit = async () => {
+    if (!reportMonth) {
+      setError("Please select a report month");
+      return;
+    }
+    
+    if (!file) return;
+
+    setShowPeriodForm(false);
+    setUploading(true);
+    setUploadProgress(0);
+    setFileAnalysis(null);
+    setUploadSuccess(false);
+
+    try {
+      // Parse file
+      const data = await parseFile(file);
+      
+      if (!data || data.length === 0) {
+        throw new Error('No data found in file');
+      }
+
+      // Analyze file
+      const headers = Object.keys(data[0]);
+      
+      const analysis: FileAnalysis = {
+        totalRows: data.length,
+        sampleData: data.slice(0, 5),
+        detectedHeaders: headers,
+        reportMonth
+      };
+
+      setFileAnalysis(analysis);
+
+      // Save to database
+      await saveToDatabase(data, reportMonth, file.name);
+
+      setUploadSuccess(true);
+      onDataUploaded();
+
+      toast({
+        title: "Upload successful",
+        description: `Processed ${data.length} sales records`,
+      });
+
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast({
+        title: "Upload failed",
+        description: error instanceof Error ? error.message : "An unexpected error occurred",
+        variant: "destructive"
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const resetForm = () => {
+    setFile(null);
+    setFileAnalysis(null);
+    setShowPeriodForm(false);
+    setSelectedStore("no-store");
+    setReportMonth("");
+    setPeriodStart("");
+    setPeriodEnd("");
+    setError(null);
+    setUploadProgress(0);
+    setUploadSuccess(false);
+  };
+
+  // Show period selection form if file is selected
+  if (showPeriodForm && file) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="h-5 w-5" />
+            Report Details
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-2 mb-4">
+            <FileText className="h-4 w-4" />
+            <span className="text-sm font-medium">{file.name}</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={resetForm}
+              className="h-auto p-1 ml-auto"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="store">Store (Optional)</Label>
+              <Select value={selectedStore} onValueChange={setSelectedStore}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select store..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="no-store">No specific store</SelectItem>
+                  {stores.map((store) => (
+                    <SelectItem key={store.id} value={store.id}>
+                      {store.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="month">Report Month *</Label>
+              <Input
+                type="month"
+                value={reportMonth}
+                onChange={(e) => setReportMonth(e.target.value)}
+                placeholder="YYYY-MM"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="start">Period Start (Optional)</Label>
+              <Input
+                type="date"
+                value={periodStart}
+                onChange={(e) => setPeriodStart(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="end">Period End (Optional)</Label>
+              <Input
+                type="date"
+                value={periodEnd}
+                onChange={(e) => setPeriodEnd(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 pt-4">
+            <Button onClick={handlePeriodSubmit} className="flex-1">
+              Process File
+            </Button>
+            <Button variant="outline" onClick={resetForm}>
+              Cancel
+            </Button>
+          </div>
+
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-6">
