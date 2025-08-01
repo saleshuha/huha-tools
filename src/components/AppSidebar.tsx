@@ -1,4 +1,4 @@
-import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, Wrench, LogOut, Home, Users, TrendingUp, Merge, Edit3, Database, CreditCard, Upload, BarChart3, DollarSign } from "lucide-react"
+import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, Wrench, LogOut, Home, Users, TrendingUp, Merge, Edit3, Database, CreditCard, Upload, BarChart3, DollarSign, Store } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
 import { useState } from "react"
 import { supabase } from "@/integrations/supabase/client"
@@ -79,13 +79,23 @@ const coreItems = [
 
 const paymentReportsItems = [
   {
-    title: "Noon Sales Tracker",
-    url: "/noon-sales-tracker",
+    title: "Noon Dashboard",
+    url: "/noon-dashboard",
     icon: BarChart3
   },
   {
+    title: "Store Management",
+    url: "/noon-stores",
+    icon: Store
+  },
+  {
+    title: "Sales Data Upload",
+    url: "/noon-sales-data",
+    icon: Upload
+  },
+  {
     title: "SKU Cost Management",
-    url: "/sku-costs",
+    url: "/noon-sku-costs",
     icon: DollarSign
   }
 ]
