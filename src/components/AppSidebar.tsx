@@ -199,8 +199,8 @@ export function AppSidebar() {
                         </SidebarMenuButton>
                       </SidebarMenuItem>
                       
-                      {/* Payment Reports sub-section */}
-                      <SidebarMenuItem>
+                      {/* Noon Reports sub-section with proper spacing */}
+                      <SidebarMenuItem className="mt-2">
                         <Collapsible open={isPaymentReportsOpen} onOpenChange={setIsPaymentReportsOpen}>
                           <CollapsibleTrigger asChild>
                             <SidebarMenuButton
