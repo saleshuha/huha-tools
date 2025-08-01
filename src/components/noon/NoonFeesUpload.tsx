@@ -52,6 +52,7 @@ export function NoonFeesUpload({ onDataUploaded }: NoonFeesUploadProps) {
           .from('stores')
           .select('id, name')
           .eq('country', selectedCountry)
+          .eq('platform', 'noon')
           .order('name');
         
         if (error) throw error;

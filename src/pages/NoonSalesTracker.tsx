@@ -142,6 +142,7 @@ export default function NoonSalesTracker() {
         .from('stores')
         .select('id, name')
         .eq('country', selectedCountry)
+        .eq('platform', 'noon')
         .order('name');
       
       if (error) throw error;
@@ -200,7 +201,8 @@ export default function NoonSalesTracker() {
           location: newStoreLocation.trim() || null,
           description: newStoreDescription.trim() || null,
           country: selectedCountry,
-          currency: selectedCountry === 'UAE' ? 'AED' : 'SAR'
+          currency: selectedCountry === 'UAE' ? 'AED' : 'SAR',
+          platform: 'noon'
         })
         .select()
         .single();

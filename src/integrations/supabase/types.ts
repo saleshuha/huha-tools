@@ -865,6 +865,7 @@ export type Database = {
           is_active: boolean
           location: string | null
           name: string
+          platform: string
           updated_at: string
           user_id: string
         }
@@ -877,6 +878,7 @@ export type Database = {
           is_active?: boolean
           location?: string | null
           name: string
+          platform?: string
           updated_at?: string
           user_id: string
         }
@@ -889,6 +891,7 @@ export type Database = {
           is_active?: boolean
           location?: string | null
           name?: string
+          platform?: string
           updated_at?: string
           user_id?: string
         }
