@@ -369,8 +369,20 @@ export default function CarrefourSalesTracker() {
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0 shadow-lg border-2" align="end">
               <div className="bg-gradient-to-b from-primary/5 to-background p-3 border-b">
-                <h4 className="font-semibold text-sm text-primary">Select Date Range</h4>
-                <p className="text-xs text-muted-foreground">Choose a period to filter your metrics</p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-semibold text-sm text-primary">Select Date Range</h4>
+                    <p className="text-xs text-muted-foreground">Choose a period to filter your metrics</p>
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="text-xs px-2 py-1 h-auto bg-primary/10 hover:bg-primary/20 text-primary"
+                    onClick={() => setDateRange({ from: undefined, to: undefined })}
+                  >
+                    All Time
+                  </Button>
+                </div>
               </div>
               <Calendar
                 initialFocus
