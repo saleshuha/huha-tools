@@ -345,27 +345,33 @@ export default function CarrefourSalesTracker() {
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
+                size="sm"
                 className={cn(
-                  "w-[280px] justify-start text-left font-normal",
+                  "w-[220px] justify-start text-left font-medium border-2 border-primary/20 hover:border-primary/40 bg-primary/5 hover:bg-primary/10 shadow-sm",
                   !dateRange.from && !dateRange.to && "text-muted-foreground"
                 )}
               >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {dateRange.from ? (
-                  dateRange.to ? (
-                    <>
-                      {format(dateRange.from, "LLL dd, y")} -{" "}
-                      {format(dateRange.to, "LLL dd, y")}
-                    </>
+                <CalendarIcon className="mr-2 h-3 w-3 text-primary" />
+                <span className="text-xs">
+                  {dateRange.from ? (
+                    dateRange.to ? (
+                      <>
+                        {format(dateRange.from, "MMM dd")} - {format(dateRange.to, "MMM dd, y")}
+                      </>
+                    ) : (
+                      format(dateRange.from, "MMM dd, y")
+                    )
                   ) : (
-                    format(dateRange.from, "LLL dd, y")
-                  )
-                ) : (
-                  <span>All Time</span>
-                )}
+                    "Filter by Date"
+                  )}
+                </span>
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
+            <PopoverContent className="w-auto p-0 shadow-lg border-2" align="end">
+              <div className="bg-gradient-to-b from-primary/5 to-background p-3 border-b">
+                <h4 className="font-semibold text-sm text-primary">Select Date Range</h4>
+                <p className="text-xs text-muted-foreground">Choose a period to filter your metrics</p>
+              </div>
               <Calendar
                 initialFocus
                 mode="range"
@@ -373,16 +379,39 @@ export default function CarrefourSalesTracker() {
                 selected={{ from: dateRange.from, to: dateRange.to }}
                 onSelect={(range) => setDateRange({ from: range?.from, to: range?.to })}
                 numberOfMonths={2}
-                className={cn("p-3 pointer-events-auto")}
+                className={cn("p-4 pointer-events-auto")}
+                classNames={{
+                  months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
+                  month: "space-y-4",
+                  caption: "flex justify-center pt-1 relative items-center text-primary font-medium",
+                  caption_label: "text-sm font-medium",
+                  nav: "space-x-1 flex items-center",
+                  nav_button: "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100 hover:bg-primary/10 rounded-md",
+                  nav_button_previous: "absolute left-1",
+                  nav_button_next: "absolute right-1",
+                  table: "w-full border-collapse space-y-1",
+                  head_row: "flex",
+                  head_cell: "text-muted-foreground rounded-md w-9 font-normal text-[0.8rem]",
+                  row: "flex w-full mt-2",
+                  cell: "text-center text-sm p-0 relative [&:has([aria-selected])]:bg-primary/10 first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
+                  day: "h-8 w-8 p-0 font-normal aria-selected:opacity-100 hover:bg-primary/20 rounded-md transition-colors",
+                  day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
+                  day_today: "bg-accent text-accent-foreground font-semibold",
+                  day_outside: "text-muted-foreground opacity-50",
+                  day_disabled: "text-muted-foreground opacity-50",
+                  day_range_middle: "aria-selected:bg-primary/10 aria-selected:text-foreground",
+                  day_hidden: "invisible",
+                }}
               />
               {(dateRange.from || dateRange.to) && (
-                <div className="p-3 border-t">
+                <div className="p-3 border-t bg-muted/30">
                   <Button 
                     variant="outline" 
-                    className="w-full" 
+                    size="sm"
+                    className="w-full hover:bg-destructive/10 hover:text-destructive hover:border-destructive/20" 
                     onClick={() => setDateRange({ from: undefined, to: undefined })}
                   >
-                    Clear Filter
+                    Clear Date Filter
                   </Button>
                 </div>
               )}
