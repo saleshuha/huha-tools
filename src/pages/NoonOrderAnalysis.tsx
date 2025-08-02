@@ -191,11 +191,12 @@ export default function NoonOrderAnalysis() {
       console.log('Loading order analysis using enhanced database function...');
       
       const { data: orderFeesData, error } = await supabase
-        .rpc('get_order_fees_analysis', {
+        .rpc('get_order_fees_analysis_optimized', {
           country_filter: selectedCountry,
           store_filter: selectedStore === "all" ? null : selectedStore,
           start_date: dateRange.from?.toISOString(),
-          end_date: dateRange.to?.toISOString()
+          end_date: dateRange.to?.toISOString(),
+          limit_records: 2000  // Limit to prevent timeout
         });
 
       if (error) {
