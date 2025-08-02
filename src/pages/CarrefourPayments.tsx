@@ -512,93 +512,93 @@ export default function CarrefourSalesTracker() {
       </Card>
 
       {/* Status-based Metrics */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
         <Card 
-          className="cursor-pointer hover:shadow-lg transition-all border-green-200 hover:border-green-300"
+          className="cursor-pointer hover:shadow-md transition-all border-green-200 hover:border-green-300"
           onClick={() => handleCardClick('delivered', 'Delivered Orders')}
         >
-          <CardContent className="pt-4 pb-4">
+          <CardContent className="pt-2 pb-2 px-3">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold text-green-700">Delivered Orders</p>
-                <p className="text-lg font-bold text-green-600">{metrics.deliveredItems}</p>
+                <p className="text-sm font-bold text-green-600">{metrics.deliveredItems}</p>
                 <p className="text-xs text-muted-foreground">
                   Value: {formatCurrency(metrics.deliveredValue)}
                 </p>
               </div>
-              <Package className="h-4 w-4 text-green-600" />
+              <Package className="h-3 w-3 text-green-600" />
             </div>
           </CardContent>
         </Card>
 
         <Card 
-          className="cursor-pointer hover:shadow-lg transition-all border-cyan-200 hover:border-cyan-300"
+          className="cursor-pointer hover:shadow-md transition-all border-cyan-200 hover:border-cyan-300"
           onClick={() => handleCardClick('shipped', 'Shipped Orders')}
         >
-          <CardContent className="pt-4 pb-4">
+          <CardContent className="pt-2 pb-2 px-3">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold text-cyan-700">Shipped Orders</p>
-                <p className="text-lg font-bold text-cyan-600">{metrics.shippedItems}</p>
+                <p className="text-sm font-bold text-cyan-600">{metrics.shippedItems}</p>
                 <p className="text-xs text-muted-foreground">
                   Value: {formatCurrency(metrics.shippedValue)}
                 </p>
               </div>
-              <Package className="h-4 w-4 text-cyan-600" />
+              <Package className="h-3 w-3 text-cyan-600" />
             </div>
           </CardContent>
         </Card>
 
         <Card 
-          className="cursor-pointer hover:shadow-lg transition-all border-red-200 hover:border-red-300"
+          className="cursor-pointer hover:shadow-md transition-all border-red-200 hover:border-red-300"
           onClick={() => handleCardClick('returned', 'Returned Orders')}
         >
-          <CardContent className="pt-4 pb-4">
+          <CardContent className="pt-2 pb-2 px-3">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold text-red-700">Returned Orders</p>
-                <p className="text-lg font-bold text-red-600">{metrics.returnedItems}</p>
+                <p className="text-sm font-bold text-red-600">{metrics.returnedItems}</p>
                 <p className="text-xs text-muted-foreground">
                   Value: {formatCurrency(metrics.returnedValue)}
                 </p>
               </div>
-              <Package className="h-4 w-4 text-red-600" />
+              <Package className="h-3 w-3 text-red-600" />
             </div>
           </CardContent>
         </Card>
 
         <Card 
-          className="cursor-pointer hover:shadow-lg transition-all border-gray-200 hover:border-gray-300"
+          className="cursor-pointer hover:shadow-md transition-all border-gray-200 hover:border-gray-300"
           onClick={() => handleCardClick('cancelled', 'Cancelled Orders')}
         >
-          <CardContent className="pt-4 pb-4">
+          <CardContent className="pt-2 pb-2 px-3">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold text-gray-700">Cancelled Orders</p>
-                <p className="text-lg font-bold text-gray-600">{metrics.cancelledItems}</p>
+                <p className="text-sm font-bold text-gray-600">{metrics.cancelledItems}</p>
                 <p className="text-xs text-muted-foreground">
                   Value: {formatCurrency(metrics.cancelledValue)}
                 </p>
               </div>
-              <Package className="h-4 w-4 text-gray-600" />
+              <Package className="h-3 w-3 text-gray-600" />
             </div>
           </CardContent>
         </Card>
 
         <Card 
-          className="cursor-pointer hover:shadow-lg transition-all border-indigo-200 hover:border-indigo-300"
+          className="cursor-pointer hover:shadow-md transition-all border-indigo-200 hover:border-indigo-300"
           onClick={() => handleCardClick('other', 'Other Orders')}
         >
-          <CardContent className="pt-4 pb-4">
+          <CardContent className="pt-2 pb-2 px-3">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold text-indigo-700">Other Orders</p>
-                <p className="text-lg font-bold text-indigo-600">{metrics.otherItems}</p>
+                <p className="text-sm font-bold text-indigo-600">{metrics.otherItems}</p>
                 <p className="text-xs text-muted-foreground">
                   Value: {formatCurrency(metrics.otherValue)}
                 </p>
               </div>
-              <Package className="h-4 w-4 text-indigo-600" />
+              <Package className="h-3 w-3 text-indigo-600" />
             </div>
           </CardContent>
         </Card>
