@@ -3,10 +3,11 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, ShoppingCart, TrendingUp, TrendingDown, Package, Calculator, BarChart3, Receipt, Download, X, ArrowLeft, Store as StoreIcon } from "lucide-react";
+import { Plus, Search, ShoppingCart, TrendingUp, TrendingDown, Package, Calculator, BarChart3, Receipt, Download, X, ArrowLeft, Store as StoreIcon, CheckCircle } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { CarrefourSalesOrdersTable } from "@/components/carrefour/CarrefourSalesOrdersTable";
 import { CarrefourSalesOrder } from "@/types/carrefour";
 import { Store } from "@/types/store";
@@ -22,16 +23,19 @@ export default function CarrefourSalesTracker() {
   const [searchTerm, setSearchTerm] = useState("");
   const [salesOrders, setSalesOrders] = useState<CarrefourSalesOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [dialogData, setDialogData] = useState<{
     isOpen: boolean;
     title: string;
     data: CarrefourSalesOrder[];
     searchTerm: string;
+    filterType: string;
   }>({
     isOpen: false,
     title: '',
     data: [],
-    searchTerm: ''
+    searchTerm: '',
+    filterType: ''
   });
   const {
     selectedCountry
@@ -199,6 +203,7 @@ export default function CarrefourSalesTracker() {
     
     switch (filterType) {
       case 'all':
+      case 'revenue':
         dataToShow = salesOrders;
         break;
       case 'delivered':
@@ -219,8 +224,20 @@ export default function CarrefourSalesTracker() {
       case 'pending':
         dataToShow = salesOrders.filter(o => o.payment_status === 'Pending');
         break;
+      case 'paid':
+        dataToShow = salesOrders.filter(o => o.payment_status === 'Received');
+        break;
       case 'profitable':
         dataToShow = salesOrders.filter(o => o.profit > 0);
+        break;
+      case 'costs':
+        dataToShow = salesOrders.filter(o => o.cost > 0);
+        break;
+      case 'fees':
+        dataToShow = salesOrders.filter(o => o.seller_fees > 0);
+        break;
+      case 'investment':
+        dataToShow = salesOrders.filter(o => (o.profit + o.cost) > 0);
         break;
     }
     
@@ -228,8 +245,42 @@ export default function CarrefourSalesTracker() {
       isOpen: true,
       title,
       data: dataToShow,
-      searchTerm: ''
+      searchTerm: '',
+      filterType
     });
+    setSelectedItems(new Set()); // Reset selections when opening dialog
+  };
+
+  // Selection handlers
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedItems(new Set(filteredDialogData.map(order => order.id)));
+    } else {
+      setSelectedItems(new Set());
+    }
+  };
+
+  const handleSelectItem = (orderId: string, checked: boolean) => {
+    const newSelectedItems = new Set(selectedItems);
+    if (checked) {
+      newSelectedItems.add(orderId);
+    } else {
+      newSelectedItems.delete(orderId);
+    }
+    setSelectedItems(newSelectedItems);
+  };
+
+  const exportSelectedItems = () => {
+    const selectedOrders = filteredDialogData.filter(order => selectedItems.has(order.id));
+    if (selectedOrders.length === 0) {
+      toast({
+        title: "No Selection",
+        description: "Please select at least one item to export.",
+        variant: "destructive"
+      });
+      return;
+    }
+    exportToCSV(selectedOrders, `selected-${dialogData.title.toLowerCase().replace(/\s+/g, '-')}`);
   };
 
   const handleExport = (filterType: string, filename: string) => {
@@ -308,7 +359,10 @@ export default function CarrefourSalesTracker() {
       {/* Enhanced Key Metrics Grid - Row 1 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         {/* 1. Total Sales Revenue */}
-        <Card className="shadow-md border-0 bg-gradient-to-br from-emerald-50 to-emerald-100 relative overflow-hidden">
+        <Card 
+          className="shadow-md border-0 bg-gradient-to-br from-emerald-50 to-emerald-100 relative overflow-hidden cursor-pointer hover:shadow-lg transition-all"
+          onClick={() => handleCardClick('revenue', 'Total Sales Revenue')}
+        >
           <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-600/10 rounded-full -translate-y-8 translate-x-8"></div>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
             <CardTitle className="text-xs font-medium text-emerald-900">Total Sales Revenue</CardTitle>
@@ -327,7 +381,10 @@ export default function CarrefourSalesTracker() {
         </Card>
 
         {/* 2. Shipped Revenue */}
-        <Card className="shadow-md border-0 bg-gradient-to-br from-cyan-50 to-cyan-100 relative overflow-hidden">
+        <Card 
+          className="shadow-md border-0 bg-gradient-to-br from-cyan-50 to-cyan-100 relative overflow-hidden cursor-pointer hover:shadow-lg transition-all"
+          onClick={() => handleCardClick('shipped', 'Shipped Revenue')}
+        >
           <div className="absolute top-0 right-0 w-16 h-16 bg-cyan-600/10 rounded-full -translate-y-8 translate-x-8"></div>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
             <CardTitle className="text-xs font-medium text-cyan-900">Shipped Revenue</CardTitle>
@@ -346,7 +403,10 @@ export default function CarrefourSalesTracker() {
         </Card>
 
         {/* 3. Delivered Revenue */}
-        <Card className="shadow-md border-0 bg-gradient-to-br from-green-50 to-green-100 relative overflow-hidden">
+        <Card 
+          className="shadow-md border-0 bg-gradient-to-br from-green-50 to-green-100 relative overflow-hidden cursor-pointer hover:shadow-lg transition-all"
+          onClick={() => handleCardClick('delivered', 'Delivered Revenue')}
+        >
           <div className="absolute top-0 right-0 w-16 h-16 bg-green-600/10 rounded-full -translate-y-8 translate-x-8"></div>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
             <CardTitle className="text-xs font-medium text-green-900">Delivered Revenue</CardTitle>
@@ -365,7 +425,10 @@ export default function CarrefourSalesTracker() {
         </Card>
 
         {/* 4. Total Platform Fees */}
-        <Card className="shadow-md border-0 bg-gradient-to-br from-amber-50 to-amber-100 relative overflow-hidden">
+        <Card 
+          className="shadow-md border-0 bg-gradient-to-br from-amber-50 to-amber-100 relative overflow-hidden cursor-pointer hover:shadow-lg transition-all"
+          onClick={() => handleCardClick('fees', 'Total Platform Fees')}
+        >
           <div className="absolute top-0 right-0 w-16 h-16 bg-amber-600/10 rounded-full -translate-y-8 translate-x-8"></div>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
             <CardTitle className="text-xs font-medium text-amber-900">Total Platform Fees</CardTitle>
@@ -384,7 +447,10 @@ export default function CarrefourSalesTracker() {
         </Card>
 
         {/* 5. Total Investment */}
-        <Card className="shadow-md border-0 bg-gradient-to-br from-indigo-50 to-indigo-100 relative overflow-hidden">
+        <Card 
+          className="shadow-md border-0 bg-gradient-to-br from-indigo-50 to-indigo-100 relative overflow-hidden cursor-pointer hover:shadow-lg transition-all"
+          onClick={() => handleCardClick('investment', 'Total Investment')}
+        >
           <div className="absolute top-0 right-0 w-16 h-16 bg-indigo-600/10 rounded-full -translate-y-8 translate-x-8"></div>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
             <CardTitle className="text-xs font-medium text-indigo-900">Total Investment</CardTitle>
@@ -406,7 +472,10 @@ export default function CarrefourSalesTracker() {
       {/* Enhanced Key Metrics Grid - Row 2 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         {/* 6. Net Profit */}
-        <Card className="shadow-md border-0 bg-gradient-to-br from-blue-50 to-blue-100 relative overflow-hidden">
+        <Card 
+          className="shadow-md border-0 bg-gradient-to-br from-blue-50 to-blue-100 relative overflow-hidden cursor-pointer hover:shadow-lg transition-all"
+          onClick={() => handleCardClick('profitable', 'Net Profit')}
+        >
           <div className="absolute top-0 right-0 w-16 h-16 bg-blue-600/10 rounded-full -translate-y-8 translate-x-8"></div>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
             <CardTitle className="text-xs font-medium text-blue-900">Net Profit</CardTitle>
@@ -425,7 +494,10 @@ export default function CarrefourSalesTracker() {
         </Card>
 
         {/* 7. Total Costs */}
-        <Card className="shadow-md border-0 bg-gradient-to-br from-red-50 to-red-100 relative overflow-hidden">
+        <Card 
+          className="shadow-md border-0 bg-gradient-to-br from-red-50 to-red-100 relative overflow-hidden cursor-pointer hover:shadow-lg transition-all"
+          onClick={() => handleCardClick('costs', 'Total Costs')}
+        >
           <div className="absolute top-0 right-0 w-16 h-16 bg-red-600/10 rounded-full -translate-y-8 translate-x-8"></div>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
             <CardTitle className="text-xs font-medium text-red-900">Total Costs</CardTitle>
@@ -444,7 +516,10 @@ export default function CarrefourSalesTracker() {
         </Card>
 
         {/* 8. Revenue minus Investment */}
-        <Card className="shadow-md border-0 bg-gradient-to-br from-teal-50 to-teal-100 relative overflow-hidden">
+        <Card 
+          className="shadow-md border-0 bg-gradient-to-br from-teal-50 to-teal-100 relative overflow-hidden cursor-pointer hover:shadow-lg transition-all"
+          onClick={() => handleCardClick('all', 'Net Revenue')}
+        >
           <div className="absolute top-0 right-0 w-16 h-16 bg-teal-600/10 rounded-full -translate-y-8 translate-x-8"></div>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
             <CardTitle className="text-xs font-medium text-teal-900">Net Revenue</CardTitle>
@@ -463,7 +538,10 @@ export default function CarrefourSalesTracker() {
         </Card>
 
         {/* 9. Pending Payments */}
-        <Card className="shadow-md border-0 bg-gradient-to-br from-orange-50 to-orange-100 relative overflow-hidden">
+        <Card 
+          className="shadow-md border-0 bg-gradient-to-br from-orange-50 to-orange-100 relative overflow-hidden cursor-pointer hover:shadow-lg transition-all"
+          onClick={() => handleCardClick('pending', 'Pending Payments')}
+        >
           <div className="absolute top-0 right-0 w-16 h-16 bg-orange-600/10 rounded-full -translate-y-8 translate-x-8"></div>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
             <CardTitle className="text-xs font-medium text-orange-900">Pending Payments</CardTitle>
@@ -482,7 +560,10 @@ export default function CarrefourSalesTracker() {
         </Card>
 
         {/* 10. Total Paid Payments */}
-        <Card className="shadow-md border-0 bg-gradient-to-br from-green-50 to-green-100 relative overflow-hidden">
+        <Card 
+          className="shadow-md border-0 bg-gradient-to-br from-green-50 to-green-100 relative overflow-hidden cursor-pointer hover:shadow-lg transition-all"
+          onClick={() => handleCardClick('paid', 'Total Paid Payments')}
+        >
           <div className="absolute top-0 right-0 w-16 h-16 bg-green-600/10 rounded-full -translate-y-8 translate-x-8"></div>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
             <CardTitle className="text-xs font-medium text-green-900">Total Paid Payments</CardTitle>
@@ -604,25 +685,36 @@ export default function CarrefourSalesTracker() {
         </Card>
       </div>
 
-      {/* Dialog for showing filtered data */}
+      {/* Enhanced Dialog for showing filtered data with selection */}
       <Dialog open={dialogData.isOpen} onOpenChange={(open) => setDialogData(prev => ({ ...prev, isOpen: open }))}>
         <DialogContent className="max-w-6xl max-h-[80vh] overflow-hidden">
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between">
               <span>{dialogData.title}</span>
               <div className="flex items-center gap-2">
+                {selectedItems.size > 0 && (
+                  <Button
+                    onClick={exportSelectedItems}
+                    className="gap-2 bg-blue-600 hover:bg-blue-700"
+                    size="sm"
+                  >
+                    <Download className="h-4 w-4" />
+                    Export Selected ({selectedItems.size})
+                  </Button>
+                )}
                 <Button
                   onClick={() => exportToCSV(filteredDialogData, dialogData.title.toLowerCase().replace(/\s+/g, '-'))}
                   className="gap-2 bg-emerald-600 hover:bg-emerald-700"
                   size="sm"
                 >
                   <Download className="h-4 w-4" />
-                  Export CSV
+                  Export All
                 </Button>
               </div>
             </DialogTitle>
             <DialogDescription>
               Showing {filteredDialogData.length} orders
+              {selectedItems.size > 0 && ` • ${selectedItems.size} selected`}
             </DialogDescription>
           </DialogHeader>
           
@@ -638,11 +730,46 @@ export default function CarrefourSalesTracker() {
               />
             </div>
 
-            {/* Table */}
-            <div className="border rounded-lg overflow-auto max-h-[50vh]">
+            {/* Selection Controls */}
+            <div className="flex items-center gap-4 p-3 bg-slate-50 rounded-lg">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="select-all"
+                  checked={selectedItems.size === filteredDialogData.length && filteredDialogData.length > 0}
+                  onCheckedChange={handleSelectAll}
+                />
+                <label htmlFor="select-all" className="text-sm font-medium">
+                  Select All ({filteredDialogData.length})
+                </label>
+              </div>
+              {selectedItems.size > 0 && (
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className="flex items-center gap-1">
+                    <CheckCircle className="h-3 w-3" />
+                    {selectedItems.size} selected
+                  </Badge>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSelectedItems(new Set())}
+                  >
+                    Clear Selection
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {/* Enhanced Table with Selection */}
+            <div className="border rounded-lg overflow-auto max-h-[40vh]">
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-12">
+                      <Checkbox
+                        checked={selectedItems.size === filteredDialogData.length && filteredDialogData.length > 0}
+                        onCheckedChange={handleSelectAll}
+                      />
+                    </TableHead>
                     <TableHead>Order Number</TableHead>
                     <TableHead>Sale Value</TableHead>
                     <TableHead>Seller Fees</TableHead>
@@ -655,7 +782,16 @@ export default function CarrefourSalesTracker() {
                 </TableHeader>
                 <TableBody>
                   {filteredDialogData.map((order) => (
-                    <TableRow key={order.id}>
+                    <TableRow 
+                      key={order.id}
+                      className={selectedItems.has(order.id) ? 'bg-blue-50' : ''}
+                    >
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedItems.has(order.id)}
+                          onCheckedChange={(checked) => handleSelectItem(order.id, checked as boolean)}
+                        />
+                      </TableCell>
                       <TableCell className="font-medium">{order.order_number}</TableCell>
                       <TableCell>{formatCurrency(order.sale_value)}</TableCell>
                       <TableCell>{formatCurrency(order.seller_fees)}</TableCell>
