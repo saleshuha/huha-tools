@@ -20,6 +20,7 @@ import { useUserProfile } from '@/hooks/useUserProfile';
 import { supabase } from '@/integrations/supabase/client';
 import { DualQuantityEditor } from './DualQuantityEditor';
 import { StockHistoryDialog } from './StockHistoryDialog';
+import { SkuEditor } from './SkuEditor';
 import { InventoryMetrics } from './InventoryMetrics';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -32,7 +33,7 @@ export function AsinInventory() {
     bulkAdd,
     restockItem,
     updateQuantity,
-    updateBin,
+    updateSku,
     refetch
   } = useAsinInventory();
   const {
@@ -637,7 +638,12 @@ export function AsinInventory() {
                       </td>
                        <td className="p-4 font-mono text-sm">{item.asin}</td>
                        <td className="p-4 font-mono text-sm">{item.serialNumber}</td>
-                       <td className="p-4 font-mono text-sm">{item.sku || '-'}</td>
+                       <td className="p-4">
+                         <SkuEditor 
+                           currentSku={item.sku} 
+                           onUpdate={(newSku) => updateSku(item.id, newSku)} 
+                         />
+                       </td>
                        <td className="p-4">
                         <Badge variant={item.status === 'in-stock' ? 'default' : item.status === 'sold' ? 'secondary' : item.status === 'reserved' ? 'outline' : 'destructive'}>
                           {item.status.replace('-', ' ').toUpperCase()}
@@ -694,12 +700,13 @@ export function AsinInventory() {
                        <Label className="text-xs text-muted-foreground">Serial Number</Label>
                        <p className="font-mono text-sm">{item.serialNumber}</p>
                      </div>
-                     {item.sku && (
-                       <div>
-                         <Label className="text-xs text-muted-foreground">SKU</Label>
-                         <p className="font-mono text-sm">{item.sku}</p>
-                       </div>
-                     )}
+                     <div>
+                       <Label className="text-xs text-muted-foreground">SKU</Label>
+                       <SkuEditor 
+                         currentSku={item.sku} 
+                         onUpdate={(newSku) => updateSku(item.id, newSku)} 
+                       />
+                     </div>
                     <div>
                       <Label className="text-xs text-muted-foreground">Quantity</Label>
                       <div className="flex items-center gap-2">

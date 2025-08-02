@@ -371,6 +371,37 @@ export function useAsinInventory() {
     }
   };
 
+  // Update SKU for an item
+  const updateSku = async (id: string, newSku: string) => {
+    if (!profile) return;
+
+    try {
+      const { error } = await supabase
+        .from('asin_inventory')
+        .update({ sku: newSku.trim() || null })
+        .eq('id', id)
+        .eq('user_id', profile.id);
+
+      if (error) throw error;
+
+      setInventory(prev => prev.map(item => 
+        item.id === id ? { ...item, sku: newSku.trim() || undefined } : item
+      ));
+
+      toast({
+        title: "SKU Updated",
+        description: `SKU has been updated successfully.`,
+      });
+    } catch (error) {
+      console.error('Error updating SKU:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update SKU",
+        variant: "destructive",
+      });
+    }
+  };
+
   return {
     inventory,
     loading,
@@ -381,6 +412,7 @@ export function useAsinInventory() {
     restockItem,
     updateQuantity,
     updateBin,
+    updateSku,
     refetch: loadInventory,
   };
 }
