@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { 
   Download, TrendingUp, TrendingDown, Package, DollarSign, AlertTriangle, 
   Search, Filter, RefreshCw, AlertCircle, CheckCircle, Clock, XCircle, 
-  Eye, FileText, Calculator, Target, Zap, Award
+  Eye, FileText, Calculator, Target, Zap, Award, ChevronLeft, ChevronRight
 } from "lucide-react";
 import { useCountry } from "@/contexts/CountryContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -101,6 +101,10 @@ export default function NoonOrderAnalysis() {
   });
   const [stores, setStores] = useState<Array<{ id: string; name: string }>>([]);
   
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
+  
   const [analysis, setAnalysis] = useState<OrderAnalysis>({
     totalOrders: 0,
     ordersWithFees: 0,
@@ -143,6 +147,17 @@ export default function NoonOrderAnalysis() {
       return matchesSearch && matchesStatus && matchesFees;
     });
   }, [orderDetails, searchTerm, selectedStatus, feesFilter]);
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedOrders = filteredOrders.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedStatus, feesFilter, itemsPerPage]);
 
   const uniqueStatuses = useMemo(() => {
     const statuses = new Set(orderDetails.map(order => order.item_status).filter(Boolean));
@@ -789,9 +804,26 @@ export default function NoonOrderAnalysis() {
                     <FileText className="h-5 w-5 text-blue-600" />
                     Order Details
                   </span>
-                  <Badge variant="outline" className="text-sm">
-                    {filteredOrders.length.toLocaleString()} orders
-                  </Badge>
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">Show:</span>
+                      <Select value={itemsPerPage.toString()} onValueChange={(value) => setItemsPerPage(Number(value))}>
+                        <SelectTrigger className="w-24 h-8">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="10">10</SelectItem>
+                          <SelectItem value="25">25</SelectItem>
+                          <SelectItem value="50">50</SelectItem>
+                          <SelectItem value="100">100</SelectItem>
+                          <SelectItem value="250">250</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Badge variant="outline" className="text-sm">
+                      {filteredOrders.length.toLocaleString()} orders
+                    </Badge>
+                  </div>
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -810,7 +842,7 @@ export default function NoonOrderAnalysis() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredOrders.slice(0, 50).map((order, index) => (
+                      {paginatedOrders.map((order, index) => (
                         <TableRow key={index} className="hover:bg-slate-50/50">
                           <TableCell className="font-mono text-xs">{order.item_nr}</TableCell>
                           <TableCell className="font-mono text-xs">{order.sku || 'N/A'}</TableCell>
@@ -843,12 +875,80 @@ export default function NoonOrderAnalysis() {
                       ))}
                     </TableBody>
                   </Table>
-                  {filteredOrders.length > 50 && (
-                    <div className="bg-slate-50 p-4 text-center text-sm text-slate-600">
-                      Showing first 50 orders. Export data to see all {filteredOrders.length.toLocaleString()} orders.
-                    </div>
-                  )}
                 </div>
+                
+                {/* Pagination Controls */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between px-6 py-4 border-t border-slate-200">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      Showing {startIndex + 1} to {Math.min(endIndex, filteredOrders.length)} of {filteredOrders.length} results
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                        disabled={currentPage === 1}
+                        className="h-8 px-3"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                        Previous
+                      </Button>
+                      
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                          let pageNum;
+                          if (totalPages <= 5) {
+                            pageNum = i + 1;
+                          } else if (currentPage <= 3) {
+                            pageNum = i + 1;
+                          } else if (currentPage >= totalPages - 2) {
+                            pageNum = totalPages - 4 + i;
+                          } else {
+                            pageNum = currentPage - 2 + i;
+                          }
+                          
+                          return (
+                            <Button
+                              key={pageNum}
+                              variant={currentPage === pageNum ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setCurrentPage(pageNum)}
+                              className="h-8 w-8 p-0"
+                            >
+                              {pageNum}
+                            </Button>
+                          );
+                        })}
+                        
+                        {totalPages > 5 && currentPage < totalPages - 2 && (
+                          <>
+                            <span className="text-muted-foreground px-2">...</span>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setCurrentPage(totalPages)}
+                              className="h-8 w-8 p-0"
+                            >
+                              {totalPages}
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                        disabled={currentPage === totalPages}
+                        className="h-8 px-3"
+                      >
+                        Next
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
