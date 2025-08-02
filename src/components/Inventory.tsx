@@ -4,7 +4,6 @@ import { Card } from './ui/card';
 import { Package, Hash, ArrowRight } from 'lucide-react';
 import { AsinInventory } from './AsinInventory';
 import { SSInventory } from './SSInventory';
-
 type InventoryView = 'main' | 'asin' | 'ss';
 export function Inventory() {
   console.log('Inventory component loaded, current view:', 'main');
@@ -58,10 +57,7 @@ export function Inventory() {
               <p className="text-muted-foreground">
                 Track product inventory using Amazon ASINs and serial numbers. Perfect for Amazon sellers managing their stock.
               </p>
-              <div className="flex items-center justify-center gap-2 text-primary group-hover:gap-3 transition-all">
-                <span className="font-medium">Open ASIN Inventory</span>
-                <ArrowRight className="w-4 h-4" />
-              </div>
+              
             </div>
           </Card>
 
