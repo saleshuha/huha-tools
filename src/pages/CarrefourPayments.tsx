@@ -133,6 +133,7 @@ export default function CarrefourSalesTracker() {
       totalRevenue,
       totalCosts,
       totalProfit,
+      totalInvestment: totalProfit + totalCosts,
       totalPendingAmount,
       totalPendingPayments,
       totalFees,
@@ -301,7 +302,7 @@ export default function CarrefourSalesTracker() {
       </div>
 
       {/* Metrics Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-3">
         <Card 
           className="cursor-pointer hover:shadow-lg transition-all border-emerald-200 hover:border-emerald-300" 
           onClick={() => handleCardClick('all', 'Total Sales Revenue')}
@@ -316,6 +317,60 @@ export default function CarrefourSalesTracker() {
                 </p>
               </div>
               <ShoppingCart className="h-4 w-4 text-emerald-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card 
+          className="cursor-pointer hover:shadow-lg transition-all border-cyan-200 hover:border-cyan-300" 
+          onClick={() => handleCardClick('shipped', 'Shipped Orders')}
+        >
+          <CardContent className="pt-4 pb-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold text-cyan-700">Shipped Order Revenue</p>
+                <p className="text-lg font-bold text-cyan-600">{formatCurrency(metrics.shippedValue)}</p>
+                <p className="text-xs text-muted-foreground">
+                  {metrics.shippedItems} shipped orders
+                </p>
+              </div>
+              <TrendingUp className="h-4 w-4 text-cyan-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card 
+          className="cursor-pointer hover:shadow-lg transition-all border-green-200 hover:border-green-300" 
+          onClick={() => handleCardClick('delivered', 'Delivered Orders')}
+        >
+          <CardContent className="pt-4 pb-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold text-green-700">Delivered Order Revenue</p>
+                <p className="text-lg font-bold text-green-600">{formatCurrency(metrics.deliveredValue)}</p>
+                <p className="text-xs text-muted-foreground">
+                  {metrics.deliveredItems} delivered orders
+                </p>
+              </div>
+              <BarChart3 className="h-4 w-4 text-green-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card 
+          className="cursor-pointer hover:shadow-lg transition-all border-indigo-200 hover:border-indigo-300" 
+          onClick={() => handleCardClick('all', 'Total Investment')}
+        >
+          <CardContent className="pt-4 pb-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold text-indigo-700">Total Investment</p>
+                <p className="text-lg font-bold text-indigo-600">{formatCurrency(metrics.totalInvestment)}</p>
+                <p className="text-xs text-muted-foreground">
+                  Profit + Cost combined
+                </p>
+              </div>
+              <Calculator className="h-4 w-4 text-indigo-600" />
             </div>
           </CardContent>
         </Card>
