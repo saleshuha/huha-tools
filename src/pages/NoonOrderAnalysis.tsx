@@ -2,32 +2,24 @@ import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-// import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { 
   Download, TrendingUp, TrendingDown, Package, DollarSign, AlertTriangle, 
-  Search, Filter, Calendar, BarChart3, PieChart, LineChart, 
-  Package2, ShoppingCart, RefreshCw, AlertCircle, CheckCircle,
-  Clock, XCircle, ArrowUpDown, Eye, FileText
+  Search, Filter, RefreshCw, AlertCircle, CheckCircle, Clock, XCircle, 
+  Eye, FileText, Calculator, Target, Zap, Award
 } from "lucide-react";
 import { useCountry } from "@/contexts/CountryContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { 
-  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  PieChart as RechartsPieChart, Cell, LineChart as RechartsLineChart, Line,
-  ComposedChart, Area, AreaChart
-} from "recharts";
-import { format, parseISO, startOfMonth, endOfMonth, subMonths } from "date-fns";
-
-const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#0088fe', '#00c49f', '#ffbb28', '#ff8042'];
+import { format, subMonths } from "date-fns";
 
 interface OrderAnalysis {
   totalOrders: number;
+  ordersWithFees: number;
+  ordersWithoutFees: number;
   deliveredOrders: number;
   cancelledOrders: number;
   returnedOrders: number;
@@ -42,11 +34,13 @@ interface OrderAnalysis {
   deliveryRate: number;
   averageFeePercentage: number;
   profitMargin: number;
+  feesCoverage: number;
 }
 
 interface OrderDetail {
-  order_nr: string;
-  item_nr?: string;
+  // Sales data (primary)
+  item_nr: string;
+  order_id?: string;
   sku?: string;
   product_title?: string;
   item_status?: string;
@@ -56,14 +50,21 @@ interface OrderDetail {
   cancelled_date?: string;
   returned_date?: string;
   invoice_price?: number;
-  total_fees: number;
-  net_amount: number;
-  fulfillment_mode?: string;
   family?: string;
   brand?: string;
+  
+  // Fees data (calculated)
+  fees_found: boolean;
+  total_fees: number;
+  net_amount: number;
   fee_breakdown: {[key: string]: number};
   days_to_deliver?: number;
   profit_margin?: number;
+  
+  // Enhanced status
+  enhanced_status: string;
+  status_color: string;
+  has_cost_data: boolean;
 }
 
 interface StatusBreakdown {
@@ -74,37 +75,17 @@ interface StatusBreakdown {
   totalFees: number;
   netAmount: number;
   avgOrderValue: number;
-  avgFeePercentage: number;
+  feesFound: number;
+  feesCoverage: number;
 }
 
 interface FeeBreakdown {
   feeType: string;
   amount: number;
   percentage: number;
-  avgPerOrder: number;
+  ordersAffected: number;
+  avgPerAffectedOrder: number;
   description: string;
-}
-
-interface TimelineData {
-  month: string;
-  orders: number;
-  revenue: number;
-  fees: number;
-  netAmount: number;
-  delivered: number;
-  cancelled: number;
-  returned: number;
-}
-
-interface TopPerformer {
-  sku: string;
-  product_title: string;
-  orders: number;
-  revenue: number;
-  fees: number;
-  netAmount: number;
-  margin: number;
-  avgOrderValue: number;
 }
 
 export default function NoonOrderAnalysis() {
@@ -112,6 +93,7 @@ export default function NoonOrderAnalysis() {
   const [loading, setLoading] = useState(true);
   const [selectedStore, setSelectedStore] = useState<string>("all");
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
+  const [feesFilter, setFeesFilter] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [dateRange, setDateRange] = useState<{from: Date | undefined, to: Date | undefined}>({
     from: subMonths(new Date(), 3),
@@ -121,6 +103,8 @@ export default function NoonOrderAnalysis() {
   
   const [analysis, setAnalysis] = useState<OrderAnalysis>({
     totalOrders: 0,
+    ordersWithFees: 0,
+    ordersWithoutFees: 0,
     deliveredOrders: 0,
     cancelledOrders: 0,
     returnedOrders: 0,
@@ -134,14 +118,13 @@ export default function NoonOrderAnalysis() {
     cancellationRate: 0,
     deliveryRate: 0,
     averageFeePercentage: 0,
-    profitMargin: 0
+    profitMargin: 0,
+    feesCoverage: 0
   });
 
   const [orderDetails, setOrderDetails] = useState<OrderDetail[]>([]);
   const [statusBreakdown, setStatusBreakdown] = useState<StatusBreakdown[]>([]);
   const [feeBreakdown, setFeeBreakdown] = useState<FeeBreakdown[]>([]);
-  const [timelineData, setTimelineData] = useState<TimelineData[]>([]);
-  const [topPerformers, setTopPerformers] = useState<TopPerformer[]>([]);
 
   // Filtered data based on search and filters
   const filteredOrders = useMemo(() => {
@@ -149,13 +132,17 @@ export default function NoonOrderAnalysis() {
       const matchesSearch = !searchTerm || 
         order.sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         order.product_title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.order_nr?.toLowerCase().includes(searchTerm.toLowerCase());
+        order.item_nr?.toLowerCase().includes(searchTerm.toLowerCase());
       
       const matchesStatus = selectedStatus === "all" || order.item_status === selectedStatus;
       
-      return matchesSearch && matchesStatus;
+      const matchesFees = feesFilter === "all" || 
+        (feesFilter === "with-fees" && order.fees_found) ||
+        (feesFilter === "without-fees" && !order.fees_found);
+      
+      return matchesSearch && matchesStatus && matchesFees;
     });
-  }, [orderDetails, searchTerm, selectedStatus]);
+  }, [orderDetails, searchTerm, selectedStatus, feesFilter]);
 
   const uniqueStatuses = useMemo(() => {
     const statuses = new Set(orderDetails.map(order => order.item_status).filter(Boolean));
@@ -200,12 +187,13 @@ export default function NoonOrderAnalysis() {
     try {
       setLoading(true);
 
-      // Build query conditions with date range
+      // Build query for SALES DATA (primary source)
       let salesQuery = supabase
         .from('noon_sales_data')
         .select('*')
         .eq('country_code', selectedCountry);
 
+      // Build query for FEES DATA (secondary source for matching)
       let feesQuery = supabase
         .from('noon_order_fees')
         .select('*')
@@ -218,91 +206,147 @@ export default function NoonOrderAnalysis() {
 
       if (dateRange.from) {
         salesQuery = salesQuery.gte('ordered_date', dateRange.from.toISOString());
-        feesQuery = feesQuery.gte('ordered_date', dateRange.from.toISOString());
       }
 
       if (dateRange.to) {
         salesQuery = salesQuery.lte('ordered_date', dateRange.to.toISOString());
-        feesQuery = feesQuery.lte('ordered_date', dateRange.to.toISOString());
       }
 
-      // Fetch all data in batches
-      const [salesData, feesData] = await Promise.all([
-        fetchAllData(salesQuery),
-        fetchAllData(feesQuery)
-      ]);
+      // Fetch all sales data (primary)
+      const salesData = await fetchAllData(salesQuery);
+      console.log(`Loaded ${salesData.length} sales records as primary source`);
 
-      console.log(`Loaded ${salesData.length} sales records and ${feesData.length} fees records`);
+      // Fetch all fees data (for matching)
+      const feesData = await fetchAllData(feesQuery);
+      console.log(`Loaded ${feesData.length} fees records for matching`);
 
-      // Create comprehensive order matching maps
+      // Create fees lookup map for efficient matching
       const feesMap = new Map();
-      const feesMapByOrder = new Map();
-      
       feesData.forEach(fee => {
-        // Map by order number and item number combination
-        const key1 = `${fee.order_nr}`;
-        const key2 = `${fee.order_nr}-${fee.item_nr}`;
+        // Try multiple matching strategies
+        const keys = [
+          fee.order_nr,
+          fee.item_nr,
+          `${fee.order_nr}-${fee.item_nr}`,
+          fee.partner_sales_nr
+        ].filter(Boolean);
         
-        if (!feesMapByOrder.has(key1)) {
-          feesMapByOrder.set(key1, []);
-        }
-        feesMapByOrder.get(key1).push(fee);
-        
-        feesMap.set(key2, fee);
-      });
-
-      // Process orders with improved matching
-      const combinedOrders: OrderDetail[] = [];
-      const processedOrders = new Set();
-
-      // First, process sales data
-      salesData.forEach(sale => {
-        const orderKey = `${sale.item_nr}`;
-        
-        if (processedOrders.has(orderKey)) return;
-        processedOrders.add(orderKey);
-
-        // Try to find matching fee data
-        let feeData = feesMap.get(`${sale.item_nr}-${sale.item_nr}`);
-        
-        // If not found, try alternative matching
-        if (!feeData) {
-          const orderFees = feesMapByOrder.get(sale.item_nr);
-          if (orderFees && orderFees.length > 0) {
-            feeData = orderFees[0]; // Take first match
+        keys.forEach(key => {
+          if (!feesMap.has(key)) {
+            feesMap.set(key, []);
           }
+          feesMap.get(key).push(fee);
+        });
+      });
+
+      // Process each sales record and find matching fees
+      const combinedOrders: OrderDetail[] = [];
+      let ordersWithFees = 0;
+
+      salesData.forEach(sale => {
+        // Try to find matching fees using multiple strategies
+        let matchingFees: any[] = [];
+        
+        const searchKeys = [
+          sale.item_nr,
+          sale.purchase_item_nr,
+          sale.awb_nr
+        ].filter(Boolean);
+
+        searchKeys.forEach(key => {
+          const found = feesMap.get(key);
+          if (found && found.length > 0) {
+            matchingFees = found;
+          }
+        });
+
+        // Calculate fees for this order
+        const feeBreakdown = {};
+        let totalFees = 0;
+        let feesFound = false;
+
+        if (matchingFees.length > 0) {
+          feesFound = true;
+          ordersWithFees++;
+          
+          // Aggregate fees from all matching records
+          matchingFees.forEach(fee => {
+            const feeFields = [
+              'fee_referral', 'fee_shipping', 'fee_outbound_fbn', 'fee_weight_handling',
+              'fee_crossdock', 'fee_directship_outbound', 'fee_damaged_return',
+              'fee_noon_penalty', 'fee_item_cancellation', 'fee_warranty_penalty',
+              'fee_retention_penalty', 'fee_alternate_seller_fulfillment',
+              'fee_miscellaneous', 'fee_direct_collection', 'fee_reinvoicing',
+              'fee_noon_promo', 'fee_noon_markup'
+            ];
+
+            feeFields.forEach(field => {
+              const cleanField = field.replace('fee_', '');
+              if (!feeBreakdown[cleanField]) feeBreakdown[cleanField] = 0;
+              feeBreakdown[cleanField] += fee[field] || 0;
+              totalFees += fee[field] || 0;
+            });
+          });
         }
 
-        const order = createOrderDetail(sale, feeData);
-        if (order) combinedOrders.push(order);
-      });
+        const invoicePrice = sale.invoice_price || 0;
+        const netAmount = invoicePrice - totalFees;
+        const orderedDate = sale.ordered_date;
+        const deliveredDate = sale.delivered_date;
+        const daysToDeliver = orderedDate && deliveredDate ? 
+          calculateDaysBetween(orderedDate, deliveredDate) : null;
 
-      // Then, process fees data that don't have corresponding sales data
-      feesData.forEach(fee => {
-        const orderKey = `${fee.order_nr}`;
+        // Enhanced status based on fees availability and cost data
+        let enhancedStatus = sale.item_status || 'unknown';
+        let statusColor = getStatusColor(enhancedStatus);
         
-        if (processedOrders.has(orderKey)) return;
-        processedOrders.add(orderKey);
+        if (feesFound) {
+          enhancedStatus = `${enhancedStatus} (Fees Available)`;
+          statusColor = statusColor.replace('bg-gray', 'bg-green');
+        } else {
+          enhancedStatus = `${enhancedStatus} (Fees Missing)`;
+          statusColor = statusColor.replace('bg-gray', 'bg-orange');
+        }
 
-        const order = createOrderDetail(null, fee);
-        if (order) combinedOrders.push(order);
+        const orderDetail: OrderDetail = {
+          item_nr: sale.item_nr || '',
+          order_id: sale.purchase_item_nr,
+          sku: sale.sku,
+          product_title: sale.title_en || sale.title_ar,
+          item_status: sale.item_status,
+          ordered_date: orderedDate,
+          shipped_date: sale.shipped_date,
+          delivered_date: deliveredDate,
+          cancelled_date: sale.cancelled_date,
+          returned_date: sale.returned_date,
+          invoice_price: invoicePrice,
+          family: sale.family,
+          brand: sale.brand_en || sale.brand_ar,
+          fees_found: feesFound,
+          total_fees: totalFees,
+          net_amount: netAmount,
+          fee_breakdown: feeBreakdown,
+          days_to_deliver: daysToDeliver,
+          profit_margin: invoicePrice > 0 ? (netAmount / invoicePrice) * 100 : 0,
+          enhanced_status: enhancedStatus,
+          status_color: statusColor,
+          has_cost_data: feesFound
+        };
+
+        combinedOrders.push(orderDetail);
       });
 
-      console.log(`Created ${combinedOrders.length} combined order records`);
+      console.log(`Created ${combinedOrders.length} order records, ${ordersWithFees} with fees data`);
 
-      // Calculate comprehensive metrics
+      // Calculate metrics
       const metrics = calculateMetrics(combinedOrders);
       const statusData = calculateStatusBreakdown(combinedOrders);
       const feeData = calculateFeeBreakdown(combinedOrders);
-      const timeline = calculateTimelineData(combinedOrders);
-      const performers = calculateTopPerformers(combinedOrders);
 
       setAnalysis(metrics);
       setOrderDetails(combinedOrders);
       setStatusBreakdown(statusData);
       setFeeBreakdown(feeData);
-      setTimelineData(timeline);
-      setTopPerformers(performers);
 
     } catch (error) {
       console.error('Error loading order analysis:', error);
@@ -333,67 +377,12 @@ export default function NoonOrderAnalysis() {
     return allData;
   };
 
-  const createOrderDetail = (sale: any, fee: any): OrderDetail | null => {
-    // Use fee data as primary source, sales as secondary
-    const primaryData = fee || sale;
-    if (!primaryData) return null;
-
-    const feeBreakdown = fee ? {
-      referral: fee.fee_referral || 0,
-      shipping: fee.fee_shipping || 0,
-      outbound_fbn: fee.fee_outbound_fbn || 0,
-      weight_handling: fee.fee_weight_handling || 0,
-      crossdock: fee.fee_crossdock || 0,
-      directship_outbound: fee.fee_directship_outbound || 0,
-      damaged_return: fee.fee_damaged_return || 0,
-      noon_penalty: fee.fee_noon_penalty || 0,
-      item_cancellation: fee.fee_item_cancellation || 0,
-      warranty_penalty: fee.fee_warranty_penalty || 0,
-      retention_penalty: fee.fee_retention_penalty || 0,
-      alternate_seller_fulfillment: fee.fee_alternate_seller_fulfillment || 0,
-      miscellaneous: fee.fee_miscellaneous || 0,
-      direct_collection: fee.fee_direct_collection || 0,
-      reinvoicing: fee.fee_reinvoicing || 0,
-      noon_promo: fee.fee_noon_promo || 0,
-      noon_markup: fee.fee_noon_markup || 0
-    } : {};
-
-    const totalFees = Object.values(feeBreakdown).reduce((sum: number, fee: any) => sum + (fee || 0), 0);
-    const invoicePrice = fee?.invoice_price || sale?.invoice_price || 0;
-    const netAmount = invoicePrice - totalFees;
-
-    const orderedDate = primaryData.ordered_date;
-    const deliveredDate = primaryData.delivered_date || sale?.delivered_date;
-    const daysToDeliver = orderedDate && deliveredDate ? 
-      calculateDaysBetween(orderedDate, deliveredDate) : null;
-
-    return {
-      order_nr: primaryData.order_nr || primaryData.item_nr || '',
-      item_nr: primaryData.item_nr || sale?.item_nr,
-      sku: primaryData.sku || sale?.sku,
-      product_title: primaryData.product_title || sale?.title_en || sale?.title_ar,
-      item_status: primaryData.item_status || sale?.item_status || 'unknown',
-      ordered_date: orderedDate,
-      shipped_date: primaryData.shipped_date || sale?.shipped_date,
-      delivered_date: deliveredDate,
-      cancelled_date: primaryData.cancelled_date || sale?.cancelled_date,
-      returned_date: primaryData.returned_date || sale?.returned_date,
-      invoice_price: invoicePrice,
-      total_fees: totalFees,
-      net_amount: netAmount,
-      fulfillment_mode: fee?.fulfillment_mode || 'Unknown',
-      family: fee?.family || sale?.family,
-      brand: fee?.brand || sale?.brand_en || sale?.brand_ar,
-      fee_breakdown: feeBreakdown,
-      days_to_deliver: daysToDeliver,
-      profit_margin: invoicePrice > 0 ? (netAmount / invoicePrice) * 100 : 0
-    };
-  };
-
   const calculateMetrics = (orders: OrderDetail[]): OrderAnalysis => {
     const totalOrders = orders.length;
     if (totalOrders === 0) return analysis;
 
+    const ordersWithFees = orders.filter(o => o.fees_found).length;
+    const ordersWithoutFees = totalOrders - ordersWithFees;
     const deliveredOrders = orders.filter(o => o.item_status === 'delivered').length;
     const cancelledOrders = orders.filter(o => o.item_status === 'cancelled').length;
     const returnedOrders = orders.filter(o => o.item_status === 'returned').length;
@@ -403,9 +392,12 @@ export default function NoonOrderAnalysis() {
     const totalRevenue = orders.reduce((sum, o) => sum + (o.invoice_price || 0), 0);
     const totalFees = orders.reduce((sum, o) => sum + o.total_fees, 0);
     const netAmount = totalRevenue - totalFees;
+    const feesCoverage = totalOrders > 0 ? (ordersWithFees / totalOrders) * 100 : 0;
     
     return {
       totalOrders,
+      ordersWithFees,
+      ordersWithoutFees,
       deliveredOrders,
       cancelledOrders,
       returnedOrders,
@@ -419,7 +411,8 @@ export default function NoonOrderAnalysis() {
       cancellationRate: totalOrders > 0 ? (cancelledOrders / totalOrders) * 100 : 0,
       deliveryRate: totalOrders > 0 ? (deliveredOrders / totalOrders) * 100 : 0,
       averageFeePercentage: totalRevenue > 0 ? (totalFees / totalRevenue) * 100 : 0,
-      profitMargin: totalRevenue > 0 ? (netAmount / totalRevenue) * 100 : 0
+      profitMargin: totalRevenue > 0 ? (netAmount / totalRevenue) * 100 : 0,
+      feesCoverage
     };
   };
 
@@ -434,7 +427,8 @@ export default function NoonOrderAnalysis() {
           count: 0,
           totalRevenue: 0,
           totalFees: 0,
-          netAmount: 0
+          netAmount: 0,
+          feesFound: 0
         });
       }
       const statusData = statusMap.get(status);
@@ -442,13 +436,14 @@ export default function NoonOrderAnalysis() {
       statusData.totalRevenue += order.invoice_price || 0;
       statusData.totalFees += order.total_fees;
       statusData.netAmount += order.net_amount;
+      if (order.fees_found) statusData.feesFound++;
     });
 
     return Array.from(statusMap.values()).map(item => ({
       ...item,
       percentage: orders.length > 0 ? (item.count / orders.length) * 100 : 0,
       avgOrderValue: item.count > 0 ? item.totalRevenue / item.count : 0,
-      avgFeePercentage: item.totalRevenue > 0 ? (item.totalFees / item.totalRevenue) * 100 : 0
+      feesCoverage: item.count > 0 ? (item.feesFound / item.count) * 100 : 0
     })).sort((a, b) => b.count - a.count);
   };
 
@@ -474,9 +469,9 @@ export default function NoonOrderAnalysis() {
     ];
 
     const totalFees = orders.reduce((sum, order) => sum + order.total_fees, 0);
-    const totalOrders = orders.length;
 
     return feeTypes.map(feeType => {
+      const ordersWithThisFee = orders.filter(order => order.fee_breakdown[feeType.key] > 0);
       const amount = orders.reduce((sum, order) => 
         sum + (order.fee_breakdown[feeType.key] || 0), 0);
       
@@ -484,80 +479,11 @@ export default function NoonOrderAnalysis() {
         feeType: feeType.name,
         amount,
         percentage: totalFees > 0 ? (amount / totalFees) * 100 : 0,
-        avgPerOrder: totalOrders > 0 ? amount / totalOrders : 0,
+        ordersAffected: ordersWithThisFee.length,
+        avgPerAffectedOrder: ordersWithThisFee.length > 0 ? amount / ordersWithThisFee.length : 0,
         description: feeType.desc
       };
     }).filter(item => item.amount > 0).sort((a, b) => b.amount - a.amount);
-  };
-
-  const calculateTimelineData = (orders: OrderDetail[]): TimelineData[] => {
-    const monthMap = new Map();
-    
-    orders.forEach(order => {
-      if (!order.ordered_date) return;
-      
-      const month = format(new Date(order.ordered_date), 'yyyy-MM');
-      if (!monthMap.has(month)) {
-        monthMap.set(month, {
-          month,
-          orders: 0,
-          revenue: 0,
-          fees: 0,
-          netAmount: 0,
-          delivered: 0,
-          cancelled: 0,
-          returned: 0
-        });
-      }
-      
-      const data = monthMap.get(month);
-      data.orders++;
-      data.revenue += order.invoice_price || 0;
-      data.fees += order.total_fees;
-      data.netAmount += order.net_amount;
-      
-      switch(order.item_status) {
-        case 'delivered': data.delivered++; break;
-        case 'cancelled': data.cancelled++; break;
-        case 'returned': data.returned++; break;
-      }
-    });
-
-    return Array.from(monthMap.values()).sort((a, b) => a.month.localeCompare(b.month));
-  };
-
-  const calculateTopPerformers = (orders: OrderDetail[]): TopPerformer[] => {
-    const skuMap = new Map();
-    
-    orders.forEach(order => {
-      if (!order.sku) return;
-      
-      if (!skuMap.has(order.sku)) {
-        skuMap.set(order.sku, {
-          sku: order.sku,
-          product_title: order.product_title || '',
-          orders: 0,
-          revenue: 0,
-          fees: 0,
-          netAmount: 0
-        });
-      }
-      
-      const data = skuMap.get(order.sku);
-      data.orders++;
-      data.revenue += order.invoice_price || 0;
-      data.fees += order.total_fees;
-      data.netAmount += order.net_amount;
-    });
-
-    return Array.from(skuMap.values())
-      .map(item => ({
-        ...item,
-        margin: item.revenue > 0 ? (item.netAmount / item.revenue) * 100 : 0,
-        avgOrderValue: item.orders > 0 ? item.revenue / item.orders : 0
-      }))
-      .sort((a, b) => b.netAmount - a.netAmount)
-      .slice(0, 20);
   };
 
   const exportData = (type: string) => {
@@ -583,14 +509,6 @@ export default function NoonOrderAnalysis() {
       case 'fees':
         data = feeBreakdown;
         filename = `fee_breakdown_${selectedCountry}_${format(new Date(), 'yyyy-MM-dd')}.csv`;
-        break;
-      case 'timeline':
-        data = timelineData;
-        filename = `timeline_data_${selectedCountry}_${format(new Date(), 'yyyy-MM-dd')}.csv`;
-        break;
-      case 'performers':
-        data = topPerformers;
-        filename = `top_performers_${selectedCountry}_${format(new Date(), 'yyyy-MM-dd')}.csv`;
         break;
     }
 
@@ -631,45 +549,64 @@ export default function NoonOrderAnalysis() {
   const getStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
       case 'delivered':
-        return 'bg-green-100 text-green-800 border-green-200';
+        return 'bg-green-50 text-green-700 border-green-200';
       case 'cancelled':
-        return 'bg-red-100 text-red-800 border-red-200';
+        return 'bg-red-50 text-red-700 border-red-200';
       case 'returned':
-        return 'bg-orange-100 text-orange-800 border-orange-200';
+        return 'bg-orange-50 text-orange-700 border-orange-200';
       case 'shipped':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
+        return 'bg-blue-50 text-blue-700 border-blue-200';
       case 'pending':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+        return 'bg-yellow-50 text-yellow-700 border-yellow-200';
       default:
-        return 'bg-gray-100 text-gray-800 border-gray-200';
+        return 'bg-gray-50 text-gray-700 border-gray-200';
     }
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case 'delivered':
-        return <CheckCircle className="h-3 w-3" />;
-      case 'cancelled':
-        return <XCircle className="h-3 w-3" />;
-      case 'returned':
-        return <RefreshCw className="h-3 w-3" />;
-      case 'shipped':
-        return <Package className="h-3 w-3" />;
-      case 'pending':
-        return <Clock className="h-3 w-3" />;
-      default:
-        return <AlertCircle className="h-3 w-3" />;
-    }
+  const getStatusIcon = (status: string, hasFees: boolean) => {
+    const baseIcon = (() => {
+      switch (status?.toLowerCase()) {
+        case 'delivered':
+          return <CheckCircle className="h-3 w-3" />;
+        case 'cancelled':
+          return <XCircle className="h-3 w-3" />;
+        case 'returned':
+          return <RefreshCw className="h-3 w-3" />;
+        case 'shipped':
+          return <Package className="h-3 w-3" />;
+        case 'pending':
+          return <Clock className="h-3 w-3" />;
+        default:
+          return <AlertCircle className="h-3 w-3" />;
+      }
+    })();
+
+    return (
+      <div className="flex items-center gap-1">
+        {baseIcon}
+        {hasFees && <Calculator className="h-2 w-2 text-green-600" />}
+      </div>
+    );
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 p-6">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary mx-auto"></div>
-            <p className="mt-4 text-lg text-slate-600">Loading comprehensive order analysis...</p>
-            <p className="text-sm text-slate-500 mt-2">Processing sales data and fee records...</p>
+          <div className="flex flex-col items-center justify-center py-24">
+            <div className="relative">
+              <div className="animate-spin rounded-full h-24 w-24 border-4 border-slate-200 border-t-blue-600"></div>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Calculator className="h-8 w-8 text-blue-600" />
+              </div>
+            </div>
+            <h3 className="mt-6 text-xl font-semibold text-slate-800">Processing Order Analysis</h3>
+            <p className="mt-2 text-slate-600">Matching sales data with fee records...</p>
+            <div className="mt-4 flex gap-2">
+              <div className="h-2 w-2 bg-blue-600 rounded-full animate-bounce"></div>
+              <div className="h-2 w-2 bg-blue-600 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+              <div className="h-2 w-2 bg-blue-600 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+            </div>
           </div>
         </div>
       </div>
@@ -677,33 +614,34 @@ export default function NoonOrderAnalysis() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 p-6">
       <div className="max-w-7xl mx-auto space-y-8">
-        {/* Header */}
-        <div className="text-center space-y-4">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            Advanced Noon Order Analysis
-          </h1>
-          <p className="text-lg text-slate-600">
-            Deep insights into order performance, fee optimization, and revenue analytics
+        {/* Enhanced Header */}
+        <div className="text-center space-y-4 py-8">
+          <div className="inline-flex items-center gap-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-2xl shadow-lg">
+            <Target className="h-6 w-6" />
+            <h1 className="text-2xl font-bold">Sales-Based Order Analysis</h1>
+          </div>
+          <p className="text-lg text-slate-600 max-w-2xl mx-auto">
+            Comprehensive analysis based on uploaded sales data with matched fee calculations
           </p>
         </div>
 
-        {/* Advanced Filters */}
-        <Card className="border-2 border-primary/20">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Filter className="h-5 w-5" />
-              Advanced Filters & Controls
+        {/* Clean Filter Controls */}
+        <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-2 text-slate-800">
+              <Filter className="h-5 w-5 text-blue-600" />
+              Analysis Controls
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Store</label>
+                <label className="text-sm font-medium text-slate-700">Store</label>
                 <Select value={selectedStore} onValueChange={setSelectedStore}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select store" />
+                  <SelectTrigger className="border-slate-200">
+                    <SelectValue placeholder="All Stores" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Stores</SelectItem>
@@ -717,10 +655,10 @@ export default function NoonOrderAnalysis() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium">Status</label>
+                <label className="text-sm font-medium text-slate-700">Status</label>
                 <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select status" />
+                  <SelectTrigger className="border-slate-200">
+                    <SelectValue placeholder="All Statuses" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Statuses</SelectItem>
@@ -734,488 +672,373 @@ export default function NoonOrderAnalysis() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium">Search Orders</label>
+                <label className="text-sm font-medium text-slate-700">Fees Status</label>
+                <Select value={feesFilter} onValueChange={setFeesFilter}>
+                  <SelectTrigger className="border-slate-200">
+                    <SelectValue placeholder="All Orders" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Orders</SelectItem>
+                    <SelectItem value="with-fees">With Fees Data</SelectItem>
+                    <SelectItem value="without-fees">Missing Fees Data</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700">Search</label>
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <Input
                     placeholder="SKU, Order #, Product..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
+                    className="pl-10 border-slate-200"
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium">Date Range</label>
-                <div className="flex gap-2">
-                  <Input
-                    type="date"
-                    value={dateRange.from ? format(dateRange.from, 'yyyy-MM-dd') : ''}
-                    onChange={(e) => setDateRange(prev => ({ ...prev, from: e.target.value ? new Date(e.target.value) : undefined }))}
-                    className="w-32"
-                  />
-                  <Input
-                    type="date"
-                    value={dateRange.to ? format(dateRange.to, 'yyyy-MM-dd') : ''}
-                    onChange={(e) => setDateRange(prev => ({ ...prev, to: e.target.value ? new Date(e.target.value) : undefined }))}
-                    className="w-32"
-                  />
-                </div>
+                <label className="text-sm font-medium text-slate-700">Actions</label>
+                <Button onClick={loadOrderAnalysis} className="w-full bg-blue-600 hover:bg-blue-700">
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Refresh
+                </Button>
               </div>
             </div>
 
-            <div className="flex gap-4 mt-4">
-              <Button onClick={loadOrderAnalysis} className="flex items-center gap-2">
-                <RefreshCw className="h-4 w-4" />
-                Refresh Analysis
-              </Button>
-              <Badge variant="outline" className="flex items-center gap-1">
-                <Package2 className="h-3 w-3" />
-                {analysis.totalOrders.toLocaleString()} Total Orders
+            <div className="flex flex-wrap gap-3 mt-6 pt-4 border-t border-slate-200">
+              <Badge variant="outline" className="flex items-center gap-2 px-3 py-1.5">
+                <Package className="h-3 w-3 text-blue-600" />
+                <span className="font-medium">{analysis.totalOrders.toLocaleString()}</span>
+                <span className="text-slate-500">Total Orders</span>
               </Badge>
-              <Badge variant="outline" className="flex items-center gap-1">
-                <Eye className="h-3 w-3" />
-                {filteredOrders.length.toLocaleString()} Filtered
+              <Badge variant="outline" className="flex items-center gap-2 px-3 py-1.5">
+                <CheckCircle className="h-3 w-3 text-green-600" />
+                <span className="font-medium">{analysis.ordersWithFees.toLocaleString()}</span>
+                <span className="text-slate-500">With Fees</span>
+              </Badge>
+              <Badge variant="outline" className="flex items-center gap-2 px-3 py-1.5">
+                <AlertTriangle className="h-3 w-3 text-orange-600" />
+                <span className="font-medium">{analysis.ordersWithoutFees.toLocaleString()}</span>
+                <span className="text-slate-500">Missing Fees</span>
+              </Badge>
+              <Badge variant="outline" className="flex items-center gap-2 px-3 py-1.5">
+                <Eye className="h-3 w-3 text-purple-600" />
+                <span className="font-medium">{filteredOrders.length.toLocaleString()}</span>
+                <span className="text-slate-500">Filtered</span>
               </Badge>
             </div>
           </CardContent>
         </Card>
 
-        {/* Enhanced Key Metrics */}
+        {/* Enhanced Key Metrics Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card className="border-l-4 border-l-blue-500">
+          <Card className="shadow-lg border-0 bg-gradient-to-br from-blue-50 to-blue-100 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-blue-600/10 rounded-full -translate-y-12 translate-x-12"></div>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
-              <Package className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium text-blue-900">Total Revenue</CardTitle>
+              <DollarSign className="h-5 w-5 text-blue-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{analysis.totalOrders.toLocaleString()}</div>
-              <div className="flex flex-wrap gap-1 mt-2">
-                <Badge className="bg-green-100 text-green-800 text-xs">
-                  {analysis.deliveredOrders} Delivered
-                </Badge>
-                <Badge className="bg-blue-100 text-blue-800 text-xs">
-                  {analysis.shippedOrders} Shipped
-                </Badge>
+              <div className="text-3xl font-bold text-blue-900 mb-2">{formatCurrency(analysis.totalRevenue)}</div>
+              <div className="flex items-center gap-2 text-sm">
+                <TrendingUp className="h-4 w-4 text-green-600" />
+                <span className="text-blue-700">AOV: {formatCurrency(analysis.averageOrderValue)}</span>
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {formatPercentage(analysis.deliveryRate)} delivery rate
+              <p className="text-xs text-blue-600 mt-2">
+                {formatPercentage(analysis.feesCoverage)} orders have fee data
               </p>
             </CardContent>
           </Card>
 
-          <Card className="border-l-4 border-l-green-500">
+          <Card className="shadow-lg border-0 bg-gradient-to-br from-emerald-50 to-emerald-100 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-600/10 rounded-full -translate-y-12 translate-x-12"></div>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium text-emerald-900">Net Profit</CardTitle>
+              <Target className="h-5 w-5 text-emerald-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{formatCurrency(analysis.totalRevenue)}</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                AOV: {formatCurrency(analysis.averageOrderValue)}
-              </p>
-              <div className="flex items-center gap-1 mt-2">
-                <TrendingUp className="h-3 w-3 text-green-500" />
-                <span className="text-xs text-green-600">
-                  {formatPercentage(analysis.profitMargin)} margin
-                </span>
+              <div className="text-3xl font-bold text-emerald-900 mb-2">{formatCurrency(analysis.netAmount)}</div>
+              <div className="flex items-center gap-2 text-sm">
+                <Zap className="h-4 w-4 text-emerald-600" />
+                <span className="text-emerald-700">Margin: {formatPercentage(analysis.profitMargin)}</span>
               </div>
+              <p className="text-xs text-emerald-600 mt-2">
+                After all calculated fees
+              </p>
             </CardContent>
           </Card>
 
-          <Card className="border-l-4 border-l-red-500">
+          <Card className="shadow-lg border-0 bg-gradient-to-br from-red-50 to-red-100 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-red-600/10 rounded-full -translate-y-12 translate-x-12"></div>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Fees</CardTitle>
-              <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium text-red-900">Total Fees</CardTitle>
+              <AlertTriangle className="h-5 w-5 text-red-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-red-600">{formatCurrency(analysis.totalFees)}</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {formatPercentage(analysis.averageFeePercentage)} of revenue
-              </p>
-              <div className="flex items-center gap-1 mt-2">
-                <TrendingDown className="h-3 w-3 text-red-500" />
-                <span className="text-xs text-red-600">
-                  {formatCurrency(analysis.totalFees / analysis.totalOrders)} avg/order
-                </span>
+              <div className="text-3xl font-bold text-red-900 mb-2">{formatCurrency(analysis.totalFees)}</div>
+              <div className="flex items-center gap-2 text-sm">
+                <TrendingDown className="h-4 w-4 text-red-600" />
+                <span className="text-red-700">{formatPercentage(analysis.averageFeePercentage)} of revenue</span>
               </div>
+              <p className="text-xs text-red-600 mt-2">
+                Based on {analysis.ordersWithFees} orders with fee data
+              </p>
             </CardContent>
           </Card>
 
-          <Card className="border-l-4 border-l-purple-500">
+          <Card className="shadow-lg border-0 bg-gradient-to-br from-purple-50 to-purple-100 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-purple-600/10 rounded-full -translate-y-12 translate-x-12"></div>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Net Profit</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium text-purple-900">Order Performance</CardTitle>
+              <Award className="h-5 w-5 text-purple-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">{formatCurrency(analysis.netAmount)}</div>
-              <div className="flex flex-wrap gap-1 mt-2">
-                <Badge variant="outline" className="text-xs">
-                  {formatPercentage(analysis.returnRate)} Return
-                </Badge>
-                <Badge variant="outline" className="text-xs">
-                  {formatPercentage(analysis.cancellationRate)} Cancel
-                </Badge>
+              <div className="text-3xl font-bold text-purple-900 mb-2">{formatPercentage(analysis.deliveryRate)}</div>
+              <div className="flex items-center gap-2 text-sm">
+                <Package className="h-4 w-4 text-purple-600" />
+                <span className="text-purple-700">Delivery Rate</span>
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                After all fees and charges
+              <p className="text-xs text-purple-600 mt-2">
+                {analysis.deliveredOrders} of {analysis.totalOrders} orders delivered
               </p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Advanced Analytics Tabs */}
-        <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6">
-            <TabsTrigger value="overview" className="flex items-center gap-1">
-              <BarChart3 className="h-3 w-3" />
-              Overview
+        {/* Clean Analytics Tabs */}
+        <Tabs defaultValue="orders" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-4 bg-slate-100 p-1 rounded-lg">
+            <TabsTrigger value="orders" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+              <FileText className="h-4 w-4 mr-2" />
+              Order Details
             </TabsTrigger>
-            <TabsTrigger value="timeline" className="flex items-center gap-1">
-              <LineChart className="h-3 w-3" />
-              Timeline
+            <TabsTrigger value="status" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+              <Package className="h-4 w-4 mr-2" />
+              Status Analysis
             </TabsTrigger>
-            <TabsTrigger value="status" className="flex items-center gap-1">
-              <PieChart className="h-3 w-3" />
-              Status
+            <TabsTrigger value="fees" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+              <Calculator className="h-4 w-4 mr-2" />
+              Fee Breakdown
             </TabsTrigger>
-            <TabsTrigger value="fees" className="flex items-center gap-1">
-              <DollarSign className="h-3 w-3" />
-              Fees
-            </TabsTrigger>
-            <TabsTrigger value="performers" className="flex items-center gap-1">
-              <Package2 className="h-3 w-3" />
-              Top SKUs
-            </TabsTrigger>
-            <TabsTrigger value="orders" className="flex items-center gap-1">
-              <FileText className="h-3 w-3" />
-              Orders
+            <TabsTrigger value="exports" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+              <Download className="h-4 w-4 mr-2" />
+              Export Data
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="overview">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Order Status Distribution</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <RechartsPieChart>
-                      <Tooltip formatter={(value, name) => [value, name]} />
-                      <Legend />
-                      <RechartsPieChart data={statusBreakdown.map(item => ({
-                        name: item.status,
-                        value: item.count
-                      }))}>
-                        {statusBreakdown.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </RechartsPieChart>
-                    </RechartsPieChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Revenue vs Fees Analysis</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={statusBreakdown}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="status" />
-                      <YAxis />
-                      <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                      <Legend />
-                      <Bar dataKey="totalRevenue" fill="#8884d8" name="Revenue" />
-                      <Bar dataKey="totalFees" fill="#ff7300" name="Fees" />
-                      <Bar dataKey="netAmount" fill="#82ca9d" name="Net Amount" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="timeline">
-            <Card>
-              <CardHeader>
-                <CardTitle>Monthly Performance Timeline</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={400}>
-                  <ComposedChart data={timelineData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
-                    <YAxis yAxisId="left" />
-                    <YAxis yAxisId="right" orientation="right" />
-                    <Tooltip formatter={(value, name) => {
-                      if (name === 'Revenue' || name === 'Fees' || name === 'Net Amount') {
-                        return formatCurrency(Number(value));
-                      }
-                      return [value, name];
-                    }} />
-                    <Legend />
-                    <Area yAxisId="left" type="monotone" dataKey="orders" fill="#8884d8" fillOpacity={0.3} name="Orders" />
-                    <Bar yAxisId="right" dataKey="revenue" fill="#82ca9d" name="Revenue" />
-                    <Bar yAxisId="right" dataKey="fees" fill="#ff7300" name="Fees" />
-                    <Line yAxisId="right" type="monotone" dataKey="netAmount" stroke="#ffc658" strokeWidth={3} name="Net Amount" />
-                  </ComposedChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="status">
-            <Card>
-              <CardHeader>
-                <CardTitle>Detailed Status Breakdown</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Count</TableHead>
-                      <TableHead>Percentage</TableHead>
-                      <TableHead>Avg Order Value</TableHead>
-                      <TableHead>Total Revenue</TableHead>
-                      <TableHead>Total Fees</TableHead>
-                      <TableHead>Fee %</TableHead>
-                      <TableHead>Net Amount</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {statusBreakdown.map((item, index) => (
-                      <TableRow key={index}>
-                        <TableCell>
-                          <Badge className={getStatusColor(item.status)} variant="outline">
-                            <div className="flex items-center gap-1">
-                              {getStatusIcon(item.status)}
-                              {item.status}
-                            </div>
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="font-mono">{item.count.toLocaleString()}</TableCell>
-                        <TableCell>{formatPercentage(item.percentage)}</TableCell>
-                        <TableCell>{formatCurrency(item.avgOrderValue)}</TableCell>
-                        <TableCell>{formatCurrency(item.totalRevenue)}</TableCell>
-                        <TableCell className="text-red-600">{formatCurrency(item.totalFees)}</TableCell>
-                        <TableCell>{formatPercentage(item.avgFeePercentage)}</TableCell>
-                        <TableCell className={item.netAmount >= 0 ? "text-green-600" : "text-red-600"}>
-                          {formatCurrency(item.netAmount)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="fees">
-            <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Fee Structure Analysis</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={feeBreakdown.slice(0, 10)} layout="horizontal">
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis type="number" />
-                      <YAxis dataKey="feeType" type="category" width={120} />
-                      <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                      <Bar dataKey="amount" fill="#ff7300" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Detailed Fee Breakdown</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Fee Type</TableHead>
-                        <TableHead>Description</TableHead>
-                        <TableHead>Total Amount</TableHead>
-                        <TableHead>% of Total Fees</TableHead>
-                        <TableHead>Avg per Order</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {feeBreakdown.map((item, index) => (
-                        <TableRow key={index}>
-                          <TableCell className="font-medium">{item.feeType}</TableCell>
-                          <TableCell className="text-sm text-muted-foreground">{item.description}</TableCell>
-                          <TableCell className="text-red-600 font-mono">{formatCurrency(item.amount)}</TableCell>
-                          <TableCell>{formatPercentage(item.percentage)}</TableCell>
-                          <TableCell className="font-mono">{formatCurrency(item.avgPerOrder)}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="performers">
-            <Card>
-              <CardHeader>
-                <CardTitle>Top Performing SKUs</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>SKU</TableHead>
-                      <TableHead>Product</TableHead>
-                      <TableHead>Orders</TableHead>
-                      <TableHead>Revenue</TableHead>
-                      <TableHead>Fees</TableHead>
-                      <TableHead>Net Amount</TableHead>
-                      <TableHead>Margin %</TableHead>
-                      <TableHead>AOV</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {topPerformers.map((item, index) => (
-                      <TableRow key={index}>
-                        <TableCell className="font-mono text-xs">{item.sku}</TableCell>
-                        <TableCell className="max-w-48 truncate">{item.product_title}</TableCell>
-                        <TableCell>{item.orders}</TableCell>
-                        <TableCell>{formatCurrency(item.revenue)}</TableCell>
-                        <TableCell className="text-red-600">{formatCurrency(item.fees)}</TableCell>
-                        <TableCell className={item.netAmount >= 0 ? "text-green-600" : "text-red-600"}>
-                          {formatCurrency(item.netAmount)}
-                        </TableCell>
-                        <TableCell className={item.margin >= 0 ? "text-green-600" : "text-red-600"}>
-                          {formatPercentage(item.margin)}
-                        </TableCell>
-                        <TableCell>{formatCurrency(item.avgOrderValue)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
           <TabsContent value="orders">
-            <Card>
+            <Card className="shadow-lg border-0">
               <CardHeader>
                 <CardTitle className="flex justify-between items-center">
-                  <span>Order Details</span>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={() => exportData('orders')}>
-                      <Download className="h-4 w-4 mr-1" />
-                      Export Orders
-                    </Button>
-                  </div>
+                  <span className="flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-blue-600" />
+                    Order Details
+                  </span>
+                  <Badge variant="outline" className="text-sm">
+                    {filteredOrders.length.toLocaleString()} orders
+                  </Badge>
                 </CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  Showing {filteredOrders.length.toLocaleString()} of {orderDetails.length.toLocaleString()} orders
-                </p>
               </CardHeader>
               <CardContent>
-                <div className="max-h-96 overflow-y-auto">
+                <div className="rounded-lg border border-slate-200 overflow-hidden">
                   <Table>
-                    <TableHeader>
+                    <TableHeader className="bg-slate-50">
                       <TableRow>
-                        <TableHead>Order #</TableHead>
-                        <TableHead>SKU</TableHead>
-                        <TableHead>Product</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Revenue</TableHead>
-                        <TableHead>Fees</TableHead>
-                        <TableHead>Net</TableHead>
-                        <TableHead>Margin</TableHead>
-                        <TableHead>Days to Deliver</TableHead>
+                        <TableHead className="font-semibold">Order ID</TableHead>
+                        <TableHead className="font-semibold">SKU</TableHead>
+                        <TableHead className="font-semibold">Product</TableHead>
+                        <TableHead className="font-semibold">Status</TableHead>
+                        <TableHead className="font-semibold text-right">Revenue</TableHead>
+                        <TableHead className="font-semibold text-right">Fees</TableHead>
+                        <TableHead className="font-semibold text-right">Net Amount</TableHead>
+                        <TableHead className="font-semibold text-center">Fee Coverage</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredOrders.slice(0, 100).map((order, index) => (
-                        <TableRow key={index}>
-                          <TableCell className="font-mono text-xs">{order.order_nr}</TableCell>
-                          <TableCell className="font-mono text-xs">{order.sku}</TableCell>
-                          <TableCell className="max-w-48 truncate">{order.product_title}</TableCell>
+                      {filteredOrders.slice(0, 50).map((order, index) => (
+                        <TableRow key={index} className="hover:bg-slate-50/50">
+                          <TableCell className="font-mono text-xs">{order.item_nr}</TableCell>
+                          <TableCell className="font-mono text-xs">{order.sku || 'N/A'}</TableCell>
+                          <TableCell className="max-w-48 truncate" title={order.product_title}>
+                            {order.product_title || 'N/A'}
+                          </TableCell>
                           <TableCell>
-                            <Badge className={getStatusColor(order.item_status || '')} variant="outline">
-                              <div className="flex items-center gap-1">
-                                {getStatusIcon(order.item_status || '')}
-                                {order.item_status}
-                              </div>
+                            <Badge variant="outline" className={`${order.status_color} border text-xs`}>
+                              {getStatusIcon(order.item_status || '', order.fees_found)}
+                              <span className="ml-1">{order.item_status}</span>
                             </Badge>
                           </TableCell>
-                          <TableCell>{formatCurrency(order.invoice_price || 0)}</TableCell>
-                          <TableCell className="text-red-600">{formatCurrency(order.total_fees)}</TableCell>
-                          <TableCell className={order.net_amount >= 0 ? "text-green-600" : "text-red-600"}>
-                            {formatCurrency(order.net_amount)}
+                          <TableCell className="text-right font-mono">
+                            {formatCurrency(order.invoice_price || 0)}
                           </TableCell>
-                          <TableCell className={order.profit_margin && order.profit_margin >= 0 ? "text-green-600" : "text-red-600"}>
-                            {order.profit_margin ? formatPercentage(order.profit_margin) : 'N/A'}
+                          <TableCell className="text-right font-mono text-red-600">
+                            {order.fees_found ? formatCurrency(order.total_fees) : 'N/A'}
                           </TableCell>
-                          <TableCell>{order.days_to_deliver || 'N/A'}</TableCell>
+                          <TableCell className={`text-right font-mono ${order.net_amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {order.fees_found ? formatCurrency(order.net_amount) : 'N/A'}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {order.fees_found ? (
+                              <CheckCircle className="h-4 w-4 text-green-600 mx-auto" />
+                            ) : (
+                              <XCircle className="h-4 w-4 text-red-500 mx-auto" />
+                            )}
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
                   </Table>
-                  {filteredOrders.length > 100 && (
-                    <p className="text-center py-4 text-sm text-muted-foreground">
-                      Showing first 100 orders. Use filters or export to see all {filteredOrders.length.toLocaleString()} orders.
-                    </p>
+                  {filteredOrders.length > 50 && (
+                    <div className="bg-slate-50 p-4 text-center text-sm text-slate-600">
+                      Showing first 50 orders. Export data to see all {filteredOrders.length.toLocaleString()} orders.
+                    </div>
                   )}
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
-        </Tabs>
 
-        {/* Export Center */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Download className="h-5 w-5" />
-              Export Center
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-              <Button onClick={() => exportData('overview')} variant="outline" className="flex flex-col items-center gap-2 h-20">
-                <BarChart3 className="h-6 w-6" />
-                <span className="text-xs">Overview</span>
-              </Button>
-              <Button onClick={() => exportData('timeline')} variant="outline" className="flex flex-col items-center gap-2 h-20">
-                <LineChart className="h-6 w-6" />
-                <span className="text-xs">Timeline</span>
-              </Button>
-              <Button onClick={() => exportData('status')} variant="outline" className="flex flex-col items-center gap-2 h-20">
-                <PieChart className="h-6 w-6" />
-                <span className="text-xs">Status</span>
-              </Button>
-              <Button onClick={() => exportData('fees')} variant="outline" className="flex flex-col items-center gap-2 h-20">
-                <DollarSign className="h-6 w-6" />
-                <span className="text-xs">Fees</span>
-              </Button>
-              <Button onClick={() => exportData('performers')} variant="outline" className="flex flex-col items-center gap-2 h-20">
-                <Package2 className="h-6 w-6" />
-                <span className="text-xs">Top SKUs</span>
-              </Button>
-              <Button onClick={() => exportData('orders')} variant="outline" className="flex flex-col items-center gap-2 h-20">
-                <FileText className="h-6 w-6" />
-                <span className="text-xs">Orders</span>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+          <TabsContent value="status">
+            <Card className="shadow-lg border-0">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Package className="h-5 w-5 text-blue-600" />
+                  Status Analysis
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="rounded-lg border border-slate-200 overflow-hidden">
+                  <Table>
+                    <TableHeader className="bg-slate-50">
+                      <TableRow>
+                        <TableHead className="font-semibold">Status</TableHead>
+                        <TableHead className="font-semibold text-right">Count</TableHead>
+                        <TableHead className="font-semibold text-right">Percentage</TableHead>
+                        <TableHead className="font-semibold text-right">Revenue</TableHead>
+                        <TableHead className="font-semibold text-right">Fees</TableHead>
+                        <TableHead className="font-semibold text-right">Net Amount</TableHead>
+                        <TableHead className="font-semibold text-center">Fee Coverage</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {statusBreakdown.map((item, index) => (
+                        <TableRow key={index} className="hover:bg-slate-50/50">
+                          <TableCell>
+                            <Badge variant="outline" className={`${getStatusColor(item.status)} border`}>
+                              {getStatusIcon(item.status, false)}
+                              <span className="ml-1">{item.status}</span>
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right font-mono">{item.count.toLocaleString()}</TableCell>
+                          <TableCell className="text-right">{formatPercentage(item.percentage)}</TableCell>
+                          <TableCell className="text-right font-mono">{formatCurrency(item.totalRevenue)}</TableCell>
+                          <TableCell className="text-right font-mono text-red-600">{formatCurrency(item.totalFees)}</TableCell>
+                          <TableCell className={`text-right font-mono ${item.netAmount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {formatCurrency(item.netAmount)}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <div className="flex items-center justify-center gap-2">
+                              <span className="text-sm">{formatPercentage(item.feesCoverage)}</span>
+                              <span className="text-xs text-slate-500">({item.feesFound}/{item.count})</span>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="fees">
+            <Card className="shadow-lg border-0">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Calculator className="h-5 w-5 text-blue-600" />
+                  Fee Breakdown Analysis
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="rounded-lg border border-slate-200 overflow-hidden">
+                  <Table>
+                    <TableHeader className="bg-slate-50">
+                      <TableRow>
+                        <TableHead className="font-semibold">Fee Type</TableHead>
+                        <TableHead className="font-semibold">Description</TableHead>
+                        <TableHead className="font-semibold text-right">Total Amount</TableHead>
+                        <TableHead className="font-semibold text-right">% of Total</TableHead>
+                        <TableHead className="font-semibold text-right">Orders Affected</TableHead>
+                        <TableHead className="font-semibold text-right">Avg per Order</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {feeBreakdown.map((item, index) => (
+                        <TableRow key={index} className="hover:bg-slate-50/50">
+                          <TableCell className="font-medium">{item.feeType}</TableCell>
+                          <TableCell className="text-sm text-slate-600">{item.description}</TableCell>
+                          <TableCell className="text-right font-mono text-red-600">{formatCurrency(item.amount)}</TableCell>
+                          <TableCell className="text-right">{formatPercentage(item.percentage)}</TableCell>
+                          <TableCell className="text-right font-mono">{item.ordersAffected}</TableCell>
+                          <TableCell className="text-right font-mono">{formatCurrency(item.avgPerAffectedOrder)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="exports">
+            <Card className="shadow-lg border-0">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Download className="h-5 w-5 text-blue-600" />
+                  Export Analysis Data
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <Button 
+                    onClick={() => exportData('overview')} 
+                    variant="outline" 
+                    className="flex flex-col items-center gap-3 h-24 hover:bg-blue-50 border-blue-200"
+                  >
+                    <Target className="h-8 w-8 text-blue-600" />
+                    <span className="text-sm font-medium">Overview Summary</span>
+                  </Button>
+                  <Button 
+                    onClick={() => exportData('orders')} 
+                    variant="outline" 
+                    className="flex flex-col items-center gap-3 h-24 hover:bg-emerald-50 border-emerald-200"
+                  >
+                    <FileText className="h-8 w-8 text-emerald-600" />
+                    <span className="text-sm font-medium">Order Details</span>
+                  </Button>
+                  <Button 
+                    onClick={() => exportData('status')} 
+                    variant="outline" 
+                    className="flex flex-col items-center gap-3 h-24 hover:bg-purple-50 border-purple-200"
+                  >
+                    <Package className="h-8 w-8 text-purple-600" />
+                    <span className="text-sm font-medium">Status Breakdown</span>
+                  </Button>
+                  <Button 
+                    onClick={() => exportData('fees')} 
+                    variant="outline" 
+                    className="flex flex-col items-center gap-3 h-24 hover:bg-orange-50 border-orange-200"
+                  >
+                    <Calculator className="h-8 w-8 text-orange-600" />
+                    <span className="text-sm font-medium">Fee Analysis</span>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
