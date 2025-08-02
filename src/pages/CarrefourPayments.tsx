@@ -134,6 +134,8 @@ export default function CarrefourSalesTracker() {
       totalCosts,
       totalProfit,
       totalInvestment: totalProfit + totalCosts,
+      totalPlatformFees: totalFees,
+      revenueMinusInvestment: totalRevenue - (totalProfit + totalCosts),
       totalPendingAmount,
       totalPendingPayments,
       totalFees,
@@ -301,8 +303,8 @@ export default function CarrefourSalesTracker() {
         </div>
       </div>
 
-      {/* Enhanced Key Metrics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* Enhanced Key Metrics Grid - Row 1 */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         {/* 1. Total Sales Revenue */}
         <Card className="shadow-lg border-0 bg-gradient-to-br from-emerald-50 to-emerald-100 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-600/10 rounded-full -translate-y-12 translate-x-12"></div>
@@ -360,7 +362,26 @@ export default function CarrefourSalesTracker() {
           </CardContent>
         </Card>
 
-        {/* 4. Total Investment */}
+        {/* 4. Total Platform Fees - NEW (next to delivered revenue) */}
+        <Card className="shadow-lg border-0 bg-gradient-to-br from-amber-50 to-amber-100 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-amber-600/10 rounded-full -translate-y-12 translate-x-12"></div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-amber-900">Total Platform Fees</CardTitle>
+            <Receipt className="h-5 w-5 text-amber-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-amber-900 mb-2">{formatCurrency(metrics.totalPlatformFees)}</div>
+            <div className="flex items-center gap-2 text-sm">
+              <Calculator className="h-4 w-4 text-amber-600" />
+              <span className="text-amber-700">Platform charges</span>
+            </div>
+            <p className="text-xs text-amber-600 mt-2">
+              All seller fees collected
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* 5. Total Investment */}
         <Card className="shadow-lg border-0 bg-gradient-to-br from-indigo-50 to-indigo-100 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-600/10 rounded-full -translate-y-12 translate-x-12"></div>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -380,9 +401,9 @@ export default function CarrefourSalesTracker() {
         </Card>
       </div>
 
-      {/* Secondary Metrics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {/* 5. Net Profit */}
+      {/* Enhanced Key Metrics Grid - Row 2 */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+        {/* 6. Net Profit */}
         <Card className="shadow-lg border-0 bg-gradient-to-br from-blue-50 to-blue-100 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-24 h-24 bg-blue-600/10 rounded-full -translate-y-12 translate-x-12"></div>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -401,7 +422,7 @@ export default function CarrefourSalesTracker() {
           </CardContent>
         </Card>
 
-        {/* 6. Total Costs */}
+        {/* 7. Total Costs */}
         <Card className="shadow-lg border-0 bg-gradient-to-br from-red-50 to-red-100 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-24 h-24 bg-red-600/10 rounded-full -translate-y-12 translate-x-12"></div>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -420,7 +441,26 @@ export default function CarrefourSalesTracker() {
           </CardContent>
         </Card>
 
-        {/* 7. Pending Payments */}
+        {/* 8. Revenue minus Investment - NEW (next to total costs) */}
+        <Card className="shadow-lg border-0 bg-gradient-to-br from-teal-50 to-teal-100 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-teal-600/10 rounded-full -translate-y-12 translate-x-12"></div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-teal-900">Net Revenue</CardTitle>
+            <TrendingUp className="h-5 w-5 text-teal-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-teal-900 mb-2">{formatCurrency(metrics.revenueMinusInvestment)}</div>
+            <div className="flex items-center gap-2 text-sm">
+              <Calculator className="h-4 w-4 text-teal-600" />
+              <span className="text-teal-700">Revenue - Investment</span>
+            </div>
+            <p className="text-xs text-teal-600 mt-2">
+              Revenue after total investment
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* 9. Pending Payments */}
         <Card className="shadow-lg border-0 bg-gradient-to-br from-orange-50 to-orange-100 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-24 h-24 bg-orange-600/10 rounded-full -translate-y-12 translate-x-12"></div>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -439,7 +479,7 @@ export default function CarrefourSalesTracker() {
           </CardContent>
         </Card>
 
-        {/* 8. Profitable Orders */}
+        {/* 10. Profitable Orders */}
         <Card className="shadow-lg border-0 bg-gradient-to-br from-purple-50 to-purple-100 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-24 h-24 bg-purple-600/10 rounded-full -translate-y-12 translate-x-12"></div>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
