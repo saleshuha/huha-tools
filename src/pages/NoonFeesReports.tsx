@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { useCountry } from "@/contexts/CountryContext";
+import { CountrySwitcher } from "@/components/CountrySwitcher";
 import { supabase } from "@/integrations/supabase/client";
 import { 
   Receipt, 
@@ -275,13 +276,14 @@ export default function NoonFeesReports() {
             <div>
               <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
                 <Receipt className="h-8 w-8 text-primary" />
-                Noon Fees Reports
+                Noon Fees Reports - {selectedCountry}
               </h1>
               <p className="text-slate-600 mt-1">
                 Upload and manage consolidated item level fees reports for {selectedCountry}
               </p>
             </div>
           </div>
+          <CountrySwitcher />
         </div>
 
         {/* Stats Cards */}
