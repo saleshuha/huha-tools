@@ -44,10 +44,17 @@ const modules = [{
   status: "active"
 }, {
   title: "Payment Reports",
-  description: "Upload and track payment reports from Noon",
+  description: "Upload and track payment reports from Noon (Coming Soon)",
   icon: CreditCard,
   href: "/payment-reports",
   color: "bg-indigo-500",
+  status: "coming-soon"
+}, {
+  title: "Order Analysis",
+  description: "Comprehensive order analysis matching sales with fees",
+  icon: BarChart3,
+  href: "/noon-order-analysis",
+  color: "bg-teal-500",
   status: "active"
 }, {
   title: "Analytics Dashboard",

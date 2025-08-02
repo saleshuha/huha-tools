@@ -33,6 +33,7 @@ import PaymentReports from "./pages/PaymentReports";
 import CarrefourSalesTracker from "./pages/CarrefourPayments";
 import StoreSelection from "./pages/StoreSelection";
 import SKUCostManagement from "./pages/SKUCostManagement";
+import NoonOrderAnalysis from "./pages/NoonOrderAnalysis";
 
 
 
@@ -142,6 +143,7 @@ const App = () => {
                     <Route path="/noon-sales-data" element={<NoonSalesData />} />
                     <Route path="/noon-fees-reports" element={<NoonFeesReports />} />
                     <Route path="/noon-analytics" element={<NoonAnalytics />} />
+                    <Route path="/noon-order-analysis" element={<NoonOrderAnalysis />} />
                     <Route path="/payment-reports" element={<PaymentReports />} />
                     <Route path="/noon-sku-costs" element={<SKUCostManagement />} />
                     <Route path="/sku-costs" element={<SKUCostManagement />} />
