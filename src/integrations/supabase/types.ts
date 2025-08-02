@@ -28,6 +28,7 @@ export type Database = {
           restock_date: string | null
           restock_quantity: number | null
           serial_number: string
+          sku: string | null
           status: Database["public"]["Enums"]["inventory_status"]
           updated_at: string
           user_id: string
@@ -45,6 +46,7 @@ export type Database = {
           restock_date?: string | null
           restock_quantity?: number | null
           serial_number: string
+          sku?: string | null
           status?: Database["public"]["Enums"]["inventory_status"]
           updated_at?: string
           user_id: string
@@ -62,6 +64,7 @@ export type Database = {
           restock_date?: string | null
           restock_quantity?: number | null
           serial_number?: string
+          sku?: string | null
           status?: Database["public"]["Enums"]["inventory_status"]
           updated_at?: string
           user_id?: string

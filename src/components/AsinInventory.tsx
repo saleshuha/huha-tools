@@ -64,12 +64,14 @@ export function AsinInventory() {
   const [newItem, setNewItem] = useState<{
     asin: string;
     serialNumber: string;
+    sku: string;
     status: AsinInventoryItem['status'];
     quantity: number;
     notes: string;
   }>({
     asin: '',
     serialNumber: '',
+    sku: '',
     status: 'in-stock',
     quantity: 1,
     notes: ''
@@ -166,6 +168,7 @@ export function AsinInventory() {
     setNewItem({
       asin: '',
       serialNumber: '',
+      sku: '',
       status: 'in-stock',
       quantity: 1,
       notes: ''
@@ -188,9 +191,10 @@ export function AsinInventory() {
         items.push({
           asin: parts[0].trim(),
           serialNumber: parts[1].trim(),
-          status: parts[2].trim() as AsinInventoryItem['status'],
-          quantity: parseInt(parts[3]) || 1,
-          notes: parts[4]?.trim() || '',
+          sku: parts[2]?.trim() || '',
+          status: parts[3].trim() as AsinInventoryItem['status'],
+          quantity: parseInt(parts[4]) || 1,
+          notes: parts[5]?.trim() || '',
           dateAdded: new Date().toISOString()
         });
       }
@@ -212,7 +216,7 @@ export function AsinInventory() {
     });
   };
   const exportInventory = () => {
-    const csvData = [['ASIN', 'Serial Number', 'Status', 'Quantity', 'Date Added', 'Notes'], ...filteredInventory.map(item => [item.asin, item.serialNumber, item.status, item.quantity.toString(), new Date(item.dateAdded).toLocaleDateString(), item.notes || ''])];
+    const csvData = [['ASIN', 'Serial Number', 'SKU', 'Status', 'Quantity', 'Date Added', 'Notes'], ...filteredInventory.map(item => [item.asin, item.serialNumber, item.sku || '', item.status, item.quantity.toString(), new Date(item.dateAdded).toLocaleDateString(), item.notes || ''])];
     const csvContent = csvData.map(row => row.map(field => `"${field}"`).join(',')).join('\n');
     const blob = new Blob([csvContent], {
       type: 'text/csv;charset=utf-8;'
@@ -321,13 +325,20 @@ export function AsinInventory() {
                         serialNumber: e.target.value
                       })} placeholder="Enter Serial Number..." />
                       </div>
-                      <div>
-                        <Label htmlFor="quantity">Quantity</Label>
-                        <Input id="quantity" type="number" min="1" value={newItem.quantity} onChange={e => setNewItem({
-                        ...newItem,
-                        quantity: parseInt(e.target.value) || 1
-                      })} />
-                      </div>
+                       <div>
+                         <Label htmlFor="sku">SKU (Optional)</Label>
+                         <Input id="sku" value={newItem.sku} onChange={e => setNewItem({
+                         ...newItem,
+                         sku: e.target.value
+                       })} placeholder="Enter SKU (optional)" />
+                       </div>
+                       <div>
+                         <Label htmlFor="quantity">Quantity</Label>
+                         <Input id="quantity" type="number" min="1" value={newItem.quantity} onChange={e => setNewItem({
+                         ...newItem,
+                         quantity: parseInt(e.target.value) || 1
+                       })} />
+                       </div>
                       <div>
                         <Label htmlFor="status">Status</Label>
                         <Select value={newItem.status} onValueChange={(value: AsinInventoryItem['status']) => setNewItem({
@@ -374,17 +385,17 @@ export function AsinInventory() {
                       <DialogTitle>Bulk Add ASIN Items</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="bulkText">
-                          Paste tab-separated data (ASIN, Serial Number, Status, Quantity, Notes)
-                        </Label>
-                        <Textarea id="bulkText" value={bulkText} onChange={e => setBulkText(e.target.value)} placeholder="B123456789	SN001	in-stock	5	Optional notes&#10;B987654321	SN002	sold	1	Another item" rows={8} className="font-mono text-sm" />
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        <p><strong>Format:</strong> Each line should contain tab-separated values</p>
-                        <p><strong>Order:</strong> ASIN → Serial Number → Status → Quantity → Notes</p>
-                        <p><strong>Status options:</strong> in-stock, sold, reserved, damaged</p>
-                      </div>
+                       <div>
+                         <Label htmlFor="bulkText">
+                           Paste tab-separated data (ASIN, Serial Number, SKU, Status, Quantity, Notes)
+                         </Label>
+                         <Textarea id="bulkText" value={bulkText} onChange={e => setBulkText(e.target.value)} placeholder="B123456789	SN001	SKU123	in-stock	5	Optional notes&#10;B987654321	SN002	SKU456	sold	1	Another item" rows={8} className="font-mono text-sm" />
+                       </div>
+                       <div className="text-sm text-muted-foreground">
+                         <p><strong>Format:</strong> Each line should contain tab-separated values</p>
+                         <p><strong>Order:</strong> ASIN → Serial Number → SKU → Status → Quantity → Notes</p>
+                         <p><strong>Status options:</strong> in-stock, sold, reserved, damaged</p>
+                       </div>
                     </div>
                     <DialogFooter>
                       <Button variant="outline" onClick={() => setIsBulkDialogOpen(false)}>
@@ -602,9 +613,10 @@ export function AsinInventory() {
                     }
                   }} />
                     </th>
-                    <th className="p-4 text-left font-medium">ASIN</th>
-                    <th className="p-4 text-left font-medium">Serial Number</th>
-                    <th className="p-4 text-left font-medium">Status</th>
+                     <th className="p-4 text-left font-medium">ASIN</th>
+                     <th className="p-4 text-left font-medium">Serial Number</th>
+                     <th className="p-4 text-left font-medium">SKU</th>
+                     <th className="p-4 text-left font-medium">Status</th>
                     <th className="p-4 text-left font-medium">Quantity</th>
                     <th className="p-4 text-left font-medium">Date Added</th>
                     <th className="p-4 text-left font-medium">Actions</th>
@@ -623,9 +635,10 @@ export function AsinInventory() {
                     setSelectedItems(newSelected);
                   }} />
                       </td>
-                      <td className="p-4 font-mono text-sm">{item.asin}</td>
-                      <td className="p-4 font-mono text-sm">{item.serialNumber}</td>
-                      <td className="p-4">
+                       <td className="p-4 font-mono text-sm">{item.asin}</td>
+                       <td className="p-4 font-mono text-sm">{item.serialNumber}</td>
+                       <td className="p-4 font-mono text-sm">{item.sku || '-'}</td>
+                       <td className="p-4">
                         <Badge variant={item.status === 'in-stock' ? 'default' : item.status === 'sold' ? 'secondary' : item.status === 'reserved' ? 'outline' : 'destructive'}>
                           {item.status.replace('-', ' ').toUpperCase()}
                         </Badge>
@@ -677,10 +690,16 @@ export function AsinInventory() {
                       <Label className="text-xs text-muted-foreground">ASIN</Label>
                       <p className="font-mono text-sm">{item.asin}</p>
                     </div>
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Serial Number</Label>
-                      <p className="font-mono text-sm">{item.serialNumber}</p>
-                    </div>
+                     <div>
+                       <Label className="text-xs text-muted-foreground">Serial Number</Label>
+                       <p className="font-mono text-sm">{item.serialNumber}</p>
+                     </div>
+                     {item.sku && (
+                       <div>
+                         <Label className="text-xs text-muted-foreground">SKU</Label>
+                         <p className="font-mono text-sm">{item.sku}</p>
+                       </div>
+                     )}
                     <div>
                       <Label className="text-xs text-muted-foreground">Quantity</Label>
                       <div className="flex items-center gap-2">

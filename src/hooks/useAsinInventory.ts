@@ -8,6 +8,7 @@ export interface AsinInventoryItem {
   id: string;
   asin: string;
   serialNumber: string;
+  sku?: string;
   status: 'in-stock' | 'sold' | 'reserved' | 'damaged' | 'ordered';
   dateAdded: string;
   dateSold?: string;
@@ -43,6 +44,7 @@ export function useAsinInventory() {
         id: item.id,
         asin: item.asin,
         serialNumber: item.serial_number,
+        sku: item.sku || undefined,
         status: item.status,
         dateAdded: item.date_added,
         dateSold: item.date_sold || undefined,
@@ -77,6 +79,7 @@ export function useAsinInventory() {
           user_id: user.id,
           asin: item.asin,
           serial_number: item.serialNumber,
+          sku: item.sku || null,
           status: item.status,
           date_added: item.dateAdded,
           date_sold: item.dateSold || null,
@@ -96,6 +99,7 @@ export function useAsinInventory() {
         id: data.id,
         asin: data.asin,
         serialNumber: data.serial_number,
+        sku: data.sku,
         status: data.status,
         dateAdded: data.date_added,
         dateSold: data.date_sold || undefined,
@@ -183,6 +187,7 @@ export function useAsinInventory() {
         user_id: user.id,
         asin: item.asin,
         serial_number: item.serialNumber,
+        sku: item.sku || null,
         status: item.status,
         date_added: item.dateAdded,
         date_sold: item.dateSold || null,
@@ -205,6 +210,7 @@ export function useAsinInventory() {
         id: item.id,
         asin: item.asin,
         serialNumber: item.serial_number,
+        sku: item.sku || undefined,
         status: item.status,
         dateAdded: item.date_added,
         dateSold: item.date_sold || undefined,
