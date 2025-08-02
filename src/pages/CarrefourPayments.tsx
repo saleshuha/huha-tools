@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, ShoppingCart, TrendingUp, Package, Calculator, BarChart3, Receipt, Download, X, ArrowLeft, Store as StoreIcon } from "lucide-react";
+import { Plus, Search, ShoppingCart, TrendingUp, TrendingDown, Package, Calculator, BarChart3, Receipt, Download, X, ArrowLeft, Store as StoreIcon } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -301,149 +301,152 @@ export default function CarrefourSalesTracker() {
         </div>
       </div>
 
-      {/* Metrics Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-3">
-        <Card 
-          className="cursor-pointer hover:shadow-lg transition-all border-emerald-200 hover:border-emerald-300" 
-          onClick={() => handleCardClick('all', 'Total Sales Revenue')}
-        >
-          <CardContent className="pt-4 pb-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold text-emerald-700">Total Sales Revenue</p>
-                <p className="text-lg font-bold text-emerald-600">{formatCurrency(metrics.totalRevenue)}</p>
-                <p className="text-xs text-muted-foreground">
-                  From {metrics.totalOrders} orders
-                </p>
-              </div>
-              <ShoppingCart className="h-4 w-4 text-emerald-600" />
+      {/* Enhanced Key Metrics Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card className="shadow-lg border-0 bg-gradient-to-br from-emerald-50 to-emerald-100 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-600/10 rounded-full -translate-y-12 translate-x-12"></div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-emerald-900">Total Sales Revenue</CardTitle>
+            <ShoppingCart className="h-5 w-5 text-emerald-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-emerald-900 mb-2">{formatCurrency(metrics.totalRevenue)}</div>
+            <div className="flex items-center gap-2 text-sm">
+              <TrendingUp className="h-4 w-4 text-emerald-600" />
+              <span className="text-emerald-700">From {metrics.totalOrders} orders</span>
             </div>
+            <p className="text-xs text-emerald-600 mt-2">
+              Across all store operations
+            </p>
           </CardContent>
         </Card>
 
-        <Card 
-          className="cursor-pointer hover:shadow-lg transition-all border-cyan-200 hover:border-cyan-300" 
-          onClick={() => handleCardClick('shipped', 'Shipped Orders')}
-        >
-          <CardContent className="pt-4 pb-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold text-cyan-700">Shipped Order Revenue</p>
-                <p className="text-lg font-bold text-cyan-600">{formatCurrency(metrics.shippedValue)}</p>
-                <p className="text-xs text-muted-foreground">
-                  {metrics.shippedItems} shipped orders
-                </p>
-              </div>
-              <TrendingUp className="h-4 w-4 text-cyan-600" />
+        <Card className="shadow-lg border-0 bg-gradient-to-br from-cyan-50 to-cyan-100 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-cyan-600/10 rounded-full -translate-y-12 translate-x-12"></div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-cyan-900">Shipped Revenue</CardTitle>
+            <TrendingUp className="h-5 w-5 text-cyan-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-cyan-900 mb-2">{formatCurrency(metrics.shippedValue)}</div>
+            <div className="flex items-center gap-2 text-sm">
+              <Calculator className="h-4 w-4 text-cyan-600" />
+              <span className="text-cyan-700">{metrics.shippedItems} shipped orders</span>
             </div>
+            <p className="text-xs text-cyan-600 mt-2">
+              Orders currently in transit
+            </p>
           </CardContent>
         </Card>
 
-        <Card 
-          className="cursor-pointer hover:shadow-lg transition-all border-green-200 hover:border-green-300" 
-          onClick={() => handleCardClick('delivered', 'Delivered Orders')}
-        >
-          <CardContent className="pt-4 pb-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold text-green-700">Delivered Order Revenue</p>
-                <p className="text-lg font-bold text-green-600">{formatCurrency(metrics.deliveredValue)}</p>
-                <p className="text-xs text-muted-foreground">
-                  {metrics.deliveredItems} delivered orders
-                </p>
-              </div>
-              <BarChart3 className="h-4 w-4 text-green-600" />
+        <Card className="shadow-lg border-0 bg-gradient-to-br from-green-50 to-green-100 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-green-600/10 rounded-full -translate-y-12 translate-x-12"></div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-green-900">Delivered Revenue</CardTitle>
+            <BarChart3 className="h-5 w-5 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-green-900 mb-2">{formatCurrency(metrics.deliveredValue)}</div>
+            <div className="flex items-center gap-2 text-sm">
+              <TrendingUp className="h-4 w-4 text-green-600" />
+              <span className="text-green-700">{metrics.deliveredItems} completed</span>
             </div>
+            <p className="text-xs text-green-600 mt-2">
+              Successfully delivered orders
+            </p>
           </CardContent>
         </Card>
 
-        <Card 
-          className="cursor-pointer hover:shadow-lg transition-all border-indigo-200 hover:border-indigo-300" 
-          onClick={() => handleCardClick('all', 'Total Investment')}
-        >
-          <CardContent className="pt-4 pb-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold text-indigo-700">Total Investment</p>
-                <p className="text-lg font-bold text-indigo-600">{formatCurrency(metrics.totalInvestment)}</p>
-                <p className="text-xs text-muted-foreground">
-                  Profit + Cost combined
-                </p>
-              </div>
-              <Calculator className="h-4 w-4 text-indigo-600" />
+        <Card className="shadow-lg border-0 bg-gradient-to-br from-indigo-50 to-indigo-100 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-600/10 rounded-full -translate-y-12 translate-x-12"></div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-indigo-900">Total Investment</CardTitle>
+            <Calculator className="h-5 w-5 text-indigo-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-indigo-900 mb-2">{formatCurrency(metrics.totalInvestment)}</div>
+            <div className="flex items-center gap-2 text-sm">
+              <TrendingUp className="h-4 w-4 text-indigo-600" />
+              <span className="text-indigo-700">Profit + Cost combined</span>
             </div>
+            <p className="text-xs text-indigo-600 mt-2">
+              Total financial commitment
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Secondary Metrics Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card className="shadow-lg border-0 bg-gradient-to-br from-blue-50 to-blue-100 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-blue-600/10 rounded-full -translate-y-12 translate-x-12"></div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-blue-900">Net Profit</CardTitle>
+            <TrendingUp className="h-5 w-5 text-blue-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-blue-900 mb-2">{formatCurrency(metrics.totalProfit)}</div>
+            <div className="flex items-center gap-2 text-sm">
+              <Calculator className="h-4 w-4 text-blue-600" />
+              <span className="text-blue-700">{metrics.profitMargin.toFixed(1)}% margin</span>
+            </div>
+            <p className="text-xs text-blue-600 mt-2">
+              Profit after all costs
+            </p>
           </CardContent>
         </Card>
 
-        <Card 
-          className="cursor-pointer hover:shadow-lg transition-all border-blue-200 hover:border-blue-300" 
-          onClick={() => handleCardClick('profitable', 'Profitable Orders')}
-        >
-          <CardContent className="pt-4 pb-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold text-blue-700">Net Profit</p>
-                <p className="text-lg font-bold text-blue-600">{formatCurrency(metrics.totalProfit)}</p>
-                <p className="text-xs text-muted-foreground">
-                  {metrics.profitMargin.toFixed(1)}% margin
-                </p>
-              </div>
-              <TrendingUp className="h-4 w-4 text-blue-600" />
+        <Card className="shadow-lg border-0 bg-gradient-to-br from-orange-50 to-orange-100 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-orange-600/10 rounded-full -translate-y-12 translate-x-12"></div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-orange-900">Pending Payments</CardTitle>
+            <Calculator className="h-5 w-5 text-orange-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-orange-900 mb-2">{formatCurrency(metrics.totalPendingAmount)}</div>
+            <div className="flex items-center gap-2 text-sm">
+              <TrendingUp className="h-4 w-4 text-orange-600" />
+              <span className="text-orange-700">{metrics.totalPendingPayments} orders</span>
             </div>
+            <p className="text-xs text-orange-600 mt-2">
+              Awaiting payment processing
+            </p>
           </CardContent>
         </Card>
 
-        <Card 
-          className="cursor-pointer hover:shadow-lg transition-all border-orange-200 hover:border-orange-300" 
-          onClick={() => handleCardClick('pending', 'Pending Payments')}
-        >
-          <CardContent className="pt-4 pb-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold text-orange-700">Pending Payments</p>
-                <p className="text-lg font-bold text-orange-600">{formatCurrency(metrics.totalPendingAmount)}</p>
-                <p className="text-xs text-muted-foreground">
-                  {metrics.totalPendingPayments} orders awaiting payment
-                </p>
-              </div>
-              <Calculator className="h-4 w-4 text-orange-600" />
+        <Card className="shadow-lg border-0 bg-gradient-to-br from-purple-50 to-purple-100 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-purple-600/10 rounded-full -translate-y-12 translate-x-12"></div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-purple-900">Profitable Orders</CardTitle>
+            <BarChart3 className="h-5 w-5 text-purple-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-purple-900 mb-2">{metrics.profitableOrders}</div>
+            <div className="flex items-center gap-2 text-sm">
+              <TrendingUp className="h-4 w-4 text-purple-600" />
+              <span className="text-purple-700">{metrics.totalOrders > 0 ? (metrics.profitableOrders / metrics.totalOrders * 100).toFixed(1) : 0}% success rate</span>
             </div>
+            <p className="text-xs text-purple-600 mt-2">
+              Orders generating profit
+            </p>
           </CardContent>
         </Card>
 
-        <Card 
-          className="cursor-pointer hover:shadow-lg transition-all border-purple-200 hover:border-purple-300" 
-          onClick={() => handleCardClick('profitable', 'Profitable Orders')}
-        >
-          <CardContent className="pt-4 pb-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold text-purple-700">Profitable Orders</p>
-                <p className="text-lg font-bold text-purple-600">{metrics.profitableOrders}</p>
-                <p className="text-xs text-muted-foreground">
-                  {metrics.totalOrders > 0 ? (metrics.profitableOrders / metrics.totalOrders * 100).toFixed(1) : 0}% success rate
-                </p>
-              </div>
-              <BarChart3 className="h-4 w-4 text-purple-600" />
+        <Card className="shadow-lg border-0 bg-gradient-to-br from-red-50 to-red-100 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-red-600/10 rounded-full -translate-y-12 translate-x-12"></div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-red-900">Total Costs</CardTitle>
+            <Calculator className="h-5 w-5 text-red-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-red-900 mb-2">{formatCurrency(metrics.totalCosts)}</div>
+            <div className="flex items-center gap-2 text-sm">
+              <TrendingDown className="h-4 w-4 text-red-600" />
+              <span className="text-red-700">Cost of goods sold</span>
             </div>
-          </CardContent>
-        </Card>
-
-        <Card 
-          className="cursor-pointer hover:shadow-lg transition-all border-red-200 hover:border-red-300" 
-          onClick={() => handleCardClick('all', 'Total Costs')}
-        >
-          <CardContent className="pt-4 pb-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold text-red-700">Total Costs</p>
-                <p className="text-lg font-bold text-red-600">{formatCurrency(metrics.totalCosts)}</p>
-                <p className="text-xs text-muted-foreground">
-                  Cost of goods sold
-                </p>
-              </div>
-              <Calculator className="h-4 w-4 text-red-600" />
-            </div>
+            <p className="text-xs text-red-600 mt-2">
+              All operational costs
+            </p>
           </CardContent>
         </Card>
       </div>
