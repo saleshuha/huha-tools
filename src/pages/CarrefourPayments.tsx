@@ -393,21 +393,21 @@ export default function CarrefourSalesTracker() {
           </CardContent>
         </Card>
 
-        {/* 5. Total Investment */}
-        <Card className="shadow-md border-0 bg-gradient-to-br from-indigo-50 to-indigo-100 relative overflow-hidden cursor-pointer hover:shadow-lg transition-all" onClick={() => handleCardClick('investment', 'Total Investment')}>
-          <div className="absolute top-0 right-0 w-16 h-16 bg-indigo-600/10 rounded-full -translate-y-8 translate-x-8"></div>
+        {/* 5. Revenue minus Platform Fees */}
+        <Card className="shadow-md border-0 bg-gradient-to-br from-teal-50 to-teal-100 relative overflow-hidden cursor-pointer hover:shadow-lg transition-all" onClick={() => handleCardClick('all', 'Revenue minus Platform Fees')}>
+          <div className="absolute top-0 right-0 w-16 h-16 bg-teal-600/10 rounded-full -translate-y-8 translate-x-8"></div>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
-            <CardTitle className="text-xs font-medium text-indigo-900">Total Investment</CardTitle>
-            <Calculator className="h-4 w-4 text-indigo-600" />
+            <CardTitle className="text-xs font-medium text-teal-900">Revenue minus Fees</CardTitle>
+            <TrendingUp className="h-4 w-4 text-teal-600" />
           </CardHeader>
           <CardContent className="pb-2">
-            <div className="text-2xl font-bold text-indigo-900 mb-1">{formatCurrency(metrics.totalInvestment)}</div>
+            <div className="text-2xl font-bold text-teal-900 mb-1">{formatCurrency(metrics.revenueMinusFees)}</div>
             <div className="flex items-center gap-2 text-xs">
-              <TrendingUp className="h-3 w-3 text-indigo-600" />
-              <span className="text-indigo-700">Profit + Cost combined</span>
+              <Calculator className="h-3 w-3 text-teal-600" />
+              <span className="text-teal-700">Revenue - Platform Fees</span>
             </div>
-            <p className="text-xs text-indigo-600 mt-1">
-              Total financial commitment
+            <p className="text-xs text-teal-600 mt-1">
+              Revenue after platform fees
             </p>
           </CardContent>
         </Card>
@@ -453,21 +453,21 @@ export default function CarrefourSalesTracker() {
           </CardContent>
         </Card>
 
-        {/* 8. Revenue minus Platform Fees */}
-        <Card className="shadow-md border-0 bg-gradient-to-br from-teal-50 to-teal-100 relative overflow-hidden cursor-pointer hover:shadow-lg transition-all" onClick={() => handleCardClick('all', 'Revenue minus Platform Fees')}>
-          <div className="absolute top-0 right-0 w-16 h-16 bg-teal-600/10 rounded-full -translate-y-8 translate-x-8"></div>
+        {/* 8. Total Investment */}
+        <Card className="shadow-md border-0 bg-gradient-to-br from-indigo-50 to-indigo-100 relative overflow-hidden cursor-pointer hover:shadow-lg transition-all" onClick={() => handleCardClick('investment', 'Total Investment')}>
+          <div className="absolute top-0 right-0 w-16 h-16 bg-indigo-600/10 rounded-full -translate-y-8 translate-x-8"></div>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
-            <CardTitle className="text-xs font-medium text-teal-900">Pending Revenue</CardTitle>
-            <TrendingUp className="h-4 w-4 text-teal-600" />
+            <CardTitle className="text-xs font-medium text-indigo-900">Total Investment</CardTitle>
+            <Calculator className="h-4 w-4 text-indigo-600" />
           </CardHeader>
           <CardContent className="pb-2">
-            <div className="text-2xl font-bold text-teal-900 mb-1">{formatCurrency(metrics.revenueMinusFees)}</div>
+            <div className="text-2xl font-bold text-indigo-900 mb-1">{formatCurrency(metrics.totalInvestment)}</div>
             <div className="flex items-center gap-2 text-xs">
-              <Calculator className="h-3 w-3 text-teal-600" />
-              <span className="text-teal-700">Revenue - Platform Fees</span>
+              <TrendingUp className="h-3 w-3 text-indigo-600" />
+              <span className="text-indigo-700">Profit + Cost combined</span>
             </div>
-            <p className="text-xs text-teal-600 mt-1">
-              Revenue after platform fees
+            <p className="text-xs text-indigo-600 mt-1">
+              Total financial commitment
             </p>
           </CardContent>
         </Card>
