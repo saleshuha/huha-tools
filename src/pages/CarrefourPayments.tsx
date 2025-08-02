@@ -139,7 +139,7 @@ export default function CarrefourSalesTracker() {
       totalProfit,
       totalInvestment: totalProfit + totalCosts,
       totalPlatformFees: totalFees,
-      revenueMinusInvestment: totalRevenue - (totalProfit + totalCosts),
+      revenueMinusFees: totalRevenue - totalFees,
       totalPendingAmount,
       totalPendingPayments,
       totalPaidAmount: salesOrders.filter(o => o.payment_status === 'Received').reduce((sum, o) => sum + o.sale_value, 0),
@@ -515,24 +515,24 @@ export default function CarrefourSalesTracker() {
           </CardContent>
         </Card>
 
-        {/* 8. Revenue minus Investment */}
+        {/* 8. Revenue minus Platform Fees */}
         <Card 
           className="shadow-md border-0 bg-gradient-to-br from-teal-50 to-teal-100 relative overflow-hidden cursor-pointer hover:shadow-lg transition-all"
-          onClick={() => handleCardClick('all', 'Net Revenue')}
+          onClick={() => handleCardClick('all', 'Revenue minus Platform Fees')}
         >
           <div className="absolute top-0 right-0 w-16 h-16 bg-teal-600/10 rounded-full -translate-y-8 translate-x-8"></div>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
-            <CardTitle className="text-xs font-medium text-teal-900">Net Revenue</CardTitle>
+            <CardTitle className="text-xs font-medium text-teal-900">Revenue minus Platform Fees</CardTitle>
             <TrendingUp className="h-4 w-4 text-teal-600" />
           </CardHeader>
           <CardContent className="pb-2">
-            <div className="text-2xl font-bold text-teal-900 mb-1">{formatCurrency(metrics.revenueMinusInvestment)}</div>
+            <div className="text-2xl font-bold text-teal-900 mb-1">{formatCurrency(metrics.revenueMinusFees)}</div>
             <div className="flex items-center gap-2 text-xs">
               <Calculator className="h-3 w-3 text-teal-600" />
-              <span className="text-teal-700">Revenue - Investment</span>
+              <span className="text-teal-700">Revenue - Platform Fees</span>
             </div>
             <p className="text-xs text-teal-600 mt-1">
-              Revenue after total investment
+              Revenue after platform fees
             </p>
           </CardContent>
         </Card>
