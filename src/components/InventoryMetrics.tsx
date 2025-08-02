@@ -11,7 +11,7 @@ import { Calendar } from './ui/calendar';
 import { useCountry } from '@/contexts/CountryContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Package, CheckCircle, XCircle, Search, Download, FileText, RefreshCw, Activity, BarChart3, TrendingDown, CalendarIcon } from 'lucide-react';
+import { Package, CheckCircle, XCircle, Search, Download, FileText, RefreshCw, Activity, BarChart3, TrendingDown, CalendarIcon, Plus, TrendingUp } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
 interface InventoryItem {
@@ -30,6 +30,7 @@ interface InventoryStats {
   activeItems: number;
   inStockItems: number;
   outOfStockItems: number;
+  recentlyAdded: number;
   asinTotalUnits: number;
   asinSoldUnits: number;
   skuTotalUnits: number;
@@ -53,13 +54,14 @@ export function InventoryMetrics({
     activeItems: 0,
     inStockItems: 0,
     outOfStockItems: 0,
+    recentlyAdded: 0,
     asinTotalUnits: 0,
     asinSoldUnits: 0,
     skuTotalUnits: 0,
     skuSoldUnits: 0
   });
   const [loading, setLoading] = useState(true);
-  const [selectedMetric, setSelectedMetric] = useState<'active' | 'instock' | 'outofstock' | 'sold' | null>(null);
+  const [selectedMetric, setSelectedMetric] = useState<'active' | 'instock' | 'outofstock' | 'sold' | 'recently-added' | null>(null);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [exportLoading, setExportLoading] = useState(false);
@@ -79,6 +81,13 @@ export function InventoryMetrics({
         const inStockItems = asinItems.filter(item => item.quantity > 0).length;
         const outOfStockItems = asinItems.filter(item => item.quantity === 0).length;
         const asinTotalUnits = asinItems.reduce((sum, item) => sum + item.quantity, 0);
+
+        // Calculate recently added items (last 7 days)
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        const recentlyAdded = asinItems.filter(item => 
+          new Date(item.date_added) >= sevenDaysAgo
+        ).length;
 
         // Filter sold units based on date filters
         let soldItems = asinItems.filter(item => item.status === 'sold');
@@ -100,6 +109,7 @@ export function InventoryMetrics({
           activeItems,
           inStockItems,
           outOfStockItems,
+          recentlyAdded,
           asinTotalUnits,
           asinSoldUnits,
           skuTotalUnits: 0,
@@ -115,6 +125,13 @@ export function InventoryMetrics({
         const inStockItems = skuItems.filter(item => item.quantity > 0).length;
         const outOfStockItems = skuItems.filter(item => item.quantity === 0).length;
         const skuTotalUnits = skuItems.reduce((sum, item) => sum + item.quantity, 0);
+
+        // Calculate recently added items (last 7 days)
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        const recentlyAdded = skuItems.filter(item => 
+          new Date(item.date_added) >= sevenDaysAgo
+        ).length;
 
         // Filter sold units based on date filters
         let soldItems = skuItems.filter(item => item.status === 'sold');
@@ -136,6 +153,7 @@ export function InventoryMetrics({
           activeItems,
           inStockItems,
           outOfStockItems,
+          recentlyAdded,
           asinTotalUnits: 0,
           asinSoldUnits: 0,
           skuTotalUnits,
@@ -166,10 +184,23 @@ export function InventoryMetrics({
         const asinSoldUnits = asinItems.filter(item => item.status === 'sold').reduce((sum, item) => sum + item.quantity, 0);
         const skuTotalUnits = skuItems.reduce((sum, item) => sum + item.quantity, 0);
         const skuSoldUnits = skuItems.filter(item => item.status === 'sold').reduce((sum, item) => sum + item.quantity, 0);
+        
+        // Calculate recently added items (last 7 days)
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        const recentlyAddedAsin = asinItems.filter(item => 
+          new Date(item.date_added) >= sevenDaysAgo
+        ).length;
+        const recentlyAddedSku = skuItems.filter(item => 
+          new Date(item.date_added) >= sevenDaysAgo
+        ).length;
+        const recentlyAdded = recentlyAddedAsin + recentlyAddedSku;
+        
         setStats({
           activeItems,
           inStockItems,
           outOfStockItems,
+          recentlyAdded,
           asinTotalUnits,
           asinSoldUnits,
           skuTotalUnits,
@@ -186,7 +217,7 @@ export function InventoryMetrics({
       setLoading(false);
     }
   };
-  const loadDetailedItems = async (metric: 'active' | 'instock' | 'outofstock') => {
+  const loadDetailedItems = async (metric: 'active' | 'instock' | 'outofstock' | 'recently-added') => {
     try {
       if (showOnlyAsin) {
         // Load only ASIN data
@@ -204,6 +235,10 @@ export function InventoryMetrics({
           allItems = allItems.filter(item => item.quantity > 0);
         } else if (metric === 'outofstock') {
           allItems = allItems.filter(item => item.quantity === 0);
+        } else if (metric === 'recently-added') {
+          const sevenDaysAgo = new Date();
+          sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+          allItems = allItems.filter(item => new Date(item.date_added) >= sevenDaysAgo);
         }
         setInventoryItems(allItems);
       } else if (showOnlySku) {
@@ -222,6 +257,10 @@ export function InventoryMetrics({
           allItems = allItems.filter(item => item.quantity > 0);
         } else if (metric === 'outofstock') {
           allItems = allItems.filter(item => item.quantity === 0);
+        } else if (metric === 'recently-added') {
+          const sevenDaysAgo = new Date();
+          sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+          allItems = allItems.filter(item => new Date(item.date_added) >= sevenDaysAgo);
         }
         setInventoryItems(allItems);
       } else {
@@ -242,6 +281,10 @@ export function InventoryMetrics({
           allItems = allItems.filter(item => item.quantity > 0);
         } else if (metric === 'outofstock') {
           allItems = allItems.filter(item => item.quantity === 0);
+        } else if (metric === 'recently-added') {
+          const sevenDaysAgo = new Date();
+          sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+          allItems = allItems.filter(item => new Date(item.date_added) >= sevenDaysAgo);
         }
         setInventoryItems(allItems);
       }
@@ -335,7 +378,7 @@ export function InventoryMetrics({
       });
     }
   };
-  const handleMetricClick = async (metric: 'active' | 'instock' | 'outofstock') => {
+  const handleMetricClick = async (metric: 'active' | 'instock' | 'outofstock' | 'recently-added') => {
     setSelectedMetric(metric);
     await loadDetailedItems(metric);
   };
@@ -385,53 +428,103 @@ export function InventoryMetrics({
       {/* Date Filter for Sold Units - Show only in ASIN mode */}
       {showOnlyAsin}
 
-      <div className={`grid gap-4 mb-6 ${showOnlyAsin || showOnlySku ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-4' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'}`}>
-        {/* Active ASIN Items */}
-        <Card className="glass-container cursor-pointer hover:shadow-lg transition-all duration-300 hover:border-primary/30" onClick={() => handleMetricClick('active')}>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  {showOnlyAsin ? 'Active ASIN Items' : showOnlySku ? 'Active SKU Items' : 'Active Items'}
-                </p>
-                <p className="text-2xl font-bold text-primary">{stats.activeItems}</p>
-                <p className="text-xs text-muted-foreground">
-                  {showOnlyAsin ? 'Total ASIN items' : showOnlySku ? 'Total SKU items' : 'Total inventory items'}
-                </p>
-              </div>
-              <Activity className="w-6 h-6 text-primary" />
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-6">
+        {/* Active Items */}
+        <Card 
+          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background"
+          onClick={() => handleMetricClick('active')}
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <div>
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                {showOnlyAsin ? 'Active ASIN Items' : showOnlySku ? 'Active SKU Items' : 'Active Items'}
+              </CardTitle>
+              <div className="text-2xl font-bold text-primary mt-1">{stats.activeItems}</div>
+            </div>
+            <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+              <Activity className="h-6 w-6 text-primary" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-muted-foreground">
+              {showOnlyAsin ? 'Total ASIN items' : showOnlySku ? 'Total SKU items' : 'Total inventory items'}
+            </p>
+            <div className="mt-2 flex items-center text-xs text-green-600">
+              <TrendingUp className="h-3 w-3 mr-1" />
+              Click to view details
             </div>
           </CardContent>
         </Card>
 
-        {/* ASIN In Stock */}
-        <Card className="glass-container cursor-pointer hover:shadow-lg transition-all duration-300 hover:border-green-500/30" onClick={() => handleMetricClick('instock')}>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  {showOnlyAsin ? 'ASIN In Stock' : showOnlySku ? 'SKU In Stock' : 'In Stock'}
-                </p>
-                <p className="text-2xl font-bold text-green-600">{stats.inStockItems}</p>
-                <p className="text-xs text-muted-foreground">Available for sale</p>
-              </div>
-              <CheckCircle className="w-6 h-6 text-green-600" />
+        {/* In Stock */}
+        <Card 
+          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-green-500/30 bg-gradient-to-br from-green-50 to-background"
+          onClick={() => handleMetricClick('instock')}
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <div>
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                {showOnlyAsin ? 'ASIN In Stock' : showOnlySku ? 'SKU In Stock' : 'In Stock'}
+              </CardTitle>
+              <div className="text-2xl font-bold text-green-600 mt-1">{stats.inStockItems}</div>
+            </div>
+            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+              <CheckCircle className="h-6 w-6 text-green-600" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-muted-foreground">Available for sale</p>
+            <div className="mt-2 flex items-center text-xs text-green-600">
+              <TrendingUp className="h-3 w-3 mr-1" />
+              Ready to sell
             </div>
           </CardContent>
         </Card>
 
-        {/* ASIN Out of Stock */}
-        <Card className="glass-container cursor-pointer hover:shadow-lg transition-all duration-300 hover:border-red-500/30" onClick={() => handleMetricClick('outofstock')}>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  {showOnlyAsin ? 'ASIN Out of Stock' : showOnlySku ? 'SKU Out of Stock' : 'Out of Stock'}
-                </p>
-                <p className="text-2xl font-bold text-red-600">{stats.outOfStockItems}</p>
-                <p className="text-xs text-muted-foreground">Need restock</p>
-              </div>
-              <XCircle className="w-6 h-6 text-red-600" />
+        {/* Out of Stock */}
+        <Card 
+          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-red-500/30 bg-gradient-to-br from-red-50 to-background"
+          onClick={() => handleMetricClick('outofstock')}
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <div>
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                {showOnlyAsin ? 'ASIN Out of Stock' : showOnlySku ? 'SKU Out of Stock' : 'Out of Stock'}
+              </CardTitle>
+              <div className="text-2xl font-bold text-red-600 mt-1">{stats.outOfStockItems}</div>
+            </div>
+            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+              <XCircle className="h-6 w-6 text-red-600" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-muted-foreground">Need restock</p>
+            <div className="mt-2 flex items-center text-xs text-red-600">
+              <TrendingDown className="h-3 w-3 mr-1" />
+              Requires attention
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Recently Added Items */}
+        <Card 
+          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-blue-500/30 bg-gradient-to-br from-blue-50 to-background"
+          onClick={() => handleMetricClick('recently-added')}
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <div>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Recently Added</CardTitle>
+              <div className="text-2xl font-bold text-blue-600 mt-1">{stats.recentlyAdded}</div>
+            </div>
+            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+              <Plus className="h-6 w-6 text-blue-600" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-muted-foreground">Last 7 days</p>
+            <div className="mt-2 flex items-center text-xs text-blue-600">
+              <TrendingUp className="h-3 w-3 mr-1" />
+              New additions
             </div>
           </CardContent>
         </Card>
@@ -520,6 +613,7 @@ export function InventoryMetrics({
               {selectedMetric === 'active' && 'All Active Items'}
               {selectedMetric === 'instock' && 'In Stock Items'}
               {selectedMetric === 'outofstock' && 'Out of Stock Items'}
+              {selectedMetric === 'recently-added' && 'Recently Added Items'}
               <Badge variant="outline" className="ml-2">
                 {filteredItems.length} items
               </Badge>
