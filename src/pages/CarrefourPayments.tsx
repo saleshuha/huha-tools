@@ -3,7 +3,11 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, ShoppingCart, TrendingUp, TrendingDown, Package, Calculator, BarChart3, Receipt, Download, X, ArrowLeft, Store as StoreIcon, CheckCircle } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Plus, Search, ShoppingCart, TrendingUp, TrendingDown, Package, Calculator, BarChart3, Receipt, Download, X, ArrowLeft, Store as StoreIcon, CheckCircle, CalendarIcon } from "lucide-react";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +29,7 @@ export default function CarrefourSalesTracker() {
   const [salesOrders, setSalesOrders] = useState<CarrefourSalesOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [dateRange, setDateRange] = useState<{from: Date | undefined, to: Date | undefined}>({ from: undefined, to: undefined });
   const [dialogData, setDialogData] = useState<{
     isOpen: boolean;
     title: string;
@@ -101,28 +106,48 @@ export default function CarrefourSalesTracker() {
     fetchSalesOrders();
   };
 
+  // Filter sales orders based on date range
+  const dateFilteredOrders = useMemo(() => {
+    if (!dateRange.from && !dateRange.to) return salesOrders;
+    
+    return salesOrders.filter(order => {
+      const orderDate = new Date(order.created_at);
+      const fromDate = dateRange.from;
+      const toDate = dateRange.to;
+      
+      if (fromDate && toDate) {
+        return orderDate >= fromDate && orderDate <= toDate;
+      } else if (fromDate) {
+        return orderDate >= fromDate;
+      } else if (toDate) {
+        return orderDate <= toDate;
+      }
+      return true;
+    });
+  }, [salesOrders, dateRange]);
+
   // Filter sales orders based on search term
   const filteredOrders = useMemo(() => {
-    if (!searchTerm.trim()) return salesOrders;
-    return salesOrders.filter(order => order.order_number.toLowerCase().includes(searchTerm.toLowerCase()) || order.status.toLowerCase().includes(searchTerm.toLowerCase()));
-  }, [salesOrders, searchTerm]);
+    if (!searchTerm.trim()) return dateFilteredOrders;
+    return dateFilteredOrders.filter(order => order.order_number.toLowerCase().includes(searchTerm.toLowerCase()) || order.status.toLowerCase().includes(searchTerm.toLowerCase()));
+  }, [dateFilteredOrders, searchTerm]);
 
-  // Calculate metrics
+  // Calculate metrics using date filtered data
   const metrics = useMemo(() => {
-    const totalRevenue = salesOrders.reduce((sum, o) => sum + o.sale_value, 0);
-    const totalCosts = salesOrders.reduce((sum, o) => sum + o.cost, 0);
-    const totalProfit = salesOrders.reduce((sum, o) => sum + o.profit, 0);
-    const totalPendingPayments = salesOrders.filter(o => o.payment_status === 'Pending').length;
-    const totalPendingAmount = salesOrders.filter(o => o.payment_status === 'Pending').reduce((sum, o) => sum + o.sale_value, 0);
-    const totalFees = salesOrders.reduce((sum, o) => sum + o.seller_fees, 0);
+    const totalRevenue = dateFilteredOrders.reduce((sum, o) => sum + o.sale_value, 0);
+    const totalCosts = dateFilteredOrders.reduce((sum, o) => sum + o.cost, 0);
+    const totalProfit = dateFilteredOrders.reduce((sum, o) => sum + o.profit, 0);
+    const totalPendingPayments = dateFilteredOrders.filter(o => o.payment_status === 'Pending').length;
+    const totalPendingAmount = dateFilteredOrders.filter(o => o.payment_status === 'Pending').reduce((sum, o) => sum + o.sale_value, 0);
+    const totalFees = dateFilteredOrders.reduce((sum, o) => sum + o.seller_fees, 0);
     const profitMargin = totalRevenue > 0 ? totalProfit / totalRevenue * 100 : 0;
 
     // Status-based metrics
-    const deliveredOrders = salesOrders.filter(o => o.status === 'Delivered');
-    const returnedOrders = salesOrders.filter(o => o.status === 'Returned');
-    const cancelledOrders = salesOrders.filter(o => o.status === 'Cancelled');
-    const shippedOrders = salesOrders.filter(o => o.status === 'Shipped');
-    const otherOrders = salesOrders.filter(o => o.status === 'Other');
+    const deliveredOrders = dateFilteredOrders.filter(o => o.status === 'Delivered');
+    const returnedOrders = dateFilteredOrders.filter(o => o.status === 'Returned');
+    const cancelledOrders = dateFilteredOrders.filter(o => o.status === 'Cancelled');
+    const shippedOrders = dateFilteredOrders.filter(o => o.status === 'Shipped');
+    const otherOrders = dateFilteredOrders.filter(o => o.status === 'Other');
     return {
       totalRevenue,
       totalCosts,
@@ -132,12 +157,12 @@ export default function CarrefourSalesTracker() {
       revenueMinusFees: totalRevenue - totalFees,
       totalPendingAmount,
       totalPendingPayments,
-      totalPaidAmount: salesOrders.filter(o => o.payment_status === 'Received').reduce((sum, o) => sum + o.sale_value, 0),
-      totalPaidPayments: salesOrders.filter(o => o.payment_status === 'Received').length,
+      totalPaidAmount: dateFilteredOrders.filter(o => o.payment_status === 'Received').reduce((sum, o) => sum + o.sale_value, 0),
+      totalPaidPayments: dateFilteredOrders.filter(o => o.payment_status === 'Received').length,
       totalFees,
       profitMargin,
-      totalOrders: salesOrders.length,
-      profitableOrders: salesOrders.filter(o => o.profit > 0).length,
+      totalOrders: dateFilteredOrders.length,
+      profitableOrders: dateFilteredOrders.filter(o => o.profit > 0).length,
       deliveredItems: deliveredOrders.length,
       deliveredValue: deliveredOrders.reduce((sum, o) => sum + o.sale_value, 0),
       returnedItems: returnedOrders.length,
@@ -149,7 +174,7 @@ export default function CarrefourSalesTracker() {
       otherItems: otherOrders.length,
       otherValue: otherOrders.reduce((sum, o) => sum + o.sale_value, 0)
     };
-  }, [salesOrders]);
+  }, [dateFilteredOrders]);
 
   // Currency helper function
   const getCurrency = () => {
@@ -175,44 +200,44 @@ export default function CarrefourSalesTracker() {
     document.body.removeChild(link);
   };
   const handleCardClick = (filterType: string, title: string) => {
-    let dataToShow = salesOrders;
+    let dataToShow = dateFilteredOrders;
     switch (filterType) {
       case 'all':
       case 'revenue':
-        dataToShow = salesOrders;
+        dataToShow = dateFilteredOrders;
         break;
       case 'delivered':
-        dataToShow = salesOrders.filter(o => o.status === 'Delivered');
+        dataToShow = dateFilteredOrders.filter(o => o.status === 'Delivered');
         break;
       case 'shipped':
-        dataToShow = salesOrders.filter(o => o.status === 'Shipped');
+        dataToShow = dateFilteredOrders.filter(o => o.status === 'Shipped');
         break;
       case 'returned':
-        dataToShow = salesOrders.filter(o => o.status === 'Returned');
+        dataToShow = dateFilteredOrders.filter(o => o.status === 'Returned');
         break;
       case 'cancelled':
-        dataToShow = salesOrders.filter(o => o.status === 'Cancelled');
+        dataToShow = dateFilteredOrders.filter(o => o.status === 'Cancelled');
         break;
       case 'other':
-        dataToShow = salesOrders.filter(o => o.status === 'Other');
+        dataToShow = dateFilteredOrders.filter(o => o.status === 'Other');
         break;
       case 'pending':
-        dataToShow = salesOrders.filter(o => o.payment_status === 'Pending');
+        dataToShow = dateFilteredOrders.filter(o => o.payment_status === 'Pending');
         break;
       case 'paid':
-        dataToShow = salesOrders.filter(o => o.payment_status === 'Received');
+        dataToShow = dateFilteredOrders.filter(o => o.payment_status === 'Received');
         break;
       case 'profitable':
-        dataToShow = salesOrders.filter(o => o.profit > 0);
+        dataToShow = dateFilteredOrders.filter(o => o.profit > 0);
         break;
       case 'costs':
-        dataToShow = salesOrders.filter(o => o.cost > 0);
+        dataToShow = dateFilteredOrders.filter(o => o.cost > 0);
         break;
       case 'fees':
-        dataToShow = salesOrders.filter(o => o.seller_fees > 0);
+        dataToShow = dateFilteredOrders.filter(o => o.seller_fees > 0);
         break;
       case 'investment':
-        dataToShow = salesOrders.filter(o => o.profit + o.cost > 0);
+        dataToShow = dateFilteredOrders.filter(o => o.profit + o.cost > 0);
         break;
     }
     setDialogData({
@@ -255,31 +280,31 @@ export default function CarrefourSalesTracker() {
     exportToCSV(selectedOrders, `selected-${dialogData.title.toLowerCase().replace(/\s+/g, '-')}`);
   };
   const handleExport = (filterType: string, filename: string) => {
-    let dataToExport = salesOrders;
+    let dataToExport = dateFilteredOrders;
     switch (filterType) {
       case 'all':
-        dataToExport = salesOrders;
+        dataToExport = dateFilteredOrders;
         break;
       case 'delivered':
-        dataToExport = salesOrders.filter(o => o.status === 'Delivered');
+        dataToExport = dateFilteredOrders.filter(o => o.status === 'Delivered');
         break;
       case 'shipped':
-        dataToExport = salesOrders.filter(o => o.status === 'Shipped');
+        dataToExport = dateFilteredOrders.filter(o => o.status === 'Shipped');
         break;
       case 'returned':
-        dataToExport = salesOrders.filter(o => o.status === 'Returned');
+        dataToExport = dateFilteredOrders.filter(o => o.status === 'Returned');
         break;
       case 'cancelled':
-        dataToExport = salesOrders.filter(o => o.status === 'Cancelled');
+        dataToExport = dateFilteredOrders.filter(o => o.status === 'Cancelled');
         break;
       case 'other':
-        dataToExport = salesOrders.filter(o => o.status === 'Other');
+        dataToExport = dateFilteredOrders.filter(o => o.status === 'Other');
         break;
       case 'pending':
-        dataToExport = salesOrders.filter(o => o.payment_status === 'Pending');
+        dataToExport = dateFilteredOrders.filter(o => o.payment_status === 'Pending');
         break;
       case 'profitable':
-        dataToExport = salesOrders.filter(o => o.profit > 0);
+        dataToExport = dateFilteredOrders.filter(o => o.profit > 0);
         break;
     }
     exportToCSV(dataToExport, filename);
@@ -291,7 +316,7 @@ export default function CarrefourSalesTracker() {
     return dialogData.data.filter(order => order.order_number.toLowerCase().includes(dialogData.searchTerm.toLowerCase()) || order.status.toLowerCase().includes(dialogData.searchTerm.toLowerCase()) || order.payment_status.toLowerCase().includes(dialogData.searchTerm.toLowerCase()));
   }, [dialogData.data, dialogData.searchTerm]);
   return <div className="w-full max-w-none px-6 py-6 space-y-6 ml-0">
-      {/* Header with Back Button */}
+      {/* Header with Back Button and Date Filter */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex items-center gap-4">
           <Button variant="outline" onClick={() => navigate("/stores")} className="gap-2">
@@ -312,6 +337,57 @@ export default function CarrefourSalesTracker() {
               {currentStore?.location && <span>• {currentStore.location}</span>}
             </p>
           </div>
+        </div>
+        
+        {/* Date Range Filter */}
+        <div className="flex items-center gap-2">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className={cn(
+                  "w-[280px] justify-start text-left font-normal",
+                  !dateRange.from && !dateRange.to && "text-muted-foreground"
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {dateRange.from ? (
+                  dateRange.to ? (
+                    <>
+                      {format(dateRange.from, "LLL dd, y")} -{" "}
+                      {format(dateRange.to, "LLL dd, y")}
+                    </>
+                  ) : (
+                    format(dateRange.from, "LLL dd, y")
+                  )
+                ) : (
+                  <span>All Time</span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                initialFocus
+                mode="range"
+                defaultMonth={dateRange.from}
+                selected={{ from: dateRange.from, to: dateRange.to }}
+                onSelect={(range) => setDateRange({ from: range?.from, to: range?.to })}
+                numberOfMonths={2}
+                className={cn("p-3 pointer-events-auto")}
+              />
+              {(dateRange.from || dateRange.to) && (
+                <div className="p-3 border-t">
+                  <Button 
+                    variant="outline" 
+                    className="w-full" 
+                    onClick={() => setDateRange({ from: undefined, to: undefined })}
+                  >
+                    Clear Filter
+                  </Button>
+                </div>
+              )}
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
 
