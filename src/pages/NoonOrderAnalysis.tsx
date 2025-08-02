@@ -187,120 +187,74 @@ export default function NoonOrderAnalysis() {
     try {
       setLoading(true);
 
-      // Build query for SALES DATA (primary source)
-      let salesQuery = supabase
-        .from('noon_sales_data')
-        .select('*')
-        .eq('country_code', selectedCountry);
-
-      // Build query for FEES DATA (secondary source for matching)
-      let feesQuery = supabase
-        .from('noon_order_fees')
-        .select('*')
-        .eq('country_code', selectedCountry);
-
-      if (selectedStore !== "all") {
-        salesQuery = salesQuery.eq('store_id', selectedStore);
-        feesQuery = feesQuery.eq('store_id', selectedStore);
-      }
-
-      if (dateRange.from) {
-        salesQuery = salesQuery.gte('ordered_date', dateRange.from.toISOString());
-      }
-
-      if (dateRange.to) {
-        salesQuery = salesQuery.lte('ordered_date', dateRange.to.toISOString());
-      }
-
-      // Fetch all sales data (primary)
-      const salesData = await fetchAllData(salesQuery);
-      console.log(`Loaded ${salesData.length} sales records as primary source`);
-
-      // Fetch all fees data (for matching)
-      const feesData = await fetchAllData(feesQuery);
-      console.log(`Loaded ${feesData.length} fees records for matching`);
-
-      // Create fees lookup map for efficient matching
-      const feesMap = new Map();
-      feesData.forEach(fee => {
-        // Try multiple matching strategies
-        const keys = [
-          fee.order_nr,
-          fee.item_nr,
-          `${fee.order_nr}-${fee.item_nr}`,
-          fee.partner_sales_nr
-        ].filter(Boolean);
-        
-        keys.forEach(key => {
-          if (!feesMap.has(key)) {
-            feesMap.set(key, []);
-          }
-          feesMap.get(key).push(fee);
-        });
-      });
-
-      // Process each sales record and find matching fees
-      const combinedOrders: OrderDetail[] = [];
-      let ordersWithFees = 0;
-
-      salesData.forEach(sale => {
-        // Try to find matching fees using multiple strategies
-        let matchingFees: any[] = [];
-        
-        const searchKeys = [
-          sale.item_nr,
-          sale.purchase_item_nr,
-          sale.awb_nr
-        ].filter(Boolean);
-
-        searchKeys.forEach(key => {
-          const found = feesMap.get(key);
-          if (found && found.length > 0) {
-            matchingFees = found;
-          }
+      // Use the new database function for enhanced invoice/credit matching
+      console.log('Loading order analysis using enhanced database function...');
+      
+      const { data: orderFeesData, error } = await supabase
+        .rpc('get_order_fees_analysis', {
+          country_filter: selectedCountry,
+          store_filter: selectedStore === "all" ? null : selectedStore,
+          start_date: dateRange.from?.toISOString(),
+          end_date: dateRange.to?.toISOString()
         });
 
-        // Calculate fees for this order
-        const feeBreakdown = {};
-        let totalFees = 0;
-        let feesFound = false;
+      if (error) {
+        console.error('Database function error:', error);
+        throw error;
+      }
 
-        if (matchingFees.length > 0) {
-          feesFound = true;
-          ordersWithFees++;
-          
-          // Aggregate fees from all matching records
-          matchingFees.forEach(fee => {
-            const feeFields = [
-              'fee_referral', 'fee_shipping', 'fee_outbound_fbn', 'fee_weight_handling',
-              'fee_crossdock', 'fee_directship_outbound', 'fee_damaged_return',
-              'fee_noon_penalty', 'fee_item_cancellation', 'fee_warranty_penalty',
-              'fee_retention_penalty', 'fee_alternate_seller_fulfillment',
-              'fee_miscellaneous', 'fee_direct_collection', 'fee_reinvoicing',
-              'fee_noon_promo', 'fee_noon_markup'
-            ];
+      console.log(`Loaded ${orderFeesData?.length || 0} matched invoice/credit records with fees`);
 
-            feeFields.forEach(field => {
-              const cleanField = field.replace('fee_', '');
-              if (!feeBreakdown[cleanField]) feeBreakdown[cleanField] = 0;
-              feeBreakdown[cleanField] += fee[field] || 0;
-              totalFees += fee[field] || 0;
-            });
+      if (!orderFeesData || orderFeesData.length === 0) {
+        // Set empty state
+        setAnalysis({
+          totalOrders: 0,
+          ordersWithFees: 0,
+          ordersWithoutFees: 0,
+          deliveredOrders: 0,
+          cancelledOrders: 0,
+          returnedOrders: 0,
+          shippedOrders: 0,
+          pendingOrders: 0,
+          totalRevenue: 0,
+          totalFees: 0,
+          netAmount: 0,
+          averageOrderValue: 0,
+          returnRate: 0,
+          cancellationRate: 0,
+          deliveryRate: 0,
+          averageFeePercentage: 0,
+          profitMargin: 0,
+          feesCoverage: 0
+        });
+        setOrderDetails([]);
+        setStatusBreakdown([]);
+        setFeeBreakdown([]);
+        return;
+      }
+
+      // Transform the database results into OrderDetail format
+      const combinedOrders: OrderDetail[] = orderFeesData.map(record => {
+        const hasFeesData = record.fee_coverage_status === 'Fees Available';
+        
+        // Convert JSONB fee breakdown to proper format
+        let feeBreakdown: {[key: string]: number} = {};
+        if (record.fee_breakdown && typeof record.fee_breakdown === 'object') {
+          const breakdown = record.fee_breakdown as any;
+          Object.keys(breakdown).forEach(key => {
+            feeBreakdown[key] = Number(breakdown[key]) || 0;
           });
         }
-
-        const invoicePrice = sale.invoice_price || 0;
-        const netAmount = invoicePrice - totalFees;
-        const orderedDate = sale.ordered_date;
-        const deliveredDate = sale.delivered_date;
-        const daysToDeliver = orderedDate && deliveredDate ? 
-          calculateDaysBetween(orderedDate, deliveredDate) : null;
-
-        // Enhanced status based on fees availability and cost data
-        let enhancedStatus = sale.item_status || 'unknown';
-        let statusColor = getStatusColor(enhancedStatus);
         
-        if (feesFound) {
+        // Calculate days to delivery (if delivered)
+        const orderedDate = record.document_date;
+        const daysToDeliver = null; // We don't have delivery date in invoice/credit data
+        
+        // Enhanced status based on type and fees availability
+        let enhancedStatus = `${record.order_type} - ${record.order_status}`;
+        let statusColor = getStatusColor(record.order_status);
+        
+        if (hasFeesData) {
           enhancedStatus = `${enhancedStatus} (Fees Available)`;
           statusColor = statusColor.replace('bg-gray', 'bg-green');
         } else {
@@ -308,35 +262,33 @@ export default function NoonOrderAnalysis() {
           statusColor = statusColor.replace('bg-gray', 'bg-orange');
         }
 
-        const orderDetail: OrderDetail = {
-          item_nr: sale.item_nr || '',
-          order_id: sale.purchase_item_nr,
-          sku: sale.sku,
-          product_title: sale.title_en || sale.title_ar,
-          item_status: sale.item_status,
-          ordered_date: orderedDate,
-          shipped_date: sale.shipped_date,
-          delivered_date: deliveredDate,
-          cancelled_date: sale.cancelled_date,
-          returned_date: sale.returned_date,
-          invoice_price: invoicePrice,
-          family: sale.family,
-          brand: sale.brand_en || sale.brand_ar,
-          fees_found: feesFound,
-          total_fees: totalFees,
-          net_amount: netAmount,
+        return {
+          item_nr: record.item_nr || '',
+          order_id: record.order_number || '',
+          sku: record.sku || undefined,
+          product_title: record.description || undefined,
+          item_status: record.order_status || undefined,
+          ordered_date: record.document_date ? new Date(record.document_date).toISOString() : undefined,
+          shipped_date: undefined,
+          delivered_date: undefined,
+          cancelled_date: record.order_type === 'credit' ? record.document_date : undefined,
+          returned_date: record.order_type === 'credit' ? record.document_date : undefined,
+          invoice_price: Number(record.invoice_price) || 0,
+          family: undefined,
+          brand: undefined,
+          fees_found: hasFeesData,
+          total_fees: Number(record.total_fees) || 0,
+          net_amount: Number(record.net_amount) || 0,
           fee_breakdown: feeBreakdown,
           days_to_deliver: daysToDeliver,
-          profit_margin: invoicePrice > 0 ? (netAmount / invoicePrice) * 100 : 0,
+          profit_margin: Number(record.profit_margin) || 0,
           enhanced_status: enhancedStatus,
           status_color: statusColor,
-          has_cost_data: feesFound
+          has_cost_data: hasFeesData
         };
-
-        combinedOrders.push(orderDetail);
       });
 
-      console.log(`Created ${combinedOrders.length} order records, ${ordersWithFees} with fees data`);
+      console.log(`Created ${combinedOrders.length} order records`);
 
       // Calculate metrics
       const metrics = calculateMetrics(combinedOrders);
@@ -600,8 +552,8 @@ export default function NoonOrderAnalysis() {
                 <Calculator className="h-8 w-8 text-blue-600" />
               </div>
             </div>
-            <h3 className="mt-6 text-xl font-semibold text-slate-800">Processing Order Analysis</h3>
-            <p className="mt-2 text-slate-600">Matching sales data with fee records...</p>
+            <h3 className="mt-6 text-xl font-semibold text-slate-800">Processing Invoice & Credit Analysis</h3>
+            <p className="mt-2 text-slate-600">Matching invoice/credit data with fee records...</p>
             <div className="mt-4 flex gap-2">
               <div className="h-2 w-2 bg-blue-600 rounded-full animate-bounce"></div>
               <div className="h-2 w-2 bg-blue-600 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
@@ -620,10 +572,10 @@ export default function NoonOrderAnalysis() {
         <div className="text-center space-y-4 py-8">
           <div className="inline-flex items-center gap-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-2xl shadow-lg">
             <Target className="h-6 w-6" />
-            <h1 className="text-2xl font-bold">Sales-Based Order Analysis</h1>
+            <h1 className="text-2xl font-bold">Invoice & Credit Fee Analysis</h1>
           </div>
           <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-            Comprehensive analysis based on uploaded sales data with matched fee calculations
+            Comprehensive analysis matching invoice/credit note orders with their corresponding fee calculations for {selectedCountry}
           </p>
         </div>
 

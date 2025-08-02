@@ -1160,6 +1160,30 @@ export type Database = {
           record_count: number
         }[]
       }
+      get_order_fees_analysis: {
+        Args: {
+          country_filter?: string
+          store_filter?: string
+          start_date?: string
+          end_date?: string
+        }
+        Returns: {
+          order_number: string
+          order_type: string
+          item_nr: string
+          sku: string
+          description: string
+          document_date: string
+          invoice_price: number
+          total_fees: number
+          net_amount: number
+          fee_breakdown: Json
+          fee_coverage_status: string
+          order_status: string
+          store_name: string
+          profit_margin: number
+        }[]
+      }
       get_sales_analytics: {
         Args: { start_date?: string; end_date?: string }
         Returns: {
