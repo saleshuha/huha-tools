@@ -138,6 +138,8 @@ export default function CarrefourSalesTracker() {
       revenueMinusInvestment: totalRevenue - (totalProfit + totalCosts),
       totalPendingAmount,
       totalPendingPayments,
+      totalPaidAmount: salesOrders.filter(o => o.payment_status === 'Received').reduce((sum, o) => sum + o.sale_value, 0),
+      totalPaidPayments: salesOrders.filter(o => o.payment_status === 'Received').length,
       totalFees,
       profitMargin,
       totalOrders: salesOrders.length,
@@ -304,97 +306,97 @@ export default function CarrefourSalesTracker() {
       </div>
 
       {/* Enhanced Key Metrics Grid - Row 1 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         {/* 1. Total Sales Revenue */}
-        <Card className="shadow-lg border-0 bg-gradient-to-br from-emerald-50 to-emerald-100 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-600/10 rounded-full -translate-y-12 translate-x-12"></div>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-emerald-900">Total Sales Revenue</CardTitle>
-            <ShoppingCart className="h-5 w-5 text-emerald-600" />
+        <Card className="shadow-md border-0 bg-gradient-to-br from-emerald-50 to-emerald-100 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-600/10 rounded-full -translate-y-8 translate-x-8"></div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
+            <CardTitle className="text-xs font-medium text-emerald-900">Total Sales Revenue</CardTitle>
+            <ShoppingCart className="h-4 w-4 text-emerald-600" />
           </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-emerald-900 mb-2">{formatCurrency(metrics.totalRevenue)}</div>
-            <div className="flex items-center gap-2 text-sm">
-              <TrendingUp className="h-4 w-4 text-emerald-600" />
+          <CardContent className="pb-2">
+            <div className="text-2xl font-bold text-emerald-900 mb-1">{formatCurrency(metrics.totalRevenue)}</div>
+            <div className="flex items-center gap-2 text-xs">
+              <TrendingUp className="h-3 w-3 text-emerald-600" />
               <span className="text-emerald-700">From {metrics.totalOrders} orders</span>
             </div>
-            <p className="text-xs text-emerald-600 mt-2">
+            <p className="text-xs text-emerald-600 mt-1">
               Across all store operations
             </p>
           </CardContent>
         </Card>
 
         {/* 2. Shipped Revenue */}
-        <Card className="shadow-lg border-0 bg-gradient-to-br from-cyan-50 to-cyan-100 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-cyan-600/10 rounded-full -translate-y-12 translate-x-12"></div>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-cyan-900">Shipped Revenue</CardTitle>
-            <TrendingUp className="h-5 w-5 text-cyan-600" />
+        <Card className="shadow-md border-0 bg-gradient-to-br from-cyan-50 to-cyan-100 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-16 h-16 bg-cyan-600/10 rounded-full -translate-y-8 translate-x-8"></div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
+            <CardTitle className="text-xs font-medium text-cyan-900">Shipped Revenue</CardTitle>
+            <TrendingUp className="h-4 w-4 text-cyan-600" />
           </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-cyan-900 mb-2">{formatCurrency(metrics.shippedValue)}</div>
-            <div className="flex items-center gap-2 text-sm">
-              <Calculator className="h-4 w-4 text-cyan-600" />
+          <CardContent className="pb-2">
+            <div className="text-2xl font-bold text-cyan-900 mb-1">{formatCurrency(metrics.shippedValue)}</div>
+            <div className="flex items-center gap-2 text-xs">
+              <Calculator className="h-3 w-3 text-cyan-600" />
               <span className="text-cyan-700">{metrics.shippedItems} shipped orders</span>
             </div>
-            <p className="text-xs text-cyan-600 mt-2">
+            <p className="text-xs text-cyan-600 mt-1">
               Orders currently in transit
             </p>
           </CardContent>
         </Card>
 
         {/* 3. Delivered Revenue */}
-        <Card className="shadow-lg border-0 bg-gradient-to-br from-green-50 to-green-100 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-green-600/10 rounded-full -translate-y-12 translate-x-12"></div>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-green-900">Delivered Revenue</CardTitle>
-            <BarChart3 className="h-5 w-5 text-green-600" />
+        <Card className="shadow-md border-0 bg-gradient-to-br from-green-50 to-green-100 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-16 h-16 bg-green-600/10 rounded-full -translate-y-8 translate-x-8"></div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
+            <CardTitle className="text-xs font-medium text-green-900">Delivered Revenue</CardTitle>
+            <BarChart3 className="h-4 w-4 text-green-600" />
           </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-green-900 mb-2">{formatCurrency(metrics.deliveredValue)}</div>
-            <div className="flex items-center gap-2 text-sm">
-              <TrendingUp className="h-4 w-4 text-green-600" />
+          <CardContent className="pb-2">
+            <div className="text-2xl font-bold text-green-900 mb-1">{formatCurrency(metrics.deliveredValue)}</div>
+            <div className="flex items-center gap-2 text-xs">
+              <TrendingUp className="h-3 w-3 text-green-600" />
               <span className="text-green-700">{metrics.deliveredItems} completed</span>
             </div>
-            <p className="text-xs text-green-600 mt-2">
+            <p className="text-xs text-green-600 mt-1">
               Successfully delivered orders
             </p>
           </CardContent>
         </Card>
 
-        {/* 4. Total Platform Fees - NEW (next to delivered revenue) */}
-        <Card className="shadow-lg border-0 bg-gradient-to-br from-amber-50 to-amber-100 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-amber-600/10 rounded-full -translate-y-12 translate-x-12"></div>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-amber-900">Total Platform Fees</CardTitle>
-            <Receipt className="h-5 w-5 text-amber-600" />
+        {/* 4. Total Platform Fees */}
+        <Card className="shadow-md border-0 bg-gradient-to-br from-amber-50 to-amber-100 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-16 h-16 bg-amber-600/10 rounded-full -translate-y-8 translate-x-8"></div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
+            <CardTitle className="text-xs font-medium text-amber-900">Total Platform Fees</CardTitle>
+            <Receipt className="h-4 w-4 text-amber-600" />
           </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-amber-900 mb-2">{formatCurrency(metrics.totalPlatformFees)}</div>
-            <div className="flex items-center gap-2 text-sm">
-              <Calculator className="h-4 w-4 text-amber-600" />
+          <CardContent className="pb-2">
+            <div className="text-2xl font-bold text-amber-900 mb-1">{formatCurrency(metrics.totalPlatformFees)}</div>
+            <div className="flex items-center gap-2 text-xs">
+              <Calculator className="h-3 w-3 text-amber-600" />
               <span className="text-amber-700">Platform charges</span>
             </div>
-            <p className="text-xs text-amber-600 mt-2">
+            <p className="text-xs text-amber-600 mt-1">
               All seller fees collected
             </p>
           </CardContent>
         </Card>
 
         {/* 5. Total Investment */}
-        <Card className="shadow-lg border-0 bg-gradient-to-br from-indigo-50 to-indigo-100 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-600/10 rounded-full -translate-y-12 translate-x-12"></div>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-indigo-900">Total Investment</CardTitle>
-            <Calculator className="h-5 w-5 text-indigo-600" />
+        <Card className="shadow-md border-0 bg-gradient-to-br from-indigo-50 to-indigo-100 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-16 h-16 bg-indigo-600/10 rounded-full -translate-y-8 translate-x-8"></div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
+            <CardTitle className="text-xs font-medium text-indigo-900">Total Investment</CardTitle>
+            <Calculator className="h-4 w-4 text-indigo-600" />
           </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-indigo-900 mb-2">{formatCurrency(metrics.totalInvestment)}</div>
-            <div className="flex items-center gap-2 text-sm">
-              <TrendingUp className="h-4 w-4 text-indigo-600" />
+          <CardContent className="pb-2">
+            <div className="text-2xl font-bold text-indigo-900 mb-1">{formatCurrency(metrics.totalInvestment)}</div>
+            <div className="flex items-center gap-2 text-xs">
+              <TrendingUp className="h-3 w-3 text-indigo-600" />
               <span className="text-indigo-700">Profit + Cost combined</span>
             </div>
-            <p className="text-xs text-indigo-600 mt-2">
+            <p className="text-xs text-indigo-600 mt-1">
               Total financial commitment
             </p>
           </CardContent>
@@ -402,98 +404,98 @@ export default function CarrefourSalesTracker() {
       </div>
 
       {/* Enhanced Key Metrics Grid - Row 2 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         {/* 6. Net Profit */}
-        <Card className="shadow-lg border-0 bg-gradient-to-br from-blue-50 to-blue-100 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-blue-600/10 rounded-full -translate-y-12 translate-x-12"></div>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-blue-900">Net Profit</CardTitle>
-            <TrendingUp className="h-5 w-5 text-blue-600" />
+        <Card className="shadow-md border-0 bg-gradient-to-br from-blue-50 to-blue-100 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-16 h-16 bg-blue-600/10 rounded-full -translate-y-8 translate-x-8"></div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
+            <CardTitle className="text-xs font-medium text-blue-900">Net Profit</CardTitle>
+            <TrendingUp className="h-4 w-4 text-blue-600" />
           </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-blue-900 mb-2">{formatCurrency(metrics.totalProfit)}</div>
-            <div className="flex items-center gap-2 text-sm">
-              <Calculator className="h-4 w-4 text-blue-600" />
+          <CardContent className="pb-2">
+            <div className="text-2xl font-bold text-blue-900 mb-1">{formatCurrency(metrics.totalProfit)}</div>
+            <div className="flex items-center gap-2 text-xs">
+              <Calculator className="h-3 w-3 text-blue-600" />
               <span className="text-blue-700">{metrics.profitMargin.toFixed(1)}% margin</span>
             </div>
-            <p className="text-xs text-blue-600 mt-2">
+            <p className="text-xs text-blue-600 mt-1">
               Profit after all costs
             </p>
           </CardContent>
         </Card>
 
         {/* 7. Total Costs */}
-        <Card className="shadow-lg border-0 bg-gradient-to-br from-red-50 to-red-100 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-red-600/10 rounded-full -translate-y-12 translate-x-12"></div>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-red-900">Total Costs</CardTitle>
-            <Calculator className="h-5 w-5 text-red-600" />
+        <Card className="shadow-md border-0 bg-gradient-to-br from-red-50 to-red-100 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-16 h-16 bg-red-600/10 rounded-full -translate-y-8 translate-x-8"></div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
+            <CardTitle className="text-xs font-medium text-red-900">Total Costs</CardTitle>
+            <Calculator className="h-4 w-4 text-red-600" />
           </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-red-900 mb-2">{formatCurrency(metrics.totalCosts)}</div>
-            <div className="flex items-center gap-2 text-sm">
-              <TrendingDown className="h-4 w-4 text-red-600" />
+          <CardContent className="pb-2">
+            <div className="text-2xl font-bold text-red-900 mb-1">{formatCurrency(metrics.totalCosts)}</div>
+            <div className="flex items-center gap-2 text-xs">
+              <TrendingDown className="h-3 w-3 text-red-600" />
               <span className="text-red-700">Cost of goods sold</span>
             </div>
-            <p className="text-xs text-red-600 mt-2">
+            <p className="text-xs text-red-600 mt-1">
               All operational costs
             </p>
           </CardContent>
         </Card>
 
-        {/* 8. Revenue minus Investment - NEW (next to total costs) */}
-        <Card className="shadow-lg border-0 bg-gradient-to-br from-teal-50 to-teal-100 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-teal-600/10 rounded-full -translate-y-12 translate-x-12"></div>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-teal-900">Net Revenue</CardTitle>
-            <TrendingUp className="h-5 w-5 text-teal-600" />
+        {/* 8. Revenue minus Investment */}
+        <Card className="shadow-md border-0 bg-gradient-to-br from-teal-50 to-teal-100 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-16 h-16 bg-teal-600/10 rounded-full -translate-y-8 translate-x-8"></div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
+            <CardTitle className="text-xs font-medium text-teal-900">Net Revenue</CardTitle>
+            <TrendingUp className="h-4 w-4 text-teal-600" />
           </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-teal-900 mb-2">{formatCurrency(metrics.revenueMinusInvestment)}</div>
-            <div className="flex items-center gap-2 text-sm">
-              <Calculator className="h-4 w-4 text-teal-600" />
+          <CardContent className="pb-2">
+            <div className="text-2xl font-bold text-teal-900 mb-1">{formatCurrency(metrics.revenueMinusInvestment)}</div>
+            <div className="flex items-center gap-2 text-xs">
+              <Calculator className="h-3 w-3 text-teal-600" />
               <span className="text-teal-700">Revenue - Investment</span>
             </div>
-            <p className="text-xs text-teal-600 mt-2">
+            <p className="text-xs text-teal-600 mt-1">
               Revenue after total investment
             </p>
           </CardContent>
         </Card>
 
         {/* 9. Pending Payments */}
-        <Card className="shadow-lg border-0 bg-gradient-to-br from-orange-50 to-orange-100 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-orange-600/10 rounded-full -translate-y-12 translate-x-12"></div>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-orange-900">Pending Payments</CardTitle>
-            <Calculator className="h-5 w-5 text-orange-600" />
+        <Card className="shadow-md border-0 bg-gradient-to-br from-orange-50 to-orange-100 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-16 h-16 bg-orange-600/10 rounded-full -translate-y-8 translate-x-8"></div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
+            <CardTitle className="text-xs font-medium text-orange-900">Pending Payments</CardTitle>
+            <Calculator className="h-4 w-4 text-orange-600" />
           </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-orange-900 mb-2">{formatCurrency(metrics.totalPendingAmount)}</div>
-            <div className="flex items-center gap-2 text-sm">
-              <TrendingUp className="h-4 w-4 text-orange-600" />
+          <CardContent className="pb-2">
+            <div className="text-2xl font-bold text-orange-900 mb-1">{formatCurrency(metrics.totalPendingAmount)}</div>
+            <div className="flex items-center gap-2 text-xs">
+              <TrendingUp className="h-3 w-3 text-orange-600" />
               <span className="text-orange-700">{metrics.totalPendingPayments} orders</span>
             </div>
-            <p className="text-xs text-orange-600 mt-2">
+            <p className="text-xs text-orange-600 mt-1">
               Awaiting payment processing
             </p>
           </CardContent>
         </Card>
 
-        {/* 10. Profitable Orders */}
-        <Card className="shadow-lg border-0 bg-gradient-to-br from-purple-50 to-purple-100 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-purple-600/10 rounded-full -translate-y-12 translate-x-12"></div>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-purple-900">Profitable Orders</CardTitle>
-            <BarChart3 className="h-5 w-5 text-purple-600" />
+        {/* 10. Total Paid Payments */}
+        <Card className="shadow-md border-0 bg-gradient-to-br from-green-50 to-green-100 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-16 h-16 bg-green-600/10 rounded-full -translate-y-8 translate-x-8"></div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
+            <CardTitle className="text-xs font-medium text-green-900">Total Paid Payments</CardTitle>
+            <Package className="h-4 w-4 text-green-600" />
           </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-purple-900 mb-2">{metrics.profitableOrders}</div>
-            <div className="flex items-center gap-2 text-sm">
-              <TrendingUp className="h-4 w-4 text-purple-600" />
-              <span className="text-purple-700">{metrics.totalOrders > 0 ? (metrics.profitableOrders / metrics.totalOrders * 100).toFixed(1) : 0}% success rate</span>
+          <CardContent className="pb-2">
+            <div className="text-2xl font-bold text-green-900 mb-1">{formatCurrency(metrics.totalPaidAmount)}</div>
+            <div className="flex items-center gap-2 text-xs">
+              <TrendingUp className="h-3 w-3 text-green-600" />
+              <span className="text-green-700">{metrics.totalPaidPayments} orders received</span>
             </div>
-            <p className="text-xs text-purple-600 mt-2">
-              Orders generating profit
+            <p className="text-xs text-green-600 mt-1">
+              Successfully paid orders
             </p>
           </CardContent>
         </Card>
