@@ -657,77 +657,47 @@ export function OrderProcessor() {
                 </Button>
               </div>
 
-              {/* Enhanced Real-time Analytics Dashboard - 4 Key Metrics */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Enhanced Real-time Analytics Dashboard - 2 Key Metrics */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
                 <Card className="glass-container border-0 shadow-elegant hover:shadow-glow transition-all duration-300 animate-fade-in">
-                  <div className="p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
+                  <div className="p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
                         <div className="p-2 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-600">
-                          <Package className="w-4 h-4 text-white" />
+                          <Package className="w-5 h-5 text-white" />
                         </div>
                         <div>
-                          <p className="text-xs text-muted-foreground">Total Found Orders</p>
-                          <p className="text-xl font-bold text-purple-600 dark:text-purple-400">
+                          <p className="text-sm text-muted-foreground">Total Found Orders</p>
+                          <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
                             {analytics.foundOrders}
                           </p>
                         </div>
                       </div>
                     </div>
-                  </div>
-                </Card>
-
-                <Card className="glass-container border-0 shadow-elegant hover:shadow-glow transition-all duration-300 animate-fade-in">
-                  <div className="p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-600">
-                          <Package className="w-4 h-4 text-white" />
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Found By ASIN</p>
-                          <p className="text-xl font-bold text-blue-600 dark:text-blue-400">
-                            {analytics.foundByAsin}
-                          </p>
-                        </div>
-                      </div>
+                    <div className="text-xs text-muted-foreground">
+                      Orders matched in inventory
                     </div>
                   </div>
                 </Card>
 
                 <Card className="glass-container border-0 shadow-elegant hover:shadow-glow transition-all duration-300 animate-fade-in">
-                  <div className="p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <div className="p-2 rounded-lg bg-gradient-to-br from-green-500 to-emerald-600">
-                          <Package className="w-4 h-4 text-white" />
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Found By SKU</p>
-                          <p className="text-xl font-bold text-green-600 dark:text-green-400">
-                            {analytics.foundBySku}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-
-                <Card className="glass-container border-0 shadow-elegant hover:shadow-glow transition-all duration-300 animate-fade-in">
-                  <div className="p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
+                  <div className="p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
                         <div className="p-2 rounded-lg bg-gradient-to-br from-orange-500 to-red-600">
-                          <CheckCircle className="w-4 h-4 text-white" />
+                          <CheckCircle className="w-5 h-5 text-white" />
                         </div>
                         <div>
-                          <p className="text-xs text-muted-foreground">Processed Orders</p>
-                          <p className="text-xl font-bold text-orange-600 dark:text-orange-400">
+                          <p className="text-sm text-muted-foreground">Processed Orders</p>
+                          <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">
                             {analytics.processedOrdersCount}
                           </p>
                         </div>
                       </div>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Total in database
                     </div>
                   </div>
                 </Card>
