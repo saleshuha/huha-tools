@@ -58,8 +58,8 @@ export function Inventory() {
           </p>
         </div>
 
-        {/* Inventory Type Selection */}
-        <div className="grid md:grid-cols-3 gap-6 px-8">
+        {/* First Row - Inventory Type Selection */}
+        <div className="grid md:grid-cols-2 gap-6 px-8">
           {/* ASIN Inventory */}
           <Card className="glass-container p-8 hover:shadow-lg transition-all duration-300 cursor-pointer group border-2 hover:border-primary/30" onClick={() => setCurrentView('asin')}>
             <div className="text-center space-y-4">
@@ -90,8 +90,10 @@ export function Inventory() {
               </div>
             </div>
           </Card>
+        </div>
 
-          {/* Order Processing */}
+        {/* Second Row - Order Processing */}
+        <div className="grid grid-cols-1 px-8 max-w-md mx-auto">
           <Card className="glass-container p-8 hover:shadow-lg transition-all duration-300 cursor-pointer group border-2 hover:border-accent/30" onClick={() => setCurrentView('orders')}>
             <div className="text-center space-y-4">
               <div className="w-16 h-16 bg-accent/10 rounded-full flex items-center justify-center mx-auto group-hover:bg-accent/20 transition-colors">
