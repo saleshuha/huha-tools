@@ -167,7 +167,7 @@ export default function ProcessedOrders() {
             <div className="p-3 rounded-full bg-gradient-primary">
               <FileText className="w-8 h-8 text-white" />
             </div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary-variant bg-clip-text text-transparent">
+            <h1 className="text-4xl font-bold text-primary">
               Processed Orders
             </h1>
           </div>
