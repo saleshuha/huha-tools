@@ -294,10 +294,9 @@ export function OrderProcessor() {
     const totalOrders = matchedItems.length;
     const foundOrders = matchedItems.filter(m => m.inventoryMatch).length;
 
-    // More detailed breakdown of matches - fixed logic for accurate counting
+    // More detailed breakdown of matches - only count actual match method used
     const foundByAsin = matchedItems.filter(m => 
-      m.inventoryMatch && 
-      (m.matchType === 'asin' || (m.inventoryType === 'asin' && m.orderItem.asin))
+      m.inventoryMatch && m.matchType === 'asin'
     ).length;
     const foundBySku = matchedItems.filter(m => 
       m.inventoryMatch && 
