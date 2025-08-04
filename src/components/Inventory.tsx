@@ -103,7 +103,7 @@ export function Inventory() {
   if (currentView === 'orders') {
     return <div className="min-h-screen bg-gradient-surface p-4 md:p-6">
         <div className="w-full space-y-6">
-        <div className="flex justify-end">
+        <div className="flex justify-start">
           <Button variant="outline" onClick={() => setCurrentView('main')} className="mb-4">
             ← Back to Inventory Menu
           </Button>
