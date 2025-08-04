@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
@@ -7,11 +7,13 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { Progress } from './ui/progress';
-import { FileSpreadsheet, Search, Minus, Download, History, CheckCircle, Package, AlertTriangle, TrendingUp, Clock, DollarSign, ShoppingCart } from 'lucide-react';
+import { Checkbox } from './ui/checkbox';
+import { FileSpreadsheet, Search, Minus, Download, History, CheckCircle, Package, AlertTriangle, TrendingUp, Clock, DollarSign, ShoppingCart, Printer, CheckSquare, Square } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import { useAsinInventory, AsinInventoryItem } from '@/hooks/useAsinInventory';
 import { useSkuInventory, SkuInventoryItem } from '@/hooks/useSkuInventory';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
 
@@ -64,10 +66,61 @@ export function OrderProcessor() {
   const [processedItems, setProcessedItems] = useState<ProcessedItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
+  const [selectAll, setSelectAll] = useState(false);
+  const [fileName, setFileName] = useState<string>('');
+  const [dbResults, setDbResults] = useState<any[]>([]);
   
   const { inventory: asinInventory, updateQuantity: updateAsinQuantity } = useAsinInventory();
   const { inventory: skuInventory, updateQuantity: updateSkuQuantity } = useSkuInventory();
   const { toast } = useToast();
+
+  // Load order processing results from database
+  useEffect(() => {
+    const loadOrderResults = async () => {
+      const { data, error } = await supabase
+        .from('order_processing_results')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('Error loading order results:', error);
+      } else {
+        setDbResults(data || []);
+      }
+    };
+
+    loadOrderResults();
+  }, []);
+
+  // Save order results to database
+  const saveOrderResults = async (matches: MatchedItem[], currentFileName: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const results = matches.map(match => ({
+      user_id: user.id,
+      order_id: match.orderItem.orderId,
+      asin: match.orderItem.asin,
+      sku: match.orderItem.sku,
+      item_title: match.orderItem.itemTitle,
+      order_quantity: match.orderItem.itemQuantity,
+      inventory_type: match.inventoryType,
+      match_type: match.matchType,
+      inventory_id: match.inventoryMatch?.id,
+      inventory_status: match.inventoryMatch ? 'found' : 'not_found',
+      current_stock: match.inventoryMatch?.quantity || 0,
+      file_name: currentFileName
+    }));
+
+    const { error } = await supabase
+      .from('order_processing_results')
+      .insert(results);
+
+    if (error) {
+      console.error('Error saving order results:', error);
+    }
+  };
 
   const onDrop = async (acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
@@ -117,7 +170,11 @@ export function OrderProcessor() {
       }));
 
       setOrderData(formattedOrders);
-      matchOrdersWithInventory(formattedOrders);
+      setFileName(file.name);
+      const matches = await matchOrdersWithInventory(formattedOrders);
+      
+      // Save to database
+      await saveOrderResults(matches, file.name);
       
       toast({
         title: "Orders Uploaded",
@@ -135,7 +192,7 @@ export function OrderProcessor() {
     }
   };
 
-  const matchOrdersWithInventory = (orders: OrderItem[]) => {
+  const matchOrdersWithInventory = async (orders: OrderItem[]) => {
     const matches: MatchedItem[] = orders.map(order => {
       let inventoryMatch: AsinInventoryItem | SkuInventoryItem | undefined;
       let inventoryType: 'asin' | 'sku' | undefined;
@@ -198,6 +255,7 @@ export function OrderProcessor() {
     });
 
     setMatchedItems(matches);
+    return matches;
   };
 
   const handleQuantityUpdate = async (match: MatchedItem, changeAmount: number, matchIndex: number) => {
@@ -241,8 +299,14 @@ export function OrderProcessor() {
     }
   };
 
-  // Advanced metrics calculations
+  // Enhanced real-time analytics with database integration
   const analytics = useMemo(() => {
+    const totalOrders = matchedItems.length;
+    const foundOrders = matchedItems.filter(m => m.inventoryMatch).length;
+    const foundByAsin = matchedItems.filter(m => m.inventoryMatch && m.matchType === 'asin').length;
+    const foundBySku = matchedItems.filter(m => m.inventoryMatch && m.matchType === 'sku').length;
+    const processedOrdersCount = dbResults.filter(r => r.processed).length;
+    
     const totalValue = matchedItems.reduce((sum, match) => {
       const cost = parseFloat(match.orderItem.itemCost) || 0;
       return sum + (cost * match.orderItem.itemQuantity);
@@ -256,7 +320,7 @@ export function OrderProcessor() {
       m.inventoryMatch && m.inventoryMatch.quantity === 0
     );
 
-    const averageOrderValue = matchedItems.length > 0 ? totalValue / matchedItems.length : 0;
+    const averageOrderValue = totalOrders > 0 ? totalValue / totalOrders : 0;
 
     const urgentOrders = matchedItems.filter(m => {
       const shipDate = new Date(m.orderItem.requiredShipDate);
@@ -272,15 +336,126 @@ export function OrderProcessor() {
     }, 0);
 
     return {
+      totalOrders,
+      foundOrders,
+      foundByAsin,
+      foundBySku,
+      processedOrdersCount,
       totalValue,
       lowStockItems: lowStockItems.length,
       criticalStockItems: criticalStockItems.length,
       averageOrderValue,
       urgentOrders: urgentOrders.length,
       processedValue,
-      fulfillmentRate: matchedItems.length > 0 ? (matchedItems.filter(m => m.inventoryMatch).length / matchedItems.length) * 100 : 0
+      fulfillmentRate: totalOrders > 0 ? (foundOrders / totalOrders) * 100 : 0
     };
-  }, [matchedItems, processedItems]);
+  }, [matchedItems, processedItems, dbResults]);
+
+  // Selection handlers
+  const handleSelectItem = (index: number) => {
+    const newSelected = new Set(selectedItems);
+    if (newSelected.has(index)) {
+      newSelected.delete(index);
+    } else {
+      newSelected.add(index);
+    }
+    setSelectedItems(newSelected);
+    setSelectAll(newSelected.size === filteredMatches.length);
+  };
+
+  const handleSelectAll = () => {
+    if (selectAll) {
+      setSelectedItems(new Set());
+    } else {
+      setSelectedItems(new Set(filteredMatches.map((_, index) => index)));
+    }
+    setSelectAll(!selectAll);
+  };
+
+  const processSelectedItems = async () => {
+    const itemsToProcess = Array.from(selectedItems).map(index => ({
+      match: filteredMatches[index],
+      index: matchedItems.findIndex(m => m === filteredMatches[index])
+    }));
+
+    for (const { match, index } of itemsToProcess) {
+      if (match.inventoryMatch) {
+        await handleQuantityUpdate(match, -match.orderItem.itemQuantity, index);
+      }
+    }
+    
+    setSelectedItems(new Set());
+    setSelectAll(false);
+  };
+
+  const printSelectedItems = () => {
+    const itemsToPrint = Array.from(selectedItems).map(index => filteredMatches[index]);
+    const printWindow = window.open('', '_blank');
+    
+    if (!printWindow) return;
+
+    const printContent = `
+      <html>
+        <head>
+          <title>Order Processing Results - ${fileName}</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            h1 { color: #333; border-bottom: 2px solid #333; padding-bottom: 10px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f2f2f2; font-weight: bold; }
+            .found { background-color: #d4edda; }
+            .not-found { background-color: #f8d7da; }
+            .print-date { font-size: 12px; color: #666; margin-bottom: 20px; }
+          </style>
+        </head>
+        <body>
+          <h1>Order Processing Results</h1>
+          <div class="print-date">
+            <strong>File:</strong> ${fileName}<br>
+            <strong>Print Date:</strong> ${new Date().toLocaleString()}<br>
+            <strong>Total Items:</strong> ${itemsToPrint.length}
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Order ID</th>
+                <th>ASIN/SKU</th>
+                <th>Item Title</th>
+                <th>Order Qty</th>
+                <th>Status</th>
+                <th>Current Stock</th>
+                <th>Match Type</th>
+                <th>Serial/Bin Number</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemsToPrint.map(match => `
+                <tr class="${match.inventoryMatch ? 'found' : 'not-found'}">
+                  <td>${match.orderItem.orderId}</td>
+                  <td>${match.orderItem.asin || match.orderItem.sku}</td>
+                  <td>${match.orderItem.itemTitle}</td>
+                  <td>${match.orderItem.itemQuantity}</td>
+                  <td>${match.inventoryMatch ? 'Found' : 'Not Found'}</td>
+                  <td>${match.inventoryMatch?.quantity || '-'}</td>
+                  <td>${match.matchType?.toUpperCase() || '-'}</td>
+                  <td>${match.inventoryMatch ? 
+                    ('serialNumber' in match.inventoryMatch ? 
+                      match.inventoryMatch.serialNumber : 
+                      match.inventoryMatch.binSerialNumber) : '-'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </body>
+      </html>
+    `;
+    
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+  };
 
   const filteredMatches = matchedItems.filter(match => 
     match.orderItem.orderId.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -436,8 +611,8 @@ export function OrderProcessor() {
                 </Button>
               </div>
 
-              {/* Advanced Analytics Dashboard */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* Enhanced Real-time Analytics Dashboard */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <Card className="glass-container border-0 shadow-elegant hover:shadow-glow transition-all duration-300 animate-fade-in">
                   <div className="p-6">
                     <div className="flex items-center justify-between mb-4">
@@ -448,7 +623,7 @@ export function OrderProcessor() {
                         <div>
                           <p className="text-sm text-muted-foreground">Total Orders</p>
                           <p className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-                            {matchedItems.length}
+                            {analytics.totalOrders}
                           </p>
                         </div>
                       </div>
@@ -471,15 +646,37 @@ export function OrderProcessor() {
                           <Package className="w-5 h-5 text-white" />
                         </div>
                         <div>
-                          <p className="text-sm text-muted-foreground">Inventory Status</p>
+                          <p className="text-sm text-muted-foreground">Found Orders</p>
                           <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                            {matchedItems.filter(m => m.inventoryMatch).length}
+                            {analytics.foundOrders}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-xs text-muted-foreground space-y-1">
+                      <div>By ASIN: {analytics.foundByAsin}</div>
+                      <div>By SKU: {analytics.foundBySku}</div>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="glass-container border-0 shadow-elegant hover:shadow-glow transition-all duration-300 animate-fade-in">
+                  <div className="p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600">
+                          <CheckCircle className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Processed Orders</p>
+                          <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                            {analytics.processedOrdersCount}
                           </p>
                         </div>
                       </div>
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {matchedItems.filter(m => !m.inventoryMatch).length} items not found
+                      Total in database
                     </div>
                   </div>
                 </Card>
@@ -504,69 +701,6 @@ export function OrderProcessor() {
                     </div>
                   </div>
                 </Card>
-
-                <Card className="glass-container border-0 shadow-elegant hover:shadow-glow transition-all duration-300 animate-fade-in">
-                  <div className="p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600">
-                          <DollarSign className="w-5 h-5 text-white" />
-                        </div>
-                        <div>
-                          <p className="text-sm text-muted-foreground">Order Value</p>
-                          <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                            ${analytics.totalValue.toLocaleString()}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      Avg: ${analytics.averageOrderValue.toFixed(2)}
-                    </div>
-                  </div>
-                </Card>
-
-                <Card className="glass-container border-0 shadow-elegant hover:shadow-glow transition-all duration-300 animate-fade-in">
-                  <div className="p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-gradient-to-br from-red-500 to-pink-600">
-                          <Clock className="w-5 h-5 text-white" />
-                        </div>
-                        <div>
-                          <p className="text-sm text-muted-foreground">Urgent Orders</p>
-                          <p className="text-2xl font-bold text-red-600 dark:text-red-400">
-                            {analytics.urgentOrders}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      Ship within 24 hours
-                    </div>
-                  </div>
-                </Card>
-
-                <Card className="glass-container border-0 shadow-elegant hover:shadow-glow transition-all duration-300 animate-fade-in">
-                  <div className="p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-gradient-to-br from-purple-500 to-violet-600">
-                          <TrendingUp className="w-5 h-5 text-white" />
-                        </div>
-                        <div>
-                          <p className="text-sm text-muted-foreground">Processed Value</p>
-                          <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                            ${analytics.processedValue.toLocaleString()}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {processedItems.length} items processed
-                    </div>
-                  </div>
-                </Card>
               </div>
             </div>
           )}
@@ -576,12 +710,44 @@ export function OrderProcessor() {
       {filteredMatches.length > 0 && (
         <Card className="p-6">
           <div className="space-y-4">
-            <h4 className="font-semibold">Processing Results ({filteredMatches.length} items)</h4>
+            <div className="flex items-center justify-between">
+              <h4 className="font-semibold">Processing Results ({filteredMatches.length} items)</h4>
+              
+              <div className="flex items-center gap-2">
+                {selectedItems.size > 0 && (
+                  <>
+                    <Button 
+                      onClick={processSelectedItems}
+                      className="bg-gradient-primary hover:opacity-90 text-white"
+                      disabled={loading}
+                    >
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Process Selected ({selectedItems.size})
+                    </Button>
+                    <Button 
+                      onClick={printSelectedItems}
+                      variant="outline"
+                      disabled={selectedItems.size === 0}
+                    >
+                      <Printer className="w-4 h-4 mr-2" />
+                      Print Selected
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
             
             <div className="rounded-lg border overflow-hidden">
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-12">
+                      <Checkbox
+                        checked={selectAll}
+                        onCheckedChange={handleSelectAll}
+                        aria-label="Select all items"
+                      />
+                    </TableHead>
                     <TableHead>ASIN/SKU</TableHead>
                     <TableHead>Serial/Bin Number</TableHead>
                     <TableHead>Order Qty</TableHead>
@@ -593,6 +759,13 @@ export function OrderProcessor() {
                 <TableBody>
                   {filteredMatches.map((match, index) => (
                     <TableRow key={index}>
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedItems.has(index)}
+                          onCheckedChange={() => handleSelectItem(index)}
+                          aria-label={`Select order ${match.orderItem.orderId}`}
+                        />
+                      </TableCell>
                       <TableCell>
                         <div className="space-y-1">
                           <div className="font-mono text-sm">{match.orderItem.asin || match.orderItem.sku}</div>
