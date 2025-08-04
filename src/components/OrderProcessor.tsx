@@ -5,7 +5,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Badge } from './ui/badge';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { FileSpreadsheet, Search, Plus, Minus, Download } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
+import { FileSpreadsheet, Search, Minus, Download, History, CheckCircle } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import { useAsinInventory, AsinInventoryItem } from '@/hooks/useAsinInventory';
 import { useSkuInventory, SkuInventoryItem } from '@/hooks/useSkuInventory';
@@ -48,9 +49,18 @@ interface MatchedItem {
   matchType?: 'asin' | 'sku';
 }
 
+interface ProcessedItem extends MatchedItem {
+  processedAt: string;
+  action: 'subtract' | 'add';
+  quantityChanged: number;
+  previousQuantity: number;
+  newQuantity: number;
+}
+
 export function OrderProcessor() {
   const [orderData, setOrderData] = useState<OrderItem[]>([]);
   const [matchedItems, setMatchedItems] = useState<MatchedItem[]>([]);
+  const [processedItems, setProcessedItems] = useState<ProcessedItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -192,7 +202,8 @@ export function OrderProcessor() {
   const handleQuantityUpdate = async (match: MatchedItem, changeAmount: number, matchIndex: number) => {
     if (!match.inventoryMatch || !match.inventoryType) return;
 
-    const newQuantity = Math.max(0, match.inventoryMatch.quantity + changeAmount);
+    const previousQuantity = match.inventoryMatch.quantity;
+    const newQuantity = Math.max(0, previousQuantity + changeAmount);
     
     try {
       if (match.inventoryType === 'asin') {
@@ -201,12 +212,24 @@ export function OrderProcessor() {
         await updateSkuQuantity(match.inventoryMatch.id, newQuantity, `Order processing: ${changeAmount > 0 ? 'Added' : 'Removed'} ${Math.abs(changeAmount)} units`);
       }
       
+      // Add to processed items
+      const processedItem: ProcessedItem = {
+        ...match,
+        processedAt: new Date().toLocaleString(),
+        action: changeAmount > 0 ? 'add' : 'subtract',
+        quantityChanged: Math.abs(changeAmount),
+        previousQuantity,
+        newQuantity
+      };
+      
+      setProcessedItems(prev => [processedItem, ...prev]);
+      
       // Remove the processed item from the list
       setMatchedItems(prev => prev.filter((_, index) => index !== matchIndex));
       
       toast({
         title: "Quantity Updated",
-        description: `Successfully updated quantity to ${newQuantity}. Item removed from processing list.`,
+        description: `Successfully updated quantity to ${newQuantity}. Item moved to processed list.`,
       });
     } catch (error) {
       toast({
@@ -262,18 +285,76 @@ export function OrderProcessor() {
     <div className="space-y-6">
       <Card className="p-6">
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold flex items-center gap-2">
-              <FileSpreadsheet className="w-5 h-5 text-primary" />
-              Order Processing
-            </h3>
-            {matchedItems.length > 0 && (
-              <Button onClick={exportToExcel} variant="outline" size="sm">
-                <Download className="w-4 h-4 mr-2" />
-                Export Results
-              </Button>
-            )}
-          </div>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                <FileSpreadsheet className="w-5 h-5 text-primary" />
+                Order Processing
+              </h3>
+              <div className="flex items-center gap-2">
+                {processedItems.length > 0 && (
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <History className="w-4 h-4 mr-2" />
+                        Processed ({processedItems.length})
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
+                      <DialogHeader>
+                        <DialogTitle>Processed Items</DialogTitle>
+                      </DialogHeader>
+                      <div className="flex-1 overflow-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>ASIN/SKU</TableHead>
+                              <TableHead>Serial/Bin</TableHead>
+                              <TableHead>Action</TableHead>
+                              <TableHead>Quantity Change</TableHead>
+                              <TableHead>Previous → New</TableHead>
+                              <TableHead>Processed At</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {processedItems.map((item, index) => (
+                              <TableRow key={index}>
+                                <TableCell className="font-mono text-sm">
+                                  {item.orderItem.asin || item.orderItem.sku}
+                                </TableCell>
+                                <TableCell className="font-mono text-sm">
+                                  {'serialNumber' in item.inventoryMatch! 
+                                    ? item.inventoryMatch.serialNumber 
+                                    : item.inventoryMatch!.binSerialNumber
+                                  }
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant={item.action === 'subtract' ? 'destructive' : 'default'}>
+                                    {item.action === 'subtract' ? 'Subtracted' : 'Added'}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>{item.quantityChanged}</TableCell>
+                                <TableCell>
+                                  <span className="font-mono">{item.previousQuantity} → {item.newQuantity}</span>
+                                </TableCell>
+                                <TableCell className="text-sm text-muted-foreground">
+                                  {item.processedAt}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                )}
+                {matchedItems.length > 0 && (
+                  <Button onClick={exportToExcel} variant="outline" size="sm">
+                    <Download className="w-4 h-4 mr-2" />
+                    Export Results
+                  </Button>
+                )}
+              </div>
+            </div>
 
           {orderData.length === 0 ? (
             <div
@@ -308,7 +389,7 @@ export function OrderProcessor() {
                     />
                   </div>
                 </div>
-                <Button onClick={() => {setOrderData([]); setMatchedItems([]);}} variant="outline">
+                <Button onClick={() => {setOrderData([]); setMatchedItems([]); setProcessedItems([]);}} variant="outline">
                   Upload New File
                 </Button>
               </div>
