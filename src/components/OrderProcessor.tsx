@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
@@ -6,7 +6,8 @@ import { Badge } from './ui/badge';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
-import { FileSpreadsheet, Search, Minus, Download, History, CheckCircle } from 'lucide-react';
+import { Progress } from './ui/progress';
+import { FileSpreadsheet, Search, Minus, Download, History, CheckCircle, Package, AlertTriangle, TrendingUp, Clock, DollarSign, ShoppingCart } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import { useAsinInventory, AsinInventoryItem } from '@/hooks/useAsinInventory';
 import { useSkuInventory, SkuInventoryItem } from '@/hooks/useSkuInventory';
@@ -240,6 +241,47 @@ export function OrderProcessor() {
     }
   };
 
+  // Advanced metrics calculations
+  const analytics = useMemo(() => {
+    const totalValue = matchedItems.reduce((sum, match) => {
+      const cost = parseFloat(match.orderItem.itemCost) || 0;
+      return sum + (cost * match.orderItem.itemQuantity);
+    }, 0);
+
+    const lowStockItems = matchedItems.filter(m => 
+      m.inventoryMatch && m.inventoryMatch.quantity < m.orderItem.itemQuantity
+    );
+
+    const criticalStockItems = matchedItems.filter(m => 
+      m.inventoryMatch && m.inventoryMatch.quantity === 0
+    );
+
+    const averageOrderValue = matchedItems.length > 0 ? totalValue / matchedItems.length : 0;
+
+    const urgentOrders = matchedItems.filter(m => {
+      const shipDate = new Date(m.orderItem.requiredShipDate);
+      const today = new Date();
+      const diffTime = shipDate.getTime() - today.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays <= 1;
+    });
+
+    const processedValue = processedItems.reduce((sum, item) => {
+      const cost = parseFloat(item.orderItem.itemCost) || 0;
+      return sum + (cost * item.orderItem.itemQuantity);
+    }, 0);
+
+    return {
+      totalValue,
+      lowStockItems: lowStockItems.length,
+      criticalStockItems: criticalStockItems.length,
+      averageOrderValue,
+      urgentOrders: urgentOrders.length,
+      processedValue,
+      fulfillmentRate: matchedItems.length > 0 ? (matchedItems.filter(m => m.inventoryMatch).length / matchedItems.length) * 100 : 0
+    };
+  }, [matchedItems, processedItems]);
+
   const filteredMatches = matchedItems.filter(match => 
     match.orderItem.orderId.toLowerCase().includes(searchTerm.toLowerCase()) ||
     match.orderItem.asin.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -394,23 +436,137 @@ export function OrderProcessor() {
                 </Button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
-                <div className="bg-blue-50 dark:bg-blue-950/20 p-3 rounded-lg">
-                  <div className="font-medium text-blue-600 dark:text-blue-400">Total Orders</div>
-                  <div className="text-2xl font-bold">{matchedItems.length}</div>
-                </div>
-                <div className="bg-green-50 dark:bg-green-950/20 p-3 rounded-lg">
-                  <div className="font-medium text-green-600 dark:text-green-400">Found in Inventory</div>
-                  <div className="text-2xl font-bold">{matchedItems.filter(m => m.inventoryMatch).length}</div>
-                </div>
-                <div className="bg-red-50 dark:bg-red-950/20 p-3 rounded-lg">
-                  <div className="font-medium text-red-600 dark:text-red-400">Not Found</div>
-                  <div className="text-2xl font-bold">{matchedItems.filter(m => !m.inventoryMatch).length}</div>
-                </div>
-                <div className="bg-yellow-50 dark:bg-yellow-950/20 p-3 rounded-lg">
-                  <div className="font-medium text-yellow-600 dark:text-yellow-400">Low Stock</div>
-                  <div className="text-2xl font-bold">{matchedItems.filter(m => m.inventoryMatch && m.inventoryMatch.quantity < m.orderItem.itemQuantity).length}</div>
-                </div>
+              {/* Advanced Analytics Dashboard */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <Card className="glass-container border-0 shadow-elegant hover:shadow-glow transition-all duration-300 animate-fade-in">
+                  <div className="p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-lg bg-gradient-primary">
+                          <ShoppingCart className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Total Orders</p>
+                          <p className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+                            {matchedItems.length}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span>Fulfillment Rate</span>
+                        <span className="font-medium">{analytics.fulfillmentRate.toFixed(1)}%</span>
+                      </div>
+                      <Progress value={analytics.fulfillmentRate} className="h-2" />
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="glass-container border-0 shadow-elegant hover:shadow-glow transition-all duration-300 animate-fade-in">
+                  <div className="p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-lg bg-gradient-to-br from-green-500 to-emerald-600">
+                          <Package className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Inventory Status</p>
+                          <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                            {matchedItems.filter(m => m.inventoryMatch).length}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {matchedItems.filter(m => !m.inventoryMatch).length} items not found
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="glass-container border-0 shadow-elegant hover:shadow-glow transition-all duration-300 animate-fade-in">
+                  <div className="p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-lg bg-gradient-to-br from-yellow-500 to-orange-600">
+                          <AlertTriangle className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Stock Alerts</p>
+                          <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
+                            {analytics.lowStockItems}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {analytics.criticalStockItems} critical stock items
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="glass-container border-0 shadow-elegant hover:shadow-glow transition-all duration-300 animate-fade-in">
+                  <div className="p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600">
+                          <DollarSign className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Order Value</p>
+                          <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                            ${analytics.totalValue.toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Avg: ${analytics.averageOrderValue.toFixed(2)}
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="glass-container border-0 shadow-elegant hover:shadow-glow transition-all duration-300 animate-fade-in">
+                  <div className="p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-lg bg-gradient-to-br from-red-500 to-pink-600">
+                          <Clock className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Urgent Orders</p>
+                          <p className="text-2xl font-bold text-red-600 dark:text-red-400">
+                            {analytics.urgentOrders}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Ship within 24 hours
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="glass-container border-0 shadow-elegant hover:shadow-glow transition-all duration-300 animate-fade-in">
+                  <div className="p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-lg bg-gradient-to-br from-purple-500 to-violet-600">
+                          <TrendingUp className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Processed Value</p>
+                          <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                            ${analytics.processedValue.toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {processedItems.length} items processed
+                    </div>
+                  </div>
+                </Card>
               </div>
             </div>
           )}
@@ -482,15 +638,16 @@ export function OrderProcessor() {
                       </TableCell>
                       <TableCell>
                         {match.inventoryMatch && (
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-2">
                             <Button
                               size="sm"
-                              variant="outline"
+                              className="bg-gradient-primary hover:opacity-90 text-white shadow-md hover:shadow-lg transition-all duration-200"
                               onClick={() => handleQuantityUpdate(match, -match.orderItem.itemQuantity, matchedItems.findIndex(m => m === match))}
                               disabled={loading}
-                              title="Subtract order quantity from inventory"
+                              title="Process order and update inventory"
                             >
-                              <Minus className="w-3 h-3" />
+                              <CheckCircle className="w-3 h-3 mr-1" />
+                              Process Order
                             </Button>
                           </div>
                         )}
