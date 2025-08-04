@@ -33,15 +33,26 @@ export default function ProcessedOrders() {
   const fetchProcessedOrders = async () => {
     try {
       setLoading(true);
+      
+      // Fetch all order processing results that have been processed
       const { data, error } = await supabase
         .from('order_processing_results')
         .select('*')
-        .eq('processed', true)
+        .not('processed_at', 'is', null)  // Show orders that have a processed_at timestamp
         .order('processed_at', { ascending: false });
 
       if (error) throw error;
 
+      console.log('Fetched processed orders:', data);
       setProcessedOrders(data || []);
+      
+      if (!data || data.length === 0) {
+        toast({
+          title: "No Data",
+          description: "No processed orders found in the database",
+          variant: "default",
+        });
+      }
     } catch (error) {
       console.error('Error fetching processed orders:', error);
       toast({
