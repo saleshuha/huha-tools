@@ -4,20 +4,25 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { CalendarDays, Search, FileText, Package, Clock } from 'lucide-react';
+import { CalendarDays, Search, FileText, Package, Clock, TrendingUp, Printer } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 interface ProcessedOrder {
   id: string;
-  order_id: string;
+  order_number: string;
   asin: string | null;
   sku: string | null;
-  processed_quantity: number;
+  item_title: string | null;
+  quantity_processed: number;
+  inventory_type: string;
+  match_type: string;
+  inventory_id: string | null;
+  previous_stock: number | null;
+  new_stock: number | null;
   processed_at: string;
-  inventory_type: string | null;
-  match_type: string | null;
-  file_name: string | null;
+  source_file: string | null;
+  notes: string | null;
 }
 
 export default function ProcessedOrders() {
@@ -34,11 +39,9 @@ export default function ProcessedOrders() {
     try {
       setLoading(true);
       
-      // Fetch all order processing results that have been processed
       const { data, error } = await supabase
-        .from('order_processing_results')
+        .from('processed_orders')
         .select('*')
-        .not('processed_at', 'is', null)  // Show orders that have a processed_at timestamp
         .order('processed_at', { ascending: false });
 
       if (error) throw error;
@@ -46,13 +49,6 @@ export default function ProcessedOrders() {
       console.log('Fetched processed orders:', data);
       setProcessedOrders(data || []);
       
-      if (!data || data.length === 0) {
-        toast({
-          title: "No Data",
-          description: "No processed orders found in the database",
-          variant: "default",
-        });
-      }
     } catch (error) {
       console.error('Error fetching processed orders:', error);
       toast({
@@ -66,14 +62,95 @@ export default function ProcessedOrders() {
   };
 
   const filteredOrders = processedOrders.filter(order =>
-    order.order_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    order.order_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (order.asin && order.asin.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (order.sku && order.sku.toLowerCase().includes(searchTerm.toLowerCase()))
+    (order.sku && order.sku.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (order.item_title && order.item_title.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString();
   };
+
+  const printReport = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const printContent = `
+      <html>
+        <head>
+          <title>Processed Orders Report</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            h1 { color: #333; text-align: center; }
+            .summary { background: #f5f5f5; padding: 15px; margin: 20px 0; border-radius: 5px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f2f2f2; font-weight: bold; }
+            .print-date { text-align: right; font-size: 12px; color: #666; }
+          </style>
+        </head>
+        <body>
+          <h1>Processed Orders Report</h1>
+          <div class="print-date">
+            <strong>Generated:</strong> ${new Date().toLocaleString()}
+          </div>
+          <div class="summary">
+            <strong>Summary:</strong><br>
+            Total Processed Orders: ${filteredOrders.length}<br>
+            Total Quantity Processed: ${filteredOrders.reduce((sum, order) => sum + order.quantity_processed, 0)}<br>
+            ASIN Orders: ${filteredOrders.filter(o => o.inventory_type === 'asin').length}<br>
+            SKU Orders: ${filteredOrders.filter(o => o.inventory_type === 'sku').length}
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Order Number</th>
+                <th>ASIN/SKU</th>
+                <th>Item Title</th>
+                <th>Type</th>
+                <th>Quantity</th>
+                <th>Stock Change</th>
+                <th>Process Date</th>
+                <th>Source File</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filteredOrders.map(order => `
+                <tr>
+                  <td>${order.order_number}</td>
+                  <td>${order.asin || order.sku || '-'}</td>
+                  <td>${order.item_title || '-'}</td>
+                  <td>${order.inventory_type.toUpperCase()}</td>
+                  <td>${order.quantity_processed}</td>
+                  <td>${order.previous_stock !== null && order.new_stock !== null ? 
+                    `${order.previous_stock} → ${order.new_stock}` : '-'}</td>
+                  <td>${formatDate(order.processed_at)}</td>
+                  <td>${order.source_file || '-'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+  };
+
+  // Calculate statistics
+  const totalQuantity = processedOrders.reduce((sum, order) => sum + order.quantity_processed, 0);
+  const asinOrders = processedOrders.filter(o => o.inventory_type === 'asin').length;
+  const skuOrders = processedOrders.filter(o => o.inventory_type === 'sku').length;
+  const recentOrders = processedOrders.filter(order => {
+    const processedDate = new Date(order.processed_at);
+    const dayAgo = new Date();
+    dayAgo.setDate(dayAgo.getDate() - 1);
+    return processedDate > dayAgo;
+  }).length;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
@@ -95,19 +172,19 @@ export default function ProcessedOrders() {
             </h1>
           </div>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            View and track all successfully processed orders with their details and processing history.
+            Track and manage all successfully processed orders with complete processing history and analytics.
           </p>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <Card className="p-4 glass-container border-0 shadow-elegant">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-gradient-to-br from-green-500 to-emerald-600">
                 <Package className="w-5 h-5 text-white" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Total Processed</p>
+                <p className="text-sm text-muted-foreground">Total Orders</p>
                 <p className="text-2xl font-bold text-green-600">{processedOrders.length}</p>
               </div>
             </div>
@@ -116,13 +193,11 @@ export default function ProcessedOrders() {
           <Card className="p-4 glass-container border-0 shadow-elegant">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-600">
-                <Package className="w-5 h-5 text-white" />
+                <TrendingUp className="w-5 h-5 text-white" />
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total Quantity</p>
-                <p className="text-2xl font-bold text-blue-600">
-                  {processedOrders.reduce((sum, order) => sum + (order.processed_quantity || 0), 0)}
-                </p>
+                <p className="text-2xl font-bold text-blue-600">{totalQuantity}</p>
               </div>
             </div>
           </Card>
@@ -130,31 +205,36 @@ export default function ProcessedOrders() {
           <Card className="p-4 glass-container border-0 shadow-elegant">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-600">
+                <Package className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">ASIN/SKU Split</p>
+                <p className="text-2xl font-bold text-purple-600">{asinOrders}/{skuOrders}</p>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-4 glass-container border-0 shadow-elegant">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-gradient-to-br from-orange-500 to-red-600">
                 <Clock className="w-5 h-5 text-white" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Recent Activity</p>
-                <p className="text-2xl font-bold text-purple-600">
-                  {processedOrders.filter(order => {
-                    const processedDate = new Date(order.processed_at);
-                    const dayAgo = new Date();
-                    dayAgo.setDate(dayAgo.getDate() - 1);
-                    return processedDate > dayAgo;
-                  }).length}
-                </p>
+                <p className="text-sm text-muted-foreground">Last 24h</p>
+                <p className="text-2xl font-bold text-orange-600">{recentOrders}</p>
               </div>
             </div>
           </Card>
         </div>
 
-        {/* Search */}
+        {/* Search and Actions */}
         <Card className="p-6 glass-container border-0 shadow-elegant">
           <div className="space-y-4">
             <div className="flex items-center gap-4">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
                 <Input
-                  placeholder="Search by Order ID, ASIN, or SKU..."
+                  placeholder="Search by Order Number, ASIN, SKU, or Item Title..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
@@ -162,6 +242,10 @@ export default function ProcessedOrders() {
               </div>
               <Button onClick={fetchProcessedOrders} variant="outline">
                 Refresh
+              </Button>
+              <Button onClick={printReport} variant="outline" disabled={filteredOrders.length === 0}>
+                <Printer className="w-4 h-4 mr-2" />
+                Print Report
               </Button>
             </div>
           </div>
@@ -185,7 +269,7 @@ export default function ProcessedOrders() {
               <div className="text-center py-8">
                 <Package className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                 <p className="text-muted-foreground">
-                  {searchTerm ? 'No orders found matching your search.' : 'No processed orders found.'}
+                  {searchTerm ? 'No orders found matching your search.' : 'No processed orders found. Process some orders to see them here.'}
                 </p>
               </div>
             ) : (
@@ -195,8 +279,10 @@ export default function ProcessedOrders() {
                     <TableRow>
                       <TableHead>Order Number</TableHead>
                       <TableHead>ASIN/SKU</TableHead>
+                      <TableHead>Item Title</TableHead>
                       <TableHead>Type</TableHead>
                       <TableHead>Quantity</TableHead>
+                      <TableHead>Stock Change</TableHead>
                       <TableHead>Process Date</TableHead>
                       <TableHead>Source File</TableHead>
                     </TableRow>
@@ -205,7 +291,7 @@ export default function ProcessedOrders() {
                     {filteredOrders.map((order) => (
                       <TableRow key={order.id}>
                         <TableCell>
-                          <div className="font-mono text-sm">{order.order_id}</div>
+                          <div className="font-mono text-sm font-medium">{order.order_number}</div>
                         </TableCell>
                         <TableCell>
                           <div className="font-mono text-sm">
@@ -213,14 +299,33 @@ export default function ProcessedOrders() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          {order.inventory_type && (
-                            <Badge variant="outline" className="text-xs">
-                              {order.inventory_type.toUpperCase()} Inventory
-                            </Badge>
-                          )}
+                          <div className="max-w-[200px] truncate text-sm" title={order.item_title || ''}>
+                            {order.item_title || '-'}
+                          </div>
                         </TableCell>
                         <TableCell>
-                          <span className="font-medium">{order.processed_quantity}</span>
+                          <div className="flex flex-col gap-1">
+                            <Badge variant="outline" className="text-xs w-fit">
+                              {order.inventory_type.toUpperCase()} Inventory
+                            </Badge>
+                            <Badge variant="secondary" className="text-xs w-fit">
+                              Found by {order.match_type.toUpperCase()}
+                            </Badge>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <span className="font-medium text-blue-600">{order.quantity_processed}</span>
+                        </TableCell>
+                        <TableCell>
+                          {order.previous_stock !== null && order.new_stock !== null ? (
+                            <div className="text-sm">
+                              <span className="text-muted-foreground">{order.previous_stock}</span>
+                              {' → '}
+                              <span className="font-medium">{order.new_stock}</span>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
@@ -229,8 +334,8 @@ export default function ProcessedOrders() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <span className="text-sm text-muted-foreground">
-                            {order.file_name || '-'}
+                          <span className="text-sm text-muted-foreground truncate max-w-[150px] block" title={order.source_file || ''}>
+                            {order.source_file || '-'}
                           </span>
                         </TableCell>
                       </TableRow>

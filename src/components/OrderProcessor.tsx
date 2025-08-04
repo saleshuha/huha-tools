@@ -83,51 +83,51 @@ export function OrderProcessor() {
     toast
   } = useToast();
 
-  // Load order processing results from database
+  // Load processed orders from database
   useEffect(() => {
-    const loadOrderResults = async () => {
+    const loadProcessedOrders = async () => {
       const {
         data,
         error
-      } = await supabase.from('order_processing_results').select('*').order('created_at', {
+      } = await supabase.from('processed_orders').select('*').order('processed_at', {
         ascending: false
       });
       if (error) {
-        console.error('Error loading order results:', error);
+        console.error('Error loading processed orders:', error);
       } else {
         setDbResults(data || []);
       }
     };
-    loadOrderResults();
+    loadProcessedOrders();
   }, []);
 
-  // Save order results to database
-  const saveOrderResults = async (matches: MatchedItem[], currentFileName: string) => {
-    const {
-      data: {
-        user
-      }
-    } = await supabase.auth.getUser();
+  // Save processed order to database
+  const saveProcessedOrder = async (match: MatchedItem, previousStock: number, newStock: number, fileName: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    const results = matches.map(match => ({
+
+    const processedOrder = {
       user_id: user.id,
-      order_id: match.orderItem.orderId,
-      asin: match.orderItem.asin,
-      sku: match.orderItem.sku,
-      item_title: match.orderItem.itemTitle,
-      order_quantity: match.orderItem.itemQuantity,
-      inventory_type: match.inventoryType,
-      match_type: match.matchType,
-      inventory_id: match.inventoryMatch?.id,
-      inventory_status: match.inventoryMatch ? 'found' : 'not_found',
-      current_stock: match.inventoryMatch?.quantity || 0,
-      file_name: currentFileName
-    }));
-    const {
-      error
-    } = await supabase.from('order_processing_results').insert(results);
+      order_number: match.orderItem.orderId,
+      asin: match.orderItem.asin || null,
+      sku: match.orderItem.sku || null,
+      item_title: match.orderItem.itemTitle || null,
+      quantity_processed: match.orderItem.itemQuantity,
+      inventory_type: match.inventoryType!,
+      match_type: match.matchType!,
+      inventory_id: match.inventoryMatch?.id || null,
+      previous_stock: previousStock,
+      new_stock: newStock,
+      source_file: fileName,
+      notes: `Processed order for ${match.orderItem.itemQuantity} units`
+    };
+
+    const { error } = await supabase
+      .from('processed_orders')
+      .insert([processedOrder]);
+    
     if (error) {
-      console.error('Error saving order results:', error);
+      console.error('Error saving processed order:', error);
     }
   };
   const onDrop = async (acceptedFiles: File[]) => {
@@ -181,7 +181,7 @@ export function OrderProcessor() {
       const matches = await matchOrdersWithInventory(formattedOrders);
 
       // Save to database
-      await saveOrderResults(matches, file.name);
+      // No need to save unprocessed orders anymore
       toast({
         title: "Orders Uploaded",
         description: `Successfully processed ${formattedOrders.length} orders.`
@@ -264,6 +264,9 @@ export function OrderProcessor() {
         await updateSkuQuantity(match.inventoryMatch.id, newQuantity, `Order processing: ${changeAmount > 0 ? 'Added' : 'Removed'} ${Math.abs(changeAmount)} units`);
       }
 
+      // Save processed order to database
+      await saveProcessedOrder(match, previousQuantity, newQuantity, fileName);
+
       // Add to processed items
       const processedItem: ProcessedItem = {
         ...match,
@@ -277,14 +280,18 @@ export function OrderProcessor() {
 
       // Remove the processed item from the list
       setMatchedItems(prev => prev.filter((_, index) => index !== matchIndex));
+      
+      // Refresh the processed orders count
+      setDbResults(prev => [...prev, { processed: true }]);
+      
       toast({
-        title: "Quantity Updated",
-        description: `Successfully updated quantity to ${newQuantity}. Item moved to processed list.`
+        title: "Order Processed",
+        description: `Successfully processed order ${match.orderItem.orderId}. Quantity updated to ${newQuantity}.`
       });
     } catch (error) {
       toast({
-        title: "Update Failed",
-        description: "Failed to update quantity.",
+        title: "Processing Failed",
+        description: "Failed to process order.",
         variant: "destructive"
       });
     }

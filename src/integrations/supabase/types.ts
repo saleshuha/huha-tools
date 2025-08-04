@@ -767,75 +767,6 @@ export type Database = {
           },
         ]
       }
-      order_processing_results: {
-        Row: {
-          asin: string | null
-          created_at: string
-          current_stock: number | null
-          file_name: string | null
-          id: string
-          inventory_id: string | null
-          inventory_status: string
-          inventory_type: string | null
-          item_title: string | null
-          match_type: string | null
-          new_quantity: number | null
-          order_id: string
-          order_quantity: number
-          previous_quantity: number | null
-          processed: boolean | null
-          processed_at: string | null
-          processed_quantity: number | null
-          sku: string | null
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          asin?: string | null
-          created_at?: string
-          current_stock?: number | null
-          file_name?: string | null
-          id?: string
-          inventory_id?: string | null
-          inventory_status: string
-          inventory_type?: string | null
-          item_title?: string | null
-          match_type?: string | null
-          new_quantity?: number | null
-          order_id: string
-          order_quantity: number
-          previous_quantity?: number | null
-          processed?: boolean | null
-          processed_at?: string | null
-          processed_quantity?: number | null
-          sku?: string | null
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          asin?: string | null
-          created_at?: string
-          current_stock?: number | null
-          file_name?: string | null
-          id?: string
-          inventory_id?: string | null
-          inventory_status?: string
-          inventory_type?: string | null
-          item_title?: string | null
-          match_type?: string | null
-          new_quantity?: number | null
-          order_id?: string
-          order_quantity?: number
-          previous_quantity?: number | null
-          processed?: boolean | null
-          processed_at?: string | null
-          processed_quantity?: number | null
-          sku?: string | null
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       payment_reports: {
         Row: {
           adjustments: number | null
@@ -962,6 +893,66 @@ export type Database = {
           region?: string
           status?: string
           store_name?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      processed_orders: {
+        Row: {
+          asin: string | null
+          created_at: string
+          id: string
+          inventory_id: string | null
+          inventory_type: string
+          item_title: string | null
+          match_type: string
+          new_stock: number | null
+          notes: string | null
+          order_number: string
+          previous_stock: number | null
+          processed_at: string
+          quantity_processed: number
+          sku: string | null
+          source_file: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          asin?: string | null
+          created_at?: string
+          id?: string
+          inventory_id?: string | null
+          inventory_type: string
+          item_title?: string | null
+          match_type: string
+          new_stock?: number | null
+          notes?: string | null
+          order_number: string
+          previous_stock?: number | null
+          processed_at?: string
+          quantity_processed?: number
+          sku?: string | null
+          source_file?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          asin?: string | null
+          created_at?: string
+          id?: string
+          inventory_id?: string | null
+          inventory_type?: string
+          item_title?: string | null
+          match_type?: string
+          new_stock?: number | null
+          notes?: string | null
+          order_number?: string
+          previous_stock?: number | null
+          processed_at?: string
+          quantity_processed?: number
+          sku?: string | null
+          source_file?: string | null
           updated_at?: string
           user_id?: string
         }
