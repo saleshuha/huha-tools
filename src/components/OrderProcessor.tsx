@@ -203,45 +203,46 @@ export function OrderProcessor() {
       let inventoryType: 'asin' | 'sku' | undefined;
       let matchType: 'asin' | 'sku' | undefined;
 
-      // Try to match by ASIN in ASIN inventory
+      // Try to match by ASIN in ASIN inventory (ASIN field matched with ASIN field)
       if (order.asin && order.asin.trim()) {
         const asinMatch = asinInventory.find(item => item.asin.toLowerCase() === order.asin.toLowerCase().trim());
         if (asinMatch) {
           inventoryMatch = asinMatch;
           inventoryType = 'asin';
-          matchType = 'asin';
+          matchType = 'asin'; // Matched using ASIN field
         }
       }
 
-      // Try to match by SKU in ASIN inventory
+      // Try to match by SKU in ASIN inventory (SKU field matched with SKU field in ASIN inventory)
       if (!inventoryMatch && order.sku && order.sku.trim()) {
         const asinSkuMatch = asinInventory.find(item => item.sku && item.sku.toLowerCase() === order.sku.toLowerCase().trim());
         if (asinSkuMatch) {
           inventoryMatch = asinSkuMatch;
           inventoryType = 'asin';
-          matchType = 'sku';
+          matchType = 'sku'; // Matched using SKU field
         }
       }
 
-      // Try to match by SKU in SKU inventory
+      // Try to match by SKU in SKU inventory (SKU field matched with SKU field)
       if (!inventoryMatch && order.sku && order.sku.trim()) {
         const skuMatch = skuInventory.find(item => item.skuNumber.toLowerCase() === order.sku.toLowerCase().trim());
         if (skuMatch) {
           inventoryMatch = skuMatch;
           inventoryType = 'sku';
-          matchType = 'sku';
+          matchType = 'sku'; // Matched using SKU field
         }
       }
 
-      // Try to match by ASIN as SKU in SKU inventory (sometimes ASIN might be stored as SKU)
+      // Try to match by ASIN as SKU in SKU inventory (ASIN value stored as SKU)
       if (!inventoryMatch && order.asin && order.asin.trim()) {
         const skuAsinMatch = skuInventory.find(item => item.skuNumber.toLowerCase() === order.asin.toLowerCase().trim());
         if (skuAsinMatch) {
           inventoryMatch = skuAsinMatch;
           inventoryType = 'sku';
-          matchType = 'asin';
+          matchType = 'asin'; // Matched using ASIN field (but found in SKU inventory)
         }
       }
+
       return {
         orderItem: order,
         inventoryMatch,
