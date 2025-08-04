@@ -71,6 +71,11 @@ const coreItems = [
     icon: Package
   },
   {
+    title: "Processed Orders",
+    url: "/processed-orders",
+    icon: Database
+  },
+  {
     title: "Sales & Replenishment",
     url: "/replenishment",
     icon: TrendingUp

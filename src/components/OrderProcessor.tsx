@@ -294,24 +294,13 @@ export function OrderProcessor() {
     const totalOrders = matchedItems.length;
     const foundOrders = matchedItems.filter(m => m.inventoryMatch).length;
 
-    // More detailed breakdown of matches - debug logging
-    console.log('Debug - All matched items:', matchedItems.map(m => ({
-      orderId: m.orderItem.orderId,
-      asin: m.orderItem.asin,
-      sku: m.orderItem.sku,
-      matchType: m.matchType,
-      inventoryType: m.inventoryType,
-      hasMatch: !!m.inventoryMatch
-    })));
-    
+    // More detailed breakdown of matches - accurate counting by match type
     const foundByAsin = matchedItems.filter(m => 
       m.inventoryMatch && m.matchType === 'asin'
     ).length;
     const foundBySku = matchedItems.filter(m => 
       m.inventoryMatch && m.matchType === 'sku'
     ).length;
-    
-    console.log('Debug - Analytics counts:', { foundByAsin, foundBySku, totalMatched: matchedItems.filter(m => m.inventoryMatch).length });
     const processedOrdersCount = dbResults.filter(r => r.processed).length;
     const totalValue = matchedItems.reduce((sum, match) => {
       const cost = parseFloat(match.orderItem.itemCost) || 0;

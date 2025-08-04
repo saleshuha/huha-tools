@@ -34,6 +34,7 @@ import CarrefourSalesTracker from "./pages/CarrefourPayments";
 import StoreSelection from "./pages/StoreSelection";
 import SKUCostManagement from "./pages/SKUCostManagement";
 import NoonOrderAnalysis from "./pages/NoonOrderAnalysis";
+import ProcessedOrders from "./pages/ProcessedOrders";
 
 
 
@@ -134,6 +135,7 @@ const App = () => {
                     <Route path="/zip-splitter" element={<ZipSplitter />} />
                     <Route path="/file-merger" element={<FileMergerPage />} />
                     <Route path="/inventory" element={<Inventory />} />
+                    <Route path="/processed-orders" element={<ProcessedOrders />} />
                     <Route path="/users" element={<UserManagementPage />} />
                     <Route path="/replenishment" element={<ReplenishmentPage />} />
                     <Route path="/excel-editor" element={<ExcelEditorPage />} />
