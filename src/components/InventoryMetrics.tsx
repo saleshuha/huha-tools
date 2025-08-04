@@ -35,11 +35,6 @@ interface InventoryStats {
   asinSoldUnits: number;
   skuTotalUnits: number;
   skuSoldUnits: number;
-  fbaUnits?: number;
-  fbmUnits?: number;
-  bestSellers?: number;
-  strandedInventory?: number;
-  avgSalesRank?: string | number;
 }
 interface InventoryMetricsProps {
   showOnlyAsin?: boolean;
@@ -66,7 +61,7 @@ export function InventoryMetrics({
     skuSoldUnits: 0
   });
   const [loading, setLoading] = useState(true);
-  const [selectedMetric, setSelectedMetric] = useState<'active' | 'instock' | 'outofstock' | 'sold' | 'recently-added' | 'fba' | 'fbm' | 'bestsellers' | 'stranded' | 'salesrank' | null>(null);
+  const [selectedMetric, setSelectedMetric] = useState<'active' | 'instock' | 'outofstock' | 'sold' | 'recently-added' | null>(null);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [exportLoading, setExportLoading] = useState(false);
@@ -222,7 +217,7 @@ export function InventoryMetrics({
       setLoading(false);
     }
   };
-  const loadDetailedItems = async (metric: 'active' | 'instock' | 'outofstock' | 'recently-added' | 'fba' | 'fbm' | 'bestsellers' | 'stranded' | 'salesrank') => {
+  const loadDetailedItems = async (metric: 'active' | 'instock' | 'outofstock' | 'recently-added') => {
     try {
       if (showOnlyAsin) {
         // Load only ASIN data
@@ -383,7 +378,7 @@ export function InventoryMetrics({
       });
     }
   };
-  const handleMetricClick = async (metric: 'active' | 'instock' | 'outofstock' | 'recently-added' | 'fba' | 'fbm' | 'bestsellers' | 'stranded' | 'salesrank') => {
+  const handleMetricClick = async (metric: 'active' | 'instock' | 'outofstock' | 'recently-added') => {
     setSelectedMetric(metric);
     await loadDetailedItems(metric);
   };
@@ -434,120 +429,120 @@ export function InventoryMetrics({
       {showOnlyAsin}
 
       <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 mb-6">
-        {/* Amazon FBA Units */}
+        {/* Active Items */}
         <Card 
-          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-emerald-50 to-emerald-100"
+          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background"
           onClick={() => handleMetricClick('active')}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <div>
-              <CardTitle className="text-sm font-medium text-emerald-900">
-                FBA Units
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                {showOnlyAsin ? 'Active ASIN' : showOnlySku ? 'Active SKU' : 'Active Items'}
               </CardTitle>
-              <div className="text-2xl font-bold text-emerald-900 mt-1">{stats.inStockItems}</div>
+              <div className="text-2xl font-bold text-primary mt-1">{stats.activeItems}</div>
             </div>
-            <div className="w-12 h-12 bg-emerald-600/10 rounded-full flex items-center justify-center">
-              <Package className="h-6 w-6 text-emerald-600" />
+            <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+              <Activity className="h-6 w-6 text-primary" />
             </div>
           </CardHeader>
           <CardContent>
-            <p className="text-xs text-emerald-600">Fulfilled by Amazon</p>
-            <div className="mt-2 flex items-center text-xs text-emerald-600">
+            <p className="text-xs text-muted-foreground">Total inventory</p>
+            <div className="mt-2 flex items-center text-xs text-green-600">
               <TrendingUp className="h-3 w-3 mr-1" />
-              Amazon warehouses
+              Click to view
             </div>
           </CardContent>
         </Card>
 
-        {/* FBM Units */}
+        {/* In Stock */}
         <Card 
-          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-blue-50 to-blue-100"
+          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background"
           onClick={() => handleMetricClick('instock')}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <div>
-              <CardTitle className="text-sm font-medium text-blue-900">FBM Units</CardTitle>
-              <div className="text-2xl font-bold text-blue-900 mt-1">{stats.outOfStockItems}</div>
+              <CardTitle className="text-sm font-medium text-muted-foreground">In Stock</CardTitle>
+              <div className="text-2xl font-bold text-green-600 mt-1">{stats.inStockItems}</div>
             </div>
-            <div className="w-12 h-12 bg-blue-600/10 rounded-full flex items-center justify-center">
-              <Activity className="h-6 w-6 text-blue-600" />
+            <div className="w-12 h-12 bg-green-500/10 rounded-full flex items-center justify-center">
+              <CheckCircle className="h-6 w-6 text-green-600" />
             </div>
           </CardHeader>
           <CardContent>
-            <p className="text-xs text-blue-600">Fulfilled by Merchant</p>
-            <div className="mt-2 flex items-center text-xs text-blue-600">
+            <p className="text-xs text-muted-foreground">Available items</p>
+            <div className="mt-2 flex items-center text-xs text-green-600">
               <TrendingUp className="h-3 w-3 mr-1" />
-              Self-fulfilled
+              Ready to sell
             </div>
           </CardContent>
         </Card>
 
-        {/* Best Sellers */}
+        {/* Out of Stock */}
         <Card 
-          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-yellow-50 to-yellow-100"
-          onClick={() => handleMetricClick('recently-added')}
-        >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <div>
-              <CardTitle className="text-sm font-medium text-yellow-900">Best Sellers</CardTitle>
-              <div className="text-2xl font-bold text-yellow-900 mt-1">{stats.recentlyAdded}</div>
-            </div>
-            <div className="w-12 h-12 bg-yellow-600/10 rounded-full flex items-center justify-center">
-              <CheckCircle className="h-6 w-6 text-yellow-600" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-yellow-600">High demand ASINs</p>
-            <div className="mt-2 flex items-center text-xs text-yellow-600">
-              <TrendingUp className="h-3 w-3 mr-1" />
-              Top performers
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Stranded Inventory */}
-        <Card 
-          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-red-50 to-red-100"
+          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background"
           onClick={() => handleMetricClick('outofstock')}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <div>
-              <CardTitle className="text-sm font-medium text-red-900">Stranded</CardTitle>
-              <div className="text-2xl font-bold text-red-900 mt-1">{stats.outOfStockItems}</div>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Out of Stock</CardTitle>
+              <div className="text-2xl font-bold text-red-600 mt-1">{stats.outOfStockItems}</div>
             </div>
-            <div className="w-12 h-12 bg-red-600/10 rounded-full flex items-center justify-center">
+            <div className="w-12 h-12 bg-red-500/10 rounded-full flex items-center justify-center">
               <XCircle className="h-6 w-6 text-red-600" />
             </div>
           </CardHeader>
           <CardContent>
-            <p className="text-xs text-red-600">Inactive listings</p>
+            <p className="text-xs text-muted-foreground">Need restock</p>
             <div className="mt-2 flex items-center text-xs text-red-600">
               <TrendingDown className="h-3 w-3 mr-1" />
-              Fix required
+              Requires attention
             </div>
           </CardContent>
         </Card>
 
-        {/* Average Sales Rank */}
+        {/* Recently Added Items */}
         <Card 
-          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-purple-50 to-purple-100"
+          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background"
+          onClick={() => handleMetricClick('recently-added')}
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <div>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Recently Added</CardTitle>
+              <div className="text-2xl font-bold text-blue-600 mt-1">{stats.recentlyAdded}</div>
+            </div>
+            <div className="w-12 h-12 bg-blue-500/10 rounded-full flex items-center justify-center">
+              <Plus className="h-6 w-6 text-blue-600" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-muted-foreground">Last 7 days</p>
+            <div className="mt-2 flex items-center text-xs text-blue-600">
+              <TrendingUp className="h-3 w-3 mr-1" />
+              New additions
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Total Units */}
+        <Card 
+          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background"
           onClick={() => setShowSoldModal(true)}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <div>
-              <CardTitle className="text-sm font-medium text-purple-900">Total Units</CardTitle>
-              <div className="text-2xl font-bold text-purple-900 mt-1">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Total Units</CardTitle>
+              <div className="text-2xl font-bold text-purple-600 mt-1">
                 {showOnlyAsin ? stats.asinTotalUnits : showOnlySku ? stats.skuTotalUnits : stats.asinTotalUnits + stats.skuTotalUnits}
               </div>
             </div>
-            <div className="w-12 h-12 bg-purple-600/10 rounded-full flex items-center justify-center">
+            <div className="w-12 h-12 bg-purple-500/10 rounded-full flex items-center justify-center">
               <BarChart3 className="h-6 w-6 text-purple-600" />
             </div>
           </CardHeader>
           <CardContent>
-            <p className="text-xs text-purple-600">Inventory count</p>
+            <p className="text-xs text-muted-foreground">Inventory count</p>
             <div className="mt-2 flex items-center text-xs text-purple-600">
-              <BarChart3 className="h-3 w-3 mr-1" />
+              <TrendingUp className="h-3 w-3 mr-1" />
               View sold units
             </div>
           </CardContent>
