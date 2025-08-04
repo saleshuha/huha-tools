@@ -304,8 +304,8 @@ export default function ProcessedOrders() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className="flex flex-col gap-1 p-2 rounded-lg bg-primary/5 border border-primary/10">
-                            <Badge variant="outline" className="text-xs w-fit">
+                          <div className="flex flex-col gap-1">
+                            <Badge variant="default" className="text-xs w-fit font-semibold">
                               {order.inventory_type.toUpperCase()} Inventory
                             </Badge>
                             <Badge variant="secondary" className="text-xs w-fit">
