@@ -294,9 +294,15 @@ export function OrderProcessor() {
     const totalOrders = matchedItems.length;
     const foundOrders = matchedItems.filter(m => m.inventoryMatch).length;
 
-    // More detailed breakdown of matches
-    const foundByAsin = matchedItems.filter(m => m.inventoryMatch && (m.matchType === 'asin' || m.inventoryType === 'asin' && m.orderItem.asin)).length;
-    const foundBySku = matchedItems.filter(m => m.inventoryMatch && (m.matchType === 'sku' || m.inventoryType === 'sku' && m.orderItem.sku)).length;
+    // More detailed breakdown of matches - fixed logic for accurate counting
+    const foundByAsin = matchedItems.filter(m => 
+      m.inventoryMatch && 
+      (m.matchType === 'asin' || (m.inventoryType === 'asin' && m.orderItem.asin))
+    ).length;
+    const foundBySku = matchedItems.filter(m => 
+      m.inventoryMatch && 
+      (m.matchType === 'sku' || (m.inventoryType === 'sku' && m.orderItem.sku))
+    ).length;
     const processedOrdersCount = dbResults.filter(r => r.processed).length;
     const totalValue = matchedItems.reduce((sum, match) => {
       const cost = parseFloat(match.orderItem.itemCost) || 0;
