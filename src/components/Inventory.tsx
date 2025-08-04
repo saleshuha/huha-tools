@@ -5,10 +5,13 @@ import { Package, Archive, ArrowRight, FileSpreadsheet } from 'lucide-react';
 import { AsinInventory } from './AsinInventory';
 import { SSInventory } from './SSInventory';
 import { OrderProcessor } from './OrderProcessor';
+
 type InventoryView = 'main' | 'asin' | 'ss' | 'orders';
+
 export function Inventory() {
   console.log('Inventory component loaded, current view:', 'main');
   const [currentView, setCurrentView] = useState<InventoryView>('main');
+
   if (currentView === 'asin') {
     return <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 relative overflow-hidden">
         {/* Enhanced Background Effects */}
@@ -107,6 +110,7 @@ export function Inventory() {
         </div>
       </div>;
   }
+
   if (currentView === 'ss') {
     return <div className="min-h-screen bg-gradient-to-br from-slate-50 via-orange-50/30 to-amber-50/20 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 relative overflow-hidden">
         {/* Enhanced Background Effects */}
@@ -205,6 +209,7 @@ export function Inventory() {
         </div>
       </div>;
   }
+
   if (currentView === 'orders') {
     return <div className="min-h-screen bg-gradient-surface p-4 md:p-6">
         <div className="w-full space-y-6">
@@ -217,6 +222,7 @@ export function Inventory() {
         </div>
       </div>;
   }
+
   return <div className="min-h-screen bg-gradient-surface">
       <div className="w-full space-y-6">
         {/* Header */}
