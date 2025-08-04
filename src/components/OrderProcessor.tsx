@@ -396,6 +396,81 @@ export function OrderProcessor() {
     setSelectAll(false);
   };
 
+  const printFoundItems = () => {
+    const foundItems = filteredMatches.filter(match => match.inventoryMatch);
+    const printWindow = window.open('', '_blank');
+    
+    if (!printWindow) return;
+
+    const printContent = `
+      <html>
+        <head>
+          <title>Found Items Report - ${fileName}</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            h1 { color: #333; border-bottom: 2px solid #333; padding-bottom: 10px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f2f2f2; font-weight: bold; }
+            .found { background-color: #d4edda; }
+            .print-date { font-size: 12px; color: #666; margin-bottom: 20px; }
+            .summary { background-color: #e9f7ff; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
+          </style>
+        </head>
+        <body>
+          <h1>Found Items Report</h1>
+          <div class="print-date">
+            <strong>File:</strong> ${fileName}<br>
+            <strong>Print Date:</strong> ${new Date().toLocaleString()}<br>
+          </div>
+          <div class="summary">
+            <strong>Summary:</strong><br>
+            Total Found Items: ${foundItems.length}<br>
+            Found by ASIN: ${analytics.foundByAsin}<br>
+            Found by SKU: ${analytics.foundBySku}<br>
+            Fulfillment Rate: ${analytics.fulfillmentRate.toFixed(1)}%
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Order ID</th>
+                <th>ASIN/SKU</th>
+                <th>Item Title</th>
+                <th>Order Qty</th>
+                <th>Current Stock</th>
+                <th>Match Type</th>
+                <th>Serial/Bin Number</th>
+                <th>Inventory Type</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${foundItems.map(match => `
+                <tr class="found">
+                  <td>${match.orderItem.orderId}</td>
+                  <td>${match.orderItem.asin || match.orderItem.sku}</td>
+                  <td>${match.orderItem.itemTitle}</td>
+                  <td>${match.orderItem.itemQuantity}</td>
+                  <td>${match.inventoryMatch?.quantity || '-'}</td>
+                  <td>${match.matchType?.toUpperCase() || '-'}</td>
+                  <td>${match.inventoryMatch ? 
+                    ('serialNumber' in match.inventoryMatch ? 
+                      match.inventoryMatch.serialNumber : 
+                      match.inventoryMatch.binSerialNumber) : '-'}</td>
+                  <td>${match.inventoryType?.toUpperCase() || '-'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </body>
+      </html>
+    `;
+    
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+  };
+
   const printSelectedItems = () => {
     const itemsToPrint = Array.from(selectedItems).map(index => filteredMatches[index]);
     const printWindow = window.open('', '_blank');
@@ -619,32 +694,8 @@ export function OrderProcessor() {
                 </Button>
               </div>
 
-              {/* Enhanced Real-time Analytics Dashboard */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <Card className="glass-container border-0 shadow-elegant hover:shadow-glow transition-all duration-300 animate-fade-in">
-                  <div className="p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-gradient-primary">
-                          <ShoppingCart className="w-5 h-5 text-white" />
-                        </div>
-                        <div>
-                          <p className="text-sm text-muted-foreground">Total Orders</p>
-                          <p className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-                            {analytics.totalOrders}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span>Fulfillment Rate</span>
-                        <span className="font-medium">{analytics.fulfillmentRate.toFixed(1)}%</span>
-                      </div>
-                      <Progress value={analytics.fulfillmentRate} className="h-2" />
-                    </div>
-                  </div>
-                </Card>
+              {/* Enhanced Real-time Analytics Dashboard - 3 Key Metrics */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
                 <Card className="glass-container border-0 shadow-elegant hover:shadow-glow transition-all duration-300 animate-fade-in">
                   <div className="p-6">
@@ -691,27 +742,6 @@ export function OrderProcessor() {
                     </div>
                   </div>
                 </Card>
-
-                <Card className="glass-container border-0 shadow-elegant hover:shadow-glow transition-all duration-300 animate-fade-in">
-                  <div className="p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-gradient-to-br from-yellow-500 to-orange-600">
-                          <AlertTriangle className="w-5 h-5 text-white" />
-                        </div>
-                        <div>
-                          <p className="text-sm text-muted-foreground">Stock Alerts</p>
-                          <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
-                            {analytics.lowStockItems}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {analytics.criticalStockItems} critical stock items
-                    </div>
-                  </div>
-                </Card>
               </div>
             </div>
           )}
@@ -725,6 +755,14 @@ export function OrderProcessor() {
               <h4 className="font-semibold">Processing Results ({filteredMatches.length} items)</h4>
               
               <div className="flex items-center gap-2">
+                <Button 
+                  onClick={printFoundItems}
+                  variant="outline"
+                  disabled={analytics.foundOrders === 0}
+                >
+                  <Printer className="w-4 h-4 mr-2" />
+                  Print Found Items ({analytics.foundOrders})
+                </Button>
                 {selectedItems.size > 0 && (
                   <>
                     <Button 
