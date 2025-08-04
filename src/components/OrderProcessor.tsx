@@ -168,7 +168,7 @@ export function OrderProcessor() {
     setMatchedItems(matches);
   };
 
-  const handleQuantityUpdate = async (match: MatchedItem, changeAmount: number) => {
+  const handleQuantityUpdate = async (match: MatchedItem, changeAmount: number, matchIndex: number) => {
     if (!match.inventoryMatch || !match.inventoryType) return;
 
     const newQuantity = Math.max(0, match.inventoryMatch.quantity + changeAmount);
@@ -180,12 +180,12 @@ export function OrderProcessor() {
         await updateSkuQuantity(match.inventoryMatch.id, newQuantity, `Order processing: ${changeAmount > 0 ? 'Added' : 'Removed'} ${Math.abs(changeAmount)} units`);
       }
       
-      // Refresh matches
-      matchOrdersWithInventory(orderData);
+      // Remove the processed item from the list
+      setMatchedItems(prev => prev.filter((_, index) => index !== matchIndex));
       
       toast({
         title: "Quantity Updated",
-        description: `Successfully updated quantity to ${newQuantity}.`,
+        description: `Successfully updated quantity to ${newQuantity}. Item removed from processing list.`,
       });
     } catch (error) {
       toast({
@@ -201,7 +201,12 @@ export function OrderProcessor() {
     match.orderItem.asin.toLowerCase().includes(searchTerm.toLowerCase()) ||
     match.orderItem.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
     match.orderItem.itemTitle.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  ).sort((a, b) => {
+    // Sort found items first, then not found items
+    const aHasMatch = a.inventoryMatch ? 1 : 0;
+    const bHasMatch = b.inventoryMatch ? 1 : 0;
+    return bHasMatch - aHasMatch;
+  });
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -370,16 +375,18 @@ export function OrderProcessor() {
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => handleQuantityUpdate(match, -match.orderItem.itemQuantity)}
+                              onClick={() => handleQuantityUpdate(match, -match.orderItem.itemQuantity, matchedItems.findIndex(m => m === match))}
                               disabled={loading}
+                              title="Subtract order quantity from inventory"
                             >
                               <Minus className="w-3 h-3" />
                             </Button>
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => handleQuantityUpdate(match, match.orderItem.itemQuantity)}
+                              onClick={() => handleQuantityUpdate(match, match.orderItem.itemQuantity, matchedItems.findIndex(m => m === match))}
                               disabled={loading}
+                              title="Add order quantity to inventory"
                             >
                               <Plus className="w-3 h-3" />
                             </Button>
