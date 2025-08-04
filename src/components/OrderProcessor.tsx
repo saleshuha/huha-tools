@@ -294,6 +294,22 @@ export function OrderProcessor() {
     const totalOrders = matchedItems.length;
     const foundOrders = matchedItems.filter(m => m.inventoryMatch).length;
 
+    // Debug logging to understand the matching issue
+    console.log('=== DEBUG: All matched items ===');
+    matchedItems.forEach((m, index) => {
+      if (m.inventoryMatch) {
+        console.log(`Item ${index + 1}:`, {
+          orderId: m.orderItem.orderId,
+          orderAsin: m.orderItem.asin,
+          orderSku: m.orderItem.sku,
+          matchType: m.matchType,
+          inventoryType: m.inventoryType,
+          inventoryAsin: 'asin' in m.inventoryMatch ? m.inventoryMatch.asin : 'N/A',
+          inventorySku: 'sku' in m.inventoryMatch ? m.inventoryMatch.sku : ('skuNumber' in m.inventoryMatch ? m.inventoryMatch.skuNumber : 'N/A')
+        });
+      }
+    });
+
     // More detailed breakdown of matches - accurate counting by match type
     const foundByAsin = matchedItems.filter(m => 
       m.inventoryMatch && m.matchType === 'asin'
@@ -301,6 +317,8 @@ export function OrderProcessor() {
     const foundBySku = matchedItems.filter(m => 
       m.inventoryMatch && m.matchType === 'sku'
     ).length;
+    
+    console.log('=== DEBUG: Final counts ===', { foundByAsin, foundBySku, totalFound: matchedItems.filter(m => m.inventoryMatch).length });
     const processedOrdersCount = dbResults.filter(r => r.processed).length;
     const totalValue = matchedItems.reduce((sum, match) => {
       const cost = parseFloat(match.orderItem.itemCost) || 0;
