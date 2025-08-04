@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
-import { Package, Hash, ArrowRight } from 'lucide-react';
+import { Package, Hash, ArrowRight, FileSpreadsheet } from 'lucide-react';
 import { AsinInventory } from './AsinInventory';
 import { SSInventory } from './SSInventory';
-type InventoryView = 'main' | 'asin' | 'ss';
+import { OrderProcessor } from './OrderProcessor';
+type InventoryView = 'main' | 'asin' | 'ss' | 'orders';
 export function Inventory() {
   console.log('Inventory component loaded, current view:', 'main');
   const [currentView, setCurrentView] = useState<InventoryView>('main');
@@ -32,6 +33,18 @@ export function Inventory() {
         </div>
       </div>;
   }
+  if (currentView === 'orders') {
+    return <div className="min-h-screen bg-gradient-surface p-4 md:p-6">
+        <div className="w-full space-y-6">
+        <div className="flex justify-end">
+          <Button variant="outline" onClick={() => setCurrentView('main')} className="mb-4">
+            ← Back to Inventory Menu
+          </Button>
+        </div>
+          <OrderProcessor />
+        </div>
+      </div>;
+  }
   return <div className="min-h-screen bg-gradient-surface">
       <div className="w-full space-y-6">
         {/* Header */}
@@ -46,7 +59,7 @@ export function Inventory() {
         </div>
 
         {/* Inventory Type Selection */}
-        <div className="grid md:grid-cols-2 gap-8 px-8">
+        <div className="grid md:grid-cols-3 gap-6 px-8">
           {/* ASIN Inventory */}
           <Card className="glass-container p-8 hover:shadow-lg transition-all duration-300 cursor-pointer group border-2 hover:border-primary/30" onClick={() => setCurrentView('asin')}>
             <div className="text-center space-y-4">
@@ -73,6 +86,23 @@ export function Inventory() {
               </p>
               <div className="flex items-center justify-center gap-2 text-secondary group-hover:gap-3 transition-all">
                 <span className="font-medium">Open SKU Inventory</span>
+                <ArrowRight className="w-4 h-4" />
+              </div>
+            </div>
+          </Card>
+
+          {/* Order Processing */}
+          <Card className="glass-container p-8 hover:shadow-lg transition-all duration-300 cursor-pointer group border-2 hover:border-accent/30" onClick={() => setCurrentView('orders')}>
+            <div className="text-center space-y-4">
+              <div className="w-16 h-16 bg-accent/10 rounded-full flex items-center justify-center mx-auto group-hover:bg-accent/20 transition-colors">
+                <FileSpreadsheet className="w-8 h-8 text-accent" />
+              </div>
+              <h2 className="text-2xl font-bold text-foreground">Order Processing</h2>
+              <p className="text-muted-foreground">
+                Upload order files to match ASINs/SKUs with inventory and update stock levels automatically.
+              </p>
+              <div className="flex items-center justify-center gap-2 text-accent group-hover:gap-3 transition-all">
+                <span className="font-medium">Process Orders</span>
                 <ArrowRight className="w-4 h-4" />
               </div>
             </div>
