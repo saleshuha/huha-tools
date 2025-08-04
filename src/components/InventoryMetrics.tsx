@@ -434,7 +434,7 @@ export function InventoryMetrics({
           className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background"
           onClick={() => handleMetricClick('active')}
         >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-3">
             <div>
               <CardTitle className="text-sm font-medium text-muted-foreground">
                 {showOnlyAsin ? 'Active ASIN' : showOnlySku ? 'Active SKU' : 'Active Items'}
@@ -445,7 +445,7 @@ export function InventoryMetrics({
               <Activity className="h-6 w-6 text-primary" />
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-0 pb-2">
             <p className="text-xs text-muted-foreground">Total inventory</p>
             <div className="mt-2 flex items-center text-xs text-green-600">
               <TrendingUp className="h-3 w-3 mr-1" />
@@ -459,7 +459,7 @@ export function InventoryMetrics({
           className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background"
           onClick={() => handleMetricClick('instock')}
         >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-3">
             <div>
               <CardTitle className="text-sm font-medium text-muted-foreground">In Stock</CardTitle>
               <div className="text-2xl font-bold text-green-600 mt-1">{stats.inStockItems}</div>
@@ -468,7 +468,7 @@ export function InventoryMetrics({
               <CheckCircle className="h-6 w-6 text-green-600" />
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-0 pb-2">
             <p className="text-xs text-muted-foreground">Available items</p>
             <div className="mt-2 flex items-center text-xs text-green-600">
               <TrendingUp className="h-3 w-3 mr-1" />
@@ -482,7 +482,7 @@ export function InventoryMetrics({
           className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background"
           onClick={() => handleMetricClick('outofstock')}
         >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-3">
             <div>
               <CardTitle className="text-sm font-medium text-muted-foreground">Out of Stock</CardTitle>
               <div className="text-2xl font-bold text-red-600 mt-1">{stats.outOfStockItems}</div>
@@ -491,7 +491,7 @@ export function InventoryMetrics({
               <XCircle className="h-6 w-6 text-red-600" />
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-0 pb-2">
             <p className="text-xs text-muted-foreground">Need restock</p>
             <div className="mt-2 flex items-center text-xs text-red-600">
               <TrendingDown className="h-3 w-3 mr-1" />
@@ -505,7 +505,7 @@ export function InventoryMetrics({
           className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background"
           onClick={() => handleMetricClick('recently-added')}
         >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-3">
             <div>
               <CardTitle className="text-sm font-medium text-muted-foreground">Recently Added</CardTitle>
               <div className="text-2xl font-bold text-blue-600 mt-1">{stats.recentlyAdded}</div>
@@ -514,7 +514,7 @@ export function InventoryMetrics({
               <Plus className="h-6 w-6 text-blue-600" />
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-0 pb-2">
             <p className="text-xs text-muted-foreground">Last 7 days</p>
             <div className="mt-2 flex items-center text-xs text-blue-600">
               <TrendingUp className="h-3 w-3 mr-1" />
@@ -528,7 +528,7 @@ export function InventoryMetrics({
           className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background"
           onClick={() => setShowSoldModal(true)}
         >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-3">
             <div>
               <CardTitle className="text-sm font-medium text-muted-foreground">Total Units</CardTitle>
               <div className="text-2xl font-bold text-purple-600 mt-1">
@@ -539,7 +539,7 @@ export function InventoryMetrics({
               <BarChart3 className="h-6 w-6 text-purple-600" />
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-0 pb-2">
             <p className="text-xs text-muted-foreground">Inventory count</p>
             <div className="mt-2 flex items-center text-xs text-purple-600">
               <TrendingUp className="h-3 w-3 mr-1" />
