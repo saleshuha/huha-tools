@@ -10,25 +10,83 @@ export function Inventory() {
   console.log('Inventory component loaded, current view:', 'main');
   const [currentView, setCurrentView] = useState<InventoryView>('main');
   if (currentView === 'asin') {
-    return <div className="min-h-screen bg-gradient-surface p-4 md:p-6">
-        <div className="w-full space-y-6">
-        <div className="flex justify-end">
-          <Button variant="default" onClick={() => setCurrentView('main')} className="mb-4 bg-primary hover:bg-primary/90 text-primary-foreground">
-            ← Back to Inventory Menu
-          </Button>
+    return <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-800 relative overflow-hidden">
+        {/* Animated Background Elements */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-10 left-10 w-96 h-96 bg-gradient-to-r from-purple-400/20 to-pink-400/20 rounded-full blur-3xl animate-float"></div>
+          <div className="absolute bottom-10 right-10 w-96 h-96 bg-gradient-to-r from-blue-400/20 to-cyan-400/20 rounded-full blur-3xl animate-float-delayed"></div>
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-gradient-to-r from-indigo-400/10 to-purple-400/10 rounded-full blur-3xl animate-pulse"></div>
         </div>
+
+        <div className="relative z-10 w-full space-y-8 p-6 md:p-10">
+          {/* Enhanced Header */}
+          <div className="flex justify-between items-center mb-8">
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <div className="absolute -inset-2 bg-gradient-to-r from-orange-600 to-amber-600 rounded-2xl blur opacity-30"></div>
+                <div className="relative w-12 h-12 bg-gradient-to-br from-orange-500 to-amber-500 rounded-2xl flex items-center justify-center shadow-xl">
+                  <Package className="w-6 h-6 text-white" />
+                </div>
+              </div>
+              <div>
+                <h1 className="text-3xl font-black bg-gradient-to-r from-slate-900 via-orange-800 to-slate-900 dark:from-white dark:via-orange-200 dark:to-white bg-clip-text text-transparent">
+                  ASIN Inventory Dashboard
+                </h1>
+                <p className="text-slate-600 dark:text-slate-300 text-sm">Advanced Amazon inventory management</p>
+              </div>
+            </div>
+            
+            <Button 
+              variant="outline" 
+              onClick={() => setCurrentView('main')} 
+              className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border-2 border-white/30 dark:border-slate-600/30 hover:bg-white dark:hover:bg-slate-700 hover:border-orange-300 dark:hover:border-orange-500 transition-all duration-500 group"
+            >
+              <ArrowRight className="w-4 h-4 mr-2 rotate-180 group-hover:-translate-x-1 transition-transform duration-300" />
+              Back to Menu
+            </Button>
+          </div>
+          
           <AsinInventory />
         </div>
       </div>;
   }
   if (currentView === 'ss') {
-    return <div className="min-h-screen bg-gradient-surface p-4 md:p-6">
-        <div className="w-full space-y-6">
-        <div className="flex justify-end">
-          <Button variant="outline" onClick={() => setCurrentView('main')} className="mb-4">
-            ← Back to Inventory Menu
-          </Button>
+    return <div className="min-h-screen bg-gradient-to-br from-amber-50 via-white to-orange-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-800 relative overflow-hidden">
+        {/* Animated Background Elements */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-10 left-10 w-96 h-96 bg-gradient-to-r from-orange-400/20 to-amber-400/20 rounded-full blur-3xl animate-float"></div>
+          <div className="absolute bottom-10 right-10 w-96 h-96 bg-gradient-to-r from-yellow-400/20 to-orange-400/20 rounded-full blur-3xl animate-float-delayed"></div>
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-gradient-to-r from-amber-400/10 to-orange-400/10 rounded-full blur-3xl animate-pulse"></div>
         </div>
+
+        <div className="relative z-10 w-full space-y-8 p-6 md:p-10">
+          {/* Enhanced Header */}
+          <div className="flex justify-between items-center mb-8">
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <div className="absolute -inset-2 bg-gradient-to-r from-orange-600 to-amber-600 rounded-2xl blur opacity-30"></div>
+                <div className="relative w-12 h-12 bg-gradient-to-br from-orange-500 to-amber-500 rounded-2xl flex items-center justify-center shadow-xl">
+                  <Archive className="w-6 h-6 text-white" />
+                </div>
+              </div>
+              <div>
+                <h1 className="text-3xl font-black bg-gradient-to-r from-slate-900 via-orange-800 to-slate-900 dark:from-white dark:via-orange-200 dark:to-white bg-clip-text text-transparent">
+                  SKU Inventory Dashboard
+                </h1>
+                <p className="text-slate-600 dark:text-slate-300 text-sm">Comprehensive warehouse management system</p>
+              </div>
+            </div>
+            
+            <Button 
+              variant="outline" 
+              onClick={() => setCurrentView('main')} 
+              className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border-2 border-white/30 dark:border-slate-600/30 hover:bg-white dark:hover:bg-slate-700 hover:border-orange-300 dark:hover:border-orange-500 transition-all duration-500 group"
+            >
+              <ArrowRight className="w-4 h-4 mr-2 rotate-180 group-hover:-translate-x-1 transition-transform duration-300" />
+              Back to Menu
+            </Button>
+          </div>
+          
           <SSInventory />
         </div>
       </div>;
