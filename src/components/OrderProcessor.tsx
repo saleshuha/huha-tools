@@ -326,7 +326,7 @@ export function OrderProcessor() {
                   <TableRow>
                     <TableHead>Order ID</TableHead>
                     <TableHead>ASIN/SKU</TableHead>
-                    <TableHead>Item Title</TableHead>
+                    <TableHead>Serial/Bin Number</TableHead>
                     <TableHead>Order Qty</TableHead>
                     <TableHead>Inventory Status</TableHead>
                     <TableHead>Current Stock</TableHead>
@@ -347,7 +347,18 @@ export function OrderProcessor() {
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="max-w-xs truncate">{match.orderItem.itemTitle}</TableCell>
+                      <TableCell>
+                        {match.inventoryMatch ? (
+                          <div className="font-mono text-sm">
+                            {'serialNumber' in match.inventoryMatch 
+                              ? match.inventoryMatch.serialNumber 
+                              : match.inventoryMatch.binSerialNumber
+                            }
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
                       <TableCell>{match.orderItem.itemQuantity}</TableCell>
                       <TableCell>
                         {match.inventoryMatch ? (
