@@ -103,9 +103,14 @@ export function Inventory() {
   if (currentView === 'orders') {
     return <div className="min-h-screen bg-gradient-surface p-4 md:p-6">
         <div className="w-full space-y-6">
-        <div className="flex justify-start">
-          <Button variant="outline" onClick={() => setCurrentView('main')} className="mb-4">
-            ← Back to Inventory Menu
+        <div className="flex items-start justify-between mb-8">
+          <Button 
+            variant="outline" 
+            onClick={() => setCurrentView('main')} 
+            className="group bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border-orange-200/50 dark:border-orange-800/50 hover:bg-orange-50 dark:hover:bg-orange-900/20 hover:border-orange-300 dark:hover:border-orange-700 transition-all duration-300 shadow-lg hover:shadow-xl"
+          >
+            <ArrowRight className="w-4 h-4 rotate-180 group-hover:-translate-x-1 transition-transform duration-300" />
+            Back to Menu
           </Button>
         </div>
           <OrderProcessor />
