@@ -81,8 +81,8 @@ export function Inventory() {
           {/* SKU Inventory */}
           <Card className="glass-container p-10 hover:shadow-xl transition-all duration-500 cursor-pointer group border-2 hover:border-secondary/40 hover:scale-[1.02] bg-gradient-to-br from-background to-background/50" onClick={() => setCurrentView('ss')}>
             <div className="text-center space-y-6">
-              <div className="w-20 h-20 bg-gradient-to-br from-secondary to-secondary/70 rounded-3xl flex items-center justify-center mx-auto group-hover:rotate-6 transition-transform duration-300 shadow-lg">
-                <Archive className="w-10 h-10 text-white" />
+              <div className="w-20 h-20 bg-secondary/10 rounded-3xl flex items-center justify-center mx-auto group-hover:rotate-6 transition-transform duration-300 shadow-lg group-hover:bg-secondary/20">
+                <Archive className="w-10 h-10 text-secondary" />
               </div>
               <h2 className="text-2xl font-bold text-foreground">SKU Inventory</h2>
               <p className="text-muted-foreground leading-relaxed">
