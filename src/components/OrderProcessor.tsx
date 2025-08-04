@@ -130,9 +130,11 @@ export function OrderProcessor() {
       let inventoryType: 'asin' | 'sku' | undefined;
       let matchType: 'asin' | 'sku' | undefined;
 
-      // First try to match by ASIN in ASIN inventory
-      if (order.asin) {
-        const asinMatch = asinInventory.find(item => item.asin === order.asin);
+      // Try to match by ASIN in ASIN inventory
+      if (order.asin && order.asin.trim()) {
+        const asinMatch = asinInventory.find(item => 
+          item.asin.toLowerCase() === order.asin.toLowerCase().trim()
+        );
         if (asinMatch) {
           inventoryMatch = asinMatch;
           inventoryType = 'asin';
@@ -140,20 +142,39 @@ export function OrderProcessor() {
         }
       }
 
-      // If no ASIN match, try to match by SKU in both inventories
-      if (!inventoryMatch && order.sku) {
-        const asinSkuMatch = asinInventory.find(item => item.sku === order.sku);
+      // Try to match by SKU in ASIN inventory
+      if (!inventoryMatch && order.sku && order.sku.trim()) {
+        const asinSkuMatch = asinInventory.find(item => 
+          item.sku && item.sku.toLowerCase() === order.sku.toLowerCase().trim()
+        );
         if (asinSkuMatch) {
           inventoryMatch = asinSkuMatch;
           inventoryType = 'asin';
           matchType = 'sku';
-        } else {
-          const skuMatch = skuInventory.find(item => item.skuNumber === order.sku);
-          if (skuMatch) {
-            inventoryMatch = skuMatch;
-            inventoryType = 'sku';
-            matchType = 'sku';
-          }
+        }
+      }
+
+      // Try to match by SKU in SKU inventory
+      if (!inventoryMatch && order.sku && order.sku.trim()) {
+        const skuMatch = skuInventory.find(item => 
+          item.skuNumber.toLowerCase() === order.sku.toLowerCase().trim()
+        );
+        if (skuMatch) {
+          inventoryMatch = skuMatch;
+          inventoryType = 'sku';
+          matchType = 'sku';
+        }
+      }
+
+      // Try to match by ASIN as SKU in SKU inventory (sometimes ASIN might be stored as SKU)
+      if (!inventoryMatch && order.asin && order.asin.trim()) {
+        const skuAsinMatch = skuInventory.find(item => 
+          item.skuNumber.toLowerCase() === order.asin.toLowerCase().trim()
+        );
+        if (skuAsinMatch) {
+          inventoryMatch = skuAsinMatch;
+          inventoryType = 'sku';
+          matchType = 'asin';
         }
       }
 
@@ -324,7 +345,6 @@ export function OrderProcessor() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Order ID</TableHead>
                     <TableHead>ASIN/SKU</TableHead>
                     <TableHead>Serial/Bin Number</TableHead>
                     <TableHead>Order Qty</TableHead>
@@ -336,7 +356,6 @@ export function OrderProcessor() {
                 <TableBody>
                   {filteredMatches.map((match, index) => (
                     <TableRow key={index}>
-                      <TableCell className="font-mono text-sm">{match.orderItem.orderId}</TableCell>
                       <TableCell>
                         <div className="space-y-1">
                           <div className="font-mono text-sm">{match.orderItem.asin || match.orderItem.sku}</div>
@@ -391,15 +410,6 @@ export function OrderProcessor() {
                               title="Subtract order quantity from inventory"
                             >
                               <Minus className="w-3 h-3" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleQuantityUpdate(match, match.orderItem.itemQuantity, matchedItems.findIndex(m => m === match))}
-                              disabled={loading}
-                              title="Add order quantity to inventory"
-                            >
-                              <Plus className="w-3 h-3" />
                             </Button>
                           </div>
                         )}
