@@ -96,7 +96,7 @@ export function Inventory() {
               </div>
               
               {/* Enhanced Description */}
-              <p className="text-slate-600 dark:text-slate-300 leading-relaxed text-base font-medium">
+              <p className="text-slate-600 dark:text-slate-300 leading-relaxed text-base font-medium h-12 flex items-center justify-center">
                 Advanced Amazon ASIN tracking with real-time management
               </p>
               
@@ -164,7 +164,7 @@ export function Inventory() {
               </div>
               
               {/* Enhanced Description */}
-              <p className="text-slate-600 dark:text-slate-300 leading-relaxed text-base font-medium">
+              <p className="text-slate-600 dark:text-slate-300 leading-relaxed text-base font-medium h-12 flex items-center justify-center">
                 SKU management with bin tracking and warehouse organization
               </p>
               
@@ -232,7 +232,7 @@ export function Inventory() {
               </div>
               
               {/* Enhanced Description */}
-              <p className="text-slate-600 dark:text-slate-300 leading-relaxed text-base font-medium">
+              <p className="text-slate-600 dark:text-slate-300 leading-relaxed text-base font-medium h-12 flex items-center justify-center">
                 Automated order fulfillment with intelligent matching
               </p>
               
