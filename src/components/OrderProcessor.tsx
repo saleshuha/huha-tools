@@ -769,8 +769,8 @@ export function OrderProcessor() {
                       <TableCell>
                         <div className="space-y-1">
                           <div className="font-mono text-sm">{match.orderItem.asin || match.orderItem.sku}</div>
-                          {match.matchType && <Badge variant="outline" className="text-xs">
-                              Matched by {match.matchType.toUpperCase()}
+                          {match.inventoryType && <Badge variant="outline" className="text-xs">
+                              Found in {match.inventoryType.toUpperCase()} Inventory
                             </Badge>}
                         </div>
                       </TableCell>
