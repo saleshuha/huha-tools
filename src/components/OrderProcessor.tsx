@@ -303,8 +303,16 @@ export function OrderProcessor() {
   const analytics = useMemo(() => {
     const totalOrders = matchedItems.length;
     const foundOrders = matchedItems.filter(m => m.inventoryMatch).length;
-    const foundByAsin = matchedItems.filter(m => m.inventoryMatch && m.matchType === 'asin').length;
-    const foundBySku = matchedItems.filter(m => m.inventoryMatch && m.matchType === 'sku').length;
+    
+    // More detailed breakdown of matches
+    const foundByAsin = matchedItems.filter(m => 
+      m.inventoryMatch && (m.matchType === 'asin' || (m.inventoryType === 'asin' && m.orderItem.asin))
+    ).length;
+    
+    const foundBySku = matchedItems.filter(m => 
+      m.inventoryMatch && (m.matchType === 'sku' || (m.inventoryType === 'sku' && m.orderItem.sku))
+    ).length;
+    
     const processedOrdersCount = dbResults.filter(r => r.processed).length;
     
     const totalValue = matchedItems.reduce((sum, match) => {
@@ -654,8 +662,11 @@ export function OrderProcessor() {
                       </div>
                     </div>
                     <div className="text-xs text-muted-foreground space-y-1">
-                      <div>By ASIN: {analytics.foundByAsin}</div>
-                      <div>By SKU: {analytics.foundBySku}</div>
+                      <div>By ASIN: <span className="font-medium text-blue-600">{analytics.foundByAsin}</span></div>
+                      <div>By SKU: <span className="font-medium text-green-600">{analytics.foundBySku}</span></div>
+                      <div className="text-[10px] text-muted-foreground/70">
+                        Total matched: {analytics.foundByAsin + analytics.foundBySku}
+                      </div>
                     </div>
                   </div>
                 </Card>
