@@ -428,7 +428,7 @@ export function InventoryMetrics({
       {/* Date Filter for Sold Units - Show only in ASIN mode */}
       {showOnlyAsin}
 
-      <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 mb-6">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 mb-4">
         {/* Active Items */}
         <Card 
           className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background"
