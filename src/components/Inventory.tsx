@@ -10,26 +10,84 @@ export function Inventory() {
   console.log('Inventory component loaded, current view:', 'main');
   const [currentView, setCurrentView] = useState<InventoryView>('main');
   if (currentView === 'asin') {
-    return <div className="min-h-screen bg-gradient-surface p-4 md:p-6">
-        <div className="w-full space-y-6">
-        <div className="flex justify-end">
-          <Button variant="default" onClick={() => setCurrentView('main')} className="mb-4 bg-primary hover:bg-primary/90 text-primary-foreground">
-            ← Back to Inventory Menu
-          </Button>
+    return <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 relative overflow-hidden">
+        {/* Enhanced Background Effects */}
+        <div className="absolute inset-0">
+          <div className="absolute top-0 left-1/4 w-96 h-96 bg-gradient-to-br from-blue-400/10 to-indigo-400/10 rounded-full blur-3xl"></div>
+          <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-gradient-to-br from-purple-400/10 to-blue-400/10 rounded-full blur-3xl"></div>
+          <div className="absolute top-1/2 left-0 w-64 h-64 bg-gradient-to-br from-indigo-400/5 to-purple-400/5 rounded-full blur-2xl"></div>
         </div>
-          <AsinInventory />
+        
+        <div className="relative z-10 w-full space-y-8 p-4 md:p-8">
+          {/* Enhanced Header with Back Button */}
+          <div className="flex items-center gap-6 mb-8">
+            <Button 
+              variant="outline" 
+              onClick={() => setCurrentView('main')} 
+              className="group bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border-blue-200/50 dark:border-blue-800/50 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-300 dark:hover:border-blue-700 transition-all duration-300 shadow-lg hover:shadow-xl"
+            >
+              <ArrowRight className="w-4 h-4 rotate-180 group-hover:-translate-x-1 transition-transform duration-300" />
+              Back to Menu
+            </Button>
+            
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-500 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/25">
+                <Package className="w-7 h-7 text-white" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                  ASIN Inventory Management
+                </h1>
+                <p className="text-slate-600 dark:text-slate-400">Advanced Amazon ASIN tracking and analytics</p>
+              </div>
+            </div>
+          </div>
+          
+          {/* Enhanced Content Container */}
+          <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-xl rounded-3xl border border-white/20 dark:border-slate-700/30 shadow-2xl shadow-blue-500/10">
+            <AsinInventory />
+          </div>
         </div>
       </div>;
   }
   if (currentView === 'ss') {
-    return <div className="min-h-screen bg-gradient-surface p-4 md:p-6">
-        <div className="w-full space-y-6">
-        <div className="flex justify-end">
-          <Button variant="outline" onClick={() => setCurrentView('main')} className="mb-4">
-            ← Back to Inventory Menu
-          </Button>
+    return <div className="min-h-screen bg-gradient-to-br from-slate-50 via-orange-50/30 to-amber-50/20 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 relative overflow-hidden">
+        {/* Enhanced Background Effects */}
+        <div className="absolute inset-0">
+          <div className="absolute top-0 left-1/4 w-96 h-96 bg-gradient-to-br from-orange-400/10 to-amber-400/10 rounded-full blur-3xl"></div>
+          <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-gradient-to-br from-yellow-400/10 to-orange-400/10 rounded-full blur-3xl"></div>
+          <div className="absolute top-1/2 right-0 w-64 h-64 bg-gradient-to-br from-amber-400/5 to-yellow-400/5 rounded-full blur-2xl"></div>
         </div>
-          <SSInventory />
+        
+        <div className="relative z-10 w-full space-y-8 p-4 md:p-8">
+          {/* Enhanced Header with Back Button */}
+          <div className="flex items-center gap-6 mb-8">
+            <Button 
+              variant="outline" 
+              onClick={() => setCurrentView('main')} 
+              className="group bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border-orange-200/50 dark:border-orange-800/50 hover:bg-orange-50 dark:hover:bg-orange-900/20 hover:border-orange-300 dark:hover:border-orange-700 transition-all duration-300 shadow-lg hover:shadow-xl"
+            >
+              <ArrowRight className="w-4 h-4 rotate-180 group-hover:-translate-x-1 transition-transform duration-300" />
+              Back to Menu
+            </Button>
+            
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-gradient-to-br from-orange-500 via-amber-500 to-yellow-500 rounded-2xl flex items-center justify-center shadow-lg shadow-orange-500/25">
+                <Archive className="w-7 h-7 text-white" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold bg-gradient-to-r from-orange-600 via-amber-600 to-yellow-600 bg-clip-text text-transparent">
+                  SKU Inventory Management
+                </h1>
+                <p className="text-slate-600 dark:text-slate-400">Advanced SKU tracking with bin management</p>
+              </div>
+            </div>
+          </div>
+          
+          {/* Enhanced Content Container */}
+          <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-xl rounded-3xl border border-white/20 dark:border-slate-700/30 shadow-2xl shadow-orange-500/10">
+            <SSInventory />
+          </div>
         </div>
       </div>;
   }
