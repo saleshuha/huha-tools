@@ -8,6 +8,7 @@ import { Label } from './ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { Progress } from './ui/progress';
 import { Checkbox } from './ui/checkbox';
+import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from './ui/pagination';
 import { FileSpreadsheet, Search, Minus, Download, History, CheckCircle, Package, AlertTriangle, TrendingUp, Clock, DollarSign, ShoppingCart, Printer, CheckSquare, Square } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import { useAsinInventory, AsinInventoryItem } from '@/hooks/useAsinInventory';
@@ -66,6 +67,10 @@ export function OrderProcessor() {
   const [selectAll, setSelectAll] = useState(false);
   const [fileName, setFileName] = useState<string>('');
   const [dbResults, setDbResults] = useState<any[]>([]);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(50); // Show 50 items per page
   const {
     inventory: asinInventory,
     updateQuantity: updateAsinQuantity
@@ -498,6 +503,17 @@ export function OrderProcessor() {
     const bHasMatch = b.inventoryMatch ? 1 : 0;
     return bHasMatch - aHasMatch;
   });
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredMatches.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedMatches = filteredMatches.slice(startIndex, endIndex);
+
+  // Reset page when search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
   const {
     getRootProps,
     getInputProps,
@@ -736,9 +752,13 @@ export function OrderProcessor() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredMatches.map((match, index) => <TableRow key={index}>
+                  {paginatedMatches.map((match, index) => <TableRow key={startIndex + index}>
                       <TableCell>
-                        <Checkbox checked={selectedItems.has(index)} onCheckedChange={() => handleSelectItem(index)} aria-label={`Select order ${match.orderItem.orderId}`} />
+                        <Checkbox 
+                          checked={selectedItems.has(startIndex + index)} 
+                          onCheckedChange={() => handleSelectItem(startIndex + index)} 
+                          aria-label={`Select order ${match.orderItem.orderId}`} 
+                        />
                       </TableCell>
                       <TableCell>
                         <div className="space-y-1">
@@ -778,6 +798,75 @@ export function OrderProcessor() {
                 </TableBody>
               </Table>
             </div>
+            
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between pt-4">
+                <div className="text-sm text-muted-foreground">
+                  Showing {startIndex + 1}-{Math.min(endIndex, filteredMatches.length)} of {filteredMatches.length} items
+                </div>
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious 
+                        href="#" 
+                        onClick={(e) => {
+                          e.preventDefault();
+                          if (currentPage > 1) setCurrentPage(currentPage - 1);
+                        }}
+                        className={currentPage <= 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                      />
+                    </PaginationItem>
+                    
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      let pageNum;
+                      if (totalPages <= 5) {
+                        pageNum = i + 1;
+                      } else if (currentPage <= 3) {
+                        pageNum = i + 1;
+                      } else if (currentPage >= totalPages - 2) {
+                        pageNum = totalPages - 4 + i;
+                      } else {
+                        pageNum = currentPage - 2 + i;
+                      }
+                      
+                      return (
+                        <PaginationItem key={pageNum}>
+                          <PaginationLink
+                            href="#"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setCurrentPage(pageNum);
+                            }}
+                            isActive={currentPage === pageNum}
+                            className="cursor-pointer"
+                          >
+                            {pageNum}
+                          </PaginationLink>
+                        </PaginationItem>
+                      );
+                    })}
+                    
+                    {totalPages > 5 && currentPage < totalPages - 2 && (
+                      <PaginationItem>
+                        <PaginationEllipsis />
+                      </PaginationItem>
+                    )}
+                    
+                    <PaginationItem>
+                      <PaginationNext
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          if (currentPage < totalPages) setCurrentPage(currentPage + 1);
+                        }}
+                        className={currentPage >= totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              </div>
+            )}
           </div>
         </Card>}
     </div>;
