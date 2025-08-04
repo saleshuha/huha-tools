@@ -45,61 +45,6 @@ export function Inventory() {
                   <p className="text-slate-600 dark:text-slate-400">Advanced Amazon ASIN tracking and analytics</p>
                 </div>
               </div>
-              
-              {/* Metrics Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card className="glass-container cursor-pointer hover:shadow-lg transition-all duration-300 hover:border-orange-500/30">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Total ASINs</p>
-                        <p className="text-2xl font-bold text-orange-600">2,847</p>
-                        <p className="text-xs text-muted-foreground">Active listings</p>
-                      </div>
-                      <Package className="w-6 h-6 text-orange-600" />
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="glass-container cursor-pointer hover:shadow-lg transition-all duration-300 hover:border-green-500/30">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">In Stock</p>
-                        <p className="text-2xl font-bold text-green-600">1,945</p>
-                        <p className="text-xs text-muted-foreground">Available units</p>
-                      </div>
-                      <ArrowRight className="w-6 h-6 text-green-600" />
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="glass-container cursor-pointer hover:shadow-lg transition-all duration-300 hover:border-red-500/30">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Low Stock</p>
-                        <p className="text-2xl font-bold text-red-600">156</p>
-                        <p className="text-xs text-muted-foreground">Need reorder</p>
-                      </div>
-                      <Archive className="w-6 h-6 text-red-600" />
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="glass-container cursor-pointer hover:shadow-lg transition-all duration-300 hover:border-blue-500/30">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Total Value</p>
-                        <p className="text-2xl font-bold text-blue-600">$458K</p>
-                        <p className="text-xs text-muted-foreground">Inventory worth</p>
-                      </div>
-                      <FileSpreadsheet className="w-6 h-6 text-blue-600" />
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
             </div>
           </div>
           
@@ -143,61 +88,6 @@ export function Inventory() {
                   </h1>
                   <p className="text-slate-600 dark:text-slate-400">Advanced SKU tracking with bin management</p>
                 </div>
-              </div>
-              
-              {/* Metrics Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card className="glass-container cursor-pointer hover:shadow-lg transition-all duration-300 hover:border-orange-500/30">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Active SKUs</p>
-                        <p className="text-2xl font-bold text-orange-600">3,245</p>
-                        <p className="text-xs text-muted-foreground">Total SKU items</p>
-                      </div>
-                      <Archive className="w-6 h-6 text-orange-600" />
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="glass-container cursor-pointer hover:shadow-lg transition-all duration-300 hover:border-green-500/30">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">In Stock</p>
-                        <p className="text-2xl font-bold text-green-600">2,198</p>
-                        <p className="text-xs text-muted-foreground">Available SKUs</p>
-                      </div>
-                      <Package className="w-6 h-6 text-green-600" />
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="glass-container cursor-pointer hover:shadow-lg transition-all duration-300 hover:border-red-500/30">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Out of Stock</p>
-                        <p className="text-2xl font-bold text-red-600">87</p>
-                        <p className="text-xs text-muted-foreground">Need restock</p>
-                      </div>
-                      <ArrowRight className="w-6 h-6 text-red-600" />
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="glass-container cursor-pointer hover:shadow-lg transition-all duration-300 hover:border-blue-500/30">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Total Units</p>
-                        <p className="text-2xl font-bold text-blue-600">15,847</p>
-                        <p className="text-xs text-muted-foreground">Total quantity</p>
-                      </div>
-                      <FileSpreadsheet className="w-6 h-6 text-blue-600" />
-                    </div>
-                  </CardContent>
-                </Card>
               </div>
             </div>
           </div>
