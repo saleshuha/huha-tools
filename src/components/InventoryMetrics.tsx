@@ -35,6 +35,7 @@ interface InventoryStats {
   asinSoldUnits: number;
   skuTotalUnits: number;
   skuSoldUnits: number;
+  missingSku: number;
 }
 interface InventoryMetricsProps {
   showOnlyAsin?: boolean;
@@ -58,10 +59,11 @@ export function InventoryMetrics({
     asinTotalUnits: 0,
     asinSoldUnits: 0,
     skuTotalUnits: 0,
-    skuSoldUnits: 0
+    skuSoldUnits: 0,
+    missingSku: 0
   });
   const [loading, setLoading] = useState(true);
-  const [selectedMetric, setSelectedMetric] = useState<'active' | 'instock' | 'outofstock' | 'sold' | 'recently-added' | null>(null);
+  const [selectedMetric, setSelectedMetric] = useState<'active' | 'instock' | 'outofstock' | 'sold' | 'recently-added' | 'missing-sku' | null>(null);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [exportLoading, setExportLoading] = useState(false);
@@ -105,6 +107,10 @@ export function InventoryMetrics({
           });
         }
         const asinSoldUnits = soldItems.reduce((sum, item) => sum + item.quantity, 0);
+        
+        // Calculate items with missing SKU
+        const missingSku = asinItems.filter(item => !item.sku || item.sku.trim() === '').length;
+        
         setStats({
           activeItems,
           inStockItems,
@@ -113,7 +119,8 @@ export function InventoryMetrics({
           asinTotalUnits,
           asinSoldUnits,
           skuTotalUnits: 0,
-          skuSoldUnits: 0
+          skuSoldUnits: 0,
+          missingSku
         });
       } else if (showOnlySku) {
         // Load only SKU data
@@ -157,7 +164,8 @@ export function InventoryMetrics({
           asinTotalUnits: 0,
           asinSoldUnits: 0,
           skuTotalUnits,
-          skuSoldUnits
+          skuSoldUnits,
+          missingSku: 0
         });
       } else {
         // Load both ASIN and SKU data
@@ -196,6 +204,9 @@ export function InventoryMetrics({
         ).length;
         const recentlyAdded = recentlyAddedAsin + recentlyAddedSku;
         
+        // Calculate items with missing SKU (only for ASIN)
+        const missingSku = asinItems.filter(item => !item.sku || item.sku.trim() === '').length;
+        
         setStats({
           activeItems,
           inStockItems,
@@ -204,7 +215,8 @@ export function InventoryMetrics({
           asinTotalUnits,
           asinSoldUnits,
           skuTotalUnits,
-          skuSoldUnits
+          skuSoldUnits,
+          missingSku
         });
       }
     } catch (error: any) {
@@ -217,6 +229,35 @@ export function InventoryMetrics({
       setLoading(false);
     }
   };
+  const loadMissingSkuItems = async () => {
+    try {
+      if (showOnlyAsin || !showOnlySku) {
+        // Load ASIN data with missing SKUs
+        const { data: asinData } = await supabase
+          .from('asin_inventory')
+          .select('*')
+          .eq('country', selectedCountry)
+          .or('sku.is.null,sku.eq.');
+        
+        const allItems = (asinData || []).map(item => ({
+          ...item,
+          type: 'asin' as const,
+          identifier: `${item.asin} (${item.serial_number})`
+        }));
+        
+        setInventoryItems(allItems);
+      } else {
+        setInventoryItems([]);
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error loading missing SKU items",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  };
+
   const loadDetailedItems = async (metric: 'active' | 'instock' | 'outofstock' | 'recently-added') => {
     try {
       if (showOnlyAsin) {
@@ -381,6 +422,11 @@ export function InventoryMetrics({
   const handleMetricClick = async (metric: 'active' | 'instock' | 'outofstock' | 'recently-added') => {
     setSelectedMetric(metric);
     await loadDetailedItems(metric);
+  };
+
+  const handleMissingSkuClick = async () => {
+    setSelectedMetric('missing-sku');
+    await loadMissingSkuItems();
   };
   const exportToExcel = async () => {
     try {
@@ -548,6 +594,31 @@ export function InventoryMetrics({
           </CardContent>
         </Card>
 
+        {/* Missing SKU - Only show when viewing ASIN or combined view */}
+        {(!showOnlySku) && (
+          <Card 
+            className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background"
+            onClick={handleMissingSkuClick}
+          >
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-3">
+              <div>
+                <CardTitle className="text-sm font-medium text-muted-foreground">Missing SKU</CardTitle>
+                <div className="text-2xl font-bold text-orange-600 mt-1">{stats.missingSku}</div>
+              </div>
+              <div className="w-12 h-12 bg-orange-500/10 rounded-full flex items-center justify-center">
+                <FileText className="h-6 w-6 text-orange-600" />
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0 pb-2">
+              <p className="text-xs text-muted-foreground">ASIN without SKU</p>
+              <div className="mt-2 flex items-center text-xs text-orange-600">
+                <TrendingUp className="h-3 w-3 mr-1" />
+                Click to view details
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
       </div>
 
       {/* Details Modal */}
@@ -560,6 +631,7 @@ export function InventoryMetrics({
               {selectedMetric === 'instock' && 'In Stock Items'}
               {selectedMetric === 'outofstock' && 'Out of Stock Items'}
               {selectedMetric === 'recently-added' && 'Recently Added Items'}
+              {selectedMetric === 'missing-sku' && 'Items with Missing SKU'}
               <Badge variant="outline" className="ml-2">
                 {filteredItems.length} items
               </Badge>
