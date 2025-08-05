@@ -592,8 +592,9 @@ export function SSInventory() {
                     }
                   }} />
                     </th>
-                    <th className="p-4 text-left font-medium">SKU Number</th>
+                    <th className="p-4 text-left font-medium">ASIN Number</th>
                     <th className="p-4 text-left font-medium">Bin/Serial Number</th>
+                    <th className="p-4 text-left font-medium">SKU Number</th>
                     <th className="p-4 text-left font-medium">Status</th>
                     <th className="p-4 text-left font-medium">Quantity</th>
                     <th className="p-4 text-left font-medium">Date Added</th>
@@ -620,6 +621,7 @@ export function SSInventory() {
                           onUpdate={(newBinSerial, reason) => updateBinLocation(item.id, newBinSerial)}
                         />
                       </td>
+                      <td className="p-4 font-mono text-sm">{item.skuNumber}</td>
                       <td className="p-4">
                         <Badge variant={item.status === 'in-stock' ? 'default' : item.status === 'sold' ? 'secondary' : item.status === 'reserved' ? 'outline' : 'destructive'}>
                           {item.status.replace('-', ' ').toUpperCase()}
