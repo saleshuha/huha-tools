@@ -9,7 +9,7 @@ import { ScrollArea } from './ui/scroll-area';
 import { useCountry } from '@/contexts/CountryContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Package, CheckCircle, XCircle, Search, Download, RefreshCw, Activity, BarChart3, TrendingDown } from 'lucide-react';
+import { Package, CheckCircle, XCircle, Search, Download, RefreshCw, Activity, BarChart3, TrendingDown, Hash } from 'lucide-react';
 import * as XLSX from 'xlsx';
 interface SkuInventoryItem {
   id: string;
@@ -27,6 +27,7 @@ interface SkuInventoryStats {
   outOfStockItems: number;
   totalUnits: number;
   soldUnits: number;
+  missingSku: number;
 }
 export function SkuInventoryMetrics() {
   const {
@@ -40,10 +41,11 @@ export function SkuInventoryMetrics() {
     inStockItems: 0,
     outOfStockItems: 0,
     totalUnits: 0,
-    soldUnits: 0
+    soldUnits: 0,
+    missingSku: 0
   });
   const [loading, setLoading] = useState(true);
-  const [selectedMetric, setSelectedMetric] = useState<'active' | 'instock' | 'outofstock' | 'totalunits' | 'soldunits' | null>(null);
+  const [selectedMetric, setSelectedMetric] = useState<'active' | 'instock' | 'outofstock' | 'totalunits' | 'soldunits' | 'missingsku' | null>(null);
   const [inventoryItems, setInventoryItems] = useState<SkuInventoryItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [exportLoading, setExportLoading] = useState(false);
@@ -59,12 +61,14 @@ export function SkuInventoryMetrics() {
       const outOfStockItems = allItems.filter(item => item.quantity === 0).length;
       const totalUnits = allItems.reduce((sum, item) => sum + item.quantity, 0);
       const soldUnits = allItems.filter(item => item.status === 'sold').reduce((sum, item) => sum + item.quantity, 0);
+      const missingSku = allItems.filter(item => !item.sku_number || item.sku_number.trim() === '').length;
       setStats({
         activeItems,
         inStockItems,
         outOfStockItems,
         totalUnits,
-        soldUnits
+        soldUnits,
+        missingSku
       });
     } catch (error: any) {
       toast({
@@ -76,7 +80,7 @@ export function SkuInventoryMetrics() {
       setLoading(false);
     }
   };
-  const loadDetailedItems = async (metric: 'active' | 'instock' | 'outofstock') => {
+  const loadDetailedItems = async (metric: 'active' | 'instock' | 'outofstock' | 'missingsku') => {
     try {
       const {
         data: skuData
@@ -88,6 +92,8 @@ export function SkuInventoryMetrics() {
         filteredItems = filteredItems.filter(item => item.quantity > 0);
       } else if (metric === 'outofstock') {
         filteredItems = filteredItems.filter(item => item.quantity === 0);
+      } else if (metric === 'missingsku') {
+        filteredItems = filteredItems.filter(item => !item.sku_number || item.sku_number.trim() === '');
       }
       setInventoryItems(filteredItems);
     } catch (error: any) {
@@ -98,7 +104,7 @@ export function SkuInventoryMetrics() {
       });
     }
   };
-  const handleMetricClick = async (metric: 'active' | 'instock' | 'outofstock') => {
+  const handleMetricClick = async (metric: 'active' | 'instock' | 'outofstock' | 'missingsku') => {
     setSelectedMetric(metric);
     await loadDetailedItems(metric);
   };
@@ -145,7 +151,7 @@ export function SkuInventoryMetrics() {
       </div>;
   }
   return <>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 mb-8">
         {/* Active SKU Items */}
         <Card className="glass-container cursor-pointer hover:shadow-lg transition-all duration-300 hover:border-primary/30" onClick={() => handleMetricClick('active')}>
           <CardContent className="p-4">
@@ -202,6 +208,34 @@ export function SkuInventoryMetrics() {
           </CardContent>
         </Card>
 
+        {/* Missing SKU Items */}
+        <Card className="glass-container cursor-pointer hover:shadow-lg transition-all duration-300 hover:border-orange-500/30" onClick={() => handleMetricClick('missingsku')}>
+          <CardContent className="p-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Missing SKU</p>
+                <p className="text-2xl font-bold text-orange-600">{stats.missingSku}</p>
+                <p className="text-xs text-muted-foreground">Need SKU numbers</p>
+              </div>
+              <Hash className="w-6 h-6 text-orange-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Sold Units */}
+        <Card className="glass-container">
+          <CardContent className="p-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Sold Units</p>
+                <p className="text-2xl font-bold text-purple-600">{stats.soldUnits}</p>
+                <p className="text-xs text-muted-foreground">Units sold</p>
+              </div>
+              <TrendingDown className="w-6 h-6 text-purple-600" />
+            </div>
+          </CardContent>
+        </Card>
+
       </div>
 
       {/* Details Modal */}
@@ -213,6 +247,7 @@ export function SkuInventoryMetrics() {
               {selectedMetric === 'active' && 'All Active SKU Items'}
               {selectedMetric === 'instock' && 'SKU Items In Stock'}
               {selectedMetric === 'outofstock' && 'SKU Items Out of Stock'}
+              {selectedMetric === 'missingsku' && 'SKU Items Missing SKU Numbers'}
               <Badge variant="outline" className="ml-2">
                 {filteredItems.length} items
               </Badge>

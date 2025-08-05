@@ -21,6 +21,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { DualQuantityEditor } from './DualQuantityEditor';
 import { StockHistoryDialog } from './StockHistoryDialog';
 import { MultiBinEditor } from './MultiBinEditor';
+import { SkuEditor } from './SkuEditor';
 import { SkuInventoryMetrics } from './SkuInventoryMetrics';
 import { InventoryDashboard } from './InventoryDashboard';
 import { format } from 'date-fns';
@@ -35,6 +36,7 @@ export function SSInventory() {
     bulkAdd,
     updateQuantity,
     updateBinLocation,
+    updateSku,
     refetch
   } = useSkuInventory();
   const {
@@ -621,7 +623,12 @@ export function SSInventory() {
                           onUpdate={(newBinSerial, reason) => updateBinLocation(item.id, newBinSerial)}
                         />
                       </td>
-                      <td className="p-4 font-mono text-sm">{item.skuNumber}</td>
+                      <td className="p-4">
+                        <SkuEditor 
+                          currentSku={item.skuNumber} 
+                          onUpdate={(newSku) => updateSku(item.id, newSku)} 
+                        />
+                      </td>
                       <td className="p-4">
                         <Badge variant={item.status === 'in-stock' ? 'default' : item.status === 'sold' ? 'secondary' : item.status === 'reserved' ? 'outline' : 'destructive'}>
                           {item.status.replace('-', ' ').toUpperCase()}

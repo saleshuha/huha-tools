@@ -362,6 +362,35 @@ export function useSkuInventory() {
     }
   };
 
+  const updateSku = async (id: string, newSku: string) => {
+    if (!selectedCountry) return;
+    
+    try {
+      const { error } = await supabase
+        .from('sku_inventory')
+        .update({ sku_number: newSku, updated_at: new Date().toISOString() })
+        .eq('id', id)
+        .eq('country', selectedCountry);
+
+      if (error) throw error;
+
+      setInventory(prev => prev.map(item =>
+        item.id === id ? { ...item, skuNumber: newSku } : item
+      ));
+
+      toast({
+        title: "SKU updated",
+        description: "SKU number has been updated successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error updating SKU",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   return {
     inventory,
     loading,
@@ -372,6 +401,7 @@ export function useSkuInventory() {
     restockItem,
     updateQuantity,
     updateBinLocation,
+    updateSku,
     refetch: loadInventory,
   };
 }
