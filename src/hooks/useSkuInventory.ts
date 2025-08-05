@@ -391,6 +391,63 @@ export function useSkuInventory() {
     }
   };
 
+  const bulkUpdateSkus = async (binSkuPairs: { binSerial: string; sku: string }[]) => {
+    if (!selectedCountry) return;
+    
+    try {
+      const updates = [];
+      
+      for (const pair of binSkuPairs) {
+        const { error } = await supabase
+          .from('sku_inventory')
+          .update({ sku_number: pair.sku.trim() || null })
+          .eq('bin_serial_number', pair.binSerial)
+          .eq('country', selectedCountry);
+
+        if (error) {
+          console.error('Error updating SKU for bin:', pair.binSerial, error);
+          updates.push({ binSerial: pair.binSerial, success: false, error: error.message });
+        } else {
+          updates.push({ binSerial: pair.binSerial, success: true });
+        }
+      }
+
+      // Update local state for successful updates
+      const successfulUpdates = updates.filter(update => update.success);
+      if (successfulUpdates.length > 0) {
+        setInventory(prev => prev.map(item => {
+          const update = binSkuPairs.find(pair => pair.binSerial === item.binSerialNumber);
+          if (update) {
+            return { ...item, skuNumber: update.sku };
+          }
+          return item;
+        }));
+      }
+
+      const successCount = successfulUpdates.length;
+      const failureCount = updates.length - successCount;
+
+      if (successCount > 0) {
+        toast({
+          title: "Bulk SKU update completed",
+          description: `Successfully updated ${successCount} items${failureCount > 0 ? `, ${failureCount} failed` : ''}`,
+        });
+      } else {
+        toast({
+          title: "Bulk SKU update failed",
+          description: "No items were updated successfully",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error updating SKUs",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   return {
     inventory,
     loading,
@@ -402,6 +459,7 @@ export function useSkuInventory() {
     updateQuantity,
     updateBinLocation,
     updateSku,
+    bulkUpdateSkus,
     refetch: loadInventory,
   };
 }
