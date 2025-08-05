@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Card, CardContent } from './ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
@@ -151,90 +151,99 @@ export function SkuInventoryMetrics() {
       </div>;
   }
   return <>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 mb-8">
+      <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 mb-3">
         {/* Active SKU Items */}
-        <Card className="glass-container cursor-pointer hover:shadow-lg transition-all duration-300 hover:border-primary/30" onClick={() => handleMetricClick('active')}>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Active SKU Items</p>
-                <p className="text-2xl font-bold text-primary">{stats.activeItems}</p>
-                <p className="text-xs text-muted-foreground">Total SKU inventory</p>
-              </div>
-              <Activity className="w-6 h-6 text-primary" />
+        <Card 
+          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-24 flex flex-col" 
+          onClick={() => handleMetricClick('active')}
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
+            <div className="flex flex-col justify-center min-w-0 flex-1">
+              <CardTitle className="text-xs font-medium text-muted-foreground truncate">Active SKU Items</CardTitle>
+              <div className="text-xl font-bold text-primary mt-1">{stats.activeItems}</div>
             </div>
+            <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
+              <Activity className="h-4 w-4 text-primary" />
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0 pb-2 flex-shrink-0">
+            <p className="text-xs text-muted-foreground truncate">Total SKU inventory</p>
           </CardContent>
         </Card>
 
         {/* In Stock SKU Items */}
-        <Card className="glass-container cursor-pointer hover:shadow-lg transition-all duration-300 hover:border-green-500/30" onClick={() => handleMetricClick('instock')}>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">SKU In Stock</p>
-                <p className="text-2xl font-bold text-green-600">{stats.inStockItems}</p>
-                <p className="text-xs text-muted-foreground">Available SKUs</p>
-              </div>
-              <CheckCircle className="w-6 h-6 text-green-600" />
+        <Card 
+          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-24 flex flex-col" 
+          onClick={() => handleMetricClick('instock')}
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
+            <div className="flex flex-col justify-center min-w-0 flex-1">
+              <CardTitle className="text-xs font-medium text-muted-foreground truncate">SKU In Stock</CardTitle>
+              <div className="text-xl font-bold text-green-600 mt-1">{stats.inStockItems}</div>
             </div>
+            <div className="w-8 h-8 bg-green-500/10 rounded-full flex items-center justify-center flex-shrink-0">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0 pb-2 flex-shrink-0">
+            <p className="text-xs text-muted-foreground truncate">Available SKUs</p>
           </CardContent>
         </Card>
 
         {/* Out of Stock SKU Items */}
-        <Card className="glass-container cursor-pointer hover:shadow-lg transition-all duration-300 hover:border-red-500/30" onClick={() => handleMetricClick('outofstock')}>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">SKU Out of Stock</p>
-                <p className="text-2xl font-bold text-red-600">{stats.outOfStockItems}</p>
-                <p className="text-xs text-muted-foreground">Need restock</p>
-              </div>
-              <XCircle className="w-6 h-6 text-red-600" />
+        <Card 
+          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-24 flex flex-col" 
+          onClick={() => handleMetricClick('outofstock')}
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
+            <div className="flex flex-col justify-center min-w-0 flex-1">
+              <CardTitle className="text-xs font-medium text-muted-foreground truncate">SKU Out of Stock</CardTitle>
+              <div className="text-xl font-bold text-red-600 mt-1">{stats.outOfStockItems}</div>
             </div>
+            <div className="w-8 h-8 bg-red-500/10 rounded-full flex items-center justify-center flex-shrink-0">
+              <XCircle className="h-4 w-4 text-red-600" />
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0 pb-2 flex-shrink-0">
+            <p className="text-xs text-muted-foreground truncate">Need restock</p>
           </CardContent>
         </Card>
 
         {/* Total Units */}
-        <Card className="glass-container">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Units</p>
-                <p className="text-2xl font-bold text-blue-600">{stats.totalUnits}</p>
-                <p className="text-xs text-muted-foreground">Total quantity</p>
-              </div>
-              <BarChart3 className="w-6 h-6 text-blue-600" />
+        <Card className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-24 flex flex-col">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
+            <div className="flex flex-col justify-center min-w-0 flex-1">
+              <CardTitle className="text-xs font-medium text-muted-foreground truncate">Total Units</CardTitle>
+              <div className="text-xl font-bold text-blue-600 mt-1">{stats.totalUnits}</div>
             </div>
+            <div className="w-8 h-8 bg-blue-500/10 rounded-full flex items-center justify-center flex-shrink-0">
+              <BarChart3 className="h-4 w-4 text-blue-600" />
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0 pb-2 flex-shrink-0">
+            <p className="text-xs text-muted-foreground truncate">Total quantity</p>
           </CardContent>
         </Card>
 
         {/* Missing SKU Items */}
-        <Card className="glass-container cursor-pointer hover:shadow-lg transition-all duration-300 hover:border-orange-500/30" onClick={() => handleMetricClick('missingsku')}>
-          <CardContent className="p-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Missing SKU</p>
-                <p className="text-2xl font-bold text-orange-600">{stats.missingSku}</p>
-                <p className="text-xs text-muted-foreground">Need SKU numbers</p>
-              </div>
-              <Tag className="w-6 h-6 text-orange-600" />
+        <Card 
+          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-24 flex flex-col" 
+          onClick={() => handleMetricClick('missingsku')}
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
+            <div className="flex flex-col justify-center min-w-0 flex-1">
+              <CardTitle className="text-xs font-medium text-muted-foreground truncate">Missing SKU</CardTitle>
+              <div className="text-xl font-bold text-orange-600 mt-1">{stats.missingSku}</div>
             </div>
+            <div className="w-8 h-8 bg-orange-500/10 rounded-full flex items-center justify-center flex-shrink-0">
+              <Tag className="h-4 w-4 text-orange-600" />
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0 pb-2 flex-shrink-0">
+            <p className="text-xs text-muted-foreground truncate">Need SKU numbers</p>
           </CardContent>
         </Card>
 
-        {/* Sold Units */}
-        <Card className="glass-container">
-          <CardContent className="p-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Sold Units</p>
-                <p className="text-2xl font-bold text-purple-600">{stats.soldUnits}</p>
-                <p className="text-xs text-muted-foreground">Units sold</p>
-              </div>
-              <TrendingDown className="w-6 h-6 text-purple-600" />
-            </div>
-          </CardContent>
-        </Card>
 
       </div>
 
