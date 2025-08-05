@@ -9,7 +9,7 @@ import { ScrollArea } from './ui/scroll-area';
 import { useCountry } from '@/contexts/CountryContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Package, CheckCircle, XCircle, Search, Download, RefreshCw, Activity, BarChart3, TrendingDown, Tag } from 'lucide-react';
+import { Package, CheckCircle, XCircle, Search, Download, RefreshCw, Activity, BarChart3, TrendingDown, Tag, Plus } from 'lucide-react';
 import * as XLSX from 'xlsx';
 interface SkuInventoryItem {
   id: string;
@@ -25,6 +25,7 @@ interface SkuInventoryStats {
   activeItems: number;
   inStockItems: number;
   outOfStockItems: number;
+  recentlyAdded: number;
   totalUnits: number;
   soldUnits: number;
   missingSku: number;
@@ -40,12 +41,13 @@ export function SkuInventoryMetrics() {
     activeItems: 0,
     inStockItems: 0,
     outOfStockItems: 0,
+    recentlyAdded: 0,
     totalUnits: 0,
     soldUnits: 0,
     missingSku: 0
   });
   const [loading, setLoading] = useState(true);
-  const [selectedMetric, setSelectedMetric] = useState<'active' | 'instock' | 'outofstock' | 'totalunits' | 'soldunits' | 'missingsku' | null>(null);
+  const [selectedMetric, setSelectedMetric] = useState<'active' | 'instock' | 'outofstock' | 'recentlyadded' | 'totalunits' | 'soldunits' | 'missingsku' | null>(null);
   const [inventoryItems, setInventoryItems] = useState<SkuInventoryItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [exportLoading, setExportLoading] = useState(false);
@@ -59,6 +61,9 @@ export function SkuInventoryMetrics() {
       const activeItems = allItems.length;
       const inStockItems = allItems.filter(item => item.quantity > 0).length;
       const outOfStockItems = allItems.filter(item => item.quantity === 0).length;
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      const recentlyAdded = allItems.filter(item => new Date(item.date_added) >= sevenDaysAgo).length;
       const totalUnits = allItems.reduce((sum, item) => sum + item.quantity, 0);
       const soldUnits = allItems.filter(item => item.status === 'sold').reduce((sum, item) => sum + item.quantity, 0);
       const missingSku = allItems.filter(item => !item.sku_number || item.sku_number.trim() === '').length;
@@ -66,6 +71,7 @@ export function SkuInventoryMetrics() {
         activeItems,
         inStockItems,
         outOfStockItems,
+        recentlyAdded,
         totalUnits,
         soldUnits,
         missingSku
@@ -80,7 +86,7 @@ export function SkuInventoryMetrics() {
       setLoading(false);
     }
   };
-  const loadDetailedItems = async (metric: 'active' | 'instock' | 'outofstock' | 'missingsku') => {
+  const loadDetailedItems = async (metric: 'active' | 'instock' | 'outofstock' | 'recentlyadded' | 'missingsku') => {
     try {
       const {
         data: skuData
@@ -92,6 +98,10 @@ export function SkuInventoryMetrics() {
         filteredItems = filteredItems.filter(item => item.quantity > 0);
       } else if (metric === 'outofstock') {
         filteredItems = filteredItems.filter(item => item.quantity === 0);
+      } else if (metric === 'recentlyadded') {
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        filteredItems = filteredItems.filter(item => new Date(item.date_added) >= sevenDaysAgo);
       } else if (metric === 'missingsku') {
         filteredItems = filteredItems.filter(item => !item.sku_number || item.sku_number.trim() === '');
       }
@@ -104,7 +114,7 @@ export function SkuInventoryMetrics() {
       });
     }
   };
-  const handleMetricClick = async (metric: 'active' | 'instock' | 'outofstock' | 'missingsku') => {
+  const handleMetricClick = async (metric: 'active' | 'instock' | 'outofstock' | 'recentlyadded' | 'missingsku') => {
     setSelectedMetric(metric);
     await loadDetailedItems(metric);
   };
@@ -209,15 +219,34 @@ export function SkuInventoryMetrics() {
           </CardContent>
         </Card>
 
+        {/* Recently Added Items */}
+        <Card 
+          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-24 flex flex-col" 
+          onClick={() => handleMetricClick('recentlyadded')}
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
+            <div className="flex flex-col justify-center min-w-0 flex-1">
+              <CardTitle className="text-xs font-medium text-muted-foreground truncate">Recently Added</CardTitle>
+              <div className="text-xl font-bold text-blue-600 mt-1">{stats.recentlyAdded}</div>
+            </div>
+            <div className="w-8 h-8 bg-blue-500/10 rounded-full flex items-center justify-center flex-shrink-0">
+              <Plus className="h-4 w-4 text-blue-600" />
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0 pb-2 flex-shrink-0">
+            <p className="text-xs text-muted-foreground truncate">Last 7 days</p>
+          </CardContent>
+        </Card>
+
         {/* Total Units */}
         <Card className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-24 flex flex-col">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
             <div className="flex flex-col justify-center min-w-0 flex-1">
               <CardTitle className="text-xs font-medium text-muted-foreground truncate">Total Units</CardTitle>
-              <div className="text-xl font-bold text-blue-600 mt-1">{stats.totalUnits}</div>
+              <div className="text-xl font-bold text-purple-600 mt-1">{stats.totalUnits}</div>
             </div>
-            <div className="w-8 h-8 bg-blue-500/10 rounded-full flex items-center justify-center flex-shrink-0">
-              <BarChart3 className="h-4 w-4 text-blue-600" />
+            <div className="w-8 h-8 bg-purple-500/10 rounded-full flex items-center justify-center flex-shrink-0">
+              <BarChart3 className="h-4 w-4 text-purple-600" />
             </div>
           </CardHeader>
           <CardContent className="pt-0 pb-2 flex-shrink-0">
@@ -256,6 +285,7 @@ export function SkuInventoryMetrics() {
               {selectedMetric === 'active' && 'All Active SKU Items'}
               {selectedMetric === 'instock' && 'SKU Items In Stock'}
               {selectedMetric === 'outofstock' && 'SKU Items Out of Stock'}
+              {selectedMetric === 'recentlyadded' && 'Recently Added SKU Items'}
               {selectedMetric === 'missingsku' && 'SKU Items Missing SKU Numbers'}
               <Badge variant="outline" className="ml-2">
                 {filteredItems.length} items
