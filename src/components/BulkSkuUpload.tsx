@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { Button } from './ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from './ui/dialog';
 import { Label } from './ui/label';
+import { Textarea } from './ui/textarea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, FileSpreadsheet, CheckCircle } from 'lucide-react';
+import { Upload, FileSpreadsheet, CheckCircle, Type, Copy } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
@@ -15,7 +17,9 @@ interface BulkSkuUploadProps {
 
 export function BulkSkuUpload({ inventory, onSkuUpdate }: BulkSkuUploadProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'upload' | 'paste'>('upload');
   const [uploadedData, setUploadedData] = useState<{ asin: string; sku: string }[]>([]);
+  const [pasteText, setPasteText] = useState('');
   const [matchResults, setMatchResults] = useState<{
     matched: { asin: string; sku: string; currentSku?: string }[];
     unmatched: { asin: string; sku: string }[];
@@ -81,6 +85,39 @@ export function BulkSkuUpload({ inventory, onSkuUpdate }: BulkSkuUploadProps) {
     return mapped;
   };
 
+  const parsePastedText = (text: string) => {
+    const mapped: { asin: string; sku: string }[] = [];
+    const lines = text.trim().split('\n');
+    
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      
+      // Try comma first, then tab, then any whitespace
+      let parts = line.split(',');
+      if (parts.length < 2) {
+        parts = line.split('\t');
+      }
+      if (parts.length < 2) {
+        parts = line.split(/\s+/);
+      }
+      
+      if (parts.length >= 2) {
+        const asin = parts[0].trim();
+        const sku = parts[1].trim();
+        
+        if (asin && sku) {
+          mapped.push({ asin, sku });
+        }
+      }
+    }
+
+    if (mapped.length === 0) {
+      throw new Error('No valid ASIN and SKU pairs found. Please ensure your data is in the format: ASIN,SKU (one pair per line).');
+    }
+
+    return mapped;
+  };
+
   const matchWithInventory = (asinSkuPairs: { asin: string; sku: string }[]) => {
     const matched: { asin: string; sku: string; currentSku?: string }[] = [];
     const unmatched: { asin: string; sku: string }[] = [];
@@ -132,6 +169,40 @@ export function BulkSkuUpload({ inventory, onSkuUpdate }: BulkSkuUploadProps) {
     }
   };
 
+  const handlePasteProcess = () => {
+    if (!pasteText.trim()) {
+      toast({
+        title: "No data found",
+        description: "Please paste some ASIN and SKU data",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsProcessing(true);
+
+    try {
+      const mappedData = parsePastedText(pasteText);
+      const results = matchWithInventory(mappedData);
+
+      setUploadedData(mappedData);
+      setMatchResults(results);
+
+      toast({
+        title: "Data processed successfully",
+        description: `Found ${results.matched.length} matches and ${results.unmatched.length} unmatched items`
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error processing data",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
@@ -157,6 +228,7 @@ export function BulkSkuUpload({ inventory, onSkuUpdate }: BulkSkuUploadProps) {
       // Reset state and close dialog
       setUploadedData([]);
       setMatchResults({ matched: [], unmatched: [] });
+      setPasteText('');
       setIsOpen(false);
     } catch (error: any) {
       toast({
@@ -169,15 +241,24 @@ export function BulkSkuUpload({ inventory, onSkuUpdate }: BulkSkuUploadProps) {
     }
   };
 
+  const resetData = () => {
+    setUploadedData([]);
+    setMatchResults({ matched: [], unmatched: [] });
+    setPasteText('');
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={(open) => {
+      if (!open) resetData();
+      setIsOpen(open);
+    }}>
       <DialogTrigger asChild>
         <Button size="lg" variant="outline" className="border-orange-300 hover:bg-orange-50">
           <Upload className="w-5 h-5 mr-2" />
           Bulk SKU Update
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-5xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileSpreadsheet className="w-5 h-5" />
@@ -190,41 +271,109 @@ export function BulkSkuUpload({ inventory, onSkuUpdate }: BulkSkuUploadProps) {
           <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
             <h4 className="font-semibold text-blue-900 mb-2">Instructions:</h4>
             <ul className="text-sm text-blue-800 space-y-1">
-              <li>• Upload a CSV or Excel file with "ASIN" and "SKU" columns</li>
+              <li>• Upload a CSV/Excel file with "ASIN" and "SKU" columns OR paste data directly</li>
               <li>• ASINs will be matched with your existing inventory</li>
               <li>• SKU values will be updated for matched items</li>
               <li>• Unmatched ASINs will be listed but not processed</li>
             </ul>
           </div>
 
-          {/* File Upload Area */}
-          <div
-            {...getRootProps()}
-            className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
-              isDragActive
-                ? 'border-primary bg-primary/5'
-                : 'border-gray-300 hover:border-primary hover:bg-gray-50'
-            }`}
-          >
-            <input {...getInputProps()} />
-            <FileSpreadsheet className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-            {isProcessing ? (
-              <div className="space-y-2">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-                <p className="text-sm text-gray-600">Processing file...</p>
+          {/* Tabs for Upload vs Paste */}
+          <Tabs value={activeTab} onValueChange={(value) => {
+            setActiveTab(value as 'upload' | 'paste');
+            resetData();
+          }}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="upload" className="flex items-center gap-2">
+                <Upload className="w-4 h-4" />
+                File Upload
+              </TabsTrigger>
+              <TabsTrigger value="paste" className="flex items-center gap-2">
+                <Type className="w-4 h-4" />
+                Paste Data
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="upload" className="space-y-4">
+              {/* File Upload Area */}
+              <div
+                {...getRootProps()}
+                className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+                  isDragActive
+                    ? 'border-primary bg-primary/5'
+                    : 'border-gray-300 hover:border-primary hover:bg-gray-50'
+                }`}
+              >
+                <input {...getInputProps()} />
+                <FileSpreadsheet className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                {isProcessing ? (
+                  <div className="space-y-2">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                    <p className="text-sm text-gray-600">Processing file...</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-lg font-medium">
+                      {isDragActive
+                        ? 'Drop your file here...'
+                        : 'Drag & drop your CSV/Excel file here'}
+                    </p>
+                    <p className="text-sm text-gray-500">or click to browse</p>
+                    <p className="text-xs text-gray-400">Supports .csv, .xlsx, .xls files</p>
+                  </div>
+                )}
               </div>
-            ) : (
-              <div className="space-y-2">
-                <p className="text-lg font-medium">
-                  {isDragActive
-                    ? 'Drop your file here...'
-                    : 'Drag & drop your CSV/Excel file here'}
-                </p>
-                <p className="text-sm text-gray-500">or click to browse</p>
-                <p className="text-xs text-gray-400">Supports .csv, .xlsx, .xls files</p>
+            </TabsContent>
+
+            <TabsContent value="paste" className="space-y-4">
+              {/* Paste Data Area */}
+              <div className="space-y-4">
+                <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                  <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                    <Copy className="w-4 h-4" />
+                    Supported Formats:
+                  </h4>
+                  <div className="text-sm text-gray-700 space-y-1">
+                    <p><strong>Comma-separated:</strong> ASIN123,SKU456</p>
+                    <p><strong>Tab-separated:</strong> ASIN123	SKU456</p>
+                    <p><strong>Space-separated:</strong> ASIN123 SKU456</p>
+                    <p className="text-xs text-gray-500">One ASIN-SKU pair per line</p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="paste-data">Paste your ASIN and SKU data here:</Label>
+                  <Textarea
+                    id="paste-data"
+                    placeholder={`B08N5WRWNW,MY-SKU-001
+B08N5WRWNX,MY-SKU-002
+B08N5WRWNY,MY-SKU-003`}
+                    value={pasteText}
+                    onChange={(e) => setPasteText(e.target.value)}
+                    className="min-h-32 font-mono text-sm"
+                  />
+                </div>
+
+                <Button 
+                  onClick={handlePasteProcess}
+                  disabled={!pasteText.trim() || isProcessing}
+                  className="w-full"
+                >
+                  {isProcessing ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <Type className="w-4 h-4 mr-2" />
+                      Process Pasted Data
+                    </>
+                  )}
+                </Button>
               </div>
-            )}
-          </div>
+            </TabsContent>
+          </Tabs>
 
           {/* Results */}
           {(matchResults.matched.length > 0 || matchResults.unmatched.length > 0) && (
@@ -285,12 +434,14 @@ export function BulkSkuUpload({ inventory, onSkuUpdate }: BulkSkuUploadProps) {
           <Button variant="outline" onClick={() => setIsOpen(false)}>
             Cancel
           </Button>
-          <Button
-            onClick={handleUpdateSkus}
-            disabled={matchResults.matched.length === 0 || isProcessing}
-          >
-            {isProcessing ? 'Updating...' : `Update ${matchResults.matched.length} SKUs`}
-          </Button>
+          {matchResults.matched.length > 0 && (
+            <Button
+              onClick={handleUpdateSkus}
+              disabled={isProcessing}
+            >
+              {isProcessing ? 'Updating...' : `Update ${matchResults.matched.length} SKUs`}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
