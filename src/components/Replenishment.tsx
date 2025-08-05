@@ -161,6 +161,64 @@ export function Replenishment() {
     }
   };
 
+  // Function to automatically remove ordered items that are back in stock
+  const removeRestockedOrderedItems = async () => {
+    try {
+      // Get all ordered items that now have quantity > 0
+      const [asinRestocked, skuRestocked] = await Promise.all([
+        supabase.from('asin_inventory')
+          .select('id, asin, serial_number, quantity, status')
+          .eq('country', selectedCountry)
+          .eq('status', 'ordered')
+          .gt('quantity', 0),
+        supabase.from('sku_inventory')
+          .select('id, sku_number, bin_serial_number, quantity, status')
+          .eq('country', selectedCountry)
+          .eq('status', 'ordered')
+          .gt('quantity', 0)
+      ]);
+
+      if (asinRestocked.error) throw asinRestocked.error;
+      if (skuRestocked.error) throw skuRestocked.error;
+
+      const restockedItems = [
+        ...(asinRestocked.data || []),
+        ...(skuRestocked.data || [])
+      ];
+
+      if (restockedItems.length > 0) {
+        // Update status to 'in-stock' for these items
+        const asinUpdates = asinRestocked.data?.map(item => 
+          supabase.from('asin_inventory')
+            .update({ status: 'in-stock' })
+            .eq('id', item.id)
+        ) || [];
+
+        const skuUpdates = skuRestocked.data?.map(item => 
+          supabase.from('sku_inventory')
+            .update({ status: 'in-stock' })
+            .eq('id', item.id)
+        ) || [];
+
+        // Execute all updates
+        await Promise.all([...asinUpdates, ...skuUpdates]);
+
+        // Remove from local ordered items state
+        const restockedIds = restockedItems.map(item => item.id);
+        setOrderedItems(prev => prev.filter(item => !restockedIds.includes(item.id)));
+
+        if (restockedItems.length > 0) {
+          toast({
+            title: "Items Restocked",
+            description: `${restockedItems.length} ordered items are now back in stock and removed from restock management`,
+          });
+        }
+      }
+    } catch (error: any) {
+      console.error('Error removing restocked ordered items:', error);
+    }
+  };
+
   // Calculate sales data for different periods
   const calculateSalesData = async () => {
     try {
@@ -618,17 +676,21 @@ export function Replenishment() {
       schema: 'public',
       table: 'asin_inventory',
       filter: `country=eq.${selectedCountry}`
-    }, () => {
+    }, async () => {
       // Only reload critical stock items on quantity changes
       loadRestockItems();
+      // Check if any ordered items are now back in stock and remove them
+      await removeRestockedOrderedItems();
     }), supabase.channel('sku-inventory-realtime').on('postgres_changes', {
       event: 'UPDATE',
       schema: 'public',
       table: 'sku_inventory',
       filter: `country=eq.${selectedCountry}`
-    }, () => {
+    }, async () => {
       // Only reload critical stock items on quantity changes
       loadRestockItems();
+      // Check if any ordered items are now back in stock and remove them
+      await removeRestockedOrderedItems();
     })];
     channels.forEach(channel => channel.subscribe());
     return () => {
@@ -642,6 +704,8 @@ export function Replenishment() {
       await loadAllData();
       const orderedItemsData = await loadOrderedItems();
       setOrderedItems(orderedItemsData);
+      // Check for restocked ordered items and clean them up
+      await removeRestockedOrderedItems();
     };
     loadData();
   }, [selectedCountry]);
