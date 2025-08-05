@@ -23,6 +23,7 @@ import { StockHistoryDialog } from './StockHistoryDialog';
 import { SkuEditor } from './SkuEditor';
 import { InventoryMetrics } from './InventoryMetrics';
 import { InventoryDashboard } from './InventoryDashboard';
+import { BulkSkuUpload } from './BulkSkuUpload';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 export function AsinInventory() {
@@ -35,6 +36,7 @@ export function AsinInventory() {
     restockItem,
     updateQuantity,
     updateSku,
+    bulkUpdateSkus,
     refetch
   } = useAsinInventory();
   const {
@@ -408,6 +410,10 @@ export function AsinInventory() {
                   </DialogContent>
                 </Dialog>
 
+                <BulkSkuUpload 
+                  inventory={inventory}
+                  onSkuUpdate={bulkUpdateSkus}
+                />
                 <Button size="lg" variant="outline" className="border-primary/30 hover:bg-primary/5" onClick={exportInventory}>
                   <Download className="w-5 h-5 mr-2" />
                   Export

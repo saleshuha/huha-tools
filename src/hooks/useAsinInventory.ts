@@ -402,6 +402,45 @@ export function useAsinInventory() {
     }
   };
 
+  // Bulk update SKUs for multiple items by ASIN
+  const bulkUpdateSkus = async (asinSkuPairs: { asin: string; sku: string }[]) => {
+    if (!profile) return;
+
+    try {
+      const updates = [];
+      
+      for (const pair of asinSkuPairs) {
+        const { error } = await supabase
+          .from('asin_inventory')
+          .update({ sku: pair.sku.trim() || null })
+          .eq('asin', pair.asin)
+          .eq('user_id', profile.id);
+
+        if (error) throw error;
+        updates.push(pair);
+      }
+
+      // Update local state
+      setInventory(prev => prev.map(item => {
+        const update = asinSkuPairs.find(pair => pair.asin === item.asin);
+        return update ? { ...item, sku: update.sku.trim() || undefined } : item;
+      }));
+
+      toast({
+        title: "SKUs Updated",
+        description: `Successfully updated ${updates.length} inventory items`,
+      });
+    } catch (error) {
+      console.error('Error bulk updating SKUs:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update SKUs",
+        variant: "destructive",
+      });
+      throw error;
+    }
+  };
+
   return {
     inventory,
     loading,
@@ -413,6 +452,7 @@ export function useAsinInventory() {
     updateQuantity,
     updateBin,
     updateSku,
+    bulkUpdateSkus,
     refetch: loadInventory,
   };
 }
