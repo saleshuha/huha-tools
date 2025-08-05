@@ -57,7 +57,7 @@ export function AsinInventory() {
   const [bulkQuantityReason, setBulkQuantityReason] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
-  const [quickFilter, setQuickFilter] = useState<'all' | 'low-stock' | 'out-of-stock' | 'recent' | 'missing-sku'>('all');
+  const [quickFilter, setQuickFilter] = useState<'all' | 'low-stock' | 'out-of-stock' | 'recent'>('all');
   const [dateFilterFrom, setDateFilterFrom] = useState<Date>();
   const [dateFilterTo, setDateFilterTo] = useState<Date>();
   const {
@@ -134,8 +134,6 @@ export function AsinInventory() {
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
       filtered = filtered.filter(item => new Date(item.dateAdded) >= sevenDaysAgo);
-    } else if (quickFilter === 'missing-sku') {
-      filtered = filtered.filter(item => !item.sku || item.sku.trim() === '');
     }
 
     // Apply sorting
@@ -452,10 +450,6 @@ export function AsinInventory() {
               <Button variant={quickFilter === 'recent' ? 'default' : 'outline'} size="lg" onClick={() => setQuickFilter('recent')} className="flex items-center gap-2">
                 <Clock className="w-5 h-5" />
                 Recent (7 days)
-              </Button>
-              <Button variant={quickFilter === 'missing-sku' ? 'default' : 'outline'} size="lg" onClick={() => setQuickFilter('missing-sku')} className="flex items-center gap-2">
-                <Hash className="w-5 h-5" />
-                Missing SKU
               </Button>
             </div>
 
