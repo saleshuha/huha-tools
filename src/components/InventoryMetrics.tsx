@@ -480,20 +480,20 @@ export function InventoryMetrics({
           className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background"
           onClick={() => handleMetricClick('active')}
         >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-3">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2">
             <div>
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+              <CardTitle className="text-xs font-medium text-muted-foreground">
                 {showOnlyAsin ? 'Active ASIN' : showOnlySku ? 'Active SKU' : 'Active Items'}
               </CardTitle>
-              <div className="text-2xl font-bold text-primary mt-1">{stats.activeItems}</div>
+              <div className="text-xl font-bold text-primary mt-1">{stats.activeItems}</div>
             </div>
-            <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
-              <Activity className="h-6 w-6 text-primary" />
+            <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+              <Activity className="h-4 w-4 text-primary" />
             </div>
           </CardHeader>
-          <CardContent className="pt-0 pb-2">
+          <CardContent className="pt-0 pb-1">
             <p className="text-xs text-muted-foreground">Total inventory</p>
-            <div className="mt-2 flex items-center text-xs text-green-600">
+            <div className="mt-1 flex items-center text-xs text-green-600">
               <TrendingUp className="h-3 w-3 mr-1" />
               Click to view
             </div>
@@ -505,18 +505,18 @@ export function InventoryMetrics({
           className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background"
           onClick={() => handleMetricClick('instock')}
         >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-3">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2">
             <div>
-              <CardTitle className="text-sm font-medium text-muted-foreground">In Stock</CardTitle>
-              <div className="text-2xl font-bold text-green-600 mt-1">{stats.inStockItems}</div>
+              <CardTitle className="text-xs font-medium text-muted-foreground">In Stock</CardTitle>
+              <div className="text-xl font-bold text-green-600 mt-1">{stats.inStockItems}</div>
             </div>
-            <div className="w-12 h-12 bg-green-500/10 rounded-full flex items-center justify-center">
-              <CheckCircle className="h-6 w-6 text-green-600" />
+            <div className="w-8 h-8 bg-green-500/10 rounded-full flex items-center justify-center">
+              <CheckCircle className="h-4 w-4 text-green-600" />
             </div>
           </CardHeader>
-          <CardContent className="pt-0 pb-2">
+          <CardContent className="pt-0 pb-1">
             <p className="text-xs text-muted-foreground">Available items</p>
-            <div className="mt-2 flex items-center text-xs text-green-600">
+            <div className="mt-1 flex items-center text-xs text-green-600">
               <TrendingUp className="h-3 w-3 mr-1" />
               Ready to sell
             </div>
@@ -528,18 +528,18 @@ export function InventoryMetrics({
           className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background"
           onClick={() => handleMetricClick('outofstock')}
         >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-3">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2">
             <div>
-              <CardTitle className="text-sm font-medium text-muted-foreground">Out of Stock</CardTitle>
-              <div className="text-2xl font-bold text-red-600 mt-1">{stats.outOfStockItems}</div>
+              <CardTitle className="text-xs font-medium text-muted-foreground">Out of Stock</CardTitle>
+              <div className="text-xl font-bold text-red-600 mt-1">{stats.outOfStockItems}</div>
             </div>
-            <div className="w-12 h-12 bg-red-500/10 rounded-full flex items-center justify-center">
-              <XCircle className="h-6 w-6 text-red-600" />
+            <div className="w-8 h-8 bg-red-500/10 rounded-full flex items-center justify-center">
+              <XCircle className="h-4 w-4 text-red-600" />
             </div>
           </CardHeader>
-          <CardContent className="pt-0 pb-2">
+          <CardContent className="pt-0 pb-1">
             <p className="text-xs text-muted-foreground">Need restock</p>
-            <div className="mt-2 flex items-center text-xs text-red-600">
+            <div className="mt-1 flex items-center text-xs text-red-600">
               <TrendingDown className="h-3 w-3 mr-1" />
               Requires attention
             </div>
@@ -551,18 +551,18 @@ export function InventoryMetrics({
           className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background"
           onClick={() => handleMetricClick('recently-added')}
         >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-3">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2">
             <div>
-              <CardTitle className="text-sm font-medium text-muted-foreground">Recently Added</CardTitle>
-              <div className="text-2xl font-bold text-blue-600 mt-1">{stats.recentlyAdded}</div>
+              <CardTitle className="text-xs font-medium text-muted-foreground">Recently Added</CardTitle>
+              <div className="text-xl font-bold text-blue-600 mt-1">{stats.recentlyAdded}</div>
             </div>
-            <div className="w-12 h-12 bg-blue-500/10 rounded-full flex items-center justify-center">
-              <Plus className="h-6 w-6 text-blue-600" />
+            <div className="w-8 h-8 bg-blue-500/10 rounded-full flex items-center justify-center">
+              <Plus className="h-4 w-4 text-blue-600" />
             </div>
           </CardHeader>
-          <CardContent className="pt-0 pb-2">
+          <CardContent className="pt-0 pb-1">
             <p className="text-xs text-muted-foreground">Last 7 days</p>
-            <div className="mt-2 flex items-center text-xs text-blue-600">
+            <div className="mt-1 flex items-center text-xs text-blue-600">
               <TrendingUp className="h-3 w-3 mr-1" />
               New additions
             </div>
@@ -574,20 +574,20 @@ export function InventoryMetrics({
           className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background"
           onClick={() => setShowSoldModal(true)}
         >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-3">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2">
             <div>
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Units</CardTitle>
-              <div className="text-2xl font-bold text-purple-600 mt-1">
+              <CardTitle className="text-xs font-medium text-muted-foreground">Total Units</CardTitle>
+              <div className="text-xl font-bold text-purple-600 mt-1">
                 {showOnlyAsin ? stats.asinTotalUnits : showOnlySku ? stats.skuTotalUnits : stats.asinTotalUnits + stats.skuTotalUnits}
               </div>
             </div>
-            <div className="w-12 h-12 bg-purple-500/10 rounded-full flex items-center justify-center">
-              <BarChart3 className="h-6 w-6 text-purple-600" />
+            <div className="w-8 h-8 bg-purple-500/10 rounded-full flex items-center justify-center">
+              <BarChart3 className="h-4 w-4 text-purple-600" />
             </div>
           </CardHeader>
-          <CardContent className="pt-0 pb-2">
+          <CardContent className="pt-0 pb-1">
             <p className="text-xs text-muted-foreground">Inventory count</p>
-            <div className="mt-2 flex items-center text-xs text-purple-600">
+            <div className="mt-1 flex items-center text-xs text-purple-600">
               <TrendingUp className="h-3 w-3 mr-1" />
               View sold units
             </div>
@@ -600,18 +600,18 @@ export function InventoryMetrics({
             className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background"
             onClick={handleMissingSkuClick}
           >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-3">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2">
               <div>
-                <CardTitle className="text-sm font-medium text-muted-foreground">Missing SKU</CardTitle>
-                <div className="text-2xl font-bold text-orange-600 mt-1">{stats.missingSku}</div>
+                <CardTitle className="text-xs font-medium text-muted-foreground">Missing SKU</CardTitle>
+                <div className="text-xl font-bold text-orange-600 mt-1">{stats.missingSku}</div>
               </div>
-              <div className="w-12 h-12 bg-orange-500/10 rounded-full flex items-center justify-center">
-                <FileText className="h-6 w-6 text-orange-600" />
+              <div className="w-8 h-8 bg-orange-500/10 rounded-full flex items-center justify-center">
+                <FileText className="h-4 w-4 text-orange-600" />
               </div>
             </CardHeader>
-            <CardContent className="pt-0 pb-2">
+            <CardContent className="pt-0 pb-1">
               <p className="text-xs text-muted-foreground">ASIN without SKU</p>
-              <div className="mt-2 flex items-center text-xs text-orange-600">
+              <div className="mt-1 flex items-center text-xs text-orange-600">
                 <TrendingUp className="h-3 w-3 mr-1" />
                 Click to view details
               </div>
