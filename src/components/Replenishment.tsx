@@ -7,15 +7,13 @@ import { Progress } from './ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from './ui/chart';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useCountry } from '@/contexts/CountryContext';
 import { useInventoryAnalytics } from '@/hooks/useInventoryAnalytics';
 import { InventoryAnalytics } from './InventoryAnalytics';
-import { TrendingUp, TrendingDown, AlertTriangle, Package, Download, RefreshCw, Search, BarChart3, Clock, ShoppingCart, Activity, DollarSign, Database, PieChart, LineChart, Calendar, CheckCircle, XCircle, Eye, Truck, ArrowRight, Target, Zap, ChevronLeft, ChevronRight } from 'lucide-react';
+import { TrendingUp, TrendingDown, AlertTriangle, Package, Download, RefreshCw, Search, BarChart3, Clock, ShoppingCart, Activity, DollarSign, Database, PieChart, LineChart, Calendar, CheckCircle, XCircle, Eye, Truck, ArrowRight, Target, Zap, ChevronLeft, ChevronRight, Grid, Users, TrendingUp as Trend, Gauge } from 'lucide-react';
 import { Checkbox } from './ui/checkbox';
-import { LineChart as RechartsLineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, AreaChart, Area, BarChart as RechartsBarChart, Bar, PieChart as RechartsPieChart, Cell, Pie, Legend } from 'recharts';
 interface RestockItem {
   id: string;
   identifier: string;
@@ -873,11 +871,10 @@ export function Replenishment() {
       </div>
 
       {/* Main Content Tabs */}
-      <Tabs defaultValue="sales" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 h-14 p-2 bg-gradient-subtle rounded-xl shadow-elegant">
-          <TabsTrigger value="sales" className="text-sm font-semibold px-6 py-3 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all duration-300 hover:bg-white/10">📊 Sales Analytics</TabsTrigger>
+      <Tabs defaultValue="analytics" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 h-14 p-2 bg-gradient-subtle rounded-xl shadow-elegant">
+          <TabsTrigger value="analytics" className="text-sm font-semibold px-6 py-3 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all duration-300 hover:bg-white/10">📊 Visual Analytics</TabsTrigger>
           <TabsTrigger value="restock" className="text-sm font-semibold px-6 py-3 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all duration-300 hover:bg-white/10">📦 Restock Management</TabsTrigger>
-          <TabsTrigger value="trends" className="text-sm font-semibold px-6 py-3 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all duration-300 hover:bg-white/10">📈 Trends & Forecasting</TabsTrigger>
         </TabsList>
 
         {/* Sales Analytics Tab */}
@@ -934,223 +931,7 @@ export function Replenishment() {
             chartLayout === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 gap-4' :
             'grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4'
           }>
-            {/* Sales vs Restocks Compact Chart */}
-            <Card className="glass-container hover-scale transition-all duration-300">
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-sm">
-                  <LineChart className="w-4 h-4" />
-                  Sales vs Restocks
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <ChartContainer config={chartConfig} className="h-48">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RechartsLineChart data={salesData} margin={{
-                    top: 10,
-                    right: 10,
-                    left: 0,
-                    bottom: 10
-                  }}>
-                      <CartesianGrid strokeDasharray="2 2" stroke="hsl(var(--border))" opacity={0.3} />
-                      <XAxis dataKey="period" stroke="hsl(var(--muted-foreground))" fontSize={10} tick={{
-                      fontSize: 10
-                    }} axisLine={false} tickLine={false} />
-                      <YAxis stroke="hsl(var(--muted-foreground))" fontSize={10} tick={{
-                      fontSize: 10
-                    }} axisLine={false} tickLine={false} width={30} />
-                      <ChartTooltip content={<ChartTooltipContent />} contentStyle={{
-                      backgroundColor: 'hsl(var(--background))',
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '8px',
-                      fontSize: '12px'
-                    }} />
-                      <Line type="monotone" dataKey="total_sold" stroke="hsl(var(--primary))" strokeWidth={2} dot={{
-                      fill: "hsl(var(--primary))",
-                      strokeWidth: 0,
-                      r: 3
-                    }} activeDot={{
-                      r: 4,
-                      fill: "hsl(var(--primary))"
-                    }} name="Sold" />
-                      <Line type="monotone" dataKey="total_restocked" stroke="hsl(var(--secondary))" strokeWidth={2} dot={{
-                      fill: "hsl(var(--secondary))",
-                      strokeWidth: 0,
-                      r: 3
-                    }} activeDot={{
-                      r: 4,
-                      fill: "hsl(var(--secondary))"
-                    }} name="Restocked" />
-                    </RechartsLineChart>
-                  </ResponsiveContainer>
-                </ChartContainer>
-              </CardContent>
-            </Card>
-
-            {/* ASIN vs SKU Compact Bar Chart */}
-            <Card className="glass-container hover-scale transition-all duration-300">
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-sm">
-                  <BarChart3 className="w-4 h-4" />
-                  ASIN vs SKU Performance
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <ChartContainer config={chartConfig} className="h-48">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RechartsBarChart data={salesData.slice(-6)} margin={{
-                    top: 10,
-                    right: 10,
-                    left: 0,
-                    bottom: 10
-                  }}>
-                      <CartesianGrid strokeDasharray="2 2" stroke="hsl(var(--border))" opacity={0.3} />
-                      <XAxis dataKey="period" stroke="hsl(var(--muted-foreground))" fontSize={10} tick={{
-                      fontSize: 10
-                    }} axisLine={false} tickLine={false} />
-                      <YAxis stroke="hsl(var(--muted-foreground))" fontSize={10} tick={{
-                      fontSize: 10
-                    }} axisLine={false} tickLine={false} width={30} />
-                      <ChartTooltip content={<ChartTooltipContent />} contentStyle={{
-                      backgroundColor: 'hsl(var(--background))',
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '8px',
-                      fontSize: '12px'
-                    }} />
-                      <Bar dataKey="asin_sold" fill="hsl(var(--chart-1))" name="ASIN" radius={[2, 2, 0, 0]} maxBarSize={40} />
-                      <Bar dataKey="sku_sold" fill="hsl(220, 70%, 50%)" name="SKU" radius={[2, 2, 0, 0]} maxBarSize={40} />
-                    </RechartsBarChart>
-                  </ResponsiveContainer>
-                </ChartContainer>
-              </CardContent>
-            </Card>
-
-            {/* Daily Sell Rate Compact Area Chart */}
-            <Card className="glass-container hover-scale transition-all duration-300">
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-sm">
-                  <Activity className="w-4 h-4" />
-                  Sell Rate Trend
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <ChartContainer config={chartConfig} className="h-48">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={salesData} margin={{
-                    top: 10,
-                    right: 10,
-                    left: 0,
-                    bottom: 10
-                  }}>
-                      <defs>
-                        <linearGradient id="sellRateGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="hsl(var(--accent))" stopOpacity={0.3} />
-                          <stop offset="95%" stopColor="hsl(var(--accent))" stopOpacity={0.05} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="2 2" stroke="hsl(var(--border))" opacity={0.3} />
-                      <XAxis dataKey="period" stroke="hsl(var(--muted-foreground))" fontSize={10} tick={{
-                      fontSize: 10
-                    }} axisLine={false} tickLine={false} />
-                      <YAxis stroke="hsl(var(--muted-foreground))" fontSize={10} tick={{
-                      fontSize: 10
-                    }} axisLine={false} tickLine={false} width={30} />
-                      <ChartTooltip content={<ChartTooltipContent />} contentStyle={{
-                      backgroundColor: 'hsl(var(--background))',
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '8px',
-                      fontSize: '12px'
-                    }} />
-                      <Area type="monotone" dataKey="sell_rate" stroke="hsl(var(--accent))" fill="url(#sellRateGradient)" strokeWidth={2} dot={{
-                      fill: "hsl(var(--accent))",
-                      strokeWidth: 0,
-                      r: 2
-                    }} name="Rate/Day" />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </ChartContainer>
-              </CardContent>
-            </Card>
-
-            {/* Performance Distribution Mini Pie Chart */}
-            <Card className="glass-container hover-scale transition-all duration-300 lg:col-span-1">
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-sm">
-                  <PieChart className="w-4 h-4" />
-                  Sales Split ({selectedPeriod})
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0">
-                {selectedPeriodData && <ChartContainer config={chartConfig} className="h-48">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <RechartsPieChart margin={{
-                    top: 5,
-                    right: 5,
-                    left: 5,
-                    bottom: 5
-                  }}>
-                        <Pie data={[{
-                      name: 'ASIN',
-                      value: selectedPeriodData.asin_sold,
-                      fill: 'hsl(var(--chart-1))'
-                    }, {
-                      name: 'SKU',
-                      value: selectedPeriodData.sku_sold,
-                      fill: 'hsl(220, 70%, 50%)'
-                    }]} cx="50%" cy="50%" innerRadius={25} outerRadius={70} dataKey="value" stroke="hsl(var(--background))" strokeWidth={2}>
-                          {[{
-                        name: 'ASIN',
-                        value: selectedPeriodData.asin_sold,
-                        fill: 'hsl(var(--chart-1))'
-                      }, {
-                        name: 'SKU',
-                        value: selectedPeriodData.sku_sold,
-                        fill: 'hsl(220, 70%, 50%)'
-                      }].map((entry, index) => <Cell key={`cell-${index}`} fill={entry.fill} />)}
-                        </Pie>
-                        <ChartTooltip content={<ChartTooltipContent />} contentStyle={{
-                      backgroundColor: 'hsl(var(--background))',
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '8px',
-                      fontSize: '12px'
-                    }} />
-                      </RechartsPieChart>
-                    </ResponsiveContainer>
-                  </ChartContainer>}
-              </CardContent>
-            </Card>
-
-            {/* Performance Metrics Mini Cards */}
-            <Card className="glass-container hover-scale transition-all duration-300 lg:col-span-2">
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-sm">
-                  <Target className="w-4 h-4" />
-                  Key Performance Indicators
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4">
-                <div className="grid grid-cols-2 gap-2 h-44">
-                  <div className="flex flex-col justify-center items-center p-2 bg-gradient-to-br from-primary/10 to-primary/5 rounded-md border border-primary/20">
-                    <div className="text-lg font-bold text-primary mb-1">
-                      {salesData.find(d => d.period === selectedPeriod)?.sell_rate?.toFixed(1) || '0'}
-                    </div>
-                    <div className="text-xs text-muted-foreground text-center leading-tight">Daily Sell Rate</div>
-                  </div>
-                  
-                  <div className="flex flex-col justify-center items-center p-2 bg-gradient-to-br from-secondary/10 to-secondary/5 rounded-md border border-secondary/20">
-                    <div className="text-lg font-bold text-secondary mb-1">
-                      {totalRestocks30d > 0 ? Math.round(totalSales30d / totalRestocks30d * 100) : 0}%
-                    </div>
-                    <div className="text-xs text-muted-foreground text-center leading-tight">Stock Efficiency</div>
-                  </div>
-                  
-                  <div className="flex flex-col justify-center items-center p-2 bg-gradient-to-br from-chart-1/10 to-chart-1/5 rounded-md border border-chart-1/20">
-                    <div className="text-lg font-bold text-chart-1 mb-1">
-                      {salesData.length > 0 ? Math.round(salesData.reduce((sum, d) => sum + d.total_sold, 0) / salesData.length) : 0}
-                    </div>
-                    <div className="text-xs text-muted-foreground text-center leading-tight">Avg Period Sales</div>
-                  </div>
-                  
-                  <div className="flex flex-col justify-center items-center p-2 bg-gradient-to-br from-accent/10 to-accent/5 rounded-md border border-accent/20">
+        </TabsContent>
                     <div className="text-lg font-bold text-accent mb-1">
                       {salesData.find(d => d.period === '7d')?.total_sold || 0}
                     </div>
