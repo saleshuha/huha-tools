@@ -11,7 +11,7 @@ import { Calendar } from './ui/calendar';
 import { useCountry } from '@/contexts/CountryContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Package, CheckCircle, XCircle, Search, Download, FileText, RefreshCw, Activity, BarChart3, TrendingDown, CalendarIcon, Plus, TrendingUp } from 'lucide-react';
+import { Package, CheckCircle, XCircle, Search, Download, FileText, RefreshCw, Activity, BarChart3, TrendingDown, CalendarIcon, Plus, TrendingUp, Hash } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
 interface InventoryItem {
@@ -35,6 +35,7 @@ interface InventoryStats {
   asinSoldUnits: number;
   skuTotalUnits: number;
   skuSoldUnits: number;
+  missingSku?: number;
 }
 interface InventoryMetricsProps {
   showOnlyAsin?: boolean;
@@ -105,6 +106,10 @@ export function InventoryMetrics({
           });
         }
         const asinSoldUnits = soldItems.reduce((sum, item) => sum + item.quantity, 0);
+        
+        // Calculate items without SKU (for ASIN inventory)
+        const missingSku = asinItems.filter(item => !item.sku || item.sku.trim() === '').length;
+        
         setStats({
           activeItems,
           inStockItems,
@@ -113,7 +118,8 @@ export function InventoryMetrics({
           asinTotalUnits,
           asinSoldUnits,
           skuTotalUnits: 0,
-          skuSoldUnits: 0
+          skuSoldUnits: 0,
+          missingSku
         });
       } else if (showOnlySku) {
         // Load only SKU data
@@ -549,6 +555,30 @@ export function InventoryMetrics({
         </Card>
 
       </div>
+
+      {/* Missing SKU Card - Only show for ASIN inventory */}
+      {showOnlyAsin && stats.missingSku !== undefined && stats.missingSku > 0 && (
+        <div className="mt-4">
+          <Card className="border-2 border-orange-200 bg-gradient-to-br from-orange-50/50 to-background">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-3">
+              <div>
+                <CardTitle className="text-sm font-medium text-muted-foreground">Missing SKU</CardTitle>
+                <div className="text-2xl font-bold text-orange-600 mt-1">{stats.missingSku}</div>
+              </div>
+              <div className="w-12 h-12 bg-orange-500/10 rounded-full flex items-center justify-center">
+                <Hash className="h-6 w-6 text-orange-600" />
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0 pb-2">
+              <p className="text-xs text-muted-foreground">ASIN items without SKU numbers</p>
+              <div className="mt-2 flex items-center text-xs text-orange-600">
+                <TrendingUp className="h-3 w-3 mr-1" />
+                Click "Missing SKU" filter to edit
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Details Modal */}
       <Dialog open={!!selectedMetric} onOpenChange={() => setSelectedMetric(null)}>
