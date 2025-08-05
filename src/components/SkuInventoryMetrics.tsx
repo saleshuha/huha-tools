@@ -9,7 +9,7 @@ import { ScrollArea } from './ui/scroll-area';
 import { useCountry } from '@/contexts/CountryContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Package, CheckCircle, XCircle, Search, Download, RefreshCw, Activity, BarChart3, TrendingDown, Hash } from 'lucide-react';
+import { Package, CheckCircle, XCircle, Search, Download, RefreshCw, Activity, BarChart3, TrendingDown, Tag } from 'lucide-react';
 import * as XLSX from 'xlsx';
 interface SkuInventoryItem {
   id: string;
@@ -217,7 +217,7 @@ export function SkuInventoryMetrics() {
                 <p className="text-2xl font-bold text-orange-600">{stats.missingSku}</p>
                 <p className="text-xs text-muted-foreground">Need SKU numbers</p>
               </div>
-              <Hash className="w-6 h-6 text-orange-600" />
+              <Tag className="w-6 h-6 text-orange-600" />
             </div>
           </CardContent>
         </Card>
