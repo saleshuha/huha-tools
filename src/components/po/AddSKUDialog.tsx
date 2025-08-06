@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Plus, Upload, Type, Trash2 } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
+import * as XLSX from 'xlsx';
 import { SunskySKU } from '@/hooks/usePOTracker';
 
 interface AddSKUDialogProps {
@@ -118,14 +119,58 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
   };
 
   const handleFileUpload = async (files: File[]) => {
-    for (const file of files) {
-      const text = await file.text();
-      const lines = text.split('\n').filter(line => line.trim());
-      const newSKUs: Omit<SunskySKU, 'id' | 'created_at' | 'updated_at'>[] = [];
+    setIsProcessing(true);
+    setProgress(0);
+    setProgressLabel('Reading file...');
+    
+    try {
+      for (const file of files) {
+        const fileSize = (file.size / (1024 * 1024)).toFixed(2); // MB
+        setProgressLabel(`Processing ${file.name} (${fileSize}MB)...`);
+        
+        // Check file size (warn if over 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+          setProgressLabel(`Processing large file ${file.name}...`);
+        }
+        
+        const newSKUs: Omit<SunskySKU, 'id' | 'created_at' | 'updated_at'>[] = [];
+        
+        if (file.name.endsWith('.csv')) {
+          await processCsvFile(file, newSKUs);
+        } else {
+          await processExcelFile(file, newSKUs);
+        }
+        
+        setBulkSKUs(prev => [...prev, ...newSKUs]);
+        setProgressLabel(`Loaded ${newSKUs.length} SKUs from ${file.name}`);
+      }
+    } catch (error) {
+      console.error('Error processing file:', error);
+      setProgressLabel('Error processing file');
+    } finally {
+      setIsProcessing(false);
+      setProgress(0);
+    }
+  };
 
-      // Skip header row
-      for (let i = 1; i < lines.length; i++) {
-        const columns = lines[i].split(',').map(col => col.trim().replace(/"/g, ''));
+  const processCsvFile = async (file: File, newSKUs: Omit<SunskySKU, 'id' | 'created_at' | 'updated_at'>[]) => {
+    const text = await file.text();
+    const lines = text.split('\n').filter(line => line.trim());
+    
+    const totalLines = lines.length;
+    const chunkSize = 1000; // Process 1000 rows at a time
+    
+    for (let i = 1; i < totalLines; i += chunkSize) { // Skip header row
+      const chunk = lines.slice(i, i + chunkSize);
+      
+      // Update progress
+      const progressValue = (i / totalLines) * 100;
+      setProgress(progressValue);
+      setProgressLabel(`Processing rows ${i} to ${Math.min(i + chunkSize, totalLines)} of ${totalLines}...`);
+      
+      // Process chunk
+      chunk.forEach(line => {
+        const columns = line.split(',').map(col => col.trim().replace(/"/g, ''));
         if (columns.length >= 1 && columns[0]) {
           newSKUs.push({
             sku_code: columns[0],
@@ -136,10 +181,55 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
             notes: columns[5] || undefined
           });
         }
+      });
+      
+      // Yield control to prevent UI blocking
+      if (i % 5000 === 0) {
+        await new Promise(resolve => setTimeout(resolve, 10));
       }
-
-      setBulkSKUs(prev => [...prev, ...newSKUs]);
     }
+    
+    setProgress(100);
+  };
+
+  const processExcelFile = async (file: File, newSKUs: Omit<SunskySKU, 'id' | 'created_at' | 'updated_at'>[]) => {
+    const buffer = await file.arrayBuffer();
+    const workbook = XLSX.read(buffer, { type: 'buffer' });
+    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+    const data = XLSX.utils.sheet_to_json(firstSheet, { header: 1 }) as any[][];
+    
+    const totalRows = data.length;
+    const chunkSize = 1000;
+    
+    for (let i = 1; i < totalRows; i += chunkSize) { // Skip header row
+      const chunk = data.slice(i, i + chunkSize);
+      
+      // Update progress
+      const progressValue = (i / totalRows) * 100;
+      setProgress(progressValue);
+      setProgressLabel(`Processing rows ${i} to ${Math.min(i + chunkSize, totalRows)} of ${totalRows}...`);
+      
+      // Process chunk
+      chunk.forEach(row => {
+        if (row && row[0]) {
+          newSKUs.push({
+            sku_code: String(row[0]),
+            title: row[1] ? String(row[1]) : undefined,
+            description: row[2] ? String(row[2]) : undefined,
+            cost: row[3] ? parseFloat(String(row[3])) : undefined,
+            weight: row[4] ? parseFloat(String(row[4])) : undefined,
+            notes: row[5] ? String(row[5]) : undefined
+          });
+        }
+      });
+      
+      // Yield control to prevent UI blocking
+      if (i % 5000 === 0) {
+        await new Promise(resolve => setTimeout(resolve, 10));
+      }
+    }
+    
+    setProgress(100);
   };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
