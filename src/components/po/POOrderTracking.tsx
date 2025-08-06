@@ -202,6 +202,11 @@ export function POOrderTracking({ orders, onUpdateStatus, onUpdateTracking, isLo
                             {group.status.charAt(0).toUpperCase() + group.status.slice(1)}
                           </Badge>
                         </div>
+                        {group.orders[0]?.order_date && (
+                          <Badge variant="secondary" className="text-xs">
+                            {new Date(group.orders[0].order_date).toLocaleDateString()}
+                          </Badge>
+                        )}
                       </div>
                       <div className="flex items-center gap-4 text-sm text-muted-foreground">
                         <span>{group.totalItems} items</span>
