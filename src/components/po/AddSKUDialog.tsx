@@ -392,7 +392,7 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
                 />
               </div>
               <div>
-                <Label htmlFor="weight">Weight (kg)</Label>
+                <Label htmlFor="weight">Weight (grams)</Label>
                 <Input
                   id="weight"
                   type="number"
@@ -466,7 +466,7 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
                     <div key={index} className="flex items-center justify-between p-2 bg-muted rounded">
                       <div className="flex items-center space-x-2">
                         <Badge variant="outline">{sku.sku_code}</Badge>
-                        <span className="text-sm">{sku.title || sku.description || 'No title'}</span>
+                        <span className="text-sm">{sku.title || 'No title'}</span>
                         {sku.cost && <Badge variant="secondary">${sku.cost}</Badge>}
                         {sku.weight && <Badge variant="outline">{sku.weight}kg</Badge>}
                       </div>
@@ -524,7 +524,7 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
                     <div key={index} className="flex items-center justify-between p-2 bg-muted rounded">
                       <div className="flex items-center space-x-2">
                         <Badge variant="outline">{sku.sku_code}</Badge>
-                        <span className="text-sm">{sku.title || sku.description || 'No title'}</span>
+                        <span className="text-sm">{sku.title || 'No title'}</span>
                         {sku.cost && <Badge variant="secondary">${sku.cost}</Badge>}
                         {sku.weight && <Badge variant="outline">{sku.weight}kg</Badge>}
                       </div>
