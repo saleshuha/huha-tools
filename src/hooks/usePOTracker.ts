@@ -98,10 +98,20 @@ export const usePOTracker = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      // Add user_id to each SKU
+      // Get user's country from profile
+      const { data: profile, error: profileError } = await (supabase as any)
+        .from('profiles')
+        .select('country')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError) throw new Error('Failed to get user profile');
+
+      // Add user_id and country to each SKU
       const skusWithUserId = skus.map(sku => ({
         ...sku,
-        user_id: user.id
+        user_id: user.id,
+        country: profile.country
       }));
 
       const { data, error } = await (supabase as any)
