@@ -8,7 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Edit, ExternalLink, Package2, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ArrowLeft, Edit, ExternalLink, Package2, Clock, CheckCircle, XCircle, Settings } from 'lucide-react';
 import { usePOTracker, POOrder } from '@/hooks/usePOTracker';
 
 export default function PODetailsPage() {
@@ -18,6 +19,16 @@ export default function PODetailsPage() {
   
   const [editingTracking, setEditingTracking] = useState<string | null>(null);
   const [trackingForm, setTrackingForm] = useState({
+    supplier_order_number: '',
+    tracking_number: '',
+    tracking_url: ''
+  });
+
+  // Bulk update states
+  const [selectedItems, setSelectedItems] = useState<string[]>([]);
+  const [showBulkDialog, setShowBulkDialog] = useState(false);
+  const [bulkUpdateForm, setBulkUpdateForm] = useState({
+    status: '',
     supplier_order_number: '',
     tracking_number: '',
     tracking_url: ''
@@ -93,6 +104,49 @@ export default function PODetailsPage() {
     }
   };
 
+  // Bulk update functions
+  const handleSelectItem = (itemId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedItems(prev => [...prev, itemId]);
+    } else {
+      setSelectedItems(prev => prev.filter(id => id !== itemId));
+    }
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedItems(poDetails.map(order => order.id));
+    } else {
+      setSelectedItems([]);
+    }
+  };
+
+  const handleBulkUpdate = async () => {
+    for (const itemId of selectedItems) {
+      if (bulkUpdateForm.status) {
+        await updateOrderStatus(itemId, bulkUpdateForm.status as POOrder['status']);
+      }
+      
+      const trackingData: any = {};
+      if (bulkUpdateForm.supplier_order_number) trackingData.supplier_order_number = bulkUpdateForm.supplier_order_number;
+      if (bulkUpdateForm.tracking_number) trackingData.tracking_number = bulkUpdateForm.tracking_number;
+      if (bulkUpdateForm.tracking_url) trackingData.tracking_url = bulkUpdateForm.tracking_url;
+      
+      if (Object.keys(trackingData).length > 0) {
+        await updateTrackingInfo(itemId, trackingData);
+      }
+    }
+    
+    setShowBulkDialog(false);
+    setSelectedItems([]);
+    setBulkUpdateForm({
+      status: '',
+      supplier_order_number: '',
+      tracking_number: '',
+      tracking_url: ''
+    });
+  };
+
   if (!poNumber) {
     return <div>PO Number not found</div>;
   }
@@ -163,15 +217,94 @@ export default function PODetailsPage() {
         {/* Items Table */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center">
-              <Package2 className="h-5 w-5 mr-2" />
-              Items in this PO ({poDetails.length})
+            <CardTitle className="flex items-center justify-between">
+              <div className="flex items-center">
+                <Package2 className="h-5 w-5 mr-2" />
+                Items in this PO ({poDetails.length})
+              </div>
+              <div className="flex items-center gap-2">
+                {selectedItems.length > 0 && (
+                  <Badge variant="secondary">
+                    {selectedItems.length} selected
+                  </Badge>
+                )}
+                <Dialog open={showBulkDialog} onOpenChange={setShowBulkDialog}>
+                  <DialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={selectedItems.length === 0}
+                    >
+                      <Settings className="h-4 w-4 mr-2" />
+                      Bulk Update
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Bulk Update Items ({selectedItems.length} selected)</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="bulk_status">Status (optional)</Label>
+                        <Select value={bulkUpdateForm.status} onValueChange={(value) => setBulkUpdateForm(prev => ({ ...prev, status: value }))}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select status to update" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="pending">Pending</SelectItem>
+                            <SelectItem value="ordered">Ordered</SelectItem>
+                            <SelectItem value="shipped">Shipped</SelectItem>
+                            <SelectItem value="delivered">Delivered</SelectItem>
+                            <SelectItem value="cancelled">Cancelled</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label htmlFor="bulk_supplier_order">Supplier Order Number (optional)</Label>
+                        <Input
+                          id="bulk_supplier_order"
+                          placeholder="Enter supplier order number"
+                          value={bulkUpdateForm.supplier_order_number}
+                          onChange={(e) => setBulkUpdateForm(prev => ({ ...prev, supplier_order_number: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="bulk_tracking_number">Tracking Number (optional)</Label>
+                        <Input
+                          id="bulk_tracking_number"
+                          placeholder="Enter tracking number"
+                          value={bulkUpdateForm.tracking_number}
+                          onChange={(e) => setBulkUpdateForm(prev => ({ ...prev, tracking_number: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="bulk_tracking_url">Tracking URL (optional)</Label>
+                        <Input
+                          id="bulk_tracking_url"
+                          placeholder="Enter tracking URL"
+                          value={bulkUpdateForm.tracking_url}
+                          onChange={(e) => setBulkUpdateForm(prev => ({ ...prev, tracking_url: e.target.value }))}
+                        />
+                      </div>
+                      <Button onClick={handleBulkUpdate} className="w-full">
+                        Update Selected Items
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
             </CardTitle>
           </CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12">
+                    <Checkbox
+                      checked={selectedItems.length === poDetails.length && poDetails.length > 0}
+                      onCheckedChange={handleSelectAll}
+                    />
+                  </TableHead>
                   <TableHead>SKU Code</TableHead>
                   <TableHead>Description</TableHead>
                   <TableHead>Quantity</TableHead>
@@ -184,8 +317,14 @@ export default function PODetailsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {poDetails.map((order) => (
+                 {poDetails.map((order) => (
                   <TableRow key={order.id}>
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedItems.includes(order.id)}
+                        onCheckedChange={(checked) => handleSelectItem(order.id, checked as boolean)}
+                      />
+                    </TableCell>
                     <TableCell>
                       <Badge variant="secondary" className="font-mono">
                         {order.sku_code}
