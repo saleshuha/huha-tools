@@ -131,7 +131,11 @@ export const usePOTracker = () => {
   const processPOFiles = async (mappedData: any[]) => {
     setIsLoading(true);
     try {
-      const validOrders: Omit<POOrder, 'id' | 'created_at' | 'updated_at' | 'sunsky_sku' | 'user_id'>[] = [];
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const validOrders: Omit<POOrder, 'id' | 'created_at' | 'updated_at' | 'sunsky_sku'>[] = [];
 
       mappedData.forEach(item => {
         // Check if SKU exists in our database
@@ -150,7 +154,11 @@ export const usePOTracker = () => {
             order_date: undefined,
             expected_delivery: undefined,
             unit_cost: item.unit_cost || existingSKU.cost,
-            sku_user_id: undefined // Will be set by trigger
+            sku_user_id: user.id, // Set to current user ID
+            user_id: user.id, // Add user_id for RLS policies
+            country: undefined, // Will be set by trigger
+            currency: undefined, // Will be set by trigger
+            total_cost: undefined // Will be calculated by trigger
           });
         }
       });
@@ -161,7 +169,10 @@ export const usePOTracker = () => {
           .insert(validOrders)
           .select();
 
-        if (error) throw error;
+        if (error) {
+          console.error('Database error:', error);
+          throw error;
+        }
 
         await fetchPOOrders();
         toast({
@@ -179,7 +190,7 @@ export const usePOTracker = () => {
       console.error('Error processing PO files:', error);
       toast({
         title: "Error",
-        description: "Failed to process PO files",
+        description: error instanceof Error ? error.message : "Failed to process PO files",
         variant: "destructive"
       });
     } finally {
