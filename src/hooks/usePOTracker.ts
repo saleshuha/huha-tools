@@ -90,12 +90,25 @@ export const usePOTracker = () => {
   const addSKUs = async (skus: Omit<SunskySKU, 'id' | 'created_at' | 'updated_at' | 'user_id'>[]) => {
     setIsLoading(true);
     try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      // Add user_id to each SKU
+      const skusWithUserId = skus.map(sku => ({
+        ...sku,
+        user_id: user.id
+      }));
+
       const { data, error } = await (supabase as any)
         .from('sunsky_skus')
-        .insert(skus)
+        .insert(skusWithUserId)
         .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database error:', error);
+        throw error;
+      }
 
       await fetchSunskySKUs();
       toast({
@@ -106,7 +119,7 @@ export const usePOTracker = () => {
       console.error('Error adding SKUs:', error);
       toast({
         title: "Error",
-        description: "Failed to add SKUs",
+        description: error instanceof Error ? error.message : "Failed to add SKUs",
         variant: "destructive"
       });
     } finally {
