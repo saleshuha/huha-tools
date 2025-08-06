@@ -41,7 +41,7 @@ export function POTracker() {
   const totalSKUs = sunskySKUs.length;
   const totalOrders = poOrders.length;
   const pendingOrders = poOrders.filter(order => order.status === 'pending').length;
-  const placedOrders = poOrders.filter(order => order.status === 'placed').length;
+  const placedOrders = poOrders.filter(order => order.status === 'ordered').length;
 
   return (
     <div className="space-y-6">

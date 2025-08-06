@@ -14,7 +14,7 @@ import * as XLSX from 'xlsx';
 import { SunskySKU } from '@/hooks/usePOTracker';
 
 interface AddSKUDialogProps {
-  onAddSKUs: (skus: Omit<SunskySKU, 'id' | 'created_at' | 'updated_at'>[]) => Promise<void>;
+  onAddSKUs: (skus: Omit<SunskySKU, 'id' | 'created_at' | 'updated_at' | 'user_id'>[]) => Promise<void>;
   isLoading: boolean;
 }
 
@@ -33,7 +33,7 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
   });
 
   // Bulk SKUs state
-  const [bulkSKUs, setBulkSKUs] = useState<Omit<SunskySKU, 'id' | 'created_at' | 'updated_at'>[]>([]);
+  const [bulkSKUs, setBulkSKUs] = useState<Omit<SunskySKU, 'id' | 'created_at' | 'updated_at' | 'user_id'>[]>([]);
   const [pasteData, setPasteData] = useState('');
   
   // Progress state
@@ -98,7 +98,7 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
     if (!pasteData.trim()) return;
 
     const lines = pasteData.split('\n').filter(line => line.trim());
-    const newSKUs: Omit<SunskySKU, 'id' | 'created_at' | 'updated_at'>[] = [];
+    const newSKUs: Omit<SunskySKU, 'id' | 'created_at' | 'updated_at' | 'user_id'>[] = [];
 
     lines.forEach(line => {
       const columns = line.split('\t').map(col => col.trim()); // Tab-separated
@@ -136,7 +136,7 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
         
         setProgressLabel(`Reading ${file.name} (${fileSize}MB)...`);
         
-        const newSKUs: Omit<SunskySKU, 'id' | 'created_at' | 'updated_at'>[] = [];
+        const newSKUs: Omit<SunskySKU, 'id' | 'created_at' | 'updated_at' | 'user_id'>[] = [];
         
         if (file.name.toLowerCase().endsWith('.csv')) {
           await processCsvFileStreaming(file, newSKUs);
@@ -177,7 +177,7 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
     }
   };
 
-  const processCsvFileStreaming = async (file: File, newSKUs: Omit<SunskySKU, 'id' | 'created_at' | 'updated_at'>[]) => {
+  const processCsvFileStreaming = async (file: File, newSKUs: Omit<SunskySKU, 'id' | 'created_at' | 'updated_at' | 'user_id'>[]) => {
     return new Promise<void>((resolve, reject) => {
       const reader = new FileReader();
       let processedRows = 0;
@@ -242,7 +242,7 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
     });
   };
 
-  const processExcelFileStreaming = async (file: File, newSKUs: Omit<SunskySKU, 'id' | 'created_at' | 'updated_at'>[]) => {
+  const processExcelFileStreaming = async (file: File, newSKUs: Omit<SunskySKU, 'id' | 'created_at' | 'updated_at' | 'user_id'>[]) => {
     return new Promise<void>((resolve, reject) => {
       const reader = new FileReader();
       

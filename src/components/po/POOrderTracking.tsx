@@ -33,9 +33,9 @@ export function POOrderTracking({ orders, onUpdateStatus, isLoading }: POOrderTr
     switch (status) {
       case 'pending':
         return <Clock className="h-4 w-4 text-yellow-500" />;
-      case 'placed':
+      case 'ordered':
         return <CheckCircle className="h-4 w-4 text-blue-500" />;
-      case 'received':
+      case 'delivered':
         return <CheckCircle className="h-4 w-4 text-green-500" />;
       case 'cancelled':
         return <XCircle className="h-4 w-4 text-red-500" />;
@@ -48,9 +48,9 @@ export function POOrderTracking({ orders, onUpdateStatus, isLoading }: POOrderTr
     switch (status) {
       case 'pending':
         return 'secondary';
-      case 'placed':
+      case 'ordered':
         return 'default';
-      case 'received':
+      case 'delivered':
         return 'default';
       case 'cancelled':
         return 'destructive';
@@ -109,8 +109,9 @@ export function POOrderTracking({ orders, onUpdateStatus, isLoading }: POOrderTr
           <SelectContent>
             <SelectItem value="all">All Status</SelectItem>
             <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="placed">Placed</SelectItem>
-            <SelectItem value="received">Received</SelectItem>
+            <SelectItem value="ordered">Ordered</SelectItem>
+            <SelectItem value="shipped">Shipped</SelectItem>
+            <SelectItem value="delivered">Delivered</SelectItem>
             <SelectItem value="cancelled">Cancelled</SelectItem>
           </SelectContent>
         </Select>
@@ -131,6 +132,8 @@ export function POOrderTracking({ orders, onUpdateStatus, isLoading }: POOrderTr
                 <TableHead>PO Number</TableHead>
                 <TableHead>SKU Code</TableHead>
                 <TableHead>Quantity</TableHead>
+                <TableHead>Unit Cost</TableHead>
+                <TableHead>Total Cost</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Order Date</TableHead>
                 <TableHead>File Source</TableHead>
@@ -161,6 +164,24 @@ export function POOrderTracking({ orders, onUpdateStatus, isLoading }: POOrderTr
                     <Badge variant="outline">
                       {order.quantity}
                     </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {order.unit_cost ? (
+                      <Badge variant="secondary">
+                        {order.unit_cost} {order.currency || 'AED'}
+                      </Badge>
+                    ) : (
+                      <span className="text-muted-foreground">-</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {order.total_cost ? (
+                      <Badge variant="default">
+                        {order.total_cost} {order.currency || 'AED'}
+                      </Badge>
+                    ) : (
+                      <span className="text-muted-foreground">-</span>
+                    )}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center space-x-2">
@@ -195,8 +216,9 @@ export function POOrderTracking({ orders, onUpdateStatus, isLoading }: POOrderTr
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="placed">Placed</SelectItem>
-                        <SelectItem value="received">Received</SelectItem>
+                        <SelectItem value="ordered">Ordered</SelectItem>
+                        <SelectItem value="shipped">Shipped</SelectItem>
+                        <SelectItem value="delivered">Delivered</SelectItem>
                         <SelectItem value="cancelled">Cancelled</SelectItem>
                       </SelectContent>
                     </Select>

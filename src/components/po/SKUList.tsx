@@ -82,7 +82,7 @@ export function SKUList({ skus, isLoading }: SKUListProps) {
                 <TableCell>
                   {sku.cost ? (
                     <Badge variant="secondary">
-                      ${sku.cost.toFixed(2)}
+                      {sku.cost.toFixed(2)} {sku.currency || 'AED'}
                     </Badge>
                   ) : (
                     <span className="text-muted-foreground">-</span>
@@ -91,7 +91,7 @@ export function SKUList({ skus, isLoading }: SKUListProps) {
                 <TableCell>
                   {sku.weight ? (
                     <Badge variant="outline">
-                      {sku.weight}kg
+                      {sku.weight} kg
                     </Badge>
                   ) : (
                     <span className="text-muted-foreground">-</span>

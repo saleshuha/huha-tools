@@ -4,26 +4,34 @@ import { supabase } from '@/integrations/supabase/client';
 
 export interface SunskySKU {
   id: string;
+  user_id: string;
   sku_code: string;
   title?: string;
   description?: string;
   cost?: number;
   weight?: number;
   notes?: string;
+  currency?: string;
   created_at: string;
   updated_at: string;
 }
 
 export interface POOrder {
   id: string;
+  user_id: string;
   po_number: string;
   sku_code: string;
   quantity: number;
-  status: 'pending' | 'placed' | 'received' | 'cancelled';
+  status: 'pending' | 'ordered' | 'shipped' | 'delivered' | 'cancelled';
   order_date?: string;
   expected_delivery?: string;
   notes?: string;
   file_name: string;
+  country?: string;
+  currency?: string;
+  unit_cost?: number;
+  total_cost?: number;
+  sku_user_id?: string;
   created_at: string;
   updated_at: string;
   sunsky_sku?: SunskySKU;
@@ -78,19 +86,13 @@ export const usePOTracker = () => {
     }
   };
 
-  // Add multiple SKUs with user_id
-  const addSKUs = async (skus: Omit<SunskySKU, 'id' | 'created_at' | 'updated_at'>[]) => {
+  // Add multiple SKUs
+  const addSKUs = async (skus: Omit<SunskySKU, 'id' | 'created_at' | 'updated_at' | 'user_id'>[]) => {
     setIsLoading(true);
     try {
-      // Add user_id to each SKU for RLS
-      const skusWithUserId = skus.map(sku => ({
-        ...sku,
-        user_id: undefined // Will be set by RLS policy
-      }));
-
       const { data, error } = await (supabase as any)
         .from('sunsky_skus')
-        .insert(skusWithUserId)
+        .insert(skus)
         .select();
 
       if (error) throw error;
@@ -116,7 +118,7 @@ export const usePOTracker = () => {
   const processPOFiles = async (mappedData: any[]) => {
     setIsLoading(true);
     try {
-      const validOrders: Omit<POOrder, 'id' | 'created_at' | 'updated_at' | 'sunsky_sku'>[] = [];
+      const validOrders: Omit<POOrder, 'id' | 'created_at' | 'updated_at' | 'sunsky_sku' | 'user_id'>[] = [];
 
       mappedData.forEach(item => {
         // Check if SKU exists in our database
@@ -133,7 +135,9 @@ export const usePOTracker = () => {
             file_name: item.file_name,
             notes: undefined,
             order_date: undefined,
-            expected_delivery: undefined
+            expected_delivery: undefined,
+            unit_cost: item.unit_cost || existingSKU.cost,
+            sku_user_id: undefined // Will be set by trigger
           });
         }
       });
@@ -177,7 +181,7 @@ export const usePOTracker = () => {
         .from('po_orders')
         .update({ 
           status,
-          order_date: status === 'placed' ? new Date().toISOString() : undefined
+          order_date: status === 'ordered' ? new Date().toISOString() : undefined
         })
         .eq('id', orderId);
 
