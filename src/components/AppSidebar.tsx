@@ -178,7 +178,7 @@ export function AppSidebar() {
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton 
                     asChild
-                    className={`w-full p-3 rounded-lg transition-colors ${
+                    className={`w-full rounded-lg transition-colors ${
                       isActive(item.url)
                         ? "bg-primary text-primary-foreground" 
                         : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
@@ -187,7 +187,7 @@ export function AppSidebar() {
                     <NavLink 
                       to={item.url} 
                       end
-                      className="flex items-center gap-3 no-underline w-full px-0"
+                      className="flex items-center gap-3 no-underline w-full p-3"
                     >
                       <item.icon className="h-4 w-4 flex-shrink-0" />
                       {!isCollapsed && (
@@ -208,7 +208,7 @@ export function AppSidebar() {
                       <SidebarMenuItem>
                         <SidebarMenuButton 
                           asChild
-                          className={`w-full p-3 rounded-lg transition-colors ${
+                          className={`w-full rounded-lg transition-colors ${
                             isActive(item.url)
                               ? "bg-primary text-primary-foreground" 
                               : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
@@ -217,7 +217,7 @@ export function AppSidebar() {
                           <NavLink 
                             to={item.url} 
                             end
-                            className="flex items-center gap-3 no-underline w-full px-0"
+                            className="flex items-center gap-3 no-underline w-full p-3"
                           >
                             <item.icon className="h-4 w-4 flex-shrink-0" />
                             {!isCollapsed && (
@@ -233,7 +233,7 @@ export function AppSidebar() {
                       <SidebarMenuItem>
                         <SidebarMenuButton 
                           asChild
-                          className={`w-full p-3 rounded-lg transition-colors ${
+                          className={`w-full rounded-lg transition-colors ${
                             isActive("/po-tracker")
                               ? "bg-primary text-primary-foreground" 
                               : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
@@ -242,7 +242,7 @@ export function AppSidebar() {
                           <NavLink 
                             to="/po-tracker" 
                             end
-                            className="flex items-center gap-3 no-underline w-full px-0"
+                            className="flex items-center gap-3 no-underline w-full p-3"
                           >
                             <ShoppingCart className="h-4 w-4 flex-shrink-0" />
                             {!isCollapsed && (
@@ -259,13 +259,13 @@ export function AppSidebar() {
                         <Collapsible open={isPaymentReportsOpen} onOpenChange={setIsPaymentReportsOpen}>
                           <CollapsibleTrigger asChild>
                             <SidebarMenuButton
-                              className={`w-full p-3 rounded-lg transition-colors text-left ${
+                              className={`w-full rounded-lg transition-colors text-left ${
                                 isPaymentReportsSectionActive()
                                   ? "bg-accent text-accent-foreground" 
                                   : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                               }`}
                             >
-                              <div className="flex items-center gap-3 w-full">
+                              <div className="flex items-center gap-3 w-full p-3">
                                 <CreditCard className="h-4 w-4 flex-shrink-0" />
                                 {!isCollapsed && (
                                   <>
@@ -280,12 +280,12 @@ export function AppSidebar() {
                               </div>
                             </SidebarMenuButton>
                           </CollapsibleTrigger>
-                          <CollapsibleContent className="ml-6 mt-2 space-y-2">
+                          <CollapsibleContent className="mt-2 space-y-2 pl-6">
                             {paymentReportsItems.map((reportItem) => (
                               <SidebarMenuButton 
                                 key={reportItem.title}
                                 asChild
-                                className={`w-full p-3 rounded-lg transition-colors ${
+                                className={`w-full rounded-lg transition-colors ${
                                   isActive(reportItem.url)
                                     ? "bg-primary text-primary-foreground" 
                                     : "hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
@@ -294,7 +294,7 @@ export function AppSidebar() {
                                 <NavLink 
                                   to={reportItem.url} 
                                   end
-                                  className="flex items-center gap-3 no-underline w-full px-0"
+                                  className="flex items-center gap-3 no-underline w-full p-3"
                                 >
                                    <reportItem.icon className="h-4 w-4 flex-shrink-0" />
                                    {!isCollapsed && (
@@ -316,7 +316,7 @@ export function AppSidebar() {
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton 
                       asChild
-                      className={`w-full p-3 rounded-lg transition-colors ${
+                      className={`w-full rounded-lg transition-colors ${
                         isActive(item.url)
                           ? "bg-primary text-primary-foreground" 
                           : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
@@ -325,7 +325,7 @@ export function AppSidebar() {
                       <NavLink 
                         to={item.url} 
                         end
-                        className="flex items-center gap-3 no-underline w-full px-0"
+                        className="flex items-center gap-3 no-underline w-full p-3"
                       >
                         <item.icon className="h-4 w-4 flex-shrink-0" />
                         {!isCollapsed && (
@@ -343,7 +343,7 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   asChild
-                  className={`w-full p-3 rounded-lg transition-colors ${
+                  className={`w-full rounded-lg transition-colors ${
                     isActive("/carrefour-payments")
                       ? "bg-primary text-primary-foreground" 
                       : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
@@ -352,7 +352,7 @@ export function AppSidebar() {
                   <NavLink 
                     to="/carrefour-payments" 
                     end
-                    className="flex items-center gap-3 no-underline w-full px-0"
+                    className="flex items-center gap-3 no-underline w-full p-3"
                   >
                     <BarChart3 className="h-4 w-4 flex-shrink-0" />
                     {!isCollapsed && (
@@ -370,13 +370,13 @@ export function AppSidebar() {
                 <Collapsible open={isToolsOpen} onOpenChange={setIsToolsOpen}>
                   <CollapsibleTrigger asChild>
                     <SidebarMenuButton
-                      className={`w-full p-3 rounded-lg transition-colors ${
+                      className={`w-full rounded-lg transition-colors ${
                         isToolsSectionActive()
                           ? "bg-accent text-accent-foreground" 
                           : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                       }`}
                     >
-                      <div className="flex items-center gap-3 w-full">
+                      <div className="flex items-center gap-3 w-full p-3">
                         <Wrench className="h-4 w-4 flex-shrink-0" />
                         {!isCollapsed && (
                           <div className="flex items-center justify-between w-full">
@@ -391,12 +391,12 @@ export function AppSidebar() {
                       </div>
                     </SidebarMenuButton>
                   </CollapsibleTrigger>
-                  <CollapsibleContent className="ml-6 mt-2 space-y-2">
+                  <CollapsibleContent className="mt-2 space-y-2 pl-6">
                     {toolsItems.map((item) => (
                       <SidebarMenuButton 
                         key={item.title}
                         asChild
-                        className={`w-full p-3 rounded-lg transition-colors ${
+                        className={`w-full rounded-lg transition-colors ${
                           isActive(item.url)
                             ? "bg-primary text-primary-foreground" 
                             : "hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
@@ -405,7 +405,7 @@ export function AppSidebar() {
                         <NavLink 
                           to={item.url} 
                           end
-                          className="flex items-center gap-3 no-underline w-full px-0"
+                          className="flex items-center gap-3 no-underline w-full p-3"
                         >
                           <item.icon className="h-4 w-4 flex-shrink-0" />
                           {!isCollapsed && (
@@ -426,7 +426,7 @@ export function AppSidebar() {
       <SidebarFooter className="p-3 border-t border-sidebar-border space-y-3">
         <SidebarMenuButton 
           asChild
-          className={`w-full p-3 rounded-lg transition-colors ${
+          className={`w-full rounded-lg transition-colors ${
             isActive("/users")
               ? "bg-primary text-primary-foreground" 
               : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
@@ -435,7 +435,7 @@ export function AppSidebar() {
           <NavLink 
             to="/users" 
             end
-            className="flex items-center gap-3 no-underline w-full px-0"
+            className="flex items-center gap-3 no-underline w-full p-3"
           >
             <Users className="h-4 w-4 flex-shrink-0" />
             {!isCollapsed && (
