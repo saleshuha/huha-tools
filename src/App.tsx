@@ -36,6 +36,7 @@ import StoreSelection from "./pages/StoreSelection";
 import SKUCostManagement from "./pages/SKUCostManagement";
 import NoonOrderAnalysis from "./pages/NoonOrderAnalysis";
 import ProcessedOrders from "./pages/ProcessedOrders";
+import PODetailsPage from "./pages/PODetails";
 
 
 
@@ -140,6 +141,7 @@ const App = () => {
                     <Route path="/users" element={<UserManagementPage />} />
                      <Route path="/replenishment" element={<ReplenishmentPage />} />
                      <Route path="/po-tracker" element={<POTrackerPage />} />
+                     <Route path="/po-details/:poNumber" element={<PODetailsPage />} />
                      <Route path="/excel-editor" element={<ExcelEditorPage />} />
                      <Route path="/noon-sales-tracker" element={<NoonSalesTracker />} />
                      <Route path="/noon-dashboard" element={<NoonDashboard />} />

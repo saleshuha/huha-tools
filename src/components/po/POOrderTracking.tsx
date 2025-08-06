@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -6,9 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { ShoppingCart, Calendar, Search, Package2, Clock, CheckCircle, XCircle, ChevronDown, ChevronRight, ExternalLink, Edit } from 'lucide-react';
+import { ShoppingCart, Calendar, Search, Package2, Clock, CheckCircle, XCircle, ChevronRight } from 'lucide-react';
 import { POOrder } from '@/hooks/usePOTracker';
 
 interface POOrderTrackingProps {
@@ -30,13 +29,7 @@ interface POGroup {
 export function POOrderTracking({ orders, onUpdateStatus, onUpdateTracking, isLoading }: POOrderTrackingProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [expandedPOs, setExpandedPOs] = useState<Set<string>>(new Set());
-  const [editingTracking, setEditingTracking] = useState<string | null>(null);
-  const [trackingForm, setTrackingForm] = useState({
-    supplier_order_number: '',
-    tracking_number: '',
-    tracking_url: ''
-  });
+  const navigate = useNavigate();
 
   // Group orders by PO number
   const groupedPOs = orders.reduce((acc, order) => {
@@ -86,36 +79,8 @@ export function POOrderTracking({ orders, onUpdateStatus, onUpdateTracking, isLo
     return matchesSearch && matchesStatus;
   });
 
-  const toggleExpanded = (poNumber: string) => {
-    const newExpanded = new Set(expandedPOs);
-    if (newExpanded.has(poNumber)) {
-      newExpanded.delete(poNumber);
-    } else {
-      newExpanded.add(poNumber);
-    }
-    setExpandedPOs(newExpanded);
-  };
-
-  const handleEditTracking = (order: POOrder) => {
-    setEditingTracking(order.id);
-    setTrackingForm({
-      supplier_order_number: order.supplier_order_number || '',
-      tracking_number: order.tracking_number || '',
-      tracking_url: order.tracking_url || ''
-    });
-  };
-
-  const handleSaveTracking = async () => {
-    if (editingTracking) {
-      await onUpdateTracking(editingTracking, trackingForm);
-      setEditingTracking(null);
-    }
-  };
-
-  const handleTrackingClick = (url: string) => {
-    if (url) {
-      window.open(url.startsWith('http') ? url : `https://${url}`, '_blank');
-    }
+  const navigateToPODetails = (poNumber: string) => {
+    navigate(`/po-details/${encodeURIComponent(poNumber)}`);
   };
 
   const getStatusIcon = (status: POOrder['status']) => {
@@ -221,14 +186,11 @@ export function POOrderTracking({ orders, onUpdateStatus, onUpdateTracking, isLo
                 {/* PO Header */}
                 <div 
                   className="p-4 cursor-pointer hover:bg-muted/50 transition-colors"
-                  onClick={() => toggleExpanded(group.po_number)}
+                  onClick={() => navigateToPODetails(group.po_number)}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      {expandedPOs.has(group.po_number) ? 
-                        <ChevronDown className="h-4 w-4" /> : 
-                        <ChevronRight className="h-4 w-4" />
-                      }
+                      <ChevronRight className="h-4 w-4" />
                       <Badge variant="outline" className="font-mono">
                         {group.po_number}
                       </Badge>
@@ -246,174 +208,6 @@ export function POOrderTracking({ orders, onUpdateStatus, onUpdateTracking, isLo
                   </div>
                 </div>
 
-                {/* Expanded PO Details */}
-                {expandedPOs.has(group.po_number) && (
-                  <div className="border-t bg-muted/20">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>SKU Code</TableHead>
-                          <TableHead>Quantity</TableHead>
-                          <TableHead>Unit Cost</TableHead>
-                          <TableHead>Total Cost</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Supplier Order</TableHead>
-                          <TableHead>Tracking</TableHead>
-                          <TableHead>Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {group.orders.map((order) => (
-                          <TableRow key={order.id}>
-                            <TableCell>
-                              <div className="flex items-center">
-                                <Badge variant="secondary" className="font-mono">
-                                  {order.sku_code}
-                                </Badge>
-                                {order.sunsky_sku && (
-                                  <span className="ml-2 text-sm text-muted-foreground max-w-xs truncate">
-                                    {order.sunsky_sku.description}
-                                  </span>
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="outline">
-                                {order.quantity}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              {order.unit_cost ? (
-                                <Badge variant="secondary">
-                                  {order.unit_cost} {order.currency || 'AED'}
-                                </Badge>
-                              ) : (
-                                <span className="text-muted-foreground">-</span>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              {order.total_cost ? (
-                                <Badge variant="default">
-                                  {order.total_cost} {order.currency || 'AED'}
-                                </Badge>
-                              ) : (
-                                <span className="text-muted-foreground">-</span>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              <Select
-                                value={order.status}
-                                onValueChange={(value: POOrder['status']) => onUpdateStatus(order.id, value)}
-                              >
-                                <SelectTrigger className="w-[120px] h-8">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="pending">Pending</SelectItem>
-                                  <SelectItem value="ordered">Ordered</SelectItem>
-                                  <SelectItem value="shipped">Shipped</SelectItem>
-                                  <SelectItem value="delivered">Delivered</SelectItem>
-                                  <SelectItem value="cancelled">Cancelled</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </TableCell>
-                            <TableCell>
-                              {order.supplier_order_number ? (
-                                <Badge variant="outline">
-                                  {order.supplier_order_number}
-                                </Badge>
-                              ) : (
-                                <span className="text-muted-foreground">-</span>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              {order.tracking_number ? (
-                                <div className="flex items-center gap-2">
-                                  <Badge variant="secondary">
-                                    {order.tracking_number}
-                                  </Badge>
-                                  {order.tracking_url && (
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => handleTrackingClick(order.tracking_url!)}
-                                    >
-                                      <ExternalLink className="h-3 w-3" />
-                                    </Button>
-                                  )}
-                                </div>
-                              ) : (
-                                <span className="text-muted-foreground">-</span>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              <Dialog>
-                                <DialogTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleEditTracking(order)}
-                                  >
-                                    <Edit className="h-3 w-3" />
-                                  </Button>
-                                </DialogTrigger>
-                                <DialogContent>
-                                  <DialogHeader>
-                                    <DialogTitle>Edit Tracking Information</DialogTitle>
-                                  </DialogHeader>
-                                  <div className="space-y-4">
-                                    <div>
-                                      <Label htmlFor="supplier_order">Supplier Order Number</Label>
-                                      <Input
-                                        id="supplier_order"
-                                        placeholder="Enter supplier order number"
-                                        value={trackingForm.supplier_order_number}
-                                        onChange={(e) => setTrackingForm(prev => ({
-                                          ...prev,
-                                          supplier_order_number: e.target.value
-                                        }))}
-                                      />
-                                    </div>
-                                    <div>
-                                      <Label htmlFor="tracking_number">Tracking Number</Label>
-                                      <Input
-                                        id="tracking_number"
-                                        placeholder="Enter tracking number"
-                                        value={trackingForm.tracking_number}
-                                        onChange={(e) => setTrackingForm(prev => ({
-                                          ...prev,
-                                          tracking_number: e.target.value
-                                        }))}
-                                      />
-                                    </div>
-                                    <div>
-                                      <Label htmlFor="tracking_url">Tracking URL</Label>
-                                      <Input
-                                        id="tracking_url"
-                                        placeholder="Enter tracking URL or website"
-                                        value={trackingForm.tracking_url}
-                                        onChange={(e) => setTrackingForm(prev => ({
-                                          ...prev,
-                                          tracking_url: e.target.value
-                                        }))}
-                                      />
-                                    </div>
-                                    <Button 
-                                      onClick={handleSaveTracking}
-                                      className="w-full"
-                                    >
-                                      Save Tracking Info
-                                    </Button>
-                                  </div>
-                                </DialogContent>
-                              </Dialog>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
               </div>
             ))}
           </div>
