@@ -250,10 +250,12 @@ export function FileMerger() {
         : totalRows;
 
       const filename = outputFileName.trim();
+      const CHUNK_SIZE = 5000; // Process in smaller chunks to avoid memory issues
+      const MAX_STRING_LENGTH = 500 * 1024 * 1024; // 500MB string limit safety
       
       console.log(`Exporting ${rowsToExport} rows of ${totalRows} total rows`);
 
-      // Progress: 10% - Start creating merged CSV content
+      // Progress: 10% - Start processing
       setExportProgress(10);
 
       // Helper function to process CSV row with proper escaping
@@ -267,23 +269,76 @@ export function FileMerger() {
         }).join(',');
       };
 
-      // Progress: 20% - Create complete merged CSV content
-      setExportProgress(20);
-      
-      const csvContent = [
-        processCSVRow(mergedData.headers),
-        ...mergedData.data.slice(0, rowsToExport).map(row => processCSVRow(row))
-      ].join('\n');
-
-      // Progress: 60% - CSV content created, now compress
-      setExportProgress(60);
-      
-      // Create ZIP with the merged content
+      // Create ZIP for streaming approach
       const zip = new JSZip();
-      zip.file(`${filename}.csv`, csvContent);
+      
+      // Process headers
+      const headerRow = processCSVRow(mergedData.headers);
+      
+      // Process data in chunks to avoid memory issues and string length limits
+      const numChunks = Math.ceil(rowsToExport / CHUNK_SIZE);
+      let csvParts: string[] = [headerRow]; // Start with headers
+      let currentSize = headerRow.length;
+      let fileIndex = 1;
+      
+      console.log(`Processing ${numChunks} chunks of ${CHUNK_SIZE} rows each`);
+
+      for (let chunkIndex = 0; chunkIndex < numChunks; chunkIndex++) {
+        const startRow = chunkIndex * CHUNK_SIZE;
+        const endRow = Math.min(startRow + CHUNK_SIZE, rowsToExport);
+        
+        // Update progress (10% to 80%)
+        const progress = 10 + ((chunkIndex + 1) / numChunks) * 70;
+        setExportProgress(Math.round(progress));
+        
+        console.log(`Processing chunk ${chunkIndex + 1}/${numChunks} (rows ${startRow + 1}-${endRow})`);
+        
+        // Process chunk data
+        const chunkData = mergedData.data.slice(startRow, endRow);
+        const chunkLines = chunkData.map(row => processCSVRow(row));
+        
+        // Check if adding this chunk would exceed string limit
+        const chunkContent = chunkLines.join('\n');
+        const newSize = currentSize + chunkContent.length + 1; // +1 for newline
+        
+        if (newSize > MAX_STRING_LENGTH || csvParts.length > 100000) {
+          // Save current CSV part to ZIP
+          const csvContent = csvParts.join('\n');
+          const partFileName = numChunks > 1 || fileIndex > 1 
+            ? `${filename}_part${fileIndex}.csv`
+            : `${filename}.csv`;
+          
+          zip.file(partFileName, csvContent);
+          console.log(`Created ${partFileName} with ${csvParts.length - 1} rows`);
+          
+          // Start new part
+          csvParts = [headerRow, ...chunkLines];
+          currentSize = headerRow.length + chunkContent.length + 1;
+          fileIndex++;
+        } else {
+          // Add chunk to current part
+          csvParts.push(...chunkLines);
+          currentSize = newSize;
+        }
+        
+        // Allow browser to breathe between chunks
+        await new Promise(resolve => setTimeout(resolve, 5));
+      }
+      
+      // Add final part if any data remains
+      if (csvParts.length > 1) { // More than just headers
+        const csvContent = csvParts.join('\n');
+        const partFileName = fileIndex > 1 
+          ? `${filename}_part${fileIndex}.csv`
+          : `${filename}.csv`;
+        
+        zip.file(partFileName, csvContent);
+        console.log(`Created final ${partFileName} with ${csvParts.length - 1} rows`);
+      }
 
       // Progress: 80% - Start ZIP generation
       setExportProgress(80);
+      console.log('Generating ZIP file...');
       
       const zipBlob = await zip.generateAsync({ 
         type: 'blob',
