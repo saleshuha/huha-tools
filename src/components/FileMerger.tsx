@@ -342,14 +342,12 @@ export function FileMerger() {
             ? `${filename}_part${fileIndex + 1}.csv`
             : `${filename}.csv`;
           
-          zip.file(partFileName, csvContent);
-          
-          // Clear processed data from memory
-          if (global.gc) {
-            global.gc();
-          }
-          
-          console.log(`Created part ${fileIndex + 1}/${fileCount}`);
+           zip.file(partFileName, csvContent);
+           
+           // Allow browser to clean up memory between chunks
+           await new Promise(resolve => setTimeout(resolve, 10));
+           
+           console.log(`Created part ${fileIndex + 1}/${fileCount}`);
         }
 
         // Generate ZIP file (85% to 95%)
