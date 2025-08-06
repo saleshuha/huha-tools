@@ -3,8 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowRight, CheckCircle, RotateCcw } from 'lucide-react';
+import { ArrowRight, CheckCircle, RotateCcw, Edit3 } from 'lucide-react';
 
 interface ColumnMappingProps {
   files: { file: File; headers: string[]; data: string[][] }[];
@@ -18,6 +20,7 @@ interface ColumnMapping {
     po_number: string;
     sku_code: string;
     quantity: string;
+    manual_po_number?: string; // Add manual PO number option
   };
 }
 
@@ -36,6 +39,16 @@ export function POColumnMapping({ files, onMappingComplete, onBack, isLoading }:
       [fileName]: {
         ...prev[fileName],
         [field]: column
+      }
+    }));
+  };
+
+  const handleManualPONumber = (fileName: string, value: string) => {
+    setMappings(prev => ({
+      ...prev,
+      [fileName]: {
+        ...prev[fileName],
+        manual_po_number: value
       }
     }));
   };
@@ -70,8 +83,11 @@ export function POColumnMapping({ files, onMappingComplete, onBack, isLoading }:
 
   const isValidMapping = (fileName: string) => {
     const mapping = mappings[fileName];
+    const hasColumnPO = mapping && mapping.po_number && mapping.po_number !== 'none';
+    const hasManualPO = mapping && mapping.manual_po_number && mapping.manual_po_number.trim();
+    
     return mapping && 
-           mapping.po_number && 
+           (hasColumnPO || hasManualPO) && // Either column mapped PO or manual PO
            mapping.sku_code && 
            mapping.quantity;
   };
@@ -86,20 +102,24 @@ export function POColumnMapping({ files, onMappingComplete, onBack, isLoading }:
       if (!mapping) return;
 
       const headers = data[0];
-      const poIndex = headers.indexOf(mapping.po_number);
+      const poIndex = mapping.po_number && mapping.po_number !== 'none' ? headers.indexOf(mapping.po_number) : -1;
       const skuIndex = headers.indexOf(mapping.sku_code);
       const qtyIndex = headers.indexOf(mapping.quantity);
 
       // Process data rows (skip header)
       for (let i = 1; i < data.length; i++) {
         const row = data[i];
-        if (row[poIndex] && row[skuIndex] && row[qtyIndex]) {
-          processedData.push({
-            po_number: row[poIndex].trim(),
-            sku_code: row[skuIndex].trim(),
-            quantity: parseInt(row[qtyIndex]) || 1,
-            file_name: file.name
-          });
+        if (row[skuIndex] && row[qtyIndex]) {
+          const poNumber = poIndex >= 0 ? row[poIndex]?.trim() : mapping.manual_po_number?.trim();
+          
+          if (poNumber) {
+            processedData.push({
+              po_number: poNumber,
+              sku_code: row[skuIndex].trim(),
+              quantity: parseInt(row[qtyIndex]) || 1,
+              file_name: file.name
+            });
+          }
         }
       }
     });
@@ -183,6 +203,41 @@ export function POColumnMapping({ files, onMappingComplete, onBack, isLoading }:
                 ))}
               </div>
 
+              {/* Manual PO Number Section - Show if PO Number is not mapped */}
+              {(!mappings[file.name]?.po_number || mappings[file.name]?.po_number === 'none') && (
+                <div className="border-t pt-4">
+                  <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg space-y-3">
+                    <div className="flex items-center space-x-2">
+                      <Edit3 className="h-4 w-4 text-blue-600" />
+                      <Label className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                        Manual PO Number Entry
+                      </Label>
+                    </div>
+                    <p className="text-xs text-blue-600 dark:text-blue-300">
+                      Since PO Number column is not mapped, you can enter a PO number that will be used for all rows in this file.
+                    </p>
+                    <Input
+                      placeholder="Enter PO Number (e.g., PO-2025-001)"
+                      value={mappings[file.name]?.manual_po_number || ''}
+                      onChange={(e) => handleManualPONumber(file.name, e.target.value)}
+                      className="max-w-md"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Show current mapping status */}
+              {mappings[file.name]?.manual_po_number && (
+                <div className="bg-green-50 dark:bg-green-950 p-3 rounded-lg">
+                  <div className="flex items-center space-x-2">
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                    <span className="text-sm text-green-800 dark:text-green-200">
+                      Manual PO Number: <strong>{mappings[file.name].manual_po_number}</strong>
+                    </span>
+                  </div>
+                </div>
+              )}
+
               {/* Preview Section */}
               <div>
                 <h4 className="text-sm font-medium mb-2">Preview (First 3 rows)</h4>
@@ -220,7 +275,11 @@ export function POColumnMapping({ files, onMappingComplete, onBack, isLoading }:
                 <div className="bg-green-50 p-3 rounded-md">
                   <h5 className="text-sm font-medium text-green-800 mb-2">Mapping Preview</h5>
                   <div className="text-xs text-green-700 space-y-1">
-                    <div>PO Number: <span className="font-mono">{mappings[file.name].po_number}</span></div>
+                    <div>PO Number: <span className="font-mono">
+                      {mappings[file.name].po_number && mappings[file.name].po_number !== 'none' 
+                        ? `Column: ${mappings[file.name].po_number}` 
+                        : `Manual: ${mappings[file.name].manual_po_number}`}
+                    </span></div>
                     <div>SKU Code: <span className="font-mono">{mappings[file.name].sku_code}</span></div>
                     <div>Quantity: <span className="font-mono">{mappings[file.name].quantity}</span></div>
                   </div>
