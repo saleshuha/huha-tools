@@ -202,9 +202,9 @@ export function POOrderTracking({ orders, onUpdateStatus, onUpdateTracking, isLo
                             {group.status.charAt(0).toUpperCase() + group.status.slice(1)}
                           </Badge>
                         </div>
-                        {group.orders[0]?.order_date && (
+                        {(group.orders[0]?.order_date || group.orders[0]?.created_at) && (
                           <Badge variant="secondary" className="text-xs">
-                            {new Date(group.orders[0].order_date).toLocaleDateString()}
+                            {new Date(group.orders[0]?.order_date || group.orders[0]?.created_at).toLocaleDateString()}
                           </Badge>
                         )}
                       </div>
