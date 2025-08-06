@@ -705,23 +705,33 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
                   </Button>
                 </div>
                 <div className="max-h-40 overflow-y-auto space-y-1">
-                  {bulkSKUs.map((sku, index) => (
-                    <div key={index} className="flex items-center justify-between p-2 bg-muted rounded">
-                      <div className="flex items-center space-x-2">
-                        <Badge variant="outline">{sku.sku_code}</Badge>
-                        <span className="text-sm">{sku.title || 'No title'}</span>
-                        {sku.cost && <Badge variant="secondary">${sku.cost}</Badge>}
-                        {sku.weight && <Badge variant="outline">{sku.weight}kg</Badge>}
+                  {bulkSKUs.map((sku, index) => {
+                    console.log(`SKU ${index}:`, sku); // Debug log
+                    return (
+                      <div key={index} className="flex items-center justify-between p-2 bg-muted rounded">
+                        <div className="flex items-center space-x-2">
+                          <Badge variant="outline">{sku.sku_code}</Badge>
+                          <span className="text-sm">{sku.title || 'No title'}</span>
+                          {sku.cost !== undefined && sku.cost !== null && (
+                            <Badge variant="secondary">${sku.cost}</Badge>
+                          )}
+                          {sku.weight !== undefined && sku.weight !== null && (
+                            <Badge variant="outline">{sku.weight}kg</Badge>
+                          )}
+                          <span className="text-xs text-muted-foreground">
+                            Debug: cost={sku.cost}, weight={sku.weight}
+                          </span>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeBulkSKU(index)}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeBulkSKU(index)}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
