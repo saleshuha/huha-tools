@@ -625,6 +625,27 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
                       <div className="text-sm text-muted-foreground mb-4">
                         Map your file columns to the required SKU fields. At minimum, SKU column is required.
                       </div>
+
+                      {/* Show CSV Preview */}
+                      {parsedFileData && parsedFileData.data.length > 0 && (
+                        <div className="mb-4 p-3 border rounded-lg bg-muted/20">
+                          <h4 className="text-sm font-medium mb-2">CSV Preview (first row):</h4>
+                          <div className="text-xs space-y-1">
+                            {parsedFileData.headers.map((header, index) => (
+                              <div key={index} className="flex justify-between">
+                                <span className="font-medium">{header}:</span>
+                                <span className="text-muted-foreground">
+                                  {parsedFileData.data[0] && parsedFileData.data[0][index] ? 
+                                    String(parsedFileData.data[0][index]).substring(0, 50) + 
+                                    (String(parsedFileData.data[0][index]).length > 50 ? '...' : '') 
+                                    : 'N/A'
+                                  }
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                       
                       {/* Target Columns */}
                       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
