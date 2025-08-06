@@ -26,10 +26,8 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
   const [manualSKU, setManualSKU] = useState({
     sku_code: '',
     title: '',
-    description: '',
     cost: '',
-    weight: '',
-    notes: ''
+    weight: ''
   });
 
   // Bulk SKUs state
@@ -47,14 +45,12 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
     const newSKU = {
       sku_code: manualSKU.sku_code.trim(),
       title: manualSKU.title.trim() || undefined,
-      description: manualSKU.description.trim() || undefined,
       cost: manualSKU.cost ? parseFloat(manualSKU.cost) : undefined,
-      weight: manualSKU.weight ? parseFloat(manualSKU.weight) : undefined,
-      notes: manualSKU.notes.trim() || undefined
+      weight: manualSKU.weight ? parseFloat(manualSKU.weight) : undefined
     };
 
     await onAddSKUs([newSKU]);
-    setManualSKU({ sku_code: '', title: '', description: '', cost: '', weight: '', notes: '' });
+    setManualSKU({ sku_code: '', title: '', cost: '', weight: '' });
     setIsOpen(false);
   };
 
@@ -402,25 +398,6 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
                   placeholder="0.00"
                 />
               </div>
-            </div>
-            <div>
-              <Label htmlFor="description">Description</Label>
-              <Input
-                id="description"
-                value={manualSKU.description}
-                onChange={(e) => setManualSKU(prev => ({ ...prev, description: e.target.value }))}
-                placeholder="Product description"
-              />
-            </div>
-            <div>
-              <Label htmlFor="notes">Notes</Label>
-              <Textarea
-                id="notes"
-                value={manualSKU.notes}
-                onChange={(e) => setManualSKU(prev => ({ ...prev, notes: e.target.value }))}
-                placeholder="Additional notes"
-                rows={3}
-              />
             </div>
             <Button 
               onClick={handleManualAdd} 
