@@ -39,81 +39,7 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
   const [progress, setProgress] = useState(0);
   const [progressLabel, setProgressLabel] = useState('');
 
-  const handleManualAdd = async () => {
-    if (!manualSKU.sku_code.trim()) return;
-
-    const newSKU = {
-      sku_code: manualSKU.sku_code.trim(),
-      title: manualSKU.title.trim() || undefined,
-      cost: manualSKU.cost ? parseFloat(manualSKU.cost) : undefined,
-      weight: manualSKU.weight ? parseFloat(manualSKU.weight) : undefined
-    };
-
-    await onAddSKUs([newSKU]);
-    setManualSKU({ sku_code: '', title: '', cost: '', weight: '' });
-    setIsOpen(false);
-  };
-
-  const handleBulkAdd = async () => {
-    if (bulkSKUs.length === 0) return;
-    
-    setIsProcessing(true);
-    setProgress(0);
-    setProgressLabel(`Adding ${bulkSKUs.length} SKUs...`);
-    
-    try {
-      const batchSize = 50; // Process in batches of 50
-      const batches = [];
-      
-      for (let i = 0; i < bulkSKUs.length; i += batchSize) {
-        batches.push(bulkSKUs.slice(i, i + batchSize));
-      }
-      
-      for (let i = 0; i < batches.length; i++) {
-        await onAddSKUs(batches[i]);
-        const progressValue = ((i + 1) / batches.length) * 100;
-        setProgress(progressValue);
-        setProgressLabel(`Processing batch ${i + 1} of ${batches.length}...`);
-        
-        // Small delay to show progress
-        if (i < batches.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 100));
-        }
-      }
-      
-      setBulkSKUs([]);
-      setIsOpen(false);
-    } finally {
-      setIsProcessing(false);
-      setProgress(0);
-      setProgressLabel('');
-    }
-  };
-
-  const handlePasteProcess = () => {
-    if (!pasteData.trim()) return;
-
-    const lines = pasteData.split('\n').filter(line => line.trim());
-    const newSKUs: Omit<SunskySKU, 'id' | 'created_at' | 'updated_at' | 'user_id'>[] = [];
-
-    lines.forEach(line => {
-      const columns = line.split('\t').map(col => col.trim()); // Tab-separated
-      if (columns.length >= 1 && columns[0]) {
-        newSKUs.push({
-          sku_code: columns[0],
-          title: columns[1] || undefined,
-          description: columns[2] || undefined,
-          cost: columns[3] ? parseFloat(columns[3]) : undefined,
-          weight: columns[4] ? parseFloat(columns[4]) : undefined,
-          notes: columns[5] || undefined
-        });
-      }
-    });
-
-    setBulkSKUs(prev => [...prev, ...newSKUs]);
-    setPasteData('');
-  };
-
+  // File processing functions (declared first to be used in useDropzone)
   const handleFileUpload = async (files: File[]) => {
     setIsProcessing(true);
     setProgress(0);
@@ -306,6 +232,7 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
     });
   };
 
+  // Dropzone hook - must be called at the top level after functions are declared
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: handleFileUpload,
     accept: {
@@ -315,6 +242,83 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
     },
     multiple: true
   });
+
+  const handleManualAdd = async () => {
+    if (!manualSKU.sku_code.trim()) return;
+
+    const newSKU = {
+      sku_code: manualSKU.sku_code.trim(),
+      title: manualSKU.title.trim() || undefined,
+      cost: manualSKU.cost ? parseFloat(manualSKU.cost) : undefined,
+      weight: manualSKU.weight ? parseFloat(manualSKU.weight) : undefined
+    };
+
+    await onAddSKUs([newSKU]);
+    setManualSKU({ sku_code: '', title: '', cost: '', weight: '' });
+    setIsOpen(false);
+  };
+
+  const handleBulkAdd = async () => {
+    if (bulkSKUs.length === 0) return;
+    
+    setIsProcessing(true);
+    setProgress(0);
+    setProgressLabel(`Adding ${bulkSKUs.length} SKUs...`);
+    
+    try {
+      const batchSize = 50; // Process in batches of 50
+      const batches = [];
+      
+      for (let i = 0; i < bulkSKUs.length; i += batchSize) {
+        batches.push(bulkSKUs.slice(i, i + batchSize));
+      }
+      
+      for (let i = 0; i < batches.length; i++) {
+        await onAddSKUs(batches[i]);
+        const progressValue = ((i + 1) / batches.length) * 100;
+        setProgress(progressValue);
+        setProgressLabel(`Processing batch ${i + 1} of ${batches.length}...`);
+        
+        // Small delay to show progress
+        if (i < batches.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      }
+      
+      setBulkSKUs([]);
+      setIsOpen(false);
+    } finally {
+      setIsProcessing(false);
+      setProgress(0);
+      setProgressLabel('');
+    }
+  };
+
+  const handlePasteProcess = () => {
+    if (!pasteData.trim()) return;
+
+    const lines = pasteData.split('\n').filter(line => line.trim());
+    const newSKUs: Omit<SunskySKU, 'id' | 'created_at' | 'updated_at' | 'user_id'>[] = [];
+
+    lines.forEach(line => {
+      const columns = line.split('\t').map(col => col.trim()); // Tab-separated
+      if (columns.length >= 1 && columns[0]) {
+        newSKUs.push({
+          sku_code: columns[0],
+          title: columns[1] || undefined,
+          description: columns[2] || undefined,
+          cost: columns[3] ? parseFloat(columns[3]) : undefined,
+          weight: columns[4] ? parseFloat(columns[4]) : undefined,
+          notes: columns[5] || undefined
+        });
+      }
+    });
+
+    setBulkSKUs(prev => [...prev, ...newSKUs]);
+    setPasteData('');
+  };
+
+
 
   const removeBulkSKU = (index: number) => {
     setBulkSKUs(prev => prev.filter((_, i) => i !== index));
