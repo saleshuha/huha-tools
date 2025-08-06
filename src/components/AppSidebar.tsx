@@ -204,56 +204,29 @@ export function AppSidebar() {
               {coreItems.map((item) => {
                 if (item.title === "Sales & Replenishment") {
                   return (
-                    <div key={item.title}>
-                      <SidebarMenuItem>
-                        <SidebarMenuButton 
-                          asChild
-                          className={`group relative w-full rounded-xl transition-all duration-200 hover:scale-[1.02] ${
-                            isActive(item.url)
-                              ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
-                              : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
-                          }`}
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton 
+                        asChild
+                        className={`group relative w-full rounded-xl transition-all duration-200 hover:scale-[1.02] ${
+                          isActive(item.url)
+                            ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
+                            : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
+                        }`}
+                      >
+                        <NavLink 
+                          to={item.url} 
+                          end
+                          className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
                         >
-                          <NavLink 
-                            to={item.url} 
-                            end
-                            className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
-                          >
-                            <item.icon className="h-5 w-5 flex-shrink-0" />
-                            {!isCollapsed && (
-                              <span className="font-semibold text-sm">
-                                {item.title}
-                              </span>
-                            )}
-                          </NavLink>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                      
-                      {/* PO Tracker standalone item */}
-                      <SidebarMenuItem>
-                        <SidebarMenuButton 
-                          asChild
-                          className={`group relative w-full rounded-xl transition-all duration-200 hover:scale-[1.02] ${
-                            isActive("/po-tracker")
-                              ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
-                              : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
-                          }`}
-                        >
-                          <NavLink 
-                            to="/po-tracker" 
-                            end
-                            className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
-                          >
-                            <ShoppingCart className="h-5 w-5 flex-shrink-0" />
-                            {!isCollapsed && (
-                              <span className="font-semibold text-sm">
-                                PO - SS Stock Tracker
-                              </span>
-                            )}
-                          </NavLink>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    </div>
+                          <item.icon className="h-5 w-5 flex-shrink-0" />
+                          {!isCollapsed && (
+                            <span className="font-semibold text-sm">
+                              {item.title}
+                            </span>
+                          )}
+                        </NavLink>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
                   )
                 }
                 
@@ -283,6 +256,31 @@ export function AppSidebar() {
                   </SidebarMenuItem>
                 )
               })}
+
+              {/* PO Tracker standalone item */}
+              <SidebarMenuItem>
+                <SidebarMenuButton 
+                  asChild
+                  className={`group relative w-full rounded-xl transition-all duration-200 hover:scale-[1.02] ${
+                    isActive("/po-tracker")
+                      ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
+                      : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
+                  }`}
+                >
+                  <NavLink 
+                    to="/po-tracker" 
+                    end
+                    className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
+                  >
+                    <ShoppingCart className="h-5 w-5 flex-shrink-0" />
+                    {!isCollapsed && (
+                      <span className="font-semibold text-sm">
+                        PO - SS Stock Tracker
+                      </span>
+                    )}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
 
               {/* Carrefour Sales Tracker as standalone item */}
               <SidebarMenuItem>
