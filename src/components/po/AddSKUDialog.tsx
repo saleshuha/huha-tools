@@ -121,115 +121,193 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
   const handleFileUpload = async (files: File[]) => {
     setIsProcessing(true);
     setProgress(0);
-    setProgressLabel('Reading file...');
+    setProgressLabel('Starting file processing...');
     
     try {
       for (const file of files) {
         const fileSize = (file.size / (1024 * 1024)).toFixed(2); // MB
-        setProgressLabel(`Processing ${file.name} (${fileSize}MB)...`);
+        console.log(`Processing file: ${file.name}, Size: ${fileSize}MB`);
         
-        // Check file size (warn if over 5MB)
-        if (file.size > 5 * 1024 * 1024) {
-          setProgressLabel(`Processing large file ${file.name}...`);
+        // Limit file size to 15MB to prevent memory issues
+        if (file.size > 15 * 1024 * 1024) {
+          setProgressLabel(`File ${file.name} is too large (${fileSize}MB). Maximum size is 15MB.`);
+          continue;
         }
+        
+        setProgressLabel(`Reading ${file.name} (${fileSize}MB)...`);
         
         const newSKUs: Omit<SunskySKU, 'id' | 'created_at' | 'updated_at'>[] = [];
         
-        if (file.name.endsWith('.csv')) {
-          await processCsvFile(file, newSKUs);
+        if (file.name.toLowerCase().endsWith('.csv')) {
+          await processCsvFileStreaming(file, newSKUs);
+        } else if (file.name.toLowerCase().match(/\.(xlsx|xls)$/)) {
+          await processExcelFileStreaming(file, newSKUs);
         } else {
-          await processExcelFile(file, newSKUs);
+          setProgressLabel(`Unsupported file type: ${file.name}`);
+          continue;
         }
         
-        setBulkSKUs(prev => [...prev, ...newSKUs]);
-        setProgressLabel(`Loaded ${newSKUs.length} SKUs from ${file.name}`);
+        console.log(`Processed ${newSKUs.length} SKUs from ${file.name}`);
+        
+        // Add SKUs in smaller batches to prevent UI freezing
+        const batchSize = 500;
+        for (let i = 0; i < newSKUs.length; i += batchSize) {
+          const batch = newSKUs.slice(i, i + batchSize);
+          setBulkSKUs(prev => [...prev, ...batch]);
+          
+          setProgressLabel(`Adding batch ${Math.floor(i/batchSize) + 1} of ${Math.ceil(newSKUs.length/batchSize)} to UI...`);
+          
+          // Allow UI to update between batches
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
+        
+        setProgressLabel(`Successfully loaded ${newSKUs.length} SKUs from ${file.name}`);
       }
     } catch (error) {
       console.error('Error processing file:', error);
-      setProgressLabel('Error processing file');
+      setProgressLabel(`Error: ${error instanceof Error ? error.message : 'Unknown error occurred'}`);
     } finally {
       setIsProcessing(false);
-      setProgress(0);
+      setProgress(100);
+      // Clear progress after 3 seconds
+      setTimeout(() => {
+        setProgress(0);
+        setProgressLabel('');
+      }, 3000);
     }
   };
 
-  const processCsvFile = async (file: File, newSKUs: Omit<SunskySKU, 'id' | 'created_at' | 'updated_at'>[]) => {
-    const text = await file.text();
-    const lines = text.split('\n').filter(line => line.trim());
-    
-    const totalLines = lines.length;
-    const chunkSize = 1000; // Process 1000 rows at a time
-    
-    for (let i = 1; i < totalLines; i += chunkSize) { // Skip header row
-      const chunk = lines.slice(i, i + chunkSize);
+  const processCsvFileStreaming = async (file: File, newSKUs: Omit<SunskySKU, 'id' | 'created_at' | 'updated_at'>[]) => {
+    return new Promise<void>((resolve, reject) => {
+      const reader = new FileReader();
+      let processedRows = 0;
+      let totalEstimatedRows = 0;
       
-      // Update progress
-      const progressValue = (i / totalLines) * 100;
-      setProgress(progressValue);
-      setProgressLabel(`Processing rows ${i} to ${Math.min(i + chunkSize, totalLines)} of ${totalLines}...`);
-      
-      // Process chunk
-      chunk.forEach(line => {
-        const columns = line.split(',').map(col => col.trim().replace(/"/g, ''));
-        if (columns.length >= 1 && columns[0]) {
-          newSKUs.push({
-            sku_code: columns[0],
-            title: columns[1] || undefined,
-            description: columns[2] || undefined,
-            cost: columns[3] ? parseFloat(columns[3]) : undefined,
-            weight: columns[4] ? parseFloat(columns[4]) : undefined,
-            notes: columns[5] || undefined
-          });
+      reader.onload = async (e) => {
+        try {
+          const text = e.target?.result as string;
+          if (!text) throw new Error('Failed to read file content');
+          
+          const lines = text.split('\n');
+          totalEstimatedRows = lines.length;
+          console.log(`CSV file has ${totalEstimatedRows} lines`);
+          
+          const chunkSize = 100; // Smaller chunks for better responsiveness
+          
+          for (let i = 1; i < lines.length; i += chunkSize) { // Skip header
+            const chunk = lines.slice(i, Math.min(i + chunkSize, lines.length));
+            
+            // Process chunk
+            chunk.forEach((line, index) => {
+              const trimmedLine = line.trim();
+              if (!trimmedLine) return;
+              
+              try {
+                const columns = trimmedLine.split(',').map(col => col.trim().replace(/^"|"$/g, ''));
+                if (columns.length >= 1 && columns[0]) {
+                  newSKUs.push({
+                    sku_code: columns[0],
+                    title: columns[1] || undefined,
+                    description: columns[2] || undefined,
+                    cost: columns[3] ? parseFloat(columns[3]) : undefined,
+                    weight: columns[4] ? parseFloat(columns[4]) : undefined,
+                    notes: columns[5] || undefined
+                  });
+                }
+              } catch (rowError) {
+                console.warn(`Error processing row ${i + index}:`, rowError);
+              }
+            });
+            
+            processedRows = i + chunk.length;
+            const progressValue = (processedRows / totalEstimatedRows) * 100;
+            setProgress(Math.min(progressValue, 95));
+            setProgressLabel(`Processing CSV: ${processedRows}/${totalEstimatedRows} rows (${newSKUs.length} valid SKUs)`);
+            
+            // Yield control every 1000 rows
+            if (i % 1000 === 0) {
+              await new Promise(resolve => setTimeout(resolve, 5));
+            }
+          }
+          
+          setProgress(100);
+          resolve();
+        } catch (error) {
+          reject(error);
         }
-      });
+      };
       
-      // Yield control to prevent UI blocking
-      if (i % 5000 === 0) {
-        await new Promise(resolve => setTimeout(resolve, 10));
-      }
-    }
-    
-    setProgress(100);
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.readAsText(file);
+    });
   };
 
-  const processExcelFile = async (file: File, newSKUs: Omit<SunskySKU, 'id' | 'created_at' | 'updated_at'>[]) => {
-    const buffer = await file.arrayBuffer();
-    const workbook = XLSX.read(buffer, { type: 'buffer' });
-    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-    const data = XLSX.utils.sheet_to_json(firstSheet, { header: 1 }) as any[][];
-    
-    const totalRows = data.length;
-    const chunkSize = 1000;
-    
-    for (let i = 1; i < totalRows; i += chunkSize) { // Skip header row
-      const chunk = data.slice(i, i + chunkSize);
+  const processExcelFileStreaming = async (file: File, newSKUs: Omit<SunskySKU, 'id' | 'created_at' | 'updated_at'>[]) => {
+    return new Promise<void>((resolve, reject) => {
+      const reader = new FileReader();
       
-      // Update progress
-      const progressValue = (i / totalRows) * 100;
-      setProgress(progressValue);
-      setProgressLabel(`Processing rows ${i} to ${Math.min(i + chunkSize, totalRows)} of ${totalRows}...`);
-      
-      // Process chunk
-      chunk.forEach(row => {
-        if (row && row[0]) {
-          newSKUs.push({
-            sku_code: String(row[0]),
-            title: row[1] ? String(row[1]) : undefined,
-            description: row[2] ? String(row[2]) : undefined,
-            cost: row[3] ? parseFloat(String(row[3])) : undefined,
-            weight: row[4] ? parseFloat(String(row[4])) : undefined,
-            notes: row[5] ? String(row[5]) : undefined
-          });
+      reader.onload = async (e) => {
+        try {
+          const buffer = e.target?.result as ArrayBuffer;
+          if (!buffer) throw new Error('Failed to read file content');
+          
+          setProgressLabel('Parsing Excel file...');
+          
+          const workbook = XLSX.read(buffer, { type: 'buffer' });
+          const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+          
+          if (!firstSheet) throw new Error('No sheets found in Excel file');
+          
+          // Convert to JSON in streaming fashion
+          const data = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: '' }) as any[][];
+          
+          console.log(`Excel file has ${data.length} rows`);
+          
+          const totalRows = data.length;
+          const chunkSize = 100; // Smaller chunks
+          
+          for (let i = 1; i < totalRows; i += chunkSize) { // Skip header
+            const chunk = data.slice(i, Math.min(i + chunkSize, totalRows));
+            
+            // Process chunk
+            chunk.forEach((row, index) => {
+              if (!row || !row[0]) return;
+              
+              try {
+                newSKUs.push({
+                  sku_code: String(row[0]).trim(),
+                  title: row[1] ? String(row[1]).trim() : undefined,
+                  description: row[2] ? String(row[2]).trim() : undefined,
+                  cost: row[3] ? parseFloat(String(row[3])) : undefined,
+                  weight: row[4] ? parseFloat(String(row[4])) : undefined,
+                  notes: row[5] ? String(row[5]).trim() : undefined
+                });
+              } catch (rowError) {
+                console.warn(`Error processing Excel row ${i + index}:`, rowError);
+              }
+            });
+            
+            const processedRows = i + chunk.length;
+            const progressValue = (processedRows / totalRows) * 100;
+            setProgress(Math.min(progressValue, 95));
+            setProgressLabel(`Processing Excel: ${processedRows}/${totalRows} rows (${newSKUs.length} valid SKUs)`);
+            
+            // Yield control every 1000 rows
+            if (i % 1000 === 0) {
+              await new Promise(resolve => setTimeout(resolve, 5));
+            }
+          }
+          
+          setProgress(100);
+          resolve();
+        } catch (error) {
+          reject(error);
         }
-      });
+      };
       
-      // Yield control to prevent UI blocking
-      if (i % 5000 === 0) {
-        await new Promise(resolve => setTimeout(resolve, 10));
-      }
-    }
-    
-    setProgress(100);
+      reader.onerror = () => reject(new Error('Failed to read Excel file'));
+      reader.readAsArrayBuffer(file);
+    });
   };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
