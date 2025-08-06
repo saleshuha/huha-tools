@@ -13,6 +13,7 @@ export interface SunskySKU {
   weight?: number;
   notes?: string;
   currency?: string;
+  country: string;
   created_at: string;
   updated_at: string;
 }

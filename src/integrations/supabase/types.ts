@@ -1242,6 +1242,7 @@ export type Database = {
       sunsky_skus: {
         Row: {
           cost: number | null
+          country: string
           created_at: string
           currency: string | null
           description: string | null
@@ -1255,6 +1256,7 @@ export type Database = {
         }
         Insert: {
           cost?: number | null
+          country: string
           created_at?: string
           currency?: string | null
           description?: string | null
@@ -1268,6 +1270,7 @@ export type Database = {
         }
         Update: {
           cost?: number | null
+          country?: string
           created_at?: string
           currency?: string | null
           description?: string | null

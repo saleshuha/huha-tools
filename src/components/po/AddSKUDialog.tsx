@@ -12,6 +12,7 @@ import { Plus, Upload, Type, Trash2 } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import * as XLSX from 'xlsx';
 import { SunskySKU } from '@/hooks/usePOTracker';
+import { useCountry } from '@/contexts/CountryContext';
 
 interface AddSKUDialogProps {
   onAddSKUs: (skus: Omit<SunskySKU, 'id' | 'created_at' | 'updated_at' | 'user_id'>[]) => Promise<void>;
@@ -21,6 +22,7 @@ interface AddSKUDialogProps {
 export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('manual');
+  const { selectedCountry } = useCountry();
   
   // Manual form state
   const [manualSKU, setManualSKU] = useState({
@@ -145,7 +147,8 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
                     description: columns[2] || undefined,
                     cost: columns[3] ? parseFloat(columns[3]) : undefined,
                     weight: columns[4] ? parseFloat(columns[4]) : undefined,
-                    notes: columns[5] || undefined
+                    notes: columns[5] || undefined,
+                    country: selectedCountry
                   });
                 }
               } catch (rowError) {
@@ -214,7 +217,8 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
                   description: row[2] ? String(row[2]).trim() : undefined,
                   cost: row[3] ? parseFloat(String(row[3])) : undefined,
                   weight: row[4] ? parseFloat(String(row[4])) : undefined,
-                  notes: row[5] ? String(row[5]).trim() : undefined
+                  notes: row[5] ? String(row[5]).trim() : undefined,
+                  country: selectedCountry
                 });
               } catch (rowError) {
                 console.warn(`Error processing Excel row ${i + index}:`, rowError);
@@ -251,7 +255,8 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
       sku_code: manualSKU.sku_code.trim(),
       title: manualSKU.title.trim() || undefined,
       cost: manualSKU.cost ? parseFloat(manualSKU.cost) : undefined,
-      weight: manualSKU.weight ? parseFloat(manualSKU.weight) : undefined
+      weight: manualSKU.weight ? parseFloat(manualSKU.weight) : undefined,
+      country: selectedCountry
     };
 
     await onAddSKUs([newSKU]);
@@ -310,7 +315,8 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
           description: columns[2] || undefined,
           cost: columns[3] ? parseFloat(columns[3]) : undefined,
           weight: columns[4] ? parseFloat(columns[4]) : undefined,
-          notes: columns[5] || undefined
+          notes: columns[5] || undefined,
+          country: selectedCountry
         });
       }
     });
