@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Progress } from '@/components/ui/progress';
 import { ShoppingCart, Calendar, Search, Package2, Clock, CheckCircle, XCircle, ChevronRight } from 'lucide-react';
 import { POOrder } from '@/hooks/usePOTracker';
 
@@ -183,27 +184,65 @@ export function POOrderTracking({ orders, onUpdateStatus, onUpdateTracking, isLo
           <div className="space-y-4">
             {filteredPOs.map((group) => (
               <div key={group.po_number} className="border rounded-lg">
-                {/* PO Header */}
+                 {/* PO Header */}
                 <div 
                   className="p-4 cursor-pointer hover:bg-muted/50 transition-colors"
                   onClick={() => navigateToPODetails(group.po_number)}
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <ChevronRight className="h-4 w-4" />
-                      <Badge variant="outline" className="font-mono">
-                        {group.po_number}
-                      </Badge>
-                      <div className="flex items-center space-x-2">
-                        {getStatusIcon(group.status as POOrder['status'])}
-                        <Badge variant={getStatusVariant(group.status as POOrder['status'])}>
-                          {group.status.charAt(0).toUpperCase() + group.status.slice(1)}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <ChevronRight className="h-4 w-4" />
+                        <Badge variant="outline" className="font-mono">
+                          {group.po_number}
                         </Badge>
+                        <div className="flex items-center space-x-2">
+                          {getStatusIcon(group.status as POOrder['status'])}
+                          <Badge variant={getStatusVariant(group.status as POOrder['status'])}>
+                            {group.status.charAt(0).toUpperCase() + group.status.slice(1)}
+                          </Badge>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                        <span>{group.totalItems} items</span>
+                        <span>{group.totalCost.toFixed(2)} {group.currency}</span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <span>{group.totalItems} items</span>
-                      <span>{group.totalCost.toFixed(2)} {group.currency}</span>
+                    
+                    {/* Status Progress */}
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <div className="flex gap-4">
+                          <span>Pending: {group.orders.filter(o => o.status === 'pending').length}</span>
+                          <span>Ordered: {group.orders.filter(o => o.status === 'ordered').length}</span>
+                          <span>Shipped: {group.orders.filter(o => o.status === 'shipped').length}</span>
+                          <span>Delivered: {group.orders.filter(o => o.status === 'delivered').length}</span>
+                        </div>
+                      </div>
+                      <div className="relative">
+                        <Progress 
+                          value={(group.orders.filter(o => o.status !== 'pending').length / group.orders.length) * 100} 
+                          className="h-2"
+                        />
+                        <div className="absolute inset-0 flex h-2 rounded-full overflow-hidden">
+                          <div 
+                            className="bg-yellow-500" 
+                            style={{ width: `${(group.orders.filter(o => o.status === 'pending').length / group.orders.length) * 100}%` }}
+                          />
+                          <div 
+                            className="bg-blue-500" 
+                            style={{ width: `${(group.orders.filter(o => o.status === 'ordered').length / group.orders.length) * 100}%` }}
+                          />
+                          <div 
+                            className="bg-orange-500" 
+                            style={{ width: `${(group.orders.filter(o => o.status === 'shipped').length / group.orders.length) * 100}%` }}
+                          />
+                          <div 
+                            className="bg-green-500" 
+                            style={{ width: `${(group.orders.filter(o => o.status === 'delivered').length / group.orders.length) * 100}%` }}
+                          />
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
