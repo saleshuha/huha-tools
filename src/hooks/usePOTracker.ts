@@ -36,7 +36,7 @@ export const usePOTracker = () => {
   // Fetch Sunsky SKUs
   const fetchSunskySKUs = async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('sunsky_skus')
         .select('*')
         .order('created_at', { ascending: false });
@@ -56,7 +56,7 @@ export const usePOTracker = () => {
   // Fetch PO Orders
   const fetchPOOrders = async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('po_orders')
         .select(`
           *,
@@ -80,7 +80,7 @@ export const usePOTracker = () => {
   const addSKUs = async (skus: Omit<SunskySKU, 'id' | 'created_at' | 'updated_at'>[]) => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('sunsky_skus')
         .insert(skus)
         .select();
@@ -127,20 +127,23 @@ export const usePOTracker = () => {
             );
 
             if (existingSKU) {
-              newOrders.push({
-                po_number: poNumber,
-                sku_code: skuCode,
-                quantity: parseInt(quantity) || 1,
-                status: 'pending',
-                file_name: file.name
-              });
+            newOrders.push({
+              po_number: poNumber,
+              sku_code: skuCode,
+              quantity: parseInt(quantity) || 1,
+              status: 'pending' as const,
+              file_name: file.name,
+              notes: undefined,
+              order_date: undefined,
+              expected_delivery: undefined
+            });
             }
           }
         }
       }
 
       if (newOrders.length > 0) {
-        const { data, error } = await supabase
+        const { data, error } = await (supabase as any)
           .from('po_orders')
           .insert(newOrders)
           .select();
@@ -174,7 +177,7 @@ export const usePOTracker = () => {
   // Update order status
   const updateOrderStatus = async (orderId: string, status: POOrder['status']) => {
     try {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('po_orders')
         .update({ 
           status,

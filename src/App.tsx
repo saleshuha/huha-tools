@@ -20,6 +20,7 @@ import FileMergerPage from "./pages/FileMerger";
 import Inventory from "./pages/Inventory";
 import UserManagementPage from "./pages/UserManagement";
 import ReplenishmentPage from "./pages/Replenishment";
+import POTrackerPage from "./pages/POTracker";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import ExcelEditorPage from "./pages/ExcelEditor";
@@ -137,21 +138,22 @@ const App = () => {
                     <Route path="/inventory" element={<Inventory />} />
                     <Route path="/processed-orders" element={<ProcessedOrders />} />
                     <Route path="/users" element={<UserManagementPage />} />
-                    <Route path="/replenishment" element={<ReplenishmentPage />} />
-                    <Route path="/excel-editor" element={<ExcelEditorPage />} />
-                    <Route path="/noon-sales-tracker" element={<NoonSalesTracker />} />
-                    <Route path="/noon-dashboard" element={<NoonDashboard />} />
-                    <Route path="/noon-stores" element={<NoonStores />} />
-                    <Route path="/noon-sales-data" element={<NoonSalesData />} />
-                    <Route path="/noon-fees-reports" element={<NoonFeesReports />} />
-                    <Route path="/noon-analytics" element={<NoonAnalytics />} />
-                    <Route path="/noon-order-analysis" element={<NoonOrderAnalysis />} />
-                    <Route path="/payment-reports" element={<PaymentReports />} />
-                    <Route path="/noon-sku-costs" element={<SKUCostManagement />} />
-                    <Route path="/sku-costs" element={<SKUCostManagement />} />
-                    <Route path="/carrefour-payments" element={<Navigate to="/stores" replace />} />
-                    <Route path="/stores" element={<StoreSelection />} />
-                    <Route path="/carrefour-payments/:storeId" element={<CarrefourSalesTracker />} />
+                     <Route path="/replenishment" element={<ReplenishmentPage />} />
+                     <Route path="/po-tracker" element={<POTrackerPage />} />
+                     <Route path="/excel-editor" element={<ExcelEditorPage />} />
+                     <Route path="/noon-sales-tracker" element={<NoonSalesTracker />} />
+                     <Route path="/noon-dashboard" element={<NoonDashboard />} />
+                     <Route path="/noon-stores" element={<NoonStores />} />
+                     <Route path="/noon-sales-data" element={<NoonSalesData />} />
+                     <Route path="/noon-fees-reports" element={<NoonFeesReports />} />
+                     <Route path="/noon-analytics" element={<NoonAnalytics />} />
+                     <Route path="/noon-order-analysis" element={<NoonOrderAnalysis />} />
+                     <Route path="/payment-reports" element={<PaymentReports />} />
+                     <Route path="/noon-sku-costs" element={<SKUCostManagement />} />
+                     <Route path="/sku-costs" element={<SKUCostManagement />} />
+                     <Route path="/carrefour-payments" element={<Navigate to="/stores" replace />} />
+                     <Route path="/stores" element={<StoreSelection />} />
+                     <Route path="/carrefour-payments/:storeId" element={<CarrefourSalesTracker />} />
                     
                     <Route path="/auth" element={<Navigate to="/" replace />} />
                     

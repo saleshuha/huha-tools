@@ -898,6 +898,51 @@ export type Database = {
         }
         Relationships: []
       }
+      po_orders: {
+        Row: {
+          created_at: string
+          expected_delivery: string | null
+          file_name: string
+          id: string
+          notes: string | null
+          order_date: string | null
+          po_number: string
+          quantity: number
+          sku_code: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expected_delivery?: string | null
+          file_name: string
+          id?: string
+          notes?: string | null
+          order_date?: string | null
+          po_number: string
+          quantity?: number
+          sku_code: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expected_delivery?: string | null
+          file_name?: string
+          id?: string
+          notes?: string | null
+          order_date?: string | null
+          po_number?: string
+          quantity?: number
+          sku_code?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       processed_orders: {
         Row: {
           asin: string | null
@@ -1157,6 +1202,39 @@ export type Database = {
           location?: string | null
           name?: string
           platform?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      sunsky_skus: {
+        Row: {
+          cost: number | null
+          created_at: string
+          description: string | null
+          id: string
+          notes: string | null
+          sku_code: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cost?: number | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          notes?: string | null
+          sku_code: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cost?: number | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          notes?: string | null
+          sku_code?: string
           updated_at?: string
           user_id?: string
         }

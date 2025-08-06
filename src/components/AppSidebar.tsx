@@ -229,6 +229,31 @@ export function AppSidebar() {
                         </SidebarMenuButton>
                       </SidebarMenuItem>
                       
+                      {/* PO Tracker sub-item */}
+                      <SidebarMenuItem className="mt-1 ml-6">
+                        <SidebarMenuButton 
+                          asChild
+                          className={`w-full p-3 rounded-lg transition-colors ${
+                            isActive("/po-tracker")
+                              ? "bg-primary text-primary-foreground" 
+                              : "hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+                          }`}
+                        >
+                          <NavLink 
+                            to="/po-tracker" 
+                            end
+                            className="flex items-center gap-3 no-underline w-full"
+                          >
+                            <Package className="h-4 w-4 flex-shrink-0" />
+                            {!isCollapsed && (
+                              <span className="font-medium text-sm">
+                                PO - SS Stock Tracker
+                              </span>
+                            )}
+                          </NavLink>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                      
                       {/* Noon Reports sub-section with proper spacing */}
                       <SidebarMenuItem className="mt-2">
                         <Collapsible open={isPaymentReportsOpen} onOpenChange={setIsPaymentReportsOpen}>
