@@ -6,28 +6,117 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ShoppingCart, Calendar, Search, Package2, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { ShoppingCart, Calendar, Search, Package2, Clock, CheckCircle, XCircle, ChevronDown, ChevronRight, ExternalLink, Edit } from 'lucide-react';
 import { POOrder } from '@/hooks/usePOTracker';
 
 interface POOrderTrackingProps {
   orders: POOrder[];
   onUpdateStatus: (orderId: string, status: POOrder['status']) => void;
+  onUpdateTracking: (orderId: string, trackingData: { supplier_order_number?: string; tracking_number?: string; tracking_url?: string }) => void;
   isLoading: boolean;
 }
 
-export function POOrderTracking({ orders, onUpdateStatus, isLoading }: POOrderTrackingProps) {
+interface POGroup {
+  po_number: string;
+  orders: POOrder[];
+  totalItems: number;
+  totalCost: number;
+  currency: string;
+  status: string; // Overall status of the PO
+}
+
+export function POOrderTracking({ orders, onUpdateStatus, onUpdateTracking, isLoading }: POOrderTrackingProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [expandedPOs, setExpandedPOs] = useState<Set<string>>(new Set());
+  const [editingTracking, setEditingTracking] = useState<string | null>(null);
+  const [trackingForm, setTrackingForm] = useState({
+    supplier_order_number: '',
+    tracking_number: '',
+    tracking_url: ''
+  });
 
-  const filteredOrders = orders.filter(order => {
-    const matchesSearch = 
-      order.po_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.sku_code.toLowerCase().includes(searchTerm.toLowerCase());
+  // Group orders by PO number
+  const groupedPOs = orders.reduce((acc, order) => {
+    const existingGroup = acc.find(group => group.po_number === order.po_number);
     
-    const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
+    if (existingGroup) {
+      existingGroup.orders.push(order);
+      existingGroup.totalItems += order.quantity;
+      existingGroup.totalCost += order.total_cost || 0;
+    } else {
+      acc.push({
+        po_number: order.po_number,
+        orders: [order],
+        totalItems: order.quantity,
+        totalCost: order.total_cost || 0,
+        currency: order.currency || 'AED',
+        status: order.status
+      });
+    }
+    
+    return acc;
+  }, [] as POGroup[]);
+
+  // Update overall status for each PO group
+  groupedPOs.forEach(group => {
+    const statuses = group.orders.map(o => o.status);
+    if (statuses.every(s => s === 'delivered')) {
+      group.status = 'delivered';
+    } else if (statuses.some(s => s === 'cancelled')) {
+      group.status = 'cancelled';
+    } else if (statuses.some(s => s === 'shipped')) {
+      group.status = 'shipped';
+    } else if (statuses.some(s => s === 'ordered')) {
+      group.status = 'ordered';
+    } else {
+      group.status = 'pending';
+    }
+  });
+
+  const filteredPOs = groupedPOs.filter(group => {
+    const matchesSearch = 
+      group.po_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      group.orders.some(order => order.sku_code.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    const matchesStatus = statusFilter === 'all' || group.status === statusFilter;
     
     return matchesSearch && matchesStatus;
   });
+
+  const toggleExpanded = (poNumber: string) => {
+    const newExpanded = new Set(expandedPOs);
+    if (newExpanded.has(poNumber)) {
+      newExpanded.delete(poNumber);
+    } else {
+      newExpanded.add(poNumber);
+    }
+    setExpandedPOs(newExpanded);
+  };
+
+  const handleEditTracking = (order: POOrder) => {
+    setEditingTracking(order.id);
+    setTrackingForm({
+      supplier_order_number: order.supplier_order_number || '',
+      tracking_number: order.tracking_number || '',
+      tracking_url: order.tracking_url || ''
+    });
+  };
+
+  const handleSaveTracking = async () => {
+    if (editingTracking) {
+      await onUpdateTracking(editingTracking, trackingForm);
+      setEditingTracking(null);
+    }
+  };
+
+  const handleTrackingClick = (url: string) => {
+    if (url) {
+      window.open(url.startsWith('http') ? url : `https://${url}`, '_blank');
+    }
+  };
 
   const getStatusIcon = (status: POOrder['status']) => {
     switch (status) {
@@ -117,116 +206,217 @@ export function POOrderTracking({ orders, onUpdateStatus, isLoading }: POOrderTr
         </Select>
       </div>
 
-      {/* Orders Table */}
+      {/* PO Groups */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center">
             <ShoppingCart className="h-5 w-5 mr-2" />
-            PO Orders ({filteredOrders.length})
+            Purchase Orders ({filteredPOs.length})
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>PO Number</TableHead>
-                <TableHead>SKU Code</TableHead>
-                <TableHead>Quantity</TableHead>
-                <TableHead>Unit Cost</TableHead>
-                <TableHead>Total Cost</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Order Date</TableHead>
-                <TableHead>File Source</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredOrders.map((order) => (
-                <TableRow key={order.id}>
-                  <TableCell>
-                    <Badge variant="outline">
-                      {order.po_number}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center">
-                      <Badge variant="secondary" className="font-mono">
-                        {order.sku_code}
+          <div className="space-y-4">
+            {filteredPOs.map((group) => (
+              <div key={group.po_number} className="border rounded-lg">
+                {/* PO Header */}
+                <div 
+                  className="p-4 cursor-pointer hover:bg-muted/50 transition-colors"
+                  onClick={() => toggleExpanded(group.po_number)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      {expandedPOs.has(group.po_number) ? 
+                        <ChevronDown className="h-4 w-4" /> : 
+                        <ChevronRight className="h-4 w-4" />
+                      }
+                      <Badge variant="outline" className="font-mono">
+                        {group.po_number}
                       </Badge>
-                      {order.sunsky_sku && (
-                        <span className="ml-2 text-sm text-muted-foreground max-w-xs truncate">
-                          {order.sunsky_sku.description}
-                        </span>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline">
-                      {order.quantity}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {order.unit_cost ? (
-                      <Badge variant="secondary">
-                        {order.unit_cost} {order.currency || 'AED'}
-                      </Badge>
-                    ) : (
-                      <span className="text-muted-foreground">-</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {order.total_cost ? (
-                      <Badge variant="default">
-                        {order.total_cost} {order.currency || 'AED'}
-                      </Badge>
-                    ) : (
-                      <span className="text-muted-foreground">-</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center space-x-2">
-                      {getStatusIcon(order.status)}
-                      <Badge variant={getStatusVariant(order.status)}>
-                        {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-                      </Badge>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {order.order_date ? (
-                      <div className="flex items-center text-sm">
-                        <Calendar className="h-3 w-3 mr-1" />
-                        {new Date(order.order_date).toLocaleDateString()}
+                      <div className="flex items-center space-x-2">
+                        {getStatusIcon(group.status as POOrder['status'])}
+                        <Badge variant={getStatusVariant(group.status as POOrder['status'])}>
+                          {group.status.charAt(0).toUpperCase() + group.status.slice(1)}
+                        </Badge>
                       </div>
-                    ) : (
-                      <span className="text-muted-foreground">-</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <div className="text-sm text-muted-foreground max-w-xs truncate">
-                      {order.file_name}
                     </div>
-                  </TableCell>
-                  <TableCell>
-                    <Select
-                      value={order.status}
-                      onValueChange={(value: POOrder['status']) => onUpdateStatus(order.id, value)}
-                    >
-                      <SelectTrigger className="w-[120px] h-8">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="ordered">Ordered</SelectItem>
-                        <SelectItem value="shipped">Shipped</SelectItem>
-                        <SelectItem value="delivered">Delivered</SelectItem>
-                        <SelectItem value="cancelled">Cancelled</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                      <span>{group.totalItems} items</span>
+                      <span>{group.totalCost.toFixed(2)} {group.currency}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Expanded PO Details */}
+                {expandedPOs.has(group.po_number) && (
+                  <div className="border-t bg-muted/20">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>SKU Code</TableHead>
+                          <TableHead>Quantity</TableHead>
+                          <TableHead>Unit Cost</TableHead>
+                          <TableHead>Total Cost</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Supplier Order</TableHead>
+                          <TableHead>Tracking</TableHead>
+                          <TableHead>Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {group.orders.map((order) => (
+                          <TableRow key={order.id}>
+                            <TableCell>
+                              <div className="flex items-center">
+                                <Badge variant="secondary" className="font-mono">
+                                  {order.sku_code}
+                                </Badge>
+                                {order.sunsky_sku && (
+                                  <span className="ml-2 text-sm text-muted-foreground max-w-xs truncate">
+                                    {order.sunsky_sku.description}
+                                  </span>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline">
+                                {order.quantity}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {order.unit_cost ? (
+                                <Badge variant="secondary">
+                                  {order.unit_cost} {order.currency || 'AED'}
+                                </Badge>
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {order.total_cost ? (
+                                <Badge variant="default">
+                                  {order.total_cost} {order.currency || 'AED'}
+                                </Badge>
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <Select
+                                value={order.status}
+                                onValueChange={(value: POOrder['status']) => onUpdateStatus(order.id, value)}
+                              >
+                                <SelectTrigger className="w-[120px] h-8">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="pending">Pending</SelectItem>
+                                  <SelectItem value="ordered">Ordered</SelectItem>
+                                  <SelectItem value="shipped">Shipped</SelectItem>
+                                  <SelectItem value="delivered">Delivered</SelectItem>
+                                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </TableCell>
+                            <TableCell>
+                              {order.supplier_order_number ? (
+                                <Badge variant="outline">
+                                  {order.supplier_order_number}
+                                </Badge>
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {order.tracking_number ? (
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="secondary">
+                                    {order.tracking_number}
+                                  </Badge>
+                                  {order.tracking_url && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleTrackingClick(order.tracking_url!)}
+                                    >
+                                      <ExternalLink className="h-3 w-3" />
+                                    </Button>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleEditTracking(order)}
+                                  >
+                                    <Edit className="h-3 w-3" />
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent>
+                                  <DialogHeader>
+                                    <DialogTitle>Edit Tracking Information</DialogTitle>
+                                  </DialogHeader>
+                                  <div className="space-y-4">
+                                    <div>
+                                      <Label htmlFor="supplier_order">Supplier Order Number</Label>
+                                      <Input
+                                        id="supplier_order"
+                                        placeholder="Enter supplier order number"
+                                        value={trackingForm.supplier_order_number}
+                                        onChange={(e) => setTrackingForm(prev => ({
+                                          ...prev,
+                                          supplier_order_number: e.target.value
+                                        }))}
+                                      />
+                                    </div>
+                                    <div>
+                                      <Label htmlFor="tracking_number">Tracking Number</Label>
+                                      <Input
+                                        id="tracking_number"
+                                        placeholder="Enter tracking number"
+                                        value={trackingForm.tracking_number}
+                                        onChange={(e) => setTrackingForm(prev => ({
+                                          ...prev,
+                                          tracking_number: e.target.value
+                                        }))}
+                                      />
+                                    </div>
+                                    <div>
+                                      <Label htmlFor="tracking_url">Tracking URL</Label>
+                                      <Input
+                                        id="tracking_url"
+                                        placeholder="Enter tracking URL or website"
+                                        value={trackingForm.tracking_url}
+                                        onChange={(e) => setTrackingForm(prev => ({
+                                          ...prev,
+                                          tracking_url: e.target.value
+                                        }))}
+                                      />
+                                    </div>
+                                    <Button 
+                                      onClick={handleSaveTracking}
+                                      className="w-full"
+                                    >
+                                      Save Tracking Info
+                                    </Button>
+                                  </div>
+                                </DialogContent>
+                              </Dialog>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </CardContent>
       </Card>
     </div>

@@ -21,7 +21,8 @@ export function POTracker() {
     isLoading,
     addSKUs,
     processPOFiles,
-    updateOrderStatus
+    updateOrderStatus,
+    updateTrackingInfo
   } = usePOTracker();
 
   const handleFileUpload = async (mappedData: any[]) => {
@@ -134,6 +135,7 @@ export function POTracker() {
               <POOrderTracking 
                 orders={poOrders} 
                 onUpdateStatus={updateOrderStatus}
+                onUpdateTracking={updateTrackingInfo}
                 isLoading={isLoading}
               />
             </CardContent>

@@ -32,6 +32,9 @@ export interface POOrder {
   unit_cost?: number;
   total_cost?: number;
   sku_user_id?: string;
+  supplier_order_number?: string;
+  tracking_number?: string;
+  tracking_url?: string;
   created_at: string;
   updated_at: string;
   sunsky_sku?: SunskySKU;
@@ -226,6 +229,31 @@ export const usePOTracker = () => {
     }
   };
 
+  // Update tracking information
+  const updateTrackingInfo = async (orderId: string, trackingData: { supplier_order_number?: string; tracking_number?: string; tracking_url?: string }) => {
+    try {
+      const { error } = await (supabase as any)
+        .from('po_orders')
+        .update(trackingData)
+        .eq('id', orderId);
+
+      if (error) throw error;
+
+      await fetchPOOrders();
+      toast({
+        title: "Success",
+        description: "Tracking information updated"
+      });
+    } catch (error) {
+      console.error('Error updating tracking info:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update tracking information",
+        variant: "destructive"
+      });
+    }
+  };
+
   useEffect(() => {
     fetchSunskySKUs();
     fetchPOOrders();
@@ -238,6 +266,7 @@ export const usePOTracker = () => {
     addSKUs,
     processPOFiles,
     updateOrderStatus,
+    updateTrackingInfo,
     refetch: () => {
       fetchSunskySKUs();
       fetchPOOrders();

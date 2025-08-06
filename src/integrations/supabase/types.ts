@@ -913,7 +913,10 @@ export type Database = {
           sku_code: string
           sku_user_id: string
           status: string
+          supplier_order_number: string | null
           total_cost: number | null
+          tracking_number: string | null
+          tracking_url: string | null
           unit_cost: number | null
           updated_at: string
           user_id: string
@@ -932,7 +935,10 @@ export type Database = {
           sku_code: string
           sku_user_id: string
           status?: string
+          supplier_order_number?: string | null
           total_cost?: number | null
+          tracking_number?: string | null
+          tracking_url?: string | null
           unit_cost?: number | null
           updated_at?: string
           user_id: string
@@ -951,7 +957,10 @@ export type Database = {
           sku_code?: string
           sku_user_id?: string
           status?: string
+          supplier_order_number?: string | null
           total_cost?: number | null
+          tracking_number?: string | null
+          tracking_url?: string | null
           unit_cost?: number | null
           updated_at?: string
           user_id?: string
