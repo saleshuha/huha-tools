@@ -712,14 +712,14 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
                         <div className="flex items-center space-x-2">
                           <Badge variant="outline">{sku.sku_code}</Badge>
                           <span className="text-sm">{sku.title || 'No title'}</span>
-                          {sku.cost !== undefined && sku.cost !== null && (
-                            <Badge variant="secondary">${sku.cost}</Badge>
+                          {(typeof sku.cost === 'number' && !isNaN(sku.cost)) && (
+                            <Badge variant="secondary">${sku.cost.toFixed(2)}</Badge>
                           )}
-                          {sku.weight !== undefined && sku.weight !== null && (
-                            <Badge variant="outline">{sku.weight}kg</Badge>
+                          {(typeof sku.weight === 'number' && !isNaN(sku.weight)) && (
+                            <Badge variant="outline">{sku.weight.toFixed(2)}g</Badge>
                           )}
                           <span className="text-xs text-muted-foreground">
-                            Debug: cost={sku.cost}, weight={sku.weight}
+                            Debug: cost={typeof sku.cost === 'number' ? sku.cost.toFixed(2) : sku.cost}, weight={typeof sku.weight === 'number' ? sku.weight.toFixed(2) : sku.weight}
                           </span>
                         </div>
                         <Button
