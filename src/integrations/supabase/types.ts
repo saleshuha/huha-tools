@@ -900,7 +900,9 @@ export type Database = {
       }
       po_orders: {
         Row: {
+          country: string | null
           created_at: string
+          currency: string | null
           expected_delivery: string | null
           file_name: string
           id: string
@@ -909,12 +911,17 @@ export type Database = {
           po_number: string
           quantity: number
           sku_code: string
+          sku_user_id: string
           status: string
+          total_cost: number | null
+          unit_cost: number | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          country?: string | null
           created_at?: string
+          currency?: string | null
           expected_delivery?: string | null
           file_name: string
           id?: string
@@ -923,12 +930,17 @@ export type Database = {
           po_number: string
           quantity?: number
           sku_code: string
+          sku_user_id: string
           status?: string
+          total_cost?: number | null
+          unit_cost?: number | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          country?: string | null
           created_at?: string
+          currency?: string | null
           expected_delivery?: string | null
           file_name?: string
           id?: string
@@ -937,11 +949,22 @@ export type Database = {
           po_number?: string
           quantity?: number
           sku_code?: string
+          sku_user_id?: string
           status?: string
+          total_cost?: number | null
+          unit_cost?: number | null
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fk_po_orders_sunsky_skus"
+            columns: ["sku_user_id", "sku_code"]
+            isOneToOne: false
+            referencedRelation: "sunsky_skus"
+            referencedColumns: ["user_id", "sku_code"]
+          },
+        ]
       }
       processed_orders: {
         Row: {
@@ -1211,6 +1234,7 @@ export type Database = {
         Row: {
           cost: number | null
           created_at: string
+          currency: string | null
           description: string | null
           id: string
           notes: string | null
@@ -1223,6 +1247,7 @@ export type Database = {
         Insert: {
           cost?: number | null
           created_at?: string
+          currency?: string | null
           description?: string | null
           id?: string
           notes?: string | null
@@ -1235,6 +1260,7 @@ export type Database = {
         Update: {
           cost?: number | null
           created_at?: string
+          currency?: string | null
           description?: string | null
           id?: string
           notes?: string | null
