@@ -249,11 +249,12 @@ export function FileMerger() {
         ? exportRowLimit 
         : totalRows;
 
-      const maxRowsPerFile = 25000; // Reduced to 25k rows per file for better memory management
       const filename = outputFileName.trim();
-      const chunkSize = 1000; // Process data in smaller chunks
-
+      
       console.log(`Exporting ${rowsToExport} rows of ${totalRows} total rows`);
+
+      // Progress: 10% - Start creating merged CSV content
+      setExportProgress(10);
 
       // Helper function to process CSV row with proper escaping
       const processCSVRow = (row: any[]): string => {
@@ -266,129 +267,60 @@ export function FileMerger() {
         }).join(',');
       };
 
-      // Helper function to create CSV content in chunks to avoid memory issues
-      const createCSVContent = async (startRow: number, endRow: number, includeHeaders: boolean = true): Promise<string> => {
-        const chunks: string[] = [];
-        
-        if (includeHeaders) {
-          chunks.push(processCSVRow(mergedData.headers));
+      // Progress: 20% - Create complete merged CSV content
+      setExportProgress(20);
+      
+      const csvContent = [
+        processCSVRow(mergedData.headers),
+        ...mergedData.data.slice(0, rowsToExport).map(row => processCSVRow(row))
+      ].join('\n');
+
+      // Progress: 60% - CSV content created, now compress
+      setExportProgress(60);
+      
+      // Create ZIP with the merged content
+      const zip = new JSZip();
+      zip.file(`${filename}.csv`, csvContent);
+
+      // Progress: 80% - Start ZIP generation
+      setExportProgress(80);
+      
+      const zipBlob = await zip.generateAsync({ 
+        type: 'blob',
+        streamFiles: true,
+        compression: 'DEFLATE',
+        compressionOptions: {
+          level: 9 // Maximum compression
         }
+      });
+      
+      // Progress: 95% - ZIP generated, preparing download
+      setExportProgress(95);
+      
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(zipBlob);
+      
+      link.setAttribute('href', url);
+      link.setAttribute('download', `${filename}_merged.zip`);
+      link.style.visibility = 'hidden';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
 
-        // Process data in smaller chunks to avoid memory overflow
-        for (let i = startRow; i < endRow; i += chunkSize) {
-          const chunkEnd = Math.min(i + chunkSize, endRow);
-          const dataSlice = mergedData.data.slice(i, chunkEnd);
-          
-          const chunkLines = dataSlice.map(row => processCSVRow(row));
-          chunks.push(...chunkLines);
-          
-          // Allow browser to breathe between chunks
-          await new Promise(resolve => setTimeout(resolve, 1));
-        }
-        
-        return chunks.join('\n');
-      };
+      setExportProgress(100);
 
-      if (rowsToExport <= maxRowsPerFile) {
-        // Small file - export as single CSV with chunked processing
-        setExportProgress(10);
-        
-        const csvContent = await createCSVContent(0, rowsToExport, true);
-        
-        setExportProgress(75);
-
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        const url = URL.createObjectURL(blob);
-        
-        link.setAttribute('href', url);
-        link.setAttribute('download', `${filename}.csv`);
-        link.style.visibility = 'hidden';
-        
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-
-        setExportProgress(100);
-
-        toast({
-          title: "Export Complete",
-          description: `Exported ${rowsToExport} rows as ${filename}.csv`
-        });
-      } else {
-        // Large file - split into multiple CSV files and create ZIP
-        console.log('Large dataset detected, creating multiple files...');
-        setExportProgress(5);
-        
-        const zip = new JSZip();
-        const fileCount = Math.ceil(rowsToExport / maxRowsPerFile);
-
-        for (let fileIndex = 0; fileIndex < fileCount; fileIndex++) {
-          const startRow = fileIndex * maxRowsPerFile;
-          const endRow = Math.min(startRow + maxRowsPerFile, rowsToExport);
-          
-          // Update progress for file creation (5% to 85%)
-          const fileProgress = 5 + ((fileIndex + 1) / fileCount) * 80;
-          setExportProgress(Math.round(fileProgress));
-          
-          console.log(`Processing part ${fileIndex + 1}/${fileCount} (rows ${startRow + 1}-${endRow})`);
-          
-          // Create CSV content for this chunk
-          const csvContent = await createCSVContent(startRow, endRow, true);
-          
-          // Create filename for this part
-          const partFileName = fileCount > 1 
-            ? `${filename}_part${fileIndex + 1}.csv`
-            : `${filename}.csv`;
-          
-           zip.file(partFileName, csvContent);
-           
-           // Allow browser to clean up memory between chunks
-           await new Promise(resolve => setTimeout(resolve, 10));
-           
-           console.log(`Created part ${fileIndex + 1}/${fileCount}`);
-        }
-
-        // Generate ZIP file (85% to 95%)
-        setExportProgress(85);
-        console.log('Generating ZIP file...');
-        
-        const zipBlob = await zip.generateAsync({ 
-          type: 'blob',
-          streamFiles: true,
-          compression: 'DEFLATE',
-          compressionOptions: {
-            level: 6 // Balanced compression
-          }
-        });
-        
-        setExportProgress(95);
-        const link = document.createElement('a');
-        const url = URL.createObjectURL(zipBlob);
-        
-        link.setAttribute('href', url);
-        link.setAttribute('download', `${filename}_merged_files.zip`);
-        link.style.visibility = 'hidden';
-        
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-
-        setExportProgress(100);
-
-        toast({
-          title: "Export Complete",
-          description: `Exported ${rowsToExport} rows in ${fileCount} CSV file(s) as ${filename}_merged_files.zip`
-        });
-      }
+      toast({
+        title: "Export Complete",
+        description: `Exported ${rowsToExport} rows as compressed ${filename}_merged.zip`
+      });
       
     } catch (error) {
       console.error('Export error:', error);
       toast({
         title: "Export Error",
-        description: error instanceof Error ? error.message : "Failed to export merged file. Try reducing the number of rows.",
+        description: error instanceof Error ? error.message : "Failed to export merged file.",
         variant: "destructive"
       });
     } finally {
