@@ -1,20 +1,78 @@
-import { useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Upload, FileText, X } from 'lucide-react';
+import { Upload, FileText, X, ArrowRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { POColumnMapping } from './POColumnMapping';
 
 interface POFileUploadProps {
-  onFilesUpload: (files: File[]) => void;
+  onFilesUpload: (mappedData: any[]) => void;
   isLoading: boolean;
 }
 
-export function POFileUpload({ onFilesUpload, isLoading }: POFileUploadProps) {
-  const onDrop = useCallback((acceptedFiles: File[]) => {
-    onFilesUpload(acceptedFiles);
-  }, [onFilesUpload]);
+interface ParsedFile {
+  file: File;
+  headers: string[];
+  data: string[][];
+}
 
+export function POFileUpload({ onFilesUpload, isLoading }: POFileUploadProps) {
+  const [parsedFiles, setParsedFiles] = useState<ParsedFile[]>([]);
+  const [showMapping, setShowMapping] = useState(false);
+
+  const parseFile = async (file: File): Promise<ParsedFile> => {
+    const text = await file.text();
+    const lines = text.split('\n').filter(line => line.trim());
+    
+    if (lines.length === 0) {
+      throw new Error(`File ${file.name} is empty`);
+    }
+
+    // Parse CSV data
+    const data = lines.map(line => 
+      line.split(',').map(cell => cell.trim().replace(/"/g, ''))
+    );
+
+    return {
+      file,
+      headers: data[0],
+      data
+    };
+  };
+
+  const onDrop = useCallback(async (acceptedFiles: File[]) => {
+    try {
+      const parsed = await Promise.all(acceptedFiles.map(parseFile));
+      setParsedFiles(parsed);
+      setShowMapping(true);
+    } catch (error) {
+      console.error('Error parsing files:', error);
+    }
+  }, []);
+
+  const handleMappingComplete = (mappedData: any[]) => {
+    onFilesUpload(mappedData);
+    setParsedFiles([]);
+    setShowMapping(false);
+  };
+
+  const handleBack = () => {
+    setShowMapping(false);
+    setParsedFiles([]);
+  };
+
+  // Show column mapping interface if files are parsed
+  if (showMapping && parsedFiles.length > 0) {
+    return (
+      <POColumnMapping
+        files={parsedFiles}
+        onMappingComplete={handleMappingComplete}
+        onBack={handleBack}
+        isLoading={isLoading}
+      />
+    );
+  }
   const { getRootProps, getInputProps, isDragActive, acceptedFiles, fileRejections } = useDropzone({
     onDrop,
     accept: {
@@ -45,7 +103,7 @@ export function POFileUpload({ onFilesUpload, isLoading }: POFileUploadProps) {
           </h3>
           <p className="text-muted-foreground mb-4 max-w-sm">
             Upload Excel (.xlsx, .xls) or CSV files containing PO data. 
-            Expected format: PO Number, SKU Code, Quantity
+            You'll be able to map columns to the required fields.
           </p>
           <Button variant="outline" disabled={isLoading}>
             <Upload className="h-4 w-4 mr-2" />
@@ -60,7 +118,7 @@ export function POFileUpload({ onFilesUpload, isLoading }: POFileUploadProps) {
           <CardContent className="pt-6">
             <h4 className="font-semibold mb-3 flex items-center">
               <FileText className="h-4 w-4 mr-2" />
-              Ready to Process ({acceptedFiles.length} files)
+              Files Selected ({acceptedFiles.length})
             </h4>
             <div className="space-y-2">
               {acceptedFiles.map((file) => (
@@ -72,9 +130,17 @@ export function POFileUpload({ onFilesUpload, isLoading }: POFileUploadProps) {
                       {(file.size / 1024).toFixed(1)} KB
                     </Badge>
                   </div>
+                  <ArrowRight className="h-4 w-4 text-green-500" />
                 </div>
               ))}
             </div>
+            <Button 
+              onClick={() => onDrop([...acceptedFiles])} 
+              className="w-full mt-3"
+              disabled={isLoading}
+            >
+              Proceed to Column Mapping
+            </Button>
           </CardContent>
         </Card>
       )}
@@ -111,19 +177,16 @@ export function POFileUpload({ onFilesUpload, isLoading }: POFileUploadProps) {
       {/* Format Help */}
       <Card className="bg-muted/50">
         <CardContent className="pt-6">
-          <h4 className="font-semibold mb-2">Expected File Format</h4>
+          <h4 className="font-semibold mb-2">Expected File Format (After Mapping)</h4>
           <div className="text-sm text-muted-foreground">
-            <p className="mb-2">Your CSV/Excel file should have columns in this order:</p>
+            <p className="mb-2">Your files can have any column headers. You'll map them to:</p>
             <div className="bg-background p-3 rounded border font-mono text-xs">
-              PO Number, SKU Code, Quantity<br />
-              PO-2024-001, ABC123, 10<br />
-              PO-2024-001, XYZ789, 5<br />
-              PO-2024-002, DEF456, 20
+              • PO Number - Purchase order identifier<br />
+              • SKU Code - Product SKU from your Sunsky database<br />
+              • Quantity - Number of items to order
             </div>
             <p className="mt-2 text-xs">
-              • First row should contain headers<br />
-              • Multiple POs can be in the same file<br />
-              • Only SKUs that exist in your Sunsky database will be processed
+              Example: Your "Order ID" column maps to "PO Number", "Product Code" maps to "SKU Code"
             </p>
           </div>
         </CardContent>

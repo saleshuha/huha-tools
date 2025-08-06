@@ -24,9 +24,9 @@ export function POTracker() {
     updateOrderStatus
   } = usePOTracker();
 
-  const handleFileUpload = async (files: File[]) => {
+  const handleFileUpload = async (mappedData: any[]) => {
     try {
-      await processPOFiles(files);
+      await processPOFiles(mappedData);
     } catch (error) {
       console.error('Error processing PO files:', error);
     }

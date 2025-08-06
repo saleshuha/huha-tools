@@ -110,48 +110,36 @@ export const usePOTracker = () => {
     }
   };
 
-  // Process PO files and match SKUs
-  const processPOFiles = async (files: File[]) => {
+  // Process PO files with mapped data
+  const processPOFiles = async (mappedData: any[]) => {
     setIsLoading(true);
     try {
-      const newOrders: Omit<POOrder, 'id' | 'created_at' | 'updated_at' | 'sunsky_sku'>[] = [];
+      const validOrders: Omit<POOrder, 'id' | 'created_at' | 'updated_at' | 'sunsky_sku'>[] = [];
 
-      for (const file of files) {
-        const text = await file.text();
-        const lines = text.split('\n').filter(line => line.trim());
-        
-        // Skip header row
-        for (let i = 1; i < lines.length; i++) {
-          const columns = lines[i].split(',').map(col => col.trim().replace(/"/g, ''));
-          
-          if (columns.length >= 3) {
-            const [poNumber, skuCode, quantity] = columns;
-            
-            // Check if SKU exists in our database
-            const existingSKU = sunskySKUs.find(sku => 
-              sku.sku_code.toLowerCase() === skuCode.toLowerCase()
-            );
+      mappedData.forEach(item => {
+        // Check if SKU exists in our database
+        const existingSKU = sunskySKUs.find(sku => 
+          sku.sku_code.toLowerCase() === item.sku_code.toLowerCase()
+        );
 
-            if (existingSKU) {
-            newOrders.push({
-              po_number: poNumber,
-              sku_code: skuCode,
-              quantity: parseInt(quantity) || 1,
-              status: 'pending' as const,
-              file_name: file.name,
-              notes: undefined,
-              order_date: undefined,
-              expected_delivery: undefined
-            });
-            }
-          }
+        if (existingSKU) {
+          validOrders.push({
+            po_number: item.po_number,
+            sku_code: item.sku_code,
+            quantity: item.quantity,
+            status: 'pending' as const,
+            file_name: item.file_name,
+            notes: undefined,
+            order_date: undefined,
+            expected_delivery: undefined
+          });
         }
-      }
+      });
 
-      if (newOrders.length > 0) {
+      if (validOrders.length > 0) {
         const { data, error } = await (supabase as any)
           .from('po_orders')
-          .insert(newOrders)
+          .insert(validOrders)
           .select();
 
         if (error) throw error;
@@ -159,7 +147,7 @@ export const usePOTracker = () => {
         await fetchPOOrders();
         toast({
           title: "Success",
-          description: `Processed ${newOrders.length} PO items from ${files.length} file(s)`
+          description: `Processed ${validOrders.length} PO items from ${new Set(mappedData.map(item => item.file_name)).size} file(s)`
         });
       } else {
         toast({
