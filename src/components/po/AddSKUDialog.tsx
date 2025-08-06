@@ -23,8 +23,10 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
   // Manual form state
   const [manualSKU, setManualSKU] = useState({
     sku_code: '',
+    title: '',
     description: '',
     cost: '',
+    weight: '',
     notes: ''
   });
 
@@ -37,13 +39,15 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
 
     const newSKU = {
       sku_code: manualSKU.sku_code.trim(),
+      title: manualSKU.title.trim() || undefined,
       description: manualSKU.description.trim() || undefined,
       cost: manualSKU.cost ? parseFloat(manualSKU.cost) : undefined,
+      weight: manualSKU.weight ? parseFloat(manualSKU.weight) : undefined,
       notes: manualSKU.notes.trim() || undefined
     };
 
     await onAddSKUs([newSKU]);
-    setManualSKU({ sku_code: '', description: '', cost: '', notes: '' });
+    setManualSKU({ sku_code: '', title: '', description: '', cost: '', weight: '', notes: '' });
     setIsOpen(false);
   };
 
@@ -65,9 +69,11 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
       if (columns.length >= 1 && columns[0]) {
         newSKUs.push({
           sku_code: columns[0],
-          description: columns[1] || undefined,
-          cost: columns[2] ? parseFloat(columns[2]) : undefined,
-          notes: columns[3] || undefined
+          title: columns[1] || undefined,
+          description: columns[2] || undefined,
+          cost: columns[3] ? parseFloat(columns[3]) : undefined,
+          weight: columns[4] ? parseFloat(columns[4]) : undefined,
+          notes: columns[5] || undefined
         });
       }
     });
@@ -88,9 +94,11 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
         if (columns.length >= 1 && columns[0]) {
           newSKUs.push({
             sku_code: columns[0],
-            description: columns[1] || undefined,
-            cost: columns[2] ? parseFloat(columns[2]) : undefined,
-            notes: columns[3] || undefined
+            title: columns[1] || undefined,
+            description: columns[2] || undefined,
+            cost: columns[3] ? parseFloat(columns[3]) : undefined,
+            weight: columns[4] ? parseFloat(columns[4]) : undefined,
+            notes: columns[5] || undefined
           });
         }
       }
@@ -148,6 +156,17 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
                 />
               </div>
               <div>
+                <Label htmlFor="title">Title</Label>
+                <Input
+                  id="title"
+                  value={manualSKU.title}
+                  onChange={(e) => setManualSKU(prev => ({ ...prev, title: e.target.value }))}
+                  placeholder="Product title"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
                 <Label htmlFor="cost">Cost</Label>
                 <Input
                   id="cost"
@@ -155,6 +174,17 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
                   step="0.01"
                   value={manualSKU.cost}
                   onChange={(e) => setManualSKU(prev => ({ ...prev, cost: e.target.value }))}
+                  placeholder="0.00"
+                />
+              </div>
+              <div>
+                <Label htmlFor="weight">Weight (kg)</Label>
+                <Input
+                  id="weight"
+                  type="number"
+                  step="0.01"
+                  value={manualSKU.weight}
+                  onChange={(e) => setManualSKU(prev => ({ ...prev, weight: e.target.value }))}
                   placeholder="0.00"
                 />
               </div>
@@ -201,7 +231,7 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
                   {isDragActive ? 'Drop files here' : 'Upload SKU Files'}
                 </h3>
                 <p className="text-muted-foreground mb-4">
-                  CSV or Excel files with format: SKU Code, Description, Cost, Notes
+                  CSV or Excel files with format: SKU Code, Title, Description, Cost, Weight, Notes
                 </p>
               </CardContent>
             </Card>
@@ -222,8 +252,9 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
                     <div key={index} className="flex items-center justify-between p-2 bg-muted rounded">
                       <div className="flex items-center space-x-2">
                         <Badge variant="outline">{sku.sku_code}</Badge>
-                        <span className="text-sm">{sku.description || 'No description'}</span>
+                        <span className="text-sm">{sku.title || sku.description || 'No title'}</span>
                         {sku.cost && <Badge variant="secondary">${sku.cost}</Badge>}
+                        {sku.weight && <Badge variant="outline">{sku.weight}kg</Badge>}
                       </div>
                       <Button
                         variant="ghost"
@@ -246,11 +277,11 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
                 id="paste_data"
                 value={pasteData}
                 onChange={(e) => setPasteData(e.target.value)}
-                placeholder="Paste tab-separated data:&#10;SKU123&#9;Product Description&#9;15.99&#9;Notes&#10;SKU456&#9;Another Product&#9;25.50&#9;More notes"
+                placeholder="Paste tab-separated data:&#10;SKU123&#9;Product Title&#9;Product Description&#9;15.99&#9;2.5&#9;Notes&#10;SKU456&#9;Another Title&#9;Another Description&#9;25.50&#9;1.2&#9;More notes"
                 rows={6}
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Format: Each line should contain: SKU Code [TAB] Description [TAB] Cost [TAB] Notes
+                Format: Each line should contain: SKU Code [TAB] Title [TAB] Description [TAB] Cost [TAB] Weight [TAB] Notes
               </p>
             </div>
             <Button 
@@ -279,8 +310,9 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
                     <div key={index} className="flex items-center justify-between p-2 bg-muted rounded">
                       <div className="flex items-center space-x-2">
                         <Badge variant="outline">{sku.sku_code}</Badge>
-                        <span className="text-sm">{sku.description || 'No description'}</span>
+                        <span className="text-sm">{sku.title || sku.description || 'No title'}</span>
                         {sku.cost && <Badge variant="secondary">${sku.cost}</Badge>}
+                        {sku.weight && <Badge variant="outline">{sku.weight}kg</Badge>}
                       </div>
                       <Button
                         variant="ghost"

@@ -5,8 +5,10 @@ import { supabase } from '@/integrations/supabase/client';
 export interface SunskySKU {
   id: string;
   sku_code: string;
+  title?: string;
   description?: string;
   cost?: number;
+  weight?: number;
   notes?: string;
   created_at: string;
   updated_at: string;

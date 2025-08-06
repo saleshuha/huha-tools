@@ -1215,8 +1215,10 @@ export type Database = {
           id: string
           notes: string | null
           sku_code: string
+          title: string | null
           updated_at: string
           user_id: string
+          weight: number | null
         }
         Insert: {
           cost?: number | null
@@ -1225,8 +1227,10 @@ export type Database = {
           id?: string
           notes?: string | null
           sku_code: string
+          title?: string | null
           updated_at?: string
           user_id: string
+          weight?: number | null
         }
         Update: {
           cost?: number | null
@@ -1235,8 +1239,10 @@ export type Database = {
           id?: string
           notes?: string | null
           sku_code?: string
+          title?: string | null
           updated_at?: string
           user_id?: string
+          weight?: number | null
         }
         Relationships: []
       }
