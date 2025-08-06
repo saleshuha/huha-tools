@@ -1,4 +1,4 @@
-import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, Wrench, LogOut, Home, Users, TrendingUp, Merge, Edit3, Database, CreditCard, Upload, BarChart3, DollarSign, Store } from "lucide-react"
+import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, Wrench, LogOut, Home, Users, TrendingUp, Merge, Edit3, Database, CreditCard, Upload, BarChart3, DollarSign, Store, ShoppingCart } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
 import { useState } from "react"
 import { supabase } from "@/integrations/supabase/client"
@@ -79,6 +79,11 @@ const coreItems = [
     title: "Sales & Replenishment",
     url: "/replenishment",
     icon: TrendingUp
+  },
+  {
+    title: "PO - SS Stock Tracker",
+    url: "/po-tracker",
+    icon: ShoppingCart
   },
 ]
 
@@ -229,30 +234,6 @@ export function AppSidebar() {
                         </SidebarMenuButton>
                       </SidebarMenuItem>
                       
-                      {/* PO Tracker sub-item */}
-                      <SidebarMenuItem className="mt-1 ml-6">
-                        <SidebarMenuButton 
-                          asChild
-                          className={`w-full p-3 rounded-lg transition-colors ${
-                            isActive("/po-tracker")
-                              ? "bg-primary text-primary-foreground" 
-                              : "hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
-                          }`}
-                        >
-                          <NavLink 
-                            to="/po-tracker" 
-                            end
-                            className="flex items-center gap-3 no-underline w-full"
-                          >
-                            <Package className="h-4 w-4 flex-shrink-0" />
-                            {!isCollapsed && (
-                              <span className="font-medium text-sm">
-                                PO - SS Stock Tracker
-                              </span>
-                            )}
-                          </NavLink>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
                       
                       {/* Noon Reports sub-section with proper spacing */}
                       <SidebarMenuItem className="mt-2">
