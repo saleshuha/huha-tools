@@ -1,0 +1,302 @@
+import { useState } from 'react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Plus, Upload, Type, Trash2 } from 'lucide-react';
+import { useDropzone } from 'react-dropzone';
+import { SunskySKU } from '@/hooks/usePOTracker';
+
+interface AddSKUDialogProps {
+  onAddSKUs: (skus: Omit<SunskySKU, 'id' | 'created_at' | 'updated_at'>[]) => Promise<void>;
+  isLoading: boolean;
+}
+
+export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('manual');
+  
+  // Manual form state
+  const [manualSKU, setManualSKU] = useState({
+    sku_code: '',
+    description: '',
+    cost: '',
+    notes: ''
+  });
+
+  // Bulk SKUs state
+  const [bulkSKUs, setBulkSKUs] = useState<Omit<SunskySKU, 'id' | 'created_at' | 'updated_at'>[]>([]);
+  const [pasteData, setPasteData] = useState('');
+
+  const handleManualAdd = async () => {
+    if (!manualSKU.sku_code.trim()) return;
+
+    const newSKU = {
+      sku_code: manualSKU.sku_code.trim(),
+      description: manualSKU.description.trim() || undefined,
+      cost: manualSKU.cost ? parseFloat(manualSKU.cost) : undefined,
+      notes: manualSKU.notes.trim() || undefined
+    };
+
+    await onAddSKUs([newSKU]);
+    setManualSKU({ sku_code: '', description: '', cost: '', notes: '' });
+    setIsOpen(false);
+  };
+
+  const handleBulkAdd = async () => {
+    if (bulkSKUs.length === 0) return;
+    await onAddSKUs(bulkSKUs);
+    setBulkSKUs([]);
+    setIsOpen(false);
+  };
+
+  const handlePasteProcess = () => {
+    if (!pasteData.trim()) return;
+
+    const lines = pasteData.split('\n').filter(line => line.trim());
+    const newSKUs: Omit<SunskySKU, 'id' | 'created_at' | 'updated_at'>[] = [];
+
+    lines.forEach(line => {
+      const columns = line.split('\t').map(col => col.trim()); // Tab-separated
+      if (columns.length >= 1 && columns[0]) {
+        newSKUs.push({
+          sku_code: columns[0],
+          description: columns[1] || undefined,
+          cost: columns[2] ? parseFloat(columns[2]) : undefined,
+          notes: columns[3] || undefined
+        });
+      }
+    });
+
+    setBulkSKUs(prev => [...prev, ...newSKUs]);
+    setPasteData('');
+  };
+
+  const handleFileUpload = async (files: File[]) => {
+    for (const file of files) {
+      const text = await file.text();
+      const lines = text.split('\n').filter(line => line.trim());
+      const newSKUs: Omit<SunskySKU, 'id' | 'created_at' | 'updated_at'>[] = [];
+
+      // Skip header row
+      for (let i = 1; i < lines.length; i++) {
+        const columns = lines[i].split(',').map(col => col.trim().replace(/"/g, ''));
+        if (columns.length >= 1 && columns[0]) {
+          newSKUs.push({
+            sku_code: columns[0],
+            description: columns[1] || undefined,
+            cost: columns[2] ? parseFloat(columns[2]) : undefined,
+            notes: columns[3] || undefined
+          });
+        }
+      }
+
+      setBulkSKUs(prev => [...prev, ...newSKUs]);
+    }
+  };
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop: handleFileUpload,
+    accept: {
+      'text/csv': ['.csv'],
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+      'application/vnd.ms-excel': ['.xls']
+    },
+    multiple: true
+  });
+
+  const removeBulkSKU = (index: number) => {
+    setBulkSKUs(prev => prev.filter((_, i) => i !== index));
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <Button>
+          <Plus className="h-4 w-4 mr-2" />
+          Add SKUs
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Add Sunsky SKUs</DialogTitle>
+          <DialogDescription>
+            Add new SKUs to your Sunsky supplier database
+          </DialogDescription>
+        </DialogHeader>
+
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="manual">Manual Entry</TabsTrigger>
+            <TabsTrigger value="bulk">Bulk Upload</TabsTrigger>
+            <TabsTrigger value="paste">Paste Data</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="manual" className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="sku_code">SKU Code *</Label>
+                <Input
+                  id="sku_code"
+                  value={manualSKU.sku_code}
+                  onChange={(e) => setManualSKU(prev => ({ ...prev, sku_code: e.target.value }))}
+                  placeholder="Enter SKU code"
+                />
+              </div>
+              <div>
+                <Label htmlFor="cost">Cost</Label>
+                <Input
+                  id="cost"
+                  type="number"
+                  step="0.01"
+                  value={manualSKU.cost}
+                  onChange={(e) => setManualSKU(prev => ({ ...prev, cost: e.target.value }))}
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="description">Description</Label>
+              <Input
+                id="description"
+                value={manualSKU.description}
+                onChange={(e) => setManualSKU(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Product description"
+              />
+            </div>
+            <div>
+              <Label htmlFor="notes">Notes</Label>
+              <Textarea
+                id="notes"
+                value={manualSKU.notes}
+                onChange={(e) => setManualSKU(prev => ({ ...prev, notes: e.target.value }))}
+                placeholder="Additional notes"
+                rows={3}
+              />
+            </div>
+            <Button 
+              onClick={handleManualAdd} 
+              disabled={!manualSKU.sku_code.trim() || isLoading}
+              className="w-full"
+            >
+              Add SKU
+            </Button>
+          </TabsContent>
+
+          <TabsContent value="bulk" className="space-y-4">
+            <Card 
+              {...getRootProps()} 
+              className={`border-2 border-dashed cursor-pointer transition-colors ${
+                isDragActive ? 'border-primary bg-primary/5' : 'border-muted-foreground/25'
+              }`}
+            >
+              <CardContent className="flex flex-col items-center justify-center py-8 text-center">
+                <input {...getInputProps()} />
+                <Upload className={`h-10 w-10 mb-3 ${isDragActive ? 'text-primary' : 'text-muted-foreground'}`} />
+                <h3 className="text-lg font-semibold mb-2">
+                  {isDragActive ? 'Drop files here' : 'Upload SKU Files'}
+                </h3>
+                <p className="text-muted-foreground mb-4">
+                  CSV or Excel files with format: SKU Code, Description, Cost, Notes
+                </p>
+              </CardContent>
+            </Card>
+
+            {bulkSKUs.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-semibold">Ready to Add ({bulkSKUs.length} SKUs)</h4>
+                  <Button
+                    onClick={handleBulkAdd}
+                    disabled={isLoading}
+                  >
+                    Add All SKUs
+                  </Button>
+                </div>
+                <div className="max-h-40 overflow-y-auto space-y-1">
+                  {bulkSKUs.map((sku, index) => (
+                    <div key={index} className="flex items-center justify-between p-2 bg-muted rounded">
+                      <div className="flex items-center space-x-2">
+                        <Badge variant="outline">{sku.sku_code}</Badge>
+                        <span className="text-sm">{sku.description || 'No description'}</span>
+                        {sku.cost && <Badge variant="secondary">${sku.cost}</Badge>}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeBulkSKU(index)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="paste" className="space-y-4">
+            <div>
+              <Label htmlFor="paste_data">Paste SKU Data</Label>
+              <Textarea
+                id="paste_data"
+                value={pasteData}
+                onChange={(e) => setPasteData(e.target.value)}
+                placeholder="Paste tab-separated data:&#10;SKU123&#9;Product Description&#9;15.99&#9;Notes&#10;SKU456&#9;Another Product&#9;25.50&#9;More notes"
+                rows={6}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Format: Each line should contain: SKU Code [TAB] Description [TAB] Cost [TAB] Notes
+              </p>
+            </div>
+            <Button 
+              onClick={handlePasteProcess}
+              disabled={!pasteData.trim()}
+              variant="outline"
+              className="w-full"
+            >
+              <Type className="h-4 w-4 mr-2" />
+              Process Pasted Data
+            </Button>
+
+            {bulkSKUs.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-semibold">Ready to Add ({bulkSKUs.length} SKUs)</h4>
+                  <Button
+                    onClick={handleBulkAdd}
+                    disabled={isLoading}
+                  >
+                    Add All SKUs
+                  </Button>
+                </div>
+                <div className="max-h-40 overflow-y-auto space-y-1">
+                  {bulkSKUs.map((sku, index) => (
+                    <div key={index} className="flex items-center justify-between p-2 bg-muted rounded">
+                      <div className="flex items-center space-x-2">
+                        <Badge variant="outline">{sku.sku_code}</Badge>
+                        <span className="text-sm">{sku.description || 'No description'}</span>
+                        {sku.cost && <Badge variant="secondary">${sku.cost}</Badge>}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeBulkSKU(index)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
+      </DialogContent>
+    </Dialog>
+  );
+}

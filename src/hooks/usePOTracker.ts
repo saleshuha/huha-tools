@@ -76,13 +76,19 @@ export const usePOTracker = () => {
     }
   };
 
-  // Add multiple SKUs
+  // Add multiple SKUs with user_id
   const addSKUs = async (skus: Omit<SunskySKU, 'id' | 'created_at' | 'updated_at'>[]) => {
     setIsLoading(true);
     try {
+      // Add user_id to each SKU for RLS
+      const skusWithUserId = skus.map(sku => ({
+        ...sku,
+        user_id: undefined // Will be set by RLS policy
+      }));
+
       const { data, error } = await (supabase as any)
         .from('sunsky_skus')
-        .insert(skus)
+        .insert(skusWithUserId)
         .select();
 
       if (error) throw error;

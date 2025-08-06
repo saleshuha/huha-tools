@@ -8,6 +8,7 @@ import { Upload, Search, Package, Clock, CheckCircle, AlertCircle } from 'lucide
 import { POFileUpload } from './po/POFileUpload';
 import { SKUList } from './po/SKUList';
 import { POOrderTracking } from './po/POOrderTracking';
+import { AddSKUDialog } from './po/AddSKUDialog';
 import { usePOTracker } from '@/hooks/usePOTracker';
 
 export function POTracker() {
@@ -126,10 +127,7 @@ export function POTracker() {
                     className="pl-8"
                   />
                 </div>
-                <Button onClick={() => {/* Add bulk SKU functionality */}}>
-                  <Package className="h-4 w-4 mr-2" />
-                  Add SKUs
-                </Button>
+                <AddSKUDialog onAddSKUs={addSKUs} isLoading={isLoading} />
               </div>
               
               <SKUList skus={filteredSKUs} isLoading={isLoading} />
