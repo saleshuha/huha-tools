@@ -48,8 +48,20 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
   const [progress, setProgress] = useState(0);
   const [progressLabel, setProgressLabel] = useState('');
 
+  // Function to handle file upload
+  const handleFileUpload = async (files: File[]) => {
+    if (files.length === 0) return;
+    
+    setFileQueue(files);
+    setCurrentFileIndex(0);
+    setShowMapping(false);
+    
+    // Start processing first file
+    await processFileForMapping(files[0]);
+  };
+
   // ALL HOOKS MUST BE CALLED HERE - AT THE TOP LEVEL
-  // Dropzone hook - using hoisted function declaration
+  // Dropzone hook
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: handleFileUpload,
     accept: {
@@ -68,17 +80,7 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
     fileName: 'Target SKU Format'
   };
 
-  // Function declarations (these are hoisted so can be referenced above)
-  async function handleFileUpload(files: File[]) {
-    if (files.length === 0) return;
-    
-    setFileQueue(files);
-    setCurrentFileIndex(0);
-    setShowMapping(false);
-    
-    // Start processing first file
-    await processFileForMapping(files[0]);
-  }
+  // Function declarations for file processing
 
   async function processFileForMapping(file: File) {
     setIsProcessing(true);
