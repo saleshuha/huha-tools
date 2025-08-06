@@ -54,10 +54,8 @@ export function SKUList({ skus, isLoading }: SKUListProps) {
             <TableRow>
               <TableHead>SKU Code</TableHead>
               <TableHead>Title</TableHead>
-              <TableHead>Description</TableHead>
               <TableHead>Cost</TableHead>
               <TableHead>Weight</TableHead>
-              <TableHead>Notes</TableHead>
               <TableHead>Added</TableHead>
             </TableRow>
           </TableHeader>
@@ -75,11 +73,6 @@ export function SKUList({ skus, isLoading }: SKUListProps) {
                   </div>
                 </TableCell>
                 <TableCell>
-                  <div className="max-w-xs truncate text-sm text-muted-foreground">
-                    {sku.description || '-'}
-                  </div>
-                </TableCell>
-                <TableCell>
                   {sku.cost ? (
                     <Badge variant="secondary">
                       {sku.cost.toFixed(2)} {sku.currency || 'AED'}
@@ -91,16 +84,11 @@ export function SKUList({ skus, isLoading }: SKUListProps) {
                 <TableCell>
                   {sku.weight ? (
                     <Badge variant="outline">
-                      {sku.weight} kg
+                      {sku.weight} g
                     </Badge>
                   ) : (
                     <span className="text-muted-foreground">-</span>
                   )}
-                </TableCell>
-                <TableCell>
-                  <div className="max-w-xs truncate text-sm text-muted-foreground">
-                    {sku.notes || '-'}
-                  </div>
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center text-sm text-muted-foreground">
