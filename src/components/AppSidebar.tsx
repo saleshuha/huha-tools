@@ -171,27 +171,27 @@ export function AppSidebar() {
           <SidebarGroupLabel className="text-sidebar-foreground/80 font-semibold px-4 py-3 text-sm">
             HuHa Dashboard
           </SidebarGroupLabel>
-          <SidebarGroupContent className="px-2">
-            <SidebarMenu className="space-y-2">
+          <SidebarGroupContent className="px-3">
+            <SidebarMenu className="space-y-1">
               {/* Navigation items */}
               {navigationItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton 
                     asChild
-                    className={`w-full rounded-lg transition-colors ${
+                    className={`group relative w-full rounded-xl transition-all duration-200 hover:scale-[1.02] ${
                       isActive(item.url)
-                        ? "bg-primary text-primary-foreground" 
-                        : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                        ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
+                        : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
                     }`}
                   >
                     <NavLink 
                       to={item.url} 
                       end
-                      className="flex items-center gap-3 no-underline w-full p-3"
+                      className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
                     >
-                      <item.icon className="h-4 w-4 flex-shrink-0" />
+                      <item.icon className="h-5 w-5 flex-shrink-0" />
                       {!isCollapsed && (
-                        <span className="font-medium text-sm">
+                        <span className="font-semibold text-sm">
                           {item.title}
                         </span>
                       )}
@@ -208,20 +208,20 @@ export function AppSidebar() {
                       <SidebarMenuItem>
                         <SidebarMenuButton 
                           asChild
-                          className={`w-full rounded-lg transition-colors ${
+                          className={`group relative w-full rounded-xl transition-all duration-200 hover:scale-[1.02] ${
                             isActive(item.url)
-                              ? "bg-primary text-primary-foreground" 
-                              : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                              ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
+                              : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
                           }`}
                         >
                           <NavLink 
                             to={item.url} 
                             end
-                            className="flex items-center gap-3 no-underline w-full p-3"
+                            className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
                           >
-                            <item.icon className="h-4 w-4 flex-shrink-0" />
+                            <item.icon className="h-5 w-5 flex-shrink-0" />
                             {!isCollapsed && (
-                              <span className="font-medium text-sm">
+                              <span className="font-semibold text-sm">
                                 {item.title}
                               </span>
                             )}
@@ -233,20 +233,20 @@ export function AppSidebar() {
                       <SidebarMenuItem>
                         <SidebarMenuButton 
                           asChild
-                          className={`w-full rounded-lg transition-colors ${
+                          className={`group relative w-full rounded-xl transition-all duration-200 hover:scale-[1.02] ${
                             isActive("/po-tracker")
-                              ? "bg-primary text-primary-foreground" 
-                              : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                              ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
+                              : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
                           }`}
                         >
                           <NavLink 
                             to="/po-tracker" 
                             end
-                            className="flex items-center gap-3 no-underline w-full p-3"
+                            className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
                           >
-                            <ShoppingCart className="h-4 w-4 flex-shrink-0" />
+                            <ShoppingCart className="h-5 w-5 flex-shrink-0" />
                             {!isCollapsed && (
-                              <span className="font-medium text-sm">
+                              <span className="font-semibold text-sm">
                                 PO - SS Stock Tracker
                               </span>
                             )}
@@ -261,20 +261,20 @@ export function AppSidebar() {
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton 
                       asChild
-                      className={`w-full rounded-lg transition-colors ${
+                      className={`group relative w-full rounded-xl transition-all duration-200 hover:scale-[1.02] ${
                         isActive(item.url)
-                          ? "bg-primary text-primary-foreground" 
-                          : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                          ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
+                          : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
                       }`}
                     >
                       <NavLink 
                         to={item.url} 
                         end
-                        className="flex items-center gap-3 no-underline w-full p-3"
+                        className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
                       >
-                        <item.icon className="h-4 w-4 flex-shrink-0" />
+                        <item.icon className="h-5 w-5 flex-shrink-0" />
                         {!isCollapsed && (
-                          <span className="font-medium text-sm">
+                          <span className="font-semibold text-sm">
                             {item.title}
                           </span>
                         )}
@@ -288,20 +288,20 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   asChild
-                  className={`w-full rounded-lg transition-colors ${
+                  className={`group relative w-full rounded-xl transition-all duration-200 hover:scale-[1.02] ${
                     isActive("/carrefour-payments")
-                      ? "bg-primary text-primary-foreground" 
-                      : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                      ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
+                      : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
                   }`}
                 >
                   <NavLink 
                     to="/carrefour-payments" 
                     end
-                    className="flex items-center gap-3 no-underline w-full p-3"
+                    className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
                   >
-                    <BarChart3 className="h-4 w-4 flex-shrink-0" />
+                    <BarChart3 className="h-5 w-5 flex-shrink-0" />
                     {!isCollapsed && (
-                      <span className="font-medium text-sm">
+                      <span className="font-semibold text-sm">
                         Carrefour Sales Tracker
                       </span>
                     )}
@@ -315,20 +315,20 @@ export function AppSidebar() {
                 <Collapsible open={isToolsOpen} onOpenChange={setIsToolsOpen}>
                   <CollapsibleTrigger asChild>
                     <SidebarMenuButton
-                      className={`w-full rounded-lg transition-colors ${
+                      className={`group relative w-full rounded-xl transition-all duration-200 hover:scale-[1.02] ${
                         isToolsSectionActive()
-                          ? "bg-accent text-accent-foreground" 
-                          : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                          ? "bg-gradient-to-r from-accent to-accent/90 text-accent-foreground shadow-lg shadow-accent/25" 
+                          : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
                       }`}
                     >
-                      <div className="flex items-center gap-3 w-full p-3">
-                        <Wrench className="h-4 w-4 flex-shrink-0" />
+                      <div className="flex items-center gap-3 w-full px-4 py-3">
+                        <Wrench className="h-5 w-5 flex-shrink-0" />
                         {!isCollapsed && (
                           <div className="flex items-center justify-between w-full">
-                            <span className="font-medium text-sm">
+                            <span className="font-semibold text-sm">
                               Tools
                             </span>
-                            <ChevronDown className={`h-3 w-3 transition-transform ${
+                            <ChevronDown className={`h-4 w-4 transition-transform ${
                               isToolsOpen ? "rotate-180" : ""
                             }`} />
                           </div>
@@ -336,25 +336,25 @@ export function AppSidebar() {
                       </div>
                     </SidebarMenuButton>
                   </CollapsibleTrigger>
-                  <CollapsibleContent className="mt-2 space-y-2 pl-6">
+                  <CollapsibleContent className="mt-2 space-y-1 pl-3">
                     {toolsItems.map((item) => (
                       <SidebarMenuButton 
                         key={item.title}
                         asChild
-                        className={`w-full rounded-lg transition-colors ${
+                        className={`group relative w-full rounded-lg transition-all duration-200 hover:scale-[1.01] ml-2 ${
                           isActive(item.url)
-                            ? "bg-primary text-primary-foreground" 
-                            : "hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+                            ? "bg-gradient-to-r from-primary/80 to-primary/70 text-primary-foreground shadow-md shadow-primary/20" 
+                            : "hover:bg-gradient-to-r hover:from-sidebar-accent/60 hover:to-sidebar-accent/50 hover:text-sidebar-accent-foreground"
                         }`}
                       >
                         <NavLink 
                           to={item.url} 
                           end
-                          className="flex items-center gap-3 no-underline w-full p-3"
+                          className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-lg"
                         >
-                          <item.icon className="h-4 w-4 flex-shrink-0" />
+                          <item.icon className="h-4 w-4 flex-shrink-0 opacity-75" />
                           {!isCollapsed && (
-                            <span className="font-medium text-sm">
+                            <span className="font-medium text-xs">
                               {item.title}
                             </span>
                           )}
@@ -371,20 +371,20 @@ export function AppSidebar() {
       <SidebarFooter className="p-3 border-t border-sidebar-border space-y-3">
         <SidebarMenuButton 
           asChild
-          className={`w-full rounded-lg transition-colors ${
+          className={`group relative w-full rounded-xl transition-all duration-200 hover:scale-[1.02] ${
             isActive("/users")
-              ? "bg-primary text-primary-foreground" 
-              : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
+              : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
           }`}
         >
           <NavLink 
             to="/users" 
             end
-            className="flex items-center gap-3 no-underline w-full p-3"
+            className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
           >
-            <Users className="h-4 w-4 flex-shrink-0" />
+            <Users className="h-5 w-5 flex-shrink-0" />
             {!isCollapsed && (
-              <span className="font-medium text-sm">
+              <span className="font-semibold text-sm">
                 User Management
               </span>
             )}
