@@ -51,6 +51,18 @@ export function POFileUpload({ onFilesUpload, isLoading }: POFileUploadProps) {
     }
   }, []);
 
+  // ALL HOOKS MUST BE CALLED AT THE TOP LEVEL - BEFORE ANY EARLY RETURNS
+  const { getRootProps, getInputProps, isDragActive, acceptedFiles, fileRejections } = useDropzone({
+    onDrop,
+    accept: {
+      'text/csv': ['.csv'],
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+      'application/vnd.ms-excel': ['.xls']
+    },
+    multiple: true,
+    disabled: isLoading
+  });
+
   const handleMappingComplete = (mappedData: any[]) => {
     onFilesUpload(mappedData);
     setParsedFiles([]);
@@ -73,16 +85,6 @@ export function POFileUpload({ onFilesUpload, isLoading }: POFileUploadProps) {
       />
     );
   }
-  const { getRootProps, getInputProps, isDragActive, acceptedFiles, fileRejections } = useDropzone({
-    onDrop,
-    accept: {
-      'text/csv': ['.csv'],
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
-      'application/vnd.ms-excel': ['.xls']
-    },
-    multiple: true,
-    disabled: isLoading
-  });
 
   return (
     <div className="space-y-4">
