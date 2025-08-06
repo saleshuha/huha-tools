@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { useCountry } from '@/contexts/CountryContext';
 
 export interface SunskySKU {
   id: string;
@@ -13,7 +12,7 @@ export interface SunskySKU {
   weight?: number;
   notes?: string;
   currency?: string;
-  country: string;
+  country?: string;
   created_at: string;
   updated_at: string;
 }
@@ -47,15 +46,13 @@ export const usePOTracker = () => {
   const [poOrders, setPOOrders] = useState<POOrder[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
-  const { selectedCountry } = useCountry();
 
-  // Fetch Sunsky SKUs filtered by country
+  // Fetch Sunsky SKUs
   const fetchSunskySKUs = async () => {
     try {
       const { data, error } = await (supabase as any)
         .from('sunsky_skus')
         .select('*')
-        .eq('country', selectedCountry)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -70,7 +67,7 @@ export const usePOTracker = () => {
     }
   };
 
-  // Fetch PO Orders filtered by country
+  // Fetch PO Orders
   const fetchPOOrders = async () => {
     try {
       const { data, error } = await (supabase as any)
@@ -79,7 +76,6 @@ export const usePOTracker = () => {
           *,
           sunsky_sku:sunsky_skus(*)
         `)
-        .eq('country', selectedCountry)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -102,11 +98,10 @@ export const usePOTracker = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      // Add user_id and country to each SKU
+      // Add user_id to each SKU
       const skusWithUserId = skus.map(sku => ({
         ...sku,
-        user_id: user.id,
-        country: selectedCountry
+        user_id: user.id
       }));
 
       const { data, error } = await (supabase as any)
@@ -165,7 +160,7 @@ export const usePOTracker = () => {
             unit_cost: item.unit_cost || existingSKU.cost,
             sku_user_id: user.id, // Set to current user ID
             user_id: user.id, // Add user_id for RLS policies
-            country: selectedCountry, // Set to selected country
+            country: undefined, // Will be set by trigger
             currency: undefined, // Will be set by trigger
             total_cost: undefined // Will be calculated by trigger
           });
@@ -263,7 +258,7 @@ export const usePOTracker = () => {
   useEffect(() => {
     fetchSunskySKUs();
     fetchPOOrders();
-  }, [selectedCountry]); // Re-fetch when country changes
+  }, []);
 
   return {
     sunskySKUs,

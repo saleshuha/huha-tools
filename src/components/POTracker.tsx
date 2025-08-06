@@ -9,14 +9,11 @@ import { POFileUpload } from './po/POFileUpload';
 import { SKUList } from './po/SKUList';
 import { POOrderTracking } from './po/POOrderTracking';
 import { AddSKUDialog } from './po/AddSKUDialog';
-import { CountrySwitcher } from './CountrySwitcher';
 import { usePOTracker } from '@/hooks/usePOTracker';
-import { useCountry } from '@/contexts/CountryContext';
 
 export function POTracker() {
   const [activeTab, setActiveTab] = useState('upload');
   const [searchTerm, setSearchTerm] = useState('');
-  const { selectedCountry } = useCountry();
   
   const {
     sunskySKUs,
@@ -49,16 +46,6 @@ export function POTracker() {
 
   return (
     <div className="space-y-6">
-      {/* Country Switcher */}
-      <div className="flex justify-between items-center">
-        <div>
-          <Badge variant="outline" className="text-sm">
-            Country: {selectedCountry}
-          </Badge>
-        </div>
-        <CountrySwitcher />
-      </div>
-
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
