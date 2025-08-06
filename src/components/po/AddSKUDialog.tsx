@@ -48,7 +48,7 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
   const [progress, setProgress] = useState(0);
   const [progressLabel, setProgressLabel] = useState('');
 
-  // Simplified CSV parsing function
+  // Robust CSV parsing function that handles Arabic text and quoted values
   const parseCsvForMapping = async (file: File): Promise<ExcelData> => {
     console.log('Starting CSV parsing for:', file.name);
     return new Promise((resolve, reject) => {
@@ -65,8 +65,39 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
             throw new Error('Failed to read file content');
           }
           
-          // Simple CSV parsing - split by lines and commas
-          const lines = text.split('\n').filter(line => line.trim());
+          // Robust CSV parsing that handles quoted values and Arabic text
+          const parseCSVLine = (line: string): string[] => {
+            const result: string[] = [];
+            let current = '';
+            let inQuotes = false;
+            let i = 0;
+            
+            while (i < line.length) {
+              const char = line[i];
+              
+              if (char === '"') {
+                // Handle escaped quotes
+                if (inQuotes && line[i + 1] === '"') {
+                  current += '"';
+                  i += 2;
+                  continue;
+                }
+                inQuotes = !inQuotes;
+              } else if (char === ',' && !inQuotes) {
+                result.push(current.trim());
+                current = '';
+              } else {
+                current += char;
+              }
+              i++;
+            }
+            
+            // Add the last field
+            result.push(current.trim());
+            return result;
+          };
+          
+          const lines = text.split(/\r?\n/).filter(line => line.trim());
           console.log('Number of lines found:', lines.length);
           
           if (lines.length === 0) {
@@ -74,19 +105,21 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
             throw new Error('File is empty');
           }
           
-          // Get headers from first line
-          const headers = lines[0].split(',').map(col => col.trim().replace(/^"|"$/g, ''));
+          // Parse headers using robust method
+          const headers = parseCSVLine(lines[0]).map(col => col.replace(/^"|"$/g, ''));
           console.log('Headers found:', headers);
           
-          // Get data from remaining lines
+          // Parse data rows using robust method
           const data = lines.slice(1).map(line => {
-            const row = line.split(',').map(col => col.trim().replace(/^"|"$/g, ''));
+            const row = parseCSVLine(line).map(col => col.replace(/^"|"$/g, ''));
             return row;
           });
+          
           console.log('Data rows:', data.length);
           console.log('First few data rows:');
           data.slice(0, 3).forEach((row, i) => {
             console.log(`Data row ${i}:`, row);
+            console.log(`  Row length: ${row.length}, Headers length: ${headers.length}`);
           });
           
           const result = {
@@ -108,8 +141,8 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
         reject(new Error('Failed to read file'));
       };
       
-      console.log('Starting to read file as text');
-      reader.readAsText(file);
+      console.log('Starting to read file as text with UTF-8 encoding');
+      reader.readAsText(file, 'UTF-8'); // Explicitly specify UTF-8 encoding for Arabic text
     });
   };
 
