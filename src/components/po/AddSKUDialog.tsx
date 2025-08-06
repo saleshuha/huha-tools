@@ -174,7 +174,7 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
       setShowMapping(true);
       setProgressLabel(`File parsed successfully. Please map columns.`);
       console.log('File parsed, showing mapping interface. Headers:', fileData.headers);
-      console.log('Setting showMapping to true');
+      console.log('Setting showMapping to true. Current showMapping state will be:', true);
       
     } catch (error) {
       console.error('Error processing file:', error);
@@ -194,9 +194,18 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
     }
     
     console.log('Setting file queue and processing first file');
+    
+    // Reset all state before processing new files
+    setBulkSKUs([]);
+    setColumnMappings({});
+    setParsedFileData(null);
+    setShowMapping(false);
+    setIsProcessing(false);
+    setProgress(0);
+    setProgressLabel('');
+    
     setFileQueue(files);
     setCurrentFileIndex(0);
-    setShowMapping(false);
     
     // Start processing first file
     try {
@@ -518,7 +527,6 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
           </TabsContent>
 
           <TabsContent value="bulk" className="space-y-4">
-            <div>Debug: showMapping = {showMapping.toString()}, parsedFileData = {parsedFileData ? 'exists' : 'null'}</div>
             {!showMapping ? (
               <Card 
                 {...getRootProps()} 
