@@ -164,14 +164,14 @@ export function POColumnMapping({ files, onMappingComplete, onBack, isLoading }:
                       {field.label} {field.required && <span className="text-red-500">*</span>}
                     </label>
                     <Select
-                      value={mappings[file.name]?.[field.key] || ''}
-                      onValueChange={(value) => handleColumnMapping(file.name, field.key, value)}
+                      value={mappings[file.name]?.[field.key] || 'none'}
+                      onValueChange={(value) => handleColumnMapping(file.name, field.key, value === 'none' ? '' : value)}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select column" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">-- Select Column --</SelectItem>
+                        <SelectItem value="none">-- Select Column --</SelectItem>
                         {headers.map(header => (
                           <SelectItem key={header} value={header}>
                             {header}
