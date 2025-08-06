@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
 import { Plus, Upload, Type, Trash2 } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import { SunskySKU } from '@/hooks/usePOTracker';
@@ -33,6 +34,11 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
   // Bulk SKUs state
   const [bulkSKUs, setBulkSKUs] = useState<Omit<SunskySKU, 'id' | 'created_at' | 'updated_at'>[]>([]);
   const [pasteData, setPasteData] = useState('');
+  
+  // Progress state
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [progressLabel, setProgressLabel] = useState('');
 
   const handleManualAdd = async () => {
     if (!manualSKU.sku_code.trim()) return;
@@ -53,9 +59,38 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
 
   const handleBulkAdd = async () => {
     if (bulkSKUs.length === 0) return;
-    await onAddSKUs(bulkSKUs);
-    setBulkSKUs([]);
-    setIsOpen(false);
+    
+    setIsProcessing(true);
+    setProgress(0);
+    setProgressLabel(`Adding ${bulkSKUs.length} SKUs...`);
+    
+    try {
+      const batchSize = 50; // Process in batches of 50
+      const batches = [];
+      
+      for (let i = 0; i < bulkSKUs.length; i += batchSize) {
+        batches.push(bulkSKUs.slice(i, i + batchSize));
+      }
+      
+      for (let i = 0; i < batches.length; i++) {
+        await onAddSKUs(batches[i]);
+        const progressValue = ((i + 1) / batches.length) * 100;
+        setProgress(progressValue);
+        setProgressLabel(`Processing batch ${i + 1} of ${batches.length}...`);
+        
+        // Small delay to show progress
+        if (i < batches.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      }
+      
+      setBulkSKUs([]);
+      setIsOpen(false);
+    } finally {
+      setIsProcessing(false);
+      setProgress(0);
+      setProgressLabel('');
+    }
   };
 
   const handlePasteProcess = () => {
@@ -136,6 +171,17 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
             Add new SKUs to your Sunsky supplier database
           </DialogDescription>
         </DialogHeader>
+
+        {/* Progress indicator */}
+        {isProcessing && (
+          <div className="space-y-2 mb-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">{progressLabel}</span>
+              <span className="text-sm text-muted-foreground">{Math.round(progress)}%</span>
+            </div>
+            <Progress value={progress} className="w-full" />
+          </div>
+        )}
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-3">
@@ -242,7 +288,7 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
                   <h4 className="font-semibold">Ready to Add ({bulkSKUs.length} SKUs)</h4>
                   <Button
                     onClick={handleBulkAdd}
-                    disabled={isLoading}
+                    disabled={isLoading || isProcessing}
                   >
                     Add All SKUs
                   </Button>
@@ -300,7 +346,7 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
                   <h4 className="font-semibold">Ready to Add ({bulkSKUs.length} SKUs)</h4>
                   <Button
                     onClick={handleBulkAdd}
-                    disabled={isLoading}
+                    disabled={isLoading || isProcessing}
                   >
                     Add All SKUs
                   </Button>
