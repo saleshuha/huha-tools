@@ -48,35 +48,62 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
   const [progress, setProgress] = useState(0);
   const [progressLabel, setProgressLabel] = useState('');
 
-  // CSV parsing function
+  // Simplified CSV parsing function
   const parseCsvForMapping = async (file: File): Promise<ExcelData> => {
+    console.log('Starting CSV parsing for:', file.name);
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       
       reader.onload = (e) => {
         try {
+          console.log('FileReader onload triggered');
           const text = e.target?.result as string;
-          if (!text) throw new Error('Failed to read file content');
+          console.log('File content length:', text?.length);
           
+          if (!text) {
+            console.error('No text content found');
+            throw new Error('Failed to read file content');
+          }
+          
+          // Simple CSV parsing - split by lines and commas
           const lines = text.split('\n').filter(line => line.trim());
-          if (lines.length === 0) throw new Error('File is empty');
+          console.log('Number of lines found:', lines.length);
           
+          if (lines.length === 0) {
+            console.error('File appears to be empty');
+            throw new Error('File is empty');
+          }
+          
+          // Get headers from first line
           const headers = lines[0].split(',').map(col => col.trim().replace(/^"|"$/g, ''));
+          console.log('Headers found:', headers);
+          
+          // Get data from remaining lines
           const data = lines.slice(1).map(line => 
             line.split(',').map(col => col.trim().replace(/^"|"$/g, ''))
           );
+          console.log('Data rows:', data.length);
           
-          resolve({
+          const result = {
             headers,
             data,
             fileName: file.name
-          });
+          };
+          
+          console.log('CSV parsing completed successfully:', result);
+          resolve(result);
         } catch (error) {
+          console.error('Error in CSV parsing:', error);
           reject(error);
         }
       };
       
-      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.onerror = (error) => {
+        console.error('FileReader error:', error);
+        reject(new Error('Failed to read file'));
+      };
+      
+      console.log('Starting to read file as text');
       reader.readAsText(file);
     });
   };
