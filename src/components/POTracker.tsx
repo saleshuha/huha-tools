@@ -12,7 +12,7 @@ import { AddSKUDialog } from './po/AddSKUDialog';
 import { usePOTracker } from '@/hooks/usePOTracker';
 
 export function POTracker() {
-  const [activeTab, setActiveTab] = useState('skus');
+  const [activeTab, setActiveTab] = useState('upload');
   const [searchTerm, setSearchTerm] = useState('');
   
   const {
@@ -103,37 +103,10 @@ export function POTracker() {
       {/* Main Content */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="skus">SKU Management</TabsTrigger>
           <TabsTrigger value="upload">PO Upload</TabsTrigger>
           <TabsTrigger value="tracking">Order Tracking</TabsTrigger>
+          <TabsTrigger value="skus">SKU Management</TabsTrigger>
         </TabsList>
-
-        <TabsContent value="skus" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Sunsky SKU Database</CardTitle>
-              <CardDescription>
-                Manage SKUs for Sunsky supplier. Add new SKUs or search existing ones.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search SKUs..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-8"
-                  />
-                </div>
-                <AddSKUDialog onAddSKUs={addSKUs} isLoading={isLoading} />
-              </div>
-              
-              <SKUList skus={filteredSKUs} isLoading={isLoading} />
-            </CardContent>
-          </Card>
-        </TabsContent>
 
         <TabsContent value="upload" className="space-y-4">
           <Card>
@@ -163,6 +136,33 @@ export function POTracker() {
                 onUpdateStatus={updateOrderStatus}
                 isLoading={isLoading}
               />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="skus" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Sunsky SKU Database</CardTitle>
+              <CardDescription>
+                Manage SKUs for Sunsky supplier. Add new SKUs or search existing ones.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search SKUs..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-8"
+                  />
+                </div>
+                <AddSKUDialog onAddSKUs={addSKUs} isLoading={isLoading} />
+              </div>
+              
+              <SKUList skus={filteredSKUs} isLoading={isLoading} />
             </CardContent>
           </Card>
         </TabsContent>
