@@ -253,61 +253,6 @@ export function AppSidebar() {
                           </NavLink>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
-                      
-                      {/* Noon Reports sub-section */}
-                      <SidebarMenuItem>
-                        <Collapsible open={isPaymentReportsOpen} onOpenChange={setIsPaymentReportsOpen}>
-                          <CollapsibleTrigger asChild>
-                            <SidebarMenuButton
-                              className={`w-full rounded-lg transition-colors text-left ${
-                                isPaymentReportsSectionActive()
-                                  ? "bg-accent text-accent-foreground" 
-                                  : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                              }`}
-                            >
-                              <div className="flex items-center gap-3 w-full p-3">
-                                <CreditCard className="h-4 w-4 flex-shrink-0" />
-                                {!isCollapsed && (
-                                  <>
-                                     <span className="font-medium text-sm flex-1 text-left">
-                                       Noon Reports
-                                     </span>
-                                    <ChevronDown className={`h-3 w-3 transition-transform ml-auto ${
-                                      isPaymentReportsOpen ? "rotate-180" : ""
-                                    }`} />
-                                  </>
-                                )}
-                              </div>
-                            </SidebarMenuButton>
-                          </CollapsibleTrigger>
-                          <CollapsibleContent className="mt-2 space-y-2 pl-6">
-                            {paymentReportsItems.map((reportItem) => (
-                              <SidebarMenuButton 
-                                key={reportItem.title}
-                                asChild
-                                className={`w-full rounded-lg transition-colors ${
-                                  isActive(reportItem.url)
-                                    ? "bg-primary text-primary-foreground" 
-                                    : "hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
-                                }`}
-                              >
-                                <NavLink 
-                                  to={reportItem.url} 
-                                  end
-                                  className="flex items-center gap-3 no-underline w-full p-3"
-                                >
-                                   <reportItem.icon className="h-4 w-4 flex-shrink-0" />
-                                   {!isCollapsed && (
-                                     <span className="font-medium text-sm">
-                                       {reportItem.title}
-                                     </span>
-                                   )}
-                                </NavLink>
-                              </SidebarMenuButton>
-                            ))}
-                          </CollapsibleContent>
-                        </Collapsible>
-                      </SidebarMenuItem>
                     </div>
                   )
                 }
