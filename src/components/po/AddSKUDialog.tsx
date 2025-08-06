@@ -58,6 +58,9 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
   const [parsedFileData, setParsedFileData] = useState<ExcelData | null>(null);
   const [columnMappings, setColumnMappings] = useState<ColumnMapping>({});
   const [showMapping, setShowMapping] = useState(false);
+  const [savedMappings, setSavedMappings] = useState<ColumnMapping>({}); // Save mappings for reuse
+  const [isProcessingQueue, setIsProcessingQueue] = useState(false);
+  const [processedFilesCount, setProcessedFilesCount] = useState(0);
   
   // Progress state
   const [isProcessing, setIsProcessing] = useState(false);
@@ -239,7 +242,7 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
     }
   };
 
-  // Function to handle file upload
+  // Function to handle file upload - optimized for multiple files
   const handleFileUpload = async (files: File[]) => {
     console.log('handleFileUpload called with files:', files);
     if (files.length === 0) {
@@ -247,7 +250,7 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
       return;
     }
     
-    console.log('Setting file queue and processing first file');
+    console.log('Processing multiple files:', files.length);
     
     // Reset all state before processing new files
     setBulkSKUs([]);
@@ -257,15 +260,21 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
     setIsProcessing(false);
     setProgress(0);
     setProgressLabel('');
+    setProcessedFilesCount(0);
     
-    setFileQueue(files);
+    // Sort files by size (smaller first for faster initial processing)
+    const sortedFiles = [...files].sort((a, b) => a.size - b.size);
+    setFileQueue(sortedFiles);
     setCurrentFileIndex(0);
     
-    // Start processing first file
-    try {
-      await processFileForMapping(files[0]);
-    } catch (error) {
-      console.error('Error in processFileForMapping:', error);
+    // If we have saved mappings, ask user if they want to reuse them
+    if (Object.keys(savedMappings).length > 0) {
+      setProgressLabel(`Found previous mappings. Processing all ${sortedFiles.length} files with saved mappings...`);
+      setIsProcessingQueue(true);
+      await processAllFilesWithSavedMappings(sortedFiles);
+    } else {
+      // Start with first file for mapping
+      await processFileForMapping(sortedFiles[0]);
     }
   };
 
@@ -307,97 +316,25 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
   const processCurrentFileWithMapping = async () => {
     if (!parsedFileData || Object.keys(columnMappings).length === 0) return;
     
+    // Save mappings for future use
+    setSavedMappings(columnMappings);
+    
     setIsProcessing(true);
     setProgress(0);
     setProgressLabel('Processing file with column mapping...');
     
-    const newSKUs: Omit<SunskySKU, 'id' | 'created_at' | 'updated_at' | 'user_id'>[] = [];
-    
     try {
-      // Create reverse mapping for easier lookup
-      const reverseMapping: { [key: string]: string } = {};
-      Object.entries(columnMappings).forEach(([sourceCol, targetCol]) => {
-        reverseMapping[targetCol] = sourceCol;
-      });
+      await processFileWithMappings(parsedFileData, columnMappings);
       
-      // Get column indices
-      const skuIndex = parsedFileData.headers.findIndex(h => h === reverseMapping['SKU']);
-      const titleIndex = parsedFileData.headers.findIndex(h => h === reverseMapping['Title']);
-      const costIndex = parsedFileData.headers.findIndex(h => h === reverseMapping['Cost']);
-      const weightIndex = parsedFileData.headers.findIndex(h => h === reverseMapping['Weight']);
-      
-      console.log('=== COLUMN MAPPING DEBUG ===');
-      console.log('Headers found in CSV:', parsedFileData.headers);
-      console.log('Column mappings:', columnMappings);
-      console.log('Reverse mapping:', reverseMapping);
-      console.log('Column indices - SKU:', skuIndex, 'Title:', titleIndex, 'Cost:', costIndex, 'Weight:', weightIndex);
-      console.log('Sample data rows:');
-      parsedFileData.data.slice(0, 3).forEach((row, i) => {
-        console.log(`Row ${i}:`, row);
-        console.log(`  SKU (index ${skuIndex}):`, row[skuIndex]);
-        console.log(`  Title (index ${titleIndex}):`, row[titleIndex]);
-        console.log(`  Cost (index ${costIndex}):`, row[costIndex]);
-        console.log(`  Weight (index ${weightIndex}):`, row[weightIndex]);
-      });
-      console.log('============================');
-      
-      if (skuIndex === -1) {
-        setProgressLabel('Error: SKU column mapping is required');
-        return;
-      }
-      
-      // Process data
-      const totalRows = parsedFileData.data.length;
-      const batchSize = 100;
-      
-      for (let i = 0; i < totalRows; i += batchSize) {
-        const batch = parsedFileData.data.slice(i, Math.min(i + batchSize, totalRows));
-        
-        batch.forEach(row => {
-          if (row && row[skuIndex]) {
-            // Helper function to parse numeric values safely
-            const parseNumericValue = (value: any): number | undefined => {
-              if (!value || value === '') return undefined;
-              const cleanedValue = String(value).trim().replace(/[^0-9.-]/g, '');
-              const parsed = parseFloat(cleanedValue);
-              return isNaN(parsed) ? undefined : parsed;
-            };
-
-            const sku = {
-              sku_code: String(row[skuIndex]).trim(),
-              title: titleIndex !== -1 && row[titleIndex] ? String(row[titleIndex]).trim() : undefined,
-              cost: costIndex !== -1 && row[costIndex] ? parseNumericValue(row[costIndex]) : undefined,
-              weight: weightIndex !== -1 && row[weightIndex] ? parseNumericValue(row[weightIndex]) : undefined
-            };
-
-            console.log('Processing SKU:', sku); // Debug log
-            newSKUs.push(sku);
-          }
-        });
-        
-        const processed = Math.min(i + batchSize, totalRows);
-        setProgress((processed / totalRows) * 100);
-        setProgressLabel(`Processing: ${processed}/${totalRows} rows`);
-        
-        await new Promise(resolve => setTimeout(resolve, 10));
-      }
-      
-      // Add to bulk SKUs
-      setBulkSKUs(prev => [...prev, ...newSKUs]);
-      setProgressLabel(`Successfully processed ${newSKUs.length} SKUs`);
-      
-      // Move to next file or reset
+      // Check if there are more files to process
       const nextIndex = currentFileIndex + 1;
       if (nextIndex < fileQueue.length) {
-        setCurrentFileIndex(nextIndex);
-        setColumnMappings({});
-        setParsedFileData(null);
-        setShowMapping(false);
+        setProcessedFilesCount(prev => prev + 1);
+        setProgressLabel(`Processed file ${currentFileIndex + 1}/${fileQueue.length}. Processing remaining files with same mapping...`);
+        setIsProcessingQueue(true);
         
-        // Process next file
-        setTimeout(() => {
-          processFileForMapping(fileQueue[nextIndex]);
-        }, 1000);
+        // Process remaining files with the same mapping
+        await processRemainingFilesWithSavedMappings(nextIndex);
       } else {
         // All files processed
         setShowMapping(false);
@@ -405,6 +342,7 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
         setCurrentFileIndex(0);
         setColumnMappings({});
         setParsedFileData(null);
+        setProgressLabel(`Successfully processed all ${fileQueue.length} files!`);
       }
       
     } catch (error) {
@@ -412,11 +350,132 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
       setProgressLabel(`Error: ${error instanceof Error ? error.message : 'Unknown error occurred'}`);
     } finally {
       setIsProcessing(false);
-      if (currentFileIndex >= fileQueue.length - 1) {
-        setProgress(0);
-        setProgressLabel('');
+    }
+  };
+
+  // Process all files with saved mappings (when user has previous mappings)
+  const processAllFilesWithSavedMappings = async (files: File[]) => {
+    for (let i = 0; i < files.length; i++) {
+      try {
+        setCurrentFileIndex(i);
+        setProgressLabel(`Processing file ${i + 1}/${files.length}: ${files[i].name}`);
+        setProgress((i / files.length) * 100);
+        
+        const fileData = await parseFileQuietly(files[i]);
+        await processFileWithMappings(fileData, savedMappings);
+        setProcessedFilesCount(prev => prev + 1);
+        
+        // Small delay to prevent UI freezing
+        await new Promise(resolve => setTimeout(resolve, 100));
+      } catch (error) {
+        console.error(`Error processing file ${files[i].name}:`, error);
+        setProgressLabel(`Error processing ${files[i].name}: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     }
+    
+    setIsProcessingQueue(false);
+    setProgress(100);
+    setProgressLabel(`Successfully processed all ${files.length} files with ${bulkSKUs.length} total SKUs!`);
+  };
+
+  // Process remaining files after initial mapping
+  const processRemainingFilesWithSavedMappings = async (startIndex: number) => {
+    for (let i = startIndex; i < fileQueue.length; i++) {
+      try {
+        setCurrentFileIndex(i);
+        setProgressLabel(`Processing file ${i + 1}/${fileQueue.length}: ${fileQueue[i].name}`);
+        setProgress((i / fileQueue.length) * 100);
+        
+        const fileData = await parseFileQuietly(fileQueue[i]);
+        await processFileWithMappings(fileData, savedMappings);
+        setProcessedFilesCount(prev => prev + 1);
+        
+        // Small delay to prevent UI freezing
+        await new Promise(resolve => setTimeout(resolve, 100));
+      } catch (error) {
+        console.error(`Error processing file ${fileQueue[i].name}:`, error);
+        setProgressLabel(`Error processing ${fileQueue[i].name}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    }
+    
+    setIsProcessingQueue(false);
+    setShowMapping(false);
+    setProgress(100);
+    setProgressLabel(`Successfully processed all ${fileQueue.length} files with ${bulkSKUs.length} total SKUs!`);
+  };
+
+  // Parse file without UI updates (for bulk processing)
+  const parseFileQuietly = async (file: File): Promise<ExcelData> => {
+    if (file.name.toLowerCase().endsWith('.csv')) {
+      return await parseCsvForMapping(file);
+    } else if (file.name.toLowerCase().match(/\.(xlsx|xls)$/)) {
+      return await parseExcelForMapping(file);
+    } else {
+      throw new Error(`Unsupported file type: ${file.name}`);
+    }
+  };
+
+  // Extract file processing logic into reusable function
+  const processFileWithMappings = async (fileData: ExcelData, mappings: ColumnMapping) => {
+    const newSKUs: Omit<SunskySKU, 'id' | 'created_at' | 'updated_at' | 'user_id'>[] = [];
+    
+    // Create reverse mapping for easier lookup
+    const reverseMapping: { [key: string]: string } = {};
+    Object.entries(mappings).forEach(([sourceCol, targetCol]) => {
+      reverseMapping[targetCol] = sourceCol;
+    });
+    
+    // Get column indices
+    const skuIndex = fileData.headers.findIndex(h => h === reverseMapping['SKU']);
+    const titleIndex = fileData.headers.findIndex(h => h === reverseMapping['Title']);
+    const costIndex = fileData.headers.findIndex(h => h === reverseMapping['Cost']);
+    const weightIndex = fileData.headers.findIndex(h => h === reverseMapping['Weight']);
+    
+    if (skuIndex === -1) {
+      throw new Error('SKU column mapping is required');
+    }
+    
+    // Process data in optimized batches
+    const totalRows = fileData.data.length;
+    const batchSize = 500; // Larger batches for better performance
+    
+    for (let i = 0; i < totalRows; i += batchSize) {
+      const batch = fileData.data.slice(i, Math.min(i + batchSize, totalRows));
+      
+      batch.forEach(row => {
+        if (row && row[skuIndex]) {
+          // Helper function to parse numeric values safely
+          const parseNumericValue = (value: any): number | undefined => {
+            if (!value || value === '') return undefined;
+            const cleanedValue = String(value).trim().replace(/[^0-9.-]/g, '');
+            const parsed = parseFloat(cleanedValue);
+            return isNaN(parsed) ? undefined : parsed;
+          };
+
+          newSKUs.push({
+            sku_code: String(row[skuIndex]).trim(),
+            title: titleIndex !== -1 && row[titleIndex] ? String(row[titleIndex]).trim() : undefined,
+            cost: costIndex !== -1 && row[costIndex] ? parseNumericValue(row[costIndex]) : undefined,
+            weight: weightIndex !== -1 && row[weightIndex] ? parseNumericValue(row[weightIndex]) : undefined
+          });
+        }
+      });
+      
+      // Yield control periodically for UI responsiveness
+      if (i % 2000 === 0) {
+        await new Promise(resolve => setTimeout(resolve, 10));
+      }
+    }
+    
+    // Add to bulk SKUs in batches to prevent UI freezing
+    const uiBatchSize = 1000;
+    for (let i = 0; i < newSKUs.length; i += uiBatchSize) {
+      const uiBatch = newSKUs.slice(i, Math.min(i + uiBatchSize, newSKUs.length));
+      setBulkSKUs(prev => [...prev, ...uiBatch]);
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    
+    console.log(`Successfully processed ${newSKUs.length} SKUs from ${fileData.fileName}`);
   };
 
   const skipCurrentFile = () => {
@@ -618,14 +677,26 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
                   <input {...getInputProps()} />
                   <Upload className={`h-10 w-10 mb-3 ${isDragActive ? 'text-primary' : 'text-muted-foreground'}`} />
                   <h3 className="text-lg font-semibold mb-2">
-                    {isDragActive ? 'Drop files here' : 'Upload SKU Files'}
+                    {isDragActive ? 'Drop files here' : 'Upload Multiple SKU Files'}
                   </h3>
                   <p className="text-muted-foreground mb-4">
-                    Upload CSV or Excel files with SKU data. Files will be processed one by one with column mapping.
+                    Upload multiple CSV or Excel files with SKU data. Map columns once and apply to all files automatically.
                   </p>
-                  <Badge variant="outline" className="mt-2">
-                    Required columns: SKU, Title, Cost, Weight
-                  </Badge>
+                  <div className="space-y-2">
+                    <Badge variant="outline" className="block">
+                      Required columns: SKU, Title, Cost, Weight
+                    </Badge>
+                    {Object.keys(savedMappings).length > 0 && (
+                      <Badge variant="secondary" className="block">
+                        Previous mappings saved - will auto-apply to new files
+                      </Badge>
+                    )}
+                    {isProcessingQueue && (
+                      <Badge variant="default" className="block">
+                        Processing {processedFilesCount + 1}/{fileQueue.length} files...
+                      </Badge>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             ) : (
