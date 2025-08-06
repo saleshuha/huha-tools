@@ -242,7 +242,7 @@ export function AppSidebar() {
                           <NavLink 
                             to="/po-tracker" 
                             end
-                            className="flex items-center gap-3 no-underline w-full"
+                            className="flex items-center gap-3 no-underline w-full px-0"
                           >
                             <ShoppingCart className="h-4 w-4 flex-shrink-0" />
                             {!isCollapsed && (
