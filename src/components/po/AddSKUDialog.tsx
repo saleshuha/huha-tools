@@ -13,6 +13,7 @@ import { Plus, Upload, Type, Trash2, ArrowRight, X, FileSpreadsheet, CheckCircle
 import { useDropzone } from 'react-dropzone';
 import * as XLSX from 'xlsx';
 import { SunskySKU } from '@/hooks/usePOTracker';
+import { useUserProfile } from '@/hooks/useUserProfile';
 import { ExcelData, ColumnMapping } from '@/types/excel';
 
 interface AddSKUDialogProps {
@@ -21,6 +22,21 @@ interface AddSKUDialogProps {
 }
 
 export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
+  const { profile } = useUserProfile();
+  
+  // Get currency symbol based on user's country
+  const getCurrencySymbol = (country: string | undefined) => {
+    switch (country) {
+      case 'KSA':
+        return 'SAR';
+      case 'UAE':
+        return 'AED';
+      default:
+        return 'USD';
+    }
+  };
+  
+  const currencySymbol = getCurrencySymbol(profile?.country);
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('manual');
   
@@ -787,7 +803,7 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
                           <Badge variant="outline">{sku.sku_code}</Badge>
                           <span className="text-sm">{sku.title || 'No title'}</span>
                           {(typeof sku.cost === 'number' && !isNaN(sku.cost)) && (
-                            <Badge variant="secondary">${sku.cost.toFixed(2)}</Badge>
+                            <Badge variant="secondary">{sku.cost.toFixed(2)} {currencySymbol}</Badge>
                           )}
                           {(typeof sku.weight === 'number' && !isNaN(sku.weight)) && (
                             <Badge variant="outline">{sku.weight.toFixed(2)}g</Badge>
