@@ -172,7 +172,7 @@ export function AppSidebar() {
             HuHa Dashboard
           </SidebarGroupLabel>
           <SidebarGroupContent className="px-2">
-            <SidebarMenu className="space-y-1">
+            <SidebarMenu className="space-y-2">
               {/* Navigation items */}
               {navigationItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
@@ -229,7 +229,6 @@ export function AppSidebar() {
                         </SidebarMenuButton>
                       </SidebarMenuItem>
                       
-                      
                       {/* PO Tracker standalone item */}
                       <SidebarMenuItem>
                         <SidebarMenuButton 
@@ -255,8 +254,8 @@ export function AppSidebar() {
                         </SidebarMenuButton>
                       </SidebarMenuItem>
                       
-                      {/* Noon Reports sub-section with proper spacing */}
-                      <SidebarMenuItem className="mt-2">
+                      {/* Noon Reports sub-section */}
+                      <SidebarMenuItem>
                         <Collapsible open={isPaymentReportsOpen} onOpenChange={setIsPaymentReportsOpen}>
                           <CollapsibleTrigger asChild>
                             <SidebarMenuButton
@@ -281,7 +280,7 @@ export function AppSidebar() {
                               </div>
                             </SidebarMenuButton>
                           </CollapsibleTrigger>
-                          <CollapsibleContent className="ml-6 mt-1 space-y-1">
+                          <CollapsibleContent className="ml-6 mt-2 space-y-2">
                             {paymentReportsItems.map((reportItem) => (
                               <SidebarMenuButton 
                                 key={reportItem.title}
@@ -392,7 +391,7 @@ export function AppSidebar() {
                       </div>
                     </SidebarMenuButton>
                   </CollapsibleTrigger>
-                  <CollapsibleContent className="ml-6 mt-1 space-y-1">
+                  <CollapsibleContent className="ml-6 mt-2 space-y-2">
                     {toolsItems.map((item) => (
                       <SidebarMenuButton 
                         key={item.title}
@@ -424,7 +423,7 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="p-3 border-t border-sidebar-border space-y-2">
+      <SidebarFooter className="p-3 border-t border-sidebar-border space-y-3">
         <SidebarMenuButton 
           asChild
           className={`w-full p-3 rounded-lg transition-colors ${
