@@ -79,10 +79,15 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
           console.log('Headers found:', headers);
           
           // Get data from remaining lines
-          const data = lines.slice(1).map(line => 
-            line.split(',').map(col => col.trim().replace(/^"|"$/g, ''))
-          );
+          const data = lines.slice(1).map(line => {
+            const row = line.split(',').map(col => col.trim().replace(/^"|"$/g, ''));
+            return row;
+          });
           console.log('Data rows:', data.length);
+          console.log('First few data rows:');
+          data.slice(0, 3).forEach((row, i) => {
+            console.log(`Data row ${i}:`, row);
+          });
           
           const result = {
             headers,
@@ -271,6 +276,21 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
       const titleIndex = parsedFileData.headers.findIndex(h => h === reverseMapping['Title']);
       const costIndex = parsedFileData.headers.findIndex(h => h === reverseMapping['Cost']);
       const weightIndex = parsedFileData.headers.findIndex(h => h === reverseMapping['Weight']);
+      
+      console.log('=== COLUMN MAPPING DEBUG ===');
+      console.log('Headers found in CSV:', parsedFileData.headers);
+      console.log('Column mappings:', columnMappings);
+      console.log('Reverse mapping:', reverseMapping);
+      console.log('Column indices - SKU:', skuIndex, 'Title:', titleIndex, 'Cost:', costIndex, 'Weight:', weightIndex);
+      console.log('Sample data rows:');
+      parsedFileData.data.slice(0, 3).forEach((row, i) => {
+        console.log(`Row ${i}:`, row);
+        console.log(`  SKU (index ${skuIndex}):`, row[skuIndex]);
+        console.log(`  Title (index ${titleIndex}):`, row[titleIndex]);
+        console.log(`  Cost (index ${costIndex}):`, row[costIndex]);
+        console.log(`  Weight (index ${weightIndex}):`, row[weightIndex]);
+      });
+      console.log('============================');
       
       if (skuIndex === -1) {
         setProgressLabel('Error: SKU column mapping is required');
