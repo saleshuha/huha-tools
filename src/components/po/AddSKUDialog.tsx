@@ -286,12 +286,23 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
         
         batch.forEach(row => {
           if (row && row[skuIndex]) {
-            newSKUs.push({
+            // Helper function to parse numeric values safely
+            const parseNumericValue = (value: any): number | undefined => {
+              if (!value || value === '') return undefined;
+              const cleanedValue = String(value).trim().replace(/[^0-9.-]/g, '');
+              const parsed = parseFloat(cleanedValue);
+              return isNaN(parsed) ? undefined : parsed;
+            };
+
+            const sku = {
               sku_code: String(row[skuIndex]).trim(),
               title: titleIndex !== -1 && row[titleIndex] ? String(row[titleIndex]).trim() : undefined,
-              cost: costIndex !== -1 && row[costIndex] ? parseFloat(String(row[costIndex])) : undefined,
-              weight: weightIndex !== -1 && row[weightIndex] ? parseFloat(String(row[weightIndex])) : undefined
-            });
+              cost: costIndex !== -1 && row[costIndex] ? parseNumericValue(row[costIndex]) : undefined,
+              weight: weightIndex !== -1 && row[weightIndex] ? parseNumericValue(row[weightIndex]) : undefined
+            };
+
+            console.log('Processing SKU:', sku); // Debug log
+            newSKUs.push(sku);
           }
         });
         
