@@ -8,10 +8,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Plus, Upload, Type, Trash2 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Plus, Upload, Type, Trash2, ArrowRight, X, FileSpreadsheet, CheckCircle } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import * as XLSX from 'xlsx';
 import { SunskySKU } from '@/hooks/usePOTracker';
+import { ExcelData, ColumnMapping } from '@/types/excel';
 
 interface AddSKUDialogProps {
   onAddSKUs: (skus: Omit<SunskySKU, 'id' | 'created_at' | 'updated_at' | 'user_id'>[]) => Promise<void>;
@@ -34,6 +36,13 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
   const [bulkSKUs, setBulkSKUs] = useState<Omit<SunskySKU, 'id' | 'created_at' | 'updated_at' | 'user_id'>[]>([]);
   const [pasteData, setPasteData] = useState('');
   
+  // File processing queue and mapping state
+  const [fileQueue, setFileQueue] = useState<File[]>([]);
+  const [currentFileIndex, setCurrentFileIndex] = useState(0);
+  const [parsedFileData, setParsedFileData] = useState<ExcelData | null>(null);
+  const [columnMappings, setColumnMappings] = useState<ColumnMapping>({});
+  const [showMapping, setShowMapping] = useState(false);
+  
   // Progress state
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -51,121 +60,85 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
     multiple: true
   });
 
+  // Target columns for SKU mapping
+  const targetColumns = ['SKU', 'Title', 'Cost', 'Weight'];
+  const targetData: ExcelData = {
+    headers: targetColumns,
+    data: [],
+    fileName: 'Target SKU Format'
+  };
+
   // Function declarations (these are hoisted so can be referenced above)
   async function handleFileUpload(files: File[]) {
+    if (files.length === 0) return;
+    
+    setFileQueue(files);
+    setCurrentFileIndex(0);
+    setShowMapping(false);
+    
+    // Start processing first file
+    await processFileForMapping(files[0]);
+  }
+
+  async function processFileForMapping(file: File) {
     setIsProcessing(true);
     setProgress(0);
-    setProgressLabel('Starting file processing...');
+    setProgressLabel(`Reading ${file.name}...`);
     
     try {
-      for (const file of files) {
-        const fileSize = (file.size / (1024 * 1024)).toFixed(2); // MB
-        console.log(`Processing file: ${file.name}, Size: ${fileSize}MB`);
-        
-        // Limit file size to 15MB to prevent memory issues
-        if (file.size > 15 * 1024 * 1024) {
-          setProgressLabel(`File ${file.name} is too large (${fileSize}MB). Maximum size is 15MB.`);
-          continue;
-        }
-        
-        setProgressLabel(`Reading ${file.name} (${fileSize}MB)...`);
-        
-        const newSKUs: Omit<SunskySKU, 'id' | 'created_at' | 'updated_at' | 'user_id'>[] = [];
-        
-        if (file.name.toLowerCase().endsWith('.csv')) {
-          await processCsvFileStreaming(file, newSKUs);
-        } else if (file.name.toLowerCase().match(/\.(xlsx|xls)$/)) {
-          await processExcelFileStreaming(file, newSKUs);
-        } else {
-          setProgressLabel(`Unsupported file type: ${file.name}`);
-          continue;
-        }
-        
-        console.log(`Processed ${newSKUs.length} SKUs from ${file.name}`);
-        
-        // Add SKUs in smaller batches to prevent UI freezing
-        const batchSize = 500;
-        for (let i = 0; i < newSKUs.length; i += batchSize) {
-          const batch = newSKUs.slice(i, i + batchSize);
-          setBulkSKUs(prev => [...prev, ...batch]);
-          
-          setProgressLabel(`Adding batch ${Math.floor(i/batchSize) + 1} of ${Math.ceil(newSKUs.length/batchSize)} to UI...`);
-          
-          // Allow UI to update between batches
-          await new Promise(resolve => setTimeout(resolve, 50));
-        }
-        
-        setProgressLabel(`Successfully loaded ${newSKUs.length} SKUs from ${file.name}`);
+      const fileSize = (file.size / (1024 * 1024)).toFixed(2);
+      
+      if (file.size > 15 * 1024 * 1024) {
+        setProgressLabel(`File ${file.name} is too large (${fileSize}MB). Maximum size is 15MB.`);
+        return;
       }
+
+      let fileData: ExcelData;
+      
+      if (file.name.toLowerCase().endsWith('.csv')) {
+        fileData = await parseCsvForMapping(file);
+      } else if (file.name.toLowerCase().match(/\.(xlsx|xls)$/)) {
+        fileData = await parseExcelForMapping(file);
+      } else {
+        setProgressLabel(`Unsupported file type: ${file.name}`);
+        return;
+      }
+
+      setParsedFileData(fileData);
+      setShowMapping(true);
+      setProgressLabel(`File parsed successfully. Please map columns.`);
+      
     } catch (error) {
       console.error('Error processing file:', error);
       setProgressLabel(`Error: ${error instanceof Error ? error.message : 'Unknown error occurred'}`);
     } finally {
       setIsProcessing(false);
       setProgress(100);
-      // Clear progress after 3 seconds
-      setTimeout(() => {
-        setProgress(0);
-        setProgressLabel('');
-      }, 3000);
     }
   }
 
-  async function processCsvFileStreaming(file: File, newSKUs: Omit<SunskySKU, 'id' | 'created_at' | 'updated_at' | 'user_id'>[]) {
-    return new Promise<void>((resolve, reject) => {
+  async function parseCsvForMapping(file: File): Promise<ExcelData> {
+    return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      let processedRows = 0;
-      let totalEstimatedRows = 0;
       
-      reader.onload = async (e) => {
+      reader.onload = (e) => {
         try {
           const text = e.target?.result as string;
           if (!text) throw new Error('Failed to read file content');
           
-          const lines = text.split('\n');
-          totalEstimatedRows = lines.length;
-          console.log(`CSV file has ${totalEstimatedRows} lines`);
+          const lines = text.split('\n').filter(line => line.trim());
+          if (lines.length === 0) throw new Error('File is empty');
           
-          const chunkSize = 100; // Smaller chunks for better responsiveness
+          const headers = lines[0].split(',').map(col => col.trim().replace(/^"|"$/g, ''));
+          const data = lines.slice(1).map(line => 
+            line.split(',').map(col => col.trim().replace(/^"|"$/g, ''))
+          );
           
-          for (let i = 1; i < lines.length; i += chunkSize) { // Skip header
-            const chunk = lines.slice(i, Math.min(i + chunkSize, lines.length));
-            
-            // Process chunk
-            chunk.forEach((line, index) => {
-              const trimmedLine = line.trim();
-              if (!trimmedLine) return;
-              
-              try {
-                const columns = trimmedLine.split(',').map(col => col.trim().replace(/^"|"$/g, ''));
-                if (columns.length >= 1 && columns[0]) {
-                  newSKUs.push({
-                    sku_code: columns[0],
-                    title: columns[1] || undefined,
-                    description: columns[2] || undefined,
-                    cost: columns[3] ? parseFloat(columns[3]) : undefined,
-                    weight: columns[4] ? parseFloat(columns[4]) : undefined,
-                    notes: columns[5] || undefined
-                  });
-                }
-              } catch (rowError) {
-                console.warn(`Error processing row ${i + index}:`, rowError);
-              }
-            });
-            
-            processedRows = i + chunk.length;
-            const progressValue = (processedRows / totalEstimatedRows) * 100;
-            setProgress(Math.min(progressValue, 95));
-            setProgressLabel(`Processing CSV: ${processedRows}/${totalEstimatedRows} rows (${newSKUs.length} valid SKUs)`);
-            
-            // Yield control every 1000 rows
-            if (i % 1000 === 0) {
-              await new Promise(resolve => setTimeout(resolve, 5));
-            }
-          }
-          
-          setProgress(100);
-          resolve();
+          resolve({
+            headers,
+            data,
+            fileName: file.name
+          });
         } catch (error) {
           reject(error);
         }
@@ -176,64 +149,31 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
     });
   }
 
-  async function processExcelFileStreaming(file: File, newSKUs: Omit<SunskySKU, 'id' | 'created_at' | 'updated_at' | 'user_id'>[]) {
-    return new Promise<void>((resolve, reject) => {
+  async function parseExcelForMapping(file: File): Promise<ExcelData> {
+    return new Promise((resolve, reject) => {
       const reader = new FileReader();
       
-      reader.onload = async (e) => {
+      reader.onload = (e) => {
         try {
           const buffer = e.target?.result as ArrayBuffer;
           if (!buffer) throw new Error('Failed to read file content');
-          
-          setProgressLabel('Parsing Excel file...');
           
           const workbook = XLSX.read(buffer, { type: 'buffer' });
           const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
           
           if (!firstSheet) throw new Error('No sheets found in Excel file');
           
-          // Convert to JSON in streaming fashion
           const data = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: '' }) as any[][];
+          if (data.length === 0) throw new Error('Sheet is empty');
           
-          console.log(`Excel file has ${data.length} rows`);
+          const headers = data[0].map(header => String(header).trim());
+          const rows = data.slice(1);
           
-          const totalRows = data.length;
-          const chunkSize = 100; // Smaller chunks
-          
-          for (let i = 1; i < totalRows; i += chunkSize) { // Skip header
-            const chunk = data.slice(i, Math.min(i + chunkSize, totalRows));
-            
-            // Process chunk
-            chunk.forEach((row, index) => {
-              if (!row || !row[0]) return;
-              
-              try {
-                newSKUs.push({
-                  sku_code: String(row[0]).trim(),
-                  title: row[1] ? String(row[1]).trim() : undefined,
-                  description: row[2] ? String(row[2]).trim() : undefined,
-                  cost: row[3] ? parseFloat(String(row[3])) : undefined,
-                  weight: row[4] ? parseFloat(String(row[4])) : undefined,
-                  notes: row[5] ? String(row[5]).trim() : undefined
-                });
-              } catch (rowError) {
-                console.warn(`Error processing Excel row ${i + index}:`, rowError);
-              }
-            });
-            
-            const processedRows = i + chunk.length;
-            const progressValue = (processedRows / totalRows) * 100;
-            setProgress(Math.min(progressValue, 95));
-            setProgressLabel(`Processing Excel: ${processedRows}/${totalRows} rows (${newSKUs.length} valid SKUs)`);
-            
-            // Yield control every 1000 rows
-            if (i % 1000 === 0) {
-              await new Promise(resolve => setTimeout(resolve, 5));
-            }
-          }
-          
-          setProgress(100);
-          resolve();
+          resolve({
+            headers,
+            data: rows,
+            fileName: file.name
+          });
         } catch (error) {
           reject(error);
         }
@@ -243,6 +183,128 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
       reader.readAsArrayBuffer(file);
     });
   }
+
+  const handleCreateMapping = (sourceColumn: string, targetColumn: string) => {
+    setColumnMappings(prev => ({
+      ...prev,
+      [sourceColumn]: targetColumn
+    }));
+  };
+
+  const handleRemoveMapping = (sourceColumn: string) => {
+    setColumnMappings(prev => {
+      const newMappings = { ...prev };
+      delete newMappings[sourceColumn];
+      return newMappings;
+    });
+  };
+
+  const processCurrentFileWithMapping = async () => {
+    if (!parsedFileData || Object.keys(columnMappings).length === 0) return;
+    
+    setIsProcessing(true);
+    setProgress(0);
+    setProgressLabel('Processing file with column mapping...');
+    
+    const newSKUs: Omit<SunskySKU, 'id' | 'created_at' | 'updated_at' | 'user_id'>[] = [];
+    
+    try {
+      // Create reverse mapping for easier lookup
+      const reverseMapping: { [key: string]: string } = {};
+      Object.entries(columnMappings).forEach(([sourceCol, targetCol]) => {
+        reverseMapping[targetCol] = sourceCol;
+      });
+      
+      // Get column indices
+      const skuIndex = parsedFileData.headers.findIndex(h => h === reverseMapping['SKU']);
+      const titleIndex = parsedFileData.headers.findIndex(h => h === reverseMapping['Title']);
+      const costIndex = parsedFileData.headers.findIndex(h => h === reverseMapping['Cost']);
+      const weightIndex = parsedFileData.headers.findIndex(h => h === reverseMapping['Weight']);
+      
+      if (skuIndex === -1) {
+        setProgressLabel('Error: SKU column mapping is required');
+        return;
+      }
+      
+      // Process data
+      const totalRows = parsedFileData.data.length;
+      const batchSize = 100;
+      
+      for (let i = 0; i < totalRows; i += batchSize) {
+        const batch = parsedFileData.data.slice(i, Math.min(i + batchSize, totalRows));
+        
+        batch.forEach(row => {
+          if (row && row[skuIndex]) {
+            newSKUs.push({
+              sku_code: String(row[skuIndex]).trim(),
+              title: titleIndex !== -1 && row[titleIndex] ? String(row[titleIndex]).trim() : undefined,
+              cost: costIndex !== -1 && row[costIndex] ? parseFloat(String(row[costIndex])) : undefined,
+              weight: weightIndex !== -1 && row[weightIndex] ? parseFloat(String(row[weightIndex])) : undefined
+            });
+          }
+        });
+        
+        const processed = Math.min(i + batchSize, totalRows);
+        setProgress((processed / totalRows) * 100);
+        setProgressLabel(`Processing: ${processed}/${totalRows} rows`);
+        
+        await new Promise(resolve => setTimeout(resolve, 10));
+      }
+      
+      // Add to bulk SKUs
+      setBulkSKUs(prev => [...prev, ...newSKUs]);
+      setProgressLabel(`Successfully processed ${newSKUs.length} SKUs`);
+      
+      // Move to next file or reset
+      const nextIndex = currentFileIndex + 1;
+      if (nextIndex < fileQueue.length) {
+        setCurrentFileIndex(nextIndex);
+        setColumnMappings({});
+        setParsedFileData(null);
+        setShowMapping(false);
+        
+        // Process next file
+        setTimeout(() => {
+          processFileForMapping(fileQueue[nextIndex]);
+        }, 1000);
+      } else {
+        // All files processed
+        setShowMapping(false);
+        setFileQueue([]);
+        setCurrentFileIndex(0);
+        setColumnMappings({});
+        setParsedFileData(null);
+      }
+      
+    } catch (error) {
+      console.error('Error processing mapped data:', error);
+      setProgressLabel(`Error: ${error instanceof Error ? error.message : 'Unknown error occurred'}`);
+    } finally {
+      setIsProcessing(false);
+      if (currentFileIndex >= fileQueue.length - 1) {
+        setProgress(0);
+        setProgressLabel('');
+      }
+    }
+  };
+
+  const skipCurrentFile = () => {
+    const nextIndex = currentFileIndex + 1;
+    if (nextIndex < fileQueue.length) {
+      setCurrentFileIndex(nextIndex);
+      setColumnMappings({});
+      setParsedFileData(null);
+      setShowMapping(false);
+      processFileForMapping(fileQueue[nextIndex]);
+    } else {
+      // All files processed/skipped
+      setShowMapping(false);
+      setFileQueue([]);
+      setCurrentFileIndex(0);
+      setColumnMappings({});
+      setParsedFileData(null);
+    }
+  };
 
   const handleManualAdd = async () => {
     if (!manualSKU.sku_code.trim()) return;
@@ -414,25 +476,162 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
           </TabsContent>
 
           <TabsContent value="bulk" className="space-y-4">
-            <Card 
-              {...getRootProps()} 
-              className={`border-2 border-dashed cursor-pointer transition-colors ${
-                isDragActive ? 'border-primary bg-primary/5' : 'border-muted-foreground/25'
-              }`}
-            >
-              <CardContent className="flex flex-col items-center justify-center py-8 text-center">
-                <input {...getInputProps()} />
-                <Upload className={`h-10 w-10 mb-3 ${isDragActive ? 'text-primary' : 'text-muted-foreground'}`} />
-                <h3 className="text-lg font-semibold mb-2">
-                  {isDragActive ? 'Drop files here' : 'Upload SKU Files'}
-                </h3>
-                <p className="text-muted-foreground mb-4">
-                  CSV or Excel files with format: SKU Code, Title, Description, Cost, Weight, Notes
-                </p>
-              </CardContent>
-            </Card>
+            {!showMapping ? (
+              <Card 
+                {...getRootProps()} 
+                className={`border-2 border-dashed cursor-pointer transition-colors ${
+                  isDragActive ? 'border-primary bg-primary/5' : 'border-muted-foreground/25'
+                }`}
+              >
+                <CardContent className="flex flex-col items-center justify-center py-8 text-center">
+                  <input {...getInputProps()} />
+                  <Upload className={`h-10 w-10 mb-3 ${isDragActive ? 'text-primary' : 'text-muted-foreground'}`} />
+                  <h3 className="text-lg font-semibold mb-2">
+                    {isDragActive ? 'Drop files here' : 'Upload SKU Files'}
+                  </h3>
+                  <p className="text-muted-foreground mb-4">
+                    Upload CSV or Excel files with SKU data. Files will be processed one by one with column mapping.
+                  </p>
+                  <Badge variant="outline" className="mt-2">
+                    Required columns: SKU, Title, Cost, Weight
+                  </Badge>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                {/* File Queue Status */}
+                {fileQueue.length > 1 && (
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <FileSpreadsheet className="h-4 w-4" />
+                          <span className="text-sm font-medium">
+                            Processing file {currentFileIndex + 1} of {fileQueue.length}
+                          </span>
+                        </div>
+                        <Badge variant="secondary">
+                          {fileQueue.length - currentFileIndex - 1} remaining
+                        </Badge>
+                      </div>
+                      <div className="mt-2">
+                        <p className="text-xs text-muted-foreground">
+                          Current: {parsedFileData?.fileName}
+                        </p>
+                        {fileQueue.length > currentFileIndex + 1 && (
+                          <p className="text-xs text-muted-foreground">
+                            Next: {fileQueue[currentFileIndex + 1]?.name}
+                          </p>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
 
-            {bulkSKUs.length > 0 && (
+                {/* Column Mapping Interface */}
+                {parsedFileData && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center space-x-2">
+                        <span>Map Columns for {parsedFileData.fileName}</span>
+                        <Badge variant="secondary">
+                          {Object.keys(columnMappings).length} mapped
+                        </Badge>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="text-sm text-muted-foreground mb-4">
+                        Map your file columns to the required SKU fields. At minimum, SKU column is required.
+                      </div>
+                      
+                      {/* Target Columns */}
+                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                        {targetColumns.map((targetCol) => (
+                          <div key={targetCol} className="p-3 border rounded-lg bg-muted/30">
+                            <div className="flex items-center space-x-2">
+                              <Badge variant={targetCol === 'SKU' ? 'default' : 'outline'}>
+                                {targetCol}
+                              </Badge>
+                              {targetCol === 'SKU' && <span className="text-xs text-red-500">*Required</span>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Column Mappings */}
+                      <div className="space-y-3">
+                        {parsedFileData.headers.map((sourceColumn) => (
+                          <div key={sourceColumn} className="flex items-center space-x-4 p-3 border rounded-lg">
+                            <div className="flex-1">
+                              <Badge variant="outline">{sourceColumn}</Badge>
+                            </div>
+                            
+                            <ArrowRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                            
+                            <div className="flex-1">
+                              <Select
+                                value={columnMappings[sourceColumn] || ''}
+                                onValueChange={(value) => {
+                                  if (value) {
+                                    handleCreateMapping(sourceColumn, value);
+                                  }
+                                }}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select target column" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {targetColumns.map((targetColumn) => (
+                                    <SelectItem key={targetColumn} value={targetColumn}>
+                                      {targetColumn}
+                                      {targetColumn === 'SKU' && <span className="text-red-500 ml-1">*</span>}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            
+                            {columnMappings[sourceColumn] && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleRemoveMapping(sourceColumn)}
+                              >
+                                <X className="w-4 h-4" />
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="flex justify-between items-center pt-4">
+                        <Button
+                          variant="outline"
+                          onClick={skipCurrentFile}
+                          disabled={isProcessing}
+                        >
+                          Skip This File
+                        </Button>
+                        
+                        <div className="flex space-x-2">
+                          <Button
+                            onClick={processCurrentFileWithMapping}
+                            disabled={isProcessing || !columnMappings[Object.keys(columnMappings).find(k => columnMappings[k] === 'SKU') || '']}
+                            className="flex items-center space-x-2"
+                          >
+                            <CheckCircle className="h-4 w-4" />
+                            <span>Process File</span>
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            )}
+
+            {bulkSKUs.length > 0 && !showMapping && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <h4 className="font-semibold">Ready to Add ({bulkSKUs.length} SKUs)</h4>
