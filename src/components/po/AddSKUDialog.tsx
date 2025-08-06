@@ -39,8 +39,20 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
   const [progress, setProgress] = useState(0);
   const [progressLabel, setProgressLabel] = useState('');
 
-  // File processing functions (declared first to be used in useDropzone)
-  const handleFileUpload = async (files: File[]) => {
+  // ALL HOOKS MUST BE CALLED HERE - AT THE TOP LEVEL
+  // Dropzone hook - using hoisted function declaration
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop: handleFileUpload,
+    accept: {
+      'text/csv': ['.csv'],
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+      'application/vnd.ms-excel': ['.xls']
+    },
+    multiple: true
+  });
+
+  // Function declarations (these are hoisted so can be referenced above)
+  async function handleFileUpload(files: File[]) {
     setIsProcessing(true);
     setProgress(0);
     setProgressLabel('Starting file processing...');
@@ -97,9 +109,9 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
         setProgressLabel('');
       }, 3000);
     }
-  };
+  }
 
-  const processCsvFileStreaming = async (file: File, newSKUs: Omit<SunskySKU, 'id' | 'created_at' | 'updated_at' | 'user_id'>[]) => {
+  async function processCsvFileStreaming(file: File, newSKUs: Omit<SunskySKU, 'id' | 'created_at' | 'updated_at' | 'user_id'>[]) {
     return new Promise<void>((resolve, reject) => {
       const reader = new FileReader();
       let processedRows = 0;
@@ -162,9 +174,9 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
       reader.onerror = () => reject(new Error('Failed to read file'));
       reader.readAsText(file);
     });
-  };
+  }
 
-  const processExcelFileStreaming = async (file: File, newSKUs: Omit<SunskySKU, 'id' | 'created_at' | 'updated_at' | 'user_id'>[]) => {
+  async function processExcelFileStreaming(file: File, newSKUs: Omit<SunskySKU, 'id' | 'created_at' | 'updated_at' | 'user_id'>[]) {
     return new Promise<void>((resolve, reject) => {
       const reader = new FileReader();
       
@@ -230,18 +242,7 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
       reader.onerror = () => reject(new Error('Failed to read Excel file'));
       reader.readAsArrayBuffer(file);
     });
-  };
-
-  // Dropzone hook - must be called at the top level after functions are declared
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop: handleFileUpload,
-    accept: {
-      'text/csv': ['.csv'],
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
-      'application/vnd.ms-excel': ['.xls']
-    },
-    multiple: true
-  });
+  }
 
   const handleManualAdd = async () => {
     if (!manualSKU.sku_code.trim()) return;
