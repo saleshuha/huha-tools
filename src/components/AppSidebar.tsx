@@ -187,7 +187,7 @@ export function AppSidebar() {
                     <NavLink 
                       to={item.url} 
                       end
-                      className="flex items-center gap-3 no-underline w-full"
+                      className="flex items-center gap-3 no-underline w-full px-0"
                     >
                       <item.icon className="h-4 w-4 flex-shrink-0" />
                       {!isCollapsed && (
@@ -217,7 +217,7 @@ export function AppSidebar() {
                           <NavLink 
                             to={item.url} 
                             end
-                            className="flex items-center gap-3 no-underline w-full"
+                            className="flex items-center gap-3 no-underline w-full px-0"
                           >
                             <item.icon className="h-4 w-4 flex-shrink-0" />
                             {!isCollapsed && (
@@ -294,7 +294,7 @@ export function AppSidebar() {
                                 <NavLink 
                                   to={reportItem.url} 
                                   end
-                                  className="flex items-center gap-3 no-underline w-full"
+                                  className="flex items-center gap-3 no-underline w-full px-0"
                                 >
                                    <reportItem.icon className="h-4 w-4 flex-shrink-0" />
                                    {!isCollapsed && (
@@ -325,7 +325,7 @@ export function AppSidebar() {
                       <NavLink 
                         to={item.url} 
                         end
-                        className="flex items-center gap-3 no-underline w-full"
+                        className="flex items-center gap-3 no-underline w-full px-0"
                       >
                         <item.icon className="h-4 w-4 flex-shrink-0" />
                         {!isCollapsed && (
@@ -352,7 +352,7 @@ export function AppSidebar() {
                   <NavLink 
                     to="/carrefour-payments" 
                     end
-                    className="flex items-center gap-3 no-underline w-full"
+                    className="flex items-center gap-3 no-underline w-full px-0"
                   >
                     <BarChart3 className="h-4 w-4 flex-shrink-0" />
                     {!isCollapsed && (
@@ -405,7 +405,7 @@ export function AppSidebar() {
                         <NavLink 
                           to={item.url} 
                           end
-                          className="flex items-center gap-3 no-underline w-full"
+                          className="flex items-center gap-3 no-underline w-full px-0"
                         >
                           <item.icon className="h-4 w-4 flex-shrink-0" />
                           {!isCollapsed && (
@@ -435,7 +435,7 @@ export function AppSidebar() {
           <NavLink 
             to="/users" 
             end
-            className="flex items-center gap-3 no-underline w-full"
+            className="flex items-center gap-3 no-underline w-full px-0"
           >
             <Users className="h-4 w-4 flex-shrink-0" />
             {!isCollapsed && (
