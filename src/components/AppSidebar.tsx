@@ -80,11 +80,6 @@ const coreItems = [
     url: "/replenishment",
     icon: TrendingUp
   },
-  {
-    title: "PO - SS Stock Tracker",
-    url: "/po-tracker",
-    icon: ShoppingCart
-  },
 ]
 
 const paymentReportsItems = [
@@ -234,6 +229,31 @@ export function AppSidebar() {
                         </SidebarMenuButton>
                       </SidebarMenuItem>
                       
+                      
+                      {/* PO Tracker standalone item */}
+                      <SidebarMenuItem>
+                        <SidebarMenuButton 
+                          asChild
+                          className={`w-full p-3 rounded-lg transition-colors ${
+                            isActive("/po-tracker")
+                              ? "bg-primary text-primary-foreground" 
+                              : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                          }`}
+                        >
+                          <NavLink 
+                            to="/po-tracker" 
+                            end
+                            className="flex items-center gap-3 no-underline w-full"
+                          >
+                            <ShoppingCart className="h-4 w-4 flex-shrink-0" />
+                            {!isCollapsed && (
+                              <span className="font-medium text-sm">
+                                PO - SS Stock Tracker
+                              </span>
+                            )}
+                          </NavLink>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
                       
                       {/* Noon Reports sub-section with proper spacing */}
                       <SidebarMenuItem className="mt-2">
