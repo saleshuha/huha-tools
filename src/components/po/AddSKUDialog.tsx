@@ -50,14 +50,23 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
 
   // Function to handle file upload
   const handleFileUpload = async (files: File[]) => {
-    if (files.length === 0) return;
+    console.log('handleFileUpload called with files:', files);
+    if (files.length === 0) {
+      console.log('No files provided');
+      return;
+    }
     
+    console.log('Setting file queue and processing first file');
     setFileQueue(files);
     setCurrentFileIndex(0);
     setShowMapping(false);
     
     // Start processing first file
-    await processFileForMapping(files[0]);
+    try {
+      await processFileForMapping(files[0]);
+    } catch (error) {
+      console.error('Error in processFileForMapping:', error);
+    }
   };
 
   // ALL HOOKS MUST BE CALLED HERE - AT THE TOP LEVEL
@@ -83,6 +92,7 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
   // Function declarations for file processing
 
   async function processFileForMapping(file: File) {
+    console.log('processFileForMapping called with file:', file.name);
     setIsProcessing(true);
     setProgress(0);
     setProgressLabel(`Reading ${file.name}...`);
