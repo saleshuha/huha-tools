@@ -48,6 +48,114 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
   const [progress, setProgress] = useState(0);
   const [progressLabel, setProgressLabel] = useState('');
 
+  // CSV parsing function
+  const parseCsvForMapping = async (file: File): Promise<ExcelData> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      
+      reader.onload = (e) => {
+        try {
+          const text = e.target?.result as string;
+          if (!text) throw new Error('Failed to read file content');
+          
+          const lines = text.split('\n').filter(line => line.trim());
+          if (lines.length === 0) throw new Error('File is empty');
+          
+          const headers = lines[0].split(',').map(col => col.trim().replace(/^"|"$/g, ''));
+          const data = lines.slice(1).map(line => 
+            line.split(',').map(col => col.trim().replace(/^"|"$/g, ''))
+          );
+          
+          resolve({
+            headers,
+            data,
+            fileName: file.name
+          });
+        } catch (error) {
+          reject(error);
+        }
+      };
+      
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.readAsText(file);
+    });
+  };
+
+  // Excel parsing function  
+  const parseExcelForMapping = async (file: File): Promise<ExcelData> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      
+      reader.onload = (e) => {
+        try {
+          const buffer = e.target?.result as ArrayBuffer;
+          if (!buffer) throw new Error('Failed to read file content');
+          
+          const workbook = XLSX.read(buffer, { type: 'buffer' });
+          const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+          
+          if (!firstSheet) throw new Error('No sheets found in Excel file');
+          
+          const data = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: '' }) as any[][];
+          if (data.length === 0) throw new Error('Sheet is empty');
+          
+          const headers = data[0].map(header => String(header).trim());
+          const rows = data.slice(1);
+          
+          resolve({
+            headers,
+            data: rows,
+            fileName: file.name
+          });
+        } catch (error) {
+          reject(error);
+        }
+      };
+      
+      reader.onerror = () => reject(new Error('Failed to read Excel file'));
+      reader.readAsArrayBuffer(file);
+    });
+  };
+
+  // File processing function
+  const processFileForMapping = async (file: File) => {
+    console.log('processFileForMapping called with file:', file.name);
+    setIsProcessing(true);
+    setProgress(0);
+    setProgressLabel(`Reading ${file.name}...`);
+    
+    try {
+      const fileSize = (file.size / (1024 * 1024)).toFixed(2);
+      
+      if (file.size > 15 * 1024 * 1024) {
+        setProgressLabel(`File ${file.name} is too large (${fileSize}MB). Maximum size is 15MB.`);
+        return;
+      }
+
+      let fileData: ExcelData;
+      
+      if (file.name.toLowerCase().endsWith('.csv')) {
+        fileData = await parseCsvForMapping(file);
+      } else if (file.name.toLowerCase().match(/\.(xlsx|xls)$/)) {
+        fileData = await parseExcelForMapping(file);
+      } else {
+        setProgressLabel(`Unsupported file type: ${file.name}`);
+        return;
+      }
+
+      setParsedFileData(fileData);
+      setShowMapping(true);
+      setProgressLabel(`File parsed successfully. Please map columns.`);
+      
+    } catch (error) {
+      console.error('Error processing file:', error);
+      setProgressLabel(`Error: ${error instanceof Error ? error.message : 'Unknown error occurred'}`);
+    } finally {
+      setIsProcessing(false);
+      setProgress(100);
+    }
+  };
+
   // Function to handle file upload
   const handleFileUpload = async (files: File[]) => {
     console.log('handleFileUpload called with files:', files);
@@ -88,113 +196,6 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
     data: [],
     fileName: 'Target SKU Format'
   };
-
-  // Function declarations for file processing
-
-  async function processFileForMapping(file: File) {
-    console.log('processFileForMapping called with file:', file.name);
-    setIsProcessing(true);
-    setProgress(0);
-    setProgressLabel(`Reading ${file.name}...`);
-    
-    try {
-      const fileSize = (file.size / (1024 * 1024)).toFixed(2);
-      
-      if (file.size > 15 * 1024 * 1024) {
-        setProgressLabel(`File ${file.name} is too large (${fileSize}MB). Maximum size is 15MB.`);
-        return;
-      }
-
-      let fileData: ExcelData;
-      
-      if (file.name.toLowerCase().endsWith('.csv')) {
-        fileData = await parseCsvForMapping(file);
-      } else if (file.name.toLowerCase().match(/\.(xlsx|xls)$/)) {
-        fileData = await parseExcelForMapping(file);
-      } else {
-        setProgressLabel(`Unsupported file type: ${file.name}`);
-        return;
-      }
-
-      setParsedFileData(fileData);
-      setShowMapping(true);
-      setProgressLabel(`File parsed successfully. Please map columns.`);
-      
-    } catch (error) {
-      console.error('Error processing file:', error);
-      setProgressLabel(`Error: ${error instanceof Error ? error.message : 'Unknown error occurred'}`);
-    } finally {
-      setIsProcessing(false);
-      setProgress(100);
-    }
-  }
-
-  async function parseCsvForMapping(file: File): Promise<ExcelData> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      
-      reader.onload = (e) => {
-        try {
-          const text = e.target?.result as string;
-          if (!text) throw new Error('Failed to read file content');
-          
-          const lines = text.split('\n').filter(line => line.trim());
-          if (lines.length === 0) throw new Error('File is empty');
-          
-          const headers = lines[0].split(',').map(col => col.trim().replace(/^"|"$/g, ''));
-          const data = lines.slice(1).map(line => 
-            line.split(',').map(col => col.trim().replace(/^"|"$/g, ''))
-          );
-          
-          resolve({
-            headers,
-            data,
-            fileName: file.name
-          });
-        } catch (error) {
-          reject(error);
-        }
-      };
-      
-      reader.onerror = () => reject(new Error('Failed to read file'));
-      reader.readAsText(file);
-    });
-  }
-
-  async function parseExcelForMapping(file: File): Promise<ExcelData> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      
-      reader.onload = (e) => {
-        try {
-          const buffer = e.target?.result as ArrayBuffer;
-          if (!buffer) throw new Error('Failed to read file content');
-          
-          const workbook = XLSX.read(buffer, { type: 'buffer' });
-          const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-          
-          if (!firstSheet) throw new Error('No sheets found in Excel file');
-          
-          const data = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: '' }) as any[][];
-          if (data.length === 0) throw new Error('Sheet is empty');
-          
-          const headers = data[0].map(header => String(header).trim());
-          const rows = data.slice(1);
-          
-          resolve({
-            headers,
-            data: rows,
-            fileName: file.name
-          });
-        } catch (error) {
-          reject(error);
-        }
-      };
-      
-      reader.onerror = () => reject(new Error('Failed to read Excel file'));
-      reader.readAsArrayBuffer(file);
-    });
-  }
 
   const handleCreateMapping = (sourceColumn: string, targetColumn: string) => {
     setColumnMappings(prev => ({
