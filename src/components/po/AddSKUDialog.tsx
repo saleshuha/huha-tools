@@ -459,7 +459,7 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
         </DialogHeader>
 
         {/* Progress indicator */}
-        {isProcessing && (
+        {(isProcessing || isProcessingQueue) && (
           <div className="space-y-4 mb-4">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium">{progressLabel}</span>
