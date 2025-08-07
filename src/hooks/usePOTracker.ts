@@ -50,83 +50,72 @@ export const usePOTracker = () => {
   const [shippingRate, setShippingRate] = useState(0.005); // Default: 0.005 AED per gram
   const { toast } = useToast();
 
-  // Fetch ALL data using edge function (completely bypasses client limits)
+  // Fetch ALL data using database functions (fastest approach)
   const fetchAllData = async () => {
     setIsLoading(true);
     setLoadingProgress(0);
     setLoadingStatus('Starting data fetch...');
     
     try {
-      console.log('Fetching ALL data using edge function...');
+      console.log('Fetching ALL data using optimized database functions...');
       
-      // Get current session token
-      const { data: { session } } = await supabase.auth.getSession();
-      console.log('Session found:', !!session);
-      console.log('Access token found:', !!session?.access_token);
-      
-      if (!session?.access_token) {
-        throw new Error('No authentication session found');
-      }
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
 
-      setLoadingProgress(10);
-      setLoadingStatus('Connecting to server...');
-      console.log('Calling edge function...');
+      setLoadingProgress(20);
+      setLoadingStatus('Loading SKUs...');
       
-      // Simulate progress during the function call
-      const progressInterval = setInterval(() => {
-        setLoadingProgress(prev => {
-          if (prev < 90) return prev + 10;
-          return prev;
-        });
-        setLoadingStatus(prev => {
-          if (prev.includes('SKUs')) return 'Loading PO orders...';
-          if (prev.includes('server')) return 'Loading SKUs...';
-          return prev;
-        });
-      }, 500);
-      
-      // Call our edge function that bypasses all limits
-      const { data, error } = await supabase.functions.invoke('get-all-po-data', {
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
+      // Use database function for SKUs (much faster)
+      console.log('Calling get_all_sunsky_skus function...');
+      const { data: skuData, error: skuError } = await supabase.rpc('get_all_sunsky_skus', {
+        user_id_param: user.id
       });
+      
+      if (skuError) {
+        console.error('SKU fetch error:', skuError);
+        throw skuError;
+      }
 
-      clearInterval(progressInterval);
-      setLoadingProgress(95);
+      setLoadingProgress(60);
+      setLoadingStatus('Loading PO orders...');
+      console.log(`Loaded ${skuData?.length || 0} SKUs`);
+      
+      // Use database function for PO orders (much faster)
+      console.log('Calling get_all_po_orders function...');
+      const { data: orderData, error: orderError } = await supabase.rpc('get_all_po_orders', {
+        user_id_param: user.id
+      });
+      
+      if (orderError) {
+        console.error('PO order fetch error:', orderError);
+        throw orderError;
+      }
+
+      setLoadingProgress(90);
       setLoadingStatus('Processing data...');
-
-      console.log('Edge function response:', { data, error });
-
-      if (error) {
-        console.error('Edge function error:', error);
-        throw error;
-      }
-
-      if (!data) {
-        throw new Error('No data returned from edge function');
-      }
-
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to fetch data');
-      }
+      console.log(`Loaded ${orderData?.length || 0} PO orders`);
+      
+      // Transform the data to match our interfaces
+      const transformedOrders = orderData?.map((order: any) => ({
+        ...order,
+        sunsky_sku: order.sunsky_sku || undefined
+      })) || [];
 
       setLoadingProgress(100);
       setLoadingStatus('Finalizing...');
 
-      console.log('Edge function response:', data.message);
-      
       // Update state with ALL data
-      setSunskySKUs(data.data.sunskySKUs || []);
-      setPOOrders(data.data.poOrders || []);
+      setSunskySKUs(skuData || []);
+      setPOOrders(transformedOrders);
 
-      console.log(`Successfully loaded ${data.data.sunskySKUs?.length || 0} SKUs and ${data.data.poOrders?.length || 0} PO orders`);
+      console.log(`Successfully loaded ${skuData?.length || 0} SKUs and ${orderData?.length || 0} PO orders using database functions`);
       
-      setLoadingStatus(`Loaded ${data.data.sunskySKUs?.length || 0} SKUs and ${data.data.poOrders?.length || 0} PO orders`);
+      setLoadingStatus(`Loaded ${skuData?.length || 0} SKUs and ${orderData?.length || 0} PO orders`);
       
       toast({
         title: "Success",
-        description: data.message || "Data refreshed successfully"
+        description: `Loaded ${skuData?.length || 0} SKUs and ${orderData?.length || 0} PO orders`
       });
       
     } catch (error) {
@@ -142,7 +131,7 @@ export const usePOTracker = () => {
         setIsLoading(false);
         setLoadingProgress(0);
         setLoadingStatus('');
-      }, 1000);
+      }, 500);
     }
   };
 
