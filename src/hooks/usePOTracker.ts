@@ -48,64 +48,22 @@ export const usePOTracker = () => {
   const [shippingRate, setShippingRate] = useState(0.005); // Default: 0.005 AED per gram
   const { toast } = useToast();
 
-  // Fetch Sunsky SKUs with optimized loading
+  // Fetch all Sunsky SKUs in one go
   const fetchSunskySKUs = async () => {
     setIsLoading(true);
     try {
-      console.log('Fetching Sunsky SKUs with optimized approach...');
+      console.log('Fetching all Sunsky SKUs in one go...');
       
-      // Start with a reasonable initial load
-      const { data: initialData, error: initialError, count } = await (supabase as any)
+      // Fetch all data without limit
+      const { data, error } = await (supabase as any)
         .from('sunsky_skus')
-        .select('*', { count: 'exact' })
-        .order('created_at', { ascending: false })
-        .limit(1000);
+        .select('*')
+        .order('created_at', { ascending: false });
 
-      if (initialError) throw initialError;
+      if (error) throw error;
       
-      console.log(`Initial load: ${initialData?.length || 0} SKUs (${count} total available)`);
-      setSunskySKUs(initialData || []);
-      
-      // If there are more records, load them in background
-      if (count && count > 1000) {
-        setTimeout(async () => {
-          try {
-            console.log('Loading remaining SKUs in background...');
-            let allData = [...(initialData || [])];
-            let from = 1000;
-            const chunkSize = 2000; // Larger chunks for background loading
-            
-            while (from < count) {
-              const { data: chunkData, error: chunkError } = await (supabase as any)
-                .from('sunsky_skus')
-                .select('*')
-                .order('created_at', { ascending: false })
-                .range(from, from + chunkSize - 1);
-
-              if (chunkError) {
-                console.error('Background chunk error:', chunkError);
-                break;
-              }
-              
-              if (chunkData && chunkData.length > 0) {
-                allData = allData.concat(chunkData);
-                setSunskySKUs([...allData]); // Update state with progress
-                from += chunkSize;
-                console.log(`Background loaded: ${allData.length}/${count} SKUs`);
-                
-                // Small delay to prevent overwhelming the database
-                await new Promise(resolve => setTimeout(resolve, 100));
-              } else {
-                break;
-              }
-            }
-            
-            console.log(`Finished loading all ${allData.length} SKUs`);
-          } catch (error) {
-            console.error('Background loading error:', error);
-          }
-        }, 100);
-      }
+      console.log(`Loaded all ${data?.length || 0} SKUs`);
+      setSunskySKUs(data || []);
     } catch (error) {
       console.error('Error fetching Sunsky SKUs:', error);
       toast({
@@ -118,47 +76,24 @@ export const usePOTracker = () => {
     }
   };
 
-  // Fetch PO Orders
+  // Fetch all PO Orders in one go
   const fetchPOOrders = async () => {
     try {
-      console.log('Fetching all PO orders...');
+      console.log('Fetching all PO orders in one go...');
       
-      // Remove the default 1000 row limit by fetching in chunks
-      let allData: any[] = [];
-      let from = 0;
-      const chunkSize = 1000;
-      let hasMore = true;
+      // Fetch all data without limit
+      const { data, error } = await (supabase as any)
+        .from('po_orders')
+        .select(`
+          *,
+          sunsky_sku:sunsky_skus(*)
+        `)
+        .order('created_at', { ascending: false });
 
-      while (hasMore) {
-        const { data, error } = await (supabase as any)
-          .from('po_orders')
-          .select(`
-            *,
-            sunsky_sku:sunsky_skus(*)
-          `)
-          .order('created_at', { ascending: false })
-          .range(from, from + chunkSize - 1);
+      if (error) throw error;
 
-        if (error) throw error;
-        
-        if (data && data.length > 0) {
-          allData = allData.concat(data);
-          from += chunkSize;
-          hasMore = data.length === chunkSize;
-          console.log(`Fetched ${allData.length} PO orders so far...`);
-        } else {
-          hasMore = false;
-        }
-
-        // Safety break to prevent infinite loops
-        if (from > 50000) {
-          console.warn('Reached maximum fetch limit of 50,000 PO orders');
-          hasMore = false;
-        }
-      }
-
-      console.log(`Total PO orders fetched: ${allData.length}`);
-      setPOOrders(allData);
+      console.log(`Loaded all ${data?.length || 0} PO orders`);
+      setPOOrders(data || []);
     } catch (error) {
       console.error('Error fetching PO orders:', error);
       toast({
