@@ -321,44 +321,69 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
           console.log('Function type:', typeof onAddSKUs);
           console.log('About to save SKUs to database...');
           
-          try {
-            await onAddSKUs(dbSkus);
-            console.log(`✅ SUCCESS: ${dbSkus.length} SKUs saved to database for ${file.name}`);
-            
-            setFileProgress(prev => ({ ...prev, [file.name]: 100 }));
-            setFileStatuses(prev => ({ ...prev, [file.name]: 'completed' }));
-            
-            toast({
-              title: "File Processed Successfully",
-              description: `${file.name}: ${dbSkus.length} unique SKUs saved${duplicateCount > 0 ? ` (${duplicateCount} duplicates skipped)` : ''}`,
-            });
-          } catch (saveError) {
-            console.error('❌ DATABASE SAVE ERROR:', saveError);
-            
-            // Check if it's a duplicate key error
-            const errorMessage = saveError instanceof Error ? saveError.message : 'Unknown error';
-            const isDuplicateError = errorMessage.includes('duplicate key') || errorMessage.includes('unique constraint');
-            
-            console.error('Error details:', {
-              message: errorMessage,
-              stack: saveError instanceof Error ? saveError.stack : undefined,
-              skuCount: dbSkus.length,
-              fileName: file.name,
-              isDuplicateError
-            });
-            
-            setFileStatuses(prev => ({ ...prev, [file.name]: 'error' }));
-            setFileProgress(prev => ({ ...prev, [file.name]: 0 }));
-            
-            toast({
-              title: isDuplicateError ? "Duplicate SKUs Found" : "Database Save Failed",
-              description: isDuplicateError 
-                ? `Some SKUs from ${file.name} already exist in the database`
-                : `Failed to save SKUs from ${file.name}: ${errorMessage}`,
-              variant: "destructive"
-            });
-            return; // Exit early on save error
-          }
+            try {
+              await onAddSKUs(dbSkus);
+              console.log(`✅ SUCCESS: ${dbSkus.length} SKUs saved to database for ${file.name}`);
+              
+              // Update existing SKUs set with newly added SKUs
+              dbSkus.forEach(sku => {
+                const skuKey = `${sku.sku_code}_${sku.country}`;
+                existingSkus.add(skuKey);
+              });
+              
+              setFileProgress(prev => ({ ...prev, [file.name]: 100 }));
+              setFileStatuses(prev => ({ ...prev, [file.name]: 'completed' }));
+              
+              toast({
+                title: "File Processed Successfully",
+                description: `${file.name}: ${dbSkus.length} unique SKUs saved${duplicateCount > 0 ? ` (${duplicateCount} duplicates skipped)` : ''}`,
+              });
+            } catch (saveError) {
+              console.error('❌ DATABASE SAVE ERROR:', saveError);
+              
+              // Detailed error analysis
+              const errorMessage = saveError instanceof Error ? saveError.message : 'Unknown error';
+              const errorCode = (saveError as any)?.code;
+              
+              let errorType = 'Unknown Error';
+              let userMessage = errorMessage;
+              
+              if (errorMessage.includes('duplicate key') || errorMessage.includes('unique constraint')) {
+                errorType = 'Duplicate SKUs';
+                userMessage = `Some SKUs from ${file.name} already exist in the database. Try refreshing and re-uploading to detect duplicates properly.`;
+              } else if (errorMessage.includes('timeout') || errorMessage.includes('statement timeout')) {
+                errorType = 'Database Timeout';
+                userMessage = `Database timeout occurred while processing ${file.name}. Try processing smaller batches or try again later.`;
+              } else if (errorMessage.includes('connection') || errorMessage.includes('network')) {
+                errorType = 'Connection Error';
+                userMessage = `Network connection issue while saving ${file.name}. Please check your connection and try again.`;
+              } else if (errorMessage.includes('permission') || errorMessage.includes('authorization')) {
+                errorType = 'Permission Error';
+                userMessage = `You don't have permission to save SKUs. Please contact support.`;
+              } else if (errorCode === '23505') {
+                errorType = 'Duplicate Key Error';
+                userMessage = `Duplicate SKU codes found in ${file.name}. Please ensure all SKU codes are unique.`;
+              }
+              
+              console.error('Detailed error analysis:', {
+                errorType,
+                message: errorMessage,
+                code: errorCode,
+                stack: saveError instanceof Error ? saveError.stack : undefined,
+                skuCount: dbSkus.length,
+                fileName: file.name
+              });
+              
+              setFileStatuses(prev => ({ ...prev, [file.name]: 'error' }));
+              setFileProgress(prev => ({ ...prev, [file.name]: 0 }));
+              
+              toast({
+                title: errorType,
+                description: userMessage,
+                variant: "destructive"
+              });
+              return; // Exit early on save error
+            }
         } else {
           console.error(`❌ No valid SKUs found to save for ${file.name}`);
           throw new Error('No valid SKUs found to save');
@@ -440,25 +465,57 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
           const duplicateCount = mappedData.length - dbSkus.length;
           
           if (dbSkus.length > 0) {
-            await onAddSKUs(dbSkus);
-            toast({
-              title: "File Saved",
-              description: `${file.name}: ${dbSkus.length} unique SKUs saved${duplicateCount > 0 ? ` (${duplicateCount} duplicates skipped)` : ''}`,
-            });
+            try {
+              await onAddSKUs(dbSkus);
+              toast({
+                title: "File Saved",
+                description: `${file.name}: ${dbSkus.length} unique SKUs saved${duplicateCount > 0 ? ` (${duplicateCount} duplicates skipped)` : ''}`,
+              });
+              // Mark file as completed
+              setFileStatuses(prev => ({ ...prev, [file.name]: 'completed' }));
+            } catch (saveError) {
+              console.error(`Database save error for ${file.name}:`, saveError);
+              const errorMessage = saveError instanceof Error ? saveError.message : 'Unknown error';
+              
+              let errorType = 'Database Error';
+              if (errorMessage.includes('duplicate key') || errorMessage.includes('unique constraint')) {
+                errorType = 'Duplicate SKUs';
+              } else if (errorMessage.includes('timeout')) {
+                errorType = 'Database Timeout';
+              }
+              
+              toast({
+                title: errorType,
+                description: `${file.name}: ${errorMessage}`,
+                variant: "destructive"
+              });
+              setFileStatuses(prev => ({ ...prev, [file.name]: 'error' }));
+            }
           } else if (duplicateCount > 0) {
             toast({
               title: "Duplicates Skipped",
               description: `${file.name}: All ${duplicateCount} SKUs were duplicates`,
               variant: "destructive"
             });
+            setFileStatuses(prev => ({ ...prev, [file.name]: 'completed' }));
+          } else {
+            toast({
+              title: "No Valid SKUs",
+              description: `${file.name}: No valid SKUs found to save`,
+              variant: "destructive"
+            });
+            setFileStatuses(prev => ({ ...prev, [file.name]: 'error' }));
           }
-          
-          // Mark file as completed
-          setFileStatuses(prev => ({ ...prev, [file.name]: 'completed' }));
         }
       } catch (error) {
         console.error(`Error processing file ${file.name}:`, error);
-        // Mark file as error
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        
+        toast({
+          title: "Processing Error",
+          description: `${file.name}: ${errorMessage}`,
+          variant: "destructive"
+        });
         setFileStatuses(prev => ({ ...prev, [file.name]: 'error' }));
       }
       
