@@ -56,6 +56,7 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
   const [currentFileIndex, setCurrentFileIndex] = useState(0);
   const [savedMappings, setSavedMappings] = useState<any>({});
   const [isProcessingQueue, setIsProcessingQueue] = useState(false);
+  const [fileStatuses, setFileStatuses] = useState<Record<string, 'pending' | 'processing' | 'completed' | 'error'>>({});
   
   // Column mapping states
   const [showMappingWizard, setShowMappingWizard] = useState(false);
@@ -108,6 +109,13 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
     setProcessQueue(sortedFiles);
     setCurrentFileIndex(0);
     
+    // Initialize file statuses
+    const initialStatuses: Record<string, 'pending' | 'processing' | 'completed' | 'error'> = {};
+    sortedFiles.forEach(file => {
+      initialStatuses[file.name] = 'pending';
+    });
+    setFileStatuses(initialStatuses);
+    
     if (sortedFiles.length > 0) {
       processFilesSequentially(sortedFiles);
     }
@@ -158,57 +166,58 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
   };
 
   const processFilesInBackground = async (files: File[], mapping: any) => {
-    const batchSize = 5; // Process 5 files at a time
-    
-    for (let i = 0; i < files.length; i += batchSize) {
-      const batch = files.slice(i, i + batchSize);
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      setCurrentFileIndex(i + 1);
       
-      await Promise.all(
-        batch.map(async (file, index) => {
-          setCurrentFileIndex(i + index);
-          
-          try {
-            const data = await parseFileQuietly(file);
-            if (data && data.length > 0) {
-              const mappedData = data.map(row => {
-                const processedRow: any = {};
-                Object.entries(mapping).forEach(([expectedCol, headerCol]) => {
-                  let value = row[headerCol as string];
-                  
-                  if (expectedCol === 'cost' || expectedCol === 'weight') {
-                    value = parseFloat(value) || 0;
-                  }
-                  
-                  if (typeof value === 'string') {
-                    value = value.trim();
-                  }
-                  
-                  if (value !== undefined && value !== null && value !== '') {
-                    processedRow[expectedCol] = value;
-                  }
-                });
-                return processedRow;
-              }).filter(row => row.sku_code);
+      // Update file status to processing
+      setFileStatuses(prev => ({ ...prev, [file.name]: 'processing' }));
+      
+      try {
+        const data = await parseFileQuietly(file);
+        if (data && data.length > 0) {
+          const mappedData = data.map(row => {
+            const processedRow: any = {};
+            Object.entries(mapping).forEach(([expectedCol, headerCol]) => {
+              let value = row[headerCol as string];
               
-              const newSKUs: BulkSKU[] = mappedData.map(row => ({
-                skuCode: row.sku_code?.toString().trim() || '',
-                title: row.title?.toString().trim() || '',
-                description: row.description?.toString().trim() || '',
-                cost: typeof row.cost === 'number' ? row.cost : (parseFloat(row.cost) || 0),
-                weight: typeof row.weight === 'number' ? row.weight : (parseFloat(row.weight) || 0),
-                notes: row.notes?.toString().trim() || `Imported from ${file.name}`
-              }));
+              if (expectedCol === 'cost' || expectedCol === 'weight') {
+                value = parseFloat(value) || 0;
+              }
+              
+              if (typeof value === 'string') {
+                value = value.trim();
+              }
+              
+              if (value !== undefined && value !== null && value !== '') {
+                processedRow[expectedCol] = value;
+              }
+            });
+            return processedRow;
+          }).filter(row => row.sku_code);
+          
+          const newSKUs: BulkSKU[] = mappedData.map(row => ({
+            skuCode: row.sku_code?.toString().trim() || '',
+            title: row.title?.toString().trim() || '',
+            description: row.description?.toString().trim() || '',
+            cost: typeof row.cost === 'number' ? row.cost : (parseFloat(row.cost) || 0),
+            weight: typeof row.weight === 'number' ? row.weight : (parseFloat(row.weight) || 0),
+            notes: row.notes?.toString().trim() || `Imported from ${file.name}`
+          }));
 
-              setBulkSKUs(prev => [...prev, ...newSKUs]);
-            }
-          } catch (error) {
-            console.error(`Error processing file ${file.name}:`, error);
-          }
-        })
-      );
+          setBulkSKUs(prev => [...prev, ...newSKUs]);
+          
+          // Mark file as completed
+          setFileStatuses(prev => ({ ...prev, [file.name]: 'completed' }));
+        }
+      } catch (error) {
+        console.error(`Error processing file ${file.name}:`, error);
+        // Mark file as error
+        setFileStatuses(prev => ({ ...prev, [file.name]: 'error' }));
+      }
       
-      // Small delay between batches to prevent UI blocking
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Small delay between files to show progress
+      await new Promise(resolve => setTimeout(resolve, 200));
     }
   };
 
@@ -508,6 +517,64 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
                 </div>
               </CardContent>
             </Card>
+
+            {/* File Queue Display */}
+            {processQueue.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Activity className="h-5 w-5" />
+                    File Processing Queue ({processQueue.length} files)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-wrap gap-2">
+                    {processQueue.map((file, index) => {
+                      const status = fileStatuses[file.name] || 'pending';
+                      const isActive = index === currentFileIndex;
+                      
+                      return (
+                        <div
+                          key={`${file.name}-${index}`}
+                          className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-all ${
+                            status === 'completed' 
+                              ? 'bg-green-50 border-green-200 text-green-700' 
+                              : status === 'processing' || isActive
+                              ? 'bg-blue-50 border-blue-200 text-blue-700 animate-pulse'
+                              : status === 'error'
+                              ? 'bg-red-50 border-red-200 text-red-700'
+                              : 'bg-gray-50 border-gray-200 text-gray-600'
+                          }`}
+                        >
+                          {status === 'completed' && <CheckCircle2 className="h-4 w-4" />}
+                          {(status === 'processing' || isActive) && <Clock className="h-4 w-4 animate-spin" />}
+                          {status === 'pending' && <Clock className="h-4 w-4" />}
+                          {status === 'error' && <X className="h-4 w-4" />}
+                          
+                          <span className="font-mono text-xs">
+                            {file.name.length > 20 ? `${file.name.substring(0, 20)}...` : file.name}
+                          </span>
+                          
+                          <Badge variant="outline" className="text-xs">
+                            {(file.size / 1024).toFixed(1)}KB
+                          </Badge>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  
+                  {isProcessingQueue && (
+                    <div className="mt-4 space-y-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <span>Processing files...</span>
+                        <span>{currentFileIndex + 1} of {processQueue.length}</span>
+                      </div>
+                      <Progress value={(currentFileIndex / processQueue.length) * 100} className="h-2" />
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           {/* Paste Data Tab */}
