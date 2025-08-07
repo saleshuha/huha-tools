@@ -768,6 +768,12 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
     }
   };
 
+  const removeBulkSKU = (index: number) => {
+    setBulkSKUs(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Parse pasted data
+
   // Parse pasted data
   const handlePasteData = () => {
     if (!pasteData.trim()) return;
