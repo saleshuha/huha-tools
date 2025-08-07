@@ -54,11 +54,12 @@ export const usePOTracker = () => {
     try {
       console.log('Fetching all Sunsky SKUs in one go...');
       
-      // Fetch all data without limit
-      const { data, error } = await (supabase as any)
+      // Fetch all data with high limit to get all records
+      const { data, error } = await supabase
         .from('sunsky_skus')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(100000); // Set a very high limit to effectively remove the default 1000 limit
 
       if (error) throw error;
       
@@ -81,19 +82,20 @@ export const usePOTracker = () => {
     try {
       console.log('Fetching all PO orders in one go...');
       
-      // Fetch all data without limit
-      const { data, error } = await (supabase as any)
+      // Fetch all data without limit - use a very high limit to get all records
+      const { data, error } = await supabase
         .from('po_orders')
         .select(`
           *,
           sunsky_sku:sunsky_skus(*)
         `)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(100000); // Set a very high limit to effectively remove the default 1000 limit
 
       if (error) throw error;
 
       console.log(`Loaded all ${data?.length || 0} PO orders`);
-      setPOOrders(data || []);
+      setPOOrders(data as POOrder[] || []);
     } catch (error) {
       console.error('Error fetching PO orders:', error);
       toast({
