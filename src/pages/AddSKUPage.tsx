@@ -754,21 +754,6 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
   };
 
   // Bulk form handlers
-    const newSKUs: BulkSKU[] = data
-      .filter(row => row.sku_code && row.sku_code.toString().trim())
-      .map(row => ({
-        skuCode: row.sku_code?.toString().trim() || '',
-        title: row.title?.toString().trim() || '',
-        description: row.description?.toString().trim() || '',
-        cost: typeof row.cost === 'number' ? row.cost : (parseFloat(row.cost) || 0),
-        weight: typeof row.weight === 'number' ? row.weight : (parseFloat(row.weight) || 0),
-        notes: row.notes?.toString().trim() || `Imported from ${fileName}`
-      }));
-
-    setBulkSKUs(prev => [...prev, ...newSKUs]);
-  };
-
-  // Bulk form handlers
   const addBulkSKU = () => {
     if (singleSKU.skuCode.trim()) {
       setBulkSKUs(prev => [...prev, { ...singleSKU }]);
@@ -781,10 +766,6 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
         notes: ''
       });
     }
-  };
-
-  const removeBulkSKU = (index: number) => {
-    setBulkSKUs(prev => prev.filter((_, i) => i !== index));
   };
 
   // Parse pasted data
