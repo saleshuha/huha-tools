@@ -495,7 +495,7 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
 
       {/* Column Mapping Wizard */}
       {showMappingWizard && currentFileData && (
-        <Dialog open={showMappingWizard} onOpenChange={() => {}}>
+        <Dialog open={showMappingWizard} onOpenChange={setShowMappingWizard}>
           <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Map Columns for {currentFileName}</DialogTitle>
