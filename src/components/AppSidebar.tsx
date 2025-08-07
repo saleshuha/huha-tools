@@ -29,11 +29,6 @@ const navigationItems = [
     url: "/",
     icon: Home
   },
-  {
-    title: "Upload Center",
-    url: "/upload-center",
-    icon: Upload
-  }
 ]
 
 const toolsItems = [

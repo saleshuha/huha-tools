@@ -14,7 +14,7 @@ import { FloatingProgressIndicator } from "@/components/FloatingProgressIndicato
 import { AppSidebar } from "@/components/AppSidebar";
 import { CountrySwitcher } from "@/components/CountrySwitcher";
 import Index from "./pages/Index";
-import UploadCenter from "./pages/UploadCenter";
+
 import ExcelMapperPage from "./pages/ExcelMapper";
 import BatchProcessor from "./pages/BatchProcessor";
 import AsinQtySum from "./pages/AsinQtySum";
@@ -136,7 +136,7 @@ const App = () => {
                 <main className="flex-1">
                   <Routes>
                     <Route path="/" element={<Index />} />
-                    <Route path="/upload-center" element={<UploadCenter />} />
+                    
                     <Route path="/excel-mapper" element={<ExcelMapperPage />} />
                     <Route path="/batch" element={<BatchProcessor />} />
                     <Route path="/asin-sum" element={<AsinQtySum />} />
