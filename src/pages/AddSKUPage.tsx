@@ -97,7 +97,11 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
       .sort((a, b) => a.size - b.size);
     
     if (sortedFiles.length === 0) {
-      alert('Please upload Excel (.xlsx, .xls) or CSV files only');
+      toast({
+        title: "Invalid Files",
+        description: "Please upload Excel (.xlsx, .xls) or CSV files only",
+        variant: "destructive"
+      });
       return;
     }
 
@@ -105,7 +109,7 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
     setCurrentFileIndex(0);
     
     if (sortedFiles.length > 0) {
-      processFirstFileForMapping(sortedFiles[0], sortedFiles);
+      processFilesSequentially(sortedFiles);
     }
   }, []);
 
@@ -119,12 +123,16 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
     multiple: true
   });
 
-  const processFirstFileForMapping = async (file: File, allFiles: File[]) => {
+  const processFilesSequentially = async (files: File[]) => {
+    setIsProcessingQueue(true);
+    
     try {
-      const data = await parseFileQuietly(file);
+      // Process first file to get column mapping
+      const firstFile = files[0];
+      const data = await parseFileQuietly(firstFile);
       
       if (!data || data.length === 0) {
-        throw new Error('No data found in file');
+        throw new Error('No data found in first file');
       }
 
       const headers = Object.keys(data[0]);
@@ -134,14 +142,73 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
         headers,
         rows: rows.map(row => headers.map(header => row[header]))
       });
-      setCurrentFileName(file.name);
-      setPendingFiles(allFiles);
+      setCurrentFileName(firstFile.name);
+      setPendingFiles(files);
       setShowMappingWizard(true);
-      setIsProcessingQueue(false);
 
     } catch (error) {
-      console.error('Error processing file for mapping:', error);
+      console.error('Error processing files:', error);
+      toast({
+        title: "Processing Error",
+        description: `Failed to process files: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        variant: "destructive"
+      });
       setIsProcessingQueue(false);
+    }
+  };
+
+  const processFilesInBackground = async (files: File[], mapping: any) => {
+    const batchSize = 5; // Process 5 files at a time
+    
+    for (let i = 0; i < files.length; i += batchSize) {
+      const batch = files.slice(i, i + batchSize);
+      
+      await Promise.all(
+        batch.map(async (file, index) => {
+          setCurrentFileIndex(i + index);
+          
+          try {
+            const data = await parseFileQuietly(file);
+            if (data && data.length > 0) {
+              const mappedData = data.map(row => {
+                const processedRow: any = {};
+                Object.entries(mapping).forEach(([expectedCol, headerCol]) => {
+                  let value = row[headerCol as string];
+                  
+                  if (expectedCol === 'cost' || expectedCol === 'weight') {
+                    value = parseFloat(value) || 0;
+                  }
+                  
+                  if (typeof value === 'string') {
+                    value = value.trim();
+                  }
+                  
+                  if (value !== undefined && value !== null && value !== '') {
+                    processedRow[expectedCol] = value;
+                  }
+                });
+                return processedRow;
+              }).filter(row => row.sku_code);
+              
+              const newSKUs: BulkSKU[] = mappedData.map(row => ({
+                skuCode: row.sku_code?.toString().trim() || '',
+                title: row.title?.toString().trim() || '',
+                description: row.description?.toString().trim() || '',
+                cost: typeof row.cost === 'number' ? row.cost : (parseFloat(row.cost) || 0),
+                weight: typeof row.weight === 'number' ? row.weight : (parseFloat(row.weight) || 0),
+                notes: row.notes?.toString().trim() || `Imported from ${file.name}`
+              }));
+
+              setBulkSKUs(prev => [...prev, ...newSKUs]);
+            }
+          } catch (error) {
+            console.error(`Error processing file ${file.name}:`, error);
+          }
+        })
+      );
+      
+      // Small delay between batches to prevent UI blocking
+      await new Promise(resolve => setTimeout(resolve, 100));
     }
   };
 
@@ -152,14 +219,31 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
       
       setSavedMappings(prev => ({ ...prev, [currentFileName]: mapping }));
       
+      // Process first file data immediately
       await processFileWithMappings(mappedData, currentFileName);
       
+      // Process remaining files in background with optimized batching
       if (pendingFiles.length > 1) {
-        await processRemainingFilesWithSavedMappings(pendingFiles.slice(1), mapping);
+        toast({
+          title: "Processing Files",
+          description: `Processing ${pendingFiles.length} files in background...`,
+        });
+        
+        await processFilesInBackground(pendingFiles.slice(1), mapping);
+        
+        toast({
+          title: "Files Processed",
+          description: `All ${pendingFiles.length} files have been processed successfully.`,
+        });
       }
       
     } catch (error) {
       console.error('Error in mapping completion:', error);
+      toast({
+        title: "Processing Error",
+        description: "Error occurred while processing files",
+        variant: "destructive"
+      });
     } finally {
       setIsProcessingQueue(false);
       setCurrentFileData(null);
