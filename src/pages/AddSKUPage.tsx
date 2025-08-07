@@ -93,9 +93,13 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
 
   // File upload handlers
   const onDrop = useCallback((acceptedFiles: File[]) => {
+    console.log('Files dropped:', acceptedFiles.map(f => ({ name: f.name, size: f.size })));
+    
     const sortedFiles = acceptedFiles
       .filter(file => file.name.match(/\.(xlsx|xls|csv)$/i))
       .sort((a, b) => a.size - b.size);
+    
+    console.log('Filtered and sorted files:', sortedFiles.map(f => ({ name: f.name, size: f.size })));
     
     if (sortedFiles.length === 0) {
       toast({
@@ -116,6 +120,9 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
     });
     setFileStatuses(initialStatuses);
     
+    console.log('Process queue set:', sortedFiles.length, 'files');
+    console.log('File statuses initialized:', initialStatuses);
+    
     if (sortedFiles.length > 0) {
       processFilesSequentially(sortedFiles);
     }
@@ -132,12 +139,20 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
   });
 
   const processFilesSequentially = async (files: File[]) => {
+    console.log('Starting processFilesSequentially with files:', files.map(f => f.name));
     setIsProcessingQueue(true);
     
     try {
       // Check if we have saved mappings for any file structure
       const firstFile = files[0];
+      console.log('Processing first file:', firstFile.name, 'Size:', firstFile.size);
+      
       const data = await parseFileQuietly(firstFile);
+      console.log('Parsed first file data:', { 
+        rowCount: data?.length || 0, 
+        sampleRows: data?.slice(0, 3),
+        headers: data?.[0] ? Object.keys(data[0]) : []
+      });
       
       if (!data || data.length === 0) {
         throw new Error('No data found in first file');
@@ -145,12 +160,15 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
 
       const headers = Object.keys(data[0]).sort();
       const headerSignature = headers.join('|');
+      console.log('Header signature:', headerSignature);
+      console.log('Available saved mappings:', Object.keys(savedMappings));
       
       // Look for saved mapping with matching header structure
       let existingMapping = null;
       for (const [fileName, mapping] of Object.entries(savedMappings)) {
         if (mapping && typeof mapping === 'object') {
           const mappedHeaders = Object.values(mapping as Record<string, string>).sort();
+          console.log(`Checking mapping ${fileName}:`, mappedHeaders.join('|'), 'vs', headerSignature);
           if (mappedHeaders.join('|') === headerSignature) {
             existingMapping = mapping;
             console.log(`Found matching mapping from ${fileName} for current file structure`);
@@ -161,6 +179,7 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
 
       if (existingMapping) {
         // Auto-process all files with existing mapping
+        console.log('Auto-processing with existing mapping:', existingMapping);
         toast({
           title: "Auto-Processing Files",
           description: `Using existing column mapping to process ${files.length} files automatically...`,
@@ -175,6 +194,7 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
         
         setIsProcessingQueue(false);
       } else {
+        console.log('No existing mapping found, showing mapping wizard');
         // Show mapping wizard for first file
         const rows = data.slice(0, 100);
 
@@ -457,27 +477,54 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
   };
 
   const parseFileQuietly = async (file: File): Promise<any[]> => {
+    console.log('Parsing file:', file.name, 'Type:', file.type, 'Size:', file.size);
+    
     return new Promise((resolve, reject) => {
       if (file.name.toLowerCase().endsWith('.csv')) {
+        console.log('Parsing as CSV file');
         Papa.parse(file, {
           header: true,
-          complete: (results) => resolve(results.data),
-          error: (error) => reject(error)
+          skipEmptyLines: true,
+          complete: (results) => {
+            console.log('CSV parse results:', {
+              rowCount: results.data.length,
+              errors: results.errors,
+              meta: results.meta,
+              sampleData: results.data.slice(0, 3)
+            });
+            resolve(results.data);
+          },
+          error: (error) => {
+            console.error('CSV parse error:', error);
+            reject(error);
+          }
         });
       } else {
+        console.log('Parsing as Excel file');
         const reader = new FileReader();
         reader.onload = (e) => {
           try {
             const data = new Uint8Array(e.target?.result as ArrayBuffer);
             const workbook = XLSX.read(data, { type: 'array' });
+            console.log('Excel workbook sheets:', workbook.SheetNames);
+            
             const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-            const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+            const jsonData = XLSX.utils.sheet_to_json(firstSheet, { defval: '' });
+            console.log('Excel parse results:', {
+              rowCount: jsonData.length,
+              sampleData: jsonData.slice(0, 3),
+              headers: jsonData[0] ? Object.keys(jsonData[0]) : []
+            });
             resolve(jsonData);
           } catch (error) {
+            console.error('Excel parse error:', error);
             reject(error);
           }
         };
-        reader.onerror = () => reject(new Error('Failed to read file'));
+        reader.onerror = () => {
+          console.error('File reader error');
+          reject(new Error('Failed to read file'));
+        };
         reader.readAsArrayBuffer(file);
       }
     });
