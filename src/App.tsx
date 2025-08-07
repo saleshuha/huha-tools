@@ -58,9 +58,26 @@ function AddSKUPageWrapper() {
     setIsLoading(true);
     
     try {
+      // Get current user
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError || !user) {
+        throw new Error('User not authenticated');
+      }
+
+      console.log('Current user ID:', user.id);
+
+      // Add user_id to each SKU
+      const skusWithUserId = skus.map(sku => ({
+        ...sku,
+        user_id: user.id
+      }));
+
+      console.log('SKUs with user_id added:', skusWithUserId.slice(0, 3));
+
       const { data, error } = await supabase
         .from('sunsky_skus')
-        .insert(skus)
+        .insert(skusWithUserId)
         .select();
 
       if (error) {
