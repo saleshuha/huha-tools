@@ -393,6 +393,10 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
 
     updateThreadProgress(0, chunk.length, `Thread ${threadIndex + 1}: Starting bulk processing...`, 'processing');
 
+    let actualSavedCount = 0;
+    let duplicateCount = 0;
+    let errorCount = 0;
+
     try {
       // Convert all SKUs to database format
       const dbSkus = chunk.map(sku => ({
