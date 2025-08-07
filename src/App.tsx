@@ -9,6 +9,8 @@ import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
 
 import { CountryProvider } from "@/contexts/CountryContext";
+import { BackgroundTasksProvider } from "@/contexts/BackgroundTasksContext";
+import { FloatingProgressIndicator } from "@/components/FloatingProgressIndicator";
 import { AppSidebar } from "@/components/AppSidebar";
 import { CountrySwitcher } from "@/components/CountrySwitcher";
 import Index from "./pages/Index";
@@ -101,6 +103,7 @@ const App = () => {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <CountryProvider>
+          <BackgroundTasksProvider>
           <Toaster />
           <Sonner />
           <BrowserRouter>
@@ -169,8 +172,10 @@ const App = () => {
                 </main>
               </div>
             </div>
+            <FloatingProgressIndicator />
             </SidebarProvider>
           </BrowserRouter>
+          </BackgroundTasksProvider>
         </CountryProvider>
       </TooltipProvider>
     </QueryClientProvider>

@@ -18,6 +18,8 @@ import { ColumnMappingWizard } from '@/components/sales/ColumnMappingWizard';
 import { ColumnMappingWizard as SKUColumnMappingWizard } from '@/components/po/SKUColumnMappingWizard';
 import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useBackgroundTasks } from '@/contexts/BackgroundTasksContext';
+import { useToast } from '@/components/ui/use-toast';
 
 interface AddSKUPageProps {
   onAddSKUs: (skus: Omit<SunskySKU, 'id' | 'created_at' | 'updated_at' | 'user_id'>[]) => Promise<void>;
@@ -47,12 +49,7 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
   const [activeTab, setActiveTab] = useState('bulk');
   const [bulkSKUs, setBulkSKUs] = useState<BulkSKU[]>([]);
   const [pasteData, setPasteData] = useState('');
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [progressLabel, setProgressLabel] = useState('');
   const [threadCount, setThreadCount] = useState(2);
-  const [threadProgress, setThreadProgress] = useState<ThreadProgress[]>([]);
-  const [isShowingThreads, setIsShowingThreads] = useState(false);
 
   // File processing states
   const [processQueue, setProcessQueue] = useState<File[]>([]);
@@ -67,6 +64,8 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   
   const { profile } = useUserProfile();
+  const { runBackgroundUpload } = useBackgroundTasks();
+  const { toast } = useToast();
 
   // SKU columns for mapping
   const skuColumns = ['sku_code', 'title', 'description', 'cost', 'weight', 'notes'];
@@ -122,7 +121,6 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
 
   const processFirstFileForMapping = async (file: File, allFiles: File[]) => {
     try {
-      setProgressLabel(`Reading ${file.name} for column mapping...`);
       const data = await parseFileQuietly(file);
       
       if (!data || data.length === 0) {
@@ -143,7 +141,6 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
 
     } catch (error) {
       console.error('Error processing file for mapping:', error);
-      setProgressLabel('Error reading file');
       setIsProcessingQueue(false);
     }
   };
@@ -158,15 +155,11 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
       await processFileWithMappings(mappedData, currentFileName);
       
       if (pendingFiles.length > 1) {
-        setProgressLabel(`Processing remaining ${pendingFiles.length - 1} files with saved mapping...`);
         await processRemainingFilesWithSavedMappings(pendingFiles.slice(1), mapping);
       }
       
-      setProgressLabel('All files processed successfully!');
-      
     } catch (error) {
       console.error('Error in mapping completion:', error);
-      setProgressLabel('Error processing files');
     } finally {
       setIsProcessingQueue(false);
       setCurrentFileData(null);
@@ -182,8 +175,6 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
     for (let i = 0; i < remainingFiles.length; i++) {
       const file = remainingFiles[i];
       setCurrentFileIndex(i + 1);
-      setProgress(((i + 1) / remainingFiles.length) * 100);
-      setProgressLabel(`Processing file ${i + 2}/${pendingFiles.length}: ${file.name}`);
       
       try {
         const data = await parseFileQuietly(file);
@@ -302,86 +293,12 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
     setPasteData('');
   };
 
-  // Multi-threaded save handler
+  // Background save handler
   const handleSaveAll = async () => {
     if (bulkSKUs.length === 0) return;
 
-    setIsProcessing(true);
-    setIsShowingThreads(true);
-    setProgress(0);
-    setProgressLabel(`Preparing ${threadCount} threads for processing ${bulkSKUs.length} SKUs...`);
-
-    const initialThreads: ThreadProgress[] = Array.from({ length: threadCount }, (_, i) => ({
-      id: i,
-      progress: 0,
-      label: `Thread ${i + 1}: Ready`,
-      status: 'waiting',
-      processed: 0,
-      total: 0
-    }));
-    setThreadProgress(initialThreads);
-
     try {
-      const chunkSize = Math.ceil(bulkSKUs.length / threadCount);
-      const chunks: BulkSKU[][] = [];
-      
-      for (let i = 0; i < threadCount; i++) {
-        const start = i * chunkSize;
-        const end = Math.min(start + chunkSize, bulkSKUs.length);
-        if (start < bulkSKUs.length) {
-          chunks.push(bulkSKUs.slice(start, end));
-        }
-      }
-
-      setProgressLabel(`Processing ${bulkSKUs.length} SKUs across ${chunks.length} threads...`);
-
-      const threadPromises = chunks.map((chunk, threadIndex) => 
-        processSkuChunk(chunk, threadIndex)
-      );
-
-      await Promise.all(threadPromises);
-
-      setProgressLabel('All SKUs processed and saved successfully!');
-      
-      setBulkSKUs([]);
-      setIsShowingThreads(false);
-      
-    } catch (error) {
-      console.error('Error saving SKUs:', error);
-    } finally {
-      setIsProcessing(false);
-      setProgress(0);
-      setProgressLabel('');
-    }
-  };
-
-  // Process a chunk of SKUs for a specific thread
-  const processSkuChunk = async (chunk: BulkSKU[], threadIndex: number) => {
-    const updateThreadProgress = (completed: number, total: number, label: string, status: ThreadProgress['status']) => {
-      setThreadProgress(prev => prev.map(thread => 
-        thread.id === threadIndex 
-          ? { 
-              ...thread, 
-              progress: (completed / total) * 100,
-              label,
-              status,
-              processed: completed,
-              total
-            }
-          : thread
-      ));
-      
-      setProgress(prev => {
-        const completedAcrossThreads = threadProgress.reduce((acc, t) => acc + t.processed, 0) + completed;
-        const totalAcrossThreads = bulkSKUs.length;
-        return (completedAcrossThreads / totalAcrossThreads) * 100;
-      });
-    };
-
-    updateThreadProgress(0, chunk.length, `Thread ${threadIndex + 1}: Starting bulk processing...`, 'processing');
-
-    try {
-      const dbSkus = chunk.map(sku => ({
+      const dbSkus = bulkSKUs.map(sku => ({
         sku_code: sku.skuCode,
         title: sku.title,
         description: sku.description,
@@ -391,86 +308,27 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
         country: profile?.country || 'UAE'
       }));
 
-      updateThreadProgress(
-        0, 
-        chunk.length, 
-        `Thread ${threadIndex + 1}: Processing ${chunk.length} SKUs in bulk...`,
-        'processing'
-      );
-
-      await onAddSKUs(dbSkus);
+      // Start background upload - no need to wait for it
+      runBackgroundUpload(dbSkus, onAddSKUs, threadCount);
       
-      updateThreadProgress(
-        chunk.length, 
-        chunk.length, 
-        `Thread ${threadIndex + 1}: Successfully processed ${chunk.length} SKUs!`,
-        'completed'
-      );
-
-      return dbSkus;
+      // Clear the form immediately and show success message
+      setBulkSKUs([]);
+      
+      toast({
+        title: "Upload Started",
+        description: `${bulkSKUs.length} SKUs queued for background processing. You can navigate to other pages while this completes.`,
+      });
       
     } catch (error) {
-      console.error(`Error in thread ${threadIndex + 1}:`, error);
-      
-      updateThreadProgress(
-        0, 
-        chunk.length, 
-        `Thread ${threadIndex + 1}: Bulk failed, trying individual inserts...`,
-        'processing'
-      );
-
-      const processedSKUs = [];
-      for (let i = 0; i < chunk.length; i++) {
-        const sku = chunk[i];
-        
-        try {
-          const dbSku = {
-            sku_code: sku.skuCode,
-            title: sku.title,
-            description: sku.description,
-            cost: sku.cost,
-            weight: sku.weight,
-            notes: sku.notes,
-            country: profile?.country || 'UAE'
-          };
-
-          await onAddSKUs([dbSku]);
-          processedSKUs.push(dbSku);
-          
-          updateThreadProgress(
-            i + 1, 
-            chunk.length, 
-            `Thread ${threadIndex + 1}: Saved ${sku.skuCode} (${i + 1}/${chunk.length})`,
-            'processing'
-          );
-          
-        } catch (individualError: any) {
-          if (individualError?.message?.includes('duplicate key') || 
-              individualError?.code === '23505') {
-            console.log(`SKU ${sku.skuCode} already exists, skipping...`);
-          } else {
-            console.error(`Error saving SKU ${sku.skuCode}:`, individualError);
-          }
-          
-          updateThreadProgress(
-            i + 1, 
-            chunk.length, 
-            `Thread ${threadIndex + 1}: Processed ${sku.skuCode} (${i + 1}/${chunk.length})`,
-            'processing'
-          );
-        }
-      }
-
-      updateThreadProgress(
-        chunk.length, 
-        chunk.length, 
-        `Thread ${threadIndex + 1}: Completed ${processedSKUs.length}/${chunk.length} SKUs!`,
-        processedSKUs.length === chunk.length ? 'completed' : 'error'
-      );
-      
-      return processedSKUs;
+      console.error('Error starting background upload:', error);
+      toast({
+        title: "Upload Error",
+        description: "Failed to start background upload process.",
+        variant: "destructive"
+      });
     }
   };
+
 
   return (
     <div className="container mx-auto p-6 max-w-6xl">
@@ -564,17 +422,6 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
                     </p>
                   </div>
                 </div>
-                
-                {isProcessingQueue && (
-                  <div className="mt-4 p-4 bg-muted/50 rounded-lg">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Activity className="h-4 w-4 animate-spin" />
-                      <span className="font-medium">Processing Files...</span>
-                    </div>
-                    <Progress value={progress} className="mb-2" />
-                    <p className="text-sm text-muted-foreground">{progressLabel}</p>
-                  </div>
-                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -743,69 +590,14 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
                   ))}
                 </div>
 
-                {/* Processing UI */}
-                {isProcessing && (
-                  <div className="space-y-4 p-4 bg-muted/50 rounded-lg">
-                    <div className="flex items-center gap-2">
-                      <Zap className="h-5 w-5 text-primary animate-pulse" />
-                      <span className="font-medium">Multi-threaded Processing Active</span>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span>Overall Progress</span>
-                        <span>{Math.round(progress)}%</span>
-                      </div>
-                      <Progress value={progress} />
-                      <p className="text-sm text-muted-foreground">{progressLabel}</p>
-                    </div>
-
-                    {isShowingThreads && (
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-2 text-sm font-medium">
-                          <Users className="h-4 w-4" />
-                          Thread Status
-                        </div>
-                        <div className="grid gap-2">
-                          {threadProgress.map((thread) => (
-                            <div key={thread.id} className="flex items-center gap-3 p-2 bg-background rounded border">
-                              <div className="flex items-center gap-2 min-w-0 flex-1">
-                                {thread.status === 'completed' && <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0" />}
-                                {thread.status === 'processing' && <Activity className="h-4 w-4 text-blue-500 animate-spin flex-shrink-0" />}
-                                {thread.status === 'waiting' && <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />}
-                                {thread.status === 'error' && <X className="h-4 w-4 text-red-500 flex-shrink-0" />}
-                                <span className="text-sm truncate">{thread.label}</span>
-                              </div>
-                              <div className="flex items-center gap-2 flex-shrink-0">
-                                <span className="text-xs text-muted-foreground">
-                                  {thread.processed}/{thread.total}
-                                </span>
-                                <div className="w-16">
-                                  <Progress value={thread.progress} className="h-2" />
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <div className="flex gap-2">
-                  <Button 
-                    onClick={handleSaveAll} 
-                    disabled={isProcessing || isLoading || bulkSKUs.length === 0}
-                    className="flex items-center gap-2"
-                  >
-                    {isProcessing ? (
-                      <Activity className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Zap className="h-4 w-4" />
-                    )}
-                    Save All SKUs ({bulkSKUs.length})
-                  </Button>
-                </div>
+                <Button 
+                  onClick={handleSaveAll} 
+                  disabled={isLoading || bulkSKUs.length === 0}
+                  className="flex items-center gap-2"
+                >
+                  <Zap className="h-4 w-4" />
+                  Start Background Upload ({bulkSKUs.length} SKUs)
+                </Button>
               </div>
             </CardContent>
           </Card>
