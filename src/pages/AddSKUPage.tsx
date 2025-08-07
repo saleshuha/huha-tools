@@ -189,19 +189,25 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
       return;
     }
 
-    console.log('Starting processing for file:', file.name);
+    console.log('=== STARTING FILE PROCESSING ===');
+    console.log('File name:', file.name);
+    console.log('File mapping:', mapping);
+    console.log('onAddSKUs function:', typeof onAddSKUs);
+    
     setFileStatuses(prev => ({ ...prev, [file.name]: 'processing' }));
     setFileProgress(prev => ({ ...prev, [file.name]: 0 }));
     
     try {
       const data = await parseFileQuietly(file);
-      console.log(`Processing ${data?.length || 0} rows from ${file.name}`);
+      console.log(`File ${file.name} parsed successfully with ${data?.length || 0} rows`);
       
       if (data && data.length > 0) {
+        console.log('Sample parsed data (first 3 rows):', data.slice(0, 3));
+        
         const mappedData = data.map((row, index) => {
           // Update progress periodically
           if (index % 100 === 0) {
-            const progress = Math.round((index / data.length) * 100);
+            const progress = Math.round((index / data.length) * 90); // Save 10% for database save
             setFileProgress(prev => ({ ...prev, [file.name]: progress }));
           }
           
@@ -224,7 +230,10 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
           return processedRow;
         }).filter(row => row.sku_code && row.sku_code.toString().trim());
 
-        // Save to database
+        console.log(`Mapped and filtered data: ${mappedData.length} valid rows`);
+        console.log('Sample mapped data (first 3 rows):', mappedData.slice(0, 3));
+
+        // Convert to database format
         const dbSkus = mappedData.map(row => ({
           sku_code: row.sku_code?.toString().trim() || '',
           title: row.title?.toString().trim() || '',
@@ -235,32 +244,66 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
           country: profile?.country || 'UAE'
         }));
 
-        console.log(`Saving ${dbSkus.length} SKUs from ${file.name} to database`);
+        console.log(`Prepared ${dbSkus.length} SKUs for database save`);
+        console.log('Sample DB SKUs (first 3):', dbSkus.slice(0, 3));
+        console.log('User profile country:', profile?.country);
         
-        console.log(`Attempting to save ${dbSkus.length} SKUs to database for ${file.name}`);
+        setFileProgress(prev => ({ ...prev, [file.name]: 90 }));
         
         if (dbSkus.length > 0) {
-          await onAddSKUs(dbSkus);
-          setFileProgress(prev => ({ ...prev, [file.name]: 100 }));
-          setFileStatuses(prev => ({ ...prev, [file.name]: 'completed' }));
+          console.log('=== CALLING onAddSKUs FUNCTION ===');
+          console.log('Function type:', typeof onAddSKUs);
+          console.log('About to save SKUs to database...');
           
-          console.log(`Successfully saved ${dbSkus.length} SKUs from ${file.name} to database`);
-          
-          toast({
-            title: "File Processed",
-            description: `${file.name}: ${dbSkus.length} SKUs saved to database`,
-          });
+          try {
+            await onAddSKUs(dbSkus);
+            console.log(`✅ SUCCESS: ${dbSkus.length} SKUs saved to database for ${file.name}`);
+            
+            setFileProgress(prev => ({ ...prev, [file.name]: 100 }));
+            setFileStatuses(prev => ({ ...prev, [file.name]: 'completed' }));
+            
+            toast({
+              title: "File Processed Successfully",
+              description: `${file.name}: ${dbSkus.length} SKUs saved to database`,
+            });
+          } catch (saveError) {
+            console.error('❌ DATABASE SAVE ERROR:', saveError);
+            console.error('Error details:', {
+              message: saveError instanceof Error ? saveError.message : 'Unknown error',
+              stack: saveError instanceof Error ? saveError.stack : undefined,
+              skuCount: dbSkus.length,
+              fileName: file.name
+            });
+            
+            setFileStatuses(prev => ({ ...prev, [file.name]: 'error' }));
+            setFileProgress(prev => ({ ...prev, [file.name]: 0 }));
+            
+            toast({
+              title: "Database Save Failed",
+              description: `Failed to save SKUs from ${file.name}: ${saveError instanceof Error ? saveError.message : 'Unknown database error'}`,
+              variant: "destructive"
+            });
+            return; // Exit early on save error
+          }
         } else {
-          console.error(`No valid SKUs found to save for ${file.name}`);
+          console.error(`❌ No valid SKUs found to save for ${file.name}`);
           throw new Error('No valid SKUs found to save');
         }
       } else {
+        console.error(`❌ No data found in file: ${file.name}`);
         throw new Error('No data found in file');
       }
     } catch (error) {
-      console.error(`Error processing file ${file.name}:`, error);
+      console.error(`❌ ERROR processing file ${file.name}:`, error);
+      console.error('Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        fileName: file.name
+      });
+      
       setFileStatuses(prev => ({ ...prev, [file.name]: 'error' }));
       setFileProgress(prev => ({ ...prev, [file.name]: 0 }));
+      
       toast({
         title: "Processing Error",
         description: `Failed to process ${file.name}: ${error instanceof Error ? error.message : 'Unknown error'}`,
