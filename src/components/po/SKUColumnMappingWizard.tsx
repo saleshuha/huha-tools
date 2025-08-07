@@ -114,10 +114,19 @@ export function ColumnMappingWizard({
   });
 
   const handleColumnChange = (expectedColumn: string, selectedHeader: string) => {
-    setColumnMapping(prev => ({
-      ...prev,
-      [expectedColumn]: selectedHeader
-    }));
+    setColumnMapping(prev => {
+      const newMapping = { ...prev };
+      
+      if (selectedHeader === "none") {
+        // Remove the mapping if "none" is selected
+        delete newMapping[expectedColumn];
+      } else {
+        // Set the mapping to the selected header
+        newMapping[expectedColumn] = selectedHeader;
+      }
+      
+      return newMapping;
+    });
   };
 
   const processData = () => {
@@ -259,14 +268,14 @@ export function ColumnMappingWizard({
                   
                   <div className="flex-1 min-w-0">
                     <Select
-                      value={columnMapping[expectedCol] || ""}
+                      value={columnMapping[expectedCol] || "none"}
                       onValueChange={(value) => handleColumnChange(expectedCol, value)}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select column from your file" />
                       </SelectTrigger>
                       <SelectContent className="bg-background border z-50 max-h-48">
-                        <SelectItem value="">-- None --</SelectItem>
+                        <SelectItem value="none">-- None --</SelectItem>
                         {headers.map((header: string) => (
                           <SelectItem key={header} value={header}>
                             {header}
