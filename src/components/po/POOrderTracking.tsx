@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
-import { ShoppingCart, Calendar, Search, Package2, Clock, CheckCircle, XCircle, ChevronRight } from 'lucide-react';
+import { ShoppingCart, Calendar, Search, Package2, Clock, CheckCircle, XCircle, ChevronRight, ChevronLeft } from 'lucide-react';
 import { POOrder } from '@/hooks/usePOTracker';
 
 interface POOrderTrackingProps {
@@ -30,6 +30,8 @@ interface POGroup {
 export function POOrderTracking({ orders, onUpdateStatus, onUpdateTracking, isLoading }: POOrderTrackingProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
   const navigate = useNavigate();
 
   // Group orders by PO number
@@ -79,6 +81,16 @@ export function POOrderTracking({ orders, onUpdateStatus, onUpdateTracking, isLo
     
     return matchesSearch && matchesStatus;
   });
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredPOs.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentPOs = filteredPOs.slice(startIndex, endIndex);
+
+  const goToPage = (page: number) => {
+    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+  };
 
   const navigateToPODetails = (poNumber: string) => {
     navigate(`/po-details/${encodeURIComponent(poNumber)}`);
@@ -182,7 +194,7 @@ export function POOrderTracking({ orders, onUpdateStatus, onUpdateTracking, isLo
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {filteredPOs.map((group) => (
+            {currentPOs.map((group) => (
               <div key={group.po_number} className="border rounded-lg">
                  {/* PO Header */}
                 <div 
@@ -255,6 +267,63 @@ export function POOrderTracking({ orders, onUpdateStatus, onUpdateTracking, isLo
               </div>
             ))}
           </div>
+          
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-6 pt-4 border-t">
+              <div className="flex items-center space-x-2">
+                <p className="text-sm text-muted-foreground">
+                  Showing {startIndex + 1} to {Math.min(endIndex, filteredPOs.length)} of {filteredPOs.length} PO orders
+                </p>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => goToPage(currentPage - 1)}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Previous
+                </Button>
+                
+                <div className="flex items-center space-x-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter(page => 
+                      page === 1 || 
+                      page === totalPages || 
+                      (page >= currentPage - 1 && page <= currentPage + 1)
+                    )
+                    .map((page, index, array) => (
+                      <div key={page} className="flex items-center">
+                        {index > 0 && array[index - 1] !== page - 1 && (
+                          <span className="px-2 text-muted-foreground">...</span>
+                        )}
+                        <Button
+                          variant={currentPage === page ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => goToPage(page)}
+                          className="w-8 h-8 p-0"
+                        >
+                          {page}
+                        </Button>
+                      </div>
+                    ))
+                  }
+                </div>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => goToPage(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
