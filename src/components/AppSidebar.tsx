@@ -1,6 +1,6 @@
-import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, Wrench, LogOut, Home, Users, TrendingUp, Merge, Edit3, Database, CreditCard, Upload, BarChart3, DollarSign, Store, ShoppingCart } from "lucide-react"
+import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, Wrench, LogOut, Home, Users, TrendingUp, Merge, Edit3, Database, CreditCard, Upload, BarChart3, DollarSign, Store, ShoppingCart, Building, Zap } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
-import { useState } from "react"
+import { useState, createElement } from "react"
 import { supabase } from "@/integrations/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
@@ -25,103 +25,133 @@ import {
 
 const navigationItems = [
   {
-    title: "Homepage",
+    title: "Dashboard",
     url: "/",
-    icon: Home
+    icon: Home,
+    description: "Overview and key metrics"
   },
+]
+
+const inventoryItems = [
+  {
+    title: "Manage Inventory",
+    url: "/inventory",
+    icon: Package,
+    description: "Stock levels and SKU management"
+  },
+  {
+    title: "Processed Orders",
+    url: "/processed-orders",
+    icon: ShoppingCart,
+    description: "Order fulfillment tracking"
+  },
+  {
+    title: "Replenishment",
+    url: "/replenishment",
+    icon: TrendingUp,
+    description: "Restock recommendations"
+  },
+  {
+    title: "PO Tracker",
+    url: "/po-tracker",
+    icon: Building,
+    description: "Purchase order management"
+  }
+]
+
+const salesReportsItems = [
+  {
+    title: "Noon Dashboard",
+    url: "/noon-dashboard",
+    icon: BarChart3,
+    description: "Sales performance overview"
+  },
+  {
+    title: "Store Management",
+    url: "/noon-stores",
+    icon: Store,
+    description: "Multi-store configuration"
+  },
+  {
+    title: "Sales Data Upload",
+    url: "/noon-sales-data",
+    icon: Upload,
+    description: "Import sales reports"
+  },
+  {
+    title: "Fees Reports",
+    url: "/noon-fees-reports",
+    icon: CreditCard,
+    description: "Platform fee analysis"
+  },
+  {
+    title: "Payment Reports",
+    url: "/payment-reports",
+    icon: DollarSign,
+    description: "Financial statements"
+  },
+  {
+    title: "SKU Cost Management",
+    url: "/noon-sku-costs",
+    icon: Database,
+    description: "Product cost tracking"
+  },
+  {
+    title: "Analytics Dashboard",
+    url: "/noon-analytics",
+    icon: BarChart3,
+    description: "Business intelligence"
+  },
+  {
+    title: "Carrefour Sales",
+    url: "/carrefour-payments",
+    icon: Building,
+    description: "Carrefour marketplace data"
+  }
 ]
 
 const toolsItems = [
   {
     title: "Excel File Mapper",
     url: "/excel-mapper",
-    icon: File
+    icon: File,
+    description: "Map spreadsheet columns"
   },
   {
     title: "Batch Processor",
     url: "/batch",
-    icon: Files
+    icon: Files,
+    description: "Process multiple files"
   },
   {
     title: "ASIN QTY Sum",
     url: "/asin-sum",
-    icon: Calculator
+    icon: Calculator,
+    description: "Calculate quantity totals"
   },
   {
     title: "Zip Splitter",
     url: "/zip-splitter",
-    icon: Archive
+    icon: Archive,
+    description: "Extract compressed files"
   },
   {
     title: "File Merger",
     url: "/file-merger",
-    icon: Merge
+    icon: Merge,
+    description: "Combine multiple files"
   },
   {
     title: "Excel Editor",
     url: "/excel-editor",
-    icon: Edit3
+    icon: Edit3,
+    description: "Edit spreadsheet data"
   },
   {
     title: "Bulk Column Editor",
     url: "/bulk-column-editor",
-    icon: Database
-  }
-]
-
-const coreItems = [
-  {
-    title: "Instock Inventory",
-    url: "/inventory",
-    icon: Package
-  },
-  {
-    title: "Processed Orders",
-    url: "/processed-orders",
-    icon: Database
-  },
-  {
-    title: "Sales & Replenishment",
-    url: "/replenishment",
-    icon: TrendingUp
-  },
-]
-
-const paymentReportsItems = [
-  {
-    title: "Noon Dashboard",
-    url: "/noon-dashboard",
-    icon: BarChart3
-  },
-  {
-    title: "Store Management",
-    url: "/noon-stores",
-    icon: Store
-  },
-  {
-    title: "Sales Data Upload",
-    url: "/noon-sales-data",
-    icon: Upload
-  },
-  {
-    title: "Fees Reports",
-    url: "/noon-fees-reports",
-    icon: CreditCard
-  },
-  {
-    title: "Payment Reports",
-    url: "/payment-reports",
-    icon: DollarSign
-  },
-  {
-    title: "SKU Cost Management",
-    url: "/noon-sku-costs",
-    icon: Database
-  },
-  {
-    title: "Analytics Dashboard",
-    url: "/noon-analytics",
-    icon: BarChart3
+    icon: Database,
+    description: "Mass text replacement"
   }
 ]
 
@@ -129,8 +159,9 @@ export function AppSidebar() {
   const { state } = useSidebar()
   const location = useLocation()
   const isCollapsed = state === "collapsed"
+  const [isInventoryOpen, setIsInventoryOpen] = useState(true)
+  const [isSalesReportsOpen, setIsSalesReportsOpen] = useState(false)
   const [isToolsOpen, setIsToolsOpen] = useState(false)
-  const [isPaymentReportsOpen, setIsPaymentReportsOpen] = useState(false)
   
   const { toast } = useToast()
   const { isAdmin } = useUserProfile()
@@ -161,247 +192,165 @@ export function AppSidebar() {
     return location.pathname === path
   }
 
-  const isToolsSectionActive = () => {
-    return toolsItems.some(item => isActive(item.url))
+  const isGroupActive = (items: any[]) => {
+    return items.some(item => isActive(item.url))
   }
 
-  const isPaymentReportsSectionActive = () => {
-    return paymentReportsItems.some(item => isActive(item.url))
-  }
+  const renderNavItem = (item: any, isSubItem = false) => (
+    <SidebarMenuItem key={item.title}>
+      <SidebarMenuButton 
+        asChild
+        className={`group relative w-full transition-all duration-150 ${
+          isSubItem ? 'ml-2 rounded-md h-8' : 'rounded-md h-9'
+        } ${
+          isActive(item.url)
+            ? "bg-primary text-primary-foreground shadow-sm border-l-2 border-l-primary-foreground/20" 
+            : "hover:bg-accent/50 hover:text-accent-foreground text-muted-foreground"
+        }`}
+      >
+        <NavLink 
+          to={item.url} 
+          end
+          className={`flex items-center no-underline w-full ${
+            isSubItem ? 'px-3 py-1.5' : 'px-3 py-2'
+          }`}
+        >
+          <item.icon className={`flex-shrink-0 ${isSubItem ? 'h-4 w-4' : 'h-4 w-4'}`} />
+          {!isCollapsed && (
+            <div className="ml-3 min-w-0 flex-1">
+              <span className={`font-medium ${isSubItem ? 'text-xs' : 'text-sm'} block truncate`}>
+                {item.title}
+              </span>
+              {!isSubItem && item.description && (
+                <span className="text-xs text-muted-foreground/70 block truncate mt-0.5">
+                  {item.description}
+                </span>
+              )}
+            </div>
+          )}
+        </NavLink>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  )
+
+  const renderCollapsibleSection = (title: string, items: any[], isOpen: boolean, setIsOpen: (open: boolean) => void, icon: any) => (
+    <SidebarMenuItem>
+      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+        <CollapsibleTrigger asChild>
+          <SidebarMenuButton
+            className={`group relative w-full rounded-md h-9 transition-all duration-150 ${
+              isGroupActive(items)
+                ? "bg-accent text-accent-foreground shadow-sm" 
+                : "hover:bg-accent/30 text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <div className="flex items-center w-full px-3 py-2">
+              {icon && createElement(icon, { className: "h-4 w-4 flex-shrink-0" })}
+              {!isCollapsed && (
+                <div className="flex items-center justify-between w-full ml-3">
+                  <span className="font-medium text-sm">
+                    {title}
+                  </span>
+                  <ChevronDown className={`h-3 w-3 transition-transform duration-200 ${
+                    isOpen ? "rotate-180" : ""
+                  }`} />
+                </div>
+              )}
+            </div>
+          </SidebarMenuButton>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="mt-1 space-y-0.5">
+          {items.map((item) => renderNavItem(item, true))}
+        </CollapsibleContent>
+      </Collapsible>
+    </SidebarMenuItem>
+  )
 
   return (
-    <Sidebar collapsible="icon" className="border-r border-sidebar-border w-64 bg-sidebar">
-      <SidebarContent>
+    <Sidebar collapsible="icon" className="border-r bg-card/50 backdrop-blur-sm w-64">
+      <SidebarContent className="py-2">
+        {/* Main Navigation */}
         <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/80 font-semibold px-4 py-3 text-sm">
-            HuHa Dashboard
+          <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground/80 px-4 py-2 mb-1 uppercase tracking-wider">
+            Main Menu
           </SidebarGroupLabel>
-          <SidebarGroupContent className="px-3">
-            <SidebarMenu className="space-y-1">
-              {/* Navigation items */}
-              {navigationItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton 
-                    asChild
-                    className={`group relative w-full rounded-xl transition-all duration-200 hover:scale-[1.02] ${
-                      isActive(item.url)
-                        ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
-                        : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
-                    }`}
-                  >
-                    <NavLink 
-                      to={item.url} 
-                      end
-                      className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
-                    >
-                      <item.icon className="h-5 w-5 flex-shrink-0" />
-                      {!isCollapsed && (
-                        <span className="font-semibold text-sm">
-                          {item.title}
-                        </span>
-                      )}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+          <SidebarGroupContent className="px-2">
+            <SidebarMenu className="space-y-0.5">
+              {navigationItems.map((item) => renderNavItem(item))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
 
-              {/* Core Application Items */}
-              {coreItems.map((item) => {
-                if (item.title === "Sales & Replenishment") {
-                  return (
-                    <SidebarMenuItem key={item.title}>
-                      <SidebarMenuButton 
-                        asChild
-                        className={`group relative w-full rounded-xl transition-all duration-200 hover:scale-[1.02] ${
-                          isActive(item.url)
-                            ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
-                            : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
-                        }`}
-                      >
-                        <NavLink 
-                          to={item.url} 
-                          end
-                          className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
-                        >
-                          <item.icon className="h-5 w-5 flex-shrink-0" />
-                          {!isCollapsed && (
-                            <span className="font-semibold text-sm">
-                              {item.title}
-                            </span>
-                          )}
-                        </NavLink>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  )
-                }
-                
-                return (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton 
-                      asChild
-                      className={`group relative w-full rounded-xl transition-all duration-200 hover:scale-[1.02] ${
-                        isActive(item.url)
-                          ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
-                          : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
-                      }`}
-                    >
-                      <NavLink 
-                        to={item.url} 
-                        end
-                        className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
-                      >
-                        <item.icon className="h-5 w-5 flex-shrink-0" />
-                        {!isCollapsed && (
-                          <span className="font-semibold text-sm">
-                            {item.title}
-                          </span>
-                        )}
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                )
-              })}
+        {/* Inventory Management Section */}
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground/80 px-4 py-2 mb-1 uppercase tracking-wider">
+            Inventory
+          </SidebarGroupLabel>
+          <SidebarGroupContent className="px-2">
+            <SidebarMenu className="space-y-0.5">
+              {renderCollapsibleSection("Inventory Management", inventoryItems, isInventoryOpen, setIsInventoryOpen, Package)}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
 
-              {/* PO Tracker standalone item */}
-              <SidebarMenuItem>
-                <SidebarMenuButton 
-                  asChild
-                  className={`group relative w-full rounded-xl transition-all duration-200 hover:scale-[1.02] ${
-                    isActive("/po-tracker")
-                      ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
-                      : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
-                  }`}
-                >
-                  <NavLink 
-                    to="/po-tracker" 
-                    end
-                    className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
-                  >
-                    <ShoppingCart className="h-5 w-5 flex-shrink-0" />
-                    {!isCollapsed && (
-                      <span className="font-semibold text-sm">
-                        PO - SS Stock Tracker
-                      </span>
-                    )}
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+        {/* Sales & Reports Section */}
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground/80 px-4 py-2 mb-1 uppercase tracking-wider">
+            Sales & Reports
+          </SidebarGroupLabel>
+          <SidebarGroupContent className="px-2">
+            <SidebarMenu className="space-y-0.5">
+              {renderCollapsibleSection("Sales Analytics", salesReportsItems, isSalesReportsOpen, setIsSalesReportsOpen, BarChart3)}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
 
-              {/* Carrefour Sales Tracker as standalone item */}
-              <SidebarMenuItem>
-                <SidebarMenuButton 
-                  asChild
-                  className={`group relative w-full rounded-xl transition-all duration-200 hover:scale-[1.02] ${
-                    isActive("/carrefour-payments")
-                      ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
-                      : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
-                  }`}
-                >
-                  <NavLink 
-                    to="/carrefour-payments" 
-                    end
-                    className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
-                  >
-                    <BarChart3 className="h-5 w-5 flex-shrink-0" />
-                    {!isCollapsed && (
-                      <span className="font-semibold text-sm">
-                        Carrefour Sales Tracker
-                      </span>
-                    )}
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-
-
-              {/* Tools dropdown */}
-              <SidebarMenuItem>
-                <Collapsible open={isToolsOpen} onOpenChange={setIsToolsOpen}>
-                  <CollapsibleTrigger asChild>
-                    <SidebarMenuButton
-                      className={`group relative w-full rounded-xl transition-all duration-200 hover:scale-[1.02] ${
-                        isToolsSectionActive()
-                          ? "bg-gradient-to-r from-accent to-accent/90 text-accent-foreground shadow-lg shadow-accent/25" 
-                          : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
-                      }`}
-                    >
-                      <div className="flex items-center gap-3 w-full px-4 py-3">
-                        <Wrench className="h-5 w-5 flex-shrink-0" />
-                        {!isCollapsed && (
-                          <div className="flex items-center justify-between w-full">
-                            <span className="font-semibold text-sm">
-                              Tools
-                            </span>
-                            <ChevronDown className={`h-4 w-4 transition-transform ${
-                              isToolsOpen ? "rotate-180" : ""
-                            }`} />
-                          </div>
-                        )}
-                      </div>
-                    </SidebarMenuButton>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="mt-2 space-y-1 pl-3">
-                    {toolsItems.map((item) => (
-                      <SidebarMenuButton 
-                        key={item.title}
-                        asChild
-                        className={`group relative w-full rounded-lg transition-all duration-200 hover:scale-[1.01] ml-2 ${
-                          isActive(item.url)
-                            ? "bg-gradient-to-r from-primary/80 to-primary/70 text-primary-foreground shadow-md shadow-primary/20" 
-                            : "hover:bg-gradient-to-r hover:from-sidebar-accent/60 hover:to-sidebar-accent/50 hover:text-sidebar-accent-foreground"
-                        }`}
-                      >
-                        <NavLink 
-                          to={item.url} 
-                          end
-                          className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-lg"
-                        >
-                          <item.icon className="h-4 w-4 flex-shrink-0 opacity-75" />
-                          {!isCollapsed && (
-                            <span className="font-medium text-xs">
-                              {item.title}
-                            </span>
-                          )}
-                        </NavLink>
-                      </SidebarMenuButton>
-                    ))}
-                  </CollapsibleContent>
-                </Collapsible>
-              </SidebarMenuItem>
+        {/* Tools Section */}
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground/80 px-4 py-2 mb-1 uppercase tracking-wider">
+            Utilities
+          </SidebarGroupLabel>
+          <SidebarGroupContent className="px-2">
+            <SidebarMenu className="space-y-0.5">
+              {renderCollapsibleSection("Data Tools", toolsItems, isToolsOpen, setIsToolsOpen, Zap)}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="p-3 border-t border-sidebar-border space-y-3">
-        <SidebarMenuButton 
-          asChild
-          className={`group relative w-full rounded-xl transition-all duration-200 hover:scale-[1.02] ${
-            isActive("/users")
-              ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
-              : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
-          }`}
-        >
-          <NavLink 
-            to="/users" 
-            end
-            className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
+
+      <SidebarFooter className="p-2 border-t space-y-1">
+        {isAdmin && (
+          <SidebarMenuButton 
+            asChild
+            className={`group relative w-full rounded-md h-9 transition-all duration-150 ${
+              isActive("/users")
+                ? "bg-primary text-primary-foreground shadow-sm" 
+                : "hover:bg-accent/50 text-muted-foreground hover:text-foreground"
+            }`}
           >
-            <Users className="h-5 w-5 flex-shrink-0" />
-            {!isCollapsed && (
-              <span className="font-semibold text-sm">
-                User Management
-              </span>
-            )}
-          </NavLink>
-        </SidebarMenuButton>
+            <NavLink 
+              to="/users" 
+              end
+              className="flex items-center no-underline w-full px-3 py-2"
+            >
+              <Users className="h-4 w-4 flex-shrink-0" />
+              {!isCollapsed && (
+                <span className="font-medium text-sm ml-3">
+                  User Management
+                </span>
+              )}
+            </NavLink>
+          </SidebarMenuButton>
+        )}
         
         <Button 
           onClick={handleLogout}
           variant="outline"
-          className="w-full flex items-center gap-2 text-sm"
           size="sm"
+          className="w-full h-9 text-xs font-medium border-border/50 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30"
         >
           <LogOut className="h-3 w-3" />
-          {!isCollapsed && "Sign Out"}
+          {!isCollapsed && <span className="ml-2">Sign Out</span>}
         </Button>
       </SidebarFooter>
     </Sidebar>
