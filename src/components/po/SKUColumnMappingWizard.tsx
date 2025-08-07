@@ -163,7 +163,7 @@ export function ColumnMappingWizard({
   const isComplete = mappedCount >= Math.min(2, expectedColumns.length); // At least SKU code and one other field
 
   return (
-    <div className="space-y-6 max-h-[90vh] overflow-hidden flex flex-col">
+    <div className="space-y-6 flex flex-col min-h-0">
       <Card className="flex-shrink-0">
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
@@ -291,12 +291,12 @@ export function ColumnMappingWizard({
         </CardContent>
       </Card>
 
-      <Card className="flex-1 min-h-0 flex flex-col">
+      <Card className="flex-1 flex flex-col">
         <CardHeader className="flex-shrink-0">
           <CardTitle>Sample Data Preview</CardTitle>
         </CardHeader>
-        <CardContent className="p-0 flex-1 min-h-0 flex flex-col">
-          <div className="flex-1 min-h-0 overflow-auto border rounded-lg m-4">
+        <CardContent className="p-0 flex-1 flex flex-col">
+          <div className="flex-1 overflow-auto border rounded-lg m-4 max-h-96">
             <div className="overflow-auto">
               <table className="w-full text-sm">
                 <thead className="sticky top-0 bg-background z-10 border-b">
