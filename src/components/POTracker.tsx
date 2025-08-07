@@ -14,11 +14,79 @@ import { POProfitAnalytics } from './po/POProfitAnalytics';
 import { ShippingRateDialog } from './po/ShippingRateDialog';
 import { useSKUManager } from '@/hooks/useSKUManager';
 import { usePOOrders } from '@/hooks/usePOOrders';
+import { useUserProfile } from '@/hooks/useUserProfile';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 export function POTracker() {
   const [activeTab, setActiveTab] = useState('upload');
   const [searchTerm, setSearchTerm] = useState('');
   const [shippingRate, setShippingRate] = useState(0.005); // Default: 0.005 AED per gram
+  const [isUpdatingRate, setIsUpdatingRate] = useState(false);
+  const { profile } = useUserProfile();
+  const { toast } = useToast();
+
+  // Load shipping rate from localStorage or profile on component mount
+  useEffect(() => {
+    const loadShippingRate = () => {
+      try {
+        // First try to load from localStorage for immediate availability
+        const savedRate = localStorage.getItem(`shipping_rate_${profile?.id || 'default'}`);
+        if (savedRate) {
+          setShippingRate(parseFloat(savedRate));
+        }
+      } catch (error) {
+        console.error('Failed to load shipping rate from localStorage:', error);
+      }
+    };
+
+    loadShippingRate();
+  }, [profile?.id]);
+
+  // Function to save shipping rate permanently
+  const handleUpdateShippingRate = async (newRate: number) => {
+    setIsUpdatingRate(true);
+    try {
+      // Save to localStorage for immediate persistence
+      localStorage.setItem(`shipping_rate_${profile?.id || 'default'}`, newRate.toString());
+      
+      // Also save to user profile for cross-device persistence
+      if (profile?.id) {
+        const { error } = await supabase
+          .from('profiles')
+          .update({ 
+            shipping_rate: newRate,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', profile.id);
+
+        if (error) {
+          console.error('Failed to save shipping rate to profile:', error);
+          toast({
+            title: "Warning",
+            description: "Shipping rate saved locally but failed to sync to your profile",
+            variant: "destructive"
+          });
+        }
+      }
+
+      setShippingRate(newRate);
+      
+      toast({
+        title: "Success",
+        description: `Shipping rate permanently saved: ${newRate.toFixed(3)} per gram`,
+      });
+    } catch (error) {
+      console.error('Failed to save shipping rate:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save shipping rate. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsUpdatingRate(false);
+    }
+  };
   
   // Separate hooks for different functionalities
   const {
@@ -66,9 +134,6 @@ export function POTracker() {
     }
   };
 
-  const updateShippingRate = (rate: number) => {
-    setShippingRate(rate);
-  };
 
   const refreshData = () => {
     if (activeTab === 'skus') {
@@ -296,8 +361,8 @@ export function POTracker() {
                 </div>
                 <ShippingRateDialog 
                   currentRate={shippingRate} 
-                  onUpdateRate={updateShippingRate} 
-                  isLoading={skuLoading} 
+                  onUpdateRate={handleUpdateShippingRate} 
+                  isLoading={isUpdatingRate} 
                 />
                 <AddSKUDialog onAddSKUs={addSKUs} isLoading={skuLoading} />
               </div>
