@@ -13,6 +13,7 @@ import JSZip from "jszip";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 interface FileData {
   id: string;
@@ -30,10 +31,20 @@ interface ColumnReplacement {
   replaceAll: boolean;
 }
 
+interface CompressionStats {
+  fileCount: number;
+  originalSize: number;
+  compressedSize: number;
+  compressionRatio: number;
+}
+
 const BulkColumnEditor = () => {
   const [files, setFiles] = useState<FileData[]>([]);
   const [replacements, setReplacements] = useState<ColumnReplacement[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [compressionStats, setCompressionStats] = useState<CompressionStats | null>(null);
+  const [preparedZip, setPreparedZip] = useState<JSZip | null>(null);
   const { toast } = useToast();
 
   const processFile = async (file: File, fileName?: string): Promise<FileData | null> => {
@@ -182,7 +193,7 @@ const BulkColumnEditor = () => {
     setFiles(prev => prev.filter(file => file.id !== id));
   };
 
-  const applyReplacements = async () => {
+  const prepareCompression = async () => {
     if (files.length === 0 || replacements.length === 0) {
       toast({
         title: "Error",
@@ -196,6 +207,7 @@ const BulkColumnEditor = () => {
 
     try {
       const zip = new JSZip();
+      let totalOriginalSize = 0;
 
       for (const file of files) {
         let processedData = [...file.data];
@@ -230,9 +242,42 @@ const BulkColumnEditor = () => {
 
         const fileName = file.name.replace(/\.(xlsx?|csv)$/i, '_edited.csv');
         zip.file(fileName, csvContent);
+        
+        // Calculate original size
+        totalOriginalSize += new Blob([csvContent]).size;
       }
 
+      // Generate compressed zip to get compression stats
       const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const compressedSize = zipBlob.size;
+      const compressionRatio = ((totalOriginalSize - compressedSize) / totalOriginalSize) * 100;
+
+      const stats: CompressionStats = {
+        fileCount: files.length,
+        originalSize: totalOriginalSize,
+        compressedSize: compressedSize,
+        compressionRatio: compressionRatio
+      };
+
+      setCompressionStats(stats);
+      setPreparedZip(zip);
+      setShowConfirmDialog(true);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to prepare files for compression",
+        variant: "destructive"
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const downloadPreparedZip = async () => {
+    if (!preparedZip) return;
+
+    try {
+      const zipBlob = await preparedZip.generateAsync({ type: 'blob' });
       const url = URL.createObjectURL(zipBlob);
       const a = document.createElement('a');
       a.href = url;
@@ -244,17 +289,27 @@ const BulkColumnEditor = () => {
 
       toast({
         title: "Success",
-        description: "Files processed and downloaded successfully"
+        description: "Files downloaded successfully"
       });
+
+      setShowConfirmDialog(false);
+      setPreparedZip(null);
+      setCompressionStats(null);
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to process files",
+        description: "Failed to download files",
         variant: "destructive"
       });
-    } finally {
-      setIsProcessing(false);
     }
+  };
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
   const getAvailableColumns = () => {
@@ -429,15 +484,64 @@ const BulkColumnEditor = () => {
         {/* Process Button */}
         <div className="flex justify-center">
           <Button
-            onClick={applyReplacements}
+            onClick={prepareCompression}
             disabled={isProcessing || files.length === 0 || replacements.length === 0}
             size="lg"
             className="gap-2"
           >
             <Download className="h-5 w-5" />
-            {isProcessing ? "Processing..." : "Process & Download Files"}
+            {isProcessing ? "Processing..." : "Prepare & Preview Compression"}
           </Button>
         </div>
+
+        {/* Compression Confirmation Dialog */}
+        <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Compression Summary</AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div className="space-y-3">
+                  <p>Files have been processed and compressed. Review the compression details:</p>
+                  {compressionStats && (
+                    <div className="grid grid-cols-2 gap-4 p-4 bg-muted rounded-lg">
+                      <div>
+                        <p className="text-sm font-medium">Files Count</p>
+                        <p className="text-lg">{compressionStats.fileCount}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">Original Size</p>
+                        <p className="text-lg">{formatFileSize(compressionStats.originalSize)}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">Compressed Size</p>
+                        <p className="text-lg">{formatFileSize(compressionStats.compressedSize)}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">Compression Ratio</p>
+                        <p className="text-lg">{compressionStats.compressionRatio.toFixed(1)}%</p>
+                      </div>
+                    </div>
+                  )}
+                  <p className="text-sm text-muted-foreground">
+                    Would you like to download the compressed ZIP file?
+                  </p>
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => {
+                setShowConfirmDialog(false);
+                setPreparedZip(null);
+                setCompressionStats(null);
+              }}>
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction onClick={downloadPreparedZip}>
+                Download ZIP
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );
