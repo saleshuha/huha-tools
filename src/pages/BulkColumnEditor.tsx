@@ -36,52 +36,111 @@ const BulkColumnEditor = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
 
+  const processFile = async (file: File, fileName?: string): Promise<FileData | null> => {
+    try {
+      const actualFileName = fileName || file.name;
+      let data: string[][];
+      let headers: string[];
+      const fileType = actualFileName.toLowerCase().endsWith('.csv') ? 'csv' : 'excel';
+
+      if (fileType === 'csv') {
+        const text = await file.text();
+        const parsed = Papa.parse(text, { header: false });
+        data = parsed.data as string[][];
+        headers = data[0] || [];
+        data = data.slice(1);
+      } else {
+        const buffer = await file.arrayBuffer();
+        const workbook = XLSX.read(buffer, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+        data = jsonData as string[][];
+        headers = data[0] || [];
+        data = data.slice(1);
+      }
+
+      return {
+        id: Math.random().toString(36).substr(2, 9),
+        name: actualFileName,
+        headers,
+        data,
+        type: fileType
+      };
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: `Failed to process file: ${fileName || file.name}`,
+        variant: "destructive"
+      });
+      return null;
+    }
+  };
+
+  const extractZipFile = async (file: File): Promise<FileData[]> => {
+    const extractedFiles: FileData[] = [];
+    
+    try {
+      const zip = new JSZip();
+      const zipContent = await zip.loadAsync(file);
+      
+      for (const [fileName, zipEntry] of Object.entries(zipContent.files)) {
+        if (zipEntry.dir) continue;
+        
+        const fileExtension = fileName.toLowerCase();
+        if (fileExtension.endsWith('.csv') || 
+            fileExtension.endsWith('.xlsx') || 
+            fileExtension.endsWith('.xls')) {
+          
+          const fileBlob = await zipEntry.async('blob');
+          const extractedFile = new File([fileBlob], fileName);
+          const processedFile = await processFile(extractedFile, fileName);
+          
+          if (processedFile) {
+            extractedFiles.push(processedFile);
+          }
+        }
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: `Failed to extract ZIP file: ${file.name}`,
+        variant: "destructive"
+      });
+    }
+    
+    return extractedFiles;
+  };
+
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const newFiles: FileData[] = [];
+    let totalProcessed = 0;
 
     for (const file of acceptedFiles) {
-      try {
-        let data: string[][];
-        let headers: string[];
-        const fileType = file.name.toLowerCase().endsWith('.csv') ? 'csv' : 'excel';
-
-        if (fileType === 'csv') {
-          const text = await file.text();
-          const parsed = Papa.parse(text, { header: false });
-          data = parsed.data as string[][];
-          headers = data[0] || [];
-          data = data.slice(1);
-        } else {
-          const buffer = await file.arrayBuffer();
-          const workbook = XLSX.read(buffer, { type: 'array' });
-          const sheetName = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[sheetName];
-          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-          data = jsonData as string[][];
-          headers = data[0] || [];
-          data = data.slice(1);
-        }
-
-        newFiles.push({
-          id: Math.random().toString(36).substr(2, 9),
-          name: file.name,
-          headers,
-          data,
-          type: fileType
-        });
-      } catch (error) {
+      const fileName = file.name.toLowerCase();
+      
+      if (fileName.endsWith('.zip')) {
         toast({
-          title: "Error",
-          description: `Failed to process file: ${file.name}`,
-          variant: "destructive"
+          title: "Extracting ZIP",
+          description: `Extracting files from ${file.name}...`,
         });
+        
+        const extractedFiles = await extractZipFile(file);
+        newFiles.push(...extractedFiles);
+        totalProcessed += extractedFiles.length;
+      } else {
+        const processedFile = await processFile(file);
+        if (processedFile) {
+          newFiles.push(processedFile);
+          totalProcessed++;
+        }
       }
     }
 
     setFiles(prev => [...prev, ...newFiles]);
     toast({
-      title: "Files uploaded",
-      description: `${newFiles.length} file(s) processed successfully`
+      title: "Files processed",
+      description: `${totalProcessed} file(s) processed successfully`
     });
   }, [toast]);
 
@@ -90,7 +149,8 @@ const BulkColumnEditor = () => {
     accept: {
       'text/csv': ['.csv'],
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
-      'application/vnd.ms-excel': ['.xls']
+      'application/vnd.ms-excel': ['.xls'],
+      'application/zip': ['.zip']
     },
     multiple: true
   });
@@ -240,8 +300,8 @@ const BulkColumnEditor = () => {
                 <p className="text-lg text-primary">Drop files here...</p>
               ) : (
                 <div>
-                  <p className="text-lg mb-2">Drag & drop CSV or Excel files here</p>
-                  <p className="text-sm text-muted-foreground">or click to select files</p>
+                  <p className="text-lg mb-2">Drag & drop CSV, Excel, or ZIP files here</p>
+                  <p className="text-sm text-muted-foreground">ZIP files will be automatically extracted • or click to select files</p>
                 </div>
               )}
             </div>
