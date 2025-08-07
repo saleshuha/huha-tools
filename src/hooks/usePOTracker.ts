@@ -45,6 +45,7 @@ export const usePOTracker = () => {
   const [sunskySKUs, setSunskySKUs] = useState<SunskySKU[]>([]);
   const [poOrders, setPOOrders] = useState<POOrder[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [shippingRate, setShippingRate] = useState(0.005); // Default: 0.005 AED per gram
   const { toast } = useToast();
 
   // Fetch Sunsky SKUs
@@ -270,14 +271,25 @@ export const usePOTracker = () => {
     fetchPOOrders();
   }, []);
 
+  // Update shipping rate
+  const updateShippingRate = (rate: number) => {
+    setShippingRate(rate);
+    toast({
+      title: "Success",
+      description: `Shipping rate updated to ${rate.toFixed(3)} per gram`
+    });
+  };
+
   return {
     sunskySKUs,
     poOrders,
     isLoading,
+    shippingRate,
     addSKUs,
     processPOFiles,
     updateOrderStatus,
     updateTrackingInfo,
+    updateShippingRate,
     refetch: () => {
       fetchSunskySKUs();
       fetchPOOrders();

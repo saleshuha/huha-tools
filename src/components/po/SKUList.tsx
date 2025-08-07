@@ -2,15 +2,16 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Package, Calendar } from 'lucide-react';
+import { Package, Calendar, Calculator } from 'lucide-react';
 import { SunskySKU } from '@/hooks/usePOTracker';
 
 interface SKUListProps {
   skus: SunskySKU[];
+  shippingRate: number;
   isLoading: boolean;
 }
 
-export function SKUList({ skus, isLoading }: SKUListProps) {
+export function SKUList({ skus, shippingRate, isLoading }: SKUListProps) {
   if (isLoading) {
     return (
       <div className="space-y-3">
@@ -54,50 +55,76 @@ export function SKUList({ skus, isLoading }: SKUListProps) {
             <TableRow>
               <TableHead>SKU Code</TableHead>
               <TableHead>Title</TableHead>
-              <TableHead>Cost</TableHead>
+              <TableHead>Product Cost</TableHead>
               <TableHead>Weight</TableHead>
+              <TableHead>Shipping Cost</TableHead>
+              <TableHead>Total Cost</TableHead>
               <TableHead>Added</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {skus.map((sku) => (
-              <TableRow key={sku.id}>
-                <TableCell>
-                  <Badge variant="outline" className="font-mono">
-                    {sku.sku_code}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <div className="max-w-xs truncate font-medium">
-                    {sku.title || '-'}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  {sku.cost ? (
-                    <Badge variant="secondary">
-                      {sku.cost.toFixed(2)} {sku.currency || 'AED'}
+            {skus.map((sku) => {
+              const shippingCost = sku.weight ? (sku.weight * shippingRate) : 0;
+              const totalCost = (sku.cost || 0) + shippingCost;
+              
+              return (
+                <TableRow key={sku.id}>
+                  <TableCell>
+                    <Badge variant="outline" className="font-mono">
+                      {sku.sku_code}
                     </Badge>
-                  ) : (
-                    <span className="text-muted-foreground">-</span>
-                  )}
-                </TableCell>
-                <TableCell>
-                  {sku.weight ? (
-                    <Badge variant="outline">
-                      {sku.weight} g
-                    </Badge>
-                  ) : (
-                    <span className="text-muted-foreground">-</span>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center text-sm text-muted-foreground">
-                    <Calendar className="h-3 w-3 mr-1" />
-                    {new Date(sku.created_at).toLocaleDateString()}
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
+                  </TableCell>
+                  <TableCell>
+                    <div className="max-w-xs truncate font-medium">
+                      {sku.title || '-'}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {sku.cost ? (
+                      <Badge variant="secondary">
+                        {sku.cost.toFixed(2)} {sku.currency || 'AED'}
+                      </Badge>
+                    ) : (
+                      <span className="text-muted-foreground">-</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {sku.weight ? (
+                      <Badge variant="outline">
+                        {sku.weight} g
+                      </Badge>
+                    ) : (
+                      <span className="text-muted-foreground">-</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {sku.weight ? (
+                      <Badge variant="outline" className="bg-blue-50 text-blue-700">
+                        <Calculator className="h-3 w-3 mr-1" />
+                        {shippingCost.toFixed(2)} {sku.currency || 'AED'}
+                      </Badge>
+                    ) : (
+                      <span className="text-muted-foreground">-</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {sku.cost && sku.weight ? (
+                      <Badge variant="default" className="bg-green-600 hover:bg-green-700">
+                        {totalCost.toFixed(2)} {sku.currency || 'AED'}
+                      </Badge>
+                    ) : (
+                      <span className="text-muted-foreground">-</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center text-sm text-muted-foreground">
+                      <Calendar className="h-3 w-3 mr-1" />
+                      {new Date(sku.created_at).toLocaleDateString()}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </CardContent>

@@ -9,6 +9,7 @@ import { POFileUpload } from './po/POFileUpload';
 import { SKUList } from './po/SKUList';
 import { POOrderTracking } from './po/POOrderTracking';
 import { AddSKUDialog } from './po/AddSKUDialog';
+import { ShippingRateDialog } from './po/ShippingRateDialog';
 import { usePOTracker } from '@/hooks/usePOTracker';
 
 export function POTracker() {
@@ -19,10 +20,12 @@ export function POTracker() {
     sunskySKUs,
     poOrders,
     isLoading,
+    shippingRate,
     addSKUs,
     processPOFiles,
     updateOrderStatus,
-    updateTrackingInfo
+    updateTrackingInfo,
+    updateShippingRate
   } = usePOTracker();
 
   const handleFileUpload = async (mappedData: any[]) => {
@@ -161,10 +164,15 @@ export function POTracker() {
                     className="pl-8"
                   />
                 </div>
+                <ShippingRateDialog 
+                  currentRate={shippingRate} 
+                  onUpdateRate={updateShippingRate} 
+                  isLoading={isLoading} 
+                />
                 <AddSKUDialog onAddSKUs={addSKUs} isLoading={isLoading} />
               </div>
               
-              <SKUList skus={filteredSKUs} isLoading={isLoading} />
+              <SKUList skus={filteredSKUs} shippingRate={shippingRate} isLoading={isLoading} />
             </CardContent>
           </Card>
         </TabsContent>
