@@ -16,6 +16,7 @@ interface ShippingRateDialogProps {
 export function ShippingRateDialog({ currentRate, onUpdateRate, isLoading }: ShippingRateDialogProps) {
   const [open, setOpen] = useState(false);
   const [shippingRate, setShippingRate] = useState(currentRate.toString());
+  const [savedRate, setSavedRate] = useState(currentRate);
   const { profile } = useUserProfile();
   const { toast } = useToast();
 
@@ -33,6 +34,7 @@ export function ShippingRateDialog({ currentRate, onUpdateRate, isLoading }: Shi
     const rate = parseFloat(shippingRate);
     if (!isNaN(rate) && rate >= 0) {
       onUpdateRate(rate);
+      setSavedRate(rate); // Save the rate locally to prevent unwanted changes
       toast({
         title: "Shipping Rate Updated",
         description: `Shipping rate set to ${rate.toFixed(3)} ${currencySymbol} per gram`,
@@ -41,8 +43,25 @@ export function ShippingRateDialog({ currentRate, onUpdateRate, isLoading }: Shi
     }
   };
 
+  const handleCancel = () => {
+    // Reset to saved rate on cancel to prevent unwanted changes
+    setShippingRate(savedRate.toString());
+    setOpen(false);
+  };
+
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!newOpen) {
+      // Reset to saved rate when closing without saving
+      setShippingRate(savedRate.toString());
+    } else {
+      // Initialize with current saved rate when opening
+      setShippingRate(savedRate.toString());
+    }
+    setOpen(newOpen);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
           <Truck className="h-4 w-4 mr-2" />
@@ -77,7 +96,7 @@ export function ShippingRateDialog({ currentRate, onUpdateRate, isLoading }: Shi
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>
+          <Button variant="outline" onClick={handleCancel}>
             Cancel
           </Button>
           <Button onClick={handleSave} disabled={isLoading}>
