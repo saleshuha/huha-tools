@@ -391,59 +391,102 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
       });
     };
 
-    updateThreadProgress(0, chunk.length, `Thread ${threadIndex + 1}: Starting...`, 'processing');
+    updateThreadProgress(0, chunk.length, `Thread ${threadIndex + 1}: Starting bulk processing...`, 'processing');
 
-    // Process and save SKUs individually
-    const processedSKUs = [];
-    for (let i = 0; i < chunk.length; i++) {
-      const sku = chunk[i];
+    try {
+      // Convert all SKUs to database format
+      const dbSkus = chunk.map(sku => ({
+        sku_code: sku.skuCode,
+        title: sku.title,
+        description: sku.description,
+        cost: sku.cost,
+        weight: sku.weight,
+        notes: sku.notes,
+        country: profile?.country || 'UAE'
+      }));
+
+      updateThreadProgress(
+        0, 
+        chunk.length, 
+        `Thread ${threadIndex + 1}: Processing ${chunk.length} SKUs in bulk...`,
+        'processing'
+      );
+
+      // Use upsert to handle duplicates gracefully
+      await onAddSKUs(dbSkus);
       
-      try {
-        updateThreadProgress(
-          i, 
-          chunk.length, 
-          `Thread ${threadIndex + 1}: Saving ${sku.skuCode} (${i + 1}/${chunk.length})`,
-          'processing'
-        );
+      updateThreadProgress(
+        chunk.length, 
+        chunk.length, 
+        `Thread ${threadIndex + 1}: Successfully processed ${chunk.length} SKUs!`,
+        'completed'
+      );
 
-        // Convert to database format
-        const dbSku = {
-          sku_code: sku.skuCode,
-          title: sku.title,
-          description: sku.description,
-          cost: sku.cost,
-          weight: sku.weight,
-          notes: sku.notes,
-          country: profile?.country || 'UAE'
-        };
+      return dbSkus;
+      
+    } catch (error) {
+      console.error(`Error in thread ${threadIndex + 1}:`, error);
+      
+      // Fallback: try individual inserts if bulk fails
+      updateThreadProgress(
+        0, 
+        chunk.length, 
+        `Thread ${threadIndex + 1}: Bulk failed, trying individual inserts...`,
+        'processing'
+      );
 
-        // Save individual SKU
-        await onAddSKUs([dbSku]);
-        processedSKUs.push(dbSku);
+      const processedSKUs = [];
+      for (let i = 0; i < chunk.length; i++) {
+        const sku = chunk[i];
         
-        updateThreadProgress(
-          i + 1, 
-          chunk.length, 
-          `Thread ${threadIndex + 1}: Saved ${sku.skuCode} (${i + 1}/${chunk.length})`,
-          'processing'
-        );
-        
-        // Small delay to prevent overwhelming the database
-        await new Promise(resolve => setTimeout(resolve, 50 + Math.random() * 100));
-        
-      } catch (error) {
-        console.error(`Error saving SKU ${sku.skuCode}:`, error);
-        updateThreadProgress(
-          i + 1, 
-          chunk.length, 
-          `Thread ${threadIndex + 1}: Error saving ${sku.skuCode}`,
-          'error'
-        );
+        try {
+          const dbSku = {
+            sku_code: sku.skuCode,
+            title: sku.title,
+            description: sku.description,
+            cost: sku.cost,
+            weight: sku.weight,
+            notes: sku.notes,
+            country: profile?.country || 'UAE'
+          };
+
+          await onAddSKUs([dbSku]);
+          processedSKUs.push(dbSku);
+          
+          updateThreadProgress(
+            i + 1, 
+            chunk.length, 
+            `Thread ${threadIndex + 1}: Saved ${sku.skuCode} (${i + 1}/${chunk.length})`,
+            'processing'
+          );
+          
+        } catch (individualError: any) {
+          // Skip duplicates silently, log other errors
+          if (individualError?.message?.includes('duplicate key') || 
+              individualError?.code === '23505') {
+            console.log(`SKU ${sku.skuCode} already exists, skipping...`);
+          } else {
+            console.error(`Error saving SKU ${sku.skuCode}:`, individualError);
+          }
+          
+          updateThreadProgress(
+            i + 1, 
+            chunk.length, 
+            `Thread ${threadIndex + 1}: Processed ${sku.skuCode} (${i + 1}/${chunk.length})`,
+            'processing'
+          );
+        }
       }
-    }
 
-    updateThreadProgress(chunk.length, chunk.length, `Thread ${threadIndex + 1}: Completed ${processedSKUs.length} SKUs!`, 'completed');
-    return processedSKUs;
+      updateThreadProgress(
+        chunk.length, 
+        chunk.length, 
+        `Thread ${threadIndex + 1}: Completed ${processedSKUs.length}/${chunk.length} SKUs!`,
+        processedSKUs.length === chunk.length ? 'completed' : 'error'
+      );
+      
+      return processedSKUs;
+    }
   };
 
   return (

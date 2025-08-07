@@ -91,7 +91,7 @@ export const usePOTracker = () => {
     }
   };
 
-  // Add multiple SKUs
+  // Add multiple SKUs with upsert to handle duplicates
   const addSKUs = async (skus: Omit<SunskySKU, 'id' | 'created_at' | 'updated_at' | 'user_id'>[]) => {
     setIsLoading(true);
     try {
@@ -115,20 +115,74 @@ export const usePOTracker = () => {
         country: profile.country
       }));
 
+      // Use upsert to handle duplicate SKUs gracefully
       const { data, error } = await (supabase as any)
         .from('sunsky_skus')
-        .insert(skusWithUserId)
+        .upsert(skusWithUserId, { 
+          onConflict: 'user_id,sku_code',
+          ignoreDuplicates: false 
+        })
         .select();
 
       if (error) {
         console.error('Database error:', error);
+        
+        // If upsert fails, try bulk insert with conflict handling
+        if (error.code === '23505' || error.message.includes('duplicate key')) {
+          console.log('Trying bulk insert with conflict handling...');
+          
+          let successCount = 0;
+          let duplicateCount = 0;
+          
+          // Process in smaller chunks to avoid overwhelming the database
+          const chunkSize = 50;
+          for (let i = 0; i < skusWithUserId.length; i += chunkSize) {
+            const chunk = skusWithUserId.slice(i, i + chunkSize);
+            
+            try {
+              const { data: chunkData, error: chunkError } = await (supabase as any)
+                .from('sunsky_skus')
+                .insert(chunk)
+                .select();
+                
+              if (!chunkError) {
+                successCount += chunk.length;
+              }
+            } catch (chunkError: any) {
+              // Handle individual SKUs if chunk fails
+              for (const sku of chunk) {
+                try {
+                  await (supabase as any)
+                    .from('sunsky_skus')
+                    .insert([sku])
+                    .select();
+                  successCount++;
+                } catch (individualError: any) {
+                  if (individualError.code === '23505' || individualError.message.includes('duplicate key')) {
+                    duplicateCount++;
+                  } else {
+                    console.error('Individual SKU error:', individualError);
+                  }
+                }
+              }
+            }
+          }
+          
+          await fetchSunskySKUs();
+          toast({
+            title: "Success",
+            description: `Added ${successCount} new SKUs. ${duplicateCount} SKUs already existed.`
+          });
+          return;
+        }
+        
         throw error;
       }
 
       await fetchSunskySKUs();
       toast({
         title: "Success",
-        description: `Added ${skus.length} SKUs successfully`
+        description: `Processed ${skus.length} SKUs successfully`
       });
     } catch (error) {
       console.error('Error adding SKUs:', error);
