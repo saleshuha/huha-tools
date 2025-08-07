@@ -351,19 +351,7 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
 
       await Promise.all(threadPromises);
 
-      // Combine all results and save
-      const allSKUs = bulkSKUs.map(sku => ({
-        sku_code: sku.skuCode,
-        title: sku.title,
-        description: sku.description,
-        cost: sku.cost,
-        weight: sku.weight,
-        notes: sku.notes,
-        country: profile?.country || 'UAE'
-      }));
-
-      setProgressLabel('Saving all SKUs to database...');
-      await onAddSKUs(allSKUs);
+      setProgressLabel('All SKUs processed and saved successfully!');
       
       // Reset state
       setBulkSKUs([]);
@@ -395,28 +383,67 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
           : thread
       ));
       
-      // Update overall progress
-      const overallProgress = ((threadIndex * 100) + ((completed / total) * 100)) / threadCount;
-      setProgress(overallProgress);
+      // Update overall progress across all threads
+      setProgress(prev => {
+        const completedAcrossThreads = threadProgress.reduce((acc, t) => acc + t.processed, 0) + completed;
+        const totalAcrossThreads = bulkSKUs.length;
+        return (completedAcrossThreads / totalAcrossThreads) * 100;
+      });
     };
 
     updateThreadProgress(0, chunk.length, `Thread ${threadIndex + 1}: Starting...`, 'processing');
 
+    // Process and save SKUs individually
+    const processedSKUs = [];
     for (let i = 0; i < chunk.length; i++) {
       const sku = chunk[i];
       
-      // Simulate processing time (validation, formatting, etc.)
-      await new Promise(resolve => setTimeout(resolve, 100 + Math.random() * 200));
-      
-      updateThreadProgress(
-        i + 1, 
-        chunk.length, 
-        `Thread ${threadIndex + 1}: Processing ${sku.skuCode} (${i + 1}/${chunk.length})`,
-        'processing'
-      );
+      try {
+        updateThreadProgress(
+          i, 
+          chunk.length, 
+          `Thread ${threadIndex + 1}: Saving ${sku.skuCode} (${i + 1}/${chunk.length})`,
+          'processing'
+        );
+
+        // Convert to database format
+        const dbSku = {
+          sku_code: sku.skuCode,
+          title: sku.title,
+          description: sku.description,
+          cost: sku.cost,
+          weight: sku.weight,
+          notes: sku.notes,
+          country: profile?.country || 'UAE'
+        };
+
+        // Save individual SKU
+        await onAddSKUs([dbSku]);
+        processedSKUs.push(dbSku);
+        
+        updateThreadProgress(
+          i + 1, 
+          chunk.length, 
+          `Thread ${threadIndex + 1}: Saved ${sku.skuCode} (${i + 1}/${chunk.length})`,
+          'processing'
+        );
+        
+        // Small delay to prevent overwhelming the database
+        await new Promise(resolve => setTimeout(resolve, 50 + Math.random() * 100));
+        
+      } catch (error) {
+        console.error(`Error saving SKU ${sku.skuCode}:`, error);
+        updateThreadProgress(
+          i + 1, 
+          chunk.length, 
+          `Thread ${threadIndex + 1}: Error saving ${sku.skuCode}`,
+          'error'
+        );
+      }
     }
 
-    updateThreadProgress(chunk.length, chunk.length, `Thread ${threadIndex + 1}: Completed!`, 'completed');
+    updateThreadProgress(chunk.length, chunk.length, `Thread ${threadIndex + 1}: Completed ${processedSKUs.length} SKUs!`, 'completed');
+    return processedSKUs;
   };
 
   return (
