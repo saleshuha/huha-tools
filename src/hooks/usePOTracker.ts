@@ -51,13 +51,41 @@ export const usePOTracker = () => {
   // Fetch Sunsky SKUs
   const fetchSunskySKUs = async () => {
     try {
-      const { data, error } = await (supabase as any)
-        .from('sunsky_skus')
-        .select('*')
-        .order('created_at', { ascending: false });
+      console.log('Fetching all Sunsky SKUs...');
+      
+      // Remove the default 1000 row limit by fetching in chunks
+      let allData: any[] = [];
+      let from = 0;
+      const chunkSize = 1000;
+      let hasMore = true;
 
-      if (error) throw error;
-      setSunskySKUs(data || []);
+      while (hasMore) {
+        const { data, error, count } = await (supabase as any)
+          .from('sunsky_skus')
+          .select('*', { count: 'exact' })
+          .order('created_at', { ascending: false })
+          .range(from, from + chunkSize - 1);
+
+        if (error) throw error;
+        
+        if (data && data.length > 0) {
+          allData = allData.concat(data);
+          from += chunkSize;
+          hasMore = data.length === chunkSize;
+          console.log(`Fetched ${allData.length} SKUs so far...`);
+        } else {
+          hasMore = false;
+        }
+
+        // Safety break to prevent infinite loops
+        if (from > 50000) {
+          console.warn('Reached maximum fetch limit of 50,000 SKUs');
+          hasMore = false;
+        }
+      }
+
+      console.log(`Total SKUs fetched: ${allData.length}`);
+      setSunskySKUs(allData);
     } catch (error) {
       console.error('Error fetching Sunsky SKUs:', error);
       toast({
@@ -71,16 +99,44 @@ export const usePOTracker = () => {
   // Fetch PO Orders
   const fetchPOOrders = async () => {
     try {
-      const { data, error } = await (supabase as any)
-        .from('po_orders')
-        .select(`
-          *,
-          sunsky_sku:sunsky_skus(*)
-        `)
-        .order('created_at', { ascending: false });
+      console.log('Fetching all PO orders...');
+      
+      // Remove the default 1000 row limit by fetching in chunks
+      let allData: any[] = [];
+      let from = 0;
+      const chunkSize = 1000;
+      let hasMore = true;
 
-      if (error) throw error;
-      setPOOrders(data || []);
+      while (hasMore) {
+        const { data, error } = await (supabase as any)
+          .from('po_orders')
+          .select(`
+            *,
+            sunsky_sku:sunsky_skus(*)
+          `)
+          .order('created_at', { ascending: false })
+          .range(from, from + chunkSize - 1);
+
+        if (error) throw error;
+        
+        if (data && data.length > 0) {
+          allData = allData.concat(data);
+          from += chunkSize;
+          hasMore = data.length === chunkSize;
+          console.log(`Fetched ${allData.length} PO orders so far...`);
+        } else {
+          hasMore = false;
+        }
+
+        // Safety break to prevent infinite loops
+        if (from > 50000) {
+          console.warn('Reached maximum fetch limit of 50,000 PO orders');
+          hasMore = false;
+        }
+      }
+
+      console.log(`Total PO orders fetched: ${allData.length}`);
+      setPOOrders(allData);
     } catch (error) {
       console.error('Error fetching PO orders:', error);
       toast({
