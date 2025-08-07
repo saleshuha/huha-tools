@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -60,6 +60,8 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
   const [fileStatuses, setFileStatuses] = useState<Record<string, 'pending' | 'mapping' | 'mapped' | 'processing' | 'completed' | 'error'>>({});
   const [fileProgress, setFileProgress] = useState<Record<string, number>>({});
   const [fileMappings, setFileMappings] = useState<Record<string, any>>({});
+  const [fileRowCounts, setFileRowCounts] = useState<Record<string, { total: number; processed: number }>>({});
+  const [existingSkus, setExistingSkus] = useState<Set<string>>(new Set());
   
   // Bulk selection states
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
@@ -76,6 +78,38 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
   const { profile } = useUserProfile();
   const { runBackgroundUpload } = useBackgroundTasks();
   const { toast } = useToast();
+  
+  // Load existing SKUs from database on mount
+  useEffect(() => {
+    const loadExistingSkus = async () => {
+      if (!profile?.country) return;
+      
+      try {
+        const { supabase } = await import('@/integrations/supabase/client');
+        const { data: skus, error } = await supabase
+          .from('sunsky_skus')
+          .select('sku_code, country')
+          .eq('country', profile.country);
+          
+        if (error) {
+          console.error('Error loading existing SKUs:', error);
+          return;
+        }
+        
+        const skuSet = new Set<string>();
+        skus?.forEach(sku => {
+          skuSet.add(`${sku.sku_code}_${sku.country}`);
+        });
+        
+        setExistingSkus(skuSet);
+        console.log(`Loaded ${skuSet.size} existing SKUs for duplicate detection`);
+      } catch (error) {
+        console.error('Error loading existing SKUs:', error);
+      }
+    };
+    
+    loadExistingSkus();
+  }, [profile?.country]);
 
   // SKU columns for mapping
   const skuColumns = ['sku_code', 'title', 'description', 'cost', 'weight', 'notes'];
@@ -211,11 +245,21 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
       if (data && data.length > 0) {
         console.log('Sample parsed data (first 3 rows):', data.slice(0, 3));
         
+        // Set total row count
+        setFileRowCounts(prev => ({ 
+          ...prev, 
+          [file.name]: { total: data.length, processed: 0 } 
+        }));
+        
         const mappedData = data.map((row, index) => {
-          // Update progress periodically
+          // Update progress and processed count periodically
           if (index % 100 === 0) {
             const progress = Math.round((index / data.length) * 90); // Save 10% for database save
             setFileProgress(prev => ({ ...prev, [file.name]: progress }));
+            setFileRowCounts(prev => ({ 
+              ...prev, 
+              [file.name]: { ...prev[file.name], processed: index } 
+            }));
           }
           
           const processedRow: any = {};
@@ -240,7 +284,7 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
         console.log(`Mapped and filtered data: ${mappedData.length} valid rows`);
         console.log('Sample mapped data (first 3 rows):', mappedData.slice(0, 3));
 
-        // Convert to database format
+        // Convert to database format and filter out duplicates
         const dbSkus = mappedData.map(row => ({
           sku_code: row.sku_code?.toString().trim() || '',
           title: row.title?.toString().trim() || '',
@@ -249,12 +293,27 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
           weight: typeof row.weight === 'number' ? row.weight : (parseFloat(row.weight) || 0),
           notes: row.notes?.toString().trim() || `Imported from ${file.name}`,
           country: profile?.country || 'UAE'
-        }));
+        })).filter(sku => {
+          // Check for duplicates
+          const skuKey = `${sku.sku_code}_${sku.country}`;
+          if (existingSkus.has(skuKey)) {
+            console.log(`Skipping duplicate SKU: ${sku.sku_code}`);
+            return false;
+          }
+          existingSkus.add(skuKey);
+          return true;
+        });
 
-        console.log(`Prepared ${dbSkus.length} SKUs for database save`);
+        const duplicateCount = mappedData.length - dbSkus.length;
+        console.log(`Prepared ${dbSkus.length} unique SKUs for database save (${duplicateCount} duplicates filtered)`);
         console.log('Sample DB SKUs (first 3):', dbSkus.slice(0, 3));
         console.log('User profile country:', profile?.country);
         
+        // Update final processed count
+        setFileRowCounts(prev => ({ 
+          ...prev, 
+          [file.name]: { ...prev[file.name], processed: mappedData.length } 
+        }));
         setFileProgress(prev => ({ ...prev, [file.name]: 90 }));
         
         if (dbSkus.length > 0) {
@@ -271,23 +330,31 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
             
             toast({
               title: "File Processed Successfully",
-              description: `${file.name}: ${dbSkus.length} SKUs saved to database`,
+              description: `${file.name}: ${dbSkus.length} unique SKUs saved${duplicateCount > 0 ? ` (${duplicateCount} duplicates skipped)` : ''}`,
             });
           } catch (saveError) {
             console.error('❌ DATABASE SAVE ERROR:', saveError);
+            
+            // Check if it's a duplicate key error
+            const errorMessage = saveError instanceof Error ? saveError.message : 'Unknown error';
+            const isDuplicateError = errorMessage.includes('duplicate key') || errorMessage.includes('unique constraint');
+            
             console.error('Error details:', {
-              message: saveError instanceof Error ? saveError.message : 'Unknown error',
+              message: errorMessage,
               stack: saveError instanceof Error ? saveError.stack : undefined,
               skuCount: dbSkus.length,
-              fileName: file.name
+              fileName: file.name,
+              isDuplicateError
             });
             
             setFileStatuses(prev => ({ ...prev, [file.name]: 'error' }));
             setFileProgress(prev => ({ ...prev, [file.name]: 0 }));
             
             toast({
-              title: "Database Save Failed",
-              description: `Failed to save SKUs from ${file.name}: ${saveError instanceof Error ? saveError.message : 'Unknown database error'}`,
+              title: isDuplicateError ? "Duplicate SKUs Found" : "Database Save Failed",
+              description: isDuplicateError 
+                ? `Some SKUs from ${file.name} already exist in the database`
+                : `Failed to save SKUs from ${file.name}: ${errorMessage}`,
               variant: "destructive"
             });
             return; // Exit early on save error
@@ -350,7 +417,7 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
             return processedRow;
           }).filter(row => row.sku_code);
           
-          // Save each file to database immediately
+          // Save each file to database immediately with duplicate filtering
           const dbSkus = mappedData.map(row => ({
             sku_code: row.sku_code?.toString().trim() || '',
             title: row.title?.toString().trim() || '',
@@ -359,13 +426,30 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
             weight: typeof row.weight === 'number' ? row.weight : (parseFloat(row.weight) || 0),
             notes: row.notes?.toString().trim() || `Imported from ${file.name}`,
             country: profile?.country || 'UAE'
-          }));
+          })).filter(sku => {
+            // Check for duplicates
+            const skuKey = `${sku.sku_code}_${sku.country}`;
+            if (existingSkus.has(skuKey)) {
+              console.log(`Skipping duplicate SKU: ${sku.sku_code}`);
+              return false;
+            }
+            existingSkus.add(skuKey);
+            return true;
+          });
+          
+          const duplicateCount = mappedData.length - dbSkus.length;
           
           if (dbSkus.length > 0) {
             await onAddSKUs(dbSkus);
             toast({
               title: "File Saved",
-              description: `${file.name}: ${dbSkus.length} SKUs saved to database`,
+              description: `${file.name}: ${dbSkus.length} unique SKUs saved${duplicateCount > 0 ? ` (${duplicateCount} duplicates skipped)` : ''}`,
+            });
+          } else if (duplicateCount > 0) {
+            toast({
+              title: "Duplicates Skipped",
+              description: `${file.name}: All ${duplicateCount} SKUs were duplicates`,
+              variant: "destructive"
             });
           }
           
@@ -1007,7 +1091,12 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
                               {status === 'processing' && (
                                 <div className="mt-2">
                                   <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
-                                    <span>Processing...</span>
+                                    <span>
+                                      Processing... 
+                                      {fileRowCounts[file.name] && (
+                                        ` (${fileRowCounts[file.name].processed}/${fileRowCounts[file.name].total} rows)`
+                                      )}
+                                    </span>
                                     <span>{progress}%</span>
                                   </div>
                                   <Progress value={progress} className="h-1.5" />
