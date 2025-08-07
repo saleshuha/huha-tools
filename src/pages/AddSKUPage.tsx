@@ -135,7 +135,7 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
     setIsProcessingQueue(true);
     
     try {
-      // Process first file to get column mapping
+      // Check if we have saved mappings for any file structure
       const firstFile = files[0];
       const data = await parseFileQuietly(firstFile);
       
@@ -143,16 +143,49 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
         throw new Error('No data found in first file');
       }
 
-      const headers = Object.keys(data[0]);
-      const rows = data.slice(0, 100);
+      const headers = Object.keys(data[0]).sort();
+      const headerSignature = headers.join('|');
+      
+      // Look for saved mapping with matching header structure
+      let existingMapping = null;
+      for (const [fileName, mapping] of Object.entries(savedMappings)) {
+        if (mapping && typeof mapping === 'object') {
+          const mappedHeaders = Object.values(mapping as Record<string, string>).sort();
+          if (mappedHeaders.join('|') === headerSignature) {
+            existingMapping = mapping;
+            console.log(`Found matching mapping from ${fileName} for current file structure`);
+            break;
+          }
+        }
+      }
 
-      setCurrentFileData({
-        headers,
-        rows: rows.map(row => headers.map(header => row[header]))
-      });
-      setCurrentFileName(firstFile.name);
-      setPendingFiles(files);
-      setShowMappingWizard(true);
+      if (existingMapping) {
+        // Auto-process all files with existing mapping
+        toast({
+          title: "Auto-Processing Files",
+          description: `Using existing column mapping to process ${files.length} files automatically...`,
+        });
+        
+        await processAllFilesWithMapping(files, existingMapping);
+        
+        toast({
+          title: "Files Processed",
+          description: `All ${files.length} files have been processed automatically.`,
+        });
+        
+        setIsProcessingQueue(false);
+      } else {
+        // Show mapping wizard for first file
+        const rows = data.slice(0, 100);
+
+        setCurrentFileData({
+          headers,
+          rows: rows.map(row => headers.map(header => row[header]))
+        });
+        setCurrentFileName(firstFile.name);
+        setPendingFiles(files);
+        setShowMappingWizard(true);
+      }
 
     } catch (error) {
       console.error('Error processing files:', error);
@@ -221,30 +254,74 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
     }
   };
 
+  const processAllFilesWithMapping = async (files: File[], mapping: any) => {
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      setCurrentFileIndex(i + 1);
+      
+      // Update file status to processing
+      setFileStatuses(prev => ({ ...prev, [file.name]: 'processing' }));
+      
+      try {
+        const data = await parseFileQuietly(file);
+        if (data && data.length > 0) {
+          const mappedData = data.map(row => {
+            const processedRow: any = {};
+            Object.entries(mapping).forEach(([expectedCol, headerCol]) => {
+              let value = row[headerCol as string];
+              
+              if (expectedCol === 'cost' || expectedCol === 'weight') {
+                value = parseFloat(value) || 0;
+              }
+              
+              if (typeof value === 'string') {
+                value = value.trim();
+              }
+              
+              if (value !== undefined && value !== null && value !== '') {
+                processedRow[expectedCol] = value;
+              }
+            });
+            return processedRow;
+          }).filter(row => row.sku_code);
+          
+          await processFileWithMappings(mappedData, file.name);
+          
+          // Mark file as completed
+          setFileStatuses(prev => ({ ...prev, [file.name]: 'completed' }));
+        }
+      } catch (error) {
+        console.error(`Error processing file ${file.name}:`, error);
+        // Mark file as error
+        setFileStatuses(prev => ({ ...prev, [file.name]: 'error' }));
+      }
+      
+      // Small delay between files to show progress
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+  };
+
   const handleMappingComplete = async (mappedData: any[], mapping: any) => {
     try {
       setShowMappingWizard(false);
       setIsProcessingQueue(true);
       
-      setSavedMappings(prev => ({ ...prev, [currentFileName]: mapping }));
+      // Save mapping with header signature for future auto-processing
+      const headers = Object.values(mapping).sort();
+      const mappingKey = `mapping_${headers.join('|')}`;
+      setSavedMappings(prev => ({ 
+        ...prev, 
+        [currentFileName]: mapping,
+        [mappingKey]: mapping
+      }));
       
-      // Process first file data immediately
-      await processFileWithMappings(mappedData, currentFileName);
+      // Process all files with the mapping
+      await processAllFilesWithMapping(pendingFiles, mapping);
       
-      // Process remaining files in background with optimized batching
-      if (pendingFiles.length > 1) {
-        toast({
-          title: "Processing Files",
-          description: `Processing ${pendingFiles.length} files in background...`,
-        });
-        
-        await processFilesInBackground(pendingFiles.slice(1), mapping);
-        
-        toast({
-          title: "Files Processed",
-          description: `All ${pendingFiles.length} files have been processed successfully.`,
-        });
-      }
+      toast({
+        title: "Files Processed",
+        description: `All ${pendingFiles.length} files have been processed successfully. Mapping saved for future auto-processing.`,
+      });
       
     } catch (error) {
       console.error('Error in mapping completion:', error);
