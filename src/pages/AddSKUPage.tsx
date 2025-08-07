@@ -595,77 +595,57 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
     await processAllFilesWithUniqueSkus(files, mapping);
   };
   const parseFileQuietly = async (file: File): Promise<any[]> => {
-          })).filter(sku => {
-            // Check for duplicates
-            const skuKey = `${sku.sku_code}_${sku.country}`;
-            if (existingSkus.has(skuKey)) {
-              console.log(`Skipping duplicate SKU: ${sku.sku_code}`);
-              return false;
-            }
-            existingSkus.add(skuKey);
-            return true;
-          });
-          
-          const duplicateCount = mappedData.length - dbSkus.length;
-          
-          if (dbSkus.length > 0) {
-            try {
-              await onAddSKUs(dbSkus);
-              toast({
-                title: "File Saved",
-                description: `${file.name}: ${dbSkus.length} unique SKUs saved${duplicateCount > 0 ? ` (${duplicateCount} duplicates skipped)` : ''}`,
-              });
-              // Mark file as completed
-              setFileStatuses(prev => ({ ...prev, [file.name]: 'completed' }));
-            } catch (saveError) {
-              console.error(`Database save error for ${file.name}:`, saveError);
-              const errorMessage = saveError instanceof Error ? saveError.message : 'Unknown error';
-              
-              let errorType = 'Database Error';
-              if (errorMessage.includes('duplicate key') || errorMessage.includes('unique constraint')) {
-                errorType = 'Duplicate SKUs';
-              } else if (errorMessage.includes('timeout')) {
-                errorType = 'Database Timeout';
-              }
-              
-              toast({
-                title: errorType,
-                description: `${file.name}: ${errorMessage}`,
-                variant: "destructive"
-              });
-              setFileStatuses(prev => ({ ...prev, [file.name]: 'error' }));
-            }
-          } else if (duplicateCount > 0) {
-            toast({
-              title: "Duplicates Skipped",
-              description: `${file.name}: All ${duplicateCount} SKUs were duplicates`,
-              variant: "destructive"
+    console.log('Parsing file:', file.name, 'Type:', file.type, 'Size:', file.size);
+    
+    return new Promise((resolve, reject) => {
+      if (file.name.toLowerCase().endsWith('.csv')) {
+        console.log('Parsing as CSV file');
+        Papa.parse(file, {
+          header: true,
+          skipEmptyLines: true,
+          complete: (results) => {
+            console.log('CSV parse results:', {
+              rowCount: results.data.length,
+              errors: results.errors,
+              meta: results.meta,
+              sampleData: results.data.slice(0, 3)
             });
-            setFileStatuses(prev => ({ ...prev, [file.name]: 'completed' }));
-          } else {
-            toast({
-              title: "No Valid SKUs",
-              description: `${file.name}: No valid SKUs found to save`,
-              variant: "destructive"
-            });
-            setFileStatuses(prev => ({ ...prev, [file.name]: 'error' }));
+            resolve(results.data);
+          },
+          error: (error) => {
+            console.error('CSV parse error:', error);
+            reject(error);
           }
-        }
-      } catch (error) {
-        console.error(`Error processing file ${file.name}:`, error);
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        
-        toast({
-          title: "Processing Error",
-          description: `${file.name}: ${errorMessage}`,
-          variant: "destructive"
         });
-        setFileStatuses(prev => ({ ...prev, [file.name]: 'error' }));
+      } else {
+        console.log('Parsing as Excel file');
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const data = new Uint8Array(e.target?.result as ArrayBuffer);
+            const workbook = XLSX.read(data, { type: 'array' });
+            console.log('Excel workbook sheets:', workbook.SheetNames);
+            
+            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+            const jsonData = XLSX.utils.sheet_to_json(firstSheet, { defval: '' });
+            console.log('Excel parse results:', {
+              rowCount: jsonData.length,
+              sampleData: jsonData.slice(0, 3),
+              headers: jsonData[0] ? Object.keys(jsonData[0]) : []
+            });
+            resolve(jsonData);
+          } catch (error) {
+            console.error('Excel parse error:', error);
+            reject(error);
+          }
+        };
+        reader.onerror = () => {
+          console.error('File reader error');
+          reject(new Error('Failed to read file'));
+        };
+        reader.readAsArrayBuffer(file);
       }
-      
-      // Small delay between files to show progress
-      await new Promise(resolve => setTimeout(resolve, 200));
-    }
+    });
   };
 
   const handleMappingComplete = async (mappedData: any[], mapping: any) => {
