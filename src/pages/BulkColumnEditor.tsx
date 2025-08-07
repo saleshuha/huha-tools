@@ -455,32 +455,31 @@ const BulkColumnEditor = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-7xl mx-auto p-6 space-y-6">
-        {/* Page Header */}
-        <div className="border-b border-border pb-4">
-          <h1 className="text-2xl font-semibold text-foreground mb-1">
+    <div className="min-h-screen bg-gradient-surface">
+      <div className="glass-container mx-6 my-4 p-8 animate-fade-in">
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-2">
             Bulk Column Text Editor
           </h1>
-          <p className="text-sm text-muted-foreground">
-            Upload multiple CSV/Excel files and replace text in entire columns across your inventory data
+          <p className="text-muted-foreground text-lg">
+            Upload multiple CSV/Excel files and replace text in entire columns
           </p>
         </div>
 
         {/* Progress Indicator */}
         {progressState.step !== 'idle' && (
-          <Card className="border border-border shadow-sm">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base font-medium">
-                <Settings className="h-5 w-5 text-primary" />
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Settings className="h-5 w-5" />
                 {getStepTitle(progressState.step)}
               </CardTitle>
             </CardHeader>
-            <CardContent className="pt-0">
+            <CardContent>
               <div className="space-y-3">
                 <div className="flex justify-between text-sm">
-                  <span className="text-foreground">{progressState.message}</span>
-                  <span className="text-muted-foreground font-medium">{progressState.progress}%</span>
+                  <span>{progressState.message}</span>
+                  <span>{progressState.progress}%</span>
                 </div>
                 <Progress value={progressState.progress} className="w-full" />
                 {progressState.currentFile && (
@@ -494,14 +493,14 @@ const BulkColumnEditor = () => {
         )}
 
         {/* File Upload Area */}
-        <Card className="border border-border shadow-sm">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-base font-medium">
-              <Upload className="h-5 w-5 text-primary" />
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Upload className="h-5 w-5" />
               Upload Files
             </CardTitle>
           </CardHeader>
-          <CardContent className="pt-0">
+          <CardContent>
             <div
               {...getRootProps()}
               className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer ${
@@ -549,14 +548,14 @@ const BulkColumnEditor = () => {
         </Card>
 
         {/* Replacement Rules */}
-        <Card className="border border-border shadow-sm">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-base font-medium">
-              <Edit3 className="h-5 w-5 text-primary" />
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Edit3 className="h-5 w-5" />
               Text Replacement Rules
             </CardTitle>
           </CardHeader>
-          <CardContent className="pt-0">
+          <CardContent>
             <Button onClick={addReplacement} className="mb-4" disabled={progressState.step !== 'idle'}>
               Add Replacement Rule
             </Button>
