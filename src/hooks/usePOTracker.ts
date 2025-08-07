@@ -54,16 +54,24 @@ export const usePOTracker = () => {
     try {
       console.log('Fetching all Sunsky SKUs in one go...');
       
+      // First get the count
+      const { count, error: countError } = await supabase
+        .from('sunsky_skus')
+        .select('*', { count: 'exact', head: true });
+      
+      if (countError) throw countError;
+      console.log(`Total SKUs available: ${count}`);
+      
       // Fetch all data with high limit to get all records
       const { data, error } = await supabase
         .from('sunsky_skus')
         .select('*')
         .order('created_at', { ascending: false })
-        .limit(100000); // Set a very high limit to effectively remove the default 1000 limit
+        .limit(Math.max(count || 100000, 100000)); // Use count or fallback to high number
 
       if (error) throw error;
       
-      console.log(`Loaded all ${data?.length || 0} SKUs`);
+      console.log(`Loaded ${data?.length || 0} SKUs out of ${count} total`);
       setSunskySKUs(data || []);
     } catch (error) {
       console.error('Error fetching Sunsky SKUs:', error);
