@@ -237,16 +237,21 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
 
         console.log(`Saving ${dbSkus.length} SKUs from ${file.name} to database`);
         
+        console.log(`Attempting to save ${dbSkus.length} SKUs to database for ${file.name}`);
+        
         if (dbSkus.length > 0) {
           await onAddSKUs(dbSkus);
           setFileProgress(prev => ({ ...prev, [file.name]: 100 }));
           setFileStatuses(prev => ({ ...prev, [file.name]: 'completed' }));
+          
+          console.log(`Successfully saved ${dbSkus.length} SKUs from ${file.name} to database`);
           
           toast({
             title: "File Processed",
             description: `${file.name}: ${dbSkus.length} SKUs saved to database`,
           });
         } else {
+          console.error(`No valid SKUs found to save for ${file.name}`);
           throw new Error('No valid SKUs found to save');
         }
       } else {
