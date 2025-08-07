@@ -56,7 +56,9 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
   const [currentFileIndex, setCurrentFileIndex] = useState(0);
   const [savedMappings, setSavedMappings] = useState<any>({});
   const [isProcessingQueue, setIsProcessingQueue] = useState(false);
-  const [fileStatuses, setFileStatuses] = useState<Record<string, 'pending' | 'processing' | 'completed' | 'error'>>({});
+  const [fileStatuses, setFileStatuses] = useState<Record<string, 'pending' | 'mapping' | 'mapped' | 'processing' | 'completed' | 'error'>>({});
+  const [fileProgress, setFileProgress] = useState<Record<string, number>>({});
+  const [fileMappings, setFileMappings] = useState<Record<string, any>>({});
   
   // Column mapping states
   const [showMappingWizard, setShowMappingWizard] = useState(false);
@@ -110,23 +112,23 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
       return;
     }
 
-    setProcessQueue(sortedFiles);
-    setCurrentFileIndex(0);
+    // Add new files to existing queue
+    setProcessQueue(prev => [...prev, ...sortedFiles]);
     
-    // Initialize file statuses
-    const initialStatuses: Record<string, 'pending' | 'processing' | 'completed' | 'error'> = {};
+    // Initialize file statuses for new files
+    const newStatuses: Record<string, 'pending' | 'mapping' | 'mapped' | 'processing' | 'completed' | 'error'> = {};
     sortedFiles.forEach(file => {
-      initialStatuses[file.name] = 'pending';
+      newStatuses[file.name] = 'pending';
     });
-    setFileStatuses(initialStatuses);
+    setFileStatuses(prev => ({ ...prev, ...newStatuses }));
     
-    console.log('Process queue set:', sortedFiles.length, 'files');
-    console.log('File statuses initialized:', initialStatuses);
+    console.log('Files added to queue, total files:', processQueue.length + sortedFiles.length);
     
-    if (sortedFiles.length > 0) {
-      processFilesSequentially(sortedFiles);
-    }
-  }, []);
+    toast({
+      title: "Files Added",
+      description: `${sortedFiles.length} files added to queue. Use individual buttons to map and process each file.`,
+    });
+  }, [processQueue]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -138,105 +140,127 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
     multiple: true
   });
 
-  const processFilesSequentially = async (files: File[]) => {
-    console.log('Starting processFilesSequentially with files:', files.map(f => f.name));
-    setIsProcessingQueue(true);
+  // Individual file mapping handler
+  const startFileMapping = async (file: File) => {
+    console.log('Starting mapping for file:', file.name);
+    setFileStatuses(prev => ({ ...prev, [file.name]: 'mapping' }));
     
     try {
-      // Always show mapping wizard for first file - no auto-mapping
-      const firstFile = files[0];
-      console.log('Processing first file:', firstFile.name, 'Size:', firstFile.size);
-      
-      const data = await parseFileQuietly(firstFile);
-      console.log('Parsed first file data:', { 
+      const data = await parseFileQuietly(file);
+      console.log('Parsed file data:', { 
         rowCount: data?.length || 0, 
-        sampleRows: data?.slice(0, 3),
         headers: data?.[0] ? Object.keys(data[0]) : []
       });
       
       if (!data || data.length === 0) {
-        throw new Error('No data found in first file');
+        throw new Error('No data found in file');
       }
 
       const headers = Object.keys(data[0]).sort();
       console.log('File headers:', headers);
       
-      // Always show mapping wizard - no auto-processing
-      console.log('Showing mapping wizard for file structure');
-      const rows = data; // Use all data, not just first 100 rows
-
       setCurrentFileData({
         headers,
-        rows: rows.map(row => headers.map(header => row[header]))
+        rows: data.map(row => headers.map(header => row[header]))
       });
-      setCurrentFileName(firstFile.name);
-      setPendingFiles(files);
+      setCurrentFileName(file.name);
       setShowMappingWizard(true);
 
     } catch (error) {
-      console.error('Error processing files:', error);
+      console.error('Error parsing file:', error);
+      setFileStatuses(prev => ({ ...prev, [file.name]: 'error' }));
       toast({
-        title: "Processing Error",
-        description: `Failed to process files: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        title: "Parsing Error",
+        description: `Failed to parse ${file.name}: ${error instanceof Error ? error.message : 'Unknown error'}`,
         variant: "destructive"
       });
-      setIsProcessingQueue(false);
     }
   };
 
-  const processFilesInBackground = async (files: File[], mapping: any) => {
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      setCurrentFileIndex(i + 1);
-      
-      // Update file status to processing
-      setFileStatuses(prev => ({ ...prev, [file.name]: 'processing' }));
-      
-      try {
-        const data = await parseFileQuietly(file);
-        if (data && data.length > 0) {
-          const mappedData = data.map(row => {
-            const processedRow: any = {};
-            Object.entries(mapping).forEach(([expectedCol, headerCol]) => {
-              let value = row[headerCol as string];
-              
-              if (expectedCol === 'cost' || expectedCol === 'weight') {
-                value = parseFloat(value) || 0;
-              }
-              
-              if (typeof value === 'string') {
-                value = value.trim();
-              }
-              
-              if (value !== undefined && value !== null && value !== '') {
-                processedRow[expectedCol] = value;
-              }
-            });
-            return processedRow;
-          }).filter(row => row.sku_code);
-          
-          const newSKUs: BulkSKU[] = mappedData.map(row => ({
-            skuCode: row.sku_code?.toString().trim() || '',
-            title: row.title?.toString().trim() || '',
-            description: row.description?.toString().trim() || '',
-            cost: typeof row.cost === 'number' ? row.cost : (parseFloat(row.cost) || 0),
-            weight: typeof row.weight === 'number' ? row.weight : (parseFloat(row.weight) || 0),
-            notes: row.notes?.toString().trim() || `Imported from ${file.name}`
-          }));
+  // Individual file processing handler
+  const startFileProcessing = async (file: File) => {
+    const mapping = fileMappings[file.name];
+    if (!mapping) {
+      toast({
+        title: "No Mapping",
+        description: `Please map columns for ${file.name} first`,
+        variant: "destructive"
+      });
+      return;
+    }
 
-          setBulkSKUs(prev => [...prev, ...newSKUs]);
-          
-          // Mark file as completed
-          setFileStatuses(prev => ({ ...prev, [file.name]: 'completed' }));
-        }
-      } catch (error) {
-        console.error(`Error processing file ${file.name}:`, error);
-        // Mark file as error
-        setFileStatuses(prev => ({ ...prev, [file.name]: 'error' }));
-      }
+    console.log('Starting processing for file:', file.name);
+    setFileStatuses(prev => ({ ...prev, [file.name]: 'processing' }));
+    setFileProgress(prev => ({ ...prev, [file.name]: 0 }));
+    
+    try {
+      const data = await parseFileQuietly(file);
+      console.log(`Processing ${data?.length || 0} rows from ${file.name}`);
       
-      // Small delay between files to show progress
-      await new Promise(resolve => setTimeout(resolve, 200));
+      if (data && data.length > 0) {
+        const mappedData = data.map((row, index) => {
+          // Update progress periodically
+          if (index % 100 === 0) {
+            const progress = Math.round((index / data.length) * 100);
+            setFileProgress(prev => ({ ...prev, [file.name]: progress }));
+          }
+          
+          const processedRow: any = {};
+          Object.entries(mapping).forEach(([expectedCol, headerCol]) => {
+            let value = row[headerCol as string];
+            
+            if (expectedCol === 'cost' || expectedCol === 'weight') {
+              value = parseFloat(value) || 0;
+            }
+            
+            if (typeof value === 'string') {
+              value = value.trim();
+            }
+            
+            if (value !== undefined && value !== null && value !== '') {
+              processedRow[expectedCol] = value;
+            }
+          });
+          return processedRow;
+        }).filter(row => row.sku_code && row.sku_code.toString().trim());
+
+        // Save to database
+        const dbSkus = mappedData.map(row => ({
+          sku_code: row.sku_code?.toString().trim() || '',
+          title: row.title?.toString().trim() || '',
+          description: row.description?.toString().trim() || '',
+          cost: typeof row.cost === 'number' ? row.cost : (parseFloat(row.cost) || 0),
+          weight: typeof row.weight === 'number' ? row.weight : (parseFloat(row.weight) || 0),
+          notes: row.notes?.toString().trim() || `Imported from ${file.name}`,
+          country: profile?.country || 'UAE'
+        }));
+
+        console.log(`Saving ${dbSkus.length} SKUs from ${file.name} to database`);
+        
+        if (dbSkus.length > 0) {
+          await onAddSKUs(dbSkus);
+          setFileProgress(prev => ({ ...prev, [file.name]: 100 }));
+          setFileStatuses(prev => ({ ...prev, [file.name]: 'completed' }));
+          
+          toast({
+            title: "File Processed",
+            description: `${file.name}: ${dbSkus.length} SKUs saved to database`,
+          });
+        } else {
+          throw new Error('No valid SKUs found to save');
+        }
+      } else {
+        throw new Error('No data found in file');
+      }
+    } catch (error) {
+      console.error(`Error processing file ${file.name}:`, error);
+      setFileStatuses(prev => ({ ...prev, [file.name]: 'error' }));
+      setFileProgress(prev => ({ ...prev, [file.name]: 0 }));
+      toast({
+        title: "Processing Error",
+        description: `Failed to process ${file.name}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        variant: "destructive"
+      });
     }
   };
 
@@ -307,69 +331,27 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
   const handleMappingComplete = async (mappedData: any[], mapping: any) => {
     try {
       setShowMappingWizard(false);
-      setIsProcessingQueue(true);
       
-      // Don't save mapping - process each file independently
-      console.log('Processing files with mapping, total files:', pendingFiles.length);
-      
-      // Process and save current file data immediately
-      const currentFile = pendingFiles[0];
-      setFileStatuses(prev => ({ ...prev, [currentFile.name]: 'processing' }));
-      
-      try {
-        console.log('Processing current file data, rows:', mappedData.length);
-        
-        // Save the current file data to database immediately
-        const dbSkus = mappedData
-          .filter(row => row.sku_code && row.sku_code.toString().trim())
-          .map(row => ({
-            sku_code: row.sku_code?.toString().trim() || '',
-            title: row.title?.toString().trim() || '',
-            description: row.description?.toString().trim() || '',
-            cost: typeof row.cost === 'number' ? row.cost : (parseFloat(row.cost) || 0),
-            weight: typeof row.weight === 'number' ? row.weight : (parseFloat(row.weight) || 0),
-            notes: row.notes?.toString().trim() || `Imported from ${currentFile.name}`,
-            country: profile?.country || 'UAE'
-          }));
-        
-        console.log('Saving to database:', dbSkus.length, 'SKUs');
-        
-        if (dbSkus.length > 0) {
-          await onAddSKUs(dbSkus);
-          toast({
-            title: "File Saved",
-            description: `${currentFile.name}: ${dbSkus.length} SKUs saved to database`,
-          });
-        }
-        
-        setFileStatuses(prev => ({ ...prev, [currentFile.name]: 'completed' }));
-      } catch (error) {
-        console.error(`Error saving ${currentFile.name}:`, error);
-        setFileStatuses(prev => ({ ...prev, [currentFile.name]: 'error' }));
-      }
-      
-      // Process remaining files with same mapping
-      const remainingFiles = pendingFiles.slice(1);
-      if (remainingFiles.length > 0) {
-        await processRemainingFilesInQueue(remainingFiles, mapping);
-      }
+      // Save mapping for this file
+      setFileMappings(prev => ({ ...prev, [currentFileName]: mapping }));
+      setFileStatuses(prev => ({ ...prev, [currentFileName]: 'mapped' }));
       
       toast({
-        title: "All Files Processed",
-        description: `${pendingFiles.length} files completed.`,
+        title: "Mapping Saved",
+        description: `Column mapping saved for ${currentFileName}. Click "Process" to save to database.`,
       });
       
     } catch (error) {
-      console.error('Error in mapping completion:', error);
+      console.error('Error saving mapping:', error);
+      setFileStatuses(prev => ({ ...prev, [currentFileName]: 'error' }));
       toast({
-        title: "Processing Error",
-        description: "Error occurred while processing files",
+        title: "Mapping Error",
+        description: "Error occurred while saving column mapping",
         variant: "destructive"
       });
     } finally {
-      setIsProcessingQueue(false);
       setCurrentFileData(null);
-      setPendingFiles([]);
+      setCurrentFileName('');
     }
   };
 
@@ -705,48 +687,112 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="space-y-3">
                     {processQueue.map((file, index) => {
                       const status = fileStatuses[file.name] || 'pending';
-                      const isActive = index === currentFileIndex;
+                      const progress = fileProgress[file.name] || 0;
+                      const hasMapping = !!fileMappings[file.name];
                       
                       return (
                         <div
                           key={`${file.name}-${index}`}
-                          className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-all ${
-                            status === 'completed' 
-                              ? 'bg-green-50 border-green-200 text-green-700' 
-                              : status === 'processing' || isActive
-                              ? 'bg-blue-50 border-blue-200 text-blue-700 animate-pulse'
+                          className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${
+                            status === 'completed'
+                              ? 'bg-green-50 border-green-200'
+                              : status === 'processing'
+                              ? 'bg-blue-50 border-blue-200'
+                              : status === 'mapped'
+                              ? 'bg-yellow-50 border-yellow-200'
+                              : status === 'mapping'
+                              ? 'bg-purple-50 border-purple-200'
                               : status === 'error'
-                              ? 'bg-red-50 border-red-200 text-red-700'
-                              : 'bg-gray-50 border-gray-200 text-gray-600'
+                              ? 'bg-red-50 border-red-200'
+                              : 'bg-gray-50 border-gray-200'
                           }`}
                         >
-                          {status === 'completed' && <CheckCircle2 className="h-4 w-4" />}
-                          {(status === 'processing' || isActive) && <Clock className="h-4 w-4 animate-spin" />}
-                          {status === 'pending' && <Clock className="h-4 w-4" />}
-                          {status === 'error' && <X className="h-4 w-4" />}
+                          <div className="flex items-center gap-3 flex-1">
+                            <div className="flex items-center gap-2">
+                              {status === 'completed' && <CheckCircle2 className="h-4 w-4 text-green-600" />}
+                              {status === 'processing' && <Clock className="h-4 w-4 animate-spin text-blue-600" />}
+                              {status === 'mapped' && <Settings className="h-4 w-4 text-yellow-600" />}
+                              {status === 'mapping' && <Settings className="h-4 w-4 animate-pulse text-purple-600" />}
+                              {status === 'pending' && <Clock className="h-4 w-4 text-gray-400" />}
+                              {status === 'error' && <X className="h-4 w-4 text-red-600" />}
+                            </div>
+                            
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono text-sm font-medium">
+                                  {file.name.length > 30 ? `${file.name.substring(0, 30)}...` : file.name}
+                                </span>
+                                
+                                <Badge variant="outline" className="text-xs">
+                                  {(file.size / 1024).toFixed(1)}KB
+                                </Badge>
+                                
+                                {hasMapping && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    Mapped
+                                  </Badge>
+                                )}
+                              </div>
+                              
+                              {status === 'processing' && (
+                                <div className="mt-2">
+                                  <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
+                                    <span>Processing...</span>
+                                    <span>{progress}%</span>
+                                  </div>
+                                  <Progress value={progress} className="h-1.5" />
+                                </div>
+                              )}
+                            </div>
+                          </div>
                           
-                          <span className="font-mono text-xs">
-                            {file.name.length > 20 ? `${file.name.substring(0, 20)}...` : file.name}
-                          </span>
-                          
-                          <Badge variant="outline" className="text-xs">
-                            {(file.size / 1024).toFixed(1)}KB
-                          </Badge>
+                          <div className="flex items-center gap-2">
+                            {!hasMapping && status !== 'mapping' && status !== 'error' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => startFileMapping(file)}
+                                disabled={status === 'processing' || status === 'completed'}
+                              >
+                                <Settings className="h-3 w-3 mr-1" />
+                                Map
+                              </Button>
+                            )}
+                            
+                            {hasMapping && !['processing', 'completed'].includes(status) && (
+                              <Button
+                                size="sm"
+                                onClick={() => startFileProcessing(file)}
+                                disabled={['processing', 'mapping'].includes(status)}
+                              >
+                                <Zap className="h-3 w-3 mr-1" />
+                                Process
+                              </Button>
+                            )}
+                            
+                            {status === 'error' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => startFileMapping(file)}
+                              >
+                                <Settings className="h-3 w-3 mr-1" />
+                                Retry
+                              </Button>
+                            )}
+                          </div>
                         </div>
                       );
                     })}
                   </div>
                   
-                  {isProcessingQueue && (
-                    <div className="mt-4 space-y-2">
-                      <div className="flex items-center justify-between text-sm">
-                        <span>Processing files...</span>
-                        <span>{currentFileIndex + 1} of {processQueue.length}</span>
-                      </div>
-                      <Progress value={(currentFileIndex / processQueue.length) * 100} className="h-2" />
+                  {processQueue.length === 0 && (
+                    <div className="text-center py-8 text-gray-500">
+                      <FileSpreadsheet className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                      <p>No files uploaded yet. Drop files above to start.</p>
                     </div>
                   )}
                 </CardContent>
