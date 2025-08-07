@@ -13,7 +13,6 @@ import JSZip from "jszip";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 interface FileData {
   id: string;
@@ -31,20 +30,13 @@ interface ColumnReplacement {
   replaceAll: boolean;
 }
 
-interface CompressionStats {
-  fileCount: number;
-  originalSize: number;
-  compressedSize: number;
-  compressionRatio: number;
-}
-
 const BulkColumnEditor = () => {
   const [files, setFiles] = useState<FileData[]>([]);
   const [replacements, setReplacements] = useState<ColumnReplacement[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const [compressionStats, setCompressionStats] = useState<CompressionStats | null>(null);
-  const [preparedZip, setPreparedZip] = useState<JSZip | null>(null);
+  const [compressionType, setCompressionType] = useState<'size' | 'volume'>('size');
+  const [targetSize, setTargetSize] = useState<string>('');
+  const [targetVolume, setTargetVolume] = useState<string>('');
   const { toast } = useToast();
 
   const processFile = async (file: File, fileName?: string): Promise<FileData | null> => {
@@ -193,7 +185,7 @@ const BulkColumnEditor = () => {
     setFiles(prev => prev.filter(file => file.id !== id));
   };
 
-  const prepareCompression = async () => {
+  const exportFiles = async () => {
     if (files.length === 0 || replacements.length === 0) {
       toast({
         title: "Error",
@@ -207,7 +199,6 @@ const BulkColumnEditor = () => {
 
     try {
       const zip = new JSZip();
-      let totalOriginalSize = 0;
 
       for (const file of files) {
         let processedData = [...file.data];
@@ -242,42 +233,26 @@ const BulkColumnEditor = () => {
 
         const fileName = file.name.replace(/\.(xlsx?|csv)$/i, '_edited.csv');
         zip.file(fileName, csvContent);
-        
-        // Calculate original size
-        totalOriginalSize += new Blob([csvContent]).size;
       }
 
-      // Generate compressed zip to get compression stats
-      const zipBlob = await zip.generateAsync({ type: 'blob' });
-      const compressedSize = zipBlob.size;
-      const compressionRatio = ((totalOriginalSize - compressedSize) / totalOriginalSize) * 100;
+      // Apply compression settings
+      let compressionLevel = 6; // Default compression
+      
+      if (compressionType === 'size' && targetSize) {
+        const targetBytes = parseFloat(targetSize) * 1024 * 1024; // Convert MB to bytes
+        compressionLevel = targetBytes < 10 * 1024 * 1024 ? 9 : 6; // Higher compression for smaller targets
+      } else if (compressionType === 'volume' && targetVolume) {
+        compressionLevel = parseInt(targetVolume);
+      }
 
-      const stats: CompressionStats = {
-        fileCount: files.length,
-        originalSize: totalOriginalSize,
-        compressedSize: compressedSize,
-        compressionRatio: compressionRatio
-      };
-
-      setCompressionStats(stats);
-      setPreparedZip(zip);
-      setShowConfirmDialog(true);
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to prepare files for compression",
-        variant: "destructive"
+      const zipBlob = await zip.generateAsync({ 
+        type: 'blob',
+        compression: 'DEFLATE',
+        compressionOptions: {
+          level: compressionLevel
+        }
       });
-    } finally {
-      setIsProcessing(false);
-    }
-  };
 
-  const downloadPreparedZip = async () => {
-    if (!preparedZip) return;
-
-    try {
-      const zipBlob = await preparedZip.generateAsync({ type: 'blob' });
       const url = URL.createObjectURL(zipBlob);
       const a = document.createElement('a');
       a.href = url;
@@ -289,27 +264,17 @@ const BulkColumnEditor = () => {
 
       toast({
         title: "Success",
-        description: "Files downloaded successfully"
+        description: "Files exported successfully"
       });
-
-      setShowConfirmDialog(false);
-      setPreparedZip(null);
-      setCompressionStats(null);
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to download files",
+        description: "Failed to export files",
         variant: "destructive"
       });
+    } finally {
+      setIsProcessing(false);
     }
-  };
-
-  const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
   const getAvailableColumns = () => {
@@ -481,67 +446,81 @@ const BulkColumnEditor = () => {
           </CardContent>
         </Card>
 
-        {/* Process Button */}
+        {/* Compression Settings */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Download className="h-5 w-5" />
+              Compression Settings
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <Label htmlFor="compression-type">Compression Type</Label>
+                <Select
+                  value={compressionType}
+                  onValueChange={(value: 'size' | 'volume') => setCompressionType(value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="size">Target Size (MB)</SelectItem>
+                    <SelectItem value="volume">Compression Level (1-9)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {compressionType === 'size' && (
+                <div>
+                  <Label htmlFor="target-size">Target Size (MB)</Label>
+                  <Input
+                    id="target-size"
+                    value={targetSize}
+                    onChange={(e) => setTargetSize(e.target.value)}
+                    placeholder="e.g., 10"
+                    type="number"
+                    min="1"
+                  />
+                </div>
+              )}
+
+              {compressionType === 'volume' && (
+                <div>
+                  <Label htmlFor="target-volume">Compression Level</Label>
+                  <Select
+                    value={targetVolume}
+                    onValueChange={setTargetVolume}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select level" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">1 - Fastest</SelectItem>
+                      <SelectItem value="3">3 - Fast</SelectItem>
+                      <SelectItem value="6">6 - Standard</SelectItem>
+                      <SelectItem value="9">9 - Best Compression</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Export Button */}
         <div className="flex justify-center">
           <Button
-            onClick={prepareCompression}
+            onClick={exportFiles}
             disabled={isProcessing || files.length === 0 || replacements.length === 0}
             size="lg"
             className="gap-2"
           >
             <Download className="h-5 w-5" />
-            {isProcessing ? "Processing..." : "Prepare & Preview Compression"}
+            {isProcessing ? "Processing..." : "Export Files"}
           </Button>
         </div>
-
-        {/* Compression Confirmation Dialog */}
-        <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Compression Summary</AlertDialogTitle>
-              <AlertDialogDescription asChild>
-                <div className="space-y-3">
-                  <p>Files have been processed and compressed. Review the compression details:</p>
-                  {compressionStats && (
-                    <div className="grid grid-cols-2 gap-4 p-4 bg-muted rounded-lg">
-                      <div>
-                        <p className="text-sm font-medium">Files Count</p>
-                        <p className="text-lg">{compressionStats.fileCount}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">Original Size</p>
-                        <p className="text-lg">{formatFileSize(compressionStats.originalSize)}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">Compressed Size</p>
-                        <p className="text-lg">{formatFileSize(compressionStats.compressedSize)}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">Compression Ratio</p>
-                        <p className="text-lg">{compressionStats.compressionRatio.toFixed(1)}%</p>
-                      </div>
-                    </div>
-                  )}
-                  <p className="text-sm text-muted-foreground">
-                    Would you like to download the compressed ZIP file?
-                  </p>
-                </div>
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => {
-                setShowConfirmDialog(false);
-                setPreparedZip(null);
-                setCompressionStats(null);
-              }}>
-                Cancel
-              </AlertDialogCancel>
-              <AlertDialogAction onClick={downloadPreparedZip}>
-                Download ZIP
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
       </div>
     </div>
   );
