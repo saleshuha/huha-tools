@@ -409,6 +409,7 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
         variant: "destructive"
       });
     }
+  };
   
   // New function to process all files and collect unique SKUs across all files
   const processAllFilesWithUniqueSkus = async (files: File[], mapping: any) => {
@@ -752,61 +753,7 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
     }
   };
 
-  const parseFileQuietly = async (file: File): Promise<any[]> => {
-    console.log('Parsing file:', file.name, 'Type:', file.type, 'Size:', file.size);
-    
-    return new Promise((resolve, reject) => {
-      if (file.name.toLowerCase().endsWith('.csv')) {
-        console.log('Parsing as CSV file');
-        Papa.parse(file, {
-          header: true,
-          skipEmptyLines: true,
-          complete: (results) => {
-            console.log('CSV parse results:', {
-              rowCount: results.data.length,
-              errors: results.errors,
-              meta: results.meta,
-              sampleData: results.data.slice(0, 3)
-            });
-            resolve(results.data);
-          },
-          error: (error) => {
-            console.error('CSV parse error:', error);
-            reject(error);
-          }
-        });
-      } else {
-        console.log('Parsing as Excel file');
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          try {
-            const data = new Uint8Array(e.target?.result as ArrayBuffer);
-            const workbook = XLSX.read(data, { type: 'array' });
-            console.log('Excel workbook sheets:', workbook.SheetNames);
-            
-            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-            const jsonData = XLSX.utils.sheet_to_json(firstSheet, { defval: '' });
-            console.log('Excel parse results:', {
-              rowCount: jsonData.length,
-              sampleData: jsonData.slice(0, 3),
-              headers: jsonData[0] ? Object.keys(jsonData[0]) : []
-            });
-            resolve(jsonData);
-          } catch (error) {
-            console.error('Excel parse error:', error);
-            reject(error);
-          }
-        };
-        reader.onerror = () => {
-          console.error('File reader error');
-          reject(new Error('Failed to read file'));
-        };
-        reader.readAsArrayBuffer(file);
-      }
-    });
-  };
-
-  const processFileWithMappings = async (data: any[], fileName: string) => {
+  // Bulk form handlers
     const newSKUs: BulkSKU[] = data
       .filter(row => row.sku_code && row.sku_code.toString().trim())
       .map(row => ({

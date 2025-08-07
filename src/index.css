@@ -132,7 +132,7 @@
   }
 
   body {
-    @apply bg-gradient-surface text-foreground antialiased;
+    @apply bg-background text-foreground antialiased;
     min-height: 100vh;
   }
   
