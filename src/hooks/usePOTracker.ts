@@ -45,12 +45,17 @@ export const usePOTracker = () => {
   const [sunskySKUs, setSunskySKUs] = useState<SunskySKU[]>([]);
   const [poOrders, setPOOrders] = useState<POOrder[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [loadingStatus, setLoadingStatus] = useState('');
   const [shippingRate, setShippingRate] = useState(0.005); // Default: 0.005 AED per gram
   const { toast } = useToast();
 
   // Fetch ALL data using edge function (completely bypasses client limits)
   const fetchAllData = async () => {
     setIsLoading(true);
+    setLoadingProgress(0);
+    setLoadingStatus('Starting data fetch...');
+    
     try {
       console.log('Fetching ALL data using edge function...');
       
@@ -63,7 +68,22 @@ export const usePOTracker = () => {
         throw new Error('No authentication session found');
       }
 
+      setLoadingProgress(10);
+      setLoadingStatus('Connecting to server...');
       console.log('Calling edge function...');
+      
+      // Simulate progress during the function call
+      const progressInterval = setInterval(() => {
+        setLoadingProgress(prev => {
+          if (prev < 90) return prev + 10;
+          return prev;
+        });
+        setLoadingStatus(prev => {
+          if (prev.includes('SKUs')) return 'Loading PO orders...';
+          if (prev.includes('server')) return 'Loading SKUs...';
+          return prev;
+        });
+      }, 500);
       
       // Call our edge function that bypasses all limits
       const { data, error } = await supabase.functions.invoke('get-all-po-data', {
@@ -71,6 +91,10 @@ export const usePOTracker = () => {
           Authorization: `Bearer ${session.access_token}`,
         },
       });
+
+      clearInterval(progressInterval);
+      setLoadingProgress(95);
+      setLoadingStatus('Processing data...');
 
       console.log('Edge function response:', { data, error });
 
@@ -87,6 +111,9 @@ export const usePOTracker = () => {
         throw new Error(data.error || 'Failed to fetch data');
       }
 
+      setLoadingProgress(100);
+      setLoadingStatus('Finalizing...');
+
       console.log('Edge function response:', data.message);
       
       // Update state with ALL data
@@ -95,6 +122,8 @@ export const usePOTracker = () => {
 
       console.log(`Successfully loaded ${data.data.sunskySKUs?.length || 0} SKUs and ${data.data.poOrders?.length || 0} PO orders`);
       
+      setLoadingStatus(`Loaded ${data.data.sunskySKUs?.length || 0} SKUs and ${data.data.poOrders?.length || 0} PO orders`);
+      
       toast({
         title: "Success",
         description: data.message || "Data refreshed successfully"
@@ -102,13 +131,18 @@ export const usePOTracker = () => {
       
     } catch (error) {
       console.error('Error fetching all data:', error);
+      setLoadingStatus('Failed to load data');
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to fetch data. Please try refreshing.",
         variant: "destructive"
       });
     } finally {
-      setIsLoading(false);
+      setTimeout(() => {
+        setIsLoading(false);
+        setLoadingProgress(0);
+        setLoadingStatus('');
+      }, 1000);
     }
   };
 
@@ -372,6 +406,8 @@ export const usePOTracker = () => {
     sunskySKUs,
     poOrders,
     isLoading,
+    loadingProgress,
+    loadingStatus,
     shippingRate,
     addSKUs,
     processPOFiles,

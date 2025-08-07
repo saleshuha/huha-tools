@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Upload, Search, Package, Clock, CheckCircle, AlertCircle, BarChart3, RefreshCw } from 'lucide-react';
@@ -21,6 +22,8 @@ export function POTracker() {
     sunskySKUs,
     poOrders,
     isLoading,
+    loadingProgress,
+    loadingStatus,
     shippingRate,
     addSKUs,
     processPOFiles,
@@ -70,6 +73,25 @@ export function POTracker() {
           Refresh Data
         </Button>
       </div>
+
+      {/* Progress Bar */}
+      {isLoading && (
+        <Card className="animate-fade-in">
+          <CardContent className="pt-6">
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-medium">Loading Data</span>
+                <span className="text-sm text-muted-foreground">{loadingProgress}%</span>
+              </div>
+              <Progress value={loadingProgress} className="h-2" />
+              {loadingStatus && (
+                <p className="text-xs text-muted-foreground">{loadingStatus}</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>

@@ -109,14 +109,28 @@ Deno.serve(async (req) => {
 
     console.log(`Fetching data for user: ${user.id}`);
 
+    // First get counts for progress tracking
+    const { count: skuCount } = await supabase
+      .from('sunsky_skus')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id);
+
+    const { count: orderCount } = await supabase
+      .from('po_orders')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id);
+
+    console.log(`Total records to fetch: ${skuCount || 0} SKUs, ${orderCount || 0} PO orders`);
+
     // Fetch ALL Sunsky SKUs using direct database access
     console.log('Fetching ALL Sunsky SKUs...');
     let allSkus: any[] = [];
     let skuOffset = 0;
     const chunkSize = 1000;
     let hasMoreSkus = true;
+    let skuProgress = 0;
 
-    while (hasMoreSkus) {
+    while (hasMoreSkus && (skuCount === null || skuOffset < skuCount)) {
       const { data: skuChunk, error: skuError } = await supabase
         .from('sunsky_skus')
         .select('*')
@@ -131,7 +145,8 @@ Deno.serve(async (req) => {
 
       if (skuChunk && skuChunk.length > 0) {
         allSkus = allSkus.concat(skuChunk);
-        console.log(`Loaded ${allSkus.length} SKUs so far...`);
+        skuProgress = skuCount ? Math.round((allSkus.length / skuCount) * 100) : 100;
+        console.log(`Loaded ${allSkus.length}/${skuCount || allSkus.length} SKUs (${skuProgress}%)`);
         
         if (skuChunk.length < chunkSize) {
           hasMoreSkus = false;
@@ -150,8 +165,9 @@ Deno.serve(async (req) => {
     let allOrders: any[] = [];
     let orderOffset = 0;
     let hasMoreOrders = true;
+    let orderProgress = 0;
 
-    while (hasMoreOrders) {
+    while (hasMoreOrders && (orderCount === null || orderOffset < orderCount)) {
       const { data: orderChunk, error: orderError } = await supabase
         .from('po_orders')
         .select('*')
@@ -166,7 +182,8 @@ Deno.serve(async (req) => {
 
       if (orderChunk && orderChunk.length > 0) {
         allOrders = allOrders.concat(orderChunk);
-        console.log(`Loaded ${allOrders.length} PO orders so far...`);
+        orderProgress = orderCount ? Math.round((allOrders.length / orderCount) * 100) : 100;
+        console.log(`Loaded ${allOrders.length}/${orderCount || allOrders.length} PO orders (${orderProgress}%)`);
         
         if (orderChunk.length < chunkSize) {
           hasMoreOrders = false;
