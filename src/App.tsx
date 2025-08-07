@@ -42,8 +42,55 @@ import ProcessedOrders from "./pages/ProcessedOrders";
 import PODetailsPage from "./pages/PODetails";
 import AddSKUPage from "./pages/AddSKUPage";
 import BulkColumnEditor from "./pages/BulkColumnEditor";
+import { useState as useReactState } from "react";
+import { useToast } from "@/components/ui/use-toast";
 
+// Wrapper component for AddSKUPage with proper onAddSKUs implementation
+function AddSKUPageWrapper() {
+  const [isLoading, setIsLoading] = useReactState(false);
+  const { toast } = useToast();
 
+  const handleAddSKUs = async (skus: any[]) => {
+    console.log('=== AddSKUPageWrapper: handleAddSKUs called ===');
+    console.log('SKUs to save:', skus.length);
+    console.log('Sample SKUs:', skus.slice(0, 3));
+    
+    setIsLoading(true);
+    
+    try {
+      const { data, error } = await supabase
+        .from('sunsky_skus')
+        .insert(skus)
+        .select();
+
+      if (error) {
+        console.error('❌ Supabase insert error:', error);
+        throw error;
+      }
+
+      console.log('✅ Successfully inserted SKUs:', data?.length || 0);
+      
+      toast({
+        title: "SKUs Saved Successfully",
+        description: `${skus.length} SKUs have been saved to the database`,
+      });
+    } catch (error) {
+      console.error('❌ Failed to save SKUs:', error);
+      
+      toast({
+        title: "Save Failed",
+        description: `Failed to save SKUs: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        variant: "destructive"
+      });
+      
+      throw error; // Re-throw to let the caller handle it
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return <AddSKUPage onAddSKUs={handleAddSKUs} isLoading={isLoading} />;
+}
 
 const queryClient = new QueryClient();
 
@@ -150,7 +197,7 @@ const App = () => {
                      <Route path="/replenishment" element={<ReplenishmentPage />} />
                      <Route path="/po-tracker" element={<POTrackerPage />} />
                      <Route path="/po-details/:poNumber" element={<PODetailsPage />} />
-                     <Route path="/add-sku" element={<AddSKUPage onAddSKUs={() => Promise.resolve()} isLoading={false} />} />
+                     <Route path="/add-sku" element={<AddSKUPageWrapper />} />
                      <Route path="/excel-editor" element={<ExcelEditorPage />} />
                      <Route path="/noon-sales-tracker" element={<NoonSalesTracker />} />
                      <Route path="/noon-dashboard" element={<NoonDashboard />} />
