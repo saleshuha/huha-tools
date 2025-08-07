@@ -1044,6 +1044,7 @@ export type Database = {
           id: string
           is_main_admin: boolean
           role: string
+          shipping_rate: number | null
           updated_at: string
         }
         Insert: {
@@ -1054,6 +1055,7 @@ export type Database = {
           id: string
           is_main_admin?: boolean
           role?: string
+          shipping_rate?: number | null
           updated_at?: string
         }
         Update: {
@@ -1064,6 +1066,7 @@ export type Database = {
           id?: string
           is_main_admin?: boolean
           role?: string
+          shipping_rate?: number | null
           updated_at?: string
         }
         Relationships: []
