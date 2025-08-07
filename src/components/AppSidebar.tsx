@@ -61,6 +61,11 @@ const toolsItems = [
     title: "Excel Editor",
     url: "/excel-editor",
     icon: Edit3
+  },
+  {
+    title: "Bulk Column Editor",
+    url: "/bulk-column-editor",
+    icon: Database
   }
 ]
 

@@ -41,6 +41,7 @@ import NoonOrderAnalysis from "./pages/NoonOrderAnalysis";
 import ProcessedOrders from "./pages/ProcessedOrders";
 import PODetailsPage from "./pages/PODetails";
 import AddSKUPage from "./pages/AddSKUPage";
+import BulkColumnEditor from "./pages/BulkColumnEditor";
 
 
 
@@ -140,9 +141,10 @@ const App = () => {
                     <Route path="/excel-mapper" element={<ExcelMapperPage />} />
                     <Route path="/batch" element={<BatchProcessor />} />
                     <Route path="/asin-sum" element={<AsinQtySum />} />
-                    <Route path="/zip-splitter" element={<ZipSplitter />} />
-                    <Route path="/file-merger" element={<FileMergerPage />} />
-                    <Route path="/inventory" element={<Inventory />} />
+                     <Route path="/zip-splitter" element={<ZipSplitter />} />
+                     <Route path="/file-merger" element={<FileMergerPage />} />
+                     <Route path="/bulk-column-editor" element={<BulkColumnEditor />} />
+                     <Route path="/inventory" element={<Inventory />} />
                     <Route path="/processed-orders" element={<ProcessedOrders />} />
                     <Route path="/users" element={<UserManagementPage />} />
                      <Route path="/replenishment" element={<ReplenishmentPage />} />
