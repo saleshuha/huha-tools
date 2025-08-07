@@ -29,6 +29,7 @@ export function POTracker() {
     totalCount,
     hasMoreSKUs,
     fetchSKUs,
+    fetchSKUCount,
     loadMoreSKUs,
     addSKUs,
     refreshSKUs
@@ -47,12 +48,15 @@ export function POTracker() {
 
   // Load data based on active tab
   useEffect(() => {
+    // Always load SKU count for metrics display
+    fetchSKUCount();
+    
     if (activeTab === 'skus' && sunskySKUs.length === 0) {
       fetchSKUs();
     } else if ((activeTab === 'upload' || activeTab === 'tracking' || activeTab === 'analytics') && poOrders.length === 0) {
       fetchPOOrders();
     }
-  }, [activeTab, sunskySKUs.length, poOrders.length, fetchSKUs, fetchPOOrders]);
+  }, [activeTab, sunskySKUs.length, poOrders.length, fetchSKUs, fetchSKUCount, fetchPOOrders]);
 
   const handleFileUpload = async (mappedData: any[]) => {
     try {
@@ -203,17 +207,17 @@ export function POTracker() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">SKU Database</CardTitle>
+            <CardTitle className="text-sm font-medium">Total SKUs</CardTitle>
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{sunskySKUs.length}</div>
+            <div className="text-2xl font-bold">{totalCount.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">
-              of {totalCount.toLocaleString()} total SKUs loaded
+              Sunsky supplier SKUs in database
             </p>
-            {hasMoreSKUs && (
-              <Badge variant="outline" className="mt-1 text-xs">
-                {((sunskySKUs.length / totalCount) * 100).toFixed(1)}% loaded
+            {sunskySKUs.length > 0 && (
+              <Badge variant="secondary" className="mt-1 text-xs">
+                {sunskySKUs.length.toLocaleString()} loaded
               </Badge>
             )}
           </CardContent>

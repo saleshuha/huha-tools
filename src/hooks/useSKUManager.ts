@@ -57,6 +57,21 @@ export const useSKUManager = () => {
     }
   }, []);
 
+  // Get SKU count only (for metrics display)
+  const fetchSKUCount = useCallback(async () => {
+    try {
+      const { count, error } = await supabase
+        .from('sunsky_skus')
+        .select('*', { count: 'exact', head: true });
+
+      if (error) throw error;
+      setTotalCount(count || 0);
+      console.log(`Total SKUs in database: ${count}`);
+    } catch (error) {
+      console.error('Error fetching SKU count:', error);
+    }
+  }, []);
+
   // Optimized SKU fetching with pagination and caching
   const fetchSKUs = useCallback(async (page: number = 1, useCache: boolean = true) => {
     // Try cache first for first page
@@ -257,6 +272,7 @@ export const useSKUManager = () => {
     itemsPerPage,
     hasMoreSKUs: sunskySKUs.length < totalCount,
     fetchSKUs,
+    fetchSKUCount,
     loadMoreSKUs,
     addSKUs,
     refreshSKUs
