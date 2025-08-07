@@ -38,6 +38,7 @@ import SKUCostManagement from "./pages/SKUCostManagement";
 import NoonOrderAnalysis from "./pages/NoonOrderAnalysis";
 import ProcessedOrders from "./pages/ProcessedOrders";
 import PODetailsPage from "./pages/PODetails";
+import AddSKUPage from "./pages/AddSKUPage";
 
 
 
@@ -144,6 +145,7 @@ const App = () => {
                      <Route path="/replenishment" element={<ReplenishmentPage />} />
                      <Route path="/po-tracker" element={<POTrackerPage />} />
                      <Route path="/po-details/:poNumber" element={<PODetailsPage />} />
+                     <Route path="/add-sku" element={<AddSKUPage onAddSKUs={() => Promise.resolve()} isLoading={false} />} />
                      <Route path="/excel-editor" element={<ExcelEditorPage />} />
                      <Route path="/noon-sales-tracker" element={<NoonSalesTracker />} />
                      <Route path="/noon-dashboard" element={<NoonDashboard />} />
