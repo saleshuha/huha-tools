@@ -28,6 +28,11 @@ const navigationItems = [
     title: "Homepage",
     url: "/",
     icon: Home
+  },
+  {
+    title: "Upload Center",
+    url: "/upload-center",
+    icon: Upload
   }
 ]
 
