@@ -4,11 +4,12 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Upload, Search, Package, Clock, CheckCircle, AlertCircle } from 'lucide-react';
+import { Upload, Search, Package, Clock, CheckCircle, AlertCircle, BarChart3 } from 'lucide-react';
 import { POFileUpload } from './po/POFileUpload';
 import { SKUList } from './po/SKUList';
 import { POOrderTracking } from './po/POOrderTracking';
 import { AddSKUDialog } from './po/AddSKUDialog';
+import { POProfitAnalytics } from './po/POProfitAnalytics';
 import { ShippingRateDialog } from './po/ShippingRateDialog';
 import { usePOTracker } from '@/hooks/usePOTracker';
 
@@ -106,9 +107,10 @@ export function POTracker() {
 
       {/* Main Content */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="upload">PO Upload</TabsTrigger>
           <TabsTrigger value="tracking">Order Tracking</TabsTrigger>
+          <TabsTrigger value="analytics">Profit Analytics</TabsTrigger>
           <TabsTrigger value="skus">SKU Management</TabsTrigger>
         </TabsList>
 
@@ -143,6 +145,10 @@ export function POTracker() {
               />
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="analytics" className="space-y-4">
+          <POProfitAnalytics poOrders={poOrders} sunskySKUs={sunskySKUs} />
         </TabsContent>
 
         <TabsContent value="skus" className="space-y-4">
