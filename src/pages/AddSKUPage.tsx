@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Plus, X, Upload, FileSpreadsheet, Clipboard, Trash2, Settings, Zap, Users, Activity, Clock, CheckCircle2, ArrowLeft } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import { Progress } from '@/components/ui/progress';
@@ -59,6 +60,12 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
   const [fileStatuses, setFileStatuses] = useState<Record<string, 'pending' | 'mapping' | 'mapped' | 'processing' | 'completed' | 'error'>>({});
   const [fileProgress, setFileProgress] = useState<Record<string, number>>({});
   const [fileMappings, setFileMappings] = useState<Record<string, any>>({});
+  
+  // Bulk selection states
+  const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
+  const [selectAll, setSelectAll] = useState(false);
+  const [isBulkMapping, setIsBulkMapping] = useState(false);
+  const [isBulkProcessing, setIsBulkProcessing] = useState(false);
   
   // Column mapping states
   const [showMappingWizard, setShowMappingWizard] = useState(false);
@@ -629,6 +636,174 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
     }
   };
 
+  // Bulk selection handlers
+  const handleFileSelect = (fileName: string, checked: boolean) => {
+    setSelectedFiles(prev => {
+      const newSet = new Set(prev);
+      if (checked) {
+        newSet.add(fileName);
+      } else {
+        newSet.delete(fileName);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    setSelectAll(checked);
+    if (checked) {
+      setSelectedFiles(new Set(processQueue.map(file => file.name)));
+    } else {
+      setSelectedFiles(new Set());
+    }
+  };
+
+  // Bulk mapping handler
+  const handleBulkMapping = async () => {
+    const selectedFileObjects = processQueue.filter(file => selectedFiles.has(file.name));
+    
+    if (selectedFileObjects.length === 0) {
+      toast({
+        title: "No Files Selected",
+        description: "Please select files to map",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsBulkMapping(true);
+
+    try {
+      // Use the first selected file as the template for mapping
+      const templateFile = selectedFileObjects[0];
+      console.log('Starting bulk mapping with template file:', templateFile.name);
+      
+      const data = await parseFileQuietly(templateFile);
+      if (!data || data.length === 0) {
+        throw new Error('No data found in template file');
+      }
+
+      const headers = Object.keys(data[0]).sort();
+      console.log('Template file headers:', headers);
+      
+      setCurrentFileData({
+        headers,
+        rows: data.map(row => headers.map(header => row[header]))
+      });
+      setCurrentFileName(`Bulk Mapping (${selectedFileObjects.length} files)`);
+      setShowMappingWizard(true);
+      
+      // Store the selected files for later use
+      setPendingFiles(selectedFileObjects);
+      
+    } catch (error) {
+      console.error('Error in bulk mapping:', error);
+      toast({
+        title: "Bulk Mapping Error",
+        description: `Failed to start bulk mapping: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        variant: "destructive"
+      });
+    } finally {
+      setIsBulkMapping(false);
+    }
+  };
+
+  // Bulk processing handler
+  const handleBulkProcessing = async () => {
+    const selectedFileObjects = processQueue.filter(file => 
+      selectedFiles.has(file.name) && fileMappings[file.name]
+    );
+    
+    if (selectedFileObjects.length === 0) {
+      toast({
+        title: "No Mapped Files Selected",
+        description: "Please select files that have been mapped",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsBulkProcessing(true);
+
+    try {
+      console.log(`Starting bulk processing for ${selectedFileObjects.length} files`);
+      
+      for (const file of selectedFileObjects) {
+        await startFileProcessing(file);
+        // Small delay between files
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+      
+      toast({
+        title: "Bulk Processing Complete",
+        description: `${selectedFileObjects.length} files processed successfully`,
+      });
+      
+      // Clear selection after processing
+      setSelectedFiles(new Set());
+      setSelectAll(false);
+      
+    } catch (error) {
+      console.error('Error in bulk processing:', error);
+      toast({
+        title: "Bulk Processing Error",
+        description: `Failed to complete bulk processing: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        variant: "destructive"
+      });
+    } finally {
+      setIsBulkProcessing(false);
+    }
+  };
+
+  // Modified mapping complete handler to handle bulk mapping
+  const handleBulkMappingComplete = async (mappedData: any[], mapping: any) => {
+    try {
+      setShowMappingWizard(false);
+      
+      if (pendingFiles.length > 0) {
+        // Apply mapping to all selected files
+        console.log(`Applying bulk mapping to ${pendingFiles.length} files`);
+        
+        const newMappings = { ...fileMappings };
+        const newStatuses = { ...fileStatuses };
+        
+        pendingFiles.forEach(file => {
+          newMappings[file.name] = mapping;
+          newStatuses[file.name] = 'mapped';
+        });
+        
+        setFileMappings(newMappings);
+        setFileStatuses(newStatuses);
+        
+        toast({
+          title: "Bulk Mapping Complete",
+          description: `Column mapping applied to ${pendingFiles.length} files. You can now process them.`,
+        });
+        
+        setPendingFiles([]);
+      } else {
+        // Regular single file mapping
+        setFileMappings(prev => ({ ...prev, [currentFileName.replace('Bulk Mapping (', '').replace(' files)', '')]: mapping }));
+        setFileStatuses(prev => ({ ...prev, [currentFileName.replace('Bulk Mapping (', '').replace(' files)', '')]: 'mapped' }));
+        
+        toast({
+          title: "Mapping Saved",
+          description: `Column mapping saved. Click "Process" to save to database.`,
+        });
+      }
+      
+    } catch (error) {
+      console.error('Error saving bulk mapping:', error);
+      toast({
+        title: "Mapping Error",
+        description: "Error occurred while saving column mapping",
+        variant: "destructive"
+      });
+    } finally {
+      setCurrentFileData(null);
+      setCurrentFileName('');
+    }
+  };
 
   return (
     <div className="container mx-auto p-6 max-w-6xl">
@@ -665,7 +840,7 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
             <SKUColumnMappingWizard
               fileData={currentFileData}
               expectedColumns={skuColumns}
-              onMappingComplete={handleMappingComplete}
+              onMappingComplete={pendingFiles.length > 0 ? handleBulkMappingComplete : handleMappingComplete}
               onSaveMapping={handleSaveMapping}
               savedMappings={savedMappings}
             />
@@ -729,10 +904,47 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
             {processQueue.length > 0 && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Activity className="h-5 w-5" />
-                    File Processing Queue ({processQueue.length} files)
-                  </CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2">
+                      <Activity className="h-5 w-5" />
+                      File Processing Queue ({processQueue.length} files)
+                    </CardTitle>
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="select-all"
+                          checked={selectAll}
+                          onCheckedChange={handleSelectAll}
+                        />
+                        <Label htmlFor="select-all" className="text-sm font-medium">
+                          Select All
+                        </Label>
+                      </div>
+                      {selectedFiles.size > 0 && (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={handleBulkMapping}
+                            disabled={isBulkMapping}
+                            className="flex items-center gap-2"
+                          >
+                            <Settings className="h-3 w-3" />
+                            {isBulkMapping ? 'Mapping...' : `Bulk Map (${selectedFiles.size})`}
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={handleBulkProcessing}
+                            disabled={isBulkProcessing}
+                            className="flex items-center gap-2"
+                          >
+                            <Zap className="h-3 w-3" />
+                            {isBulkProcessing ? 'Processing...' : `Bulk Process (${selectedFiles.size})`}
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
@@ -740,6 +952,7 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
                       const status = fileStatuses[file.name] || 'pending';
                       const progress = fileProgress[file.name] || 0;
                       const hasMapping = !!fileMappings[file.name];
+                      const isSelected = selectedFiles.has(file.name);
                       
                       return (
                         <div
@@ -759,6 +972,12 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
                           }`}
                         >
                           <div className="flex items-center gap-3 flex-1">
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={(checked) => handleFileSelect(file.name, checked as boolean)}
+                              disabled={status === 'processing'}
+                            />
+                            
                             <div className="flex items-center gap-2">
                               {status === 'completed' && <CheckCircle2 className="h-4 w-4 text-green-600" />}
                               {status === 'processing' && <Clock className="h-4 w-4 animate-spin text-blue-600" />}
