@@ -1,43 +1,76 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Upload, Search, Package, Clock, CheckCircle, AlertCircle, BarChart3, RefreshCw } from 'lucide-react';
+import { Upload, Search, Package, Clock, CheckCircle, AlertCircle, BarChart3, RefreshCw, Loader2 } from 'lucide-react';
 import { POFileUpload } from './po/POFileUpload';
 import { SKUList } from './po/SKUList';
 import { POOrderTracking } from './po/POOrderTracking';
 import { AddSKUDialog } from './po/AddSKUDialog';
 import { POProfitAnalytics } from './po/POProfitAnalytics';
 import { ShippingRateDialog } from './po/ShippingRateDialog';
-import { usePOTracker } from '@/hooks/usePOTracker';
+import { useSKUManager } from '@/hooks/useSKUManager';
+import { usePOOrders } from '@/hooks/usePOOrders';
 
 export function POTracker() {
   const [activeTab, setActiveTab] = useState('upload');
   const [searchTerm, setSearchTerm] = useState('');
+  const [shippingRate, setShippingRate] = useState(0.005); // Default: 0.005 AED per gram
   
+  // Separate hooks for different functionalities
   const {
     sunskySKUs,
-    poOrders,
-    isLoading,
-    loadingProgress,
-    loadingStatus,
-    shippingRate,
+    isLoading: skuLoading,
+    loadingProgress: skuProgress,
+    loadingStatus: skuStatus,
+    totalCount,
+    hasMoreSKUs,
+    fetchSKUs,
+    loadMoreSKUs,
     addSKUs,
+    refreshSKUs
+  } = useSKUManager();
+
+  const {
+    poOrders,
+    isLoading: ordersLoading,
+    loadingProgress: ordersProgress,
+    loadingStatus: ordersStatus,
+    fetchPOOrders,
     processPOFiles,
     updateOrderStatus,
-    updateTrackingInfo,
-    updateShippingRate,
-    refetch
-  } = usePOTracker();
+    updateTrackingInfo
+  } = usePOOrders();
+
+  // Load data based on active tab
+  useEffect(() => {
+    if (activeTab === 'skus' && sunskySKUs.length === 0) {
+      fetchSKUs();
+    } else if ((activeTab === 'upload' || activeTab === 'tracking' || activeTab === 'analytics') && poOrders.length === 0) {
+      fetchPOOrders();
+    }
+  }, [activeTab, sunskySKUs.length, poOrders.length, fetchSKUs, fetchPOOrders]);
 
   const handleFileUpload = async (mappedData: any[]) => {
     try {
-      await processPOFiles(mappedData);
+      await processPOFiles(mappedData, sunskySKUs);
     } catch (error) {
       console.error('Error processing PO files:', error);
+    }
+  };
+
+  const updateShippingRate = (rate: number) => {
+    setShippingRate(rate);
+  };
+
+  const refreshData = () => {
+    if (activeTab === 'skus') {
+      refreshSKUs();
+    } else {
+      fetchPOOrders();
     }
   };
 
@@ -63,29 +96,51 @@ export function POTracker() {
           </p>
         </div>
         <Button
-          onClick={refetch}
-          disabled={isLoading}
+          onClick={refreshData}
+          disabled={skuLoading || ordersLoading}
           variant="outline"
           size="sm"
           className="gap-2"
         >
-          <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-          Refresh Data
+          <RefreshCw className={`h-4 w-4 ${(skuLoading || ordersLoading) ? 'animate-spin' : ''}`} />
+          Refresh {activeTab === 'skus' ? 'SKUs' : 'Orders'}
         </Button>
       </div>
 
-      {/* Progress Bar */}
-      {isLoading && (
+      {/* Progress Bars */}
+      {(skuLoading || ordersLoading) && (
         <Card className="animate-fade-in">
           <CardContent className="pt-6">
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-medium">Loading Data</span>
-                <span className="text-sm text-muted-foreground">{loadingProgress}%</span>
-              </div>
-              <Progress value={loadingProgress} className="h-2" />
-              {loadingStatus && (
-                <p className="text-xs text-muted-foreground">{loadingStatus}</p>
+            <div className="space-y-4">
+              {skuLoading && (
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium flex items-center gap-2">
+                      <Package className="h-4 w-4" />
+                      Loading SKUs
+                    </span>
+                    <span className="text-sm text-muted-foreground">{skuProgress}%</span>
+                  </div>
+                  <Progress value={skuProgress} className="h-2" />
+                  {skuStatus && (
+                    <p className="text-xs text-muted-foreground">{skuStatus}</p>
+                  )}
+                </div>
+              )}
+              {ordersLoading && (
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4" />
+                      Loading Orders
+                    </span>
+                    <span className="text-sm text-muted-foreground">{ordersProgress}%</span>
+                  </div>
+                  <Progress value={ordersProgress} className="h-2" />
+                  {ordersStatus && (
+                    <p className="text-xs text-muted-foreground">{ordersStatus}</p>
+                  )}
+                </div>
               )}
             </div>
           </CardContent>
@@ -165,7 +220,7 @@ export function POTracker() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <POFileUpload onFilesUpload={handleFileUpload} isLoading={isLoading} />
+              <POFileUpload onFilesUpload={handleFileUpload} isLoading={ordersLoading} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -183,7 +238,7 @@ export function POTracker() {
                 orders={poOrders} 
                 onUpdateStatus={updateOrderStatus}
                 onUpdateTracking={updateTrackingInfo}
-                isLoading={isLoading}
+                isLoading={ordersLoading}
               />
             </CardContent>
           </Card>
@@ -196,7 +251,12 @@ export function POTracker() {
         <TabsContent value="skus" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Sunsky SKU Database</CardTitle>
+              <CardTitle className="flex items-center justify-between">
+                <span>Sunsky SKU Database</span>
+                <Badge variant="outline">
+                  {sunskySKUs.length} / {totalCount} loaded
+                </Badge>
+              </CardTitle>
               <CardDescription>
                 Manage SKUs for Sunsky supplier. Add new SKUs or search existing ones.
               </CardDescription>
@@ -215,12 +275,18 @@ export function POTracker() {
                 <ShippingRateDialog 
                   currentRate={shippingRate} 
                   onUpdateRate={updateShippingRate} 
-                  isLoading={isLoading} 
+                  isLoading={skuLoading} 
                 />
-                <AddSKUDialog onAddSKUs={addSKUs} isLoading={isLoading} />
+                <AddSKUDialog onAddSKUs={addSKUs} isLoading={skuLoading} />
               </div>
               
-              <SKUList skus={filteredSKUs} shippingRate={shippingRate} isLoading={isLoading} />
+              <SKUList 
+                skus={filteredSKUs} 
+                shippingRate={shippingRate} 
+                isLoading={skuLoading}
+                hasMore={hasMoreSKUs}
+                onLoadMore={loadMoreSKUs}
+              />
             </CardContent>
           </Card>
         </TabsContent>

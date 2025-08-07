@@ -5,16 +5,18 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Package, Calendar, Calculator, ChevronLeft, ChevronRight } from 'lucide-react';
-import { SunskySKU } from '@/hooks/usePOTracker';
+import { Package, Calendar, Calculator, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { SunskySKU } from '@/hooks/useSKUManager';
 
 interface SKUListProps {
   skus: SunskySKU[];
   shippingRate: number;
   isLoading: boolean;
+  hasMore?: boolean;
+  onLoadMore?: () => void;
 }
 
-export function SKUList({ skus, shippingRate, isLoading }: SKUListProps) {
+export function SKUList({ skus, shippingRate, isLoading, hasMore, onLoadMore }: SKUListProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
   
@@ -153,7 +155,7 @@ export function SKUList({ skus, shippingRate, isLoading }: SKUListProps) {
           </TableBody>
         </Table>
         
-        {/* Pagination Controls */}
+        {/* Load More Button and Pagination Controls */}
         <div className="flex items-center justify-between mt-4">
           <div className="flex items-center space-x-4">
             <p className="text-sm text-muted-foreground">
@@ -172,6 +174,21 @@ export function SKUList({ skus, shippingRate, isLoading }: SKUListProps) {
                   <SelectItem value="100">100</SelectItem>
                 </SelectContent>
               </Select>
+              {hasMore && onLoadMore && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onLoadMore}
+                  disabled={isLoading}
+                  className="gap-2"
+                >
+                  {isLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    'Load More'
+                  )}
+                </Button>
+              )}
             </div>
           </div>
           

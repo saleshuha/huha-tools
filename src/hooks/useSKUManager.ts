@@ -1,0 +1,264 @@
+import { useState, useCallback } from 'react';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+
+export interface SunskySKU {
+  id: string;
+  user_id: string;
+  sku_code: string;
+  title?: string;
+  description?: string;
+  cost?: number;
+  weight?: number;
+  notes?: string;
+  currency?: string;
+  country?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+const CACHE_KEY = 'sunsky_skus_cache';
+const CACHE_EXPIRY = 5 * 60 * 1000; // 5 minutes
+
+export const useSKUManager = () => {
+  const [sunskySKUs, setSunskySKUs] = useState<SunskySKU[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [loadingStatus, setLoadingStatus] = useState('');
+  const [totalCount, setTotalCount] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(1000); // Load 1000 SKUs at a time
+  const { toast } = useToast();
+
+  // Cache management
+  const getCachedSKUs = useCallback(() => {
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const { data, timestamp } = JSON.parse(cached);
+        if (Date.now() - timestamp < CACHE_EXPIRY) {
+          return data;
+        }
+      }
+    } catch (error) {
+      console.error('Error reading cache:', error);
+    }
+    return null;
+  }, []);
+
+  const setCachedSKUs = useCallback((data: SunskySKU[]) => {
+    try {
+      localStorage.setItem(CACHE_KEY, JSON.stringify({
+        data,
+        timestamp: Date.now()
+      }));
+    } catch (error) {
+      console.error('Error writing cache:', error);
+    }
+  }, []);
+
+  // Optimized SKU fetching with pagination and caching
+  const fetchSKUs = useCallback(async (page: number = 1, useCache: boolean = true) => {
+    // Try cache first for first page
+    if (page === 1 && useCache) {
+      const cached = getCachedSKUs();
+      if (cached) {
+        console.log('Using cached SKUs:', cached.length);
+        setSunskySKUs(cached);
+        setTotalCount(cached.length);
+        return;
+      }
+    }
+
+    setIsLoading(true);
+    setLoadingProgress(0);
+    setLoadingStatus(`Loading SKUs (page ${page})...`);
+
+    try {
+      // Get total count first
+      setLoadingProgress(10);
+      const { count, error: countError } = await supabase
+        .from('sunsky_skus')
+        .select('*', { count: 'exact', head: true });
+
+      if (countError) throw countError;
+      setTotalCount(count || 0);
+
+      setLoadingProgress(30);
+      setLoadingStatus(`Found ${count} SKUs, loading batch ${page}...`);
+
+      // Fetch SKUs in batches
+      const from = (page - 1) * itemsPerPage;
+      const to = from + itemsPerPage - 1;
+
+      setLoadingProgress(50);
+      const { data, error } = await supabase
+        .from('sunsky_skus')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .range(from, to);
+
+      if (error) throw error;
+
+      setLoadingProgress(80);
+      setLoadingStatus('Processing SKU data...');
+
+      const skuData = data || [];
+      
+      if (page === 1) {
+        setSunskySKUs(skuData);
+        // Cache first page for faster subsequent loads
+        setCachedSKUs(skuData);
+      } else {
+        setSunskySKUs(prev => [...prev, ...skuData]);
+      }
+
+      setLoadingProgress(100);
+      setLoadingStatus(`Loaded ${skuData.length} SKUs`);
+
+      console.log(`Successfully loaded ${skuData.length} SKUs (page ${page})`);
+
+    } catch (error) {
+      console.error('Error fetching SKUs:', error);
+      setLoadingStatus('Failed to load SKUs');
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to fetch SKUs",
+        variant: "destructive"
+      });
+    } finally {
+      setTimeout(() => {
+        setIsLoading(false);
+        setLoadingProgress(0);
+        setLoadingStatus('');
+      }, 500);
+    }
+  }, [itemsPerPage, getCachedSKUs, setCachedSKUs, toast]);
+
+  // Load more SKUs (pagination)
+  const loadMoreSKUs = useCallback(async () => {
+    const nextPage = Math.floor(sunskySKUs.length / itemsPerPage) + 1;
+    await fetchSKUs(nextPage, false);
+  }, [sunskySKUs.length, itemsPerPage, fetchSKUs]);
+
+  // Add multiple SKUs with optimized batch processing
+  const addSKUs = useCallback(async (skus: Omit<SunskySKU, 'id' | 'created_at' | 'updated_at' | 'user_id'>[]) => {
+    setIsLoading(true);
+    setLoadingProgress(0);
+    setLoadingStatus('Preparing SKUs...');
+
+    try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      setLoadingProgress(10);
+      
+      // Get user's country from profile
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('country')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError) throw new Error('Failed to get user profile');
+
+      setLoadingProgress(20);
+      setLoadingStatus('Processing SKU data...');
+
+      // Add user_id and country to each SKU
+      const skusWithUserId = skus.map(sku => ({
+        ...sku,
+        user_id: user.id,
+        country: profile.country
+      }));
+
+      console.log('Adding SKUs to database:', skusWithUserId.length);
+
+      setLoadingProgress(40);
+      setLoadingStatus(`Uploading ${skusWithUserId.length} SKUs...`);
+
+      // Process in optimal chunks of 100
+      const chunkSize = 100;
+      let successCount = 0;
+      let duplicateCount = 0;
+      let errorCount = 0;
+
+      for (let i = 0; i < skusWithUserId.length; i += chunkSize) {
+        const chunk = skusWithUserId.slice(i, i + chunkSize);
+        const progress = 40 + ((i / skusWithUserId.length) * 50);
+        setLoadingProgress(progress);
+        setLoadingStatus(`Processing chunk ${Math.floor(i/chunkSize) + 1}/${Math.ceil(skusWithUserId.length/chunkSize)}...`);
+        
+        try {
+          const { data: chunkData, error: chunkError } = await supabase
+            .from('sunsky_skus')
+            .upsert(chunk, { 
+              onConflict: 'user_id,sku_code',
+              ignoreDuplicates: false
+            })
+            .select('id');
+            
+          if (chunkError) throw chunkError;
+          
+          successCount += chunkData?.length || 0;
+          console.log(`Chunk ${Math.floor(i/chunkSize) + 1} successful: ${chunkData?.length || 0} SKUs processed`);
+          
+        } catch (chunkError: any) {
+          console.error('Chunk failed:', chunkError);
+          errorCount += chunk.length;
+        }
+      }
+
+      setLoadingProgress(90);
+      setLoadingStatus('Refreshing data...');
+
+      // Clear cache and refresh
+      localStorage.removeItem(CACHE_KEY);
+      await fetchSKUs(1, false);
+
+      setLoadingProgress(100);
+      
+      toast({
+        title: "Success",
+        description: `Processed ${successCount} SKUs successfully. ${errorCount} failed.`
+      });
+
+    } catch (error) {
+      console.error('Error adding SKUs:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to add SKUs",
+        variant: "destructive"
+      });
+    } finally {
+      setTimeout(() => {
+        setIsLoading(false);
+        setLoadingProgress(0);
+        setLoadingStatus('');
+      }, 1000);
+    }
+  }, [fetchSKUs, toast]);
+
+  // Refresh SKUs (clear cache and reload)
+  const refreshSKUs = useCallback(async () => {
+    localStorage.removeItem(CACHE_KEY);
+    setCurrentPage(1);
+    await fetchSKUs(1, false);
+  }, [fetchSKUs]);
+
+  return {
+    sunskySKUs,
+    isLoading,
+    loadingProgress,
+    loadingStatus,
+    totalCount,
+    currentPage,
+    itemsPerPage,
+    hasMoreSKUs: sunskySKUs.length < totalCount,
+    fetchSKUs,
+    loadMoreSKUs,
+    addSKUs,
+    refreshSKUs
+  };
+};
