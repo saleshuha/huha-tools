@@ -1325,6 +1325,49 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_all_po_orders: {
+        Args: { user_id_param: string }
+        Returns: {
+          id: string
+          user_id: string
+          po_number: string
+          sku_code: string
+          quantity: number
+          status: string
+          order_date: string
+          expected_delivery: string
+          notes: string
+          file_name: string
+          country: string
+          currency: string
+          unit_cost: number
+          total_cost: number
+          sku_user_id: string
+          supplier_order_number: string
+          tracking_number: string
+          tracking_url: string
+          created_at: string
+          updated_at: string
+          sunsky_sku: Json
+        }[]
+      }
+      get_all_sunsky_skus: {
+        Args: { user_id_param: string }
+        Returns: {
+          id: string
+          user_id: string
+          sku_code: string
+          title: string
+          description: string
+          cost: number
+          weight: number
+          notes: string
+          currency: string
+          country: string
+          created_at: string
+          updated_at: string
+        }[]
+      }
       get_items_needing_restock: {
         Args: Record<PropertyKey, never> | { country_filter?: string }
         Returns: {

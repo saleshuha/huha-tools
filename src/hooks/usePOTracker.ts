@@ -48,73 +48,25 @@ export const usePOTracker = () => {
   const [shippingRate, setShippingRate] = useState(0.005); // Default: 0.005 AED per gram
   const { toast } = useToast();
 
-  // Fetch all Sunsky SKUs by overcoming the 1000 limit properly
+  // Fetch all Sunsky SKUs using database function (bypasses client limits)
   const fetchSunskySKUs = async () => {
     setIsLoading(true);
     try {
-      console.log('Fetching ALL Sunsky SKUs (bypassing 1000 limit)...');
+      console.log('Fetching ALL Sunsky SKUs using database function...');
       
-      // First get the total count
-      const { count, error: countError } = await supabase
-        .from('sunsky_skus')
-        .select('*', { count: 'exact', head: true });
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
       
-      if (countError) throw countError;
-      console.log(`Total SKUs in database: ${count}`);
+      // Use RPC to call our custom function that bypasses limits
+      const { data, error } = await supabase.rpc('get_all_sunsky_skus', {
+        user_id_param: user.id
+      });
       
-      if (!count || count === 0) {
-        setSunskySKUs([]);
-        return;
-      }
+      if (error) throw error;
       
-      // If count is <= 1000, fetch normally
-      if (count <= 1000) {
-        const { data, error } = await supabase
-          .from('sunsky_skus')
-          .select('*')
-          .order('created_at', { ascending: false });
-          
-        if (error) throw error;
-        console.log(`Loaded ${data?.length || 0} SKUs`);
-        setSunskySKUs(data || []);
-        return;
-      }
-      
-      // For count > 1000, use range queries to fetch all data
-      let allData: SunskySKU[] = [];
-      const chunkSize = 1000;
-      let from = 0;
-      
-      while (from < count) {
-        const to = Math.min(from + chunkSize - 1, count - 1);
-        console.log(`Fetching SKUs ${from} to ${to}...`);
-        
-        const { data: chunkData, error: chunkError } = await supabase
-          .from('sunsky_skus')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .range(from, to);
-          
-        if (chunkError) throw chunkError;
-        
-        if (chunkData && chunkData.length > 0) {
-          allData = allData.concat(chunkData);
-          console.log(`Loaded ${allData.length}/${count} SKUs...`);
-          
-          // Update state progressively so user sees progress
-          setSunskySKUs([...allData]);
-        }
-        
-        from += chunkSize;
-        
-        // Small delay to prevent overwhelming the database
-        if (from < count) {
-          await new Promise(resolve => setTimeout(resolve, 50));
-        }
-      }
-      
-      console.log(`Successfully loaded ALL ${allData.length} SKUs`);
-      setSunskySKUs(allData);
+      console.log(`Successfully loaded ALL ${data?.length || 0} SKUs using database function`);
+      setSunskySKUs(data || []);
       
     } catch (error) {
       console.error('Error fetching Sunsky SKUs:', error);
@@ -128,75 +80,31 @@ export const usePOTracker = () => {
     }
   };
 
-  // Fetch all PO Orders by properly handling the 1000 limit
+  // Fetch all PO Orders using database function (bypasses client limits)
   const fetchPOOrders = async () => {
     try {
-      console.log('Fetching ALL PO orders (bypassing 1000 limit)...');
+      console.log('Fetching ALL PO orders using database function...');
       
-      // First get the total count
-      const { count, error: countError } = await supabase
-        .from('po_orders')
-        .select('*', { count: 'exact', head: true });
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
       
-      if (countError) throw countError;
-      console.log(`Total PO orders in database: ${count}`);
+      // Use RPC to call our custom function that bypasses limits
+      const { data, error } = await supabase.rpc('get_all_po_orders', {
+        user_id_param: user.id
+      });
       
-      if (!count || count === 0) {
-        setPOOrders([]);
-        return;
-      }
+      if (error) throw error;
       
-      // If count is <= 1000, fetch normally
-      if (count <= 1000) {
-        const { data, error } = await supabase
-          .from('po_orders')
-          .select(`
-            *,
-            sunsky_sku:sunsky_skus(*)
-          `)
-          .order('created_at', { ascending: false });
-          
-        if (error) throw error;
-        console.log(`Loaded ${data?.length || 0} PO orders`);
-        setPOOrders(data as POOrder[] || []);
-        return;
-      }
+      console.log(`Successfully loaded ALL ${data?.length || 0} PO orders using database function`);
       
-      // For count > 1000, use range queries to fetch all data
-      let allData: any[] = [];
-      const chunkSize = 1000;
-      let from = 0;
+      // Transform the data to match our POOrder interface
+      const transformedData = data?.map((order: any) => ({
+        ...order,
+        sunsky_sku: order.sunsky_sku || undefined
+      })) || [];
       
-      while (from < count) {
-        const to = Math.min(from + chunkSize - 1, count - 1);
-        console.log(`Fetching PO orders ${from} to ${to}...`);
-        
-        const { data: chunkData, error: chunkError } = await supabase
-          .from('po_orders')
-          .select(`
-            *,
-            sunsky_sku:sunsky_skus(*)
-          `)
-          .order('created_at', { ascending: false })
-          .range(from, to);
-          
-        if (chunkError) throw chunkError;
-        
-        if (chunkData && chunkData.length > 0) {
-          allData = allData.concat(chunkData);
-          console.log(`Loaded ${allData.length}/${count} PO orders...`);
-        }
-        
-        from += chunkSize;
-        
-        // Small delay to prevent overwhelming the database
-        if (from < count) {
-          await new Promise(resolve => setTimeout(resolve, 50));
-        }
-      }
-      
-      console.log(`Successfully loaded ALL ${allData.length} PO orders`);
-      setPOOrders(allData as POOrder[]);
+      setPOOrders(transformedData);
       
     } catch (error) {
       console.error('Error fetching PO orders:', error);
