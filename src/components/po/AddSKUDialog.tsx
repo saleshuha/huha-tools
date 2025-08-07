@@ -16,6 +16,7 @@ import Papa from 'papaparse';
 import { SunskySKU } from '@/hooks/usePOTracker';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { ColumnMappingWizard } from '@/components/sales/ColumnMappingWizard';
+import { ColumnMappingWizard as SKUColumnMappingWizard } from './SKUColumnMappingWizard';
 
 interface AddSKUDialogProps {
   onAddSKUs: (skus: Omit<SunskySKU, 'id' | 'created_at' | 'updated_at' | 'user_id'>[]) => Promise<void>;
@@ -55,10 +56,19 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
   // File processing states
   const [processQueue, setProcessQueue] = useState<File[]>([]);
   const [currentFileIndex, setCurrentFileIndex] = useState(0);
-  const [savedMappings, setSavedMappings] = useState<any>(null);
+  const [savedMappings, setSavedMappings] = useState<any>({});
   const [isProcessingQueue, setIsProcessingQueue] = useState(false);
   
+  // Column mapping states
+  const [showMappingWizard, setShowMappingWizard] = useState(false);
+  const [currentFileData, setCurrentFileData] = useState<any>(null);
+  const [currentFileName, setCurrentFileName] = useState('');
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  
   const { profile } = useUserProfile();
+
+  // SKU columns for mapping
+  const skuColumns = ['sku_code', 'title', 'description', 'cost', 'weight', 'notes'];
 
   const getCurrencySymbol = (country: string | undefined) => {
     switch (country) {
@@ -93,11 +103,10 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
 
     setProcessQueue(sortedFiles);
     setCurrentFileIndex(0);
-    setSavedMappings(null);
     
     // Start processing the first file for mapping
     if (sortedFiles.length > 0) {
-      handleFileUpload(sortedFiles);
+      processFirstFileForMapping(sortedFiles[0], sortedFiles);
     }
   }, []);
 
@@ -111,105 +120,102 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
     multiple: true
   });
 
-  const handleFileUpload = async (files: File[]) => {
-    if (files.length === 0) return;
-
-    setIsProcessingQueue(true);
-    setProgressLabel(`Processing ${files.length} file(s)...`);
-
+  const processFirstFileForMapping = async (file: File, allFiles: File[]) => {
     try {
-      // Process first file for mapping if no saved mappings
-      if (!savedMappings) {
-        await processCurrentFileWithMapping(files[0], files);
-      } else {
-        // Use saved mappings for all files
-        await processAllFilesWithSavedMappings(files);
-      }
-    } catch (error) {
-      console.error('Error processing files:', error);
-      setProgressLabel('Error processing files');
-    } finally {
-      setIsProcessingQueue(false);
-      setProcessQueue([]);
-      setCurrentFileIndex(0);
-    }
-  };
-
-  const processCurrentFileWithMapping = async (file: File, allFiles: File[]) => {
-    try {
+      setProgressLabel(`Reading ${file.name} for column mapping...`);
       const data = await parseFileQuietly(file);
+      
       if (!data || data.length === 0) {
         throw new Error('No data found in file');
       }
 
-      // Show mapping wizard for the first file
-      const handleMappingComplete = async (mappedData: any[], mappings: any) => {
-        // Save mappings for other files
-        setSavedMappings(mappings);
-        
-        // Process the mapped data from first file
-        await processFileWithMappings(mappedData, file.name);
-        
-        // Process remaining files with same mappings
-        if (allFiles.length > 1) {
-          await processRemainingFilesWithSavedMappings(allFiles.slice(1), mappings);
-        }
-      };
+      // Extract headers and sample rows
+      const headers = Object.keys(data[0]);
+      const rows = data.slice(0, 100); // First 100 rows for mapping
 
-      // This would typically show a mapping dialog
-      // For now, let's assume a simple mapping
-      const simpleMapping = {
-        'sku_code': data[0] && Object.keys(data[0])[0],
-        'title': data[0] && Object.keys(data[0])[1],
-        'cost': data[0] && Object.keys(data[0])[2],
-        'weight': data[0] && Object.keys(data[0])[3]
-      };
-
-      const mappedData = data.map(row => ({
-        sku_code: row[Object.keys(row)[0]] || '',
-        title: row[Object.keys(row)[1]] || '',
-        cost: parseFloat(row[Object.keys(row)[2]]) || 0,
-        weight: parseFloat(row[Object.keys(row)[3]]) || 0,
-        description: row[Object.keys(row)[4]] || '',
-        notes: ''
-      }));
-
-      await handleMappingComplete(mappedData, simpleMapping);
+      setCurrentFileData({
+        headers,
+        rows: rows.map(row => headers.map(header => row[header]))
+      });
+      setCurrentFileName(file.name);
+      setPendingFiles(allFiles);
+      setShowMappingWizard(true);
+      setIsProcessingQueue(false);
 
     } catch (error) {
-      console.error('Error in mapping process:', error);
-      throw error;
+      console.error('Error processing file for mapping:', error);
+      setProgressLabel('Error reading file');
+      setIsProcessingQueue(false);
     }
   };
 
-  const processAllFilesWithSavedMappings = async (files: File[]) => {
-    setProgressLabel(`Processing ${files.length} files with saved mappings...`);
-    
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      setCurrentFileIndex(i);
-      setProgress((i / files.length) * 100);
+  const handleMappingComplete = async (mappedData: any[], mapping: any) => {
+    try {
+      setShowMappingWizard(false);
+      setIsProcessingQueue(true);
       
-      try {
-        const data = await parseFileQuietly(file);
-        if (data && data.length > 0) {
-          await processFileWithMappings(data, file.name);
-        }
-      } catch (error) {
-        console.error(`Error processing file ${file.name}:`, error);
+      // Save the mapping for future use
+      setSavedMappings(prev => ({ ...prev, [currentFileName]: mapping }));
+      
+      // Process the mapped data from first file
+      await processFileWithMappings(mappedData, currentFileName);
+      
+      // Process remaining files with same mappings if multiple files
+      if (pendingFiles.length > 1) {
+        setProgressLabel(`Processing remaining ${pendingFiles.length - 1} files with saved mapping...`);
+        await processRemainingFilesWithSavedMappings(pendingFiles.slice(1), mapping);
       }
+      
+      setProgressLabel('All files processed successfully!');
+      
+    } catch (error) {
+      console.error('Error in mapping completion:', error);
+      setProgressLabel('Error processing files');
+    } finally {
+      setIsProcessingQueue(false);
+      setCurrentFileData(null);
+      setPendingFiles([]);
     }
   };
 
-  const processRemainingFilesWithSavedMappings = async (remainingFiles: File[], mappings: any) => {
+  const handleSaveMapping = (name: string, mapping: any) => {
+    setSavedMappings(prev => ({ ...prev, [name]: mapping }));
+  };
+
+  const processRemainingFilesWithSavedMappings = async (remainingFiles: File[], mapping: any) => {
     for (let i = 0; i < remainingFiles.length; i++) {
       const file = remainingFiles[i];
-      setProgressLabel(`Processing remaining file ${i + 1}/${remainingFiles.length}: ${file.name}`);
+      setCurrentFileIndex(i + 1);
+      setProgress(((i + 1) / remainingFiles.length) * 100);
+      setProgressLabel(`Processing file ${i + 2}/${pendingFiles.length}: ${file.name}`);
       
       try {
         const data = await parseFileQuietly(file);
         if (data && data.length > 0) {
-          await processFileWithMappings(data, file.name);
+          // Apply saved mapping to this file's data
+          const mappedData = data.map(row => {
+            const processedRow: any = {};
+            Object.entries(mapping).forEach(([expectedCol, headerCol]) => {
+              let value = row[headerCol as string];
+              
+              // Convert numeric fields
+              if (expectedCol === 'cost' || expectedCol === 'weight') {
+                value = parseFloat(value) || 0;
+              }
+              
+              // Clean string fields
+              if (typeof value === 'string') {
+                value = value.trim();
+              }
+              
+              if (value !== undefined && value !== null && value !== '') {
+                processedRow[expectedCol] = value;
+              }
+            });
+            return processedRow;
+          }).filter(row => row.sku_code); // Only include rows with SKU codes
+          
+          await processFileWithMappings(mappedData, file.name);
         }
       } catch (error) {
         console.error(`Error processing file ${file.name}:`, error);
@@ -251,9 +257,9 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
         skuCode: row.sku_code?.toString().trim() || '',
         title: row.title?.toString().trim() || '',
         description: row.description?.toString().trim() || '',
-        cost: parseFloat(row.cost) || 0,
-        weight: parseFloat(row.weight) || 0,
-        notes: `Imported from ${fileName}`
+        cost: typeof row.cost === 'number' ? row.cost : (parseFloat(row.cost) || 0),
+        weight: typeof row.weight === 'number' ? row.weight : (parseFloat(row.weight) || 0),
+        notes: row.notes?.toString().trim() || `Imported from ${fileName}`
       }));
 
     setBulkSKUs(prev => [...prev, ...newSKUs]);
@@ -414,7 +420,30 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <>
+      {/* Column Mapping Wizard */}
+      {showMappingWizard && currentFileData && (
+        <Dialog open={showMappingWizard} onOpenChange={() => {}}>
+          <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden">
+            <DialogHeader>
+              <DialogTitle>Map Columns - {currentFileName}</DialogTitle>
+              <DialogDescription>
+                Map the columns from your file to the SKU fields. This mapping will be applied to all uploaded files.
+              </DialogDescription>
+            </DialogHeader>
+            <SKUColumnMappingWizard
+              fileData={currentFileData}
+              expectedColumns={skuColumns}
+              onMappingComplete={handleMappingComplete}
+              savedMappings={savedMappings}
+              onSaveMapping={handleSaveMapping}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Main Dialog */}
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         <Button>
           <Plus className="h-4 w-4 mr-2" />
@@ -699,5 +728,6 @@ export function AddSKUDialog({ onAddSKUs, isLoading }: AddSKUDialogProps) {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    </>
   );
 }
