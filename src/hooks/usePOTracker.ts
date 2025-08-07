@@ -48,71 +48,51 @@ export const usePOTracker = () => {
   const [shippingRate, setShippingRate] = useState(0.005); // Default: 0.005 AED per gram
   const { toast } = useToast();
 
-  // Fetch all Sunsky SKUs using database function (bypasses client limits)
-  const fetchSunskySKUs = async () => {
+  // Fetch ALL data using edge function (completely bypasses client limits)
+  const fetchAllData = async () => {
     setIsLoading(true);
     try {
-      console.log('Fetching ALL Sunsky SKUs using database function...');
+      console.log('Fetching ALL data using edge function...');
       
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
-      
-      // Use RPC to call our custom function that bypasses limits
-      const { data, error } = await supabase.rpc('get_all_sunsky_skus', {
-        user_id_param: user.id
+      // Get current session token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('No authentication session found');
+      }
+
+      // Call our edge function that bypasses all limits
+      const { data, error } = await supabase.functions.invoke('get-all-po-data', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
       });
+
+      if (error) {
+        console.error('Edge function error:', error);
+        throw error;
+      }
+
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to fetch data');
+      }
+
+      console.log('Edge function response:', data.message);
       
-      if (error) throw error;
-      
-      console.log(`Successfully loaded ALL ${data?.length || 0} SKUs using database function`);
-      setSunskySKUs(data || []);
+      // Update state with ALL data
+      setSunskySKUs(data.data.sunskySKUs || []);
+      setPOOrders(data.data.poOrders || []);
+
+      console.log(`Successfully loaded ${data.data.sunskySKUs?.length || 0} SKUs and ${data.data.poOrders?.length || 0} PO orders`);
       
     } catch (error) {
-      console.error('Error fetching Sunsky SKUs:', error);
+      console.error('Error fetching all data:', error);
       toast({
         title: "Error",
-        description: "Failed to fetch Sunsky SKUs",
+        description: "Failed to fetch data. Please try refreshing.",
         variant: "destructive"
       });
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  // Fetch all PO Orders using database function (bypasses client limits)
-  const fetchPOOrders = async () => {
-    try {
-      console.log('Fetching ALL PO orders using database function...');
-      
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
-      
-      // Use RPC to call our custom function that bypasses limits
-      const { data, error } = await supabase.rpc('get_all_po_orders', {
-        user_id_param: user.id
-      });
-      
-      if (error) throw error;
-      
-      console.log(`Successfully loaded ALL ${data?.length || 0} PO orders using database function`);
-      
-      // Transform the data to match our POOrder interface
-      const transformedData = data?.map((order: any) => ({
-        ...order,
-        sunsky_sku: order.sunsky_sku || undefined
-      })) || [];
-      
-      setPOOrders(transformedData);
-      
-    } catch (error) {
-      console.error('Error fetching PO orders:', error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch PO orders",
-        variant: "destructive"
-      });
     }
   };
 
@@ -125,7 +105,7 @@ export const usePOTracker = () => {
       if (!user) throw new Error('User not authenticated');
 
       // Get user's country from profile
-      const { data: profile, error: profileError } = await (supabase as any)
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('country')
         .eq('id', user.id)
@@ -143,7 +123,7 @@ export const usePOTracker = () => {
       console.log('Adding SKUs to database:', skusWithUserId.length);
 
       // Use proper upsert syntax for Supabase
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('sunsky_skus')
         .upsert(skusWithUserId, { 
           onConflict: 'user_id,sku_code',
@@ -169,7 +149,7 @@ export const usePOTracker = () => {
           console.log(`Processing chunk ${Math.floor(i/chunkSize) + 1}/${Math.ceil(skusWithUserId.length/chunkSize)}`);
           
           try {
-            const { data: chunkData, error: chunkError } = await (supabase as any)
+            const { data: chunkData, error: chunkError } = await supabase
               .from('sunsky_skus')
               .insert(chunk)
               .select();
@@ -186,7 +166,7 @@ export const usePOTracker = () => {
             // Individual insert fallback
             for (const sku of chunk) {
               try {
-                const { data: skuData, error: skuError } = await (supabase as any)
+                const { data: skuData, error: skuError } = await supabase
                   .from('sunsky_skus')
                   .insert([sku])
                   .select();
@@ -210,7 +190,7 @@ export const usePOTracker = () => {
           }
         }
         
-        await fetchSunskySKUs();
+        await fetchAllData();
         toast({
           title: "Success",
           description: `Added ${successCount} new SKUs. ${duplicateCount} SKUs already existed. ${errorCount} failed.`
@@ -218,7 +198,7 @@ export const usePOTracker = () => {
         return;
       }
 
-      await fetchSunskySKUs();
+      await fetchAllData();
       toast({
         title: "Success",
         description: `Processed ${skus.length} SKUs successfully`
@@ -243,7 +223,7 @@ export const usePOTracker = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      const validOrders: Omit<POOrder, 'id' | 'created_at' | 'updated_at' | 'sunsky_sku'>[] = [];
+      const validOrders: any[] = [];
 
       mappedData.forEach(item => {
         // Check if SKU exists in our database
@@ -256,7 +236,7 @@ export const usePOTracker = () => {
             po_number: item.po_number,
             sku_code: item.sku_code,
             quantity: item.quantity,
-            status: 'pending' as const,
+            status: 'pending',
             file_name: item.file_name,
             notes: undefined,
             order_date: undefined,
@@ -272,7 +252,7 @@ export const usePOTracker = () => {
       });
 
       if (validOrders.length > 0) {
-        const { data, error } = await (supabase as any)
+        const { data, error } = await supabase
           .from('po_orders')
           .insert(validOrders)
           .select();
@@ -282,7 +262,7 @@ export const usePOTracker = () => {
           throw error;
         }
 
-        await fetchPOOrders();
+        await fetchAllData();
         toast({
           title: "Success",
           description: `Processed ${validOrders.length} PO items from ${new Set(mappedData.map(item => item.file_name)).size} file(s)`
@@ -309,7 +289,7 @@ export const usePOTracker = () => {
   // Update order status
   const updateOrderStatus = async (orderId: string, status: POOrder['status']) => {
     try {
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('po_orders')
         .update({ 
           status,
@@ -319,7 +299,7 @@ export const usePOTracker = () => {
 
       if (error) throw error;
 
-      await fetchPOOrders();
+      await fetchAllData();
       toast({
         title: "Success",
         description: `Order status updated to ${status}`
@@ -337,14 +317,14 @@ export const usePOTracker = () => {
   // Update tracking information
   const updateTrackingInfo = async (orderId: string, trackingData: { supplier_order_number?: string; tracking_number?: string; tracking_url?: string }) => {
     try {
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('po_orders')
         .update(trackingData)
         .eq('id', orderId);
 
       if (error) throw error;
 
-      await fetchPOOrders();
+      await fetchAllData();
       toast({
         title: "Success",
         description: "Tracking information updated"
@@ -360,8 +340,7 @@ export const usePOTracker = () => {
   };
 
   useEffect(() => {
-    fetchSunskySKUs();
-    fetchPOOrders();
+    fetchAllData();
   }, []);
 
   // Update shipping rate
@@ -383,9 +362,6 @@ export const usePOTracker = () => {
     updateOrderStatus,
     updateTrackingInfo,
     updateShippingRate,
-    refetch: () => {
-      fetchSunskySKUs();
-      fetchPOOrders();
-    }
+    refetch: fetchAllData
   };
 };
