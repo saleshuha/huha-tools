@@ -48,44 +48,64 @@ export const usePOTracker = () => {
   const [shippingRate, setShippingRate] = useState(0.005); // Default: 0.005 AED per gram
   const { toast } = useToast();
 
-  // Fetch Sunsky SKUs
+  // Fetch Sunsky SKUs with optimized loading
   const fetchSunskySKUs = async () => {
+    setIsLoading(true);
     try {
-      console.log('Fetching all Sunsky SKUs...');
+      console.log('Fetching Sunsky SKUs with optimized approach...');
       
-      // Remove the default 1000 row limit by fetching in chunks
-      let allData: any[] = [];
-      let from = 0;
-      const chunkSize = 1000;
-      let hasMore = true;
+      // Start with a reasonable initial load
+      const { data: initialData, error: initialError, count } = await (supabase as any)
+        .from('sunsky_skus')
+        .select('*', { count: 'exact' })
+        .order('created_at', { ascending: false })
+        .limit(1000);
 
-      while (hasMore) {
-        const { data, error, count } = await (supabase as any)
-          .from('sunsky_skus')
-          .select('*', { count: 'exact' })
-          .order('created_at', { ascending: false })
-          .range(from, from + chunkSize - 1);
+      if (initialError) throw initialError;
+      
+      console.log(`Initial load: ${initialData?.length || 0} SKUs (${count} total available)`);
+      setSunskySKUs(initialData || []);
+      
+      // If there are more records, load them in background
+      if (count && count > 1000) {
+        setTimeout(async () => {
+          try {
+            console.log('Loading remaining SKUs in background...');
+            let allData = [...(initialData || [])];
+            let from = 1000;
+            const chunkSize = 2000; // Larger chunks for background loading
+            
+            while (from < count) {
+              const { data: chunkData, error: chunkError } = await (supabase as any)
+                .from('sunsky_skus')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .range(from, from + chunkSize - 1);
 
-        if (error) throw error;
-        
-        if (data && data.length > 0) {
-          allData = allData.concat(data);
-          from += chunkSize;
-          hasMore = data.length === chunkSize;
-          console.log(`Fetched ${allData.length} SKUs so far...`);
-        } else {
-          hasMore = false;
-        }
-
-        // Safety break to prevent infinite loops
-        if (from > 50000) {
-          console.warn('Reached maximum fetch limit of 50,000 SKUs');
-          hasMore = false;
-        }
+              if (chunkError) {
+                console.error('Background chunk error:', chunkError);
+                break;
+              }
+              
+              if (chunkData && chunkData.length > 0) {
+                allData = allData.concat(chunkData);
+                setSunskySKUs([...allData]); // Update state with progress
+                from += chunkSize;
+                console.log(`Background loaded: ${allData.length}/${count} SKUs`);
+                
+                // Small delay to prevent overwhelming the database
+                await new Promise(resolve => setTimeout(resolve, 100));
+              } else {
+                break;
+              }
+            }
+            
+            console.log(`Finished loading all ${allData.length} SKUs`);
+          } catch (error) {
+            console.error('Background loading error:', error);
+          }
+        }, 100);
       }
-
-      console.log(`Total SKUs fetched: ${allData.length}`);
-      setSunskySKUs(allData);
     } catch (error) {
       console.error('Error fetching Sunsky SKUs:', error);
       toast({
@@ -93,6 +113,8 @@ export const usePOTracker = () => {
         description: "Failed to fetch Sunsky SKUs",
         variant: "destructive"
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 

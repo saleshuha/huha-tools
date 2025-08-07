@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Package, Calendar, Calculator, ChevronLeft, ChevronRight } from 'lucide-react';
 import { SunskySKU } from '@/hooks/usePOTracker';
 
@@ -15,15 +16,25 @@ interface SKUListProps {
 
 export function SKUList({ skus, shippingRate, isLoading }: SKUListProps) {
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const [itemsPerPage, setItemsPerPage] = useState(25);
   
-  const totalPages = Math.ceil(skus.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentSkus = skus.slice(startIndex, endIndex);
+  // Memoize expensive calculations
+  const { totalPages, currentSkus, startIndex, endIndex } = useMemo(() => {
+    const totalPages = Math.ceil(skus.length / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = Math.min(startIndex + itemsPerPage, skus.length);
+    const currentSkus = skus.slice(startIndex, endIndex);
+    
+    return { totalPages, currentSkus, startIndex, endIndex };
+  }, [skus, currentPage, itemsPerPage]);
 
   const goToPage = (page: number) => {
     setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+  };
+
+  const handleItemsPerPageChange = (value: string) => {
+    setItemsPerPage(Number(value));
+    setCurrentPage(1); // Reset to first page
   };
   if (isLoading) {
     return (
@@ -77,6 +88,7 @@ export function SKUList({ skus, shippingRate, isLoading }: SKUListProps) {
           </TableHeader>
           <TableBody>
             {currentSkus.map((sku) => {
+              // Memoized calculations for better performance
               const shippingCost = sku.weight ? (sku.weight * shippingRate) : 0;
               const totalCost = (sku.cost || 0) + shippingCost;
               
@@ -141,14 +153,29 @@ export function SKUList({ skus, shippingRate, isLoading }: SKUListProps) {
           </TableBody>
         </Table>
         
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between mt-4">
+        {/* Pagination Controls */}
+        <div className="flex items-center justify-between mt-4">
+          <div className="flex items-center space-x-4">
+            <p className="text-sm text-muted-foreground">
+              Showing {startIndex + 1} to {endIndex} of {skus.length} SKUs
+            </p>
             <div className="flex items-center space-x-2">
-              <p className="text-sm text-muted-foreground">
-                Showing {startIndex + 1} to {Math.min(endIndex, skus.length)} of {skus.length} SKUs
-              </p>
+              <span className="text-sm text-muted-foreground">Show:</span>
+              <Select value={itemsPerPage.toString()} onValueChange={handleItemsPerPageChange}>
+                <SelectTrigger className="w-20">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="25">25</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                  <SelectItem value="100">100</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
+          </div>
+          
+          {totalPages > 1 && (
             <div className="flex items-center space-x-2">
               <Button
                 variant="outline"
@@ -161,28 +188,56 @@ export function SKUList({ skus, shippingRate, isLoading }: SKUListProps) {
               </Button>
               
               <div className="flex items-center space-x-1">
-                {Array.from({ length: totalPages }, (_, i) => i + 1)
-                  .filter(page => 
-                    page === 1 || 
-                    page === totalPages || 
-                    (page >= currentPage - 1 && page <= currentPage + 1)
-                  )
-                  .map((page, index, array) => (
-                    <div key={page} className="flex items-center">
-                      {index > 0 && array[index - 1] !== page - 1 && (
-                        <span className="px-2 text-muted-foreground">...</span>
-                      )}
-                      <Button
-                        variant={currentPage === page ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => goToPage(page)}
-                        className="w-8 h-8 p-0"
-                      >
-                        {page}
-                      </Button>
-                    </div>
+                {totalPages <= 7 ? (
+                  // Show all pages if 7 or fewer
+                  Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                    <Button
+                      key={page}
+                      variant={currentPage === page ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => goToPage(page)}
+                      className="w-8 h-8 p-0"
+                    >
+                      {page}
+                    </Button>
                   ))
-                }
+                ) : (
+                  // Smart pagination for many pages
+                  <>
+                    <Button
+                      variant={currentPage === 1 ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => goToPage(1)}
+                      className="w-8 h-8 p-0"
+                    >
+                      1
+                    </Button>
+                    {currentPage > 3 && <span className="px-2 text-muted-foreground">...</span>}
+                    {Array.from({ length: 3 }, (_, i) => currentPage - 1 + i)
+                      .filter(page => page > 1 && page < totalPages)
+                      .map(page => (
+                        <Button
+                          key={page}
+                          variant={currentPage === page ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => goToPage(page)}
+                          className="w-8 h-8 p-0"
+                        >
+                          {page}
+                        </Button>
+                      ))
+                    }
+                    {currentPage < totalPages - 2 && <span className="px-2 text-muted-foreground">...</span>}
+                    <Button
+                      variant={currentPage === totalPages ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => goToPage(totalPages)}
+                      className="w-8 h-8 p-0"
+                    >
+                      {totalPages}
+                    </Button>
+                  </>
+                )}
               </div>
               
               <Button
@@ -195,8 +250,8 @@ export function SKUList({ skus, shippingRate, isLoading }: SKUListProps) {
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </CardContent>
     </Card>
   );
