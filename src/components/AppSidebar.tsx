@@ -1,6 +1,6 @@
+import React, { useState, createElement } from "react"
 import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, Wrench, LogOut, Home, Users, TrendingUp, Merge, Edit3, Database, CreditCard, Upload, BarChart3, DollarSign, Store, ShoppingCart, Building, Zap } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
-import { useState, createElement } from "react"
 import { supabase } from "@/integrations/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
