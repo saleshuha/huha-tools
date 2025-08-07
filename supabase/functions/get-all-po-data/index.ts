@@ -63,11 +63,30 @@ Deno.serve(async (req) => {
     
     // Get authorization header
     const authHeader = req.headers.get('Authorization');
+    console.log('Auth header present:', !!authHeader);
+    
     if (!authHeader) {
-      throw new Error('No authorization header provided');
+      console.error('No authorization header provided');
+      return new Response(
+        JSON.stringify({ success: false, error: 'No authorization header provided' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
+      );
     }
 
     // Create Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    
+    console.log('Supabase URL:', supabaseUrl);
+    console.log('Service key present:', !!supabaseServiceKey);
+    
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error('Missing Supabase environment variables');
+      return new Response(
+        JSON.stringify({ success: false, error: 'Missing Supabase configuration' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      );
+    }
     const supabase = createClient<Database>(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',

@@ -56,10 +56,15 @@ export const usePOTracker = () => {
       
       // Get current session token
       const { data: { session } } = await supabase.auth.getSession();
+      console.log('Session found:', !!session);
+      console.log('Access token found:', !!session?.access_token);
+      
       if (!session?.access_token) {
         throw new Error('No authentication session found');
       }
 
+      console.log('Calling edge function...');
+      
       // Call our edge function that bypasses all limits
       const { data, error } = await supabase.functions.invoke('get-all-po-data', {
         headers: {
@@ -67,9 +72,15 @@ export const usePOTracker = () => {
         },
       });
 
+      console.log('Edge function response:', { data, error });
+
       if (error) {
         console.error('Edge function error:', error);
         throw error;
+      }
+
+      if (!data) {
+        throw new Error('No data returned from edge function');
       }
 
       if (!data.success) {
@@ -84,11 +95,16 @@ export const usePOTracker = () => {
 
       console.log(`Successfully loaded ${data.data.sunskySKUs?.length || 0} SKUs and ${data.data.poOrders?.length || 0} PO orders`);
       
+      toast({
+        title: "Success",
+        description: data.message || "Data refreshed successfully"
+      });
+      
     } catch (error) {
       console.error('Error fetching all data:', error);
       toast({
         title: "Error",
-        description: "Failed to fetch data. Please try refreshing.",
+        description: error instanceof Error ? error.message : "Failed to fetch data. Please try refreshing.",
         variant: "destructive"
       });
     } finally {
