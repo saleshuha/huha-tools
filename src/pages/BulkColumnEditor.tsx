@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Download, Upload, FileSpreadsheet, Edit3 } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Trash2, Download, Upload, FileSpreadsheet, Edit3, Settings, Archive } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
@@ -29,14 +30,41 @@ interface ColumnReplacement {
   replaceAll: boolean;
 }
 
+interface ProcessedFileData extends FileData {
+  processedData: string[][];
+}
+
+type ProcessingStep = 'idle' | 'processing' | 'compression-settings' | 'compressing' | 'export-settings' | 'exporting';
+
+interface ProgressState {
+  step: ProcessingStep;
+  progress: number;
+  currentFile?: string;
+  message?: string;
+}
+
 const BulkColumnEditor = () => {
   const [files, setFiles] = useState<FileData[]>([]);
   const [replacements, setReplacements] = useState<ColumnReplacement[]>([]);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [showExportDialog, setShowExportDialog] = useState(false);
+  const [processedFiles, setProcessedFiles] = useState<ProcessedFileData[]>([]);
   const [compressedZip, setCompressedZip] = useState<JSZip | null>(null);
+  
+  // Progress tracking
+  const [progressState, setProgressState] = useState<ProgressState>({
+    step: 'idle',
+    progress: 0
+  });
+  
+  // Dialog states
+  const [showCompressionDialog, setShowCompressionDialog] = useState(false);
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  const [compressionLevel, setCompressionLevel] = useState<number>(6);
+  
+  // Export settings
+  const [exportMode, setExportMode] = useState<'volume' | 'count'>('volume');
   const [targetSize, setTargetSize] = useState<string>('');
   const [maxFiles, setMaxFiles] = useState<string>('');
+  
   const { toast } = useToast();
 
   const processFile = async (file: File, fileName?: string): Promise<FileData | null> => {
@@ -185,7 +213,8 @@ const BulkColumnEditor = () => {
     setFiles(prev => prev.filter(file => file.id !== id));
   };
 
-  const compressFiles = async () => {
+  // Step 1: Process files with text replacements
+  const startProcessing = async () => {
     if (files.length === 0 || replacements.length === 0) {
       toast({
         title: "Error",
@@ -195,12 +224,24 @@ const BulkColumnEditor = () => {
       return;
     }
 
-    setIsProcessing(true);
+    setProgressState({
+      step: 'processing',
+      progress: 0,
+      message: 'Processing files...'
+    });
 
     try {
-      const zip = new JSZip();
+      const processed: ProcessedFileData[] = [];
 
-      for (const file of files) {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        setProgressState(prev => ({
+          ...prev,
+          progress: Math.round((i / files.length) * 100),
+          currentFile: file.name,
+          message: `Processing ${file.name}...`
+        }));
+
         let processedData = [...file.data];
 
         // Apply all replacements to this file
@@ -226,21 +267,26 @@ const BulkColumnEditor = () => {
           });
         }
 
-        // Convert back to CSV
-        const csvContent = [file.headers, ...processedData]
-          .map(row => row.map(cell => `"${(cell || '').toString().replace(/"/g, '""')}"`).join(','))
-          .join('\n');
+        processed.push({
+          ...file,
+          processedData
+        });
 
-        const fileName = file.name.replace(/\.(xlsx?|csv)$/i, '_edited.csv');
-        zip.file(fileName, csvContent);
+        // Small delay to show progress
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
 
-      setCompressedZip(zip);
-      setShowExportDialog(true);
-      
+      setProcessedFiles(processed);
+      setProgressState({
+        step: 'compression-settings',
+        progress: 100,
+        message: 'Processing complete'
+      });
+      setShowCompressionDialog(true);
+
       toast({
         title: "Success",
-        description: "Files processed and compressed successfully"
+        description: "Files processed successfully"
       });
     } catch (error) {
       toast({
@@ -248,22 +294,102 @@ const BulkColumnEditor = () => {
         description: "Failed to process files",
         variant: "destructive"
       });
-    } finally {
-      setIsProcessing(false);
+      setProgressState({
+        step: 'idle',
+        progress: 0
+      });
     }
   };
 
+  // Step 2: Compress files with selected compression level
+  const startCompression = async () => {
+    setShowCompressionDialog(false);
+    setProgressState({
+      step: 'compressing',
+      progress: 0,
+      message: 'Compressing files...'
+    });
+
+    try {
+      const zip = new JSZip();
+
+      for (let i = 0; i < processedFiles.length; i++) {
+        const file = processedFiles[i];
+        setProgressState(prev => ({
+          ...prev,
+          progress: Math.round((i / processedFiles.length) * 100),
+          currentFile: file.name,
+          message: `Compressing ${file.name}...`
+        }));
+
+        // Convert back to CSV
+        const csvContent = [file.headers, ...file.processedData]
+          .map(row => row.map(cell => `"${(cell || '').toString().replace(/"/g, '""')}"`).join(','))
+          .join('\n');
+
+        const fileName = file.name.replace(/\.(xlsx?|csv)$/i, '_edited.csv');
+        zip.file(fileName, csvContent);
+
+        // Small delay to show progress
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
+      setCompressedZip(zip);
+      setProgressState({
+        step: 'export-settings',
+        progress: 100,
+        message: 'Compression complete'
+      });
+      setShowExportDialog(true);
+
+      toast({
+        title: "Success",
+        description: "Files compressed successfully"
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to compress files",
+        variant: "destructive"
+      });
+      setProgressState({
+        step: 'idle',
+        progress: 0
+      });
+    }
+  };
+
+  // Step 3: Export compressed files
   const handleExport = async () => {
     if (!compressedZip) return;
 
+    setShowExportDialog(false);
+    setProgressState({
+      step: 'exporting',
+      progress: 0,
+      message: 'Exporting files...'
+    });
+
     try {
+      setProgressState(prev => ({
+        ...prev,
+        progress: 50,
+        message: 'Generating download...'
+      }));
+
       const zipBlob = await compressedZip.generateAsync({ 
         type: 'blob',
         compression: 'DEFLATE',
         compressionOptions: {
-          level: 6 // Standard compression
+          level: compressionLevel
         }
       });
+
+      setProgressState(prev => ({
+        ...prev,
+        progress: 80,
+        message: 'Preparing download...'
+      }));
 
       const url = URL.createObjectURL(zipBlob);
       const a = document.createElement('a');
@@ -274,20 +400,37 @@ const BulkColumnEditor = () => {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
+      setProgressState({
+        step: 'idle',
+        progress: 100,
+        message: 'Export complete'
+      });
+
       toast({
         title: "Success",
         description: "Files exported successfully"
       });
 
-      setShowExportDialog(false);
+      // Reset state
       setCompressedZip(null);
       setTargetSize('');
       setMaxFiles('');
+      
+      setTimeout(() => {
+        setProgressState({
+          step: 'idle',
+          progress: 0
+        });
+      }, 2000);
     } catch (error) {
       toast({
         title: "Error",
         description: "Failed to export files",
         variant: "destructive"
+      });
+      setProgressState({
+        step: 'idle',
+        progress: 0
       });
     }
   };
@@ -298,6 +441,17 @@ const BulkColumnEditor = () => {
       file.headers.forEach(header => allColumns.add(header));
     });
     return Array.from(allColumns);
+  };
+
+  const getStepTitle = (step: ProcessingStep) => {
+    switch (step) {
+      case 'processing': return 'Processing Files';
+      case 'compression-settings': return 'Compression Settings';
+      case 'compressing': return 'Compressing Files';
+      case 'export-settings': return 'Export Settings';
+      case 'exporting': return 'Exporting Files';
+      default: return '';
+    }
   };
 
   return (
@@ -311,6 +465,32 @@ const BulkColumnEditor = () => {
             Upload multiple CSV/Excel files and replace text in entire columns
           </p>
         </div>
+
+        {/* Progress Indicator */}
+        {progressState.step !== 'idle' && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Settings className="h-5 w-5" />
+                {getStepTitle(progressState.step)}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex justify-between text-sm">
+                  <span>{progressState.message}</span>
+                  <span>{progressState.progress}%</span>
+                </div>
+                <Progress value={progressState.progress} className="w-full" />
+                {progressState.currentFile && (
+                  <p className="text-sm text-muted-foreground">
+                    Current: {progressState.currentFile}
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* File Upload Area */}
         <Card className="mb-6">
@@ -356,6 +536,7 @@ const BulkColumnEditor = () => {
                       variant="ghost"
                       size="sm"
                       onClick={() => removeFile(file.id)}
+                      disabled={progressState.step !== 'idle'}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -375,7 +556,7 @@ const BulkColumnEditor = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Button onClick={addReplacement} className="mb-4">
+            <Button onClick={addReplacement} className="mb-4" disabled={progressState.step !== 'idle'}>
               Add Replacement Rule
             </Button>
 
@@ -388,6 +569,7 @@ const BulkColumnEditor = () => {
                       variant="ghost"
                       size="sm"
                       onClick={() => removeReplacement(replacement.id)}
+                      disabled={progressState.step !== 'idle'}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -399,6 +581,7 @@ const BulkColumnEditor = () => {
                       <Select
                         value={replacement.columnName}
                         onValueChange={(value) => updateReplacement(replacement.id, 'columnName', value)}
+                        disabled={progressState.step !== 'idle'}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Select column" />
@@ -420,6 +603,7 @@ const BulkColumnEditor = () => {
                         value={replacement.oldValue}
                         onChange={(e) => updateReplacement(replacement.id, 'oldValue', e.target.value)}
                         placeholder="Text to find"
+                        disabled={progressState.step !== 'idle'}
                       />
                     </div>
 
@@ -430,6 +614,7 @@ const BulkColumnEditor = () => {
                         value={replacement.newValue}
                         onChange={(e) => updateReplacement(replacement.id, 'newValue', e.target.value)}
                         placeholder="Replacement text"
+                        disabled={progressState.step !== 'idle'}
                       />
                     </div>
 
@@ -438,6 +623,7 @@ const BulkColumnEditor = () => {
                       <Select
                         value={replacement.replaceAll ? 'all' : 'exact'}
                         onValueChange={(value) => updateReplacement(replacement.id, 'replaceAll', value === 'all')}
+                        disabled={progressState.step !== 'idle'}
                       >
                         <SelectTrigger>
                           <SelectValue />
@@ -464,52 +650,121 @@ const BulkColumnEditor = () => {
         {/* Process Button */}
         <div className="flex justify-center">
           <Button
-            onClick={compressFiles}
-            disabled={isProcessing || files.length === 0 || replacements.length === 0}
+            onClick={startProcessing}
+            disabled={progressState.step !== 'idle' || files.length === 0 || replacements.length === 0}
             size="lg"
             className="gap-2"
           >
             <Download className="h-5 w-5" />
-            {isProcessing ? "Processing..." : "Process & Compress Files"}
+            {progressState.step !== 'idle' ? "Processing..." : "Start Processing"}
           </Button>
         </div>
 
-        {/* Export Dialog */}
+        {/* Compression Settings Dialog */}
+        <AlertDialog open={showCompressionDialog} onOpenChange={setShowCompressionDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <Settings className="h-5 w-5" />
+                Compression Settings
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                Files have been processed successfully. Choose compression level:
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="py-4">
+              <Label htmlFor="compression-level">Compression Level</Label>
+              <Select
+                value={compressionLevel.toString()}
+                onValueChange={(value) => setCompressionLevel(parseInt(value))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">1 - Fastest (Largest file)</SelectItem>
+                  <SelectItem value="3">3 - Fast</SelectItem>
+                  <SelectItem value="6">6 - Standard (Recommended)</SelectItem>
+                  <SelectItem value="9">9 - Maximum (Smallest file)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => {
+                setShowCompressionDialog(false);
+                setProgressState({ step: 'idle', progress: 0 });
+              }}>
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction onClick={startCompression}>
+                <Archive className="h-4 w-4 mr-2" />
+                Compress Files
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Export Settings Dialog */}
         <AlertDialog open={showExportDialog} onOpenChange={setShowExportDialog}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Export Settings</AlertDialogTitle>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <Download className="h-5 w-5" />
+                Export Settings
+              </AlertDialogTitle>
               <AlertDialogDescription>
-                Files have been processed and compressed. Set your export preferences:
+                Files have been compressed successfully. Configure export options:
               </AlertDialogDescription>
             </AlertDialogHeader>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
+            <div className="space-y-4 py-4">
               <div>
-                <Label htmlFor="export-target-size">Target Size (MB)</Label>
-                <Input
-                  id="export-target-size"
-                  value={targetSize}
-                  onChange={(e) => setTargetSize(e.target.value)}
-                  placeholder="e.g., 10"
-                  type="number"
-                  min="1"
-                />
+                <Label htmlFor="export-mode">Export Mode</Label>
+                <Select
+                  value={exportMode}
+                  onValueChange={(value) => setExportMode(value as 'volume' | 'count')}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="volume">Split by file size (MB)</SelectItem>
+                    <SelectItem value="count">Split by file count</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              <div>
-                <Label htmlFor="export-max-files">Max Files per Export</Label>
-                <Input
-                  id="export-max-files"
-                  value={maxFiles}
-                  onChange={(e) => setMaxFiles(e.target.value)}
-                  placeholder="e.g., 50"
-                  type="number"
-                  min="1"
-                />
-              </div>
+              
+              {exportMode === 'volume' && (
+                <div>
+                  <Label htmlFor="export-target-size">Maximum Size per Archive (MB)</Label>
+                  <Input
+                    id="export-target-size"
+                    value={targetSize}
+                    onChange={(e) => setTargetSize(e.target.value)}
+                    placeholder="e.g., 10"
+                    type="number"
+                    min="1"
+                  />
+                </div>
+              )}
+              
+              {exportMode === 'count' && (
+                <div>
+                  <Label htmlFor="export-max-files">Maximum Files per Archive</Label>
+                  <Input
+                    id="export-max-files"
+                    value={maxFiles}
+                    onChange={(e) => setMaxFiles(e.target.value)}
+                    placeholder="e.g., 50"
+                    type="number"
+                    min="1"
+                  />
+                </div>
+              )}
             </div>
             <AlertDialogFooter>
               <AlertDialogCancel onClick={() => {
                 setShowExportDialog(false);
+                setProgressState({ step: 'idle', progress: 0 });
                 setCompressedZip(null);
                 setTargetSize('');
                 setMaxFiles('');
@@ -517,6 +772,7 @@ const BulkColumnEditor = () => {
                 Cancel
               </AlertDialogCancel>
               <AlertDialogAction onClick={handleExport}>
+                <Download className="h-4 w-4 mr-2" />
                 Export Files
               </AlertDialogAction>
             </AlertDialogFooter>
