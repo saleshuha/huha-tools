@@ -10,9 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
 import JSZip from "jszip";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 interface FileData {
@@ -32,7 +30,6 @@ interface ColumnReplacement {
 }
 
 const BulkColumnEditor = () => {
-  console.log("BulkColumnEditor component rendering - fixed version");
   const [files, setFiles] = useState<FileData[]>([]);
   const [replacements, setReplacements] = useState<ColumnReplacement[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
