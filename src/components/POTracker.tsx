@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Upload, Search, Package, Clock, CheckCircle, AlertCircle, BarChart3 } from 'lucide-react';
+import { Upload, Search, Package, Clock, CheckCircle, AlertCircle, BarChart3, RefreshCw } from 'lucide-react';
 import { POFileUpload } from './po/POFileUpload';
 import { SKUList } from './po/SKUList';
 import { POOrderTracking } from './po/POOrderTracking';
@@ -26,7 +26,8 @@ export function POTracker() {
     processPOFiles,
     updateOrderStatus,
     updateTrackingInfo,
-    updateShippingRate
+    updateShippingRate,
+    refetch
   } = usePOTracker();
 
   const handleFileUpload = async (mappedData: any[]) => {
@@ -50,6 +51,25 @@ export function POTracker() {
 
   return (
     <div className="space-y-6">
+      {/* Header with Refresh Button */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">PO Tracker</h1>
+          <p className="text-muted-foreground">
+            Manage purchase orders and track SKUs from Sunsky supplier
+          </p>
+        </div>
+        <Button
+          onClick={refetch}
+          disabled={isLoading}
+          variant="outline"
+          size="sm"
+          className="gap-2"
+        >
+          <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+          Refresh Data
+        </Button>
+      </div>
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>

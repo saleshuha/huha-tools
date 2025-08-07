@@ -48,31 +48,74 @@ export const usePOTracker = () => {
   const [shippingRate, setShippingRate] = useState(0.005); // Default: 0.005 AED per gram
   const { toast } = useToast();
 
-  // Fetch all Sunsky SKUs in one go
+  // Fetch all Sunsky SKUs by overcoming the 1000 limit properly
   const fetchSunskySKUs = async () => {
     setIsLoading(true);
     try {
-      console.log('Fetching all Sunsky SKUs in one go...');
+      console.log('Fetching ALL Sunsky SKUs (bypassing 1000 limit)...');
       
-      // First get the count
+      // First get the total count
       const { count, error: countError } = await supabase
         .from('sunsky_skus')
         .select('*', { count: 'exact', head: true });
       
       if (countError) throw countError;
-      console.log(`Total SKUs available: ${count}`);
+      console.log(`Total SKUs in database: ${count}`);
       
-      // Fetch all data with high limit to get all records
-      const { data, error } = await supabase
-        .from('sunsky_skus')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(Math.max(count || 100000, 100000)); // Use count or fallback to high number
-
-      if (error) throw error;
+      if (!count || count === 0) {
+        setSunskySKUs([]);
+        return;
+      }
       
-      console.log(`Loaded ${data?.length || 0} SKUs out of ${count} total`);
-      setSunskySKUs(data || []);
+      // If count is <= 1000, fetch normally
+      if (count <= 1000) {
+        const { data, error } = await supabase
+          .from('sunsky_skus')
+          .select('*')
+          .order('created_at', { ascending: false });
+          
+        if (error) throw error;
+        console.log(`Loaded ${data?.length || 0} SKUs`);
+        setSunskySKUs(data || []);
+        return;
+      }
+      
+      // For count > 1000, use range queries to fetch all data
+      let allData: SunskySKU[] = [];
+      const chunkSize = 1000;
+      let from = 0;
+      
+      while (from < count) {
+        const to = Math.min(from + chunkSize - 1, count - 1);
+        console.log(`Fetching SKUs ${from} to ${to}...`);
+        
+        const { data: chunkData, error: chunkError } = await supabase
+          .from('sunsky_skus')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .range(from, to);
+          
+        if (chunkError) throw chunkError;
+        
+        if (chunkData && chunkData.length > 0) {
+          allData = allData.concat(chunkData);
+          console.log(`Loaded ${allData.length}/${count} SKUs...`);
+          
+          // Update state progressively so user sees progress
+          setSunskySKUs([...allData]);
+        }
+        
+        from += chunkSize;
+        
+        // Small delay to prevent overwhelming the database
+        if (from < count) {
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
+      }
+      
+      console.log(`Successfully loaded ALL ${allData.length} SKUs`);
+      setSunskySKUs(allData);
+      
     } catch (error) {
       console.error('Error fetching Sunsky SKUs:', error);
       toast({
@@ -85,25 +128,76 @@ export const usePOTracker = () => {
     }
   };
 
-  // Fetch all PO Orders in one go
+  // Fetch all PO Orders by properly handling the 1000 limit
   const fetchPOOrders = async () => {
     try {
-      console.log('Fetching all PO orders in one go...');
+      console.log('Fetching ALL PO orders (bypassing 1000 limit)...');
       
-      // Fetch all data without limit - use a very high limit to get all records
-      const { data, error } = await supabase
+      // First get the total count
+      const { count, error: countError } = await supabase
         .from('po_orders')
-        .select(`
-          *,
-          sunsky_sku:sunsky_skus(*)
-        `)
-        .order('created_at', { ascending: false })
-        .limit(100000); // Set a very high limit to effectively remove the default 1000 limit
-
-      if (error) throw error;
-
-      console.log(`Loaded all ${data?.length || 0} PO orders`);
-      setPOOrders(data as POOrder[] || []);
+        .select('*', { count: 'exact', head: true });
+      
+      if (countError) throw countError;
+      console.log(`Total PO orders in database: ${count}`);
+      
+      if (!count || count === 0) {
+        setPOOrders([]);
+        return;
+      }
+      
+      // If count is <= 1000, fetch normally
+      if (count <= 1000) {
+        const { data, error } = await supabase
+          .from('po_orders')
+          .select(`
+            *,
+            sunsky_sku:sunsky_skus(*)
+          `)
+          .order('created_at', { ascending: false });
+          
+        if (error) throw error;
+        console.log(`Loaded ${data?.length || 0} PO orders`);
+        setPOOrders(data as POOrder[] || []);
+        return;
+      }
+      
+      // For count > 1000, use range queries to fetch all data
+      let allData: any[] = [];
+      const chunkSize = 1000;
+      let from = 0;
+      
+      while (from < count) {
+        const to = Math.min(from + chunkSize - 1, count - 1);
+        console.log(`Fetching PO orders ${from} to ${to}...`);
+        
+        const { data: chunkData, error: chunkError } = await supabase
+          .from('po_orders')
+          .select(`
+            *,
+            sunsky_sku:sunsky_skus(*)
+          `)
+          .order('created_at', { ascending: false })
+          .range(from, to);
+          
+        if (chunkError) throw chunkError;
+        
+        if (chunkData && chunkData.length > 0) {
+          allData = allData.concat(chunkData);
+          console.log(`Loaded ${allData.length}/${count} PO orders...`);
+        }
+        
+        from += chunkSize;
+        
+        // Small delay to prevent overwhelming the database
+        if (from < count) {
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
+      }
+      
+      console.log(`Successfully loaded ALL ${allData.length} PO orders`);
+      setPOOrders(allData as POOrder[]);
+      
     } catch (error) {
       console.error('Error fetching PO orders:', error);
       toast({
