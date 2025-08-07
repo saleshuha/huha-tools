@@ -285,7 +285,24 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
             return processedRow;
           }).filter(row => row.sku_code);
           
-          await processFileWithMappings(mappedData, file.name);
+          // Save each file to database immediately
+          const dbSkus = mappedData.map(row => ({
+            sku_code: row.sku_code?.toString().trim() || '',
+            title: row.title?.toString().trim() || '',
+            description: row.description?.toString().trim() || '',
+            cost: typeof row.cost === 'number' ? row.cost : (parseFloat(row.cost) || 0),
+            weight: typeof row.weight === 'number' ? row.weight : (parseFloat(row.weight) || 0),
+            notes: row.notes?.toString().trim() || `Imported from ${file.name}`,
+            country: profile?.country || 'UAE'
+          }));
+          
+          if (dbSkus.length > 0) {
+            await onAddSKUs(dbSkus);
+            toast({
+              title: "File Saved",
+              description: `${file.name}: ${dbSkus.length} SKUs saved to database`,
+            });
+          }
           
           // Mark file as completed
           setFileStatuses(prev => ({ ...prev, [file.name]: 'completed' }));
@@ -315,12 +332,49 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
         [mappingKey]: mapping
       }));
       
-      // Process all files with the mapping
-      await processAllFilesWithMapping(pendingFiles, mapping);
+      // Process and save current file data immediately
+      const currentFile = pendingFiles[0];
+      setFileStatuses(prev => ({ ...prev, [currentFile.name]: 'processing' }));
+      
+      try {
+        await processFileWithMappings(mappedData, currentFile.name);
+        
+        // Save the current file data to database immediately
+        const dbSkus = mappedData
+          .filter(row => row.sku_code && row.sku_code.toString().trim())
+          .map(row => ({
+            sku_code: row.sku_code?.toString().trim() || '',
+            title: row.title?.toString().trim() || '',
+            description: row.description?.toString().trim() || '',
+            cost: typeof row.cost === 'number' ? row.cost : (parseFloat(row.cost) || 0),
+            weight: typeof row.weight === 'number' ? row.weight : (parseFloat(row.weight) || 0),
+            notes: row.notes?.toString().trim() || `Imported from ${currentFile.name}`,
+            country: profile?.country || 'UAE'
+          }));
+        
+        if (dbSkus.length > 0) {
+          await onAddSKUs(dbSkus);
+          toast({
+            title: "File Saved",
+            description: `${currentFile.name}: ${dbSkus.length} SKUs saved to database`,
+          });
+        }
+        
+        setFileStatuses(prev => ({ ...prev, [currentFile.name]: 'completed' }));
+      } catch (error) {
+        console.error(`Error saving ${currentFile.name}:`, error);
+        setFileStatuses(prev => ({ ...prev, [currentFile.name]: 'error' }));
+      }
+      
+      // Process remaining files
+      const remainingFiles = pendingFiles.slice(1);
+      if (remainingFiles.length > 0) {
+        await processRemainingFilesInQueue(remainingFiles, mapping);
+      }
       
       toast({
-        title: "Files Processed",
-        description: `All ${pendingFiles.length} files have been processed successfully. Mapping saved for future auto-processing.`,
+        title: "All Files Processed",
+        description: `${pendingFiles.length} files completed. Mapping saved for future auto-processing.`,
       });
       
     } catch (error) {
@@ -341,10 +395,12 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
     setSavedMappings(prev => ({ ...prev, [name]: mapping }));
   };
 
-  const processRemainingFilesWithSavedMappings = async (remainingFiles: File[], mapping: any) => {
+  const processRemainingFilesInQueue = async (remainingFiles: File[], mapping: any) => {
     for (let i = 0; i < remainingFiles.length; i++) {
       const file = remainingFiles[i];
-      setCurrentFileIndex(i + 1);
+      setCurrentFileIndex(i + 2); // +2 since first file is already processed
+      
+      setFileStatuses(prev => ({ ...prev, [file.name]: 'processing' }));
       
       try {
         const data = await parseFileQuietly(file);
@@ -369,11 +425,34 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
             return processedRow;
           }).filter(row => row.sku_code);
           
-          await processFileWithMappings(mappedData, file.name);
+          // Save each file to database immediately
+          const dbSkus = mappedData.map(row => ({
+            sku_code: row.sku_code?.toString().trim() || '',
+            title: row.title?.toString().trim() || '',
+            description: row.description?.toString().trim() || '',
+            cost: typeof row.cost === 'number' ? row.cost : (parseFloat(row.cost) || 0),
+            weight: typeof row.weight === 'number' ? row.weight : (parseFloat(row.weight) || 0),
+            notes: row.notes?.toString().trim() || `Imported from ${file.name}`,
+            country: profile?.country || 'UAE'
+          }));
+          
+          if (dbSkus.length > 0) {
+            await onAddSKUs(dbSkus);
+            toast({
+              title: "File Saved",
+              description: `${file.name}: ${dbSkus.length} SKUs saved to database`,
+            });
+          }
+          
+          setFileStatuses(prev => ({ ...prev, [file.name]: 'completed' }));
         }
       } catch (error) {
         console.error(`Error processing file ${file.name}:`, error);
+        setFileStatuses(prev => ({ ...prev, [file.name]: 'error' }));
       }
+      
+      // Small delay between files
+      await new Promise(resolve => setTimeout(resolve, 200));
     }
   };
 
