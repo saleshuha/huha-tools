@@ -13,6 +13,7 @@ import JSZip from "jszip";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 interface FileData {
   id: string;
@@ -35,9 +36,10 @@ const BulkColumnEditor = () => {
   const [files, setFiles] = useState<FileData[]>([]);
   const [replacements, setReplacements] = useState<ColumnReplacement[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [compressionType, setCompressionType] = useState<'size' | 'volume'>('size');
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  const [compressedZip, setCompressedZip] = useState<JSZip | null>(null);
   const [targetSize, setTargetSize] = useState<string>('');
-  const [targetVolume, setTargetVolume] = useState<string>('');
+  const [maxFiles, setMaxFiles] = useState<string>('');
   const { toast } = useToast();
 
   const processFile = async (file: File, fileName?: string): Promise<FileData | null> => {
@@ -186,7 +188,7 @@ const BulkColumnEditor = () => {
     setFiles(prev => prev.filter(file => file.id !== id));
   };
 
-  const exportFiles = async () => {
+  const compressFiles = async () => {
     if (files.length === 0 || replacements.length === 0) {
       toast({
         title: "Error",
@@ -236,21 +238,33 @@ const BulkColumnEditor = () => {
         zip.file(fileName, csvContent);
       }
 
-      // Apply compression settings
-      let compressionLevel = 6; // Default compression
+      setCompressedZip(zip);
+      setShowExportDialog(true);
       
-      if (compressionType === 'size' && targetSize) {
-        const targetBytes = parseFloat(targetSize) * 1024 * 1024; // Convert MB to bytes
-        compressionLevel = targetBytes < 10 * 1024 * 1024 ? 9 : 6; // Higher compression for smaller targets
-      } else if (compressionType === 'volume' && targetVolume) {
-        compressionLevel = parseInt(targetVolume);
-      }
+      toast({
+        title: "Success",
+        description: "Files processed and compressed successfully"
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to process files",
+        variant: "destructive"
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
-      const zipBlob = await zip.generateAsync({ 
+  const handleExport = async () => {
+    if (!compressedZip) return;
+
+    try {
+      const zipBlob = await compressedZip.generateAsync({ 
         type: 'blob',
         compression: 'DEFLATE',
         compressionOptions: {
-          level: compressionLevel
+          level: 6 // Standard compression
         }
       });
 
@@ -267,14 +281,17 @@ const BulkColumnEditor = () => {
         title: "Success",
         description: "Files exported successfully"
       });
+
+      setShowExportDialog(false);
+      setCompressedZip(null);
+      setTargetSize('');
+      setMaxFiles('');
     } catch (error) {
       toast({
         title: "Error",
         description: "Failed to export files",
         variant: "destructive"
       });
-    } finally {
-      setIsProcessing(false);
     }
   };
 
@@ -447,81 +464,67 @@ const BulkColumnEditor = () => {
           </CardContent>
         </Card>
 
-        {/* Compression Settings */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Download className="h-5 w-5" />
-              Compression Settings
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <Label htmlFor="compression-type">Compression Type</Label>
-                <Select
-                  value={compressionType}
-                  onValueChange={(value: 'size' | 'volume') => setCompressionType(value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="size">Target Size (MB)</SelectItem>
-                    <SelectItem value="volume">Compression Level (1-9)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {compressionType === 'size' && (
-                <div>
-                  <Label htmlFor="target-size">Target Size (MB)</Label>
-                  <Input
-                    id="target-size"
-                    value={targetSize}
-                    onChange={(e) => setTargetSize(e.target.value)}
-                    placeholder="e.g., 10"
-                    type="number"
-                    min="1"
-                  />
-                </div>
-              )}
-
-              {compressionType === 'volume' && (
-                <div>
-                  <Label htmlFor="target-volume">Compression Level</Label>
-                  <Select
-                    value={targetVolume}
-                    onValueChange={setTargetVolume}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select level" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="1">1 - Fastest</SelectItem>
-                      <SelectItem value="3">3 - Fast</SelectItem>
-                      <SelectItem value="6">6 - Standard</SelectItem>
-                      <SelectItem value="9">9 - Best Compression</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Export Button */}
+        {/* Process Button */}
         <div className="flex justify-center">
           <Button
-            onClick={exportFiles}
+            onClick={compressFiles}
             disabled={isProcessing || files.length === 0 || replacements.length === 0}
             size="lg"
             className="gap-2"
           >
             <Download className="h-5 w-5" />
-            {isProcessing ? "Processing..." : "Export Files"}
+            {isProcessing ? "Processing..." : "Process & Compress Files"}
           </Button>
         </div>
+
+        {/* Export Dialog */}
+        <AlertDialog open={showExportDialog} onOpenChange={setShowExportDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Export Settings</AlertDialogTitle>
+              <AlertDialogDescription>
+                Files have been processed and compressed. Set your export preferences:
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
+              <div>
+                <Label htmlFor="export-target-size">Target Size (MB)</Label>
+                <Input
+                  id="export-target-size"
+                  value={targetSize}
+                  onChange={(e) => setTargetSize(e.target.value)}
+                  placeholder="e.g., 10"
+                  type="number"
+                  min="1"
+                />
+              </div>
+              <div>
+                <Label htmlFor="export-max-files">Max Files per Export</Label>
+                <Input
+                  id="export-max-files"
+                  value={maxFiles}
+                  onChange={(e) => setMaxFiles(e.target.value)}
+                  placeholder="e.g., 50"
+                  type="number"
+                  min="1"
+                />
+              </div>
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => {
+                setShowExportDialog(false);
+                setCompressedZip(null);
+                setTargetSize('');
+                setMaxFiles('');
+              }}>
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction onClick={handleExport}>
+                Export Files
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );
