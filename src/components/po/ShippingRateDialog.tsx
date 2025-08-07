@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Truck, Save } from 'lucide-react';
 import { useUserProfile } from '@/hooks/useUserProfile';
+import { useToast } from '@/components/ui/use-toast';
 
 interface ShippingRateDialogProps {
   currentRate: number;
@@ -16,6 +17,7 @@ export function ShippingRateDialog({ currentRate, onUpdateRate, isLoading }: Shi
   const [open, setOpen] = useState(false);
   const [shippingRate, setShippingRate] = useState(currentRate.toString());
   const { profile } = useUserProfile();
+  const { toast } = useToast();
 
   const getCurrencySymbol = (country: string) => {
     switch (country) {
@@ -31,6 +33,10 @@ export function ShippingRateDialog({ currentRate, onUpdateRate, isLoading }: Shi
     const rate = parseFloat(shippingRate);
     if (!isNaN(rate) && rate >= 0) {
       onUpdateRate(rate);
+      toast({
+        title: "Shipping Rate Updated",
+        description: `Shipping rate set to ${rate.toFixed(3)} ${currencySymbol} per gram`,
+      });
       setOpen(false);
     }
   };
