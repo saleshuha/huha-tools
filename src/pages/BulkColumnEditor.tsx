@@ -31,6 +31,7 @@ interface ColumnReplacement {
 }
 
 const BulkColumnEditor = () => {
+  console.log("BulkColumnEditor component rendering - fixed version");
   const [files, setFiles] = useState<FileData[]>([]);
   const [replacements, setReplacements] = useState<ColumnReplacement[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
