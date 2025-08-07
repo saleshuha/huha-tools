@@ -409,20 +409,49 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
         variant: "destructive"
       });
     }
-  };
-
-  const processAllFilesWithMapping = async (files: File[], mapping: any) => {
+  
+  // New function to process all files and collect unique SKUs across all files
+  const processAllFilesWithUniqueSkus = async (files: File[], mapping: any) => {
+    console.log('=== PROCESSING ALL FILES FOR UNIQUE SKUs ===');
+    console.log('Files to process:', files.length);
+    
+    // Track all SKUs across all files for uniqueness
+    const allSkusAcrossFiles = new Set<string>();
+    const allValidSkus: any[] = [];
+    let totalProcessedRows = 0;
+    let totalValidRows = 0;
+    
+    // Process each file and collect all unique SKUs
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       setCurrentFileIndex(i + 1);
       
-      // Update file status to processing
+      console.log(`Processing file ${i + 1}/${files.length}: ${file.name}`);
       setFileStatuses(prev => ({ ...prev, [file.name]: 'processing' }));
+      setFileProgress(prev => ({ ...prev, [file.name]: 0 }));
       
       try {
         const data = await parseFileQuietly(file);
         if (data && data.length > 0) {
-          const mappedData = data.map(row => {
+          totalProcessedRows += data.length;
+          
+          // Set file row count
+          setFileRowCounts(prev => ({ 
+            ...prev, 
+            [file.name]: { total: data.length, processed: 0 } 
+          }));
+          
+          const mappedData = data.map((row, index) => {
+            // Update progress periodically
+            if (index % 100 === 0) {
+              const progress = Math.round((index / data.length) * 90);
+              setFileProgress(prev => ({ ...prev, [file.name]: progress }));
+              setFileRowCounts(prev => ({ 
+                ...prev, 
+                [file.name]: { ...prev[file.name], processed: index } 
+              }));
+            }
+            
             const processedRow: any = {};
             Object.entries(mapping).forEach(([expectedCol, headerCol]) => {
               let value = row[headerCol as string];
@@ -440,17 +469,132 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
               }
             });
             return processedRow;
-          }).filter(row => row.sku_code);
+          }).filter(row => row.sku_code && row.sku_code.toString().trim());
           
-          // Save each file to database immediately with duplicate filtering
-          const dbSkus = mappedData.map(row => ({
-            sku_code: row.sku_code?.toString().trim() || '',
-            title: row.title?.toString().trim() || '',
-            description: row.description?.toString().trim() || '',
-            cost: typeof row.cost === 'number' ? row.cost : (parseFloat(row.cost) || 0),
-            weight: typeof row.weight === 'number' ? row.weight : (parseFloat(row.weight) || 0),
-            notes: row.notes?.toString().trim() || `Imported from ${file.name}`,
-            country: profile?.country || 'UAE'
+          console.log(`File ${file.name}: ${mappedData.length} valid rows`);
+          
+          // Convert to database format and check for uniqueness across all files
+          mappedData.forEach(row => {
+            const skuCode = row.sku_code?.toString().trim() || '';
+            const skuKey = `${skuCode}_${profile?.country || 'UAE'}`;
+            
+            // Check if SKU already exists in database or was already processed
+            if (!existingSkus.has(skuKey) && !allSkusAcrossFiles.has(skuKey)) {
+              allSkusAcrossFiles.add(skuKey);
+              allValidSkus.push({
+                sku_code: skuCode,
+                title: row.title?.toString().trim() || '',
+                description: row.description?.toString().trim() || '',
+                cost: typeof row.cost === 'number' ? row.cost : (parseFloat(row.cost) || 0),
+                weight: typeof row.weight === 'number' ? row.weight : (parseFloat(row.weight) || 0),
+                notes: row.notes?.toString().trim() || `Imported from ${file.name}`,
+                country: profile?.country || 'UAE',
+                source_file: file.name
+              });
+              totalValidRows++;
+            } else {
+              console.log(`Skipping duplicate SKU: ${skuCode} from ${file.name}`);
+            }
+          });
+          
+          // Update final processed count
+          setFileRowCounts(prev => ({ 
+            ...prev, 
+            [file.name]: { ...prev[file.name], processed: mappedData.length } 
+          }));
+          setFileProgress(prev => ({ ...prev, [file.name]: 90 }));
+          
+        } else {
+          console.warn(`No data found in file: ${file.name}`);
+          setFileStatuses(prev => ({ ...prev, [file.name]: 'error' }));
+        }
+      } catch (error) {
+        console.error(`Error processing file ${file.name}:`, error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        
+        toast({
+          title: "Processing Error",
+          description: `${file.name}: ${errorMessage}`,
+          variant: "destructive"
+        });
+        setFileStatuses(prev => ({ ...prev, [file.name]: 'error' }));
+      }
+      
+      // Small delay between files to show progress
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+    
+    // Now save all unique SKUs to database in one operation
+    console.log(`=== SAVING ${allValidSkus.length} UNIQUE SKUs FROM ALL FILES ===`);
+    console.log(`Total rows processed: ${totalProcessedRows}`);
+    console.log(`Total unique rows found: ${totalValidRows}`);
+    console.log(`Duplicates filtered: ${totalProcessedRows - totalValidRows}`);
+    
+    if (allValidSkus.length > 0) {
+      try {
+        await onAddSKUs(allValidSkus);
+        
+        // Update existing SKUs set with newly added SKUs
+        allValidSkus.forEach(sku => {
+          const skuKey = `${sku.sku_code}_${sku.country}`;
+          existingSkus.add(skuKey);
+        });
+        
+        // Mark all files as completed and show success
+        files.forEach(file => {
+          setFileStatuses(prev => ({ ...prev, [file.name]: 'completed' }));
+          setFileProgress(prev => ({ ...prev, [file.name]: 100 }));
+        });
+        
+        toast({
+          title: "All Files Processed Successfully",
+          description: `Successfully saved ${allValidSkus.length} unique SKUs from ${files.length} files. ${totalProcessedRows - totalValidRows} duplicates were skipped.`,
+        });
+        
+      } catch (saveError) {
+        console.error('❌ BULK SAVE ERROR:', saveError);
+        const errorMessage = saveError instanceof Error ? saveError.message : 'Unknown error';
+        
+        let errorType = 'Database Error';
+        if (errorMessage.includes('duplicate key') || errorMessage.includes('unique constraint')) {
+          errorType = 'Duplicate SKUs Found';
+        } else if (errorMessage.includes('timeout')) {
+          errorType = 'Database Timeout';
+        }
+        
+        // Mark all files as error
+        files.forEach(file => {
+          setFileStatuses(prev => ({ ...prev, [file.name]: 'error' }));
+          setFileProgress(prev => ({ ...prev, [file.name]: 0 }));
+        });
+        
+        toast({
+          title: errorType,
+          description: `Failed to save SKUs: ${errorMessage}`,
+          variant: "destructive"
+        });
+      }
+    } else {
+      toast({
+        title: "No New Unique SKUs Found",
+        description: `All SKUs from the ${files.length} files already exist in the database.`,
+        variant: "destructive"
+      });
+      
+      // Mark all files as completed since they were processed successfully
+      files.forEach(file => {
+        setFileStatuses(prev => ({ ...prev, [file.name]: 'completed' }));
+        setFileProgress(prev => ({ ...prev, [file.name]: 100 }));
+      });
+    }
+  };
+
+
+  const processAllFilesWithMapping = async (files: File[], mapping: any) => {
+    // Use the new unique SKU processing function
+    await processAllFilesWithUniqueSkus(files, mapping);
+  };
+  const parseFileQuietly = async (file: File): Promise<any[]> => {
           })).filter(sku => {
             // Check for duplicates
             const skuKey = `${sku.sku_code}_${sku.country}`;
