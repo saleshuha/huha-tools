@@ -37,7 +37,12 @@ interface ProcessingAnalytics {
   processingStartTime: number;
 }
 
-export default function AddSKUPageFixed() {
+interface AddSKUPageProps {
+  onAddSKUs?: (skus: any[]) => Promise<void>;
+  isLoading?: boolean;
+}
+
+export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIsLoading }: AddSKUPageProps = {}) {
   const { toast } = useToast();
   const { addSKUs } = useSKUManager();
   const { profile } = useUserProfile();
@@ -106,13 +111,18 @@ export default function AddSKUPageFixed() {
 
   const onAddSKUs = useCallback(async (skus: any[]) => {
     try {
-      await addSKUs(skus);
+      // Use prop function if provided, otherwise use hook
+      if (propOnAddSKUs) {
+        await propOnAddSKUs(skus);
+      } else {
+        await addSKUs(skus);
+      }
       console.log(`Successfully added ${skus.length} SKUs to database`);
     } catch (error) {
       console.error('Error adding SKUs:', error);
       throw error;
     }
-  }, [addSKUs]);
+  }, [addSKUs, propOnAddSKUs]);
 
   const handleBulkMapping = async () => {
     if (!selectedFiles || selectedFiles.length === 0) {
@@ -346,11 +356,14 @@ export default function AddSKUPageFixed() {
       {showMappingWizard && currentFileData && (
         <ColumnMappingWizard
           fileData={currentFileData}
-          fileName={currentFileName}
-          onMappingComplete={(mappedData, mapping) => {
+          expectedColumns={['sku_code', 'title', 'description', 'cost', 'weight', 'notes']}
+          onMappingComplete={(mappedData) => {
             setShowMappingWizard(false);
+            // Extract mapping from mappedData if available
+            const mapping = mappedData?.mapping || {};
             setFileMappings(prev => ({ ...prev, [currentFileName]: mapping }));
             setFileStatuses(prev => ({ ...prev, [currentFileName]: 'mapped' }));
+            
             
             toast({
               title: "Mapping Saved",
@@ -358,7 +371,6 @@ export default function AddSKUPageFixed() {
               variant: "default"
             });
           }}
-          onCancel={() => setShowMappingWizard(false)}
         />
       )}
 
