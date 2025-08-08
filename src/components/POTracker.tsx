@@ -140,6 +140,16 @@ export function POTracker() {
     }
   };
 
+  // Force refresh all data
+  const forceRefreshData = async () => {
+    console.log('Force refreshing all PO data...');
+    setTotalPOCount(0); // Reset to trigger UI update
+    await Promise.all([
+      fetchPOCount(),
+      fetchPOOrders()
+    ]);
+  };
+
   // Load data based on active tab
   useEffect(() => {
     // Always load SKU count for metrics display
@@ -167,7 +177,7 @@ export function POTracker() {
     if (activeTab === 'skus') {
       refreshSKUs();
     } else {
-      fetchPOOrders();
+      forceRefreshData();
     }
   };
 

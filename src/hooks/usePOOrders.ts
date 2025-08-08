@@ -52,7 +52,10 @@ export const usePOOrders = () => {
       setLoadingProgress(30);
       setLoadingStatus('Fetching orders from database...');
 
-      // Use the optimized database function
+      // Clear existing data first to force fresh load
+      setPOOrders([]);
+
+      // Use the optimized database function with force refresh
       const { data, error } = await supabase.rpc('get_all_po_orders', {
         user_id_param: user.id
       });
@@ -68,15 +71,17 @@ export const usePOOrders = () => {
       setLoadingProgress(80);
       setLoadingStatus('Processing order data...');
 
-      setPOOrders((data || []).map(order => ({
+      const allOrders = (data || []).map(order => ({
         ...order,
         status: order.status as POOrder['status']
-      })));
+      }));
+
+      setPOOrders(allOrders);
 
       setLoadingProgress(100);
-      setLoadingStatus(`Loaded ${data?.length || 0} PO orders`);
+      setLoadingStatus(`Loaded ${allOrders.length} PO orders`);
 
-      console.log(`Successfully loaded ${data?.length || 0} PO orders`);
+      console.log(`Successfully loaded ${allOrders.length} PO orders (should match database count)`);
 
     } catch (error) {
       console.error('Error fetching PO orders:', error);
