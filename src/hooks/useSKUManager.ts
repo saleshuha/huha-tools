@@ -60,13 +60,18 @@ export const useSKUManager = () => {
   // Get SKU count only (for metrics display)
   const fetchSKUCount = useCallback(async () => {
     try {
+      // Get current user to filter by user_id
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
       const { count, error } = await supabase
         .from('sunsky_skus')
-        .select('*', { count: 'exact', head: true });
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
 
       if (error) throw error;
       setTotalCount(count || 0);
-      console.log(`Total SKUs in database: ${count}`);
+      console.log(`Total SKUs for user: ${count}`);
     } catch (error) {
       console.error('Error fetching SKU count:', error);
     }
@@ -90,26 +95,47 @@ export const useSKUManager = () => {
     setLoadingStatus(`Loading SKUs (page ${page})...`);
 
     try {
-      // Get total count first
+      // Get current user first
       setLoadingProgress(10);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      // Get total count for this user
+      setLoadingProgress(20);
       const { count, error: countError } = await supabase
         .from('sunsky_skus')
-        .select('*', { count: 'exact', head: true });
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
 
       if (countError) throw countError;
       setTotalCount(count || 0);
 
       setLoadingProgress(30);
-      setLoadingStatus(`Found ${count} SKUs, loading batch ${page}...`);
+      setLoadingStatus(`Found ${count} SKUs for user, loading batch ${page}...`);
 
       // Fetch SKUs in batches
       const from = (page - 1) * itemsPerPage;
       const to = from + itemsPerPage - 1;
 
       setLoadingProgress(50);
+
       const { data, error } = await supabase
         .from('sunsky_skus')
-        .select('*')
+        .select(`
+          id,
+          user_id,
+          sku_code,
+          title,
+          description,
+          cost,
+          weight,
+          notes,
+          currency,
+          country,
+          created_at,
+          updated_at
+        `)
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .range(from, to);
 
