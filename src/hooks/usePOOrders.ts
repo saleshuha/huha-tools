@@ -55,10 +55,27 @@ export const usePOOrders = () => {
       // Clear existing data first to force fresh load
       setPOOrders([]);
 
-      // Use the optimized database function with force refresh
-      const { data, error } = await supabase.rpc('get_all_po_orders', {
+      // Try the new unlimited function first
+      let { data, error } = await supabase.rpc('get_all_po_orders_unlimited', {
         user_id_param: user.id
       });
+
+      // If that still returns 1000, use direct table query with increased limit
+      if (data && data.length === 1000) {
+        console.log('RPC still limited, using direct table query...');
+        const directQuery = await supabase
+          .from('po_orders')
+          .select(`
+            *,
+            sunsky_skus (*)
+          `)
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(2000); // Set high limit to get all records
+          
+        data = directQuery.data;
+        error = directQuery.error;
+      }
 
       console.log('get_all_po_orders result:', { 
         dataLength: data?.length, 

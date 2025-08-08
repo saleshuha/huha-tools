@@ -1370,6 +1370,37 @@ export type Database = {
           external_id_type: string
         }[]
       }
+      get_all_po_orders_unlimited: {
+        Args: { user_id_param: string }
+        Returns: {
+          asin: string | null
+          country: string | null
+          created_at: string
+          currency: string | null
+          expected_delivery: string | null
+          external_id: string | null
+          external_id_type: string | null
+          file_name: string
+          id: string
+          model_number: string | null
+          notes: string | null
+          order_date: string | null
+          po_number: string
+          quantity: number
+          ship_to_location: string | null
+          sku_code: string
+          sku_user_id: string
+          status: string
+          supplier_order_number: string | null
+          title: string | null
+          total_cost: number | null
+          tracking_number: string | null
+          tracking_url: string | null
+          unit_cost: number | null
+          updated_at: string
+          user_id: string
+        }[]
+      }
       get_all_sunsky_skus: {
         Args: { user_id_param: string }
         Returns: {
