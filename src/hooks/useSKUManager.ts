@@ -193,8 +193,8 @@ export const useSKUManager = () => {
       setLoadingProgress(40);
       setLoadingStatus(`Uploading ${skusWithUserId.length} SKUs...`);
 
-      // Process in optimal chunks of 100
-      const chunkSize = 100;
+      // Process in optimal chunks - increased for large datasets
+      const chunkSize = skusWithUserId.length > 50000 ? 500 : 100;
       let successCount = 0;
       let duplicateCount = 0;
       let errorCount = 0;

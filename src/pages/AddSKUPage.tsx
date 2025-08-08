@@ -251,35 +251,46 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
           [file.name]: { total: data.length, processed: 0 } 
         }));
         
-        const mappedData = data.map((row, index) => {
-          // Update progress and processed count periodically
-          if (index % 100 === 0) {
-            const progress = Math.round((index / data.length) * 90); // Save 10% for database save
-            setFileProgress(prev => ({ ...prev, [file.name]: progress }));
-            setFileRowCounts(prev => ({ 
-              ...prev, 
-              [file.name]: { ...prev[file.name], processed: index } 
-            }));
-          }
+        // Process data in chunks to handle large files efficiently
+        const chunkSize = 5000; // Process 5000 rows at a time
+        const mappedData = [];
+        
+        for (let i = 0; i < data.length; i += chunkSize) {
+          const chunk = data.slice(i, i + chunkSize);
+          const progress = Math.round((i / data.length) * 90); // Save 10% for database save
+          setFileProgress(prev => ({ ...prev, [file.name]: progress }));
+          setFileRowCounts(prev => ({ 
+            ...prev, 
+            [file.name]: { ...prev[file.name], processed: i } 
+          }));
           
-          const processedRow: any = {};
-          Object.entries(mapping).forEach(([expectedCol, headerCol]) => {
-            let value = row[headerCol as string];
-            
-            if (expectedCol === 'cost' || expectedCol === 'weight') {
-              value = parseFloat(value) || 0;
-            }
-            
-            if (typeof value === 'string') {
-              value = value.trim();
-            }
-            
-            if (value !== undefined && value !== null && value !== '') {
-              processedRow[expectedCol] = value;
-            }
-          });
-          return processedRow;
-        }).filter(row => row.sku_code && row.sku_code.toString().trim());
+          const processedChunk = chunk.map(row => {
+            const processedRow: any = {};
+            Object.entries(mapping).forEach(([expectedCol, headerCol]) => {
+              let value = row[headerCol as string];
+              
+              if (expectedCol === 'cost' || expectedCol === 'weight') {
+                value = parseFloat(value) || 0;
+              }
+              
+              if (typeof value === 'string') {
+                value = value.trim();
+              }
+              
+              if (value !== undefined && value !== null && value !== '') {
+                processedRow[expectedCol] = value;
+              }
+            });
+            return processedRow;
+          }).filter(row => row.sku_code && row.sku_code.toString().trim());
+          
+          mappedData.push(...processedChunk);
+          
+          // Allow UI to update and prevent blocking
+          if (i % (chunkSize * 2) === 0) {
+            await new Promise(resolve => setTimeout(resolve, 10));
+          }
+        }
 
         console.log(`Mapped and filtered data: ${mappedData.length} valid rows`);
         console.log('Sample mapped data (first 3 rows):', mappedData.slice(0, 3));
@@ -604,6 +615,7 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
         Papa.parse(file, {
           header: true,
           skipEmptyLines: true,
+          worker: true, // Use web worker for large files
           complete: (results) => {
             console.log('CSV parse results:', {
               rowCount: results.data.length,
@@ -624,11 +636,21 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
         reader.onload = (e) => {
           try {
             const data = new Uint8Array(e.target?.result as ArrayBuffer);
-            const workbook = XLSX.read(data, { type: 'array' });
+            const workbook = XLSX.read(data, { 
+              type: 'array',
+              cellDates: true,
+              cellNF: false,
+              cellText: false
+            });
             console.log('Excel workbook sheets:', workbook.SheetNames);
             
             const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-            const jsonData = XLSX.utils.sheet_to_json(firstSheet, { defval: '' });
+            // Use raw values to prevent data loss and improve performance
+            const jsonData = XLSX.utils.sheet_to_json(firstSheet, { 
+              defval: '',
+              raw: false,
+              dateNF: 'yyyy-mm-dd'
+            });
             console.log('Excel parse results:', {
               rowCount: jsonData.length,
               sampleData: jsonData.slice(0, 3),
