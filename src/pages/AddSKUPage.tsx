@@ -407,7 +407,7 @@ export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIs
       {showMappingWizard && currentFileData && (
         <ColumnMappingWizard
           fileData={currentFileData}
-          expectedColumns={['sku_code', 'title', 'description', 'cost', 'weight', 'notes']}
+          expectedColumns={['sku_code', 'title', 'cost', 'weight']}
           onMappingComplete={handleMappingComplete}
         />
       )}
