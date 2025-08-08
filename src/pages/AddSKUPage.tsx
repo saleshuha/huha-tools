@@ -867,17 +867,36 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
       if (file.name.toLowerCase().endsWith('.csv')) {
         console.log('Parsing as CSV file with memory optimization');
         
-        // Optimized parsing for maximum speed
+        // Optimized parsing without web workers to avoid postMessage errors
         Papa.parse(file, {
           header: true,
-          skipEmptyLines: 'greedy', // More aggressive empty line skipping
-          worker: file.size > 10 * 1024 * 1024, // Use worker for files > 10MB
+          skipEmptyLines: 'greedy',
+          worker: false, // Disable worker to prevent postMessage errors
           dynamicTyping: false,
-          fastMode: true, // Enable fast mode for speed
-          transformHeader: (header) => header.trim(), // Clean headers
+          fastMode: true,
+          transformHeader: (header) => header.trim(),
+          step: file.size > 50 * 1024 * 1024 ? (results, parser) => {
+            // For very large files, yield control periodically
+            if (results.meta.cursor % 10000 === 0) {
+              setTimeout(() => parser.resume(), 1);
+              parser.pause();
+            }
+          } : undefined,
           complete: (results) => {
+            console.log('CSV parsing completed successfully');
+            
             if (results.errors && results.errors.length > 0) {
-              console.warn('CSV parsing warnings:', results.errors.slice(0, 10)); // Log first 10 errors
+              const criticalErrors = results.errors.filter(error => 
+                error.type === 'Delimiter' || error.type === 'FieldMismatch'
+              );
+              
+              if (criticalErrors.length > 0) {
+                console.error('Critical CSV parsing errors:', criticalErrors);
+                reject(new Error(`CSV parsing failed: ${criticalErrors[0].message}`));
+                return;
+              }
+              
+              console.warn('Non-critical CSV parsing warnings:', results.errors.slice(0, 5));
             }
             
             console.log('CSV parse results:', {
@@ -897,7 +916,7 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
           },
           error: (error) => {
             console.error('CSV parse error:', error);
-            reject(new Error(`CSV parsing failed: ${error.message || 'Unknown error'}`));
+            reject(new Error(`CSV parsing failed: ${error.message || 'Unknown parsing error'}`));
           }
         });
       } else {
