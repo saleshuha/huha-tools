@@ -57,6 +57,12 @@ export const usePOOrders = () => {
         user_id_param: user.id
       });
 
+      console.log('get_all_po_orders result:', { 
+        dataLength: data?.length, 
+        error,
+        firstFewItems: data?.slice(0, 3)
+      });
+
       if (error) throw error;
 
       setLoadingProgress(80);

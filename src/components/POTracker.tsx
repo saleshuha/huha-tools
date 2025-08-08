@@ -118,16 +118,23 @@ export function POTracker() {
   // Function to fetch actual PO count from database
   const fetchPOCount = async () => {
     try {
+      console.log('Fetching PO count from database...');
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data, error } = await supabase
+      // Use a direct count query for accuracy
+      const { count, error } = await supabase
         .from('po_orders')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', user.id);
 
+      console.log('PO count query result:', { count, error });
+      
       if (error) throw error;
-      if (data) setTotalPOCount(data.length || 0);
+      if (count !== null) {
+        console.log('Setting totalPOCount to:', count);
+        setTotalPOCount(count);
+      }
     } catch (error) {
       console.error('Error fetching PO count:', error);
     }
@@ -175,6 +182,13 @@ export function POTracker() {
   const uniquePONumbers = new Set(poOrders.map(order => order.po_number)).size;
   const pendingOrders = poOrders.filter(order => order.status === 'pending').length;
   const placedOrders = poOrders.filter(order => order.status === 'ordered').length;
+  
+  console.log('POTracker stats:', {
+    totalPOCount,
+    poOrdersLength: poOrders.length,
+    totalOrders,
+    uniquePONumbers
+  });
   
   // Calculate matched items (PO orders that have matching SKUs in the catalog)
   const matchedItems = poOrders.filter(order => 
