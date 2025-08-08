@@ -7,20 +7,38 @@ import { CheckCircle, ArrowRight } from "lucide-react";
 
 interface ColumnMappingWizardProps {
   fileData: any;
-  expectedColumns: string[];
+  expectedColumns?: string[];
   onMappingComplete: (mappedData: any) => void;
 }
 
-export function ColumnMappingWizard({ fileData, expectedColumns, onMappingComplete }: ColumnMappingWizardProps) {
+export function ColumnMappingWizard({ 
+  fileData, 
+  expectedColumns = ['sku_code', 'title', 'description', 'cost', 'weight', 'notes'], 
+  onMappingComplete 
+}: ColumnMappingWizardProps) {
   const [columnMapping, setColumnMapping] = useState<{ [key: string]: string }>({});
   const [autoMapped, setAutoMapped] = useState<string[]>([]);
 
-  const { headers, rows } = fileData;
+  const { headers = [], rows = [] } = fileData || {};
+
+  // Safety check for fileData
+  if (!fileData) {
+    console.error('ColumnMappingWizard: fileData is required');
+    return <div>Error: No file data provided</div>;
+  }
 
   // Auto-detect columns based on similarity
   const autoDetectColumns = () => {
     const detected: { [key: string]: string } = {};
     const mapped: string[] = [];
+
+    // Safety check for expectedColumns and headers
+    if (!expectedColumns || !Array.isArray(expectedColumns) || !headers || !Array.isArray(headers)) {
+      console.warn('Invalid expectedColumns or headers for auto-detection:', { expectedColumns, headers });
+      setColumnMapping(detected);
+      setAutoMapped(mapped);
+      return;
+    }
 
     expectedColumns.forEach(expectedCol => {
       const normalizedExpected = expectedCol.toLowerCase().replace(/[^a-z0-9]/g, '');
