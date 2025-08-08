@@ -850,7 +850,13 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
     await processAllFilesWithRealTimeSave(files, mapping);
   };
   const parseFileQuietly = async (file: File): Promise<any[]> => {
-    console.log('Parsing file:', file.name, 'Type:', file.type, 'Size:', file.size);
+    console.log('🔍 PARSING FILE START:', {
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      lastModified: file.lastModified
+    });
+    
     
     // Check file size and warn for very large files
     const maxSafeSize = 50 * 1024 * 1024; // 50MB
@@ -864,8 +870,15 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
     }
     
     return new Promise((resolve, reject) => {
+      console.log('🔍 File type check:', {
+        fileName: file.name,
+        isCSV: file.name.toLowerCase().endsWith('.csv'),
+        fileType: file.type,
+        mimeType: file.type
+      });
+      
       if (file.name.toLowerCase().endsWith('.csv')) {
-        console.log('Parsing as CSV file with memory optimization');
+        console.log('📊 Processing as CSV file...');
         
         // Optimized parsing without web workers to avoid postMessage errors
         Papa.parse(file, {
@@ -883,7 +896,13 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
             }
           } : undefined,
           complete: (results) => {
-            console.log('CSV parsing completed successfully');
+            console.log('📊 CSV parsing completed:', {
+              totalRows: results.data?.length || 0,
+              errorCount: results.errors?.length || 0,
+              hasData: !!(results.data && results.data.length > 0),
+              sampleRow: results.data?.[0] || 'No first row',
+              meta: results.meta
+            });
             
             if (results.errors && results.errors.length > 0) {
               const criticalErrors = results.errors.filter(error => 
@@ -938,12 +957,15 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
           }
         });
       } else {
-        console.log('Parsing as Excel file with memory optimization');
+        console.log('📋 Processing as Excel file...');
         const reader = new FileReader();
         
         reader.onload = (e) => {
+          console.log('📋 Excel file loaded into memory');
           try {
             const data = new Uint8Array(e.target?.result as ArrayBuffer);
+            console.log('📋 Excel data array created, size:', data.length);
+            
             
             // Optimize Excel reading for large files
             const workbook = XLSX.read(data, { 
@@ -955,12 +977,20 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
               dense: file.size > maxSafeSize // Use dense mode for large files
             });
             
-            console.log('Excel workbook sheets:', workbook.SheetNames);
+            console.log('📋 Excel workbook parsed:', {
+              sheetNames: workbook.SheetNames,
+              sheetCount: workbook.SheetNames.length,
+              firstSheetName: workbook.SheetNames[0]
+            });
             
             const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
             if (!firstSheet) {
+              console.error('📋 No first sheet found in Excel file');
               throw new Error('No data found in Excel file');
             }
+            
+            console.log('📋 First sheet extracted, converting to JSON...');
+            
             
             // Convert with memory-efficient options
             const jsonData = XLSX.utils.sheet_to_json(firstSheet, { 
@@ -970,11 +1000,13 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
               blankrows: false // Skip blank rows
             });
             
-            console.log('Excel parse results:', {
-              rowCount: jsonData.length,
-              sampleData: jsonData.slice(0, 3),
+            console.log('📋 Excel conversion completed:', {
+              totalRows: jsonData.length,
+              hasData: jsonData.length > 0,
+              firstRow: jsonData[0] || 'No first row',
               headers: jsonData[0] ? Object.keys(jsonData[0]) : []
             });
+            
             
             // More lenient filtering for Excel files - only remove truly empty rows
             const cleanData = jsonData.filter((row: any) => {
@@ -990,15 +1022,18 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
               return hasData;
             });
             
-            console.log(`Original Excel rows: ${jsonData.length}, After filtering: ${cleanData.length}`);
-            console.log('Sample Excel filtered data:', cleanData.slice(0, 2));
+            console.log('📋 Excel filtering result:', {
+              originalCount: jsonData.length,
+              filteredCount: cleanData.length,
+              wasAllFiltered: cleanData.length === 0 && jsonData.length > 0
+            });
             
             if (cleanData.length === 0 && jsonData.length > 0) {
-              console.warn('All Excel rows were filtered out - data might have formatting issues');
-              console.log('Sample original Excel data:', jsonData.slice(0, 3));
-              // Return original data if all rows were filtered
+              console.warn('📋 All Excel rows were filtered out - returning original data');
+              console.log('📋 Sample original Excel data for debugging:', jsonData.slice(0, 3));
               resolve(jsonData);
             } else {
+              console.log('📋 Returning filtered Excel data:', cleanData.length, 'rows');
               resolve(cleanData);
             }
             
