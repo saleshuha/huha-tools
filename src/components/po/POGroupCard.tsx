@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -24,11 +25,16 @@ const statusColors = {
 
 export function POGroupCard({ poNumber, orders, onUpdateStatus, onUpdateTracking }: POGroupCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const navigate = useNavigate();
 
-  // Calculate summary data
-  const totalItems = orders.reduce((sum, order) => sum + order.quantity, 0);
-  const totalCost = orders.reduce((sum, order) => sum + (order.total_cost || 0), 0);
-  const uniqueStatuses = [...new Set(orders.map(order => order.status))];
+  // Filter to only show orders with matched SKUs
+  const matchedOrders = orders.filter(order => order.sunsky_sku !== null && order.sunsky_sku !== undefined);
+  const hasMatchedItems = matchedOrders.length > 0;
+
+  // Calculate summary data based on matched orders only
+  const totalItems = matchedOrders.reduce((sum, order) => sum + order.quantity, 0);
+  const totalCost = matchedOrders.reduce((sum, order) => sum + (order.total_cost || 0), 0);
+  const uniqueStatuses = [...new Set(matchedOrders.map(order => order.status))];
   const shipToLocation = orders[0]?.ship_to_location || 'Not specified';
   const currency = orders[0]?.currency || 'AED';
   const fileName = orders[0]?.file_name || 'Unknown';
@@ -44,49 +50,101 @@ export function POGroupCard({ poNumber, orders, onUpdateStatus, onUpdateTracking
 
   const overallStatus = getOverallStatus();
 
+  // Handle PO click - only navigate if there are matched items
+  const handlePOClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (hasMatchedItems) {
+      navigate(`/po-details/${poNumber}`, { state: { orders: matchedOrders } });
+    }
+  };
+
+  // If no matched items, show just PO number without click functionality
+  if (!hasMatchedItems) {
+    return (
+      <Card className="w-full opacity-50">
+        <CardHeader className="transition-colors">
+          <CardTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <Package className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-lg font-semibold text-muted-foreground">PO: {poNumber}</span>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <MapPin className="h-3 w-3" />
+                  <span>{shipToLocation}</span>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="text-right">
+                <div className="text-sm text-muted-foreground">No SKU Matches</div>
+                <div className="text-lg font-semibold text-muted-foreground">0 items</div>
+              </div>
+              <Badge className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+                No Match
+              </Badge>
+            </div>
+          </CardTitle>
+        </CardHeader>
+      </Card>
+    );
+  }
+
   return (
     <Card className="w-full">
       <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
-        <CollapsibleTrigger asChild>
-          <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-            <CardTitle className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                  {isExpanded ? (
-                    <ChevronDown className="h-4 w-4" />
-                  ) : (
-                    <ChevronRight className="h-4 w-4" />
-                  )}
-                  <Package className="h-5 w-5" />
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-lg font-semibold">PO: {poNumber}</span>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <MapPin className="h-3 w-3" />
-                    <span>{shipToLocation}</span>
+        <div className="relative">
+          {/* Clickable PO header area */}
+          <div 
+            className="absolute inset-0 cursor-pointer hover:bg-muted/30 transition-colors rounded-t-lg z-10"
+            onClick={handlePOClick}
+            title="Click to view PO details in a new page"
+          />
+          
+          {/* Collapsible trigger for dropdown */}
+          <CollapsibleTrigger asChild>
+            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors relative z-20">
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    {isExpanded ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4" />
+                    )}
+                    <Package className="h-5 w-5" />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-lg font-semibold">PO: {poNumber}</span>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <MapPin className="h-3 w-3" />
+                      <span>{shipToLocation}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-4">
-                <div className="text-right">
-                  <div className="text-sm text-muted-foreground">Total Items</div>
-                  <div className="text-lg font-semibold">{totalItems}</div>
-                </div>
-                {totalCost > 0 && (
+                <div className="flex items-center gap-4">
                   <div className="text-right">
-                    <div className="text-sm text-muted-foreground">Total Cost</div>
-                    <div className="text-lg font-semibold">{totalCost.toFixed(2)} {currency}</div>
+                    <div className="text-sm text-muted-foreground">Matched Items</div>
+                    <div className="text-lg font-semibold">{totalItems}</div>
                   </div>
-                )}
-                <Badge 
-                  className={`${statusColors[overallStatus as keyof typeof statusColors] || statusColors.pending}`}
-                >
-                  {overallStatus === 'partial' ? 'Mixed Status' : overallStatus}
-                </Badge>
-              </div>
-            </CardTitle>
-          </CardHeader>
-        </CollapsibleTrigger>
+                  {totalCost > 0 && (
+                    <div className="text-right">
+                      <div className="text-sm text-muted-foreground">Total Cost</div>
+                      <div className="text-lg font-semibold">{totalCost.toFixed(2)} {currency}</div>
+                    </div>
+                  )}
+                  <Badge 
+                    className={`${statusColors[overallStatus as keyof typeof statusColors] || statusColors.pending}`}
+                  >
+                    {overallStatus === 'partial' ? 'Mixed Status' : overallStatus}
+                  </Badge>
+                </div>
+              </CardTitle>
+            </CardHeader>
+          </CollapsibleTrigger>
+        </div>
 
         <CollapsibleContent>
           <CardContent className="pt-0">
@@ -100,8 +158,8 @@ export function POGroupCard({ poNumber, orders, onUpdateStatus, onUpdateTracking
                 </div>
                 <div className="flex items-center gap-2">
                   <Package className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">Unique Items:</span>
-                  <span className="text-sm font-medium">{orders.length}</span>
+                  <span className="text-sm text-muted-foreground">Matched Items:</span>
+                  <span className="text-sm font-medium">{matchedOrders.length}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-muted-foreground">Status Breakdown:</span>
@@ -112,14 +170,14 @@ export function POGroupCard({ poNumber, orders, onUpdateStatus, onUpdateTracking
                         variant="outline" 
                         className="text-xs"
                       >
-                        {status} ({orders.filter(o => o.status === status).length})
+                        {status} ({matchedOrders.filter(o => o.status === status).length})
                       </Badge>
                     ))}
                   </div>
                 </div>
               </div>
 
-              {/* Items Table */}
+              {/* Items Table - Only showing matched items */}
               <div className="border rounded-md">
                 <Table>
                   <TableHeader>
@@ -135,7 +193,7 @@ export function POGroupCard({ poNumber, orders, onUpdateStatus, onUpdateTracking
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {orders.map((order) => (
+                    {matchedOrders.map((order) => (
                       <TableRow key={order.id}>
                         <TableCell className="font-mono text-xs">
                           {order.asin}
