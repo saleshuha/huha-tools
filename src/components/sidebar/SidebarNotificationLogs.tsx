@@ -23,30 +23,58 @@ interface NotificationLog {
 export function SidebarNotificationLogs() {
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationLog[]>([]);
+  const [dismissedNotifications, setDismissedNotifications] = useState<Set<string>>(new Set());
   const { toasts } = useToast();
+
+  // Load dismissed notifications from localStorage on mount
+  useEffect(() => {
+    try {
+      const dismissed = localStorage.getItem('dismissed-notifications');
+      if (dismissed) {
+        setDismissedNotifications(new Set(JSON.parse(dismissed)));
+      }
+    } catch (error) {
+      console.error('Failed to load dismissed notifications:', error);
+    }
+  }, []);
+
+  // Save dismissed notifications to localStorage
+  const saveDismissedNotifications = (dismissedSet: Set<string>) => {
+    try {
+      localStorage.setItem('dismissed-notifications', JSON.stringify(Array.from(dismissedSet)));
+    } catch (error) {
+      console.error('Failed to save dismissed notifications:', error);
+    }
+  };
 
   // Convert toasts to temporary notifications that auto-dismiss
   useEffect(() => {
     toasts.forEach(toast => {
-      if (!notifications.find(n => n.id === toast.id)) {
-        const newNotification: NotificationLog = {
-          id: toast.id,
-          title: String(toast.title || 'Notification'),
-          description: String(toast.description || ''),
-          variant: toast.variant || 'default',
-          timestamp: new Date(),
-          read: false
-        };
-        
-        setNotifications(prev => [newNotification, ...prev]);
-        
-        // Auto-dismiss after 5 seconds
-        setTimeout(() => {
-          setNotifications(prev => prev.filter(n => n.id !== toast.id));
-        }, 5000);
+      // Create a unique identifier based on title and description to prevent duplicate dismissals
+      const notificationHash = `${toast.title}-${toast.description}`.replace(/\s+/g, '').toLowerCase();
+      
+      // Skip if already dismissed or already in notifications
+      if (dismissedNotifications.has(notificationHash) || notifications.find(n => n.id === toast.id)) {
+        return;
       }
+
+      const newNotification: NotificationLog = {
+        id: toast.id,
+        title: String(toast.title || 'Notification'),
+        description: String(toast.description || ''),
+        variant: toast.variant || 'default',
+        timestamp: new Date(),
+        read: false
+      };
+      
+      setNotifications(prev => [newNotification, ...prev]);
+      
+      // Auto-dismiss after 5 seconds
+      setTimeout(() => {
+        setNotifications(prev => prev.filter(n => n.id !== toast.id));
+      }, 5000);
     });
-  }, [toasts]);
+  }, [toasts, dismissedNotifications, notifications]);
 
   const unreadCount = notifications.length; // All current notifications are "active"
 
@@ -61,6 +89,15 @@ export function SidebarNotificationLogs() {
   };
 
   const clearNotifications = () => {
+    // Mark all current notifications as permanently dismissed
+    const newDismissedSet = new Set(dismissedNotifications);
+    notifications.forEach(notification => {
+      const notificationHash = `${notification.title}-${notification.description}`.replace(/\s+/g, '').toLowerCase();
+      newDismissedSet.add(notificationHash);
+    });
+    
+    setDismissedNotifications(newDismissedSet);
+    saveDismissedNotifications(newDismissedSet);
     setNotifications([]);
   };
 
