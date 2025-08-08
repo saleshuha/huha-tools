@@ -25,7 +25,7 @@ export function SidebarNotificationLogs() {
   const [notifications, setNotifications] = useState<NotificationLog[]>([]);
   const { toasts } = useToast();
 
-  // Convert toasts to persistent notification logs
+  // Convert toasts to temporary notifications that auto-dismiss
   useEffect(() => {
     toasts.forEach(toast => {
       if (!notifications.find(n => n.id === toast.id)) {
@@ -38,12 +38,17 @@ export function SidebarNotificationLogs() {
           read: false
         };
         
-        setNotifications(prev => [newNotification, ...prev].slice(0, 50)); // Keep last 50
+        setNotifications(prev => [newNotification, ...prev]);
+        
+        // Auto-dismiss after 5 seconds
+        setTimeout(() => {
+          setNotifications(prev => prev.filter(n => n.id !== toast.id));
+        }, 5000);
       }
     });
   }, [toasts]);
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const unreadCount = notifications.length; // All current notifications are "active"
 
   const markAsRead = (id: string) => {
     setNotifications(prev => 
@@ -84,93 +89,73 @@ export function SidebarNotificationLogs() {
 
   return (
     <div className="mb-3">
-      <div className="bg-card border rounded-lg shadow-sm">
-        {/* Header */}
-        <div className="p-3 border-b bg-muted/50 rounded-t-lg">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Bell className="h-4 w-4" />
-              <span className="text-sm font-medium">Live Notifications</span>
-              {unreadCount > 0 && (
-                <Badge variant="destructive" className="h-5 w-5 p-0 text-xs flex items-center justify-center">
-                  {unreadCount > 99 ? '99+' : unreadCount}
-                </Badge>
-              )}
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 w-6 p-0"
-              onClick={clearNotifications}
-            >
-              <X className="h-3 w-3" />
-            </Button>
-          </div>
-        </div>
-        
-        {/* Notification Display Area */}
-        <div className="p-2">
-          <ScrollArea className="h-32">
-            {notifications.length === 0 ? (
-              <div className="text-center py-4 text-muted-foreground">
-                <Bell className="h-6 w-6 mx-auto mb-1 opacity-50" />
-                <p className="text-xs">No recent notifications</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {notifications.slice(0, 3).map((notification) => (
-                  <div
-                    key={notification.id}
-                    className={`p-2 rounded border text-xs transition-all ${
-                      notification.read 
-                        ? 'bg-muted/30 opacity-60 border-border/50' 
-                        : 'bg-background border-border shadow-sm'
-                    }`}
-                    onClick={() => markAsRead(notification.id)}
-                  >
-                    <div className="flex items-start gap-2">
-                      {getNotificationIcon(notification.variant)}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1">
-                          <p className="font-medium truncate text-xs">
-                            {notification.title}
-                          </p>
-                          {!notification.read && (
-                            <div className="w-1.5 h-1.5 bg-blue-600 rounded-full flex-shrink-0" />
-                          )}
-                        </div>
-                        {notification.description && (
-                          <p className="text-muted-foreground mt-0.5 line-clamp-1 text-xs">
-                            {notification.description}
-                          </p>
-                        )}
-                        <div className="flex items-center gap-1 mt-1">
-                          <Clock className="h-2.5 w-2.5 text-muted-foreground" />
-                          <span className="text-xs text-muted-foreground">
-                            {formatTime(notification.timestamp)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                {notifications.length > 3 && (
-                  <div className="text-center">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 text-xs"
-                      onClick={markAllAsRead}
-                    >
-                      +{notifications.length - 3} more
-                    </Button>
-                  </div>
+      {notifications.length > 0 && (
+        <div className="bg-card border rounded-lg shadow-sm animate-in slide-in-from-top-2">
+          {/* Header */}
+          <div className="p-2 border-b bg-muted/50 rounded-t-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Bell className="h-3 w-3" />
+                <span className="text-xs font-medium">Live Notifications</span>
+                {unreadCount > 0 && (
+                  <Badge variant="secondary" className="h-4 w-4 p-0 text-xs flex items-center justify-center">
+                    {unreadCount}
+                  </Badge>
                 )}
               </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-5 w-5 p-0"
+                onClick={clearNotifications}
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            </div>
+          </div>
+          
+          {/* Current Active Notifications */}
+          <div className="p-2 space-y-1">
+            {notifications.slice(0, 2).map((notification, index) => (
+              <div
+                key={notification.id}
+                className={`p-2 rounded border text-xs transition-all animate-in slide-in-from-left-2 ${
+                  notification.variant === 'destructive' 
+                    ? 'bg-destructive/10 border-destructive/20 text-destructive' 
+                    : notification.variant === 'success'
+                    ? 'bg-green-50 border-green-200 text-green-800'
+                    : 'bg-background border-border'
+                }`}
+                style={{ animationDelay: `${index * 100}ms` }}
+              >
+                <div className="flex items-start gap-2">
+                  {getNotificationIcon(notification.variant)}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-xs truncate">
+                      {notification.title}
+                    </p>
+                    {notification.description && (
+                      <p className="text-muted-foreground mt-0.5 line-clamp-1 text-xs">
+                        {notification.description}
+                      </p>
+                    )}
+                    <div className="text-xs text-muted-foreground mt-1">
+                      Auto-dismiss in 5s
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {notifications.length > 2 && (
+              <div className="text-center py-1">
+                <span className="text-xs text-muted-foreground">
+                  +{notifications.length - 2} more notifications
+                </span>
+              </div>
             )}
-          </ScrollArea>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
