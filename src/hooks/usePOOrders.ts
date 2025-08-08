@@ -55,23 +55,39 @@ export const usePOOrders = () => {
       // Clear existing data first to force fresh load
       setPOOrders([]);
 
-      // Use the new unlimited function that returns all records
-      const { data, error } = await supabase.rpc('get_all_po_orders_unlimited', {
-        user_id_param: user.id
-      });
+      // Fetch all records in batches to bypass any limits
+      let allData: any[] = [];
+      let hasMore = true;
+      let offset = 0;
+      const batchSize = 1000;
 
-      console.log('get_all_po_orders_unlimited result:', { 
-        dataLength: data?.length, 
-        error,
-        firstFewItems: data?.slice(0, 3)
-      });
+      while (hasMore) {
+        const { data: batchData, error } = await supabase
+          .from('po_orders')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .range(offset, offset + batchSize - 1);
 
-      if (error) throw error;
+        if (error) throw error;
+
+        if (batchData && batchData.length > 0) {
+          allData = [...allData, ...batchData];
+          offset += batchSize;
+          hasMore = batchData.length === batchSize; // Continue if we got a full batch
+          
+          console.log(`Loaded batch: ${batchData.length} records, total so far: ${allData.length}`);
+        } else {
+          hasMore = false;
+        }
+      }
+
+      console.log(`Total records fetched: ${allData.length}`);
 
       setLoadingProgress(80);
       setLoadingStatus('Processing order data...');
 
-      const allOrders = (data || []).map(order => ({
+      const allOrders = (allData || []).map(order => ({
         ...order,
         status: order.status as POOrder['status'],
         sunsky_sku: null // Will be populated separately if needed
