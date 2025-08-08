@@ -340,9 +340,9 @@ export function POColumnMapping({ files, onMappingComplete, onBack, isLoading }:
                     <TableBody>
                       {data.slice(1, 4).map((row, index) => (
                         <TableRow key={index}>
-                          {row.map((cell, cellIndex) => (
+                          {headers.map((header, cellIndex) => (
                             <TableCell key={cellIndex} className="text-xs max-w-32 truncate">
-                              {cell}
+                              {row[cellIndex] || ''}
                             </TableCell>
                           ))}
                         </TableRow>
