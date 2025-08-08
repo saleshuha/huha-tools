@@ -93,6 +93,7 @@ export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIs
   const [globalMapping, setGlobalMapping] = useState<any>(null);
   const [isProcessingBulk, setIsProcessingBulk] = useState(false);
   const [bulkProgress, setBulkProgress] = useState(0);
+  const [uploadMode, setUploadMode] = useState<'single' | 'bulk'>('bulk');
 
   // Load existing SKUs for duplicate detection
   const { data: existingSKUs = [], isLoading: isLoadingSkus } = useQuery({
@@ -480,13 +481,33 @@ export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIs
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* Upload Mode Selection */}
+          <div className="flex items-center gap-4 p-4 border rounded-lg bg-muted/50">
+            <label className="text-sm font-medium">Upload Mode:</label>
+            <Select
+              value={uploadMode}
+              onValueChange={(value: 'single' | 'bulk') => {
+                setUploadMode(value);
+                clearSelectedFiles();
+              }}
+            >
+              <SelectTrigger className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="single">Single File</SelectItem>
+                <SelectItem value="bulk">Bulk Files</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* File Upload */}
           <div className="space-y-4">
             <div className="flex items-center gap-4">
               <Input
                 ref={fileInputRef}
                 type="file"
-                multiple
+                multiple={uploadMode === 'bulk'}
                 accept=".csv,.xlsx,.xls"
                 onChange={handleFileUpload}
                 className="flex-1"
