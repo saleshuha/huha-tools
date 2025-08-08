@@ -983,15 +983,7 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "fk_po_orders_sunsky_skus"
-            columns: ["sku_user_id", "sku_code"]
-            isOneToOne: false
-            referencedRelation: "sunsky_skus"
-            referencedColumns: ["user_id", "sku_code"]
-          },
-        ]
+        Relationships: []
       }
       processed_orders: {
         Row: {
