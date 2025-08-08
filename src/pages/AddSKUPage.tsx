@@ -906,13 +906,31 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
               sampleData: results.data.slice(0, 3)
             });
             
-            // Filter out completely empty rows
-            const cleanData = results.data.filter((row: any) => 
-              row && Object.values(row).some(val => val !== null && val !== undefined && val !== '')
-            );
+            // More lenient filtering - only remove truly empty rows
+            const cleanData = results.data.filter((row: any) => {
+              if (!row || typeof row !== 'object') return false;
+              
+              // Check if at least one field has meaningful data
+              const hasData = Object.values(row).some(val => {
+                if (val === null || val === undefined) return false;
+                const stringVal = String(val).trim();
+                return stringVal !== '' && stringVal !== 'null' && stringVal !== 'undefined';
+              });
+              
+              return hasData;
+            });
             
-            console.log(`Filtered ${results.data.length - cleanData.length} empty rows`);
-            resolve(cleanData);
+            console.log(`Original rows: ${results.data.length}, After filtering: ${cleanData.length}`);
+            console.log('Sample filtered data:', cleanData.slice(0, 2));
+            
+            if (cleanData.length === 0 && results.data.length > 0) {
+              console.warn('All rows were filtered out - data might have formatting issues');
+              console.log('Sample original data:', results.data.slice(0, 3));
+              // Return original data if all rows were filtered
+              resolve(results.data);
+            } else {
+              resolve(cleanData);
+            }
           },
           error: (error) => {
             console.error('CSV parse error:', error);
@@ -958,13 +976,31 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
               headers: jsonData[0] ? Object.keys(jsonData[0]) : []
             });
             
-            // Filter out completely empty rows
-            const cleanData = jsonData.filter((row: any) => 
-              row && Object.values(row).some(val => val !== null && val !== undefined && val !== '')
-            );
+            // More lenient filtering for Excel files - only remove truly empty rows
+            const cleanData = jsonData.filter((row: any) => {
+              if (!row || typeof row !== 'object') return false;
+              
+              // Check if at least one field has meaningful data
+              const hasData = Object.values(row).some(val => {
+                if (val === null || val === undefined) return false;
+                const stringVal = String(val).trim();
+                return stringVal !== '' && stringVal !== 'null' && stringVal !== 'undefined';
+              });
+              
+              return hasData;
+            });
             
-            console.log(`Filtered ${jsonData.length - cleanData.length} empty rows`);
-            resolve(cleanData);
+            console.log(`Original Excel rows: ${jsonData.length}, After filtering: ${cleanData.length}`);
+            console.log('Sample Excel filtered data:', cleanData.slice(0, 2));
+            
+            if (cleanData.length === 0 && jsonData.length > 0) {
+              console.warn('All Excel rows were filtered out - data might have formatting issues');
+              console.log('Sample original Excel data:', jsonData.slice(0, 3));
+              // Return original data if all rows were filtered
+              resolve(jsonData);
+            } else {
+              resolve(cleanData);
+            }
             
           } catch (error) {
             console.error('Excel parse error:', error);
@@ -1211,8 +1247,20 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
       console.log('Starting bulk mapping with template file:', templateFile.name);
       
       const data = await parseFileQuietly(templateFile);
+      console.log('Template file parsing result:', {
+        dataExists: !!data,
+        dataLength: data?.length || 0,
+        sampleData: data?.slice(0, 2) || 'No data'
+      });
+      
       if (!data || data.length === 0) {
-        throw new Error('No data found in template file');
+        console.error('Template file data check failed:', {
+          data,
+          dataLength: data?.length,
+          fileName: templateFile.name,
+          fileSize: templateFile.size
+        });
+        throw new Error(`No data found in template file ${templateFile.name}. Please check the file format and ensure it contains data.`);
       }
 
       const headers = Object.keys(data[0]).sort();
