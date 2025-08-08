@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,8 +11,8 @@ import type { User, Session } from "@supabase/supabase-js";
 import { CountryProvider } from "@/contexts/CountryContext";
 import { BackgroundTasksProvider } from "@/contexts/BackgroundTasksContext";
 import { FloatingProgressIndicator } from "@/components/FloatingProgressIndicator";
-import { AppSidebar } from "@/components/AppSidebar";
-import { CountrySwitcher } from "@/components/CountrySwitcher";
+import { HeaderNav } from "@/components/HeaderNav";
+
 import Index from "./pages/Index";
 
 import ExcelMapperPage from "./pages/ExcelMapper";
@@ -172,74 +172,48 @@ const App = () => {
           <Toaster />
           <Sonner />
           <BrowserRouter>
-          <SidebarProvider>
-            <div className="min-h-screen flex w-full">
-              <AppSidebar />
-              <div className="flex-1 flex flex-col">
-                <header className="h-14 flex items-center border-b bg-background shadow-sm">
-                  <div className="flex items-center justify-between w-full gap-4 pl-6 pr-4">
-                    <div className="flex items-center gap-3">
-                      <SidebarTrigger className="bg-primary hover:bg-primary/90 text-primary-foreground border-primary" />
-                      <div className="bg-primary/10 rounded-md p-1.5">
-                        <img 
-                          src="/lovable-uploads/4f9a15c5-2d12-4ee0-b0bd-e982c5b4ece7.png" 
-                          alt="HuHa Logo" 
-                          className="h-6 w-6 object-contain"
-                        />
-                      </div>
-                      <div className="flex flex-col">
-                        <h1 className="font-semibold text-base text-foreground tracking-wide">HuHa Product Management System</h1>
-                        <p className="text-[10px] text-muted-foreground font-medium leading-tight">Professional Inventory & Analytics Platform</p>
-                      </div>
-                    </div>
-                    <div className="flex-1 flex justify-center">
-                      <span className="text-sm font-medium text-foreground">اللَّهُمَّ صل عَلَى مُحَمَّدٍ وَعَلَى آلِ مُحَمَّدٍ</span>
-                    </div>
-                    <CountrySwitcher />
-                  </div>
-                </header>
-                <main className="flex-1">
-                  <Routes>
-                    <Route path="/" element={<Index />} />
-                    
-                    <Route path="/excel-mapper" element={<ExcelMapperPage />} />
-                    <Route path="/batch" element={<BatchProcessor />} />
-                    <Route path="/asin-sum" element={<AsinQtySum />} />
-                     <Route path="/zip-splitter" element={<ZipSplitter />} />
-                     <Route path="/file-merger" element={<FileMergerPage />} />
-                     <Route path="/bulk-column-editor" element={<BulkColumnEditor />} />
-                     <Route path="/inventory" element={<Inventory />} />
-                    <Route path="/processed-orders" element={<ProcessedOrders />} />
-                    <Route path="/users" element={<UserManagementPage />} />
-                     <Route path="/replenishment" element={<ReplenishmentPage />} />
-                     <Route path="/po-tracker" element={<POTrackerPage />} />
-                     <Route path="/po-details/:poNumber" element={<PODetailsPage />} />
-                     <Route path="/add-sku" element={<AddSKUPageWrapper />} />
-                     <Route path="/excel-editor" element={<ExcelEditorPage />} />
-                     <Route path="/noon-sales-tracker" element={<NoonSalesTracker />} />
-                     <Route path="/noon-dashboard" element={<NoonDashboard />} />
-                     <Route path="/noon-stores" element={<NoonStores />} />
-                     <Route path="/noon-sales-data" element={<NoonSalesData />} />
-                     <Route path="/noon-fees-reports" element={<NoonFeesReports />} />
-                     <Route path="/noon-analytics" element={<NoonAnalytics />} />
-                     <Route path="/noon-order-analysis" element={<NoonOrderAnalysis />} />
-                     <Route path="/payment-reports" element={<PaymentReports />} />
-                     <Route path="/noon-sku-costs" element={<SKUCostManagement />} />
-                     <Route path="/sku-costs" element={<SKUCostManagement />} />
-                     <Route path="/carrefour-payments" element={<Navigate to="/stores" replace />} />
-                     <Route path="/stores" element={<StoreSelection />} />
-                     <Route path="/carrefour-payments/:storeId" element={<CarrefourSalesTracker />} />
-                    
-                    <Route path="/auth" element={<Navigate to="/" replace />} />
-                    
-                    {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </main>
-              </div>
-            </div>
-            <FloatingProgressIndicator />
-            </SidebarProvider>
+          <div className="min-h-screen flex flex-col w-full">
+            <HeaderNav />
+            <main className="flex-1">
+              <Routes>
+                <Route path="/" element={<Index />} />
+                
+                <Route path="/excel-mapper" element={<ExcelMapperPage />} />
+                <Route path="/batch" element={<BatchProcessor />} />
+                <Route path="/asin-sum" element={<AsinQtySum />} />
+                <Route path="/zip-splitter" element={<ZipSplitter />} />
+                <Route path="/file-merger" element={<FileMergerPage />} />
+                <Route path="/bulk-column-editor" element={<BulkColumnEditor />} />
+                <Route path="/inventory" element={<Inventory />} />
+                <Route path="/processed-orders" element={<ProcessedOrders />} />
+                <Route path="/users" element={<UserManagementPage />} />
+                <Route path="/replenishment" element={<ReplenishmentPage />} />
+                <Route path="/po-tracker" element={<POTrackerPage />} />
+                <Route path="/po-details/:poNumber" element={<PODetailsPage />} />
+                <Route path="/add-sku" element={<AddSKUPageWrapper />} />
+                <Route path="/excel-editor" element={<ExcelEditorPage />} />
+                <Route path="/noon-sales-tracker" element={<NoonSalesTracker />} />
+                <Route path="/noon-dashboard" element={<NoonDashboard />} />
+                <Route path="/noon-stores" element={<NoonStores />} />
+                <Route path="/noon-sales-data" element={<NoonSalesData />} />
+                <Route path="/noon-fees-reports" element={<NoonFeesReports />} />
+                <Route path="/noon-analytics" element={<NoonAnalytics />} />
+                <Route path="/noon-order-analysis" element={<NoonOrderAnalysis />} />
+                <Route path="/payment-reports" element={<PaymentReports />} />
+                <Route path="/noon-sku-costs" element={<SKUCostManagement />} />
+                <Route path="/sku-costs" element={<SKUCostManagement />} />
+                <Route path="/carrefour-payments" element={<Navigate to="/stores" replace />} />
+                <Route path="/stores" element={<StoreSelection />} />
+                <Route path="/carrefour-payments/:storeId" element={<CarrefourSalesTracker />} />
+                
+                <Route path="/auth" element={<Navigate to="/" replace />} />
+                
+                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </main>
+          </div>
+          <FloatingProgressIndicator />
           </BrowserRouter>
           </BackgroundTasksProvider>
         </CountryProvider>
