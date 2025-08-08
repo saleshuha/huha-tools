@@ -21,6 +21,7 @@ import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useBackgroundTasks } from '@/contexts/BackgroundTasksContext';
 import { useToast } from '@/components/ui/use-toast';
+import { SKUAnalyticsDashboard } from '@/components/SKUAnalyticsDashboard';
 
 interface AddSKUPageProps {
   onAddSKUs: (skus: Omit<SunskySKU, 'id' | 'created_at' | 'updated_at' | 'user_id'>[]) => Promise<void>;
@@ -78,6 +79,25 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
   const { profile } = useUserProfile();
   const { runBackgroundUpload } = useBackgroundTasks();
   const { toast } = useToast();
+  
+  // Processing analytics state
+  const [processingAnalytics, setProcessingAnalytics] = useState({
+    totalRowsProcessed: 0,
+    uniqueSkusFound: 0,
+    duplicatesFiltered: 0,
+    savedToDatabase: 0,
+    errors: 0
+  });
+
+  const resetAnalytics = () => {
+    setProcessingAnalytics({
+      totalRowsProcessed: 0,
+      uniqueSkusFound: 0,
+      duplicatesFiltered: 0,
+      savedToDatabase: 0,
+      errors: 0
+    });
+  };
   
   // Load existing SKUs from database on mount
   useEffect(() => {
@@ -320,6 +340,14 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
         console.log('Sample DB SKUs (first 3):', dbSkus.slice(0, 3));
         console.log('User profile country:', profile?.country);
         
+        // Update analytics
+        setProcessingAnalytics(prev => ({
+          ...prev,
+          totalRowsProcessed: prev.totalRowsProcessed + mappedData.length,
+          uniqueSkusFound: prev.uniqueSkusFound + dbSkus.length,
+          duplicatesFiltered: prev.duplicatesFiltered + duplicateCount
+        }));
+        
         // Update final processed count
         setFileRowCounts(prev => ({ 
           ...prev, 
@@ -341,6 +369,12 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
                 const skuKey = `${sku.sku_code}_${sku.country}`;
                 existingSkus.add(skuKey);
               });
+              
+              // Update analytics
+              setProcessingAnalytics(prev => ({
+                ...prev,
+                savedToDatabase: prev.savedToDatabase + dbSkus.length
+              }));
               
               setFileProgress(prev => ({ ...prev, [file.name]: 100 }));
               setFileStatuses(prev => ({ ...prev, [file.name]: 'completed' }));
@@ -387,6 +421,12 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
               
               setFileStatuses(prev => ({ ...prev, [file.name]: 'error' }));
               setFileProgress(prev => ({ ...prev, [file.name]: 0 }));
+              
+              // Update error analytics
+              setProcessingAnalytics(prev => ({
+                ...prev,
+                errors: prev.errors + 1
+              }));
               
               toast({
                 title: errorType,
@@ -1120,6 +1160,12 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Processing Analytics Dashboard */}
+            <SKUAnalyticsDashboard 
+              analytics={processingAnalytics}
+              onReset={resetAnalytics}
+            />
 
             {/* File Queue Display */}
             {processQueue.length > 0 && (
