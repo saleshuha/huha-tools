@@ -675,148 +675,106 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
           [file.name]: { total: data.length, processed: 0 } 
         }));
         
-        // Process in smaller batches for real-time saving - optimized for large files
-        const batchSize = 500; // Even smaller batches for large file stability
+        // Process in ultra-fast batches - optimized for speed
+        const batchSize = 2000; // Larger batches for speed
         let fileSavedCount = 0;
         let fileDuplicateCount = 0;
         
-        for (let batchStart = 0; batchStart < data.length; batchStart += batchSize) {
-          const batchEnd = Math.min(batchStart + batchSize, data.length);
-          const batch = data.slice(batchStart, batchEnd);
+        // Pre-allocate arrays for better performance
+        const allUniqueSKUs = [];
+        const allDuplicates = [];
+        
+        // Process all rows at once to avoid repeated iterations
+        console.log(`Pre-processing ${data.length} rows for duplicates and validation...`);
+        
+        for (let i = 0; i < data.length; i++) {
+          const row = data[i];
           
-          // Update progress
-          const progress = Math.round((batchStart / data.length) * 90);
-          setFileProgress(prev => ({ ...prev, [file.name]: progress }));
-          setFileRowCounts(prev => ({ 
-            ...prev, 
-            [file.name]: { ...prev[file.name], processed: batchStart } 
-          }));
+          // Quick validation - skip empty rows faster
+          if (!row || !Object.values(row).some(val => val !== null && val !== undefined && val !== '')) {
+            continue;
+          }
           
-          // Map and validate batch
-          const mappedBatch = batch.map(row => {
-            const processedRow: any = {};
-            Object.entries(mapping).forEach(([expectedCol, headerCol]) => {
-              let value = row[headerCol as string];
-              
-              if (expectedCol === 'cost' || expectedCol === 'weight') {
-                value = parseFloat(value) || 0;
-              }
-              
-              if (typeof value === 'string') {
-                value = value.trim();
-              }
-              
-              if (value !== undefined && value !== null && value !== '') {
-                processedRow[expectedCol] = value;
-              }
-            });
-            return processedRow;
-          }).filter(row => row.sku_code && row.sku_code.toString().trim());
+          // Fast mapping without object creation overhead
+          const skuCode = (row[mapping.sku_code] || '').toString().trim();
+          if (!skuCode) continue;
           
-          // Convert to database format and filter duplicates
-          const uniqueSkusInBatch = [];
-          const batchDuplicates = [];
+          const skuKey = `${skuCode}_${profile?.country || 'UAE'}`;
           
-          mappedBatch.forEach(row => {
-            const skuCode = row.sku_code?.toString().trim() || '';
-            const skuKey = `${skuCode}_${profile?.country || 'UAE'}`;
+          if (!existingSkus.has(skuKey)) {
+            existingSkus.add(skuKey);
             
-            if (!existingSkus.has(skuKey)) {
-              existingSkus.add(skuKey);
-              uniqueSkusInBatch.push({
-                sku_code: skuCode,
-                title: row.title?.toString().trim() || '',
-                description: row.description?.toString().trim() || '',
-                cost: typeof row.cost === 'number' ? row.cost : (parseFloat(row.cost) || 0),
-                weight: typeof row.weight === 'number' ? row.weight : (parseFloat(row.weight) || 0),
-                notes: row.notes?.toString().trim() || `Imported from ${file.name}`,
-                country: profile?.country || 'UAE'
-              });
-            } else {
-              batchDuplicates.push(skuCode);
-            }
-          });
+            // Direct object creation - no intermediate processing
+            allUniqueSKUs.push({
+              sku_code: skuCode,
+              title: (row[mapping.title] || '').toString().trim(),
+              description: (row[mapping.description] || '').toString().trim(),
+              cost: parseFloat(row[mapping.cost]) || 0,
+              weight: parseFloat(row[mapping.weight]) || 0,
+              notes: (row[mapping.notes] || `Imported from ${file.name}`).toString().trim(),
+              country: profile?.country || 'UAE'
+            });
+          } else {
+            allDuplicates.push(skuCode);
+          }
           
-          // Real-time save if we have unique SKUs
-          if (uniqueSkusInBatch.length > 0) {
-            try {
-              console.log(`Saving batch of ${uniqueSkusInBatch.length} unique SKUs from ${file.name}`);
-              await onAddSKUs(uniqueSkusInBatch);
-              
-              fileSavedCount += uniqueSkusInBatch.length;
-              totalSavedSkus += uniqueSkusInBatch.length;
-              
-              console.log(`✅ Batch saved: ${uniqueSkusInBatch.length} SKUs from ${file.name}`);
-              
-            } catch (saveError) {
-              const errorMsg = saveError instanceof Error ? saveError.message : 'Unknown database error';
-              console.error(`❌ Batch save failed for ${file.name}:`, errorMsg);
-              
-              // Handle constraint violations specifically
-              if (errorMsg.includes('duplicate key') || errorMsg.includes('unique constraint')) {
-                console.log(`🔄 Duplicate constraint violation - refreshing existing SKUs set`);
-                
-                // Re-load existing SKUs to update our duplicate detection
-                try {
-                  const { supabase } = await import('@/integrations/supabase/client');
-                  const { data: refreshedSkus } = await supabase
-                    .from('sunsky_skus')
-                    .select('sku_code, country')
-                    .eq('country', profile?.country || 'UAE');
-                    
-                  if (refreshedSkus) {
-                    const refreshedSet = new Set<string>();
-                    refreshedSkus.forEach(sku => {
-                      refreshedSet.add(`${sku.sku_code}_${sku.country}`);
-                    });
-                    setExistingSkus(refreshedSet);
-                    console.log(`🔄 Refreshed duplicate detection with ${refreshedSet.size} SKUs`);
-                  }
-                } catch (refreshError) {
-                  console.error('Error refreshing SKU set:', refreshError);
-                }
-                
-                setProcessingErrors(prev => [...prev, {
-                  id: `${Date.now()}-${file.name}-batch-${batchStart}`,
-                  timestamp: new Date().toISOString(),
-                  file: file.name,
-                  error: `Duplicate SKUs detected: ${uniqueSkusInBatch.length} SKUs already exist in database`,
-                  rowsAffected: uniqueSkusInBatch.length,
-                  type: 'validation'
-                }]);
-                
-                // Update analytics to reflect duplicates instead of errors
-                setProcessingAnalytics(prev => ({
-                  ...prev,
-                  duplicatesFiltered: prev.duplicatesFiltered + uniqueSkusInBatch.length
-                }));
-                
-              } else {
-                setProcessingErrors(prev => [...prev, {
-                  id: `${Date.now()}-${file.name}-batch-${batchStart}`,
-                  timestamp: new Date().toISOString(),
-                  file: file.name,
-                  error: `Database save failed: ${errorMsg}`,
-                  rowsAffected: uniqueSkusInBatch.length,
-                  type: 'database'
-                }]);
-                
-                batchErrors++;
-              }
-              
-              // Remove the SKUs from existingSkus since they weren't actually saved
-              uniqueSkusInBatch.forEach(sku => {
-                const skuKey = `${sku.sku_code}_${sku.country}`;
-                existingSkus.delete(skuKey);
-              });
+          // Update progress every 5000 rows for better performance
+          if (i % 5000 === 0) {
+            const progress = Math.round((i / data.length) * 90);
+            setFileProgress(prev => ({ ...prev, [file.name]: progress }));
+            setFileRowCounts(prev => ({ 
+              ...prev, 
+              [file.name]: { ...prev[file.name], processed: i } 
+            }));
+            // Yield control to UI
+            await new Promise(resolve => setTimeout(resolve, 1));
+          }
+        }
+        
+        console.log(`Pre-processing complete: ${allUniqueSKUs.length} unique SKUs, ${allDuplicates.length} duplicates`);
+        fileDuplicateCount = allDuplicates.length;
+        
+        // Save in large batches for maximum speed
+        for (let batchStart = 0; batchStart < allUniqueSKUs.length; batchStart += batchSize) {
+          const batchEnd = Math.min(batchStart + batchSize, allUniqueSKUs.length);
+          const batch = allUniqueSKUs.slice(batchStart, batchEnd);
+          
+          try {
+            console.log(`Saving batch ${Math.floor(batchStart/batchSize) + 1}/${Math.ceil(allUniqueSKUs.length/batchSize)}: ${batch.length} SKUs`);
+            await onAddSKUs(batch);
+            
+            fileSavedCount += batch.length;
+            totalSavedSkus += batch.length;
+            
+            // Update progress
+            const progress = Math.round(((batchStart + batch.length) / allUniqueSKUs.length) * 90);
+            setFileProgress(prev => ({ ...prev, [file.name]: progress }));
+            
+            console.log(`✅ Batch saved: ${batch.length} SKUs from ${file.name}`);
+            
+          } catch (saveError) {
+            const errorMsg = saveError instanceof Error ? saveError.message : 'Unknown database error';
+            console.error(`❌ Batch save failed for ${file.name}:`, errorMsg);
+            
+            setProcessingErrors(prev => [...prev, {
+              id: `${Date.now()}-${file.name}-batch-${batchStart}`,
+              timestamp: new Date().toISOString(),
+              file: file.name,
+              error: `Database save failed: ${errorMsg}`,
+              rowsAffected: batch.length,
+              type: 'database'
+            }]);
+            
+            batchErrors++;
+            if (batchErrors > 3) {
+              throw new Error(`Too many batch failures in file ${file.name}`);
             }
           }
           
-          fileDuplicateCount += batchDuplicates.length;
-          totalDuplicates += batchDuplicates.length;
-          
-          // Small delay to prevent blocking
-          await new Promise(resolve => setTimeout(resolve, 10));
+          // Minimal delay only for very large files
+          if (batchStart > 0 && allUniqueSKUs.length > 10000) {
+            await new Promise(resolve => setTimeout(resolve, 1));
+          }
         }
         
         // Update final file analytics
@@ -909,16 +867,14 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
       if (file.name.toLowerCase().endsWith('.csv')) {
         console.log('Parsing as CSV file with memory optimization');
         
-        // For very large CSV files, use streaming with chunk processing
+        // Optimized parsing for maximum speed
         Papa.parse(file, {
           header: true,
-          skipEmptyLines: true,
-          worker: true, // Use web worker for large files
-          dynamicTyping: false, // Disable to prevent memory overhead
-          chunk: file.size > maxSafeSize ? (results, parser) => {
-            // For extremely large files, we could implement streaming here
-            // For now, let it continue parsing
-          } : undefined,
+          skipEmptyLines: 'greedy', // More aggressive empty line skipping
+          worker: file.size > 10 * 1024 * 1024, // Use worker for files > 10MB
+          dynamicTyping: false,
+          fastMode: true, // Enable fast mode for speed
+          transformHeader: (header) => header.trim(), // Clean headers
           complete: (results) => {
             if (results.errors && results.errors.length > 0) {
               console.warn('CSV parsing warnings:', results.errors.slice(0, 10)); // Log first 10 errors
