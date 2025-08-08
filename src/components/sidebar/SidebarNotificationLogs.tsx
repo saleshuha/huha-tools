@@ -84,109 +84,93 @@ export function SidebarNotificationLogs() {
 
   return (
     <div className="mb-3">
-      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-        <CollapsibleTrigger asChild>
-          <Button
-            variant="ghost"
-            className="w-full justify-between p-3 h-auto rounded-lg border bg-card hover:bg-accent shadow-sm"
-          >
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary/10 rounded-md">
-                <Bell className="h-4 w-4 text-primary" />
-              </div>
-              <div className="text-left">
-                <span className="text-sm font-medium block">Notifications</span>
-                <span className="text-xs text-muted-foreground">
-                  {unreadCount > 0 ? `${unreadCount} unread` : 'All caught up'}
-                </span>
-              </div>
+      <div className="bg-card border rounded-lg shadow-sm">
+        {/* Header */}
+        <div className="p-3 border-b bg-muted/50 rounded-t-lg">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Bell className="h-4 w-4" />
+              <span className="text-sm font-medium">Live Notifications</span>
               {unreadCount > 0 && (
-                <Badge variant="destructive" className="h-5 w-5 p-0 text-xs flex items-center justify-center ml-auto">
+                <Badge variant="destructive" className="h-5 w-5 p-0 text-xs flex items-center justify-center">
                   {unreadCount > 99 ? '99+' : unreadCount}
                 </Badge>
               )}
             </div>
-          </Button>
-        </CollapsibleTrigger>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 p-0"
+              onClick={clearNotifications}
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          </div>
+        </div>
         
-        <CollapsibleContent className="mt-2">
-          <div className="bg-sidebar-accent/50 rounded-lg border">
-            <div className="p-2 border-b bg-sidebar-accent/80 rounded-t-lg">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium">Activity Logs</span>
-                <div className="flex gap-1">
-                  {unreadCount > 0 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 px-2 text-xs"
-                      onClick={markAllAsRead}
-                    >
-                      Mark all read
-                    </Button>
-                  )}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0"
-                    onClick={clearNotifications}
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
-                </div>
+        {/* Notification Display Area */}
+        <div className="p-2">
+          <ScrollArea className="h-32">
+            {notifications.length === 0 ? (
+              <div className="text-center py-4 text-muted-foreground">
+                <Bell className="h-6 w-6 mx-auto mb-1 opacity-50" />
+                <p className="text-xs">No recent notifications</p>
               </div>
-            </div>
-            
-            <ScrollArea className="h-64">
-              <div className="p-2 space-y-2">
-                {notifications.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Bell className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    <p className="text-xs">No notifications yet</p>
-                  </div>
-                ) : (
-                  notifications.map((notification) => (
-                    <div
-                      key={notification.id}
-                      className={`p-2 rounded-md border cursor-pointer transition-colors ${
-                        notification.read 
-                          ? 'bg-sidebar opacity-60 border-sidebar-border' 
-                          : 'bg-background border-border shadow-sm'
-                      }`}
-                      onClick={() => markAsRead(notification.id)}
-                    >
-                      <div className="flex items-start gap-2">
-                        {getNotificationIcon(notification.variant)}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <p className="text-xs font-medium truncate">
-                              {notification.title}
-                            </p>
-                            {!notification.read && (
-                              <div className="w-2 h-2 bg-blue-600 rounded-full flex-shrink-0" />
-                            )}
-                          </div>
-                          {notification.description && (
-                            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                              {notification.description}
-                            </p>
+            ) : (
+              <div className="space-y-2">
+                {notifications.slice(0, 3).map((notification) => (
+                  <div
+                    key={notification.id}
+                    className={`p-2 rounded border text-xs transition-all ${
+                      notification.read 
+                        ? 'bg-muted/30 opacity-60 border-border/50' 
+                        : 'bg-background border-border shadow-sm'
+                    }`}
+                    onClick={() => markAsRead(notification.id)}
+                  >
+                    <div className="flex items-start gap-2">
+                      {getNotificationIcon(notification.variant)}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1">
+                          <p className="font-medium truncate text-xs">
+                            {notification.title}
+                          </p>
+                          {!notification.read && (
+                            <div className="w-1.5 h-1.5 bg-blue-600 rounded-full flex-shrink-0" />
                           )}
-                          <div className="flex items-center gap-1 mt-1">
-                            <Clock className="h-3 w-3 text-muted-foreground" />
-                            <span className="text-xs text-muted-foreground">
-                              {formatTime(notification.timestamp)}
-                            </span>
-                          </div>
+                        </div>
+                        {notification.description && (
+                          <p className="text-muted-foreground mt-0.5 line-clamp-1 text-xs">
+                            {notification.description}
+                          </p>
+                        )}
+                        <div className="flex items-center gap-1 mt-1">
+                          <Clock className="h-2.5 w-2.5 text-muted-foreground" />
+                          <span className="text-xs text-muted-foreground">
+                            {formatTime(notification.timestamp)}
+                          </span>
                         </div>
                       </div>
                     </div>
-                  ))
+                  </div>
+                ))}
+                {notifications.length > 3 && (
+                  <div className="text-center">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 text-xs"
+                      onClick={markAllAsRead}
+                    >
+                      +{notifications.length - 3} more
+                    </Button>
+                  </div>
                 )}
               </div>
-            </ScrollArea>
-          </div>
-        </CollapsibleContent>
-      </Collapsible>
+            )}
+          </ScrollArea>
+        </div>
+      </div>
     </div>
   );
 }
