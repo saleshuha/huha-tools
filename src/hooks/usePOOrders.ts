@@ -117,7 +117,7 @@ export const usePOOrders = () => {
             model_number: item.model_number,
             title: item.title,
             quantity: item.quantity,
-            sku_code: item.sku_code || item.asin, // Use sku_code if available, otherwise fallback to asin
+            sku_code: item.model_number || item.asin, // Use model_number as sku_code, fallback to asin
             external_id: item.external_id || null,
             external_id_type: item.external_id_type || null,
             status: 'pending',
