@@ -1,155 +1,105 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useState, useMemo } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Progress } from '@/components/ui/progress';
-import { ShoppingCart, Calendar, Search, Package2, Clock, CheckCircle, XCircle, ChevronRight, ChevronLeft } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { Search, Package, Filter, SortAsc } from 'lucide-react';
 import { POOrder } from '@/hooks/usePOTracker';
+import { POGroupCard } from './POGroupCard';
 
 interface POOrderTrackingProps {
   orders: POOrder[];
   onUpdateStatus: (orderId: string, status: POOrder['status']) => void;
-  onUpdateTracking: (orderId: string, trackingData: { supplier_order_number?: string; tracking_number?: string; tracking_url?: string }) => void;
-  isLoading: boolean;
-}
-
-interface POGroup {
-  po_number: string;
-  orders: POOrder[];
-  totalItems: number;
-  totalCost: number;
-  currency: string;
-  status: string; // Overall status of the PO
+  onUpdateTracking: (orderId: string, trackingData: any) => void;
+  isLoading?: boolean;
 }
 
 export function POOrderTracking({ orders, onUpdateStatus, onUpdateTracking, isLoading }: POOrderTrackingProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
-  const navigate = useNavigate();
+  const [sortBy, setSortBy] = useState<'po_number' | 'status' | 'total_cost' | 'created_at'>('created_at');
 
   // Group orders by PO number
-  const groupedPOs = orders.reduce((acc, order) => {
-    const existingGroup = acc.find(group => group.po_number === order.po_number);
-    
-    if (existingGroup) {
-      existingGroup.orders.push(order);
-      existingGroup.totalItems += order.quantity;
-      existingGroup.totalCost += order.total_cost || 0;
-    } else {
-      acc.push({
-        po_number: order.po_number,
-        orders: [order],
-        totalItems: order.quantity,
-        totalCost: order.total_cost || 0,
-        currency: order.currency || 'AED',
-        status: order.status
-      });
+  const groupedOrders = useMemo(() => {
+    return orders.reduce((groups, order) => {
+      const poNumber = order.po_number;
+      if (!groups[poNumber]) {
+        groups[poNumber] = [];
+      }
+      groups[poNumber].push(order);
+      return groups;
+    }, {} as Record<string, POOrder[]>);
+  }, [orders]);
+
+  // Filter and sort grouped orders
+  const filteredAndSortedGroups = useMemo(() => {
+    let filteredGroups = Object.entries(groupedOrders);
+
+    // Filter by search term
+    if (searchTerm) {
+      filteredGroups = filteredGroups.filter(([poNumber, orders]) =>
+        poNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        orders.some(order => 
+          order.asin?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          order.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          order.model_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          order.ship_to_location?.toLowerCase().includes(searchTerm.toLowerCase())
+        )
+      );
     }
-    
-    return acc;
-  }, [] as POGroup[]);
 
-  // Update overall status for each PO group
-  groupedPOs.forEach(group => {
-    const statuses = group.orders.map(o => o.status);
-    if (statuses.every(s => s === 'delivered')) {
-      group.status = 'delivered';
-    } else if (statuses.some(s => s === 'cancelled')) {
-      group.status = 'cancelled';
-    } else if (statuses.some(s => s === 'shipped')) {
-      group.status = 'shipped';
-    } else if (statuses.some(s => s === 'ordered')) {
-      group.status = 'ordered';
-    } else {
-      group.status = 'pending';
+    // Filter by status
+    if (statusFilter !== 'all') {
+      filteredGroups = filteredGroups.filter(([_, orders]) =>
+        orders.some(order => order.status === statusFilter)
+      );
     }
-  });
 
-  const filteredPOs = groupedPOs.filter(group => {
-    const matchesSearch = 
-      group.po_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      group.orders.some(order => order.sku_code.toLowerCase().includes(searchTerm.toLowerCase()));
-    
-    const matchesStatus = statusFilter === 'all' || group.status === statusFilter;
-    
-    return matchesSearch && matchesStatus;
-  });
+    // Sort groups
+    filteredGroups.sort(([poA, ordersA], [poB, ordersB]) => {
+      switch (sortBy) {
+        case 'po_number':
+          return poA.localeCompare(poB);
+        case 'status':
+          const getGroupStatus = (orders: POOrder[]) => {
+            const statuses = orders.map(o => o.status);
+            if (statuses.every(s => s === 'delivered')) return 'delivered';
+            if (statuses.some(s => s === 'cancelled')) return 'mixed';
+            if (statuses.some(s => s === 'shipped')) return 'shipped';
+            if (statuses.some(s => s === 'ordered')) return 'ordered';
+            return 'pending';
+          };
+          return getGroupStatus(ordersA).localeCompare(getGroupStatus(ordersB));
+        case 'total_cost':
+          const getTotalCost = (orders: POOrder[]) => 
+            orders.reduce((sum, order) => sum + (order.total_cost || 0), 0);
+          return getTotalCost(ordersB) - getTotalCost(ordersA);
+        case 'created_at':
+        default:
+          const getLatestDate = (orders: POOrder[]) =>
+            Math.max(...orders.map(order => new Date(order.created_at).getTime()));
+          return getLatestDate(ordersB) - getLatestDate(ordersA);
+      }
+    });
 
-  // Pagination logic
-  const totalPages = Math.ceil(filteredPOs.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentPOs = filteredPOs.slice(startIndex, endIndex);
+    return filteredGroups;
+  }, [groupedOrders, searchTerm, statusFilter, sortBy]);
 
-  const goToPage = (page: number) => {
-    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
-  };
-
-  const navigateToPODetails = (poNumber: string) => {
-    navigate(`/po-details/${encodeURIComponent(poNumber)}`);
-  };
-
-  const getStatusIcon = (status: POOrder['status']) => {
-    switch (status) {
-      case 'pending':
-        return <Clock className="h-4 w-4 text-yellow-500" />;
-      case 'ordered':
-        return <CheckCircle className="h-4 w-4 text-blue-500" />;
-      case 'delivered':
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
-      case 'cancelled':
-        return <XCircle className="h-4 w-4 text-red-500" />;
-      default:
-        return <Package2 className="h-4 w-4 text-gray-500" />;
-    }
-  };
-
-  const getStatusVariant = (status: POOrder['status']) => {
-    switch (status) {
-      case 'pending':
-        return 'secondary';
-      case 'ordered':
-        return 'default';
-      case 'delivered':
-        return 'default';
-      case 'cancelled':
-        return 'destructive';
-      default:
-        return 'outline';
-    }
-  };
-
-  if (isLoading) {
-    return (
-      <div className="space-y-3">
-        {[...Array(5)].map((_, i) => (
-          <div key={i} className="flex items-center space-x-4">
-            <Skeleton className="h-4 w-24" />
-            <Skeleton className="h-4 w-32" />
-            <Skeleton className="h-4 w-16" />
-            <Skeleton className="h-4 w-20" />
-            <Skeleton className="h-4 w-24" />
-          </div>
-        ))}
-      </div>
-    );
-  }
+  const totalPOs = Object.keys(groupedOrders).length;
+  const totalItems = orders.length;
+  const pendingCount = Object.values(groupedOrders).filter(orders => 
+    orders.some(order => order.status === 'pending')
+  ).length;
 
   if (orders.length === 0) {
     return (
       <Card>
-        <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-          <ShoppingCart className="h-12 w-12 text-muted-foreground mb-4" />
+        <CardContent className="flex flex-col items-center justify-center py-16">
+          <Package className="h-12 w-12 text-muted-foreground mb-4" />
           <h3 className="text-lg font-semibold mb-2">No PO Orders Found</h3>
-          <p className="text-muted-foreground max-w-sm">
-            Upload PO files to start tracking purchase orders and their status.
+          <p className="text-muted-foreground text-center mb-4">
+            Upload a PO file to start tracking your purchase orders.
           </p>
         </CardContent>
       </Card>
@@ -157,175 +107,123 @@ export function POOrderTracking({ orders, onUpdateStatus, onUpdateTracking, isLo
   }
 
   return (
-    <div className="space-y-4">
-      {/* Filters */}
-      <div className="flex gap-4 items-center">
-        <div className="relative flex-1">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search PO number or SKU..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-8"
-          />
-        </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Filter by status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="ordered">Ordered</SelectItem>
-            <SelectItem value="shipped">Shipped</SelectItem>
-            <SelectItem value="delivered">Delivered</SelectItem>
-            <SelectItem value="cancelled">Cancelled</SelectItem>
-          </SelectContent>
-        </Select>
+    <div className="space-y-6">
+      {/* Summary Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Total PO Numbers</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totalPOs}</div>
+            <p className="text-xs text-muted-foreground">Unique purchase orders</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Total Items</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totalItems}</div>
+            <p className="text-xs text-muted-foreground">Individual order items</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">POs with Pending Items</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-yellow-600">{pendingCount}</div>
+            <p className="text-xs text-muted-foreground">Need attention</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Filters and Controls */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by PO number, ASIN, title, or location..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-8"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[150px]">
+                  <Filter className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Filter status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="ordered">Ordered</SelectItem>
+                  <SelectItem value="shipped">Shipped</SelectItem>
+                  <SelectItem value="delivered">Delivered</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={sortBy} onValueChange={(value) => setSortBy(value as any)}>
+                <SelectTrigger className="w-[150px]">
+                  <SortAsc className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="created_at">Latest First</SelectItem>
+                  <SelectItem value="po_number">PO Number</SelectItem>
+                  <SelectItem value="status">Status</SelectItem>
+                  <SelectItem value="total_cost">Total Cost</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Results Summary */}
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">
+          Showing {filteredAndSortedGroups.length} of {totalPOs} PO numbers
+          {searchTerm && ` matching "${searchTerm}"`}
+          {statusFilter !== 'all' && ` with ${statusFilter} status`}
+        </p>
       </div>
 
       {/* PO Groups */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <ShoppingCart className="h-5 w-5 mr-2" />
-            Purchase Orders ({filteredPOs.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {currentPOs.map((group) => (
-              <div key={group.po_number} className="border rounded-lg">
-                 {/* PO Header */}
-                <div 
-                  className="p-4 cursor-pointer hover:bg-muted/50 transition-colors"
-                  onClick={() => navigateToPODetails(group.po_number)}
-                >
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <ChevronRight className="h-4 w-4" />
-                        <Badge variant="outline" className="font-mono">
-                          {group.po_number}
-                        </Badge>
-                        <div className="flex items-center space-x-2">
-                          {getStatusIcon(group.status as POOrder['status'])}
-                          <Badge variant={getStatusVariant(group.status as POOrder['status'])}>
-                            {group.status.charAt(0).toUpperCase() + group.status.slice(1)}
-                          </Badge>
-                        </div>
-                        {(group.orders[0]?.order_date || group.orders[0]?.created_at) && (
-                          <Badge variant="secondary" className="text-xs">
-                            {new Date(group.orders[0]?.order_date || group.orders[0]?.created_at).toLocaleDateString()}
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                        <span>{group.totalItems} items</span>
-                        <span>{group.totalCost.toFixed(2)} {group.currency}</span>
-                      </div>
-                    </div>
-                    
-                    {/* Status Progress */}
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-xs text-muted-foreground">
-                        <div className="flex gap-4">
-                          <span>Pending: {group.orders.filter(o => o.status === 'pending').length}</span>
-                          <span>Ordered: {group.orders.filter(o => o.status === 'ordered').length}</span>
-                          <span>Shipped: {group.orders.filter(o => o.status === 'shipped').length}</span>
-                          <span>Delivered: {group.orders.filter(o => o.status === 'delivered').length}</span>
-                        </div>
-                      </div>
-                      <div className="relative">
-                        <Progress 
-                          value={(group.orders.filter(o => o.status !== 'pending').length / group.orders.length) * 100} 
-                          className="h-2"
-                        />
-                        <div className="absolute inset-0 flex h-2 rounded-full overflow-hidden">
-                          <div 
-                            className="bg-yellow-500" 
-                            style={{ width: `${(group.orders.filter(o => o.status === 'pending').length / group.orders.length) * 100}%` }}
-                          />
-                          <div 
-                            className="bg-blue-500" 
-                            style={{ width: `${(group.orders.filter(o => o.status === 'ordered').length / group.orders.length) * 100}%` }}
-                          />
-                          <div 
-                            className="bg-orange-500" 
-                            style={{ width: `${(group.orders.filter(o => o.status === 'shipped').length / group.orders.length) * 100}%` }}
-                          />
-                          <div 
-                            className="bg-green-500" 
-                            style={{ width: `${(group.orders.filter(o => o.status === 'delivered').length / group.orders.length) * 100}%` }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-              </div>
-            ))}
-          </div>
-          
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-6 pt-4 border-t">
-              <div className="flex items-center space-x-2">
-                <p className="text-sm text-muted-foreground">
-                  Showing {startIndex + 1} to {Math.min(endIndex, filteredPOs.length)} of {filteredPOs.length} PO orders
-                </p>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => goToPage(currentPage - 1)}
-                  disabled={currentPage === 1}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  Previous
-                </Button>
-                
-                <div className="flex items-center space-x-1">
-                  {Array.from({ length: totalPages }, (_, i) => i + 1)
-                    .filter(page => 
-                      page === 1 || 
-                      page === totalPages || 
-                      (page >= currentPage - 1 && page <= currentPage + 1)
-                    )
-                    .map((page, index, array) => (
-                      <div key={page} className="flex items-center">
-                        {index > 0 && array[index - 1] !== page - 1 && (
-                          <span className="px-2 text-muted-foreground">...</span>
-                        )}
-                        <Button
-                          variant={currentPage === page ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => goToPage(page)}
-                          className="w-8 h-8 p-0"
-                        >
-                          {page}
-                        </Button>
-                      </div>
-                    ))
-                  }
-                </div>
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => goToPage(currentPage + 1)}
-                  disabled={currentPage === totalPages}
-                >
-                  Next
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <div className="space-y-4">
+        {isLoading ? (
+          <Card>
+            <CardContent className="flex items-center justify-center py-16">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              <span className="ml-2">Loading orders...</span>
+            </CardContent>
+          </Card>
+        ) : filteredAndSortedGroups.length === 0 ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-16">
+              <Package className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No Orders Match Your Filters</h3>
+              <p className="text-muted-foreground text-center">
+                Try adjusting your search terms or filters to see more results.
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          filteredAndSortedGroups.map(([poNumber, orders]) => (
+            <POGroupCard
+              key={poNumber}
+              poNumber={poNumber}
+              orders={orders}
+              onUpdateStatus={onUpdateStatus}
+              onUpdateTracking={onUpdateTracking}
+            />
+          ))
+        )}
+      </div>
     </div>
   );
 }
