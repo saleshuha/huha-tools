@@ -179,16 +179,23 @@ export function POFileUpload({ onFilesUpload, isLoading }: POFileUploadProps) {
       {/* Format Help */}
       <Card className="bg-muted/50">
         <CardContent className="pt-6">
-          <h4 className="font-semibold mb-2">Expected File Format (After Mapping)</h4>
+          <h4 className="font-semibold mb-2">Expected File Format</h4>
           <div className="text-sm text-muted-foreground">
-            <p className="mb-2">Your files can have any column headers. You'll map them to:</p>
-            <div className="bg-background p-3 rounded border font-mono text-xs">
-              • PO Number - Purchase order identifier<br />
-              • SKU Code - Product SKU from your Sunsky database<br />
-              • Quantity - Number of items to order
+            <p className="mb-2">Your CSV/Excel files should contain these columns (any column names can be mapped):</p>
+            <div className="bg-background p-3 rounded border font-mono text-xs space-y-1">
+              <div className="text-red-600 font-bold">Required Columns:</div>
+              • PO - Purchase order number<br />
+              • Ship to Location - Destination/warehouse location<br />
+              • ASIN - Amazon Standard Identification Number<br />
+              • Model Number - Product model/part number<br />
+              • Title - Product title/description<br />
+              • Outstanding Cases (qty) - Quantity to order<br />
+              <div className="text-gray-600 mt-2">Optional Columns:</div>
+              • External Id - External reference identifier<br />
+              • External Id Type - Type of external reference
             </div>
             <p className="mt-2 text-xs">
-              Example: Your "Order ID" column maps to "PO Number", "Product Code" maps to "SKU Code"
+              <strong>Example:</strong> Your "Order ID" column maps to "PO", "Product Name" maps to "Title", "Cases" maps to "Outstanding Cases"
             </p>
           </div>
         </CardContent>

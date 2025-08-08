@@ -21,8 +21,14 @@ export interface POOrder {
   id: string;
   user_id: string;
   po_number: string;
-  sku_code: string;
+  ship_to_location?: string;
+  asin?: string;
+  model_number?: string;
+  title?: string;
   quantity: number;
+  external_id?: string;
+  external_id_type?: string;
+  sku_code?: string; // Keep for backward compatibility
   status: 'pending' | 'ordered' | 'shipped' | 'delivered' | 'cancelled';
   order_date?: string;
   expected_delivery?: string;
@@ -265,7 +271,7 @@ export const usePOTracker = () => {
     }
   };
 
-  // Process PO files with mapped data
+  // Process PO files with mapped data - Updated to handle new mandatory fields
   const processPOFiles = async (mappedData: any[]) => {
     setIsLoading(true);
     try {
@@ -276,23 +282,26 @@ export const usePOTracker = () => {
       const validOrders: any[] = [];
 
       mappedData.forEach(item => {
-        // Check if SKU exists in our database
-        const existingSKU = sunskySKUs.find(sku => 
-          sku.sku_code.toLowerCase() === item.sku_code.toLowerCase()
-        );
-
-        if (existingSKU) {
+        // Validate that all mandatory fields are present
+        if (item.po_number && item.ship_to_location && item.asin && 
+            item.model_number && item.title && item.quantity) {
+          
           validOrders.push({
             po_number: item.po_number,
-            sku_code: item.sku_code,
+            ship_to_location: item.ship_to_location,
+            asin: item.asin,
+            model_number: item.model_number,
+            title: item.title,
             quantity: item.quantity,
+            external_id: item.external_id || null,
+            external_id_type: item.external_id_type || null,
             status: 'pending',
             file_name: item.file_name,
             notes: undefined,
             order_date: undefined,
             expected_delivery: undefined,
-            unit_cost: item.unit_cost || existingSKU.cost,
-            sku_user_id: user.id, // Set to current user ID
+            unit_cost: item.unit_cost || null,
+            sku_user_id: user.id, // Set to current user ID for compatibility
             user_id: user.id, // Add user_id for RLS policies
             country: undefined, // Will be set by trigger
             currency: undefined, // Will be set by trigger
@@ -315,12 +324,12 @@ export const usePOTracker = () => {
         await fetchAllData();
         toast({
           title: "Success",
-          description: `Processed ${validOrders.length} PO items from ${new Set(mappedData.map(item => item.file_name)).size} file(s)`
+          description: `Processed ${validOrders.length} PO items from ${new Set(mappedData.map(item => item.file_name)).size} file(s). ${mappedData.length - validOrders.length} items skipped due to missing mandatory fields.`
         });
       } else {
         toast({
-          title: "No matches found",
-          description: "No SKUs in the PO files matched your Sunsky database",
+          title: "No valid orders found",
+          description: "All items are missing required fields (PO, Ship to Location, ASIN, Model Number, Title, Quantity)",
           variant: "destructive"
         });
       }

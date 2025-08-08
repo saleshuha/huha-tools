@@ -18,16 +18,29 @@ interface ColumnMappingProps {
 interface ColumnMapping {
   [fileName: string]: {
     po_number: string;
-    sku_code: string;
-    quantity: string;
+    ship_to_location: string;
+    asin: string;
+    model_number: string;
+    title: string;
+    quantity: string; // This will map to "Outstanding Cases"
+    external_id?: string; // Optional
+    external_id_type?: string; // Optional
     manual_po_number?: string; // Add manual PO number option
   };
 }
 
 const requiredFields = [
   { key: 'po_number', label: 'PO Number', required: true },
-  { key: 'sku_code', label: 'SKU Code', required: true },
-  { key: 'quantity', label: 'Quantity', required: true },
+  { key: 'ship_to_location', label: 'Ship to Location', required: true },
+  { key: 'asin', label: 'ASIN', required: true },
+  { key: 'model_number', label: 'Model Number', required: true },
+  { key: 'title', label: 'Title', required: true },
+  { key: 'quantity', label: 'Outstanding Cases (Quantity)', required: true },
+];
+
+const optionalFields = [
+  { key: 'external_id', label: 'External Id', required: false },
+  { key: 'external_id_type', label: 'External Id Type', required: false },
 ];
 
 export function POColumnMapping({ files, onMappingComplete, onBack, isLoading }: ColumnMappingProps) {
@@ -63,13 +76,35 @@ export function POColumnMapping({ files, onMappingComplete, onBack, isLoading }:
       if (lowerHeader.includes('po') && (lowerHeader.includes('number') || lowerHeader.includes('no') || lowerHeader.includes('order'))) {
         autoMap.po_number = header;
       }
-      // Auto-detect SKU
-      else if (lowerHeader.includes('sku') || lowerHeader.includes('code') || lowerHeader.includes('item')) {
-        autoMap.sku_code = header;
+      // Auto-detect Ship to Location
+      else if (lowerHeader.includes('ship') && (lowerHeader.includes('to') || lowerHeader.includes('location'))) {
+        autoMap.ship_to_location = header;
       }
-      // Auto-detect Quantity
-      else if (lowerHeader.includes('qty') || lowerHeader.includes('quantity') || lowerHeader.includes('amount')) {
+      // Auto-detect ASIN
+      else if (lowerHeader.includes('asin')) {
+        autoMap.asin = header;
+      }
+      // Auto-detect Model Number
+      else if (lowerHeader.includes('model') && lowerHeader.includes('number')) {
+        autoMap.model_number = header;
+      }
+      // Auto-detect Title
+      else if (lowerHeader.includes('title') || lowerHeader.includes('product') || lowerHeader.includes('name')) {
+        autoMap.title = header;
+      }
+      // Auto-detect Quantity/Outstanding Cases
+      else if (lowerHeader.includes('outstanding') && lowerHeader.includes('cases') || 
+               lowerHeader.includes('qty') || lowerHeader.includes('quantity') || 
+               lowerHeader.includes('cases')) {
         autoMap.quantity = header;
+      }
+      // Auto-detect External ID
+      else if (lowerHeader.includes('external') && lowerHeader.includes('id')) {
+        autoMap.external_id = header;
+      }
+      // Auto-detect External ID Type
+      else if (lowerHeader.includes('external') && lowerHeader.includes('type')) {
+        autoMap.external_id_type = header;
       }
     });
 
@@ -88,7 +123,10 @@ export function POColumnMapping({ files, onMappingComplete, onBack, isLoading }:
     
     return mapping && 
            (hasColumnPO || hasManualPO) && // Either column mapped PO or manual PO
-           mapping.sku_code && 
+           mapping.ship_to_location && 
+           mapping.asin && 
+           mapping.model_number && 
+           mapping.title && 
            mapping.quantity;
   };
 
@@ -103,20 +141,34 @@ export function POColumnMapping({ files, onMappingComplete, onBack, isLoading }:
 
       const headers = data[0];
       const poIndex = mapping.po_number && mapping.po_number !== 'none' ? headers.indexOf(mapping.po_number) : -1;
-      const skuIndex = headers.indexOf(mapping.sku_code);
+      const shipToLocationIndex = headers.indexOf(mapping.ship_to_location);
+      const asinIndex = headers.indexOf(mapping.asin);
+      const modelNumberIndex = headers.indexOf(mapping.model_number);
+      const titleIndex = headers.indexOf(mapping.title);
       const qtyIndex = headers.indexOf(mapping.quantity);
+      const externalIdIndex = mapping.external_id ? headers.indexOf(mapping.external_id) : -1;
+      const externalIdTypeIndex = mapping.external_id_type ? headers.indexOf(mapping.external_id_type) : -1;
 
       // Process data rows (skip header)
       for (let i = 1; i < data.length; i++) {
         const row = data[i];
-        if (row[skuIndex] && row[qtyIndex]) {
+        
+        // Check if all required fields have data
+        if (row[shipToLocationIndex] && row[asinIndex] && row[modelNumberIndex] && 
+            row[titleIndex] && row[qtyIndex]) {
+          
           const poNumber = poIndex >= 0 ? row[poIndex]?.trim() : mapping.manual_po_number?.trim();
           
           if (poNumber) {
             processedData.push({
               po_number: poNumber,
-              sku_code: row[skuIndex].trim(),
+              ship_to_location: row[shipToLocationIndex].trim(),
+              asin: row[asinIndex].trim(),
+              model_number: row[modelNumberIndex].trim(),
+              title: row[titleIndex].trim(),
               quantity: parseInt(row[qtyIndex]) || 1,
+              external_id: externalIdIndex >= 0 ? row[externalIdIndex]?.trim() : null,
+              external_id_type: externalIdTypeIndex >= 0 ? row[externalIdTypeIndex]?.trim() : null,
               file_name: file.name
             });
           }
@@ -201,6 +253,36 @@ export function POColumnMapping({ files, onMappingComplete, onBack, isLoading }:
                     </Select>
                   </div>
                 ))}
+               </div>
+
+               {/* Optional Fields Section */}
+               <div className="border-t pt-4">
+                 <h4 className="text-sm font-medium mb-3 text-muted-foreground">Optional Fields</h4>
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                   {optionalFields.map(field => (
+                     <div key={field.key} className="space-y-2">
+                       <label className="text-sm font-medium text-muted-foreground">
+                         {field.label}
+                       </label>
+                       <Select
+                         value={mappings[file.name]?.[field.key] || 'none'}
+                         onValueChange={(value) => handleColumnMapping(file.name, field.key, value === 'none' ? '' : value)}
+                       >
+                         <SelectTrigger>
+                           <SelectValue placeholder="Select column (optional)" />
+                         </SelectTrigger>
+                         <SelectContent>
+                           <SelectItem value="none">-- Skip This Field --</SelectItem>
+                           {headers.map(header => (
+                             <SelectItem key={header} value={header}>
+                               {header}
+                             </SelectItem>
+                           ))}
+                         </SelectContent>
+                       </Select>
+                     </div>
+                   ))}
+                </div>
               </div>
 
               {/* Manual PO Number Section - Show if PO Number is not mapped */}
@@ -280,8 +362,17 @@ export function POColumnMapping({ files, onMappingComplete, onBack, isLoading }:
                         ? `Column: ${mappings[file.name].po_number}` 
                         : `Manual: ${mappings[file.name].manual_po_number}`}
                     </span></div>
-                    <div>SKU Code: <span className="font-mono">{mappings[file.name].sku_code}</span></div>
+                    <div>Ship to Location: <span className="font-mono">{mappings[file.name].ship_to_location}</span></div>
+                    <div>ASIN: <span className="font-mono">{mappings[file.name].asin}</span></div>
+                    <div>Model Number: <span className="font-mono">{mappings[file.name].model_number}</span></div>
+                    <div>Title: <span className="font-mono">{mappings[file.name].title}</span></div>
                     <div>Quantity: <span className="font-mono">{mappings[file.name].quantity}</span></div>
+                    {mappings[file.name].external_id && (
+                      <div>External ID: <span className="font-mono">{mappings[file.name].external_id}</span></div>
+                    )}
+                    {mappings[file.name].external_id_type && (
+                      <div>External ID Type: <span className="font-mono">{mappings[file.name].external_id_type}</span></div>
+                    )}
                   </div>
                 </div>
               )}
