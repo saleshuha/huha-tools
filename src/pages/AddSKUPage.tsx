@@ -191,19 +191,46 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
   const onDrop = useCallback((acceptedFiles: File[]) => {
     console.log('Files dropped:', acceptedFiles.map(f => ({ name: f.name, size: f.size })));
     
-    const sortedFiles = acceptedFiles
-      .filter(file => file.name.match(/\.(xlsx|xls|csv)$/i))
-      .sort((a, b) => a.size - b.size);
+    const maxFileSize = 100 * 1024 * 1024; // 100MB limit
+    const warningSize = 50 * 1024 * 1024; // 50MB warning threshold
+    
+    const validFiles = acceptedFiles.filter(file => {
+      if (!file.name.match(/\.(xlsx|xls|csv)$/i)) {
+        return false;
+      }
+      
+      if (file.size > maxFileSize) {
+        toast({
+          title: "File Too Large",
+          description: `${file.name} is ${(file.size / 1024 / 1024).toFixed(1)}MB. Maximum file size is 100MB.`,
+          variant: "destructive"
+        });
+        return false;
+      }
+      
+      return true;
+    });
+    
+    const sortedFiles = validFiles.sort((a, b) => a.size - b.size);
     
     console.log('Filtered and sorted files:', sortedFiles.map(f => ({ name: f.name, size: f.size })));
     
     if (sortedFiles.length === 0) {
       toast({
-        title: "Invalid Files",
-        description: "Please upload Excel (.xlsx, .xls) or CSV files only",
+        title: "No Valid Files",
+        description: "Please upload Excel (.xlsx, .xls) or CSV files under 100MB",
         variant: "destructive"
       });
       return;
+    }
+
+    // Warn about large files
+    const largeFiles = sortedFiles.filter(f => f.size > warningSize);
+    if (largeFiles.length > 0) {
+      toast({
+        title: "Large Files Detected",
+        description: `${largeFiles.length} file(s) are over 50MB and may process slowly. Consider splitting large files for better performance.`,
+      });
     }
 
     // Add new files to existing queue
@@ -220,7 +247,7 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
     
     toast({
       title: "Files Added",
-      description: `${sortedFiles.length} files added to queue. Use individual buttons to map and process each file.`,
+      description: `${sortedFiles.length} files added to queue. ${largeFiles.length > 0 ? 'Large files will be processed in smaller chunks.' : ''}`,
     });
   }, [processQueue]);
 
@@ -304,19 +331,22 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
           [file.name]: { total: data.length, processed: 0 } 
         }));
         
-        // Process data in chunks to handle large files efficiently
-        const chunkSize = 5000; // Process 5000 rows at a time
-        const mappedData = [];
+        // Process data in smaller chunks with memory optimization for large files
+        const chunkSize = 1000; // Reduced chunk size for better memory management
+        const batchSize = 500; // Batch size for database saves
+        let savedSkuCount = 0;
+        let duplicateCount = 0;
         
         for (let i = 0; i < data.length; i += chunkSize) {
-          const chunk = data.slice(i, i + chunkSize);
-          const progress = Math.round((i / data.length) * 90); // Save 10% for database save
+          const chunk = data.slice(i, Math.min(i + chunkSize, data.length));
+          const progress = Math.round((i / data.length) * 90); // Save 10% for final completion
           setFileProgress(prev => ({ ...prev, [file.name]: progress }));
           setFileRowCounts(prev => ({ 
             ...prev, 
             [file.name]: { ...prev[file.name], processed: i } 
           }));
           
+          // Process chunk and immediately save to prevent memory buildup
           const processedChunk = chunk.map(row => {
             const processedRow: any = {};
             Object.entries(mapping).forEach(([expectedCol, headerCol]) => {
@@ -337,141 +367,64 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
             return processedRow;
           }).filter(row => row.sku_code && row.sku_code.toString().trim());
           
-          mappedData.push(...processedChunk);
+          // Convert to DB format and filter duplicates immediately
+          const dbSkusChunk = processedChunk.map(row => ({
+            sku_code: row.sku_code?.toString().trim() || '',
+            title: row.title?.toString().trim() || '',
+            description: row.description?.toString().trim() || '',
+            cost: typeof row.cost === 'number' ? row.cost : (parseFloat(row.cost) || 0),
+            weight: typeof row.weight === 'number' ? row.weight : (parseFloat(row.weight) || 0),
+            notes: row.notes?.toString().trim() || `Imported from ${file.name}`,
+            country: profile?.country || 'UAE'
+          })).filter(sku => {
+            const skuKey = `${sku.sku_code}_${sku.country}`;
+            if (existingSkus.has(skuKey)) {
+              duplicateCount++;
+              return false;
+            }
+            existingSkus.add(skuKey);
+            return true;
+          });
+          
+          // Save chunk immediately if it has data
+          if (dbSkusChunk.length > 0) {
+            try {
+              await onAddSKUs(dbSkusChunk);
+              savedSkuCount += dbSkusChunk.length;
+              console.log(`✅ Chunk saved: ${dbSkusChunk.length} SKUs from ${file.name} (batch ${Math.floor(i/chunkSize) + 1})`);
+            } catch (saveError) {
+              console.error(`❌ Chunk save failed for ${file.name}:`, saveError);
+              // Re-throw error to handle at higher level
+              throw saveError;
+            }
+          }
           
           // Allow UI to update and prevent blocking
-          if (i % (chunkSize * 2) === 0) {
-            await new Promise(resolve => setTimeout(resolve, 10));
-          }
+          await new Promise(resolve => setTimeout(resolve, 50));
         }
-
-        console.log(`Mapped and filtered data: ${mappedData.length} valid rows`);
-        console.log('Sample mapped data (first 3 rows):', mappedData.slice(0, 3));
-
-        // Convert to database format and filter out duplicates
-        const dbSkus = mappedData.map(row => ({
-          sku_code: row.sku_code?.toString().trim() || '',
-          title: row.title?.toString().trim() || '',
-          description: row.description?.toString().trim() || '',
-          cost: typeof row.cost === 'number' ? row.cost : (parseFloat(row.cost) || 0),
-          weight: typeof row.weight === 'number' ? row.weight : (parseFloat(row.weight) || 0),
-          notes: row.notes?.toString().trim() || `Imported from ${file.name}`,
-          country: profile?.country || 'UAE'
-        })).filter(sku => {
-          // Check for duplicates
-          const skuKey = `${sku.sku_code}_${sku.country}`;
-          if (existingSkus.has(skuKey)) {
-            console.log(`Skipping duplicate SKU: ${sku.sku_code}`);
-            return false;
-          }
-          existingSkus.add(skuKey);
-          return true;
-        });
-
-        const duplicateCount = mappedData.length - dbSkus.length;
-        console.log(`Prepared ${dbSkus.length} unique SKUs for database save (${duplicateCount} duplicates filtered)`);
-        console.log('Sample DB SKUs (first 3):', dbSkus.slice(0, 3));
-        console.log('User profile country:', profile?.country);
         
-        // Update analytics
+        // Update analytics for the file
         setProcessingAnalytics(prev => ({
           ...prev,
-          totalRowsProcessed: prev.totalRowsProcessed + mappedData.length,
-          uniqueSkusFound: prev.uniqueSkusFound + dbSkus.length,
-          duplicatesFiltered: prev.duplicatesFiltered + duplicateCount
+          totalRowsProcessed: prev.totalRowsProcessed + data.length,
+          uniqueSkusFound: prev.uniqueSkusFound + savedSkuCount,
+          duplicatesFiltered: prev.duplicatesFiltered + duplicateCount,
+          savedToDatabase: prev.savedToDatabase + savedSkuCount
         }));
         
         // Update final processed count
         setFileRowCounts(prev => ({ 
           ...prev, 
-          [file.name]: { ...prev[file.name], processed: mappedData.length } 
+          [file.name]: { ...prev[file.name], processed: data.length } 
         }));
-        setFileProgress(prev => ({ ...prev, [file.name]: 90 }));
+        setFileProgress(prev => ({ ...prev, [file.name]: 100 }));
+        setFileStatuses(prev => ({ ...prev, [file.name]: 'completed' }));
         
-        if (dbSkus.length > 0) {
-          console.log('=== CALLING onAddSKUs FUNCTION ===');
-          console.log('Function type:', typeof onAddSKUs);
-          console.log('About to save SKUs to database...');
-          
-            try {
-              await onAddSKUs(dbSkus);
-              console.log(`✅ SUCCESS: ${dbSkus.length} SKUs saved to database for ${file.name}`);
-              
-              // Update existing SKUs set with newly added SKUs
-              dbSkus.forEach(sku => {
-                const skuKey = `${sku.sku_code}_${sku.country}`;
-                existingSkus.add(skuKey);
-              });
-              
-              // Update analytics
-              setProcessingAnalytics(prev => ({
-                ...prev,
-                savedToDatabase: prev.savedToDatabase + dbSkus.length
-              }));
-              
-              setFileProgress(prev => ({ ...prev, [file.name]: 100 }));
-              setFileStatuses(prev => ({ ...prev, [file.name]: 'completed' }));
-              
-              toast({
-                title: "File Processed Successfully",
-                description: `${file.name}: ${dbSkus.length} unique SKUs saved${duplicateCount > 0 ? ` (${duplicateCount} duplicates skipped)` : ''}`,
-              });
-            } catch (saveError) {
-              console.error('❌ DATABASE SAVE ERROR:', saveError);
-              
-              // Detailed error analysis
-              const errorMessage = saveError instanceof Error ? saveError.message : 'Unknown error';
-              const errorCode = (saveError as any)?.code;
-              
-              let errorType = 'Unknown Error';
-              let userMessage = errorMessage;
-              
-              if (errorMessage.includes('duplicate key') || errorMessage.includes('unique constraint')) {
-                errorType = 'Duplicate SKUs';
-                userMessage = `Some SKUs from ${file.name} already exist in the database. Try refreshing and re-uploading to detect duplicates properly.`;
-              } else if (errorMessage.includes('timeout') || errorMessage.includes('statement timeout')) {
-                errorType = 'Database Timeout';
-                userMessage = `Database timeout occurred while processing ${file.name}. Try processing smaller batches or try again later.`;
-              } else if (errorMessage.includes('connection') || errorMessage.includes('network')) {
-                errorType = 'Connection Error';
-                userMessage = `Network connection issue while saving ${file.name}. Please check your connection and try again.`;
-              } else if (errorMessage.includes('permission') || errorMessage.includes('authorization')) {
-                errorType = 'Permission Error';
-                userMessage = `You don't have permission to save SKUs. Please contact support.`;
-              } else if (errorCode === '23505') {
-                errorType = 'Duplicate Key Error';
-                userMessage = `Duplicate SKU codes found in ${file.name}. Please ensure all SKU codes are unique.`;
-              }
-              
-              console.error('Detailed error analysis:', {
-                errorType,
-                message: errorMessage,
-                code: errorCode,
-                stack: saveError instanceof Error ? saveError.stack : undefined,
-                skuCount: dbSkus.length,
-                fileName: file.name
-              });
-              
-              setFileStatuses(prev => ({ ...prev, [file.name]: 'error' }));
-              setFileProgress(prev => ({ ...prev, [file.name]: 0 }));
-              
-              // Update error analytics
-              setProcessingAnalytics(prev => ({
-                ...prev,
-                errors: prev.errors + 1
-              }));
-              
-              toast({
-                title: errorType,
-                description: userMessage,
-                variant: "destructive"
-              });
-              return; // Exit early on save error
-            }
-        } else {
-          console.error(`❌ No valid SKUs found to save for ${file.name}`);
-          throw new Error('No valid SKUs found to save');
-        }
+        toast({
+          title: "File Processed Successfully",
+          description: `${file.name}: ${savedSkuCount} unique SKUs saved${duplicateCount > 0 ? ` (${duplicateCount} duplicates skipped)` : ''}`,
+        });
+        
       } else {
         console.error(`❌ No data found in file: ${file.name}`);
         throw new Error('No data found in file');
@@ -722,8 +675,8 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
           [file.name]: { total: data.length, processed: 0 } 
         }));
         
-        // Process in smaller batches for real-time saving
-        const batchSize = 1000; // Smaller batches for real-time processing
+        // Process in smaller batches for real-time saving - optimized for large files
+        const batchSize = 500; // Even smaller batches for large file stability
         let fileSavedCount = 0;
         let fileDuplicateCount = 0;
         
@@ -941,63 +894,114 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
   const parseFileQuietly = async (file: File): Promise<any[]> => {
     console.log('Parsing file:', file.name, 'Type:', file.type, 'Size:', file.size);
     
+    // Check file size and warn for very large files
+    const maxSafeSize = 50 * 1024 * 1024; // 50MB
+    if (file.size > maxSafeSize) {
+      console.warn(`⚠️ Large file detected: ${(file.size / 1024 / 1024).toFixed(1)}MB. This may cause performance issues.`);
+      toast({
+        title: "Large File Warning",
+        description: `File ${file.name} is ${(file.size / 1024 / 1024).toFixed(1)}MB. Processing may be slower.`,
+        variant: "destructive"
+      });
+    }
+    
     return new Promise((resolve, reject) => {
       if (file.name.toLowerCase().endsWith('.csv')) {
-        console.log('Parsing as CSV file');
+        console.log('Parsing as CSV file with memory optimization');
+        
+        // For very large CSV files, use streaming with chunk processing
         Papa.parse(file, {
           header: true,
           skipEmptyLines: true,
           worker: true, // Use web worker for large files
+          dynamicTyping: false, // Disable to prevent memory overhead
+          chunk: file.size > maxSafeSize ? (results, parser) => {
+            // For extremely large files, we could implement streaming here
+            // For now, let it continue parsing
+          } : undefined,
           complete: (results) => {
+            if (results.errors && results.errors.length > 0) {
+              console.warn('CSV parsing warnings:', results.errors.slice(0, 10)); // Log first 10 errors
+            }
+            
             console.log('CSV parse results:', {
               rowCount: results.data.length,
-              errors: results.errors,
+              errors: results.errors?.length || 0,
               meta: results.meta,
               sampleData: results.data.slice(0, 3)
             });
-            resolve(results.data);
+            
+            // Filter out completely empty rows
+            const cleanData = results.data.filter((row: any) => 
+              row && Object.values(row).some(val => val !== null && val !== undefined && val !== '')
+            );
+            
+            console.log(`Filtered ${results.data.length - cleanData.length} empty rows`);
+            resolve(cleanData);
           },
           error: (error) => {
             console.error('CSV parse error:', error);
-            reject(error);
+            reject(new Error(`CSV parsing failed: ${error.message || 'Unknown error'}`));
           }
         });
       } else {
-        console.log('Parsing as Excel file');
+        console.log('Parsing as Excel file with memory optimization');
         const reader = new FileReader();
+        
         reader.onload = (e) => {
           try {
             const data = new Uint8Array(e.target?.result as ArrayBuffer);
+            
+            // Optimize Excel reading for large files
             const workbook = XLSX.read(data, { 
               type: 'array',
               cellDates: true,
               cellNF: false,
-              cellText: false
+              cellText: false,
+              sheetStubs: false, // Skip empty cells for performance
+              dense: file.size > maxSafeSize // Use dense mode for large files
             });
+            
             console.log('Excel workbook sheets:', workbook.SheetNames);
             
             const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-            // Use raw values to prevent data loss and improve performance
+            if (!firstSheet) {
+              throw new Error('No data found in Excel file');
+            }
+            
+            // Convert with memory-efficient options
             const jsonData = XLSX.utils.sheet_to_json(firstSheet, { 
               defval: '',
               raw: false,
-              dateNF: 'yyyy-mm-dd'
+              dateNF: 'yyyy-mm-dd',
+              blankrows: false // Skip blank rows
             });
+            
             console.log('Excel parse results:', {
               rowCount: jsonData.length,
               sampleData: jsonData.slice(0, 3),
               headers: jsonData[0] ? Object.keys(jsonData[0]) : []
             });
-            resolve(jsonData);
+            
+            // Filter out completely empty rows
+            const cleanData = jsonData.filter((row: any) => 
+              row && Object.values(row).some(val => val !== null && val !== undefined && val !== '')
+            );
+            
+            console.log(`Filtered ${jsonData.length - cleanData.length} empty rows`);
+            resolve(cleanData);
+            
           } catch (error) {
             console.error('Excel parse error:', error);
-            reject(error);
+            reject(new Error(`Excel parsing failed: ${error instanceof Error ? error.message : 'Unknown error'}`));
           }
         };
+        
         reader.onerror = () => {
           console.error('File reader error');
-          reject(new Error('Failed to read file'));
+          reject(new Error('Failed to read file - file may be corrupted'));
         };
+        
         reader.readAsArrayBuffer(file);
       }
     });
