@@ -151,15 +151,20 @@ export function SKUAnalyticsDashboard({ analytics, onReset }: SKUAnalyticsDashbo
           
           {/* Discrepancy Detection */}
           {hasDiscrepancy && (
-            <div className="flex items-start gap-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-yellow-800">
+            <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded text-red-800">
               <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
               <div className="text-xs">
-                <div className="font-medium">Data Mismatch Detected</div>
-                <div>Found {analytics.uniqueSkusFound.toLocaleString()} unique SKUs but only saved {analytics.savedToDatabase.toLocaleString()}</div>
-                <div className="mt-1">
-                  • Check for database constraint violations
-                  • Verify duplicate detection logic
-                  • Review error logs for failed saves
+                <div className="font-medium">⚠️ CRITICAL: Database Save Issue Detected</div>
+                <div className="mb-2">Found {analytics.uniqueSkusFound.toLocaleString()} unique SKUs but only saved {analytics.savedToDatabase.toLocaleString()}</div>
+                <div className="space-y-1">
+                  <div>🔍 <strong>Root Cause:</strong> Duplicate constraint violations preventing saves</div>
+                  <div>🔧 <strong>Solutions:</strong></div>
+                  <div className="ml-4 space-y-1">
+                    <div>• Wait for existing SKU detection to complete before processing</div>
+                    <div>• Click "Refresh" to reload duplicate detection database</div>
+                    <div>• Check error log below for specific constraint violations</div>
+                    <div>• Consider processing smaller batches to reduce conflicts</div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -168,7 +173,20 @@ export function SKUAnalyticsDashboard({ analytics, onReset }: SKUAnalyticsDashbo
           {!hasDiscrepancy && analytics.savedToDatabase > 0 && (
             <div className="flex items-center gap-2 text-green-600 text-xs">
               <CheckCircle2 className="h-3 w-3" />
-              All unique SKUs successfully saved to database
+              ✅ All unique SKUs successfully saved to database
+            </div>
+          )}
+          
+          {analytics.uniqueSkusFound > 0 && analytics.savedToDatabase === 0 && (
+            <div className="flex items-start gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded text-yellow-800">
+              <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+              <div className="text-xs">
+                <div className="font-medium">⚠️ No SKUs Saved Despite Finding Unique Ones</div>
+                <div>This indicates all "unique" SKUs are actually duplicates in the database</div>
+                <div className="mt-1">
+                  <strong>Action needed:</strong> Refresh duplicate detection or check if SKUs were previously uploaded
+                </div>
+              </div>
             </div>
           )}
           

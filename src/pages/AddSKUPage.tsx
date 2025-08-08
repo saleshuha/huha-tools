@@ -116,6 +116,7 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
       if (!profile?.country) return;
       
       try {
+        console.log('🔄 Loading existing SKUs for duplicate detection...');
         const { supabase } = await import('@/integrations/supabase/client');
         const { data: skus, error } = await supabase
           .from('sunsky_skus')
@@ -124,6 +125,14 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
           
         if (error) {
           console.error('Error loading existing SKUs:', error);
+          setProcessingErrors(prev => [...prev, {
+            id: `${Date.now()}-load-skus`,
+            timestamp: new Date().toISOString(),
+            file: 'System',
+            error: `Failed to load existing SKUs: ${error.message}`,
+            rowsAffected: 0,
+            type: 'database'
+          }]);
           return;
         }
         
@@ -133,9 +142,22 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
         });
         
         setExistingSkus(skuSet);
-        console.log(`Loaded ${skuSet.size} existing SKUs for duplicate detection`);
+        console.log(`✅ Loaded ${skuSet.size} existing SKUs for duplicate detection`);
+        
+        toast({
+          title: "Duplicate Detection Ready",
+          description: `Loaded ${skuSet.size.toLocaleString()} existing SKUs for duplicate detection`,
+        });
       } catch (error) {
         console.error('Error loading existing SKUs:', error);
+        setProcessingErrors(prev => [...prev, {
+          id: `${Date.now()}-load-skus-error`,
+          timestamp: new Date().toISOString(),
+          file: 'System',
+          error: `Database connection error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          rowsAffected: 0,
+          type: 'database'
+        }]);
       }
     };
     
@@ -777,16 +799,57 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
               const errorMsg = saveError instanceof Error ? saveError.message : 'Unknown database error';
               console.error(`❌ Batch save failed for ${file.name}:`, errorMsg);
               
-              setProcessingErrors(prev => [...prev, {
-                id: `${Date.now()}-${file.name}-batch-${batchStart}`,
-                timestamp: new Date().toISOString(),
-                file: file.name,
-                error: `Database save failed: ${errorMsg}`,
-                rowsAffected: uniqueSkusInBatch.length,
-                type: 'database'
-              }]);
-              
-              batchErrors++;
+              // Handle constraint violations specifically
+              if (errorMsg.includes('duplicate key') || errorMsg.includes('unique constraint')) {
+                console.log(`🔄 Duplicate constraint violation - refreshing existing SKUs set`);
+                
+                // Re-load existing SKUs to update our duplicate detection
+                try {
+                  const { supabase } = await import('@/integrations/supabase/client');
+                  const { data: refreshedSkus } = await supabase
+                    .from('sunsky_skus')
+                    .select('sku_code, country')
+                    .eq('country', profile?.country || 'UAE');
+                    
+                  if (refreshedSkus) {
+                    const refreshedSet = new Set<string>();
+                    refreshedSkus.forEach(sku => {
+                      refreshedSet.add(`${sku.sku_code}_${sku.country}`);
+                    });
+                    setExistingSkus(refreshedSet);
+                    console.log(`🔄 Refreshed duplicate detection with ${refreshedSet.size} SKUs`);
+                  }
+                } catch (refreshError) {
+                  console.error('Error refreshing SKU set:', refreshError);
+                }
+                
+                setProcessingErrors(prev => [...prev, {
+                  id: `${Date.now()}-${file.name}-batch-${batchStart}`,
+                  timestamp: new Date().toISOString(),
+                  file: file.name,
+                  error: `Duplicate SKUs detected: ${uniqueSkusInBatch.length} SKUs already exist in database`,
+                  rowsAffected: uniqueSkusInBatch.length,
+                  type: 'validation'
+                }]);
+                
+                // Update analytics to reflect duplicates instead of errors
+                setProcessingAnalytics(prev => ({
+                  ...prev,
+                  duplicatesFiltered: prev.duplicatesFiltered + uniqueSkusInBatch.length
+                }));
+                
+              } else {
+                setProcessingErrors(prev => [...prev, {
+                  id: `${Date.now()}-${file.name}-batch-${batchStart}`,
+                  timestamp: new Date().toISOString(),
+                  file: file.name,
+                  error: `Database save failed: ${errorMsg}`,
+                  rowsAffected: uniqueSkusInBatch.length,
+                  type: 'database'
+                }]);
+                
+                batchErrors++;
+              }
               
               // Remove the SKUs from existingSkus since they weren't actually saved
               uniqueSkusInBatch.forEach(sku => {
