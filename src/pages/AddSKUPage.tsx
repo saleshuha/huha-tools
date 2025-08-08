@@ -934,51 +934,52 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
               sampleData: results.data.slice(0, 3)
             });
             
-            // More lenient filtering - only remove truly empty rows
-            console.log('📊 Starting data filtering...');
-            const cleanData = results.data.filter((row: any, index: number) => {
-              if (!row || typeof row !== 'object') {
-                if (index < 5) console.log(`📊 Filtered row ${index}: not object`, row);
+            // Simplified and more reliable data filtering
+            console.log('📊 Raw CSV data received:', {
+              totalRows: results.data?.length || 0,
+              firstRow: results.data?.[0] || 'No first row',
+              dataType: typeof results.data,
+              isArray: Array.isArray(results.data)
+            });
+            
+            // Don't filter aggressively - just remove null/undefined rows
+            const cleanData = (results.data || []).filter((row: any, index: number) => {
+              // Basic null check
+              if (!row) {
+                if (index < 3) console.log(`📊 Removed null row at ${index}`);
                 return false;
               }
               
-              // Check if at least one field has meaningful data
-              const values = Object.values(row);
-              const hasData = values.some(val => {
-                if (val === null || val === undefined) return false;
-                const stringVal = String(val).trim();
-                return stringVal !== '' && stringVal !== 'null' && stringVal !== 'undefined';
-              });
-              
-              if (!hasData && index < 5) {
-                console.log(`📊 Filtered row ${index}: no meaningful data`, row);
+              // If it's an object, check if it has any properties
+              if (typeof row === 'object') {
+                const hasAnyValue = Object.keys(row).length > 0;
+                if (!hasAnyValue && index < 3) {
+                  console.log(`📊 Removed empty object at ${index}:`, row);
+                }
+                return hasAnyValue;
               }
               
-              return hasData;
+              // Keep everything else
+              return true;
             });
             
-            console.log('📊 Filtering completed:', {
-              originalCount: results.data.length,
-              filteredCount: cleanData.length,
-              filteredOut: results.data.length - cleanData.length
+            console.log('📊 CSV filtering completed:', {
+              originalRows: results.data?.length || 0,
+              cleanRows: cleanData.length,
+              removedRows: (results.data?.length || 0) - cleanData.length,
+              sample: cleanData.slice(0, 2)
             });
             
-            // For large files, be more forgiving with the data
-            if (cleanData.length === 0 && results.data.length > 0) {
-              console.warn('📊 All rows filtered out - checking if we should return original data');
-              console.log('📊 First 3 original rows:', results.data.slice(0, 3));
-              
-              // If file is large and has rows, return original data (might just be formatting issue)
-              if (isLargeFile && results.data.length > 10) {
-                console.log('📊 Large file with rows detected - returning original data');
-                resolve(results.data);
-              } else {
-                console.log('📊 Returning filtered data (empty)');
-                resolve(cleanData);
-              }
-            } else {
-              console.log('📊 Returning filtered data');
+            // Always return data if we have any, even if it looks "empty"
+            if (cleanData.length > 0) {
+              console.log('📊 Returning CSV data:', cleanData.length, 'rows');
               resolve(cleanData);
+            } else if (results.data && results.data.length > 0) {
+              console.log('📊 No clean data but original exists - returning original');
+              resolve(results.data);
+            } else {
+              console.log('📊 No data at all');
+              resolve([]);
             }
           },
           error: (error) => {
@@ -1048,53 +1049,50 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
               totalRows: jsonData.length,
               hasData: jsonData.length > 0,
               firstRow: jsonData[0] || 'No first row',
-              headers: jsonData[0] ? Object.keys(jsonData[0]) : []
+              headers: jsonData[0] ? Object.keys(jsonData[0]) : [],
+              dataType: typeof jsonData,
+              isArray: Array.isArray(jsonData)
             });
             
-            // More lenient filtering for Excel files
-            console.log('📋 Starting Excel data filtering...');
-            const cleanData = jsonData.filter((row: any, index: number) => {
-              if (!row || typeof row !== 'object') {
-                if (index < 5) console.log(`📋 Filtered Excel row ${index}: not object`, row);
+            // Simplified Excel filtering - just remove null/undefined rows
+            console.log('📋 Starting simplified Excel filtering...');
+            const cleanData = (jsonData || []).filter((row: any, index: number) => {
+              // Basic null check
+              if (!row) {
+                if (index < 3) console.log(`📋 Removed null Excel row at ${index}`);
                 return false;
               }
               
-              // Check if at least one field has meaningful data
-              const values = Object.values(row);
-              const hasData = values.some(val => {
-                if (val === null || val === undefined) return false;
-                const stringVal = String(val).trim();
-                return stringVal !== '' && stringVal !== 'null' && stringVal !== 'undefined';
-              });
-              
-              if (!hasData && index < 5) {
-                console.log(`📋 Filtered Excel row ${index}: no meaningful data`, row);
+              // If it's an object, check if it has any properties
+              if (typeof row === 'object') {
+                const hasAnyValue = Object.keys(row).length > 0;
+                if (!hasAnyValue && index < 3) {
+                  console.log(`📋 Removed empty Excel object at ${index}:`, row);
+                }
+                return hasAnyValue;
               }
               
-              return hasData;
+              // Keep everything else
+              return true;
             });
             
-            console.log('📋 Excel filtering result:', {
-              originalCount: jsonData.length,
-              filteredCount: cleanData.length,
-              filteredOut: jsonData.length - cleanData.length
+            console.log('📋 Excel filtering completed:', {
+              originalRows: jsonData.length,
+              cleanRows: cleanData.length,
+              removedRows: jsonData.length - cleanData.length,
+              sample: cleanData.slice(0, 2)
             });
             
-            // For large Excel files, be more forgiving
-            if (cleanData.length === 0 && jsonData.length > 0) {
-              console.warn('📋 All Excel rows filtered out - checking if we should return original');
-              console.log('📋 First 3 original Excel rows:', jsonData.slice(0, 3));
-              
-              if (isLargeFile && jsonData.length > 10) {
-                console.log('📋 Large Excel file with rows detected - returning original data');
-                resolve(jsonData);
-              } else {
-                console.log('📋 Returning filtered Excel data (empty)');
-                resolve(cleanData);
-              }
-            } else {
-              console.log('📋 Returning filtered Excel data:', cleanData.length, 'rows');
+            // Always return data if we have any
+            if (cleanData.length > 0) {
+              console.log('📋 Returning Excel data:', cleanData.length, 'rows');
               resolve(cleanData);
+            } else if (jsonData && jsonData.length > 0) {
+              console.log('📋 No clean data but original exists - returning original Excel data');
+              resolve(jsonData);
+            } else {
+              console.log('📋 No Excel data at all');
+              resolve([]);
             }
             
           } catch (error) {
