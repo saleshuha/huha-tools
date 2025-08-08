@@ -87,8 +87,9 @@ export const useBulkFileProcessor = (
               value = value.trim();
             }
             
-            if (value !== undefined && value !== null && value !== '') {
-              mappedRow[expectedCol] = value;
+            // Always assign the value, even if it's empty - we want to preserve the mapping
+            if (value !== undefined && value !== null) {
+              mappedRow[expectedCol] = value === '' ? null : value;
             }
           });
           
@@ -98,9 +99,9 @@ export const useBulkFileProcessor = (
             mappedRow.sku_code = row.id || row.sku || row.product_id || row.item_code;
           }
           
-          // Add metadata
+          // Add metadata with proper currency based on country
           mappedRow.country = selectedCountry;
-          mappedRow.currency = 'AED';
+          mappedRow.currency = selectedCountry === 'KSA' ? 'SAR' : 'AED';
           mappedRow.notes = mappedRow.notes || `Imported from ${file.name}`;
           
           return mappedRow;
