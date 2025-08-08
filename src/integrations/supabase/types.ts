@@ -1362,6 +1362,12 @@ export type Database = {
           created_at: string
           updated_at: string
           sunsky_sku: Json
+          ship_to_location: string
+          asin: string
+          model_number: string
+          title: string
+          external_id: string
+          external_id_type: string
         }[]
       }
       get_all_sunsky_skus: {
