@@ -11,7 +11,8 @@ import type { User, Session } from "@supabase/supabase-js";
 import { CountryProvider } from "@/contexts/CountryContext";
 import { BackgroundTasksProvider } from "@/contexts/BackgroundTasksContext";
 import { FloatingProgressIndicator } from "@/components/FloatingProgressIndicator";
-import { HeaderNav } from "@/components/HeaderNav";
+import { TopHeader } from "@/components/TopHeader";
+import { NavBar } from "@/components/NavBar";
 
 import Index from "./pages/Index";
 
@@ -27,17 +28,9 @@ import POTrackerPage from "./pages/POTracker";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import ExcelEditorPage from "./pages/ExcelEditor";
-import NoonSalesTracker from "./pages/NoonSalesTracker";
-import NoonDashboard from "./pages/NoonDashboard";
-import NoonStores from "./pages/NoonStores";
-import NoonSalesData from "./pages/NoonSalesData";
-import NoonFeesReports from "./pages/NoonFeesReports";
-import NoonAnalytics from "./pages/NoonAnalytics";
-import PaymentReports from "./pages/PaymentReports";
 import CarrefourSalesTracker from "./pages/CarrefourPayments";
 import StoreSelection from "./pages/StoreSelection";
 import SKUCostManagement from "./pages/SKUCostManagement";
-import NoonOrderAnalysis from "./pages/NoonOrderAnalysis";
 import ProcessedOrders from "./pages/ProcessedOrders";
 import PODetailsPage from "./pages/PODetails";
 import AddSKUPage from "./pages/AddSKUPage";
@@ -173,7 +166,8 @@ const App = () => {
           <Sonner />
           <BrowserRouter>
           <div className="min-h-screen flex flex-col w-full">
-            <HeaderNav />
+            <TopHeader />
+            <NavBar />
             <main className="flex-1">
               <Routes>
                 <Route path="/" element={<Index />} />
@@ -192,15 +186,6 @@ const App = () => {
                 <Route path="/po-details/:poNumber" element={<PODetailsPage />} />
                 <Route path="/add-sku" element={<AddSKUPageWrapper />} />
                 <Route path="/excel-editor" element={<ExcelEditorPage />} />
-                <Route path="/noon-sales-tracker" element={<NoonSalesTracker />} />
-                <Route path="/noon-dashboard" element={<NoonDashboard />} />
-                <Route path="/noon-stores" element={<NoonStores />} />
-                <Route path="/noon-sales-data" element={<NoonSalesData />} />
-                <Route path="/noon-fees-reports" element={<NoonFeesReports />} />
-                <Route path="/noon-analytics" element={<NoonAnalytics />} />
-                <Route path="/noon-order-analysis" element={<NoonOrderAnalysis />} />
-                <Route path="/payment-reports" element={<PaymentReports />} />
-                <Route path="/noon-sku-costs" element={<SKUCostManagement />} />
                 <Route path="/sku-costs" element={<SKUCostManagement />} />
                 <Route path="/carrefour-payments" element={<Navigate to="/stores" replace />} />
                 <Route path="/stores" element={<StoreSelection />} />
