@@ -492,7 +492,7 @@ export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIs
               }}
             >
               <SelectTrigger className="w-40">
-                <SelectValue />
+                <SelectValue placeholder="Select mode" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="single">Single File</SelectItem>
