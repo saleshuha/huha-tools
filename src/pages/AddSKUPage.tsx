@@ -19,12 +19,14 @@ import { ProcessingAnalyticsDisplay } from '@/components/file-upload/ProcessingA
 import { ProcessingErrorsDisplay } from '@/components/file-upload/ProcessingErrors';
 import { useBulkFileProcessor } from '@/hooks/useBulkFileProcessor';
 import { AddSKUPageProps, BulkProcessingSettings, UploadMode } from '@/types/file-upload';
+import { useBackgroundTasks } from '@/contexts/BackgroundTasksContext';
 
 export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIsLoading }: AddSKUPageProps = {}) {
   const { toast } = useToast();
   const { addSKUs } = useSKUManager();
   const { profile } = useUserProfile();
   const { selectedCountry } = useCountry();
+  const { runBackgroundUpload } = useBackgroundTasks();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Main state
@@ -235,9 +237,54 @@ export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIs
   }, [currentFileName, selectedFiles, setFileStatuses, setFileMappings, toast]);
 
   // Handle bulk processing
-  const handleBulkProcessing = useCallback(() => {
-    processBulkFiles(selectedFiles, globalMapping, bulkSettings, existingSkuSet);
-  }, [processBulkFiles, selectedFiles, globalMapping, bulkSettings, existingSkuSet]);
+  const handleBulkProcessing = useCallback(async () => {
+    if (!selectedFiles || !globalMapping) return;
+    
+    try {
+      // Prepare SKU data for background processing
+      const skuData: any[] = [];
+      
+      // Parse all files and collect SKU data
+      for (const file of Array.from(selectedFiles)) {
+        const data = await parseFileSimply(file);
+        if (data && data.length > 0) {
+          const mappedRows = data.map((row: any) => {
+            const mappedRow: any = {};
+            Object.entries(globalMapping as Record<string, string>).forEach(([expectedCol, actualCol]) => {
+              if (actualCol && row[actualCol as string] !== undefined) {
+                mappedRow[expectedCol] = row[actualCol as string];
+              }
+            });
+            return mappedRow;
+          });
+          skuData.push(...mappedRows);
+        }
+      }
+      
+      // Start background upload
+      await runBackgroundUpload(
+        skuData,
+        onAddSKUs,
+        2 // thread count
+      );
+      
+      // Clear local state and show success
+      clearSelectedFiles();
+      toast({
+        title: "Background Upload Started",
+        description: "Files are being processed in the background. You can navigate away and check progress later.",
+        variant: "default"
+      });
+      
+    } catch (error) {
+      console.error('Error starting background upload:', error);
+      toast({
+        title: "Upload Failed",
+        description: error instanceof Error ? error.message : "Failed to start background upload",
+        variant: "destructive"
+      });
+    }
+  }, [selectedFiles, globalMapping, runBackgroundUpload, onAddSKUs, clearSelectedFiles, toast]);
 
   return (
     <div className="container mx-auto p-6 space-y-6">
