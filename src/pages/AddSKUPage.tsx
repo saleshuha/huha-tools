@@ -8,7 +8,7 @@ import { useUserProfile } from '@/hooks/useUserProfile';
 import { useCountry } from '@/contexts/CountryContext';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Upload, Loader2, MapPin } from 'lucide-react';
+import { Upload, Loader2, MapPin, ArrowLeft } from 'lucide-react';
 import { ColumnMappingWizard } from '@/components/sales/ColumnMappingWizard';
 import { UploadModeSelector } from '@/components/file-upload/UploadModeSelector';
 import { FileUploadArea } from '@/components/file-upload/FileUploadArea';
@@ -241,6 +241,19 @@ export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIs
 
   return (
     <div className="container mx-auto p-6 space-y-6">
+      {/* Back Button */}
+      <div className="flex items-center gap-4 mb-6">
+        <Button 
+          variant="ghost" 
+          size="sm"
+          onClick={() => window.history.back()}
+          className="flex items-center gap-2"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back
+        </Button>
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
