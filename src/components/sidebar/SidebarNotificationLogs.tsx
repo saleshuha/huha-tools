@@ -88,13 +88,20 @@ export function SidebarNotificationLogs() {
         <CollapsibleTrigger asChild>
           <Button
             variant="ghost"
-            className="w-full justify-between p-2 h-auto rounded-lg hover:bg-sidebar-accent"
+            className="w-full justify-between p-3 h-auto rounded-lg border bg-card hover:bg-accent shadow-sm"
           >
-            <div className="flex items-center gap-2">
-              <Bell className="h-4 w-4" />
-              <span className="text-sm font-medium">Notifications</span>
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-primary/10 rounded-md">
+                <Bell className="h-4 w-4 text-primary" />
+              </div>
+              <div className="text-left">
+                <span className="text-sm font-medium block">Notifications</span>
+                <span className="text-xs text-muted-foreground">
+                  {unreadCount > 0 ? `${unreadCount} unread` : 'All caught up'}
+                </span>
+              </div>
               {unreadCount > 0 && (
-                <Badge variant="destructive" className="h-5 w-5 p-0 text-xs flex items-center justify-center">
+                <Badge variant="destructive" className="h-5 w-5 p-0 text-xs flex items-center justify-center ml-auto">
                   {unreadCount > 99 ? '99+' : unreadCount}
                 </Badge>
               )}
