@@ -338,15 +338,19 @@ export function POColumnMapping({ files, onMappingComplete, onBack, isLoading }:
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {data.slice(1, 4).map((row, index) => (
-                        <TableRow key={index}>
-                          {headers.map((header, cellIndex) => (
-                            <TableCell key={cellIndex} className="text-xs max-w-32 truncate">
-                              {row[cellIndex] || ''}
-                            </TableCell>
-                          ))}
-                        </TableRow>
-                      ))}
+                      {data.slice(1, 4).map((row, index) => {
+                        // Ensure row has exactly the same length as headers
+                        const normalizedRow = headers.map((_, cellIndex) => row[cellIndex] || '');
+                        return (
+                          <TableRow key={index}>
+                            {normalizedRow.map((cell, cellIndex) => (
+                              <TableCell key={cellIndex} className="text-xs max-w-32 truncate">
+                                {cell}
+                              </TableCell>
+                            ))}
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 </div>
