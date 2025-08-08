@@ -19,7 +19,7 @@ export const ProcessingProgress: React.FC<ProcessingProgressProps> = ({
   return (
     <>
       {/* Processing Status */}
-      {(isProcessingBulk || bulkProgress > 0) && (
+      {(isProcessingBulk && bulkProgress < 100) && (
         <div className="mt-4 p-4 border rounded-lg bg-blue-50 dark:bg-blue-950">
           <div className="flex items-center gap-2 mb-2">
             <Loader2 className="h-4 w-4 animate-spin" />
