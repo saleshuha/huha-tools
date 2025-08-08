@@ -9,7 +9,6 @@ import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
-  SidebarHeader,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -173,9 +172,6 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border w-64 bg-sidebar">
-      <SidebarHeader>
-        <SidebarNotificationLogs />
-      </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel className="text-sidebar-foreground/80 font-semibold px-4 py-3 text-sm">
@@ -377,6 +373,9 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="p-3 border-t border-sidebar-border space-y-3">
+        {/* Notification Logs above User Management */}
+        <SidebarNotificationLogs />
+        
         <SidebarMenuButton 
           asChild
           className={`group relative w-full rounded-xl transition-all duration-200 hover:scale-[1.02] ${

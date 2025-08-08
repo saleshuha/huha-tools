@@ -83,7 +83,7 @@ export function SidebarNotificationLogs() {
   };
 
   return (
-    <div className="p-3 border-b border-sidebar-border">
+    <div className="mb-3">
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CollapsibleTrigger asChild>
           <Button
