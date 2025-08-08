@@ -905,6 +905,8 @@ export type Database = {
           created_at: string
           currency: string | null
           expected_delivery: string | null
+          external_id: string | null
+          external_id_type: string | null
           file_name: string
           id: string
           model_number: string | null
@@ -931,6 +933,8 @@ export type Database = {
           created_at?: string
           currency?: string | null
           expected_delivery?: string | null
+          external_id?: string | null
+          external_id_type?: string | null
           file_name: string
           id?: string
           model_number?: string | null
@@ -957,6 +961,8 @@ export type Database = {
           created_at?: string
           currency?: string | null
           expected_delivery?: string | null
+          external_id?: string | null
+          external_id_type?: string | null
           file_name?: string
           id?: string
           model_number?: string | null
