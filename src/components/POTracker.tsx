@@ -149,10 +149,16 @@ export function POTracker() {
   );
 
   // Calculate stats
-  const totalSKUs = sunskySKUs.length;
+  const totalSKUs = totalCount; // Use the actual database count
   const totalOrders = poOrders.length;
+  const uniquePONumbers = new Set(poOrders.map(order => order.po_number)).size;
   const pendingOrders = poOrders.filter(order => order.status === 'pending').length;
   const placedOrders = poOrders.filter(order => order.status === 'ordered').length;
+  
+  // Calculate matched items (PO orders that have matching SKUs in the catalog)
+  const matchedItems = poOrders.filter(order => 
+    sunskySKUs.some(sku => sku.sku_code === order.sku_code)
+  ).length;
 
   return (
     <div className="space-y-6">
@@ -224,59 +230,7 @@ export function POTracker() {
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalSKUs}</div>
-            <p className="text-xs text-muted-foreground">
-              Sunsky supplier SKUs
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total PO Orders</CardTitle>
-            <AlertCircle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalOrders}</div>
-            <p className="text-xs text-muted-foreground">
-              Purchase orders tracked
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Orders</CardTitle>
-            <Clock className="h-4 w-4 text-yellow-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">{pendingOrders}</div>
-            <p className="text-xs text-muted-foreground">
-              Awaiting placement
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Placed Orders</CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{placedOrders}</div>
-            <p className="text-xs text-muted-foreground">
-              Orders with supplier
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total SKUs</CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalCount.toLocaleString()}</div>
+            <div className="text-2xl font-bold">{totalSKUs.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">
               Sunsky supplier SKUs in database
             </p>
@@ -285,6 +239,63 @@ export function POTracker() {
                 {sunskySKUs.length.toLocaleString()} loaded
               </Badge>
             )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">PO Numbers</CardTitle>
+            <AlertCircle className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{uniquePONumbers}</div>
+            <p className="text-xs text-muted-foreground">
+              Unique purchase orders
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Items</CardTitle>
+            <BarChart3 className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totalOrders.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground">
+              Individual PO items
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Matched Items</CardTitle>
+            <CheckCircle className="h-4 w-4 text-green-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">{matchedItems.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground">
+              Items found in SKU catalog
+            </p>
+            {totalOrders > 0 && (
+              <Badge variant="secondary" className="mt-1 text-xs">
+                {((matchedItems / totalOrders) * 100).toFixed(1)}% match rate
+              </Badge>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Pending Items</CardTitle>
+            <Clock className="h-4 w-4 text-yellow-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-yellow-600">{pendingOrders.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground">
+              Items awaiting placement
+            </p>
           </CardContent>
         </Card>
       </div>
