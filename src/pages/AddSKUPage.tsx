@@ -860,12 +860,21 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
     
     // Check file size and warn for very large files
     const maxSafeSize = 50 * 1024 * 1024; // 50MB
-    if (file.size > maxSafeSize) {
-      console.warn(`⚠️ Large file detected: ${(file.size / 1024 / 1024).toFixed(1)}MB. This may cause performance issues.`);
+    const isLargeFile = file.size > maxSafeSize;
+    
+    console.log('🔍 File size analysis:', {
+      fileSizeBytes: file.size,
+      fileSizeMB: (file.size / 1024 / 1024).toFixed(2),
+      isLargeFile,
+      maxSafeSizeMB: (maxSafeSize / 1024 / 1024).toFixed(0)
+    });
+    
+    if (isLargeFile) {
+      console.warn(`⚠️ Large file detected: ${(file.size / 1024 / 1024).toFixed(1)}MB. Using optimized processing.`);
       toast({
-        title: "Large File Warning",
-        description: `File ${file.name} is ${(file.size / 1024 / 1024).toFixed(1)}MB. Processing may be slower.`,
-        variant: "destructive"
+        title: "Large File Detected",
+        description: `File ${file.name} is ${(file.size / 1024 / 1024).toFixed(1)}MB. Processing with optimized settings.`,
+        variant: "default"
       });
     }
     
@@ -926,28 +935,49 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
             });
             
             // More lenient filtering - only remove truly empty rows
-            const cleanData = results.data.filter((row: any) => {
-              if (!row || typeof row !== 'object') return false;
+            console.log('📊 Starting data filtering...');
+            const cleanData = results.data.filter((row: any, index: number) => {
+              if (!row || typeof row !== 'object') {
+                if (index < 5) console.log(`📊 Filtered row ${index}: not object`, row);
+                return false;
+              }
               
               // Check if at least one field has meaningful data
-              const hasData = Object.values(row).some(val => {
+              const values = Object.values(row);
+              const hasData = values.some(val => {
                 if (val === null || val === undefined) return false;
                 const stringVal = String(val).trim();
                 return stringVal !== '' && stringVal !== 'null' && stringVal !== 'undefined';
               });
               
+              if (!hasData && index < 5) {
+                console.log(`📊 Filtered row ${index}: no meaningful data`, row);
+              }
+              
               return hasData;
             });
             
-            console.log(`Original rows: ${results.data.length}, After filtering: ${cleanData.length}`);
-            console.log('Sample filtered data:', cleanData.slice(0, 2));
+            console.log('📊 Filtering completed:', {
+              originalCount: results.data.length,
+              filteredCount: cleanData.length,
+              filteredOut: results.data.length - cleanData.length
+            });
             
+            // For large files, be more forgiving with the data
             if (cleanData.length === 0 && results.data.length > 0) {
-              console.warn('All rows were filtered out - data might have formatting issues');
-              console.log('Sample original data:', results.data.slice(0, 3));
-              // Return original data if all rows were filtered
-              resolve(results.data);
+              console.warn('📊 All rows filtered out - checking if we should return original data');
+              console.log('📊 First 3 original rows:', results.data.slice(0, 3));
+              
+              // If file is large and has rows, return original data (might just be formatting issue)
+              if (isLargeFile && results.data.length > 10) {
+                console.log('📊 Large file with rows detected - returning original data');
+                resolve(results.data);
+              } else {
+                console.log('📊 Returning filtered data (empty)');
+                resolve(cleanData);
+              }
             } else {
+              console.log('📊 Returning filtered data');
               resolve(cleanData);
             }
           },
@@ -958,24 +988,35 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
         });
       } else {
         console.log('📋 Processing as Excel file...');
+        
+        // For very large Excel files, add timeout protection
+        const timeoutId = setTimeout(() => {
+          reject(new Error('Excel file processing timeout - file may be too large or corrupted'));
+        }, isLargeFile ? 300000 : 120000); // 5 min for large files, 2 min for normal
+        
         const reader = new FileReader();
         
         reader.onload = (e) => {
+          clearTimeout(timeoutId);
           console.log('📋 Excel file loaded into memory');
           try {
             const data = new Uint8Array(e.target?.result as ArrayBuffer);
             console.log('📋 Excel data array created, size:', data.length);
             
-            
             // Optimize Excel reading for large files
-            const workbook = XLSX.read(data, { 
-              type: 'array',
+            const readOptions = {
+              type: 'array' as const,
               cellDates: true,
               cellNF: false,
               cellText: false,
               sheetStubs: false, // Skip empty cells for performance
-              dense: file.size > maxSafeSize // Use dense mode for large files
-            });
+              dense: isLargeFile, // Use dense mode for large files
+              // For large files, limit sheet reading
+              bookSheets: isLargeFile
+            };
+            
+            console.log('📋 Excel read options:', readOptions);
+            const workbook = XLSX.read(data, readOptions);
             
             console.log('📋 Excel workbook parsed:', {
               sheetNames: workbook.SheetNames,
@@ -991,14 +1032,17 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
             
             console.log('📋 First sheet extracted, converting to JSON...');
             
-            
-            // Convert with memory-efficient options
-            const jsonData = XLSX.utils.sheet_to_json(firstSheet, { 
+            // Convert with memory-efficient options for large files
+            const convertOptions = {
               defval: '',
               raw: false,
               dateNF: 'yyyy-mm-dd',
-              blankrows: false // Skip blank rows
-            });
+              blankrows: false, // Skip blank rows
+              // For large files, be more conservative
+              range: isLargeFile ? undefined : undefined // Could add range limiting for huge files
+            };
+            
+            const jsonData = XLSX.utils.sheet_to_json(firstSheet, convertOptions);
             
             console.log('📋 Excel conversion completed:', {
               totalRows: jsonData.length,
@@ -1007,17 +1051,25 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
               headers: jsonData[0] ? Object.keys(jsonData[0]) : []
             });
             
-            
-            // More lenient filtering for Excel files - only remove truly empty rows
-            const cleanData = jsonData.filter((row: any) => {
-              if (!row || typeof row !== 'object') return false;
+            // More lenient filtering for Excel files
+            console.log('📋 Starting Excel data filtering...');
+            const cleanData = jsonData.filter((row: any, index: number) => {
+              if (!row || typeof row !== 'object') {
+                if (index < 5) console.log(`📋 Filtered Excel row ${index}: not object`, row);
+                return false;
+              }
               
               // Check if at least one field has meaningful data
-              const hasData = Object.values(row).some(val => {
+              const values = Object.values(row);
+              const hasData = values.some(val => {
                 if (val === null || val === undefined) return false;
                 const stringVal = String(val).trim();
                 return stringVal !== '' && stringVal !== 'null' && stringVal !== 'undefined';
               });
+              
+              if (!hasData && index < 5) {
+                console.log(`📋 Filtered Excel row ${index}: no meaningful data`, row);
+              }
               
               return hasData;
             });
@@ -1025,29 +1077,43 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
             console.log('📋 Excel filtering result:', {
               originalCount: jsonData.length,
               filteredCount: cleanData.length,
-              wasAllFiltered: cleanData.length === 0 && jsonData.length > 0
+              filteredOut: jsonData.length - cleanData.length
             });
             
+            // For large Excel files, be more forgiving
             if (cleanData.length === 0 && jsonData.length > 0) {
-              console.warn('📋 All Excel rows were filtered out - returning original data');
-              console.log('📋 Sample original Excel data for debugging:', jsonData.slice(0, 3));
-              resolve(jsonData);
+              console.warn('📋 All Excel rows filtered out - checking if we should return original');
+              console.log('📋 First 3 original Excel rows:', jsonData.slice(0, 3));
+              
+              if (isLargeFile && jsonData.length > 10) {
+                console.log('📋 Large Excel file with rows detected - returning original data');
+                resolve(jsonData);
+              } else {
+                console.log('📋 Returning filtered Excel data (empty)');
+                resolve(cleanData);
+              }
             } else {
               console.log('📋 Returning filtered Excel data:', cleanData.length, 'rows');
               resolve(cleanData);
             }
             
           } catch (error) {
-            console.error('Excel parse error:', error);
+            clearTimeout(timeoutId);
+            console.error('📋 Excel parsing error:', {
+              error: error instanceof Error ? error.message : 'Unknown error',
+              stack: error instanceof Error ? error.stack : undefined
+            });
             reject(new Error(`Excel parsing failed: ${error instanceof Error ? error.message : 'Unknown error'}`));
           }
         };
         
-        reader.onerror = () => {
-          console.error('File reader error');
-          reject(new Error('Failed to read file - file may be corrupted'));
+        reader.onerror = (error) => {
+          clearTimeout(timeoutId);
+          console.error('📋 FileReader error:', error);
+          reject(new Error('Failed to read Excel file - file may be corrupted or too large'));
         };
         
+        console.log('📋 Starting to read Excel file...');
         reader.readAsArrayBuffer(file);
       }
     });
