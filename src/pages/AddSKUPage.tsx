@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Plus, X, Upload, FileSpreadsheet, Clipboard, Trash2, Settings, Zap, Users, Activity, Clock, CheckCircle2, ArrowLeft } from 'lucide-react';
+import { Plus, X, Upload, FileSpreadsheet, Clipboard, Trash2, Settings, Zap, Users, Activity, Clock, CheckCircle2, ArrowLeft, AlertTriangle } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import { Progress } from '@/components/ui/progress';
 import * as XLSX from 'xlsx';
@@ -20,7 +20,7 @@ import { ColumnMappingWizard as SKUColumnMappingWizard } from '@/components/po/S
 import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useBackgroundTasks } from '@/contexts/BackgroundTasksContext';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { SKUAnalyticsDashboard } from '@/components/SKUAnalyticsDashboard';
 
 interface AddSKUPageProps {
@@ -89,6 +89,16 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
     errors: 0
   });
 
+  // Error tracking state
+  const [processingErrors, setProcessingErrors] = useState<Array<{
+    id: string;
+    timestamp: string;
+    file: string;
+    error: string;
+    rowsAffected: number;
+    type: 'parsing' | 'mapping' | 'database' | 'validation';
+  }>>([]);
+
   const resetAnalytics = () => {
     setProcessingAnalytics({
       totalRowsProcessed: 0,
@@ -97,6 +107,7 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
       savedToDatabase: 0,
       errors: 0
     });
+    setProcessingErrors([]);
   };
   
   // Load existing SKUs from database on mount
@@ -642,9 +653,227 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
   };
 
 
+  // Real-time SKU processing with immediate saves
+  const processAllFilesWithRealTimeSave = async (files: File[], mapping: any) => {
+    console.log('=== REAL-TIME SKU PROCESSING STARTED ===');
+    console.log('Files to process:', files.length);
+    
+    let totalProcessedRows = 0;
+    let totalSavedSkus = 0;
+    let totalDuplicates = 0;
+    let batchErrors = 0;
+    
+    // Process each file and save SKUs in real-time
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      setCurrentFileIndex(i + 1);
+      
+      console.log(`Processing file ${i + 1}/${files.length}: ${file.name}`);
+      setFileStatuses(prev => ({ ...prev, [file.name]: 'processing' }));
+      setFileProgress(prev => ({ ...prev, [file.name]: 0 }));
+      
+      try {
+        const data = await parseFileQuietly(file);
+        if (!data || data.length === 0) {
+          const errorMsg = `No data found in file: ${file.name}`;
+          console.error(errorMsg);
+          
+          setProcessingErrors(prev => [...prev, {
+            id: `${Date.now()}-${file.name}`,
+            timestamp: new Date().toISOString(),
+            file: file.name,
+            error: errorMsg,
+            rowsAffected: 0,
+            type: 'parsing'
+          }]);
+          
+          setFileStatuses(prev => ({ ...prev, [file.name]: 'error' }));
+          batchErrors++;
+          continue;
+        }
+
+        totalProcessedRows += data.length;
+        
+        // Set file row count
+        setFileRowCounts(prev => ({ 
+          ...prev, 
+          [file.name]: { total: data.length, processed: 0 } 
+        }));
+        
+        // Process in smaller batches for real-time saving
+        const batchSize = 1000; // Smaller batches for real-time processing
+        let fileSavedCount = 0;
+        let fileDuplicateCount = 0;
+        
+        for (let batchStart = 0; batchStart < data.length; batchStart += batchSize) {
+          const batchEnd = Math.min(batchStart + batchSize, data.length);
+          const batch = data.slice(batchStart, batchEnd);
+          
+          // Update progress
+          const progress = Math.round((batchStart / data.length) * 90);
+          setFileProgress(prev => ({ ...prev, [file.name]: progress }));
+          setFileRowCounts(prev => ({ 
+            ...prev, 
+            [file.name]: { ...prev[file.name], processed: batchStart } 
+          }));
+          
+          // Map and validate batch
+          const mappedBatch = batch.map(row => {
+            const processedRow: any = {};
+            Object.entries(mapping).forEach(([expectedCol, headerCol]) => {
+              let value = row[headerCol as string];
+              
+              if (expectedCol === 'cost' || expectedCol === 'weight') {
+                value = parseFloat(value) || 0;
+              }
+              
+              if (typeof value === 'string') {
+                value = value.trim();
+              }
+              
+              if (value !== undefined && value !== null && value !== '') {
+                processedRow[expectedCol] = value;
+              }
+            });
+            return processedRow;
+          }).filter(row => row.sku_code && row.sku_code.toString().trim());
+          
+          // Convert to database format and filter duplicates
+          const uniqueSkusInBatch = [];
+          const batchDuplicates = [];
+          
+          mappedBatch.forEach(row => {
+            const skuCode = row.sku_code?.toString().trim() || '';
+            const skuKey = `${skuCode}_${profile?.country || 'UAE'}`;
+            
+            if (!existingSkus.has(skuKey)) {
+              existingSkus.add(skuKey);
+              uniqueSkusInBatch.push({
+                sku_code: skuCode,
+                title: row.title?.toString().trim() || '',
+                description: row.description?.toString().trim() || '',
+                cost: typeof row.cost === 'number' ? row.cost : (parseFloat(row.cost) || 0),
+                weight: typeof row.weight === 'number' ? row.weight : (parseFloat(row.weight) || 0),
+                notes: row.notes?.toString().trim() || `Imported from ${file.name}`,
+                country: profile?.country || 'UAE'
+              });
+            } else {
+              batchDuplicates.push(skuCode);
+            }
+          });
+          
+          // Real-time save if we have unique SKUs
+          if (uniqueSkusInBatch.length > 0) {
+            try {
+              console.log(`Saving batch of ${uniqueSkusInBatch.length} unique SKUs from ${file.name}`);
+              await onAddSKUs(uniqueSkusInBatch);
+              
+              fileSavedCount += uniqueSkusInBatch.length;
+              totalSavedSkus += uniqueSkusInBatch.length;
+              
+              console.log(`✅ Batch saved: ${uniqueSkusInBatch.length} SKUs from ${file.name}`);
+              
+            } catch (saveError) {
+              const errorMsg = saveError instanceof Error ? saveError.message : 'Unknown database error';
+              console.error(`❌ Batch save failed for ${file.name}:`, errorMsg);
+              
+              setProcessingErrors(prev => [...prev, {
+                id: `${Date.now()}-${file.name}-batch-${batchStart}`,
+                timestamp: new Date().toISOString(),
+                file: file.name,
+                error: `Database save failed: ${errorMsg}`,
+                rowsAffected: uniqueSkusInBatch.length,
+                type: 'database'
+              }]);
+              
+              batchErrors++;
+              
+              // Remove the SKUs from existingSkus since they weren't actually saved
+              uniqueSkusInBatch.forEach(sku => {
+                const skuKey = `${sku.sku_code}_${sku.country}`;
+                existingSkus.delete(skuKey);
+              });
+            }
+          }
+          
+          fileDuplicateCount += batchDuplicates.length;
+          totalDuplicates += batchDuplicates.length;
+          
+          // Small delay to prevent blocking
+          await new Promise(resolve => setTimeout(resolve, 10));
+        }
+        
+        // Update final file analytics
+        setProcessingAnalytics(prev => ({
+          ...prev,
+          totalRowsProcessed: prev.totalRowsProcessed + data.length,
+          uniqueSkusFound: prev.uniqueSkusFound + fileSavedCount,
+          duplicatesFiltered: prev.duplicatesFiltered + fileDuplicateCount,
+          savedToDatabase: prev.savedToDatabase + fileSavedCount
+        }));
+        
+        // Final file status
+        setFileRowCounts(prev => ({ 
+          ...prev, 
+          [file.name]: { ...prev[file.name], processed: data.length } 
+        }));
+        setFileProgress(prev => ({ ...prev, [file.name]: 100 }));
+        setFileStatuses(prev => ({ ...prev, [file.name]: 'completed' }));
+        
+        console.log(`File ${file.name} completed: ${fileSavedCount} saved, ${fileDuplicateCount} duplicates`);
+        
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        console.error(`Error processing file ${file.name}:`, errorMsg);
+        
+        setProcessingErrors(prev => [...prev, {
+          id: `${Date.now()}-${file.name}`,
+          timestamp: new Date().toISOString(),
+          file: file.name,
+          error: errorMsg,
+          rowsAffected: 0,
+          type: 'parsing'
+        }]);
+        
+        setFileStatuses(prev => ({ ...prev, [file.name]: 'error' }));
+        batchErrors++;
+      }
+      
+      // Small delay between files
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+    
+    // Final analytics update
+    setProcessingAnalytics(prev => ({
+      ...prev,
+      errors: prev.errors + batchErrors
+    }));
+    
+    // Summary
+    console.log(`=== REAL-TIME PROCESSING COMPLETE ===`);
+    console.log(`Total files: ${files.length}`);
+    console.log(`Total rows processed: ${totalProcessedRows}`);
+    console.log(`Total SKUs saved: ${totalSavedSkus}`);
+    console.log(`Total duplicates filtered: ${totalDuplicates}`);
+    console.log(`Total errors: ${batchErrors}`);
+    
+    if (totalSavedSkus > 0) {
+      toast({
+        title: "Real-Time Processing Complete",
+        description: `Successfully processed ${files.length} files and saved ${totalSavedSkus.toLocaleString()} unique SKUs with ${totalDuplicates.toLocaleString()} duplicates filtered.`,
+      });
+    } else if (batchErrors > 0) {
+      toast({
+        title: "Processing Completed with Errors",
+        description: `${batchErrors} errors occurred during processing. Check the error log for details.`,
+        variant: "destructive"
+      });
+    }
+  };
+
   const processAllFilesWithMapping = async (files: File[], mapping: any) => {
-    // Use the new unique SKU processing function
-    await processAllFilesWithUniqueSkus(files, mapping);
+    // Use the new real-time processing function
+    await processAllFilesWithRealTimeSave(files, mapping);
   };
   const parseFileQuietly = async (file: File): Promise<any[]> => {
     console.log('Parsing file:', file.name, 'Type:', file.type, 'Size:', file.size);
@@ -1166,6 +1395,45 @@ export function AddSKUPage({ onAddSKUs, isLoading }: AddSKUPageProps) {
               analytics={processingAnalytics}
               onReset={resetAnalytics}
             />
+            
+            {/* Error Log Display */}
+            {processingErrors.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-red-600">
+                    <AlertTriangle className="h-5 w-5" />
+                    Processing Errors ({processingErrors.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="max-h-64 overflow-y-auto space-y-2">
+                    {processingErrors.map((error) => (
+                      <div key={error.id} className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Badge variant="destructive" className="text-xs">
+                                {error.type}
+                              </Badge>
+                              <span className="text-sm font-medium">{error.file}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {new Date(error.timestamp).toLocaleTimeString()}
+                              </span>
+                            </div>
+                            <div className="text-sm text-red-700">{error.error}</div>
+                            {error.rowsAffected > 0 && (
+                              <div className="text-xs text-red-600 mt-1">
+                                Affected rows: {error.rowsAffected}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* File Queue Display */}
             {processQueue.length > 0 && (

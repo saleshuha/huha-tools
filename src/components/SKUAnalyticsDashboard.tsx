@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Activity, Database, AlertTriangle, CheckCircle2, RefreshCw } from 'lucide-react';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 
 interface ProcessingAnalytics {
   totalRowsProcessed: number;
