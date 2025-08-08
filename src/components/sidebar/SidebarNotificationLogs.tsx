@@ -114,42 +114,48 @@ export function SidebarNotificationLogs() {
             </div>
           </div>
           
-          {/* Current Active Notifications */}
-          <div className="p-2 space-y-1">
-            {notifications.slice(0, 2).map((notification, index) => (
+          {/* Current Active Notification - Single Full Display */}
+          <div className="p-3">
+            {notifications.slice(0, 1).map((notification, index) => (
               <div
                 key={notification.id}
-                className={`p-2 rounded border text-xs transition-all animate-in slide-in-from-left-2 ${
+                className={`p-3 rounded-lg border transition-all animate-fade-in ${
                   notification.variant === 'destructive' 
                     ? 'bg-destructive/10 border-destructive/20 text-destructive' 
                     : notification.variant === 'success'
                     ? 'bg-green-50 border-green-200 text-green-800'
-                    : 'bg-background border-border'
+                    : 'bg-background border-border shadow-sm'
                 }`}
-                style={{ animationDelay: `${index * 100}ms` }}
               >
-                <div className="flex items-start gap-2">
-                  {getNotificationIcon(notification.variant)}
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5">
+                    {getNotificationIcon(notification.variant)}
+                  </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-xs truncate">
+                    <p className="font-semibold text-sm mb-1">
                       {notification.title}
                     </p>
                     {notification.description && (
-                      <p className="text-muted-foreground mt-0.5 line-clamp-1 text-xs">
+                      <p className="text-sm text-muted-foreground mb-2 leading-relaxed">
                         {notification.description}
                       </p>
                     )}
-                    <div className="text-xs text-muted-foreground mt-1">
-                      Auto-dismiss in 5s
+                    <div className="flex items-center justify-between">
+                      <div className="text-xs text-muted-foreground">
+                        Auto-dismiss in 5s
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {formatTime(notification.timestamp)}
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
             ))}
-            {notifications.length > 2 && (
-              <div className="text-center py-1">
-                <span className="text-xs text-muted-foreground">
-                  +{notifications.length - 2} more notifications
+            {notifications.length > 1 && (
+              <div className="text-center mt-2 pt-2 border-t">
+                <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
+                  +{notifications.length - 1} more in queue
                 </span>
               </div>
             )}
