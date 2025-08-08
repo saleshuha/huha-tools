@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Upload, FileText, X, ArrowRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { POColumnMapping } from './POColumnMapping';
+import Papa from 'papaparse';
 
 interface POFileUploadProps {
   onFilesUpload: (mappedData: any[]) => void;
@@ -22,23 +23,40 @@ export function POFileUpload({ onFilesUpload, isLoading }: POFileUploadProps) {
   const [showMapping, setShowMapping] = useState(false);
 
   const parseFile = async (file: File): Promise<ParsedFile> => {
-    const text = await file.text();
-    const lines = text.split('\n').filter(line => line.trim());
-    
-    if (lines.length === 0) {
-      throw new Error(`File ${file.name} is empty`);
-    }
+    return new Promise((resolve, reject) => {
+      Papa.parse(file, {
+        complete: (results) => {
+          if (results.errors.length > 0) {
+            console.warn('CSV parsing warnings:', results.errors);
+          }
+          
+          const data = results.data as string[][];
+          
+          // Filter out completely empty rows
+          const filteredData = data.filter(row => 
+            row.some(cell => cell && cell.trim() !== '')
+          );
+          
+          if (filteredData.length === 0) {
+            reject(new Error(`File ${file.name} is empty`));
+            return;
+          }
 
-    // Parse CSV data
-    const data = lines.map(line => 
-      line.split(',').map(cell => cell.trim().replace(/"/g, ''))
-    );
-
-    return {
-      file,
-      headers: data[0],
-      data
-    };
+          resolve({
+            file,
+            headers: filteredData[0] || [],
+            data: filteredData
+          });
+        },
+        error: (error) => {
+          reject(new Error(`Error parsing ${file.name}: ${error.message}`));
+        },
+        header: false,
+        skipEmptyLines: true,
+        transformHeader: (header: string) => header.trim(),
+        transform: (value: string) => value.trim()
+      });
+    });
   };
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
