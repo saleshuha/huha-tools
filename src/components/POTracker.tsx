@@ -23,6 +23,7 @@ export function POTracker() {
   const [searchTerm, setSearchTerm] = useState('');
   const [shippingRate, setShippingRate] = useState(0.005); // Default: 0.005 AED per gram
   const [isUpdatingRate, setIsUpdatingRate] = useState(false);
+  const [totalPOCount, setTotalPOCount] = useState(0); // Track actual database count
   const { profile } = useUserProfile();
   const { toast } = useToast();
 
@@ -114,10 +115,30 @@ export function POTracker() {
     updateTrackingInfo
   } = usePOOrders();
 
+  // Function to fetch actual PO count from database
+  const fetchPOCount = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('po_orders')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+      if (data) setTotalPOCount(data.length || 0);
+    } catch (error) {
+      console.error('Error fetching PO count:', error);
+    }
+  };
+
   // Load data based on active tab
   useEffect(() => {
     // Always load SKU count for metrics display
     fetchSKUCount();
+    // Always load PO count for accurate metrics
+    fetchPOCount();
     
     if (activeTab === 'skus' && sunskySKUs.length === 0) {
       fetchSKUs();
@@ -150,7 +171,7 @@ export function POTracker() {
 
   // Calculate stats
   const totalSKUs = totalCount; // Use the actual database count
-  const totalOrders = poOrders.length;
+  const totalOrders = totalPOCount || poOrders.length; // Use accurate database count, fallback to loaded count
   const uniquePONumbers = new Set(poOrders.map(order => order.po_number)).size;
   const pendingOrders = poOrders.filter(order => order.status === 'pending').length;
   const placedOrders = poOrders.filter(order => order.status === 'ordered').length;
@@ -265,6 +286,11 @@ export function POTracker() {
             <p className="text-xs text-muted-foreground">
               Individual PO items
             </p>
+            {poOrders.length !== totalOrders && (
+              <Badge variant="secondary" className="mt-1 text-xs">
+                {poOrders.length.toLocaleString()} loaded
+              </Badge>
+            )}
           </CardContent>
         </Card>
 
