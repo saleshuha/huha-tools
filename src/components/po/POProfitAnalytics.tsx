@@ -662,11 +662,9 @@ export function POProfitAnalytics({ poOrders, sunskySKUs }: POProfitAnalyticsPro
                         <div className="text-sm">
                           {item.purchase_cost.toFixed(2)} {getCurrencySymbol(item.currency)}
                         </div>
-                        {item.shipping_rate > 0 && (
-                          <div className="text-xs text-muted-foreground">
-                            +{item.shipping_rate.toFixed(3)} shipping
-                          </div>
-                        )}
+                        <div className="text-xs text-muted-foreground">
+                          {(item.purchase_cost - item.shipping_rate).toFixed(2)} + {item.shipping_rate.toFixed(3)} shipping
+                        </div>
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="text-sm">
