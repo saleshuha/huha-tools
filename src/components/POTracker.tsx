@@ -156,7 +156,7 @@ export function POTracker() {
   };
 
   // Function to find inventory match for an ASIN
-  const findInventoryMatch = (asin: string, sku?: string) => {
+  const findInventoryMatch = (asin: string, sku?: string, poOrderSkuCode?: string) => {
     // First check ASIN inventory
     const asinMatch = inventoryData.asinInventory.find(item => item.asin === asin);
     if (asinMatch) {
@@ -168,16 +168,20 @@ export function POTracker() {
       };
     }
 
-    // Then check SKU inventory if SKU is available
-    if (sku) {
-      const skuMatch = inventoryData.skuInventory.find(item => item.sku_number === sku);
-      if (skuMatch) {
-        return {
-          type: 'SKU',
-          status: skuMatch.status,
-          quantity: skuMatch.quantity,
-          identifier: skuMatch.sku_number
-        };
+    // Then check SKU inventory with multiple possible SKU sources
+    const skusToCheck = [sku, poOrderSkuCode].filter(Boolean);
+    
+    for (const skuToCheck of skusToCheck) {
+      if (skuToCheck) {
+        const skuMatch = inventoryData.skuInventory.find(item => item.sku_number === skuToCheck);
+        if (skuMatch) {
+          return {
+            type: 'SKU',
+            status: skuMatch.status,
+            quantity: skuMatch.quantity,
+            identifier: skuMatch.sku_number
+          };
+        }
       }
     }
 
@@ -246,7 +250,7 @@ export function POTracker() {
   // Calculate inventory matches for all PO items
   const inventoryMatches = poOrders.map(order => ({
     ...order,
-    inventoryMatch: findInventoryMatch(order.asin, order.sunsky_sku?.sku_code)
+    inventoryMatch: findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code)
   }));
 
   // Calculate inventory statistics
@@ -662,21 +666,37 @@ export function POTracker() {
                                    )}
                                    
                                    {/* Inventory Stock Progress */}
-                                   {matchedCount > 0 && (
-                                      <div className="space-y-1">
-                                        <div className="flex justify-between items-center">
-                                          <span className="text-xs font-medium text-orange-600">In Stock</span>
-                                          <span className="text-xs text-orange-600">{inStockItems}/{totalItemsWithInventory}</span>
-                                        </div>
-                                        <Progress 
-                                          value={totalItemsWithInventory > 0 ? (inStockItems / totalItemsWithInventory) * 100 : 0} 
-                                          className="h-2 [&>div]:bg-orange-500"
-                                        />
-                                        <div className="text-xs text-muted-foreground">
-                                          Total stock qty: {totalInStockQuantity.toLocaleString()}
-                                        </div>
-                                      </div>
-                                   )}
+                                   {matchedCount > 0 && (() => {
+                                     // Calculate inventory stats for this specific PO group
+                                     const poInventoryMatches = orders.map(order => ({
+                                       ...order,
+                                       inventoryMatch: findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code)
+                                     }));
+                                     
+                                     const poItemsWithInventory = poInventoryMatches.filter(item => item.inventoryMatch).length;
+                                     const poInStockItems = poInventoryMatches.filter(item => 
+                                       item.inventoryMatch && item.inventoryMatch.status === 'in-stock'
+                                     ).length;
+                                     const poInStockQuantity = poInventoryMatches
+                                       .filter(item => item.inventoryMatch && item.inventoryMatch.status === 'in-stock')
+                                       .reduce((sum, item) => sum + (item.inventoryMatch?.quantity || 0), 0);
+                                     
+                                     return (
+                                       <div className="space-y-1">
+                                         <div className="flex justify-between items-center">
+                                           <span className="text-xs font-medium text-orange-600">In Stock</span>
+                                           <span className="text-xs text-orange-600">{poInStockItems}/{poItemsWithInventory}</span>
+                                         </div>
+                                         <Progress 
+                                           value={poItemsWithInventory > 0 ? (poInStockItems / poItemsWithInventory) * 100 : 0} 
+                                           className="h-2 [&>div]:bg-orange-500"
+                                         />
+                                         <div className="text-xs text-muted-foreground">
+                                           Stock qty: {poInStockQuantity.toLocaleString()}
+                                         </div>
+                                       </div>
+                                     );
+                                   })()}
                                    
                                    {/* Status Summary */}
                                   <div className="flex flex-wrap gap-1">
