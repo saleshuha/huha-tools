@@ -307,56 +307,54 @@ export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIs
   }, [selectedFiles, globalMapping, processBulkFiles, initializeFileStates, clearSelectedFiles, toast, bulkSettings, existingSkuSet]);
 
   return (
-    <div className="min-h-screen bg-[var(--gradient-surface)]">
-      <div className="container mx-auto p-6 space-y-6">
+    <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-muted/50">
+      <div className="container mx-auto p-6 space-y-8">
         {/* Header Section with Back Button */}
         <div className="relative">
-          <div className="absolute inset-0 bg-[var(--gradient-primary)] rounded-2xl blur-3xl opacity-20"></div>
-          <div className="relative bg-card/95 backdrop-blur-sm border border-border rounded-2xl p-6 shadow-[var(--shadow-strong)]">
+          <div className="absolute inset-0 bg-gradient-to-r from-primary/20 via-accent/20 to-primary/20 rounded-2xl blur-3xl opacity-30"></div>
+          <div className="relative bg-card/80 backdrop-blur-sm border border-border/50 rounded-2xl p-6 shadow-[var(--shadow-strong)]">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <Button 
                   variant="ghost" 
                   size="sm"
                   onClick={() => window.history.back()}
-                  className="flex items-center gap-2 hover:bg-secondary transition-all duration-300 hover:scale-105"
+                  className="flex items-center gap-2 hover:bg-secondary/80 transition-all duration-300 hover:scale-105"
                 >
                   <ArrowLeft className="h-4 w-4" />
                   Back
                 </Button>
-                <div className="h-6 w-px bg-border"></div>
+                <div className="h-6 w-px bg-border/50"></div>
                 <div>
-                  <h1 className="text-2xl font-bold text-foreground">
+                  <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
                     Add SKUs from Files
                   </h1>
                   <p className="text-sm text-muted-foreground">Upload and process your inventory files efficiently</p>
                 </div>
               </div>
-              <div className="p-3 rounded-xl bg-[var(--gradient-primary)] text-primary-foreground">
-                <Upload className="h-6 w-6" />
-              </div>
+              <Upload className="h-8 w-8 text-primary/60" />
             </div>
           </div>
         </div>
 
         {/* Main Content Card */}
-        <Card className="border shadow-[var(--shadow-strong)] bg-card animate-fade-in">
-          <CardHeader className="border-b bg-[var(--gradient-primary)] text-primary-foreground">
+        <Card className="border-0 shadow-[var(--shadow-strong)] bg-card/90 backdrop-blur-sm animate-fade-in">
+          <CardHeader className="border-b border-border/50 bg-gradient-to-r from-primary/5 via-transparent to-accent/5">
             <CardTitle className="flex items-center gap-3 text-xl">
-              <div className="p-2 rounded-lg bg-primary-foreground/20 border border-primary-foreground/30">
-                <Upload className="h-5 w-5" />
+              <div className="p-2 rounded-lg bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/20">
+                <Upload className="h-5 w-5 text-primary" />
               </div>
               File Processing Center
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-6 space-y-6">
+          <CardContent className="p-8 space-y-8">
             {/* Upload Mode Selection */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-                <div className="w-7 h-7 rounded-full bg-[var(--gradient-primary)] flex items-center justify-center text-primary-foreground font-semibold text-xs">1</div>
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center text-primary font-semibold text-xs">1</div>
                 Select Processing Mode
               </div>
-              <div className="ml-9 bg-muted/50 p-4 rounded-lg border">
+              <div className="ml-10 bg-gradient-to-r from-muted/50 to-transparent p-4 rounded-xl border border-border/50">
                 <UploadModeSelector 
                   uploadMode={uploadMode}
                   onUploadModeChange={handleUploadModeChange}
@@ -365,12 +363,12 @@ export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIs
             </div>
 
             {/* File Upload Section */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-                <div className="w-7 h-7 rounded-full bg-[var(--gradient-primary)] flex items-center justify-center text-primary-foreground font-semibold text-xs">2</div>
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center text-primary font-semibold text-xs">2</div>
                 Upload Your Files
               </div>
-              <div className="ml-9 bg-muted/50 p-4 rounded-lg border">
+              <div className="ml-10 bg-gradient-to-r from-muted/50 to-transparent p-4 rounded-xl border border-border/50">
                 <FileUploadArea
                   uploadMode={uploadMode}
                   selectedFiles={selectedFiles}
@@ -382,26 +380,28 @@ export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIs
             </div>
               
               {selectedFiles && selectedFiles.length > 0 && (
-                <div className="space-y-4 animate-fade-in">
+                <div className="space-y-6 animate-fade-in">
                   {/* Processing Controls */}
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-                      <div className="w-7 h-7 rounded-full bg-[var(--gradient-primary)] flex items-center justify-center text-primary-foreground font-semibold text-xs">3</div>
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center text-primary font-semibold text-xs">3</div>
                       Configure & Process
                     </div>
-                    <div className="ml-9 bg-muted/50 p-4 rounded-lg border">
+                    <div className="ml-10 bg-gradient-to-r from-muted/50 to-transparent p-4 rounded-xl border border-border/50">
                       <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-3">
-                          <div className="px-3 py-1 rounded-lg bg-[var(--gradient-accent)] text-accent-foreground text-sm font-medium">
-                            {selectedFiles.length} file{selectedFiles.length !== 1 ? 's' : ''} selected
+                          <div className="p-2 rounded-lg bg-success/10 border border-success/20">
+                            <span className="text-sm font-medium text-success">
+                              {selectedFiles.length} file{selectedFiles.length !== 1 ? 's' : ''} selected
+                            </span>
                           </div>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex gap-3">
                           <Button 
                             onClick={handleBulkMapping}
                             disabled={isBulkMapping || isProcessingBulk}
                             variant="outline"
-                            className="transition-all duration-300 hover:scale-105"
+                            className="transition-all duration-300 hover:scale-105 hover:shadow-md border-primary/20 hover:border-primary/40"
                           >
                             {isBulkMapping ? (
                               <>
@@ -420,7 +420,8 @@ export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIs
                             <Button 
                               onClick={handleBulkProcessing}
                               disabled={isProcessingBulk || !globalMapping || isAddingSkus}
-                              className="bg-[var(--gradient-primary)] hover:opacity-90 transition-all duration-300 hover:scale-105"
+                              variant="default"
+                              className="bg-gradient-to-r from-primary to-primary-light hover:from-primary-dark hover:to-primary transition-all duration-300 hover:scale-105 hover:shadow-lg shadow-primary/20"
                             >
                               {isProcessingBulk ? (
                                 <>
@@ -440,47 +441,41 @@ export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIs
                     </div>
                   </div>
                   
-                  {/* All Processing Sections in Compact Layout */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    {/* Processing Status Panel */}
-                    <div className="bg-muted/30 p-4 rounded-lg border">
-                      <h4 className="text-sm font-medium text-foreground mb-3">Processing Status</h4>
-                      <ProcessingStatusPanel
-                        isProcessing={processingStatus.isProcessing}
-                        currentStep={processingStatus.currentStep}
-                        currentFileIndex={processingStatus.currentFileIndex}
-                        totalFiles={processingStatus.totalFiles}
-                        currentFileName={processingStatus.currentFileName}
-                        overallProgress={processingStatus.overallProgress}
-                        status={processingStatus.status}
-                        error={processingStatus.error}
-                      />
-                    </div>
-                    
-                    {/* Bulk Processing Settings */}
-                    <div className="bg-muted/30 p-4 rounded-lg border">
-                      <h4 className="text-sm font-medium text-foreground mb-3">Processing Settings</h4>
-                      <BulkProcessingSettingsPanel
-                        settings={bulkSettings}
-                        onSettingsChange={setBulkSettings}
-                        selectedCountry={selectedCountry}
-                      />
-                    </div>
+                  {/* Processing Status Panel */}
+                  <div className="bg-gradient-to-r from-muted/30 to-transparent p-4 rounded-xl border border-border/50">
+                    <ProcessingStatusPanel
+                      isProcessing={processingStatus.isProcessing}
+                      currentStep={processingStatus.currentStep}
+                      currentFileIndex={processingStatus.currentFileIndex}
+                      totalFiles={processingStatus.totalFiles}
+                      currentFileName={processingStatus.currentFileName}
+                      overallProgress={processingStatus.overallProgress}
+                      status={processingStatus.status}
+                      error={processingStatus.error}
+                    />
+                  </div>
+                  
+                  {/* Bulk Processing Settings */}
+                  <div className="bg-gradient-to-r from-accent/5 to-transparent p-4 rounded-xl border border-border/50">
+                    <BulkProcessingSettingsPanel
+                      settings={bulkSettings}
+                      onSettingsChange={setBulkSettings}
+                      selectedCountry={selectedCountry}
+                    />
                   </div>
                   
                   {/* Processing Analytics */}
-                  <div className="bg-muted/30 p-4 rounded-lg border">
-                    <h4 className="text-sm font-medium text-foreground mb-3">Processing Analytics</h4>
+                  <div className="bg-gradient-to-r from-primary/5 to-transparent p-4 rounded-xl border border-border/50">
                     <ProcessingAnalyticsDisplay analytics={processingAnalytics} />
                   </div>
                   
                   {/* File List */}
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-                      <div className="w-7 h-7 rounded-full bg-[var(--gradient-primary)] flex items-center justify-center text-primary-foreground font-semibold text-xs">4</div>
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center text-primary font-semibold text-xs">4</div>
                       File Processing Queue
                     </div>
-                    <div className="ml-9 bg-muted/50 p-4 rounded-lg border">
+                    <div className="ml-10 bg-gradient-to-r from-muted/50 to-transparent p-4 rounded-xl border border-border/50">
                       <FileListDisplay
                         selectedFiles={selectedFiles}
                         fileStatuses={fileStatuses}
@@ -496,38 +491,42 @@ export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIs
 
         {/* Mapping Wizard */}
         {showMappingWizard && currentFileData && (
-          <Card className="shadow-[var(--shadow-strong)] bg-card animate-fade-in">
-            <CardHeader className="border-b bg-[var(--gradient-accent)] text-accent-foreground">
-              <CardTitle className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-accent-foreground/20 border border-accent-foreground/30">
-                  <MapPin className="h-5 w-5" />
-                </div>
-                Column Mapping Wizard
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-6">
-              <ColumnMappingWizard
-                fileData={currentFileData}
-                expectedColumns={['sku', 'title', 'cost', 'weight']}
-                onMappingComplete={handleMappingComplete}
-              />
-            </CardContent>
-          </Card>
+          <div className="animate-fade-in">
+            <Card className="border-0 shadow-[var(--shadow-strong)] bg-card/90 backdrop-blur-sm">
+              <CardHeader className="border-b border-border/50 bg-gradient-to-r from-accent/5 via-transparent to-primary/5">
+                <CardTitle className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-gradient-to-br from-accent/20 to-primary/20 border border-accent/20">
+                    <MapPin className="h-5 w-5 text-accent" />
+                  </div>
+                  Column Mapping Wizard
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6">
+                <ColumnMappingWizard
+                  fileData={currentFileData}
+                  expectedColumns={['sku', 'title', 'cost', 'weight']}
+                  onMappingComplete={handleMappingComplete}
+                />
+              </CardContent>
+            </Card>
+          </div>
         )}
 
         {/* Processing Errors */}
         {processingErrors.length > 0 && (
-          <Card className="border-destructive/20 bg-destructive/5 animate-fade-in">
-            <CardHeader className="border-b border-destructive/20 bg-destructive/10">
-              <CardTitle className="flex items-center gap-3 text-destructive">
-                <AlertCircle className="h-5 w-5" />
-                Processing Errors Detected
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-6">
-              <ProcessingErrorsDisplay errors={processingErrors} />
-            </CardContent>
-          </Card>
+          <div className="animate-fade-in">
+            <Card className="border-destructive/20 bg-destructive/5 backdrop-blur-sm">
+              <CardHeader className="border-b border-destructive/20">
+                <CardTitle className="flex items-center gap-3 text-destructive">
+                  <AlertCircle className="h-5 w-5" />
+                  Processing Errors
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6">
+                <ProcessingErrorsDisplay errors={processingErrors} />
+              </CardContent>
+            </Card>
+          </div>
         )}
       </div>
     </div>
