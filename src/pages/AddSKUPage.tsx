@@ -20,14 +20,13 @@ import { ProcessingErrorsDisplay } from '@/components/file-upload/ProcessingErro
 import { ProcessingStatusPanel } from '@/components/file-upload/ProcessingStatusPanel';
 import { useBulkFileProcessor } from '@/hooks/useBulkFileProcessor';
 import { AddSKUPageProps, BulkProcessingSettings, UploadMode } from '@/types/file-upload';
-import { useBackgroundTasks } from '@/contexts/BackgroundTasksContext';
+
 
 export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIsLoading }: AddSKUPageProps = {}) {
   const { toast } = useToast();
-  const { addSKUs } = useSKUManager();
+  const { addSKUs, isLoading: isAddingSkus } = useSKUManager();
   const { profile } = useUserProfile();
   const { selectedCountry } = useCountry();
-  const { runBackgroundUpload } = useBackgroundTasks();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Main state
@@ -415,22 +414,10 @@ export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIs
         overallProgress: 80
       }));
       
-      // Start background upload
-      console.log('🔄 About to start background upload with:', {
-        skuCount: skuData.length,
-        sampleSku: skuData[0],
-        onAddSKUsType: typeof onAddSKUs,
-        runBackgroundUploadType: typeof runBackgroundUpload
-      });
-      
-      console.log('⏳ Calling runBackgroundUpload with optimized settings...');
-      await runBackgroundUpload(
-        skuData,
-        onAddSKUs,
-        bulkSettings.threadCount, // Use configurable thread count
-        bulkSettings.batchSize // Pass batch size for optimized chunking
-      );
-      console.log('✅ runBackgroundUpload completed');
+      // Direct upload using addSKUs
+      console.log('🔄 Starting direct upload of SKUs:', skuData.length);
+      await addSKUs(skuData);
+      console.log('✅ Direct upload completed');
       
       // Update status to completed
       setProcessingStatus(prev => ({
@@ -445,8 +432,8 @@ export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIs
       setGlobalMapping(null);
       
       toast({
-        title: "Background Upload Started",
-        description: `Processing ${skuData.length} SKUs in the background. Check the sidebar progress indicator.`,
+        title: "Upload Completed",
+        description: `Successfully processed ${skuData.length} SKUs`,
         variant: "default"
       });
       
@@ -479,7 +466,7 @@ export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIs
         variant: "destructive"
       });
     }
-  }, [selectedFiles, globalMapping, selectedCountry, runBackgroundUpload, onAddSKUs, clearSelectedFiles, toast, profile?.id]);
+  }, [selectedFiles, globalMapping, selectedCountry, addSKUs, clearSelectedFiles, toast, profile?.id]);
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -548,7 +535,7 @@ export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIs
                     {globalMapping && (
                       <Button 
                         onClick={handleBulkProcessing}
-                        disabled={isProcessingBulk || !globalMapping}
+                        disabled={isProcessingBulk || !globalMapping || isAddingSkus}
                         variant="default"
                         className="bg-primary hover:bg-primary/90"
                       >
