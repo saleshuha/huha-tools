@@ -576,73 +576,6 @@ export default function PODetailsPage() {
           </Dialog>
         </div>
 
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Items</CardTitle>
-              <Package className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-primary">{statusProgress.total}</div>
-              <p className="text-xs text-muted-foreground">Matched items only</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Cost</CardTitle>
-              <Package className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-primary">{totalCost.toFixed(2)} {currency}</div>
-              <p className="text-xs text-muted-foreground">All matched items</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Ship To</CardTitle>
-              <Truck className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-lg font-semibold text-foreground">{shipToLocation}</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Progress</CardTitle>
-              <CheckCircle className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-primary">{progressPercentage.toFixed(0)}%</div>
-              <Progress value={progressPercentage} className="mt-2" />
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Status Overview */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5" />
-              Status Overview
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="text-center p-4 bg-yellow-50 dark:bg-yellow-900/10 rounded-lg">
-                <div className="text-2xl font-bold text-yellow-600">{statusProgress.pending}</div>
-                <div className="text-sm text-yellow-600">Pending</div>
-              </div>
-              <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/10 rounded-lg">
-                <div className="text-2xl font-bold text-blue-600">{statusProgress.ordered}</div>
-                <div className="text-sm text-blue-600">Ordered</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Items Table */}
         <Card>
@@ -775,7 +708,8 @@ export default function PODetailsPage() {
                             const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code);
                             const hasStock = inventoryMatch && inventoryMatch.quantity > 0;
                             
-                            if (order.status === 'pending' && hasStock) {
+                            // Show "Mark Ordered (From Stock)" button for all in-stock items (not just pending)
+                            if (hasStock && order.status !== 'ordered' && order.status !== 'shipped' && order.status !== 'delivered') {
                               return (
                                 <Button
                                   size="sm"
