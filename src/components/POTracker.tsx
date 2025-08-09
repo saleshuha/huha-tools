@@ -501,29 +501,29 @@ export function POTracker() {
                               {matchedCount > 0 ? (
                                 <div className="space-y-3">
                                   {/* Matched Items Progress */}
-                                  <div className="space-y-1">
-                                    <div className="flex justify-between items-center">
-                                      <span className="text-xs font-medium text-primary">Matched Items</span>
-                                      <span className="text-xs text-primary">{matchedCount}/{orders.length}</span>
-                                    </div>
-                                    <Progress 
-                                      value={orders.length > 0 ? (matchedCount / orders.length) * 100 : 0} 
-                                      className="h-2"
-                                    />
-                                  </div>
+                                   <div className="space-y-1">
+                                     <div className="flex justify-between items-center">
+                                       <span className="text-xs font-medium text-blue-600">Matched Items</span>
+                                       <span className="text-xs text-blue-600">{matchedCount}/{orders.length}</span>
+                                     </div>
+                                     <Progress 
+                                       value={orders.length > 0 ? (matchedCount / orders.length) * 100 : 0} 
+                                       className="h-2 [&>div]:bg-blue-500"
+                                     />
+                                   </div>
                                   
                                   {/* Placement Progress */}
                                   {matchedCount > 0 && (
-                                    <div className="space-y-1">
-                                      <div className="flex justify-between items-center">
-                                        <span className="text-xs font-medium text-blue-600">Placed/Shipped</span>
-                                        <span className="text-xs text-blue-600">{placedCount + shippedCount + deliveredCount}/{matchedCount}</span>
-                                      </div>
-                                      <Progress 
-                                        value={matchedCount > 0 ? ((placedCount + shippedCount + deliveredCount) / matchedCount) * 100 : 0} 
-                                        className="h-2"
-                                      />
-                                    </div>
+                                     <div className="space-y-1">
+                                       <div className="flex justify-between items-center">
+                                         <span className="text-xs font-medium text-green-600">Placed/Shipped</span>
+                                         <span className="text-xs text-green-600">{placedCount + shippedCount + deliveredCount}/{matchedCount}</span>
+                                       </div>
+                                       <Progress 
+                                         value={matchedCount > 0 ? ((placedCount + shippedCount + deliveredCount) / matchedCount) * 100 : 0} 
+                                         className="h-2 [&>div]:bg-green-500"
+                                       />
+                                     </div>
                                   )}
                                   
                                   {/* Status Summary */}
