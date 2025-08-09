@@ -8,7 +8,7 @@ import { useUserProfile } from '@/hooks/useUserProfile';
 import { useCountry } from '@/contexts/CountryContext';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Upload, Loader2, MapPin, ArrowLeft } from 'lucide-react';
+import { Upload, Loader2, MapPin, ArrowLeft, AlertCircle } from 'lucide-react';
 import { ColumnMappingWizard } from '@/components/sales/ColumnMappingWizard';
 import { UploadModeSelector } from '@/components/file-upload/UploadModeSelector';
 import { FileUploadArea } from '@/components/file-upload/FileUploadArea';
@@ -307,140 +307,228 @@ export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIs
   }, [selectedFiles, globalMapping, processBulkFiles, initializeFileStates, clearSelectedFiles, toast, bulkSettings, existingSkuSet]);
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      {/* Back Button */}
-      <div className="flex items-center gap-4 mb-6">
-        <Button 
-          variant="ghost" 
-          size="sm"
-          onClick={() => window.history.back()}
-          className="flex items-center gap-2"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back
-        </Button>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Upload className="h-5 w-5" />
-            Add SKUs from Files - Redesigned
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Upload Mode Selection */}
-          <UploadModeSelector 
-            uploadMode={uploadMode}
-            onUploadModeChange={handleUploadModeChange}
-          />
-
-          {/* File Upload */}
-          <div className="space-y-4">
-            <FileUploadArea
-              uploadMode={uploadMode}
-              selectedFiles={selectedFiles}
-              fileInputRef={fileInputRef}
-              onFileUpload={handleFileUpload}
-              onClearFiles={clearSelectedFiles}
-            />
-            
-            {selectedFiles && selectedFiles.length > 0 && (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm text-muted-foreground">
-                    {selectedFiles.length} file(s) selected
-                  </p>
-                  <div className="flex gap-2">
-                    <Button 
-                      onClick={handleBulkMapping}
-                      disabled={isBulkMapping || isProcessingBulk}
-                      variant="outline"
-                    >
-                      {isBulkMapping ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Setting up mapping...
-                        </>
-                      ) : (
-                        <>
-                          <MapPin className="h-4 w-4 mr-2" />
-                          Bulk Map Columns
-                        </>
-                      )}
-                    </Button>
-                    
-                    {globalMapping && (
-                      <Button 
-                        onClick={handleBulkProcessing}
-                        disabled={isProcessingBulk || !globalMapping || isAddingSkus}
-                        variant="default"
-                        className="bg-primary hover:bg-primary/90"
-                      >
-                        {isProcessingBulk ? (
-                          <>
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            Processing... ({bulkProgress}%)
-                          </>
-                        ) : (
-                          <>
-                            <Upload className="h-4 w-4 mr-2" />
-                            Process All Files
-                          </>
-                        )}
-                      </Button>
-                    )}
-                  </div>
+    <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-muted/50">
+      <div className="container mx-auto p-6 space-y-8">
+        {/* Header Section with Back Button */}
+        <div className="relative">
+          <div className="absolute inset-0 bg-gradient-to-r from-primary/20 via-accent/20 to-primary/20 rounded-2xl blur-3xl opacity-30"></div>
+          <div className="relative bg-card/80 backdrop-blur-sm border border-border/50 rounded-2xl p-6 shadow-[var(--shadow-strong)]">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => window.history.back()}
+                  className="flex items-center gap-2 hover:bg-secondary/80 transition-all duration-300 hover:scale-105"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  Back
+                </Button>
+                <div className="h-6 w-px bg-border/50"></div>
+                <div>
+                  <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                    Add SKUs from Files
+                  </h1>
+                  <p className="text-sm text-muted-foreground">Upload and process your inventory files efficiently</p>
                 </div>
-                
-                
-                {/* Processing Status Panel */}
-                <ProcessingStatusPanel
-                  isProcessing={processingStatus.isProcessing}
-                  currentStep={processingStatus.currentStep}
-                  currentFileIndex={processingStatus.currentFileIndex}
-                  totalFiles={processingStatus.totalFiles}
-                  currentFileName={processingStatus.currentFileName}
-                  overallProgress={processingStatus.overallProgress}
-                  status={processingStatus.status}
-                  error={processingStatus.error}
-                />
-                
-                
-                {/* Bulk Processing Settings */}
-                <BulkProcessingSettingsPanel
-                  settings={bulkSettings}
-                  onSettingsChange={setBulkSettings}
-                  selectedCountry={selectedCountry}
-                />
-                
-                {/* Processing Analytics */}
-                <ProcessingAnalyticsDisplay analytics={processingAnalytics} />
-                
-                {/* File List */}
-                <FileListDisplay
-                  selectedFiles={selectedFiles}
-                  fileStatuses={fileStatuses}
-                  fileProgress={fileProgress}
-                  fileRowCounts={fileRowCounts}
+              </div>
+              <Upload className="h-8 w-8 text-primary/60" />
+            </div>
+          </div>
+        </div>
+
+        {/* Main Content Card */}
+        <Card className="border-0 shadow-[var(--shadow-strong)] bg-card/90 backdrop-blur-sm animate-fade-in">
+          <CardHeader className="border-b border-border/50 bg-gradient-to-r from-primary/5 via-transparent to-accent/5">
+            <CardTitle className="flex items-center gap-3 text-xl">
+              <div className="p-2 rounded-lg bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/20">
+                <Upload className="h-5 w-5 text-primary" />
+              </div>
+              File Processing Center
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-8 space-y-8">
+            {/* Upload Mode Selection */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center text-primary font-semibold text-xs">1</div>
+                Select Processing Mode
+              </div>
+              <div className="ml-10 bg-gradient-to-r from-muted/50 to-transparent p-4 rounded-xl border border-border/50">
+                <UploadModeSelector 
+                  uploadMode={uploadMode}
+                  onUploadModeChange={handleUploadModeChange}
                 />
               </div>
-            )}
+            </div>
+
+            {/* File Upload Section */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center text-primary font-semibold text-xs">2</div>
+                Upload Your Files
+              </div>
+              <div className="ml-10 bg-gradient-to-r from-muted/50 to-transparent p-4 rounded-xl border border-border/50">
+                <FileUploadArea
+                  uploadMode={uploadMode}
+                  selectedFiles={selectedFiles}
+                  fileInputRef={fileInputRef}
+                  onFileUpload={handleFileUpload}
+                  onClearFiles={clearSelectedFiles}
+                />
+              </div>
+            </div>
+              
+              {selectedFiles && selectedFiles.length > 0 && (
+                <div className="space-y-6 animate-fade-in">
+                  {/* Processing Controls */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center text-primary font-semibold text-xs">3</div>
+                      Configure & Process
+                    </div>
+                    <div className="ml-10 bg-gradient-to-r from-muted/50 to-transparent p-4 rounded-xl border border-border/50">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 rounded-lg bg-success/10 border border-success/20">
+                            <span className="text-sm font-medium text-success">
+                              {selectedFiles.length} file{selectedFiles.length !== 1 ? 's' : ''} selected
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex gap-3">
+                          <Button 
+                            onClick={handleBulkMapping}
+                            disabled={isBulkMapping || isProcessingBulk}
+                            variant="outline"
+                            className="transition-all duration-300 hover:scale-105 hover:shadow-md border-primary/20 hover:border-primary/40"
+                          >
+                            {isBulkMapping ? (
+                              <>
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                Setting up mapping...
+                              </>
+                            ) : (
+                              <>
+                                <MapPin className="h-4 w-4 mr-2" />
+                                Bulk Map Columns
+                              </>
+                            )}
+                          </Button>
+                          
+                          {globalMapping && (
+                            <Button 
+                              onClick={handleBulkProcessing}
+                              disabled={isProcessingBulk || !globalMapping || isAddingSkus}
+                              variant="default"
+                              className="bg-gradient-to-r from-primary to-primary-light hover:from-primary-dark hover:to-primary transition-all duration-300 hover:scale-105 hover:shadow-lg shadow-primary/20"
+                            >
+                              {isProcessingBulk ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                  Processing...
+                                </>
+                              ) : (
+                                <>
+                                  <Upload className="h-4 w-4 mr-2" />
+                                  Process All Files
+                                </>
+                              )}
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Processing Status Panel */}
+                  <div className="bg-gradient-to-r from-muted/30 to-transparent p-4 rounded-xl border border-border/50">
+                    <ProcessingStatusPanel
+                      isProcessing={processingStatus.isProcessing}
+                      currentStep={processingStatus.currentStep}
+                      currentFileIndex={processingStatus.currentFileIndex}
+                      totalFiles={processingStatus.totalFiles}
+                      currentFileName={processingStatus.currentFileName}
+                      overallProgress={processingStatus.overallProgress}
+                      status={processingStatus.status}
+                      error={processingStatus.error}
+                    />
+                  </div>
+                  
+                  {/* Bulk Processing Settings */}
+                  <div className="bg-gradient-to-r from-accent/5 to-transparent p-4 rounded-xl border border-border/50">
+                    <BulkProcessingSettingsPanel
+                      settings={bulkSettings}
+                      onSettingsChange={setBulkSettings}
+                      selectedCountry={selectedCountry}
+                    />
+                  </div>
+                  
+                  {/* Processing Analytics */}
+                  <div className="bg-gradient-to-r from-primary/5 to-transparent p-4 rounded-xl border border-border/50">
+                    <ProcessingAnalyticsDisplay analytics={processingAnalytics} />
+                  </div>
+                  
+                  {/* File List */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center text-primary font-semibold text-xs">4</div>
+                      File Processing Queue
+                    </div>
+                    <div className="ml-10 bg-gradient-to-r from-muted/50 to-transparent p-4 rounded-xl border border-border/50">
+                      <FileListDisplay
+                        selectedFiles={selectedFiles}
+                        fileStatuses={fileStatuses}
+                        fileProgress={fileProgress}
+                        fileRowCounts={fileRowCounts}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+          </CardContent>
+        </Card>
+
+        {/* Mapping Wizard */}
+        {showMappingWizard && currentFileData && (
+          <div className="animate-fade-in">
+            <Card className="border-0 shadow-[var(--shadow-strong)] bg-card/90 backdrop-blur-sm">
+              <CardHeader className="border-b border-border/50 bg-gradient-to-r from-accent/5 via-transparent to-primary/5">
+                <CardTitle className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-gradient-to-br from-accent/20 to-primary/20 border border-accent/20">
+                    <MapPin className="h-5 w-5 text-accent" />
+                  </div>
+                  Column Mapping Wizard
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6">
+                <ColumnMappingWizard
+                  fileData={currentFileData}
+                  expectedColumns={['sku', 'title', 'cost', 'weight']}
+                  onMappingComplete={handleMappingComplete}
+                />
+              </CardContent>
+            </Card>
           </div>
-        </CardContent>
-      </Card>
+        )}
 
-      {/* Mapping Wizard */}
-      {showMappingWizard && currentFileData && (
-        <ColumnMappingWizard
-          fileData={currentFileData}
-          expectedColumns={['sku', 'title', 'cost', 'weight']}
-          onMappingComplete={handleMappingComplete}
-        />
-      )}
-
-      {/* Processing Errors */}
-      <ProcessingErrorsDisplay errors={processingErrors} />
+        {/* Processing Errors */}
+        {processingErrors.length > 0 && (
+          <div className="animate-fade-in">
+            <Card className="border-destructive/20 bg-destructive/5 backdrop-blur-sm">
+              <CardHeader className="border-b border-destructive/20">
+                <CardTitle className="flex items-center gap-3 text-destructive">
+                  <AlertCircle className="h-5 w-5" />
+                  Processing Errors
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6">
+                <ProcessingErrorsDisplay errors={processingErrors} />
+              </CardContent>
+            </Card>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
