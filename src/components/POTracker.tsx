@@ -391,104 +391,6 @@ export function POTracker() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Progress Preview */}
-              <Card className="bg-gradient-to-r from-primary/5 to-secondary/5 border-primary/20">
-                <CardHeader className="pb-4">
-                  <CardTitle className="text-lg">Order Progress Overview</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {/* Progress Bars */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {/* Matched Items Progress */}
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium text-primary">Matched Items</span>
-                        <span className="text-sm font-bold text-primary">{matchedItems}/{totalOrders}</span>
-                      </div>
-                      <Progress 
-                        value={totalOrders > 0 ? (matchedItems / totalOrders) * 100 : 0} 
-                        className="h-3"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        {totalOrders > 0 ? ((matchedItems / totalOrders) * 100).toFixed(1) : 0}% items found in SKU catalog
-                      </p>
-                    </div>
-
-                    {/* Placed Items Progress */}
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium text-blue-600">Placed Orders</span>
-                        <span className="text-sm font-bold text-blue-600">{placedOrders}/{matchedItems}</span>
-                      </div>
-                      <Progress 
-                        value={matchedItems > 0 ? (placedOrders / matchedItems) * 100 : 0} 
-                        className="h-3"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        {matchedItems > 0 ? ((placedOrders / matchedItems) * 100).toFixed(1) : 0}% of matched items placed
-                      </p>
-                    </div>
-
-                    {/* Pending Items Progress */}
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium text-yellow-600">Pending Items</span>
-                        <span className="text-sm font-bold text-yellow-600">{pendingMatchedOrders}/{matchedItems}</span>
-                      </div>
-                      <Progress 
-                        value={matchedItems > 0 ? (pendingMatchedOrders / matchedItems) * 100 : 0} 
-                        className="h-3"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        {matchedItems > 0 ? ((pendingMatchedOrders / matchedItems) * 100).toFixed(1) : 0}% items awaiting placement
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Tracking Numbers */}
-                  {poOrders.some(order => order.tracking_number || order.tracking_url) && (
-                    <div className="border-t pt-4">
-                      <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
-                        <Truck className="h-4 w-4" />
-                        Active Tracking Numbers
-                      </h4>
-                      <div className="flex flex-wrap gap-2">
-                        {Array.from(new Set(
-                          poOrders
-                            .filter(order => order.tracking_number && order.tracking_url)
-                            .map(order => ({ number: order.tracking_number, url: order.tracking_url }))
-                            .filter((item, index, arr) => 
-                              arr.findIndex(x => x.number === item.number) === index
-                            )
-                        )).map((tracking, index) => (
-                          <a
-                            key={index}
-                            href={tracking.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 px-3 py-1 bg-primary/10 hover:bg-primary/20 text-primary rounded-full text-xs font-medium transition-colors border border-primary/20 hover:border-primary/40"
-                          >
-                            📦 {tracking.number}
-                            <ExternalLink className="h-3 w-3" />
-                          </a>
-                        ))}
-                        {Array.from(new Set(
-                          poOrders
-                            .filter(order => order.tracking_number && !order.tracking_url)
-                            .map(order => order.tracking_number)
-                        )).map((trackingNumber, index) => (
-                          <span
-                            key={index}
-                            className="inline-flex items-center gap-1 px-3 py-1 bg-muted text-muted-foreground rounded-full text-xs font-medium border"
-                          >
-                            📦 {trackingNumber}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
               {/* Search and Filter Controls */}
               <div className="flex gap-4">
                 <div className="relative flex-1">
@@ -530,10 +432,9 @@ export function POTracker() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>PO Number</TableHead>
-                        <TableHead>Items</TableHead>
-                        <TableHead>Matched</TableHead>
-                        <TableHead>Status Summary</TableHead>
+                        <TableHead>PO Details</TableHead>
+                        <TableHead>Progress & Status</TableHead>
+                        <TableHead>Tracking Info</TableHead>
                         <TableHead>Total Cost</TableHead>
                         <TableHead className="text-center">
                           <MousePointer className="h-4 w-4 mx-auto" />
@@ -543,14 +444,24 @@ export function POTracker() {
                     <TableBody>
                       {filteredPOGroups.map(([poNumber, orders]) => {
                         const matchedCount = orders.filter(order => order.sunsky_sku !== null).length;
-                        
-                        const statusCounts = orders.reduce((acc, order) => {
-                          acc[order.status] = (acc[order.status] || 0) + 1;
-                          return acc;
-                        }, {} as Record<string, number>);
+                        const pendingCount = orders.filter(order => order.status === 'pending' && order.sunsky_sku !== null).length;
+                        const placedCount = orders.filter(order => order.status === 'ordered').length;
+                        const shippedCount = orders.filter(order => order.status === 'shipped').length;
+                        const deliveredCount = orders.filter(order => order.status === 'delivered').length;
                         
                         const totalCost = orders.reduce((sum, order) => sum + (order.total_cost || 0), 0);
                         const currency = orders[0]?.currency || 'AED';
+                        
+                        // Get tracking numbers for this PO
+                        const trackingNumbers = orders
+                          .filter(order => order.tracking_number)
+                          .map(order => ({
+                            number: order.tracking_number,
+                            url: order.tracking_url
+                          }))
+                          .filter((item, index, arr) => 
+                            arr.findIndex(x => x.number === item.number) === index
+                          );
                         
                         return (
                           <TableRow 
@@ -558,40 +469,120 @@ export function POTracker() {
                             className="cursor-pointer hover:bg-muted/50 transition-colors"
                             onClick={() => handlePORowClick(poNumber)}
                           >
-                            <TableCell className="font-mono font-medium text-primary">
-                              {poNumber}
-                            </TableCell>
                             <TableCell>
-                              <Badge variant="outline">{orders.length} items</Badge>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-2">
-                                <Badge variant={matchedCount > 0 ? "default" : "secondary"}>
-                                  {matchedCount} matched
-                                </Badge>
-                                {matchedCount < orders.length && (
-                                  <Badge variant="destructive">
-                                    {orders.length - matchedCount} unmatched
+                              <div className="space-y-2">
+                                <div className="font-mono font-medium text-primary text-sm">
+                                  {poNumber}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="outline" className="text-xs">
+                                    {orders.length} items
                                   </Badge>
+                                  {matchedCount > 0 && (
+                                    <Badge variant="default" className="text-xs">
+                                      {matchedCount} matched
+                                    </Badge>
+                                  )}
+                                  {matchedCount < orders.length && (
+                                    <Badge variant="destructive" className="text-xs">
+                                      {orders.length - matchedCount} unmatched
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            </TableCell>
+                            
+                            <TableCell className="min-w-[300px]">
+                              <div className="space-y-3">
+                                {/* Matched Items Progress */}
+                                <div className="space-y-1">
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-xs font-medium text-primary">Matched Items</span>
+                                    <span className="text-xs text-primary">{matchedCount}/{orders.length}</span>
+                                  </div>
+                                  <Progress 
+                                    value={orders.length > 0 ? (matchedCount / orders.length) * 100 : 0} 
+                                    className="h-2"
+                                  />
+                                </div>
+                                
+                                {/* Placement Progress */}
+                                {matchedCount > 0 && (
+                                  <div className="space-y-1">
+                                    <div className="flex justify-between items-center">
+                                      <span className="text-xs font-medium text-blue-600">Placed/Shipped</span>
+                                      <span className="text-xs text-blue-600">{placedCount + shippedCount + deliveredCount}/{matchedCount}</span>
+                                    </div>
+                                    <Progress 
+                                      value={matchedCount > 0 ? ((placedCount + shippedCount + deliveredCount) / matchedCount) * 100 : 0} 
+                                      className="h-2"
+                                    />
+                                  </div>
+                                )}
+                                
+                                {/* Status Summary */}
+                                <div className="flex flex-wrap gap-1">
+                                  {pendingCount > 0 && (
+                                    <Badge variant="secondary" className="text-xs bg-yellow-100 text-yellow-800">
+                                      {pendingCount} pending
+                                    </Badge>
+                                  )}
+                                  {placedCount > 0 && (
+                                    <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">
+                                      {placedCount} placed
+                                    </Badge>
+                                  )}
+                                  {shippedCount > 0 && (
+                                    <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-800">
+                                      {shippedCount} shipped
+                                    </Badge>
+                                  )}
+                                  {deliveredCount > 0 && (
+                                    <Badge variant="secondary" className="text-xs bg-green-100 text-green-800">
+                                      {deliveredCount} delivered
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            </TableCell>
+                            
+                            <TableCell className="min-w-[200px]">
+                              <div className="space-y-2">
+                                {trackingNumbers.length > 0 ? (
+                                  <div className="flex flex-wrap gap-1">
+                                    {trackingNumbers.map((tracking, index) => (
+                                      tracking.url ? (
+                                        <a
+                                          key={index}
+                                          href={tracking.url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          onClick={(e) => e.stopPropagation()}
+                                          className="inline-flex items-center gap-1 px-2 py-1 bg-primary/10 hover:bg-primary/20 text-primary rounded text-xs font-medium transition-colors border border-primary/20 hover:border-primary/40"
+                                        >
+                                          📦 {tracking.number}
+                                          <ExternalLink className="h-3 w-3" />
+                                        </a>
+                                      ) : (
+                                        <span
+                                          key={index}
+                                          className="inline-flex items-center gap-1 px-2 py-1 bg-muted text-muted-foreground rounded text-xs font-medium border"
+                                        >
+                                          📦 {tracking.number}
+                                        </span>
+                                      )
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">No tracking info</span>
                                 )}
                               </div>
                             </TableCell>
-                            <TableCell>
-                              <div className="flex flex-wrap gap-1">
-                                {Object.entries(statusCounts).map(([status, count]) => (
-                                  <Badge 
-                                    key={status} 
-                                    variant={status === 'delivered' ? 'default' : 'secondary'}
-                                    className="text-xs"
-                                  >
-                                    {count} {status}
-                                  </Badge>
-                                ))}
-                              </div>
-                            </TableCell>
+                            
                             <TableCell className="font-semibold">
                               {totalCost > 0 ? `${totalCost.toFixed(2)} ${currency}` : '-'}
                             </TableCell>
+                            
                             <TableCell className="text-center">
                               <Eye className="h-4 w-4 text-muted-foreground mx-auto" />
                             </TableCell>
