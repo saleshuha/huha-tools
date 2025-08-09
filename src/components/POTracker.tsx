@@ -257,58 +257,24 @@ export function POTracker() {
   const placedOrders = poOrders.filter(order => order.status === 'ordered').length;
 
   // Calculate inventory matches for all PO items
-  const inventoryMatches = poOrders.map(order => ({
-    ...order,
-    inventoryMatch: findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code)
-  }));
+  const inventoryMatches = poOrders.map(order => {
+    const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code);
+    const isActuallyInStock = inventoryMatch && 
+                             inventoryMatch.status === 'in-stock' && 
+                             inventoryMatch.quantity > 0;
+    
+    return {
+      ...order,
+      inventoryMatch,
+      isActuallyInStock
+    };
+  });
 
-  // Debug logging
-  useEffect(() => {
-    if (inventoryMatches.length > 0) {
-      console.log('=== INVENTORY DEBUG ===');
-      console.log('Total PO orders:', poOrders.length);
-      console.log('Total inventory data (ASIN):', inventoryData.asinInventory.length);
-      console.log('Total inventory data (SKU):', inventoryData.skuInventory.length);
-      
-      const withInventory = inventoryMatches.filter(item => item.inventoryMatch);
-      console.log('Items with inventory match:', withInventory.length);
-      
-      const inStock = inventoryMatches.filter(item => 
-        item.inventoryMatch && item.inventoryMatch.isActuallyInStock
-      );
-      console.log('Items actually in stock:', inStock.length);
-      
-      // Sample in stock items
-      inStock.slice(0, 3).forEach((item, idx) => {
-        console.log(`Sample in-stock item ${idx + 1}:`, {
-          asin: item.asin,
-          sku: item.sku_code,
-          inventoryMatch: item.inventoryMatch
-        });
-      });
-      
-      // Sample items with inventory but not in stock
-      const hasInventoryButNotInStock = inventoryMatches.filter(item => 
-        item.inventoryMatch && !item.inventoryMatch.isActuallyInStock
-      );
-      console.log('Items with inventory but NOT in stock:', hasInventoryButNotInStock.length);
-      hasInventoryButNotInStock.slice(0, 3).forEach((item, idx) => {
-        console.log(`Sample not-in-stock item ${idx + 1}:`, {
-          asin: item.asin,
-          sku: item.sku_code,
-          inventoryMatch: item.inventoryMatch
-        });
-      });
-    }
-  }, [inventoryMatches.length, inventoryData]);
-
-  // Calculate inventory statistics using the new logic
+  // Calculate inventory statistics - only count items that are truly in stock
   const totalItemsWithInventory = inventoryMatches.filter(item => item.inventoryMatch).length;
-  const inStockItems = inventoryMatches.filter(item => 
-    item.inventoryMatch && item.inventoryMatch.isActuallyInStock
-  ).length;
+  const inStockItems = inventoryMatches.filter(item => item.isActuallyInStock).length;
   const totalInStockQuantity = inventoryMatches
-    .filter(item => item.inventoryMatch && item.inventoryMatch.isActuallyInStock)
+    .filter(item => item.isActuallyInStock)
     .reduce((sum, item) => sum + (item.inventoryMatch?.quantity || 0), 0);
 
   // Group orders by PO number for the tracking table
@@ -716,18 +682,23 @@ export function POTracker() {
                                    
                                    {/* Inventory Stock Progress */}
                                    {matchedCount > 0 && (() => {
-                                     // Calculate inventory stats for this specific PO group
-                                     const poInventoryMatches = orders.map(order => ({
-                                       ...order,
-                                       inventoryMatch: findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code)
-                                     }));
+                                     // Calculate inventory stats for this specific PO group using same logic
+                                     const poInventoryMatches = orders.map(order => {
+                                       const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code);
+                                       const isActuallyInStock = inventoryMatch && 
+                                                                inventoryMatch.status === 'in-stock' && 
+                                                                inventoryMatch.quantity > 0;
+                                       return {
+                                         ...order,
+                                         inventoryMatch,
+                                         isActuallyInStock
+                                       };
+                                     });
                                      
                                      const poItemsWithInventory = poInventoryMatches.filter(item => item.inventoryMatch).length;
-                                      const poInStockItems = poInventoryMatches.filter(item => 
-                                        item.inventoryMatch && item.inventoryMatch.isActuallyInStock
-                                      ).length;
+                                      const poInStockItems = poInventoryMatches.filter(item => item.isActuallyInStock).length;
                                       const poInStockQuantity = poInventoryMatches
-                                        .filter(item => item.inventoryMatch && item.inventoryMatch.isActuallyInStock)
+                                        .filter(item => item.isActuallyInStock)
                                         .reduce((sum, item) => sum + (item.inventoryMatch?.quantity || 0), 0);
                                      
                                      return (
