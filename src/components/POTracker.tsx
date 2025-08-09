@@ -466,8 +466,12 @@ export function POTracker() {
                         return (
                           <TableRow 
                             key={poNumber}
-                            className="cursor-pointer hover:bg-muted/50 transition-colors"
-                            onClick={() => handlePORowClick(poNumber)}
+                            className={`transition-colors ${
+                              matchedCount > 0 
+                                ? 'cursor-pointer hover:bg-muted/50' 
+                                : 'opacity-60 cursor-not-allowed bg-muted/20'
+                            }`}
+                            onClick={matchedCount > 0 ? () => handlePORowClick(poNumber) : undefined}
                           >
                             <TableCell>
                               <div className="space-y-2">
@@ -478,14 +482,20 @@ export function POTracker() {
                                   <Badge variant="outline" className="text-xs">
                                     {orders.length} items
                                   </Badge>
-                                  {matchedCount > 0 && (
-                                    <Badge variant="default" className="text-xs">
-                                      {matchedCount} matched
-                                    </Badge>
-                                  )}
-                                  {matchedCount < orders.length && (
+                                  {matchedCount > 0 ? (
+                                    <>
+                                      <Badge variant="default" className="text-xs">
+                                        {matchedCount} matched
+                                      </Badge>
+                                      {matchedCount < orders.length && (
+                                        <Badge variant="destructive" className="text-xs">
+                                          {orders.length - matchedCount} unmatched
+                                        </Badge>
+                                      )}
+                                    </>
+                                  ) : (
                                     <Badge variant="destructive" className="text-xs">
-                                      {orders.length - matchedCount} unmatched
+                                      No items match
                                     </Badge>
                                   )}
                                 </div>
@@ -493,90 +503,107 @@ export function POTracker() {
                             </TableCell>
                             
                             <TableCell className="min-w-[300px]">
-                              <div className="space-y-3">
-                                {/* Matched Items Progress */}
-                                <div className="space-y-1">
-                                  <div className="flex justify-between items-center">
-                                    <span className="text-xs font-medium text-primary">Matched Items</span>
-                                    <span className="text-xs text-primary">{matchedCount}/{orders.length}</span>
-                                  </div>
-                                  <Progress 
-                                    value={orders.length > 0 ? (matchedCount / orders.length) * 100 : 0} 
-                                    className="h-2"
-                                  />
-                                </div>
-                                
-                                {/* Placement Progress */}
-                                {matchedCount > 0 && (
+                              {matchedCount > 0 ? (
+                                <div className="space-y-3">
+                                  {/* Matched Items Progress */}
                                   <div className="space-y-1">
                                     <div className="flex justify-between items-center">
-                                      <span className="text-xs font-medium text-blue-600">Placed/Shipped</span>
-                                      <span className="text-xs text-blue-600">{placedCount + shippedCount + deliveredCount}/{matchedCount}</span>
+                                      <span className="text-xs font-medium text-primary">Matched Items</span>
+                                      <span className="text-xs text-primary">{matchedCount}/{orders.length}</span>
                                     </div>
                                     <Progress 
-                                      value={matchedCount > 0 ? ((placedCount + shippedCount + deliveredCount) / matchedCount) * 100 : 0} 
+                                      value={orders.length > 0 ? (matchedCount / orders.length) * 100 : 0} 
                                       className="h-2"
                                     />
                                   </div>
-                                )}
-                                
-                                {/* Status Summary */}
-                                <div className="flex flex-wrap gap-1">
-                                  {pendingCount > 0 && (
-                                    <Badge variant="secondary" className="text-xs bg-yellow-100 text-yellow-800">
-                                      {pendingCount} pending
-                                    </Badge>
+                                  
+                                  {/* Placement Progress */}
+                                  {matchedCount > 0 && (
+                                    <div className="space-y-1">
+                                      <div className="flex justify-between items-center">
+                                        <span className="text-xs font-medium text-blue-600">Placed/Shipped</span>
+                                        <span className="text-xs text-blue-600">{placedCount + shippedCount + deliveredCount}/{matchedCount}</span>
+                                      </div>
+                                      <Progress 
+                                        value={matchedCount > 0 ? ((placedCount + shippedCount + deliveredCount) / matchedCount) * 100 : 0} 
+                                        className="h-2"
+                                      />
+                                    </div>
                                   )}
-                                  {placedCount > 0 && (
-                                    <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">
-                                      {placedCount} placed
-                                    </Badge>
-                                  )}
-                                  {shippedCount > 0 && (
-                                    <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-800">
-                                      {shippedCount} shipped
-                                    </Badge>
-                                  )}
-                                  {deliveredCount > 0 && (
-                                    <Badge variant="secondary" className="text-xs bg-green-100 text-green-800">
-                                      {deliveredCount} delivered
-                                    </Badge>
-                                  )}
+                                  
+                                  {/* Status Summary */}
+                                  <div className="flex flex-wrap gap-1">
+                                    {pendingCount > 0 && (
+                                      <Badge variant="secondary" className="text-xs bg-yellow-100 text-yellow-800">
+                                        {pendingCount} pending
+                                      </Badge>
+                                    )}
+                                    {placedCount > 0 && (
+                                      <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">
+                                        {placedCount} placed
+                                      </Badge>
+                                    )}
+                                    {shippedCount > 0 && (
+                                      <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-800">
+                                        {shippedCount} shipped
+                                      </Badge>
+                                    )}
+                                    {deliveredCount > 0 && (
+                                      <Badge variant="secondary" className="text-xs bg-green-100 text-green-800">
+                                        {deliveredCount} delivered
+                                      </Badge>
+                                    )}
+                                  </div>
                                 </div>
-                              </div>
+                              ) : (
+                                <div className="text-center py-4">
+                                  <div className="text-muted-foreground text-sm">
+                                    No items found in SKU catalog
+                                  </div>
+                                  <div className="text-xs text-muted-foreground mt-1">
+                                    Upload matching SKUs to enable tracking
+                                  </div>
+                                </div>
+                              )}
                             </TableCell>
                             
                             <TableCell className="min-w-[200px]">
-                              <div className="space-y-2">
-                                {trackingNumbers.length > 0 ? (
-                                  <div className="flex flex-wrap gap-1">
-                                    {trackingNumbers.map((tracking, index) => (
-                                      tracking.url ? (
-                                        <a
-                                          key={index}
-                                          href={tracking.url}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          onClick={(e) => e.stopPropagation()}
-                                          className="inline-flex items-center gap-1 px-2 py-1 bg-primary/10 hover:bg-primary/20 text-primary rounded text-xs font-medium transition-colors border border-primary/20 hover:border-primary/40"
-                                        >
-                                          📦 {tracking.number}
-                                          <ExternalLink className="h-3 w-3" />
-                                        </a>
-                                      ) : (
-                                        <span
-                                          key={index}
-                                          className="inline-flex items-center gap-1 px-2 py-1 bg-muted text-muted-foreground rounded text-xs font-medium border"
-                                        >
-                                          📦 {tracking.number}
-                                        </span>
-                                      )
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <span className="text-xs text-muted-foreground">No tracking info</span>
-                                )}
-                              </div>
+                              {matchedCount > 0 ? (
+                                <div className="space-y-2">
+                                  {trackingNumbers.length > 0 ? (
+                                    <div className="flex flex-wrap gap-1">
+                                      {trackingNumbers.map((tracking, index) => (
+                                        tracking.url ? (
+                                          <a
+                                            key={index}
+                                            href={tracking.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="inline-flex items-center gap-1 px-2 py-1 bg-primary/10 hover:bg-primary/20 text-primary rounded text-xs font-medium transition-colors border border-primary/20 hover:border-primary/40"
+                                          >
+                                            📦 {tracking.number}
+                                            <ExternalLink className="h-3 w-3" />
+                                          </a>
+                                        ) : (
+                                          <span
+                                            key={index}
+                                            className="inline-flex items-center gap-1 px-2 py-1 bg-muted text-muted-foreground rounded text-xs font-medium border"
+                                          >
+                                            📦 {tracking.number}
+                                          </span>
+                                        )
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground">No tracking info</span>
+                                  )}
+                                </div>
+                              ) : (
+                                <div className="text-center py-4">
+                                  <span className="text-xs text-muted-foreground">Tracking unavailable</span>
+                                </div>
+                              )}
                             </TableCell>
                             
                             <TableCell className="font-semibold">
@@ -584,7 +611,11 @@ export function POTracker() {
                             </TableCell>
                             
                             <TableCell className="text-center">
-                              <Eye className="h-4 w-4 text-muted-foreground mx-auto" />
+                              {matchedCount > 0 ? (
+                                <Eye className="h-4 w-4 text-muted-foreground mx-auto" />
+                              ) : (
+                                <AlertCircle className="h-4 w-4 text-muted-foreground mx-auto" />
+                              )}
                             </TableCell>
                           </TableRow>
                         );
