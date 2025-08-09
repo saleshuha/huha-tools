@@ -441,10 +441,10 @@ export function POTracker() {
                   <p className="text-muted-foreground">Upload PO files to start tracking orders.</p>
                 </div>
               ) : (
-                <div className="border rounded-md">
+                <div className="border-2 border-border rounded-md">
                   <Table>
                     <TableHeader>
-                      <TableRow>
+                      <TableRow className="border-b-2 border-border">
                         <TableHead>PO Details</TableHead>
                         <TableHead>Progress & Status</TableHead>
                         <TableHead>Tracking Info</TableHead>
@@ -479,9 +479,9 @@ export function POTracker() {
                         return (
                           <TableRow 
                             key={poNumber}
-                            className={`transition-colors ${
+                            className={`transition-colors border-b-2 border-border ${
                               matchedCount > 0 
-                                ? 'cursor-pointer hover:bg-muted/50' 
+                                ? 'cursor-pointer hover:bg-muted/50 hover:border-primary/50' 
                                 : 'opacity-60 cursor-not-allowed bg-muted/20'
                             }`}
                             onClick={matchedCount > 0 ? () => handlePORowClick(poNumber) : undefined}
