@@ -182,20 +182,33 @@ export function POTracker() {
   }, {} as Record<string, typeof poOrders>);
 
   // Filter grouped orders based on search and status
-  const filteredPOGroups = Object.entries(groupedPOOrders).filter(([poNumber, orders]) => {
-    const matchesSearch = !searchTerm || 
-      poNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      orders.some(order => 
-        order.asin?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.model_number?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    
-    const matchesStatus = statusFilter === 'all' || 
-      orders.some(order => order.status === statusFilter);
-    
-    return matchesSearch && matchesStatus;
-  });
+  const filteredPOGroups = Object.entries(groupedPOOrders)
+    .filter(([poNumber, orders]) => {
+      const matchesSearch = !searchTerm || 
+        poNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        orders.some(order => 
+          order.asin?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          order.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          order.model_number?.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+      
+      const matchesStatus = statusFilter === 'all' || 
+        orders.some(order => order.status === statusFilter);
+      
+      return matchesSearch && matchesStatus;
+    })
+    // Sort groups - ALWAYS put matched POs first
+    .sort(([poA, ordersA], [poB, ordersB]) => {
+      // Primary sort: matched POs first
+      const matchedA = ordersA.filter(order => order.sunsky_sku !== null).length > 0;
+      const matchedB = ordersB.filter(order => order.sunsky_sku !== null).length > 0;
+      
+      if (matchedA && !matchedB) return -1; // A has matches, B doesn't - A comes first
+      if (!matchedA && matchedB) return 1;  // B has matches, A doesn't - B comes first
+      
+      // Secondary sort: for items with same match status, sort by PO number
+      return poA.localeCompare(poB);
+    });
 
   const handlePORowClick = (poNumber: string) => {
     navigate(`/po-details/${encodeURIComponent(poNumber)}`);
