@@ -337,11 +337,20 @@ export function POTracker() {
   const stockResults = getItemsWithStock();
   const inventoryResults = getItemsWithInventory();
   
-  // For compatibility with existing code, use simple variable names
+  // Assign results to variables used throughout the component
   const totalItemsWithInventory = inventoryResults;
   const inStockItems = stockResults.count;
   const totalInStockQuantity = stockResults.totalQty;
-  const poItemsWithInventoryData = [];
+  
+  // For compatibility - ensure these are always defined
+  const poItemsWithInventoryData: any[] = [];
+  
+  // Additional safety check to prevent undefined references
+  console.log('Stock calculation results:', {
+    totalItemsWithInventory,
+    inStockItems, 
+    totalInStockQuantity
+  });
 
   // Group orders by PO number for the tracking table
   const groupedPOOrders = poOrders.reduce((groups, order) => {
