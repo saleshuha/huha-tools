@@ -155,26 +155,17 @@ export function POTracker() {
     sku.description?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Calculate accurate metrics
+  // Calculate accurate metrics based on database matching
   const totalSKUs = totalCount;
   const totalOrders = poOrders.length;
   const uniquePONumbers = new Set(poOrders.map(order => order.po_number)).size;
   
-  // Matched items - items that have matching SKUs in catalog
-  const matchedItems = poOrders.filter(order => 
-    sunskySKUs.some(sku => 
-      sku.sku_code === order.sku_code || 
-      (order.model_number && sku.sku_code === order.model_number)
-    )
-  ).length;
+  // Matched items - use database-level matching (items with sunsky_sku populated)
+  const matchedItems = poOrders.filter(order => order.sunsky_sku !== null).length;
   
   // Pending matched orders - matched items that are still pending
   const pendingMatchedOrders = poOrders.filter(order => 
-    order.status === 'pending' && 
-    sunskySKUs.some(sku => 
-      sku.sku_code === order.sku_code || 
-      (order.model_number && sku.sku_code === order.model_number)
-    )
+    order.status === 'pending' && order.sunsky_sku !== null
   ).length;
   
   // Placed orders - all orders with status 'ordered'
@@ -454,12 +445,7 @@ export function POTracker() {
                     </TableHeader>
                     <TableBody>
                       {filteredPOGroups.map(([poNumber, orders]) => {
-                        const matchedCount = orders.filter(order => 
-                          sunskySKUs.some(sku => 
-                            sku.sku_code === order.sku_code || 
-                            (order.model_number && sku.sku_code === order.model_number)
-                          )
-                        ).length;
+                        const matchedCount = orders.filter(order => order.sunsky_sku !== null).length;
                         
                         const statusCounts = orders.reduce((acc, order) => {
                           acc[order.status] = (acc[order.status] || 0) + 1;

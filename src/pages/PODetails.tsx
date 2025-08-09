@@ -76,8 +76,8 @@ export default function PODetailsPage() {
   // Filter orders for this specific PO
   const poOrdersForThisPO = poOrders.filter(order => order.po_number === poNumber);
   
-  // Only show matched items (items with sunsky_sku)
-  const matchedOrders = poOrdersForThisPO.filter(order => order.sunsky_sku);
+  // Only show matched items (items with sunsky_sku populated from database)
+  const matchedOrders = poOrdersForThisPO.filter(order => order.sunsky_sku !== null);
 
   // Calculate status progress
   const statusProgress: StatusProgress = matchedOrders.reduce((acc, order) => {
