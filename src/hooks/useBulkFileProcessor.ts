@@ -145,7 +145,23 @@ export const useBulkFileProcessor = (
           }
           
           return processedRow;
-        }).filter(row => row.sku_code && row.sku_code.toString().trim());
+        }).filter(row => {
+          // Ensure we have the required fields for database insertion
+          const hasRequiredFields = row.sku_code && 
+                                   row.sku_code.toString().trim() && 
+                                   row.country && 
+                                   row.currency;
+          
+          if (!hasRequiredFields) {
+            console.warn('❌ Skipping row with missing required fields:', {
+              sku_code: row.sku_code,
+              country: row.country,
+              currency: row.currency
+            });
+          }
+          
+          return hasRequiredFields;
+        });
 
         // Handle duplicates based on settings
         const uniqueBatch = [];
