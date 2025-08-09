@@ -72,47 +72,79 @@ export const useBulkFileProcessor = (
         
         // Map and validate batch
         const mappedBatch = batch.map(row => {
-          const mappedRow: any = {};
+          console.log('🔄 Processing row:', Object.keys(row).slice(0, 5), 'mapping:', mapping);
           
-          // Process all mappings from the wizard
-          Object.entries(mapping).forEach(([expectedCol, sourceCol]) => {
-            let value = row[sourceCol as string];
-            
-            // Type conversion based on expected column
-            if (expectedCol === 'cost' && value) {
-              const parsed = parseFloat(String(value).replace(/[^\d.-]/g, ''));
-              value = isNaN(parsed) ? null : parsed;
-            } else if (expectedCol === 'weight' && value) {
-              const parsed = parseFloat(String(value).replace(/[^\d.-]/g, ''));
-              value = isNaN(parsed) ? null : parsed;
-            } else if (typeof value === 'string') {
-              value = value.trim();
-            }
-            
-            // Always assign mapped values
-            mappedRow[expectedCol] = (value === undefined || value === null || value === '') ? null : value;
-          });
-          
-          // Ensure required fields are present with fallbacks
-          if (!mappedRow.sku_code) {
-            // Try common SKU field names if mapping didn't work
-            mappedRow.sku_code = row.id || row.sku || row.product_id || row.item_code || row.code;
-          }
-          
-          // Ensure all database columns have values (even if null)
-          const defaultFields = {
-            sku_code: mappedRow.sku_code || null,
-            title: mappedRow.title || mappedRow.name || mappedRow.product_name || null,
-            description: mappedRow.description || mappedRow.desc || mappedRow.product_description || null,
-            cost: mappedRow.cost || mappedRow.price || mappedRow.unit_cost || null,
-            weight: mappedRow.weight || mappedRow.unit_weight || null,
-            notes: mappedRow.notes || `Imported from ${file.name}`,
+          // Ensure all database columns have values with fallbacks
+          const processedRow = {
+            sku_code: null,
+            title: null,
+            description: null,
+            cost: null,
+            weight: null,
+            notes: `Imported from ${file.name}`,
             country: selectedCountry,
             currency: selectedCountry === 'KSA' ? 'SAR' : 'AED'
           };
           
-          // Merge mapped data with defaults, prioritizing mapped values
-          return { ...defaultFields, ...mappedRow };
+          // Process mappings only if mapping object is valid
+          if (mapping && typeof mapping === 'object') {
+            Object.entries(mapping).forEach(([expectedCol, sourceCol]) => {
+              if (sourceCol && typeof sourceCol === 'string' && row.hasOwnProperty(sourceCol)) {
+                let value = row[sourceCol];
+                
+                // Type conversion based on expected column
+                if (expectedCol === 'cost' && value) {
+                  const parsed = parseFloat(String(value).replace(/[^\d.-]/g, ''));
+                  value = isNaN(parsed) ? null : parsed;
+                } else if (expectedCol === 'weight' && value) {
+                  const parsed = parseFloat(String(value).replace(/[^\d.-]/g, ''));
+                  value = isNaN(parsed) ? null : parsed;
+                } else if (typeof value === 'string') {
+                  value = value.trim();
+                }
+                
+                // Only assign if we have a valid expected column
+                if (processedRow.hasOwnProperty(expectedCol)) {
+                  processedRow[expectedCol as keyof typeof processedRow] = (value === undefined || value === null || value === '') ? null : value;
+                }
+              }
+            });
+          }
+          
+          // Fallback SKU detection if mapping didn't work
+          if (!processedRow.sku_code) {
+            processedRow.sku_code = row.id || row.sku || row.sku_code || row.product_id || row.item_code || row.code || null;
+          }
+          
+          // Fallback title detection if mapping didn't work
+          if (!processedRow.title) {
+            processedRow.title = row.title || row.name || row.product_name || row.product_title || null;
+          }
+          
+          // Fallback description detection if mapping didn't work
+          if (!processedRow.description) {
+            processedRow.description = row.description || row.desc || row.product_description || null;
+          }
+          
+          // Fallback cost detection if mapping didn't work
+          if (!processedRow.cost) {
+            const costValue = row.cost || row.price || row.unit_cost || row.unit_price;
+            if (costValue) {
+              const parsed = parseFloat(String(costValue).replace(/[^\d.-]/g, ''));
+              processedRow.cost = isNaN(parsed) ? null : parsed;
+            }
+          }
+          
+          // Fallback weight detection if mapping didn't work
+          if (!processedRow.weight) {
+            const weightValue = row.weight || row.unit_weight;
+            if (weightValue) {
+              const parsed = parseFloat(String(weightValue).replace(/[^\d.-]/g, ''));
+              processedRow.weight = isNaN(parsed) ? null : parsed;
+            }
+          }
+          
+          return processedRow;
         }).filter(row => row.sku_code && row.sku_code.toString().trim());
 
         // Handle duplicates based on settings
