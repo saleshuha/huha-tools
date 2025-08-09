@@ -1,172 +1,106 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { ArrowLeft, Package, Truck, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { Checkbox } from '@/components/ui/checkbox';
-import { ArrowLeft, Edit, ExternalLink, Package2, Clock, CheckCircle, XCircle, Settings } from 'lucide-react';
-import { usePOTracker, POOrder } from '@/hooks/usePOTracker';
+import { Progress } from '@/components/ui/progress';
+import { usePOOrders } from '@/hooks/usePOOrders';
+
+interface StatusProgress {
+  pending: number;
+  ordered: number;
+  shipped: number;
+  delivered: number;
+  total: number;
+}
+
+const statusColors = {
+  pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300',
+  ordered: 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300',
+  shipped: 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-300',
+  delivered: 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300',
+  cancelled: 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300',
+};
 
 export default function PODetailsPage() {
   const { poNumber } = useParams<{ poNumber: string }>();
   const navigate = useNavigate();
-  const { poOrders, updateOrderStatus, updateTrackingInfo, isLoading } = usePOTracker();
-  
-  const [editingTracking, setEditingTracking] = useState<string | null>(null);
-  const [trackingForm, setTrackingForm] = useState({
-    supplier_order_number: '',
-    tracking_number: '',
-    tracking_url: ''
-  });
+  const { poOrders, fetchPOOrders, updateOrderStatus, updateTrackingInfo } = usePOOrders();
+  const [loading, setLoading] = useState(true);
 
-  // Bulk update states
-  const [selectedItems, setSelectedItems] = useState<string[]>([]);
-  const [showBulkDialog, setShowBulkDialog] = useState(false);
-  const [bulkUpdateForm, setBulkUpdateForm] = useState({
-    status: '',
-    supplier_order_number: '',
-    tracking_number: '',
-    tracking_url: ''
-  });
-
-  // Filter orders for this specific PO
-  const poDetails = poOrders.filter(order => order.po_number === poNumber);
-  
-  // Calculate totals
-  const totalItems = poDetails.reduce((sum, order) => sum + order.quantity, 0);
-  const totalCost = poDetails.reduce((sum, order) => sum + (order.total_cost || 0), 0);
-  const currency = poDetails[0]?.currency || 'AED';
-  
-  // Determine overall status
-  const getOverallStatus = () => {
-    const statuses = poDetails.map(o => o.status);
-    if (statuses.every(s => s === 'delivered')) return 'delivered';
-    if (statuses.some(s => s === 'cancelled')) return 'cancelled';
-    if (statuses.some(s => s === 'shipped')) return 'shipped';
-    if (statuses.some(s => s === 'ordered')) return 'ordered';
-    return 'pending';
-  };
-
-  const handleEditTracking = (order: POOrder) => {
-    setEditingTracking(order.id);
-    setTrackingForm({
-      supplier_order_number: order.supplier_order_number || '',
-      tracking_number: order.tracking_number || '',
-      tracking_url: order.tracking_url || ''
-    });
-  };
-
-  const handleSaveTracking = async () => {
-    if (editingTracking) {
-      await updateTrackingInfo(editingTracking, trackingForm);
-      setEditingTracking(null);
-    }
-  };
-
-  const handleTrackingClick = (url: string) => {
-    if (url) {
-      window.open(url.startsWith('http') ? url : `https://${url}`, '_blank');
-    }
-  };
-
-  const getStatusIcon = (status: POOrder['status']) => {
-    switch (status) {
-      case 'pending':
-        return <Clock className="h-4 w-4 text-yellow-500" />;
-      case 'ordered':
-        return <CheckCircle className="h-4 w-4 text-blue-500" />;
-      case 'delivered':
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
-      case 'cancelled':
-        return <XCircle className="h-4 w-4 text-red-500" />;
-      default:
-        return <Package2 className="h-4 w-4 text-gray-500" />;
-    }
-  };
-
-  const getStatusVariant = (status: POOrder['status']) => {
-    switch (status) {
-      case 'pending':
-        return 'secondary';
-      case 'ordered':
-        return 'default';
-      case 'delivered':
-        return 'default';
-      case 'cancelled':
-        return 'destructive';
-      default:
-        return 'outline';
-    }
-  };
-
-  // Bulk update functions
-  const handleSelectItem = (itemId: string, checked: boolean) => {
-    if (checked) {
-      setSelectedItems(prev => [...prev, itemId]);
-    } else {
-      setSelectedItems(prev => prev.filter(id => id !== itemId));
-    }
-  };
-
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedItems(poDetails.map(order => order.id));
-    } else {
-      setSelectedItems([]);
-    }
-  };
-
-  const handleBulkUpdate = async () => {
-    for (const itemId of selectedItems) {
-      if (bulkUpdateForm.status) {
-        await updateOrderStatus(itemId, bulkUpdateForm.status as POOrder['status']);
-      }
-      
-      const trackingData: any = {};
-      if (bulkUpdateForm.supplier_order_number) trackingData.supplier_order_number = bulkUpdateForm.supplier_order_number;
-      if (bulkUpdateForm.tracking_number) trackingData.tracking_number = bulkUpdateForm.tracking_number;
-      if (bulkUpdateForm.tracking_url) trackingData.tracking_url = bulkUpdateForm.tracking_url;
-      
-      if (Object.keys(trackingData).length > 0) {
-        await updateTrackingInfo(itemId, trackingData);
-      }
-    }
-    
-    setShowBulkDialog(false);
-    setSelectedItems([]);
-    setBulkUpdateForm({
-      status: '',
-      supplier_order_number: '',
-      tracking_number: '',
-      tracking_url: ''
-    });
-  };
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      await fetchPOOrders();
+      setLoading(false);
+    };
+    loadData();
+  }, [fetchPOOrders]);
 
   if (!poNumber) {
-    return <div>PO Number not found</div>;
+    return <div>PO Number not provided</div>;
   }
 
-  if (poDetails.length === 0) {
+  // Filter orders for this specific PO
+  const poOrdersForThisPO = poOrders.filter(order => order.po_number === poNumber);
+  
+  // Only show matched items (items with sunsky_sku)
+  const matchedOrders = poOrdersForThisPO.filter(order => order.sunsky_sku);
+
+  // Calculate status progress
+  const statusProgress: StatusProgress = matchedOrders.reduce((acc, order) => {
+    acc[order.status as keyof Omit<StatusProgress, 'total'>]++;
+    acc.total++;
+    return acc;
+  }, { pending: 0, ordered: 0, shipped: 0, delivered: 0, total: 0 });
+
+  // Calculate progress percentage
+  const progressPercentage = statusProgress.total > 0 
+    ? ((statusProgress.delivered + statusProgress.shipped) / statusProgress.total) * 100 
+    : 0;
+
+  // Get PO summary data
+  const totalCost = matchedOrders.reduce((sum, order) => sum + (order.total_cost || 0), 0);
+  const currency = matchedOrders[0]?.currency || 'AED';
+  const shipToLocation = matchedOrders[0]?.ship_to_location || 'N/A';
+
+  if (loading) {
     return (
       <div className="min-h-screen bg-gradient-surface">
-        <div className="glass-container mx-6 my-4 p-8 animate-fade-in">
-          <div className="flex items-center mb-6">
-            <Button variant="ghost" onClick={() => navigate('/po-tracker')} className="mr-4">
+        <div className="glass-container mx-6 my-4 p-8">
+          <div className="animate-pulse space-y-4">
+            <div className="h-8 bg-muted rounded w-1/3"></div>
+            <div className="h-24 bg-muted rounded"></div>
+            <div className="h-64 bg-muted rounded"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (matchedOrders.length === 0) {
+    return (
+      <div className="min-h-screen bg-gradient-surface">
+        <div className="glass-container mx-6 my-4 p-8">
+          <div className="flex items-center gap-4 mb-6">
+            <Button variant="outline" onClick={() => navigate('/po-tracker')}>
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to PO Tracker
             </Button>
             <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-              PO Not Found
+              PO {poNumber} - No Matched Items
             </h1>
           </div>
-          <p className="text-muted-foreground">
-            The requested purchase order "{poNumber}" was not found.
-          </p>
+          <Card>
+            <CardContent className="p-8 text-center">
+              <AlertTriangle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-lg text-muted-foreground">
+                No matched items found for this Purchase Order.
+              </p>
+            </CardContent>
+          </Card>
         </div>
       </div>
     );
@@ -174,304 +108,184 @@ export default function PODetailsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-surface">
-      <div className="glass-container mx-6 my-4 p-8 animate-fade-in">
+      <div className="glass-container mx-6 my-4 p-8">
         {/* Header */}
-        <div className="flex items-center mb-6">
-          <Button variant="ghost" onClick={() => navigate('/po-tracker')} className="mr-4">
+        <div className="flex items-center gap-4 mb-6">
+          <Button variant="outline" onClick={() => navigate('/po-tracker')}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to PO Tracker
           </Button>
-          <div>
-            <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-2">
-              Purchase Order Details
-            </h1>
-            <p className="text-muted-foreground text-lg">
-              Detailed view for PO: {poNumber}
-            </p>
-          </div>
+          <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+            PO {poNumber} Details
+          </h1>
         </div>
 
-        {/* PO Summary */}
-        <Card className="mb-6">
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Items</CardTitle>
+              <Package className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-primary">{statusProgress.total}</div>
+              <p className="text-xs text-muted-foreground">Matched items only</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Cost</CardTitle>
+              <Package className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-primary">{totalCost.toFixed(2)} {currency}</div>
+              <p className="text-xs text-muted-foreground">All matched items</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Ship To</CardTitle>
+              <Truck className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-lg font-semibold text-foreground">{shipToLocation}</div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Progress</CardTitle>
+              <CheckCircle className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-primary">{progressPercentage.toFixed(0)}%</div>
+              <Progress value={progressPercentage} className="mt-2" />
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Status Overview */}
+        <Card className="mb-8">
           <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Badge variant="outline" className="font-mono text-lg px-3 py-1">
-                  {poNumber}
-                </Badge>
-                <div className="flex items-center space-x-2">
-                  {getStatusIcon(getOverallStatus() as POOrder['status'])}
-                  <Badge variant={getStatusVariant(getOverallStatus() as POOrder['status'])}>
-                    {getOverallStatus().charAt(0).toUpperCase() + getOverallStatus().slice(1)}
-                  </Badge>
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="text-sm text-muted-foreground">Total Items: {totalItems}</div>
-                <div className="text-lg font-semibold">{totalCost.toFixed(2)} {currency}</div>
-              </div>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5" />
+              Status Overview
             </CardTitle>
           </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="text-center p-4 bg-yellow-50 dark:bg-yellow-900/10 rounded-lg">
+                <div className="text-2xl font-bold text-yellow-600">{statusProgress.pending}</div>
+                <div className="text-sm text-yellow-600">Pending</div>
+              </div>
+              <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/10 rounded-lg">
+                <div className="text-2xl font-bold text-blue-600">{statusProgress.ordered}</div>
+                <div className="text-sm text-blue-600">Ordered</div>
+              </div>
+              <div className="text-center p-4 bg-purple-50 dark:bg-purple-900/10 rounded-lg">
+                <div className="text-2xl font-bold text-purple-600">{statusProgress.shipped}</div>
+                <div className="text-sm text-purple-600">Shipped</div>
+              </div>
+              <div className="text-center p-4 bg-green-50 dark:bg-green-900/10 rounded-lg">
+                <div className="text-2xl font-bold text-green-600">{statusProgress.delivered}</div>
+                <div className="text-sm text-green-600">Delivered</div>
+              </div>
+            </div>
+          </CardContent>
         </Card>
 
         {/* Items Table */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <div className="flex items-center">
-                <Package2 className="h-5 w-5 mr-2" />
-                Items in this PO ({poDetails.length})
-              </div>
-              <div className="flex items-center gap-2">
-                {selectedItems.length > 0 && (
-                  <Badge variant="secondary">
-                    {selectedItems.length} selected
-                  </Badge>
-                )}
-                <Dialog open={showBulkDialog} onOpenChange={setShowBulkDialog}>
-                  <DialogTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={selectedItems.length === 0}
-                    >
-                      <Settings className="h-4 w-4 mr-2" />
-                      Bulk Update
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Bulk Update Items ({selectedItems.length} selected)</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="bulk_status">Status (optional)</Label>
-                        <Select value={bulkUpdateForm.status} onValueChange={(value) => setBulkUpdateForm(prev => ({ ...prev, status: value }))}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select status to update" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="pending">Pending</SelectItem>
-                            <SelectItem value="ordered">Ordered</SelectItem>
-                            <SelectItem value="shipped">Shipped</SelectItem>
-                            <SelectItem value="delivered">Delivered</SelectItem>
-                            <SelectItem value="cancelled">Cancelled</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label htmlFor="bulk_supplier_order">Supplier Order Number (optional)</Label>
-                        <Input
-                          id="bulk_supplier_order"
-                          placeholder="Enter supplier order number"
-                          value={bulkUpdateForm.supplier_order_number}
-                          onChange={(e) => setBulkUpdateForm(prev => ({ ...prev, supplier_order_number: e.target.value }))}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="bulk_tracking_number">Tracking Number (optional)</Label>
-                        <Input
-                          id="bulk_tracking_number"
-                          placeholder="Enter tracking number"
-                          value={bulkUpdateForm.tracking_number}
-                          onChange={(e) => setBulkUpdateForm(prev => ({ ...prev, tracking_number: e.target.value }))}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="bulk_tracking_url">Tracking URL (optional)</Label>
-                        <Input
-                          id="bulk_tracking_url"
-                          placeholder="Enter tracking URL"
-                          value={bulkUpdateForm.tracking_url}
-                          onChange={(e) => setBulkUpdateForm(prev => ({ ...prev, tracking_url: e.target.value }))}
-                        />
-                      </div>
-                      <Button onClick={handleBulkUpdate} className="w-full">
-                        Update Selected Items
-                      </Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              </div>
-            </CardTitle>
+            <CardTitle>Order Items ({matchedOrders.length} matched items)</CardTitle>
           </CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-12">
-                    <Checkbox
-                      checked={selectedItems.length === poDetails.length && poDetails.length > 0}
-                      onCheckedChange={handleSelectAll}
-                    />
-                  </TableHead>
-                  <TableHead>SKU Code</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Quantity</TableHead>
-                  <TableHead>Unit Cost</TableHead>
-                  <TableHead>Total Cost</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Supplier Order</TableHead>
-                  <TableHead>Tracking</TableHead>
-                  <TableHead>Actions</TableHead>
+                  <TableHead>ASIN</TableHead>
+                  <TableHead>Model Number</TableHead>
+                  <TableHead>Title</TableHead>
+                  <TableHead className="text-center">Qty</TableHead>
+                  <TableHead className="text-center">Status</TableHead>
+                  <TableHead className="text-right">Unit Cost</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
+                  <TableHead className="text-center">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                 {poDetails.map((order) => (
+                {matchedOrders.map((order) => (
                   <TableRow key={order.id}>
-                    <TableCell>
-                      <Checkbox
-                        checked={selectedItems.includes(order.id)}
-                        onCheckedChange={(checked) => handleSelectItem(order.id, checked as boolean)}
-                      />
+                    <TableCell className="font-mono text-xs">
+                      {order.asin}
+                      {order.external_id && (
+                        <div className="text-xs text-muted-foreground">
+                          {order.external_id_type}: {order.external_id}
+                        </div>
+                      )}
                     </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary" className="font-mono">
-                        {order.sku_code}
+                    <TableCell className="font-mono text-xs">
+                      {order.model_number}
+                    </TableCell>
+                    <TableCell className="max-w-xs">
+                      <div className="truncate" title={order.title}>
+                        {order.title}
+                      </div>
+                      {order.sunsky_sku && (
+                        <div className="text-xs text-green-600 font-medium">
+                          SKU: {order.sunsky_sku.sku_code}
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-center font-semibold">
+                      {order.quantity}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Badge className={statusColors[order.status as keyof typeof statusColors] || statusColors.pending}>
+                        {order.status}
                       </Badge>
                     </TableCell>
-                    <TableCell>
-                      {order.sunsky_sku ? (
-                        <div>
-                          <div className="font-medium">{order.sunsky_sku.title}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {order.sunsky_sku.description}
-                          </div>
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
+                    <TableCell className="text-right">
+                      {order.unit_cost ? `${order.unit_cost.toFixed(2)} ${currency}` : '-'}
                     </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">
-                        {order.quantity}
-                      </Badge>
+                    <TableCell className="text-right font-semibold">
+                      {order.total_cost ? `${order.total_cost.toFixed(2)} ${currency}` : '-'}
                     </TableCell>
-                    <TableCell>
-                      {order.unit_cost ? (
-                        <Badge variant="secondary">
-                          {order.unit_cost} {order.currency || 'AED'}
-                        </Badge>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {order.total_cost ? (
-                        <Badge variant="default">
-                          {order.total_cost} {order.currency || 'AED'}
-                        </Badge>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Select
-                        value={order.status}
-                        onValueChange={(value: POOrder['status']) => updateOrderStatus(order.id, value)}
-                      >
-                        <SelectTrigger className="w-[120px] h-8">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="pending">Pending</SelectItem>
-                          <SelectItem value="ordered">Ordered</SelectItem>
-                          <SelectItem value="shipped">Shipped</SelectItem>
-                          <SelectItem value="delivered">Delivered</SelectItem>
-                          <SelectItem value="cancelled">Cancelled</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                    <TableCell>
-                      {order.supplier_order_number ? (
-                        <Badge variant="outline">
-                          {order.supplier_order_number}
-                        </Badge>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {order.tracking_number ? (
-                        <div className="flex items-center gap-2">
-                          <Badge variant="secondary">
-                            {order.tracking_number}
-                          </Badge>
-                          {order.tracking_url && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleTrackingClick(order.tracking_url!)}
-                            >
-                              <ExternalLink className="h-3 w-3" />
-                            </Button>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Dialog>
-                        <DialogTrigger asChild>
+                    <TableCell className="text-center">
+                      <div className="flex gap-1 justify-center">
+                        {order.status === 'pending' && (
                           <Button
-                            variant="ghost"
                             size="sm"
-                            onClick={() => handleEditTracking(order)}
+                            variant="outline"
+                            onClick={() => updateOrderStatus(order.id, 'ordered')}
+                            className="text-xs"
                           >
-                            <Edit className="h-3 w-3" />
+                            Mark Ordered
                           </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Edit Tracking Information</DialogTitle>
-                          </DialogHeader>
-                          <div className="space-y-4">
-                            <div>
-                              <Label htmlFor="supplier_order">Supplier Order Number</Label>
-                              <Input
-                                id="supplier_order"
-                                placeholder="Enter supplier order number"
-                                value={trackingForm.supplier_order_number}
-                                onChange={(e) => setTrackingForm(prev => ({
-                                  ...prev,
-                                  supplier_order_number: e.target.value
-                                }))}
-                              />
-                            </div>
-                            <div>
-                              <Label htmlFor="tracking_number">Tracking Number</Label>
-                              <Input
-                                id="tracking_number"
-                                placeholder="Enter tracking number"
-                                value={trackingForm.tracking_number}
-                                onChange={(e) => setTrackingForm(prev => ({
-                                  ...prev,
-                                  tracking_number: e.target.value
-                                }))}
-                              />
-                            </div>
-                            <div>
-                              <Label htmlFor="tracking_url">Tracking URL</Label>
-                              <Input
-                                id="tracking_url"
-                                placeholder="Enter tracking URL or website"
-                                value={trackingForm.tracking_url}
-                                onChange={(e) => setTrackingForm(prev => ({
-                                  ...prev,
-                                  tracking_url: e.target.value
-                                }))}
-                              />
-                            </div>
-                            <Button 
-                              onClick={handleSaveTracking}
-                              className="w-full"
-                            >
-                              Save Tracking Info
-                            </Button>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
+                        )}
+                        {order.status === 'ordered' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => updateOrderStatus(order.id, 'shipped')}
+                            className="text-xs"
+                          >
+                            Mark Shipped
+                          </Button>
+                        )}
+                        {order.status === 'shipped' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => updateOrderStatus(order.id, 'delivered')}
+                            className="text-xs"
+                          >
+                            Mark Delivered
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
