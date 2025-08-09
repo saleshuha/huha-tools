@@ -146,6 +146,13 @@ export function POTracker() {
       if (asinResult.error) throw asinResult.error;
       if (skuResult.error) throw skuResult.error;
 
+      console.log('Inventory Data Debug:', {
+        asinInventory: asinResult.data?.slice(0, 5), // First 5 items for debugging
+        skuInventory: skuResult.data?.slice(0, 5),
+        asinWithZeroQty: asinResult.data?.filter(item => item.quantity === 0),
+        skuWithZeroQty: skuResult.data?.filter(item => item.quantity === 0)
+      });
+
       setInventoryData({
         asinInventory: asinResult.data || [],
         skuInventory: skuResult.data || []
@@ -160,6 +167,11 @@ export function POTracker() {
     // First check ASIN inventory
     const asinMatch = inventoryData.asinInventory.find(item => item.asin === asin);
     if (asinMatch) {
+      console.log('ASIN Match Found:', {
+        asin,
+        match: asinMatch,
+        isValidInStock: asinMatch.status === 'in-stock' && asinMatch.quantity > 0
+      });
       return {
         type: 'ASIN',
         status: asinMatch.status,
@@ -175,6 +187,11 @@ export function POTracker() {
       if (skuToCheck) {
         const skuMatch = inventoryData.skuInventory.find(item => item.sku_number === skuToCheck);
         if (skuMatch) {
+          console.log('SKU Match Found:', {
+            skuToCheck,
+            match: skuMatch,
+            isValidInStock: skuMatch.status === 'in-stock' && skuMatch.quantity > 0
+          });
           return {
             type: 'SKU',
             status: skuMatch.status,
