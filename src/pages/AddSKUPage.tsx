@@ -258,56 +258,74 @@ export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIs
       // Prepare SKU data for background processing
       const skuData: any[] = [];
       
+      console.log('📋 Starting file processing loop...');
+      
       // Parse all files and collect SKU data
-      for (const file of Array.from(selectedFiles)) {
-        console.log(`📄 Processing file: ${file.name}`);
-        const data = await parseFileSimply(file);
+      for (let fileIndex = 0; fileIndex < selectedFiles.length; fileIndex++) {
+        const file = selectedFiles[fileIndex];
+        console.log(`📄 Processing file ${fileIndex + 1}/${selectedFiles.length}: ${file.name}`);
         
-        if (data && data.length > 0) {
-          console.log(`📊 File ${file.name} has ${data.length} rows`);
-          const mappedRows = data.map((row: any) => {
-            const mappedRow: any = {
-              country: selectedCountry, // Add country to each row
-              user_id: profile?.id // Add user_id to each row
-            };
+        try {
+          const data = await parseFileSimply(file);
+          console.log(`✅ File parsed successfully: ${file.name}, rows: ${data?.length || 0}`);
+          
+          if (data && data.length > 0) {
+            console.log(`📊 Processing ${data.length} rows from ${file.name}`);
+            console.log(`🔍 Sample raw row:`, data[0]);
+            console.log(`🗺️ Current mapping:`, globalMapping);
             
-            // Map the columns according to the global mapping
-            Object.entries(globalMapping as Record<string, string>).forEach(([expectedCol, actualCol]) => {
-              if (actualCol && row[actualCol as string] !== undefined) {
-                let value = row[actualCol as string];
-                
-                // Convert weight and cost to numbers if needed
-                if (expectedCol === 'weight' || expectedCol === 'cost') {
-                  value = parseFloat(value) || 0;
+            const mappedRows = data.map((row: any, rowIndex: number) => {
+              const mappedRow: any = {
+                country: selectedCountry,
+                user_id: profile?.id
+              };
+              
+              // Map the columns according to the global mapping
+              Object.entries(globalMapping as Record<string, string>).forEach(([expectedCol, actualCol]) => {
+                if (actualCol && row[actualCol as string] !== undefined) {
+                  let value = row[actualCol as string];
+                  
+                  // Convert weight and cost to numbers if needed
+                  if (expectedCol === 'weight' || expectedCol === 'cost') {
+                    value = parseFloat(value) || 0;
+                  }
+                  
+                  // Map to the correct column names for the database
+                  if (expectedCol === 'sku') {
+                    mappedRow['sku_code'] = value;
+                  } else if (expectedCol === 'cost') {
+                    mappedRow['cost'] = value;
+                  } else {
+                    mappedRow[expectedCol] = value;
+                  }
                 }
-                
-                // Map to the correct column names for the database
-                if (expectedCol === 'sku') {
-                  mappedRow['sku_code'] = value;
-                } else if (expectedCol === 'cost') {
-                  mappedRow['cost'] = value;
-                } else {
-                  mappedRow[expectedCol] = value;
-                }
+              });
+              
+              // Log first few mapped rows for debugging
+              if (skuData.length + rowIndex < 3) {
+                console.log(`📝 Mapped row ${skuData.length + rowIndex + 1}:`, mappedRow);
               }
+              
+              return mappedRow;
             });
             
-            // Log first few mapped rows for debugging
-            if (skuData.length < 3) {
-              console.log(`📝 Mapped row sample:`, mappedRow);
-            }
+            console.log(`➕ Adding ${mappedRows.length} mapped rows to skuData`);
+            skuData.push(...mappedRows);
+            console.log(`📊 Current total SKUs: ${skuData.length}`);
             
-            return mappedRow;
-          });
-          skuData.push(...mappedRows);
-        } else {
-          console.warn(`⚠️ No data found in file: ${file.name}`);
+          } else {
+            console.warn(`⚠️ No data found in file: ${file.name}`);
+          }
+        } catch (fileError) {
+          console.error(`❌ Error processing file ${file.name}:`, fileError);
         }
       }
       
-      console.log(`✅ Total SKUs collected: ${skuData.length}`);
+      console.log(`✅ File processing complete. Total SKUs collected: ${skuData.length}`);
+      console.log(`🔍 Sample final SKU:`, skuData[0]);
       
       if (skuData.length === 0) {
+        console.error('💥 No SKU data collected from any files');
         toast({
           title: "No Data Found",
           description: "No valid SKU data found in the selected files.",
@@ -317,12 +335,20 @@ export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIs
       }
       
       // Start background upload
-      console.log('🔄 Starting background upload...');
+      console.log('🔄 About to start background upload with:', {
+        skuCount: skuData.length,
+        sampleSku: skuData[0],
+        onAddSKUsType: typeof onAddSKUs,
+        runBackgroundUploadType: typeof runBackgroundUpload
+      });
+      
+      console.log('⏳ Calling runBackgroundUpload...');
       await runBackgroundUpload(
         skuData,
         onAddSKUs,
         2 // thread count
       );
+      console.log('✅ runBackgroundUpload completed');
       
       // Clear local state and show success
       clearSelectedFiles();
@@ -335,7 +361,8 @@ export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIs
       });
       
     } catch (error) {
-      console.error('❌ Error starting background upload:', error);
+      console.error('❌ Error in handleBulkProcessing:', error);
+      console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack trace');
       toast({
         title: "Upload Failed",
         description: error instanceof Error ? error.message : "Failed to start background upload",
@@ -465,7 +492,7 @@ export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIs
       {showMappingWizard && currentFileData && (
         <ColumnMappingWizard
           fileData={currentFileData}
-          expectedColumns={['sku_code', 'title', 'cost', 'weight']}
+          expectedColumns={['sku', 'title', 'cost', 'weight']}
           onMappingComplete={handleMappingComplete}
         />
       )}
