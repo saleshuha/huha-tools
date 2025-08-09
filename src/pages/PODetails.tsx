@@ -47,7 +47,7 @@ export default function PODetailsPage() {
   
   // Bulk operations state
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
-  const [bulkStatus, setBulkStatus] = useState('');
+  const [selectionType, setSelectionType] = useState<'instock' | 'outstock' | null>(null);
   const [bulkTrackingInfo, setBulkTrackingInfo] = useState({
     supplier_order_number: '',
     tracking_number: '',
@@ -92,11 +92,11 @@ export default function PODetailsPage() {
       const [asinResult, skuResult] = await Promise.all([
         supabase
           .from('asin_inventory')
-          .select('asin, quantity, status, sku')
+          .select('asin, quantity, status, sku, serial_number')
           .eq('user_id', (await supabase.auth.getUser()).data.user?.id),
         supabase
           .from('sku_inventory')
-          .select('sku_number, quantity, status')
+          .select('sku_number, quantity, status, bin_serial_number')
           .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
       ]);
 
@@ -121,7 +121,8 @@ export default function PODetailsPage() {
         type: 'ASIN',
         status: asinMatch.status,
         quantity: asinMatch.quantity,
-        identifier: asinMatch.asin
+        identifier: asinMatch.asin,
+        serialNumber: asinMatch.serial_number
       };
     }
 
@@ -133,7 +134,8 @@ export default function PODetailsPage() {
           type: 'SKU',
           status: skuMatch.status,
           quantity: skuMatch.quantity,
-          identifier: skuMatch.sku_number
+          identifier: skuMatch.sku_number,
+          serialNumber: skuMatch.bin_serial_number
         };
       }
     }
@@ -170,28 +172,60 @@ export default function PODetailsPage() {
   const currency = matchedOrders[0]?.currency || 'AED';
   const shipToLocation = matchedOrders[0]?.ship_to_location || 'N/A';
 
-  // Handle bulk status update
-  const handleBulkStatusUpdate = async () => {
-    if (selectedItems.size === 0 || !bulkStatus) return;
+  // Handle bulk mark as ordered from inventory
+  const handleBulkMarkFromInventory = async () => {
+    if (selectedItems.size === 0) return;
+    
+    setIsUpdating(true);
+    try {
+      const updatePromises = Array.from(selectedItems).map(async (orderId) => {
+        const order = matchedOrders.find(o => o.id === orderId);
+        if (order) {
+          return markAsOrderedFromInventory(order);
+        }
+      });
+      
+      await Promise.all(updatePromises);
+      
+      toast({
+        title: "Bulk Marked from Inventory",
+        description: `Marked ${selectedItems.size} items as ordered and deducted from inventory`
+      });
+      setSelectedItems(new Set());
+      setSelectionType(null);
+    } catch (error) {
+      toast({
+        title: "Bulk Update Failed",
+        description: "Failed to mark some items as ordered from inventory",
+        variant: "destructive"
+      });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  // Handle bulk mark as ordered from supplier
+  const handleBulkMarkFromSupplier = async () => {
+    if (selectedItems.size === 0) return;
     
     setIsUpdating(true);
     try {
       const updatePromises = Array.from(selectedItems).map(orderId => 
-        updateOrderStatus(orderId, bulkStatus as "pending" | "ordered" | "shipped" | "delivered" | "cancelled")
+        updateOrderStatus(orderId, 'ordered')
       );
       
       await Promise.all(updatePromises);
       
       toast({
-        title: "Bulk Status Updated",
-        description: `Updated status to ${bulkStatus} for ${selectedItems.size} items`
+        title: "Bulk Marked from Supplier",
+        description: `Marked ${selectedItems.size} items as ordered from supplier`
       });
       setSelectedItems(new Set());
-      setBulkStatus('');
+      setSelectionType(null);
     } catch (error) {
       toast({
         title: "Bulk Update Failed",
-        description: "Failed to update status for some items",
+        description: "Failed to mark some items as ordered from supplier",
         variant: "destructive"
       });
     } finally {
@@ -228,23 +262,70 @@ export default function PODetailsPage() {
     }
   };
 
-  // Handle select all/none
+  // Handle select all/none with smart logic
   const handleSelectAll = () => {
     if (selectedItems.size === matchedOrders.length) {
+      // Deselect all
       setSelectedItems(new Set());
+      setSelectionType(null);
     } else {
-      setSelectedItems(new Set(matchedOrders.map(order => order.id)));
+      // Select all available items (first check what type we can select)
+      if (selectionType === null) {
+        // No current selection, select all items  
+        setSelectedItems(new Set(matchedOrders.map(order => order.id)));
+        // Don't set a specific type for select all
+      } else {
+        // Already have a selection type, only select items of the same type
+        const compatibleItems = matchedOrders.filter(order => {
+          const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code);
+          const hasStock = inventoryMatch && inventoryMatch.quantity > 0;
+          const itemType = hasStock ? 'instock' : 'outstock';
+          return itemType === selectionType;
+        });
+        setSelectedItems(new Set(compatibleItems.map(order => order.id)));
+      }
     }
   };
 
-  // Handle individual item selection
+  // Handle individual item selection with smart logic
   const handleItemSelect = (orderId: string) => {
+    const order = matchedOrders.find(o => o.id === orderId);
+    if (!order) return;
+    
+    const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code);
+    const hasStock = inventoryMatch && inventoryMatch.quantity > 0;
+    const currentItemType = hasStock ? 'instock' : 'outstock';
+    
     const newSelected = new Set(selectedItems);
+    
     if (newSelected.has(orderId)) {
+      // Deselecting item
       newSelected.delete(orderId);
+      
+      // If no items selected, reset selection type
+      if (newSelected.size === 0) {
+        setSelectionType(null);
+      }
     } else {
-      newSelected.add(orderId);
+      // Selecting item
+      if (selectionType === null) {
+        // First selection sets the type
+        newSelected.add(orderId);
+        setSelectionType(currentItemType);
+      } else if (selectionType === currentItemType) {
+        // Same type, allow selection
+        newSelected.add(orderId);
+      } else {
+        // Different type, show warning and don't select
+        toast({
+          title: "Selection Restricted",
+          description: `Cannot mix ${selectionType === 'instock' ? 'in-stock' : 'out-of-stock'} items with ${currentItemType === 'instock' ? 'in-stock' : 'out-of-stock'} items`,
+          variant: "destructive"
+        });
+        return;
+      }
     }
+    
     setSelectedItems(newSelected);
   };
 
@@ -442,24 +523,24 @@ export default function PODetailsPage() {
             <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
               <Badge variant="secondary">{selectedItems.size} selected</Badge>
               
-              <Select value={bulkStatus} onValueChange={setBulkStatus}>
-                <SelectTrigger className="w-32">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="ordered">Ordered</SelectItem>
-                  <SelectItem value="shipped">Shipped</SelectItem>
-                  <SelectItem value="delivered">Delivered</SelectItem>
-                </SelectContent>
-              </Select>
+              {selectionType === 'instock' && (
+                <Button 
+                  size="sm"
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                  onClick={handleBulkMarkFromInventory}
+                  disabled={isUpdating}
+                >
+                  Mark From Stock
+                </Button>
+              )}
               
               <Button 
                 size="sm" 
-                onClick={handleBulkStatusUpdate}
-                disabled={!bulkStatus || isUpdating}
+                variant="outline"
+                onClick={handleBulkMarkFromSupplier}
+                disabled={isUpdating}
               >
-                Update Status
+                Mark From Supplier
               </Button>
               
               <Dialog>
@@ -515,7 +596,10 @@ export default function PODetailsPage() {
               <Button 
                 size="sm" 
                 variant="outline" 
-                onClick={() => setSelectedItems(new Set())}
+                onClick={() => {
+                  setSelectedItems(new Set());
+                  setSelectionType(null);
+                }}
               >
                 <Trash2 className="h-4 w-4 mr-1" />
                 Clear
@@ -602,13 +686,26 @@ export default function PODetailsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {matchedOrders.map((order) => (
-                  <TableRow key={order.id} className={selectedItems.has(order.id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''}>
+                {matchedOrders.map((order) => {
+                  const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code);
+                  const hasStock = inventoryMatch && inventoryMatch.quantity > 0;
+                  const itemType = hasStock ? 'instock' : 'outstock';
+                  const isDisabled = selectionType !== null && selectionType !== itemType;
+                  
+                  return (
+                    <TableRow 
+                      key={order.id} 
+                      className={`
+                        ${selectedItems.has(order.id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''} 
+                        ${isDisabled ? 'opacity-50' : ''}
+                      `}
+                    >
                     <TableCell>
                       <Checkbox
                         checked={selectedItems.has(order.id)}
                         onCheckedChange={() => handleItemSelect(order.id)}
                         aria-label={`Select item ${order.asin}`}
+                        disabled={isDisabled}
                       />
                     </TableCell>
                     <TableCell>
@@ -634,26 +731,33 @@ export default function PODetailsPage() {
                     <TableCell>
                       {(() => {
                         const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code);
-                        if (inventoryMatch) {
-                          return (
-                            <div className="flex items-center gap-2">
-                              <div className="flex items-center gap-1">
-                                <PackageCheck className="h-4 w-4 text-green-600" />
-                                <Badge 
-                                  variant={inventoryMatch.status === 'in-stock' ? 'default' : 'secondary'}
-                                  className={inventoryMatch.status === 'in-stock' ? 'bg-green-100 text-green-800' : ''}
-                                >
-                                  {inventoryMatch.status}
-                                </Badge>
-                              </div>
-                              <div className="text-sm font-medium">
-                                Qty: {inventoryMatch.quantity}
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                ({inventoryMatch.type})
-                              </div>
-                            </div>
-                          );
+                         if (inventoryMatch) {
+                           return (
+                             <div className="space-y-1">
+                               <div className="flex items-center gap-2">
+                                 <div className="flex items-center gap-1">
+                                   <PackageCheck className="h-4 w-4 text-green-600" />
+                                   <Badge 
+                                     variant={inventoryMatch.status === 'in-stock' ? 'default' : 'secondary'}
+                                     className={inventoryMatch.status === 'in-stock' ? 'bg-green-100 text-green-800' : ''}
+                                   >
+                                     {inventoryMatch.status}
+                                   </Badge>
+                                 </div>
+                                 <div className="text-sm font-medium">
+                                   Qty: {inventoryMatch.quantity}
+                                 </div>
+                                 <div className="text-xs text-muted-foreground">
+                                   ({inventoryMatch.type})
+                                 </div>
+                               </div>
+                               {inventoryMatch.serialNumber && (
+                                 <div className="text-xs text-muted-foreground">
+                                   {inventoryMatch.type === 'ASIN' ? 'Serial' : 'Bin'}: {inventoryMatch.serialNumber}
+                                 </div>
+                               )}
+                             </div>
+                           );
                         } else {
                           return (
                             <div className="flex items-center gap-2 text-muted-foreground">
@@ -687,11 +791,11 @@ export default function PODetailsPage() {
                               Track Package <ExternalLink className="h-3 w-3" />
                             </a>
                           </div>
-                        )}
-                        {!order.supplier_order_number && !order.tracking_number && !order.tracking_url && (
-                          <div className="text-muted-foreground">No tracking info</div>
-                        )}
-                      </div>
+                         )}
+                         {!order.supplier_order_number && !order.tracking_number && !order.tracking_url && (
+                           <div className="text-muted-foreground">No tracking info</div>
+                         )}
+                       </div>
                     </TableCell>
                     <TableCell className="text-center font-semibold">
                       {order.quantity}
@@ -759,9 +863,10 @@ export default function PODetailsPage() {
                         </Button>
                       </div>
                     </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
+                   </TableRow>
+                   );
+                 })}
+               </TableBody>
             </Table>
           </CardContent>
         </Card>
