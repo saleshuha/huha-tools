@@ -234,6 +234,11 @@ export function POTracker() {
     order.status === 'pending' && order.sunsky_sku !== null
   ).length;
   
+  // Pending matched quantity - total quantity of matched items that are still pending
+  const pendingMatchedQuantity = poOrders
+    .filter(order => order.status === 'pending' && order.sunsky_sku !== null)
+    .reduce((sum, order) => sum + (order.quantity || 0), 0);
+  
   // Placed orders - all orders with status 'ordered'
   const placedOrders = poOrders.filter(order => order.status === 'ordered').length;
 
@@ -439,6 +444,9 @@ export function POTracker() {
             <p className="text-xs text-muted-foreground">
               Matched items pending placement
             </p>
+            <Badge variant="secondary" className="mt-1 text-xs">
+              {pendingMatchedQuantity.toLocaleString()} total quantity
+            </Badge>
           </CardContent>
         </Card>
 
