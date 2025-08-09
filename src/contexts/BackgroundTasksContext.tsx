@@ -34,7 +34,8 @@ interface BackgroundTasksContextType {
   runBackgroundUpload: (
     skus: any[], 
     onAddSKUs: (skus: any[]) => Promise<void>,
-    threadCount?: number
+    threadCount?: number,
+    batchSize?: number
   ) => Promise<void>;
 }
 
@@ -80,7 +81,8 @@ export function BackgroundTasksProvider({ children }: { children: React.ReactNod
   const runBackgroundUpload = useCallback(async (
     skus: any[], 
     onAddSKUs: (skus: any[]) => Promise<void>,
-    threadCount = 2
+    threadCount = 4,
+    batchSize = 1000
   ) => {
     const taskId = addTask({
       type: 'sku-upload',
@@ -144,27 +146,43 @@ export function BackgroundTasksProvider({ children }: { children: React.ReactNod
           }));
         };
 
-        updateThreadProgress(0, chunk.length, `Thread ${threadIndex + 1}: Starting...`, 'processing');
+        updateThreadProgress(0, chunk.length, `Thread ${threadIndex + 1}: Starting batch of ${chunk.length} SKUs...`, 'processing');
 
         try {
+          // Process entire chunk at once for better performance
           await onAddSKUs(chunk);
-          updateThreadProgress(chunk.length, chunk.length, `Thread ${threadIndex + 1}: Completed!`, 'completed');
+          updateThreadProgress(chunk.length, chunk.length, `Thread ${threadIndex + 1}: Completed batch of ${chunk.length} SKUs!`, 'completed');
           return chunk.length;
         } catch (error) {
-          updateThreadProgress(0, chunk.length, `Thread ${threadIndex + 1}: Processing individually...`, 'processing');
+          console.warn(`Batch processing failed for thread ${threadIndex + 1}, trying smaller batches...`);
+          updateThreadProgress(0, chunk.length, `Thread ${threadIndex + 1}: Processing smaller batches...`, 'processing');
           
+          // If batch fails, try in smaller sub-batches
+          const subBatchSize = Math.max(Math.floor(chunk.length / 4), 10); // Quarter size or minimum 10
           let processed = 0;
-          for (let i = 0; i < chunk.length; i++) {
+          
+          for (let i = 0; i < chunk.length; i += subBatchSize) {
+            const subBatch = chunk.slice(i, i + subBatchSize);
             try {
-              await onAddSKUs([chunk[i]]);
-              processed++;
-            } catch (individualError) {
-              console.error(`Error processing item ${i}:`, individualError);
+              await onAddSKUs(subBatch);
+              processed += subBatch.length;
+            } catch (subBatchError) {
+              console.error(`Sub-batch failed in thread ${threadIndex + 1}:`, subBatchError);
+              
+              // Final fallback: individual processing
+              for (const item of subBatch) {
+                try {
+                  await onAddSKUs([item]);
+                  processed++;
+                } catch (individualError) {
+                  console.error(`Individual item failed in thread ${threadIndex + 1}:`, individualError);
+                }
+              }
             }
-            updateThreadProgress(i + 1, chunk.length, `Thread ${threadIndex + 1}: ${i + 1}/${chunk.length}`, 'processing');
+            updateThreadProgress(processed, chunk.length, `Thread ${threadIndex + 1}: ${processed}/${chunk.length} processed`, 'processing');
           }
           
-          updateThreadProgress(chunk.length, chunk.length, `Thread ${threadIndex + 1}: Completed ${processed}/${chunk.length}`, 'completed');
+          updateThreadProgress(chunk.length, chunk.length, `Thread ${threadIndex + 1}: Completed ${processed}/${chunk.length} SKUs`, 'completed');
           return processed;
         }
       };

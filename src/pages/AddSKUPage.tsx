@@ -423,11 +423,12 @@ export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIs
         runBackgroundUploadType: typeof runBackgroundUpload
       });
       
-      console.log('⏳ Calling runBackgroundUpload...');
+      console.log('⏳ Calling runBackgroundUpload with optimized settings...');
       await runBackgroundUpload(
         skuData,
         onAddSKUs,
-        bulkSettings.threadCount // Use configurable thread count
+        bulkSettings.threadCount, // Use configurable thread count
+        bulkSettings.batchSize // Pass batch size for optimized chunking
       );
       console.log('✅ runBackgroundUpload completed');
       

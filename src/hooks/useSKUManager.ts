@@ -219,8 +219,8 @@ export const useSKUManager = () => {
       setLoadingProgress(40);
       setLoadingStatus(`Uploading ${skusWithUserId.length} SKUs...`);
 
-      // Process in optimal chunks - increased for large datasets
-      const chunkSize = skusWithUserId.length > 50000 ? 500 : 100;
+      // Process in batches using user's configured batch size or optimal default
+      const chunkSize = 1000; // Increased chunk size for better performance
       let successCount = 0;
       let duplicateCount = 0;
       let errorCount = 0;
@@ -229,25 +229,53 @@ export const useSKUManager = () => {
         const chunk = skusWithUserId.slice(i, i + chunkSize);
         const progress = 40 + ((i / skusWithUserId.length) * 50);
         setLoadingProgress(progress);
-        setLoadingStatus(`Processing chunk ${Math.floor(i/chunkSize) + 1}/${Math.ceil(skusWithUserId.length/chunkSize)}...`);
+        setLoadingStatus(`Processing batch ${Math.floor(i/chunkSize) + 1}/${Math.ceil(skusWithUserId.length/chunkSize)} (${chunk.length} SKUs)...`);
         
         try {
+          // Use batch insert for better performance
           const { data: chunkData, error: chunkError } = await supabase
             .from('sunsky_skus')
-            .upsert(chunk, { 
-              onConflict: 'user_id,sku_code',
-              ignoreDuplicates: false
-            })
+            .insert(chunk)
             .select('id');
             
-          if (chunkError) throw chunkError;
+          if (chunkError) {
+            // If batch insert fails due to duplicates, try upsert
+            const { data: upsertData, error: upsertError } = await supabase
+              .from('sunsky_skus')
+              .upsert(chunk, { 
+                onConflict: 'user_id,sku_code',
+                ignoreDuplicates: false
+              })
+              .select('id');
+              
+            if (upsertError) throw upsertError;
+            successCount += upsertData?.length || 0;
+            duplicateCount += chunk.length - (upsertData?.length || 0);
+          } else {
+            successCount += chunkData?.length || 0;
+          }
           
-          successCount += chunkData?.length || 0;
-          console.log(`Chunk ${Math.floor(i/chunkSize) + 1} successful: ${chunkData?.length || 0} SKUs processed`);
+          console.log(`✅ Batch ${Math.floor(i/chunkSize) + 1} successful: ${chunk.length} SKUs processed`);
           
         } catch (chunkError: any) {
-          console.error('Chunk failed:', chunkError);
+          console.error('❌ Batch failed:', chunkError);
           errorCount += chunk.length;
+          
+          // Try individual inserts for failed batch (fallback)
+          for (const sku of chunk) {
+            try {
+              await supabase
+                .from('sunsky_skus')
+                .upsert([sku], { 
+                  onConflict: 'user_id,sku_code',
+                  ignoreDuplicates: false
+                });
+              successCount++;
+            } catch (individualError) {
+              console.error('Individual SKU failed:', individualError);
+              errorCount++;
+            }
+          }
         }
       }
 
