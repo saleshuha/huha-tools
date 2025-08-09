@@ -706,17 +706,15 @@ export function POTracker() {
                                      }));
                                      
                                      const poItemsWithInventory = poInventoryMatches.filter(item => item.inventoryMatch).length;
-                                     const poInStockItems = poInventoryMatches.filter(item => 
-                                       item.inventoryMatch && 
-                                       item.inventoryMatch.status === 'in-stock' && 
-                                       item.inventoryMatch.quantity > 0
-                                     ).length;
+                                     const poInStockItems = poInventoryMatches.filter(item => {
+                                       const match = item.inventoryMatch;
+                                       return match && match.quantity > 0 && match.status === 'in-stock';
+                                     }).length;
                                      const poInStockQuantity = poInventoryMatches
-                                       .filter(item => 
-                                         item.inventoryMatch && 
-                                         item.inventoryMatch.status === 'in-stock' && 
-                                         item.inventoryMatch.quantity > 0
-                                       )
+                                       .filter(item => {
+                                         const match = item.inventoryMatch;
+                                         return match && match.quantity > 0 && match.status === 'in-stock';
+                                       })
                                        .reduce((sum, item) => sum + (item.inventoryMatch?.quantity || 0), 0);
                                      
                                      return (
