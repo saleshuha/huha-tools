@@ -481,7 +481,7 @@ export function POTracker() {
                             key={poNumber}
                             className={`transition-colors border-b-2 border-border ${
                               matchedCount > 0 
-                                ? 'cursor-pointer hover:bg-muted/50 hover:border-primary/50' 
+                                ? 'cursor-pointer hover:bg-muted/50' 
                                 : 'opacity-60 cursor-not-allowed bg-muted/20'
                             }`}
                             onClick={matchedCount > 0 ? () => handlePORowClick(poNumber) : undefined}
