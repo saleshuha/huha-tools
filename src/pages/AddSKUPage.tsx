@@ -307,41 +307,40 @@ export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIs
   }, [selectedFiles, globalMapping, processBulkFiles, initializeFileStates, clearSelectedFiles, toast, bulkSettings, existingSkuSet]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-muted/50">
+    <div className="min-h-screen bg-background">
       <div className="container mx-auto p-6 space-y-8">
         {/* Header Section with Back Button */}
         <div className="relative">
-          <div className="absolute inset-0 bg-gradient-to-r from-primary/20 via-accent/20 to-primary/20 rounded-2xl blur-3xl opacity-30"></div>
-          <div className="relative bg-card/80 backdrop-blur-sm border border-border/50 rounded-2xl p-6 shadow-[var(--shadow-strong)]">
+          <div className="bg-card border border-border rounded-2xl p-6 shadow-lg">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <Button 
                   variant="ghost" 
                   size="sm"
                   onClick={() => window.history.back()}
-                  className="flex items-center gap-2 hover:bg-secondary/80 transition-all duration-300 hover:scale-105"
+                  className="flex items-center gap-2 hover:bg-secondary transition-all duration-200"
                 >
                   <ArrowLeft className="h-4 w-4" />
                   Back
                 </Button>
-                <div className="h-6 w-px bg-border/50"></div>
+                <div className="h-6 w-px bg-border"></div>
                 <div>
-                  <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                  <h1 className="text-2xl font-bold text-primary">
                     Add SKUs from Files
                   </h1>
                   <p className="text-sm text-muted-foreground">Upload and process your inventory files efficiently</p>
                 </div>
               </div>
-              <Upload className="h-8 w-8 text-primary/60" />
+              <Upload className="h-8 w-8 text-primary" />
             </div>
           </div>
         </div>
 
         {/* Main Content Card */}
-        <Card className="border-0 shadow-[var(--shadow-strong)] bg-card/90 backdrop-blur-sm animate-fade-in">
-          <CardHeader className="border-b border-border/50 bg-gradient-to-r from-primary/5 via-transparent to-accent/5">
+        <Card className="border border-border shadow-lg bg-card">
+          <CardHeader className="border-b border-border bg-muted/30">
             <CardTitle className="flex items-center gap-3 text-xl">
-              <div className="p-2 rounded-lg bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/20">
+              <div className="p-2 rounded-lg bg-primary/10 border border-primary/20">
                 <Upload className="h-5 w-5 text-primary" />
               </div>
               File Processing Center
@@ -351,10 +350,10 @@ export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIs
             {/* Upload Mode Selection */}
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center text-primary font-semibold text-xs">1</div>
+                <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-primary font-semibold text-xs">1</div>
                 Select Processing Mode
               </div>
-              <div className="ml-8 bg-gradient-to-r from-muted/50 to-transparent p-3 rounded-lg border border-border/50">
+              <div className="ml-8 bg-muted/30 p-3 rounded-lg border border-border">
                 <UploadModeSelector 
                   uploadMode={uploadMode}
                   onUploadModeChange={handleUploadModeChange}
@@ -365,10 +364,10 @@ export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIs
             {/* File Upload Section */}
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center text-primary font-semibold text-xs">2</div>
+                <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-primary font-semibold text-xs">2</div>
                 Upload Your Files
               </div>
-              <div className="ml-8 bg-gradient-to-r from-muted/50 to-transparent p-3 rounded-lg border border-border/50">
+              <div className="ml-8 bg-muted/30 p-3 rounded-lg border border-border">
                 <FileUploadArea
                   uploadMode={uploadMode}
                   selectedFiles={selectedFiles}
@@ -380,14 +379,14 @@ export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIs
             </div>
               
               {selectedFiles && selectedFiles.length > 0 && (
-                <div className="space-y-3 animate-fade-in">
+                <div className="space-y-3">
                   {/* Processing Controls */}
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                      <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center text-primary font-semibold text-xs">3</div>
+                      <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-primary font-semibold text-xs">3</div>
                       Configure & Process
                     </div>
-                    <div className="ml-8 bg-gradient-to-r from-muted/50 to-transparent p-3 rounded-lg border border-border/50">
+                    <div className="ml-8 bg-muted/30 p-3 rounded-lg border border-border">
                       <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-3">
                           <div className="p-2 rounded-lg bg-success/10 border border-success/20">
@@ -401,7 +400,7 @@ export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIs
                             onClick={handleBulkMapping}
                             disabled={isBulkMapping || isProcessingBulk}
                             variant="outline"
-                            className="transition-all duration-300 hover:scale-105 hover:shadow-md border-primary/20 hover:border-primary/40"
+                            className="transition-all duration-200 border-primary/20 hover:border-primary/40"
                           >
                             {isBulkMapping ? (
                               <>
@@ -421,7 +420,7 @@ export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIs
                               onClick={handleBulkProcessing}
                               disabled={isProcessingBulk || !globalMapping || isAddingSkus}
                               variant="default"
-                              className="bg-gradient-to-r from-primary to-primary-light hover:from-primary-dark hover:to-primary transition-all duration-300 hover:scale-105 hover:shadow-lg shadow-primary/20"
+                              className="bg-primary hover:bg-primary/90 transition-all duration-200"
                             >
                               {isProcessingBulk ? (
                                 <>
