@@ -259,23 +259,50 @@ export const useSKUManager = () => {
           
         } catch (chunkError: any) {
           console.error('❌ Batch failed:', chunkError);
-          errorCount += chunk.length;
           
-          // Try individual inserts for failed batch (fallback)
-          for (const sku of chunk) {
+          // Try smaller sub-batches first (100 SKUs)
+          const subBatchSize = 100;
+          let chunkSuccessCount = 0;
+          
+          for (let j = 0; j < chunk.length; j += subBatchSize) {
+            const subBatch = chunk.slice(j, j + subBatchSize);
+            
             try {
-              await supabase
+              const { data: subBatchData, error: subBatchError } = await supabase
                 .from('sunsky_skus')
-                .upsert([sku], { 
+                .upsert(subBatch, { 
                   onConflict: 'user_id,sku_code',
                   ignoreDuplicates: false
-                });
-              successCount++;
-            } catch (individualError) {
-              console.error('Individual SKU failed:', individualError);
-              errorCount++;
+                })
+                .select('id');
+                
+              if (subBatchError) throw subBatchError;
+              chunkSuccessCount += subBatchData?.length || 0;
+              console.log(`✅ Sub-batch ${Math.floor(j/subBatchSize) + 1} successful: ${subBatch.length} SKUs`);
+              
+            } catch (subBatchError) {
+              console.error('❌ Sub-batch failed, trying individual SKUs:', subBatchError);
+              
+              // Only fallback to individual processing for this small sub-batch
+              for (const sku of subBatch) {
+                try {
+                  await supabase
+                    .from('sunsky_skus')
+                    .upsert([sku], { 
+                      onConflict: 'user_id,sku_code',
+                      ignoreDuplicates: false
+                    });
+                  chunkSuccessCount++;
+                } catch (individualError) {
+                  console.error('Individual SKU failed:', individualError);
+                  errorCount++;
+                }
+              }
             }
           }
+          
+          successCount += chunkSuccessCount;
+          errorCount += chunk.length - chunkSuccessCount;
         }
       }
 
