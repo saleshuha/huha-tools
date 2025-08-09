@@ -499,60 +499,68 @@ export function POTracker() {
                             
                             <TableCell className="min-w-[300px]">
                               {matchedCount > 0 ? (
-                                <div className="space-y-3">
+                                <div className="space-y-4">
                                   {/* Matched Items Progress */}
-                                  <div className="space-y-1">
+                                  <div className="space-y-2">
                                     <div className="flex justify-between items-center">
-                                      <span className="text-xs font-medium text-primary">Matched Items</span>
-                                      <span className="text-xs text-primary">{matchedCount}/{orders.length}</span>
+                                      <span className="text-sm font-semibold text-foreground">Matched Items</span>
+                                      <span className="text-sm font-bold text-primary">{matchedCount}/{orders.length}</span>
                                     </div>
-                                    <Progress 
-                                      value={orders.length > 0 ? (matchedCount / orders.length) * 100 : 0} 
-                                      className="h-2"
-                                    />
+                                    <div className="relative">
+                                      <Progress 
+                                        value={orders.length > 0 ? (matchedCount / orders.length) * 100 : 0} 
+                                        className="h-3 bg-muted"
+                                      />
+                                      <div className="absolute inset-0 flex items-center justify-center">
+                                        <span className="text-xs font-medium text-white mix-blend-difference">
+                                          {Math.round((matchedCount / orders.length) * 100)}%
+                                        </span>
+                                      </div>
+                                    </div>
                                   </div>
                                   
-                                  {/* Placement Progress */}
+                                  {/* Order Status Progress */}
                                   {matchedCount > 0 && (
-                                    <div className="space-y-1">
+                                    <div className="space-y-2">
                                       <div className="flex justify-between items-center">
-                                        <span className="text-xs font-medium text-blue-600">Placed/Shipped</span>
-                                        <span className="text-xs text-blue-600">{placedCount + shippedCount + deliveredCount}/{matchedCount}</span>
+                                        <span className="text-sm font-semibold text-foreground">Order Progress</span>
+                                        <span className="text-sm font-bold text-blue-600">{placedCount}/{matchedCount} ordered</span>
                                       </div>
-                                      <Progress 
-                                        value={matchedCount > 0 ? ((placedCount + shippedCount + deliveredCount) / matchedCount) * 100 : 0} 
-                                        className="h-2"
-                                      />
+                                      <div className="relative">
+                                        <Progress 
+                                          value={matchedCount > 0 ? (placedCount / matchedCount) * 100 : 0} 
+                                          className="h-3 bg-muted"
+                                        />
+                                        <div className="absolute inset-0 flex items-center justify-center">
+                                          <span className="text-xs font-medium text-white mix-blend-difference">
+                                            {Math.round((placedCount / matchedCount) * 100)}%
+                                          </span>
+                                        </div>
+                                      </div>
                                     </div>
                                   )}
                                   
-                                  {/* Status Summary */}
-                                  <div className="flex flex-wrap gap-1">
-                                    {pendingCount > 0 && (
-                                      <Badge variant="secondary" className="text-xs bg-yellow-100 text-yellow-800">
-                                        {pendingCount} pending
-                                      </Badge>
-                                    )}
-                                    {placedCount > 0 && (
-                                      <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">
-                                        {placedCount} placed
-                                      </Badge>
-                                    )}
-                                    {shippedCount > 0 && (
-                                      <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-800">
-                                        {shippedCount} shipped
-                                      </Badge>
-                                    )}
-                                    {deliveredCount > 0 && (
-                                      <Badge variant="secondary" className="text-xs bg-green-100 text-green-800">
-                                        {deliveredCount} delivered
-                                      </Badge>
-                                    )}
+                                  {/* Status Summary with Visual Indicators */}
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div className="flex items-center gap-2 p-2 rounded-md bg-yellow-50 dark:bg-yellow-900/20">
+                                      <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                                      <div>
+                                        <div className="text-xs font-medium text-yellow-700 dark:text-yellow-300">Pending</div>
+                                        <div className="text-sm font-bold text-yellow-800 dark:text-yellow-200">{pendingCount}</div>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 p-2 rounded-md bg-blue-50 dark:bg-blue-900/20">
+                                      <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                                      <div>
+                                        <div className="text-xs font-medium text-blue-700 dark:text-blue-300">Ordered</div>
+                                        <div className="text-sm font-bold text-blue-800 dark:text-blue-200">{placedCount}</div>
+                                      </div>
+                                    </div>
                                   </div>
                                 </div>
                               ) : (
-                                <div className="text-center py-4">
-                                  <div className="text-muted-foreground text-sm">
+                                <div className="text-center py-6 px-4 border-2 border-dashed border-muted rounded-lg">
+                                  <div className="text-muted-foreground text-sm font-medium">
                                     No items found in SKU catalog
                                   </div>
                                   <div className="text-xs text-muted-foreground mt-1">
