@@ -252,51 +252,88 @@ export function POTracker() {
   // Placed orders - all orders with status 'ordered'
   const placedOrders = poOrders.filter(order => order.status === 'ordered').length;
 
-  // SIMPLIFIED APPROACH: Direct calculation without complex logic
+  // FIXED APPROACH: Only calculate when data is actually loaded
   const calculateInventoryStats = () => {
+    // Don't calculate if data isn't loaded yet
+    if (poOrders.length === 0 || (inventoryData.asinInventory.length === 0 && inventoryData.skuInventory.length === 0)) {
+      return { itemsWithStock: 0, totalStockQty: 0, itemsWithInventory: 0 };
+    }
+
     let itemsWithStock = 0;
     let totalStockQty = 0;
     let itemsWithInventory = 0;
 
-    for (const order of poOrders) {
+    console.log('=== CALCULATING WITH DATA ===');
+    console.log('PO Orders:', poOrders.length);
+    console.log('ASIN Inventory:', inventoryData.asinInventory.length);
+    console.log('SKU Inventory:', inventoryData.skuInventory.length);
+
+    for (let i = 0; i < poOrders.length; i++) {
+      const order = poOrders[i];
+      let foundInventory = false;
+      let hasStock = false;
+      let stockQty = 0;
+
       // Check ASIN inventory first
-      const asinInventory = inventoryData.asinInventory.find(item => item.asin === order.asin);
-      if (asinInventory) {
+      if (order.asin) {
+        const asinInventory = inventoryData.asinInventory.find(item => item.asin === order.asin);
+        if (asinInventory) {
+          foundInventory = true;
+          if (asinInventory.quantity > 0) {
+            hasStock = true;
+            stockQty = asinInventory.quantity;
+          }
+          
+          if (i < 3) {
+            console.log(`Order ${i + 1} (ASIN):`, {
+              asin: order.asin,
+              found: true,
+              quantity: asinInventory.quantity,
+              hasStock
+            });
+          }
+        }
+      }
+
+      // If no ASIN match, check SKU inventory
+      if (!foundInventory) {
+        const skusToCheck = [order.sunsky_sku?.sku_code, order.sku_code].filter(Boolean);
+        
+        for (const sku of skusToCheck) {
+          const skuInventory = inventoryData.skuInventory.find(item => item.sku_number === sku);
+          if (skuInventory) {
+            foundInventory = true;
+            if (skuInventory.quantity > 0) {
+              hasStock = true;
+              stockQty = skuInventory.quantity;
+            }
+            
+            if (i < 3) {
+              console.log(`Order ${i + 1} (SKU):`, {
+                sku: sku,
+                found: true,
+                quantity: skuInventory.quantity,
+                hasStock
+              });
+            }
+            break;
+          }
+        }
+      }
+
+      if (foundInventory) {
         itemsWithInventory++;
-        if (asinInventory.quantity > 0) {
+        if (hasStock) {
           itemsWithStock++;
-          totalStockQty += asinInventory.quantity;
-        }
-        continue;
-      }
-
-      // Check SKU inventory
-      const sunskySku = order.sunsky_sku?.sku_code;
-      const poSku = order.sku_code;
-      
-      if (sunskySku) {
-        const skuInventory = inventoryData.skuInventory.find(item => item.sku_number === sunskySku);
-        if (skuInventory) {
-          itemsWithInventory++;
-          if (skuInventory.quantity > 0) {
-            itemsWithStock++;
-            totalStockQty += skuInventory.quantity;
-          }
-          continue;
-        }
-      }
-
-      if (poSku) {
-        const skuInventory = inventoryData.skuInventory.find(item => item.sku_number === poSku);
-        if (skuInventory) {
-          itemsWithInventory++;
-          if (skuInventory.quantity > 0) {
-            itemsWithStock++;
-            totalStockQty += skuInventory.quantity;
-          }
+          totalStockQty += stockQty;
         }
       }
     }
+
+    console.log('FINAL CALCULATION RESULTS:');
+    console.log('- Items with inventory data:', itemsWithInventory);
+    console.log('- Items with stock > 0:', itemsWithStock);
+    console.log('- Total stock quantity:', totalStockQty);
 
     return { itemsWithStock, totalStockQty, itemsWithInventory };
   };
@@ -307,7 +344,7 @@ export function POTracker() {
   const totalItemsWithInventory = itemsWithInventory;
   const inStockItems = itemsWithStock;
   const totalInStockQuantity = totalStockQty;
-  const poItemsWithInventoryData = []; // Empty array for now since we're using direct calculation
+  const poItemsWithInventoryData = []; // Empty array for compatibility
 
   // Group orders by PO number for the tracking table
   const groupedPOOrders = poOrders.reduce((groups, order) => {
