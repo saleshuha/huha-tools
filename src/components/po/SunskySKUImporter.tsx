@@ -87,7 +87,7 @@ export const SunskySKUImporter: React.FC = () => {
         setCategories(data.data || []);
       } else {
         console.warn('Categories API returned:', data);
-        setCategories([]); // Set empty array instead of throwing error
+        setCategories([]);
       }
     } catch (error) {
       console.error('Error loading categories:', error);
