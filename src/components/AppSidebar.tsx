@@ -1,4 +1,4 @@
-import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, Wrench, LogOut, Home, Users, TrendingUp, Merge, Edit3, Database, CreditCard, Upload, BarChart3, DollarSign, Store, ShoppingCart } from "lucide-react"
+import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, Wrench, LogOut, Home, Users, TrendingUp, Merge, Edit3, Database, CreditCard, Upload, BarChart3, DollarSign, Store, ShoppingCart, Globe } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
 import { useState } from "react"
 import { supabase } from "@/integrations/supabase/client"
@@ -283,6 +283,31 @@ export function AppSidebar() {
                     {!isCollapsed && (
                       <span className="font-semibold text-sm">
                         PO - SS Stock Tracker
+                      </span>
+                    )}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              {/* Sunsky SKU Importer standalone item */}
+              <SidebarMenuItem>
+                <SidebarMenuButton 
+                  asChild
+                  className={`group relative w-full rounded-xl transition-all duration-200 hover:scale-[1.02] ${
+                    isActive("/sunsky-importer")
+                      ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
+                      : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
+                  }`}
+                >
+                  <NavLink 
+                    to="/sunsky-importer" 
+                    end
+                    className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
+                  >
+                    <Globe className="h-5 w-5 flex-shrink-0" />
+                    {!isCollapsed && (
+                      <span className="font-semibold text-sm">
+                        Sunsky SKU Importer
                       </span>
                     )}
                   </NavLink>
