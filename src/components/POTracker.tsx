@@ -252,17 +252,23 @@ export function POTracker() {
   // Placed orders - all orders with status 'ordered'
   const placedOrders = poOrders.filter(order => order.status === 'ordered').length;
 
-  // COMPLETELY REWRITTEN: Simple function to count items with stock > 0
-  const getItemsWithStock = () => {
+  // REWRITTEN: Only count MATCHED items (with sunsky_sku) that have stock > 0
+  const getMatchedItemsWithStock = () => {
     if (!poOrders || poOrders.length === 0) return { count: 0, totalQty: 0 };
     
     let count = 0;
     let totalQty = 0;
     
-    for (const order of poOrders) {
+    // ONLY process matched items (items with sunsky_sku populated)
+    const matchedItems = poOrders.filter(order => order.sunsky_sku !== null);
+    
+    console.log('Total PO Orders:', poOrders.length);
+    console.log('Matched Items (with sunsky_sku):', matchedItems.length);
+    
+    for (const order of matchedItems) {
       let foundStock = false;
       
-      // Check ASIN inventory
+      // Check ASIN inventory first
       if (order.asin && inventoryData.asinInventory) {
         for (const asinItem of inventoryData.asinInventory) {
           if (asinItem.asin === order.asin && asinItem.quantity > 0) {
@@ -291,16 +297,22 @@ export function POTracker() {
       }
     }
     
+    console.log('Matched items with stock > 0:', count);
+    console.log('Total stock quantity:', totalQty);
+    
     return { count, totalQty };
   };
 
-  // COMPLETELY REWRITTEN: Simple function to count items with any inventory data
-  const getItemsWithInventory = () => {
+  // REWRITTEN: Count matched items with any inventory data (for percentage calculation)
+  const getMatchedItemsWithInventory = () => {
     if (!poOrders || poOrders.length === 0) return 0;
     
     let count = 0;
     
-    for (const order of poOrders) {
+    // ONLY process matched items (items with sunsky_sku populated)
+    const matchedItems = poOrders.filter(order => order.sunsky_sku !== null);
+    
+    for (const order of matchedItems) {
       let hasInventory = false;
       
       // Check ASIN inventory
@@ -333,24 +345,17 @@ export function POTracker() {
     return count;
   };
 
-  // Get the actual counts using our new functions
-  const stockResults = getItemsWithStock();
-  const inventoryResults = getItemsWithInventory();
+  // Get counts for MATCHED items only
+  const stockResults = getMatchedItemsWithStock();
+  const inventoryResults = getMatchedItemsWithInventory();
   
   // Assign results to variables used throughout the component
   const totalItemsWithInventory = inventoryResults;
   const inStockItems = stockResults.count;
   const totalInStockQuantity = stockResults.totalQty;
   
-  // For compatibility - ensure these are always defined
+  // For compatibility
   const poItemsWithInventoryData: any[] = [];
-  
-  // Additional safety check to prevent undefined references
-  console.log('Stock calculation results:', {
-    totalItemsWithInventory,
-    inStockItems, 
-    totalInStockQuantity
-  });
 
   // Group orders by PO number for the tracking table
   const groupedPOOrders = poOrders.reduce((groups, order) => {
@@ -759,12 +764,15 @@ export function POTracker() {
                                    
                                    {/* Inventory Stock Progress */}
                                    {matchedCount > 0 && (() => {
-                                     // COMPLETELY REWRITTEN: Use exact same logic as metrics card
+                                     // REWRITTEN: Only process MATCHED items (same logic as metrics card)
                                      let poItemsWithStock = 0;
                                      let poTotalStockQty = 0;
                                      let poItemsWithInventory = 0;
                                      
-                                     for (const order of orders) {
+                                     // ONLY process matched items (items with sunsky_sku populated)
+                                     const matchedOrders = orders.filter(order => order.sunsky_sku !== null);
+                                     
+                                     for (const order of matchedOrders) {
                                        let foundInventory = false;
                                        let foundStock = false;
                                        
