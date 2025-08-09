@@ -255,7 +255,8 @@ export function POProfitAnalytics({ poOrders, sunskySKUs }: POProfitAnalyticsPro
   };
 
   return (
-    <div className="space-y-6">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
+      <div className="container mx-auto p-6 space-y-8">
       {/* Summary Statistics */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
@@ -697,7 +698,8 @@ export function POProfitAnalytics({ poOrders, sunskySKUs }: POProfitAnalyticsPro
             </Table>
           </div>
         </CardContent>
-      </Card>
+        </Card>
+      </div>
     </div>
   );
 }
