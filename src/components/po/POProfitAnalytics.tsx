@@ -679,7 +679,7 @@ export function POProfitAnalytics({ poOrders, sunskySKUs }: POProfitAnalyticsPro
                           {item.commission_amount.toFixed(2)} {getCurrencySymbol(item.currency)}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          {item.commission_rate}% of sell price
+                          {item.commission_rate}% of {item.sell_price.toFixed(2)}
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
