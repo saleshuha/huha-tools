@@ -13,6 +13,7 @@ import { SKUList } from './po/SKUList';
 import { AddSKUDialog } from './po/AddSKUDialog';
 import { POProfitAnalytics } from './po/POProfitAnalytics';
 import { ShippingRateDialog } from './po/ShippingRateDialog';
+import { SunskySKUImporter } from './po/SunskySKUImporter';
 import { useSKUManager } from '@/hooks/useSKUManager';
 import { usePOOrders } from '@/hooks/usePOOrders';
 import { useUserProfile } from '@/hooks/useUserProfile';
@@ -931,6 +932,9 @@ export function POTracker() {
         </TabsContent>
 
         <TabsContent value="skus" className="space-y-4">
+          {/* Sunsky SKU Importer */}
+          <SunskySKUImporter />
+          
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
