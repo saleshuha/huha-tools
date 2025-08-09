@@ -270,20 +270,29 @@ export function POTracker() {
     inventoryMatch: findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code)
   }));
 
-  // Calculate inventory statistics
+  // Calculate inventory statistics - only count items with actual stock
   const totalItemsWithInventory = inventoryMatches.filter(item => item.inventoryMatch).length;
-  const inStockItems = inventoryMatches.filter(item => 
-    item.inventoryMatch && 
-    item.inventoryMatch.status === 'in-stock' && 
-    item.inventoryMatch.quantity > 0
-  ).length;
+  const inStockItems = inventoryMatches.filter(item => {
+    const match = item.inventoryMatch;
+    return match && match.quantity > 0 && match.status === 'in-stock';
+  }).length;
   const totalInStockQuantity = inventoryMatches
-    .filter(item => 
-      item.inventoryMatch && 
-      item.inventoryMatch.status === 'in-stock' && 
-      item.inventoryMatch.quantity > 0
-    )
+    .filter(item => {
+      const match = item.inventoryMatch;
+      return match && match.quantity > 0 && match.status === 'in-stock';
+    })
     .reduce((sum, item) => sum + (item.inventoryMatch?.quantity || 0), 0);
+
+  console.log('Inventory Stats Debug:', {
+    totalItemsWithInventory,
+    inStockItems,
+    totalInStockQuantity,
+    sampleMatches: inventoryMatches.slice(0, 3).map(item => ({
+      asin: item.asin,
+      inventoryMatch: item.inventoryMatch,
+      isValidStock: item.inventoryMatch ? (item.inventoryMatch.quantity > 0 && item.inventoryMatch.status === 'in-stock') : false
+    }))
+  });
 
   // Group orders by PO number for the tracking table
   const groupedPOOrders = poOrders.reduce((groups, order) => {
