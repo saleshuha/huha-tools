@@ -704,36 +704,49 @@ export default function PODetailsPage() {
                     <TableCell className="text-center">
                       <div className="flex flex-col gap-1">
                         <div className="flex gap-1 justify-center">
-                          {(() => {
-                            const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code);
-                            const hasStock = inventoryMatch && inventoryMatch.quantity > 0;
-                            
-                            // Show "Mark Ordered (From Stock)" button for all in-stock items (not just pending)
-                            if (hasStock && order.status !== 'ordered' && order.status !== 'shipped' && order.status !== 'delivered') {
-                              return (
-                                <Button
-                                  size="sm"
-                                  variant="default"
-                                  onClick={() => markAsOrderedFromInventory(order)}
-                                  className="text-xs bg-green-600 hover:bg-green-700"
-                                >
-                                  Mark Ordered (From Stock)
-                                </Button>
-                              );
-                            } else if (order.status === 'pending') {
-                              return (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => updateOrderStatus(order.id, 'ordered')}
-                                  className="text-xs"
-                                >
-                                  Mark Ordered
-                                </Button>
-                              );
-                            }
-                            return null;
-                          })()}
+                           {(() => {
+                             const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code);
+                             const hasStock = inventoryMatch && inventoryMatch.quantity > 0;
+                             
+                             if (order.status !== 'ordered' && order.status !== 'shipped' && order.status !== 'delivered') {
+                               if (hasStock) {
+                                 // Show both buttons for in-stock items
+                                 return (
+                                   <div className="flex flex-col gap-1">
+                                     <Button
+                                       size="sm"
+                                       variant="default"
+                                       onClick={() => markAsOrderedFromInventory(order)}
+                                       className="text-xs bg-green-600 hover:bg-green-700"
+                                     >
+                                       From Stock
+                                     </Button>
+                                     <Button
+                                       size="sm"
+                                       variant="outline"
+                                       onClick={() => updateOrderStatus(order.id, 'ordered')}
+                                       className="text-xs"
+                                     >
+                                       From Supplier
+                                     </Button>
+                                   </div>
+                                 );
+                               } else {
+                                 // Show only supplier button for out-of-stock items
+                                 return (
+                                   <Button
+                                     size="sm"
+                                     variant="outline"
+                                     onClick={() => updateOrderStatus(order.id, 'ordered')}
+                                     className="text-xs"
+                                   >
+                                     Mark Ordered (From Supplier)
+                                   </Button>
+                                 );
+                               }
+                             }
+                             return null;
+                           })()}
                         </div>
                         <Button
                           size="sm"
