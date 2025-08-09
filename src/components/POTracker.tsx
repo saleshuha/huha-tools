@@ -219,7 +219,7 @@ export function POTracker() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-screen-xl mx-auto space-y-6">{/* Add max-width constraint to match other pages */}
       {/* Header with Refresh Button */}
       <div className="flex justify-between items-center">
         <div>
