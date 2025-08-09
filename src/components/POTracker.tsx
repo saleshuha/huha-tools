@@ -252,11 +252,37 @@ export function POTracker() {
   // Placed orders - all orders with status 'ordered'
   const placedOrders = poOrders.filter(order => order.status === 'ordered').length;
 
-  // REWRITTEN: Calculate inventory data for all PO items
-  const poItemsWithInventoryData = poOrders.map(order => {
+  // DEBUGGING: Let's see what's actually happening with the data
+  console.log('=== COMPREHENSIVE INVENTORY DEBUG ===');
+  console.log('Total PO Orders:', poOrders.length);
+  console.log('ASIN Inventory items:', inventoryData.asinInventory.length);
+  console.log('SKU Inventory items:', inventoryData.skuInventory.length);
+  
+  // Debug sample inventory data
+  if (inventoryData.asinInventory.length > 0) {
+    console.log('Sample ASIN inventory:', inventoryData.asinInventory.slice(0, 2));
+  }
+  if (inventoryData.skuInventory.length > 0) {
+    console.log('Sample SKU inventory:', inventoryData.skuInventory.slice(0, 2));
+  }
+
+  // REWRITTEN: Calculate inventory data for all PO items with detailed logging
+  const poItemsWithInventoryData = poOrders.map((order, index) => {
     const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code);
     const hasInventory = inventoryMatch !== null;
     const isInStock = isItemInStock(inventoryMatch);
+    
+    // Log first few items for debugging
+    if (index < 5) {
+      console.log(`PO Item ${index + 1}:`, {
+        asin: order.asin,
+        sunskySku: order.sunsky_sku?.sku_code,
+        poSku: order.sku_code,
+        inventoryMatch,
+        hasInventory,
+        isInStock
+      });
+    }
     
     return {
       order,
@@ -266,12 +292,38 @@ export function POTracker() {
     };
   });
 
-  // REWRITTEN: Simple calculations using clear logic
+  // REWRITTEN: Simple calculations with detailed logging
   const totalItemsWithInventory = poItemsWithInventoryData.filter(item => item.hasInventory).length;
   const inStockItems = poItemsWithInventoryData.filter(item => item.isInStock).length;
   const totalInStockQuantity = poItemsWithInventoryData
     .filter(item => item.isInStock)
     .reduce((sum, item) => sum + (item.inventoryMatch?.quantity || 0), 0);
+
+  console.log('FINAL CALCULATIONS:');
+  console.log('- Items with inventory:', totalItemsWithInventory);
+  console.log('- Items in stock:', inStockItems);
+  console.log('- Total in stock quantity:', totalInStockQuantity);
+  
+  // Debug the actual in-stock items
+  const actualInStockItems = poItemsWithInventoryData.filter(item => item.isInStock);
+  console.log('Sample in-stock items:', actualInStockItems.slice(0, 3).map(item => ({
+    asin: item.order.asin,
+    sku: item.order.sku_code,
+    inventoryStatus: item.inventoryMatch?.status,
+    inventoryQuantity: item.inventoryMatch?.quantity
+  })));
+  
+  // Debug items that have inventory but are NOT in stock
+  const hasInventoryButNotInStock = poItemsWithInventoryData.filter(item => item.hasInventory && !item.isInStock);
+  console.log('Items with inventory but NOT in stock:', hasInventoryButNotInStock.length);
+  if (hasInventoryButNotInStock.length > 0) {
+    console.log('Sample not-in-stock items:', hasInventoryButNotInStock.slice(0, 3).map(item => ({
+      asin: item.order.asin,
+      sku: item.order.sku_code,
+      inventoryStatus: item.inventoryMatch?.status,
+      inventoryQuantity: item.inventoryMatch?.quantity
+    })));
+  }
 
   // Group orders by PO number for the tracking table
   const groupedPOOrders = poOrders.reduce((groups, order) => {
