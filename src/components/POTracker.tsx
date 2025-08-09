@@ -187,6 +187,7 @@ export function POTracker() {
   // Load data based on active tab
   useEffect(() => {
     fetchSKUCount();
+    fetchInventoryData(); // Always fetch inventory data for proper metrics
     
     if (activeTab === 'skus' && sunskySKUs.length === 0) {
       fetchSKUs();
