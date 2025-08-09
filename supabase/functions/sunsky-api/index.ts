@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.5';
+import { createHash } from "https://deno.land/std@0.168.0/hash/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -11,18 +12,15 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-// MD5 implementation for Sunsky API signature using Web Crypto API
-async function md5(text: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(text);
-  const hashBuffer = await crypto.subtle.digest('MD5', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  return hashHex;
+// MD5 implementation for Sunsky API signature
+function md5(text: string): string {
+  const hash = createHash("md5");
+  hash.update(text);
+  return hash.toString();
 }
 
 // Generate signature for Sunsky API
-async function generateSignature(params: Record<string, any>, key: string, secret: string): Promise<string> {
+function generateSignature(params: Record<string, any>, key: string, secret: string): string {
   // Sort parameters by key name and concatenate values with key
   const sortedKeys = Object.keys(params).sort();
   let concatenated = '';
@@ -37,12 +35,12 @@ async function generateSignature(params: Record<string, any>, key: string, secre
   
   console.log('String to hash:', stringToHash);
   
-  return await md5(stringToHash);
+  return md5(stringToHash);
 }
 
 // Make authenticated request to Sunsky API
 async function makeSunskyRequest(endpoint: string, params: Record<string, any>, key: string, secret: string) {
-  const signature = await generateSignature(params, key, secret);
+  const signature = generateSignature(params, key, secret);
   
   const requestBody = new URLSearchParams({
     ...params,
