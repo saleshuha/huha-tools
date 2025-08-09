@@ -252,51 +252,62 @@ export function POTracker() {
   // Placed orders - all orders with status 'ordered'
   const placedOrders = poOrders.filter(order => order.status === 'ordered').length;
 
-  // COMPREHENSIVE DEBUG: Check data loading states and calculate inventory
-  console.log('=== COMPLETE DATA DEBUG ===');
-  console.log('PO Orders loaded:', poOrders.length);
-  console.log('ASIN inventory loaded:', inventoryData.asinInventory.length);
-  console.log('SKU inventory loaded:', inventoryData.skuInventory.length);
-  console.log('Orders loading:', ordersLoading);
-  console.log('SKU loading:', skuLoading);
+  // SIMPLIFIED APPROACH: Direct calculation without complex logic
+  const calculateInventoryStats = () => {
+    let itemsWithStock = 0;
+    let totalStockQty = 0;
+    let itemsWithInventory = 0;
 
-  // Calculate inventory data - always do this regardless of loading state
-  const poItemsWithInventoryData = poOrders.map((order, index) => {
-    const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code);
-    const hasInventory = inventoryMatch !== null;
-    const hasStock = inventoryMatch && inventoryMatch.quantity > 0;
-    
-    // Debug first few items
-    if (index < 3 && !ordersLoading) {
-      console.log(`Item ${index + 1}:`, {
-        asin: order.asin,
-        sku: order.sku_code,
-        inventoryMatch: inventoryMatch,
-        hasInventory,
-        hasStock
-      });
+    for (const order of poOrders) {
+      // Check ASIN inventory first
+      const asinInventory = inventoryData.asinInventory.find(item => item.asin === order.asin);
+      if (asinInventory) {
+        itemsWithInventory++;
+        if (asinInventory.quantity > 0) {
+          itemsWithStock++;
+          totalStockQty += asinInventory.quantity;
+        }
+        continue;
+      }
+
+      // Check SKU inventory
+      const sunskySku = order.sunsky_sku?.sku_code;
+      const poSku = order.sku_code;
+      
+      if (sunskySku) {
+        const skuInventory = inventoryData.skuInventory.find(item => item.sku_number === sunskySku);
+        if (skuInventory) {
+          itemsWithInventory++;
+          if (skuInventory.quantity > 0) {
+            itemsWithStock++;
+            totalStockQty += skuInventory.quantity;
+          }
+          continue;
+        }
+      }
+
+      if (poSku) {
+        const skuInventory = inventoryData.skuInventory.find(item => item.sku_number === poSku);
+        if (skuInventory) {
+          itemsWithInventory++;
+          if (skuInventory.quantity > 0) {
+            itemsWithStock++;
+            totalStockQty += skuInventory.quantity;
+          }
+        }
+      }
     }
-    
-    return {
-      order,
-      inventoryMatch,
-      hasInventory,
-      hasStock
-    };
-  });
 
-  const totalItemsWithInventory = poItemsWithInventoryData.filter(item => item.hasInventory).length;
-  const inStockItems = poItemsWithInventoryData.filter(item => item.hasStock).length;
-  const totalInStockQuantity = poItemsWithInventoryData
-    .filter(item => item.hasStock)
-    .reduce((sum, item) => sum + (item.inventoryMatch?.quantity || 0), 0);
+    return { itemsWithStock, totalStockQty, itemsWithInventory };
+  };
 
-  if (!ordersLoading && poOrders.length > 0) {
-    console.log('FINAL RESULTS:');
-    console.log('- Total with inventory:', totalItemsWithInventory);
-    console.log('- Items with stock > 0:', inStockItems);
-    console.log('- Total stock quantity:', totalInStockQuantity);
-  }
+  const { itemsWithStock, totalStockQty, itemsWithInventory } = calculateInventoryStats();
+  
+  // For backward compatibility, assign to original variable names
+  const totalItemsWithInventory = itemsWithInventory;
+  const inStockItems = itemsWithStock;
+  const totalInStockQuantity = totalStockQty;
+  const poItemsWithInventoryData = []; // Empty array for now since we're using direct calculation
 
   // Group orders by PO number for the tracking table
   const groupedPOOrders = poOrders.reduce((groups, order) => {
@@ -493,25 +504,18 @@ export function POTracker() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-orange-600">
-              {poItemsWithInventoryData.filter(item => 
-                item.inventoryMatch && item.inventoryMatch.quantity > 0
-              ).length.toLocaleString()}
+              {inStockItems.toLocaleString()}
             </div>
             <p className="text-xs text-muted-foreground">
               Items with stock quantity &gt; 0
             </p>
             <div className="flex gap-2 mt-1">
               <Badge variant="secondary" className="text-xs">
-                Total qty: {poItemsWithInventoryData
-                  .filter(item => item.inventoryMatch && item.inventoryMatch.quantity > 0)
-                  .reduce((sum, item) => sum + (item.inventoryMatch?.quantity || 0), 0)
-                  .toLocaleString()}
+                Total qty: {totalInStockQuantity.toLocaleString()}
               </Badge>
               {totalItemsWithInventory > 0 && (
                 <Badge variant="secondary" className="text-xs">
-                  {((poItemsWithInventoryData.filter(item => 
-                    item.inventoryMatch && item.inventoryMatch.quantity > 0
-                  ).length / totalItemsWithInventory) * 100).toFixed(1)}% with stock
+                  {((inStockItems / totalItemsWithInventory) * 100).toFixed(1)}% with stock
                 </Badge>
               )}
             </div>
