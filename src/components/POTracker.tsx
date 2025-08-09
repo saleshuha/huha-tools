@@ -425,11 +425,6 @@ export function POTracker() {
               <Badge variant="secondary" className="text-xs">
                 {matchedItems.toLocaleString()} records matched
               </Badge>
-              {totalItemsQuantity > 0 && (
-                <Badge variant="secondary" className="text-xs">
-                  {((matchedItemsQuantity / totalItemsQuantity) * 100).toFixed(1)}% by quantity
-                </Badge>
-              )}
             </div>
           </CardContent>
         </Card>
