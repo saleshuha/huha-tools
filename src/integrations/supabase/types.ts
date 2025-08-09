@@ -1258,9 +1258,7 @@ export type Database = {
           country: string
           created_at: string
           currency: string | null
-          description: string | null
           id: string
-          notes: string | null
           sku_code: string
           title: string | null
           updated_at: string
@@ -1272,9 +1270,7 @@ export type Database = {
           country: string
           created_at?: string
           currency?: string | null
-          description?: string | null
           id?: string
-          notes?: string | null
           sku_code: string
           title?: string | null
           updated_at?: string
@@ -1286,9 +1282,7 @@ export type Database = {
           country?: string
           created_at?: string
           currency?: string | null
-          description?: string | null
           id?: string
-          notes?: string | null
           sku_code?: string
           title?: string | null
           updated_at?: string
