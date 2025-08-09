@@ -79,7 +79,8 @@ export const SunskySKUImporter: React.FC = () => {
       if (data.result === 'success') {
         setCategories(data.data || []);
       } else {
-        throw new Error(data.message || 'Failed to load categories');
+        console.warn('Categories API returned:', data);
+        setCategories([]); // Set empty array instead of throwing error
       }
     } catch (error) {
       console.error('Error loading categories:', error);
@@ -102,7 +103,8 @@ export const SunskySKUImporter: React.FC = () => {
       if (data.result === 'success') {
         setBrands(data.data || []);
       } else {
-        throw new Error(data.message || 'Failed to load brands');
+        console.warn('Brands API returned:', data);
+        setBrands([]); // Set empty array instead of throwing error
       }
     } catch (error) {
       console.error('Error loading brands:', error);

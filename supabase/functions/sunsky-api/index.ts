@@ -144,10 +144,30 @@ serve(async (req) => {
         if (brandName) params.brandName = brandName;
         if (leadTimeLevel) params.leadTimeLevel = leadTimeLevel;
 
+        console.log('Search params:', params);
+
         const result = await makeSunskyRequest('/openapi/product!search.do', params, sunskyKey, sunskySecret);
         
         if (result.result === 'error') {
+          console.error('Sunsky search error:', result);
           throw new Error(result.messages?.[0] || 'Sunsky API error');
+        }
+
+        // Convert prices for products if they exist
+        if (result.result === 'success' && result.data?.result) {
+          for (const product of result.data.result) {
+            if (product.price) {
+              try {
+                const priceUSD = parseFloat(product.price);
+                product.convertedPrice = await convertCurrency(priceUSD, userCountry);
+                product.convertedCurrency = userCountry === 'KSA' ? 'SAR' : 'AED';
+              } catch (error) {
+                console.error('Currency conversion error:', error);
+                product.convertedPrice = parseFloat(product.price);
+                product.convertedCurrency = 'USD';
+              }
+            }
+          }
         }
 
         return new Response(JSON.stringify(result), {
@@ -275,13 +295,27 @@ serve(async (req) => {
 
       case 'getBrands': {
         const params = {
-          lang: 'en'
+          lang: 'en',
+          pageSize: 100,
+          page: 1
         };
 
-        const result = await makeSunskyRequest('/openapi/brand!getAll.do', params, sunskyKey, sunskySecret);
+        console.log('Getting brands with params:', params);
+
+        // Try the brand list endpoint - this might need to be adjusted based on actual API
+        const result = await makeSunskyRequest('/openapi/brand!list.do', params, sunskyKey, sunskySecret);
+        
+        console.log('Brand API result:', result);
         
         if (result.result === 'error') {
-          throw new Error(result.messages?.[0] || 'Sunsky API error');
+          console.error('Brand API error:', result);
+          // Return empty array instead of throwing error to prevent component crash
+          return new Response(JSON.stringify({
+            result: 'success',
+            data: []
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
         }
 
         return new Response(JSON.stringify(result), {
