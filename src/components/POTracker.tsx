@@ -262,6 +262,46 @@ export function POTracker() {
     inventoryMatch: findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code)
   }));
 
+  // Debug logging
+  useEffect(() => {
+    if (inventoryMatches.length > 0) {
+      console.log('=== INVENTORY DEBUG ===');
+      console.log('Total PO orders:', poOrders.length);
+      console.log('Total inventory data (ASIN):', inventoryData.asinInventory.length);
+      console.log('Total inventory data (SKU):', inventoryData.skuInventory.length);
+      
+      const withInventory = inventoryMatches.filter(item => item.inventoryMatch);
+      console.log('Items with inventory match:', withInventory.length);
+      
+      const inStock = inventoryMatches.filter(item => 
+        item.inventoryMatch && item.inventoryMatch.isActuallyInStock
+      );
+      console.log('Items actually in stock:', inStock.length);
+      
+      // Sample in stock items
+      inStock.slice(0, 3).forEach((item, idx) => {
+        console.log(`Sample in-stock item ${idx + 1}:`, {
+          asin: item.asin,
+          sku: item.sku_code,
+          inventoryMatch: item.inventoryMatch
+        });
+      });
+      
+      // Sample items with inventory but not in stock
+      const hasInventoryButNotInStock = inventoryMatches.filter(item => 
+        item.inventoryMatch && !item.inventoryMatch.isActuallyInStock
+      );
+      console.log('Items with inventory but NOT in stock:', hasInventoryButNotInStock.length);
+      hasInventoryButNotInStock.slice(0, 3).forEach((item, idx) => {
+        console.log(`Sample not-in-stock item ${idx + 1}:`, {
+          asin: item.asin,
+          sku: item.sku_code,
+          inventoryMatch: item.inventoryMatch
+        });
+      });
+    }
+  }, [inventoryMatches.length, inventoryData]);
+
   // Calculate inventory statistics using the new logic
   const totalItemsWithInventory = inventoryMatches.filter(item => item.inventoryMatch).length;
   const inStockItems = inventoryMatches.filter(item => 
