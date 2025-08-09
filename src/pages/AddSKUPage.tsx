@@ -347,14 +347,14 @@ export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIs
               File Processing Center
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-8 space-y-8">
+          <CardContent className="p-6 space-y-4">
             {/* Upload Mode Selection */}
-            <div className="space-y-4">
+            <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center text-primary font-semibold text-xs">1</div>
+                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center text-primary font-semibold text-xs">1</div>
                 Select Processing Mode
               </div>
-              <div className="ml-10 bg-gradient-to-r from-muted/50 to-transparent p-4 rounded-xl border border-border/50">
+              <div className="ml-8 bg-gradient-to-r from-muted/50 to-transparent p-3 rounded-lg border border-border/50">
                 <UploadModeSelector 
                   uploadMode={uploadMode}
                   onUploadModeChange={handleUploadModeChange}
@@ -363,12 +363,12 @@ export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIs
             </div>
 
             {/* File Upload Section */}
-            <div className="space-y-4">
+            <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center text-primary font-semibold text-xs">2</div>
+                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center text-primary font-semibold text-xs">2</div>
                 Upload Your Files
               </div>
-              <div className="ml-10 bg-gradient-to-r from-muted/50 to-transparent p-4 rounded-xl border border-border/50">
+              <div className="ml-8 bg-gradient-to-r from-muted/50 to-transparent p-3 rounded-lg border border-border/50">
                 <FileUploadArea
                   uploadMode={uploadMode}
                   selectedFiles={selectedFiles}
@@ -380,14 +380,14 @@ export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIs
             </div>
               
               {selectedFiles && selectedFiles.length > 0 && (
-                <div className="space-y-6 animate-fade-in">
+                <div className="space-y-3 animate-fade-in">
                   {/* Processing Controls */}
-                  <div className="space-y-4">
+                  <div className="space-y-2">
                     <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center text-primary font-semibold text-xs">3</div>
+                      <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center text-primary font-semibold text-xs">3</div>
                       Configure & Process
                     </div>
-                    <div className="ml-10 bg-gradient-to-r from-muted/50 to-transparent p-4 rounded-xl border border-border/50">
+                    <div className="ml-8 bg-gradient-to-r from-muted/50 to-transparent p-3 rounded-lg border border-border/50">
                       <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-3">
                           <div className="p-2 rounded-lg bg-success/10 border border-success/20">
