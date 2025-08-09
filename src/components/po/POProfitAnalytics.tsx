@@ -409,11 +409,17 @@ export function POProfitAnalytics({ poOrders, sunskySKUs }: POProfitAnalyticsPro
                         </div>
                         
                         <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-4 space-y-3">
-                          <div className="text-center">
-                            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                              {globalMultiplier.toFixed(1)}x
-                            </div>
-                            <div className="text-xs text-muted-foreground">Current multiplier</div>
+                          <div className="flex items-center gap-2">
+                            <Input
+                              type="number"
+                              value={globalMultiplier}
+                              onChange={(e) => handleMultiplierChange(parseFloat(e.target.value) || 1)}
+                              min={1}
+                              max={5}
+                              step={0.1}
+                              className="w-20 text-center font-bold"
+                            />
+                            <span className="text-sm text-muted-foreground">x</span>
                           </div>
                           
                           <div className="space-y-2">
@@ -469,11 +475,17 @@ export function POProfitAnalytics({ poOrders, sunskySKUs }: POProfitAnalyticsPro
                         </div>
                         
                         <div className="bg-green-50 dark:bg-green-950/20 rounded-lg p-4 space-y-3">
-                          <div className="text-center">
-                            <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                              {globalCommission.toFixed(1)}%
-                            </div>
-                            <div className="text-xs text-muted-foreground">Platform fee</div>
+                          <div className="flex items-center gap-2">
+                            <Input
+                              type="number"
+                              value={globalCommission}
+                              onChange={(e) => handleCommissionChange(parseFloat(e.target.value) || 0)}
+                              min={0}
+                              max={30}
+                              step={0.5}
+                              className="w-20 text-center font-bold"
+                            />
+                            <span className="text-sm text-muted-foreground">%</span>
                           </div>
                           
                           <div className="space-y-2">
@@ -529,11 +541,17 @@ export function POProfitAnalytics({ poOrders, sunskySKUs }: POProfitAnalyticsPro
                         </div>
                         
                         <div className="bg-purple-50 dark:bg-purple-950/20 rounded-lg p-4 space-y-3">
-                          <div className="text-center">
-                            <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                              {shippingRate.toFixed(3)}
-                            </div>
-                            <div className="text-xs text-muted-foreground">AED per gram</div>
+                          <div className="flex items-center gap-2">
+                            <Input
+                              type="number"
+                              value={shippingRate}
+                              onChange={(e) => handleShippingRateChange(parseFloat(e.target.value) || 0)}
+                              min={0}
+                              max={0.02}
+                              step={0.001}
+                              className="w-24 text-center font-bold"
+                            />
+                            <span className="text-xs text-muted-foreground">AED/g</span>
                           </div>
                           
                           <div className="space-y-2">
