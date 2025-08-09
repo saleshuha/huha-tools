@@ -23,6 +23,7 @@ export interface BulkProcessingSettings {
   duplicateHandling: 'skip' | 'update' | 'error';
   validationLevel: 'basic' | 'strict';
   autoMapping: boolean;
+  threadCount: number; // Number of parallel processing threads
 }
 
 export interface FileStatus {

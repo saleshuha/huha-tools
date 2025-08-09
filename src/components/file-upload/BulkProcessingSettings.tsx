@@ -20,7 +20,25 @@ export const BulkProcessingSettingsPanel: React.FC<BulkProcessingSettingsProps> 
 
   return (
     <Card className="p-4">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div>
+          <label className="text-sm font-medium">Thread Count</label>
+          <Select
+            value={settings.threadCount.toString()}
+            onValueChange={(value) => updateSetting('threadCount', parseInt(value))}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="2">2 Threads</SelectItem>
+              <SelectItem value="4">4 Threads</SelectItem>
+              <SelectItem value="6">6 Threads</SelectItem>
+              <SelectItem value="8">8 Threads</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        
         <div>
           <label className="text-sm font-medium">Batch Size</label>
           <Select

@@ -45,58 +45,5 @@ export function SidebarProgressIndicator() {
     }
   }
 
-  return (
-    <div className="space-y-2 p-3 border border-sidebar-border rounded-lg bg-sidebar-accent/5">
-      {/* Active Task */}
-      {activeTask && (
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            {getStatusIcon(activeTask.status)}
-            <span className="text-xs font-medium text-sidebar-foreground truncate">
-              {activeTask.name}
-            </span>
-          </div>
-          
-          {activeTask.progress !== undefined && (
-            <div className="space-y-1">
-              <Progress 
-                value={activeTask.progress} 
-                className="h-1.5 bg-sidebar-border"
-              />
-              <div className="flex justify-between items-center">
-                <span className="text-[10px] text-sidebar-foreground/60">
-                  {Math.round(activeTask.progress)}%
-                </span>
-                {activeTask.threads && activeTask.threads.length > 0 && (
-                  <span className="text-[10px] text-sidebar-foreground/60">
-                    {activeTask.threads.length} threads
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Recent Tasks */}
-      {!activeTask && recentTasks.length > 0 && (
-        <div className="space-y-1">
-          {recentTasks.map((task) => (
-            <div key={task.id} className="flex items-center gap-2">
-              {getStatusIcon(task.status)}
-              <span className="text-xs text-sidebar-foreground/80 truncate flex-1">
-                {task.name}
-              </span>
-              <Badge 
-                variant="outline" 
-                className={`text-[10px] px-1 py-0 h-4 ${getStatusColor(task.status)}`}
-              >
-                {task.status}
-              </Badge>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
+  return null; // Sidebar progress indicator removed - using in-page status panel instead
 }

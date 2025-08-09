@@ -64,7 +64,8 @@ export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIs
     batchSize: 1000,
     duplicateHandling: 'skip',
     validationLevel: 'basic',
-    autoMapping: true
+    autoMapping: true,
+    threadCount: 4 // Default to 4 threads for better performance
   });
 
   // Load existing SKUs for duplicate detection
@@ -426,7 +427,7 @@ export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIs
       await runBackgroundUpload(
         skuData,
         onAddSKUs,
-        2 // thread count
+        bulkSettings.threadCount // Use configurable thread count
       );
       console.log('✅ runBackgroundUpload completed');
       
