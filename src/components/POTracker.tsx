@@ -256,10 +256,16 @@ export function POTracker() {
   // Calculate inventory statistics
   const totalItemsWithInventory = inventoryMatches.filter(item => item.inventoryMatch).length;
   const inStockItems = inventoryMatches.filter(item => 
-    item.inventoryMatch && item.inventoryMatch.status === 'in-stock'
+    item.inventoryMatch && 
+    item.inventoryMatch.status === 'in-stock' && 
+    item.inventoryMatch.quantity > 0
   ).length;
   const totalInStockQuantity = inventoryMatches
-    .filter(item => item.inventoryMatch && item.inventoryMatch.status === 'in-stock')
+    .filter(item => 
+      item.inventoryMatch && 
+      item.inventoryMatch.status === 'in-stock' && 
+      item.inventoryMatch.quantity > 0
+    )
     .reduce((sum, item) => sum + (item.inventoryMatch?.quantity || 0), 0);
 
   // Group orders by PO number for the tracking table
@@ -675,10 +681,16 @@ export function POTracker() {
                                      
                                      const poItemsWithInventory = poInventoryMatches.filter(item => item.inventoryMatch).length;
                                      const poInStockItems = poInventoryMatches.filter(item => 
-                                       item.inventoryMatch && item.inventoryMatch.status === 'in-stock'
+                                       item.inventoryMatch && 
+                                       item.inventoryMatch.status === 'in-stock' && 
+                                       item.inventoryMatch.quantity > 0
                                      ).length;
                                      const poInStockQuantity = poInventoryMatches
-                                       .filter(item => item.inventoryMatch && item.inventoryMatch.status === 'in-stock')
+                                       .filter(item => 
+                                         item.inventoryMatch && 
+                                         item.inventoryMatch.status === 'in-stock' && 
+                                         item.inventoryMatch.quantity > 0
+                                       )
                                        .reduce((sum, item) => sum + (item.inventoryMatch?.quantity || 0), 0);
                                      
                                      return (
