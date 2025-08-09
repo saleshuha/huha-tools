@@ -52,37 +52,14 @@ export const usePOOrders = () => {
       setLoadingProgress(30);
       setLoadingStatus('Fetching orders from database...');
 
-      // Clear existing data first to force fresh load
-      setPOOrders([]);
+      // Use the database function that includes sunsky_sku data
+      const { data: allData, error } = await supabase
+        .rpc('get_all_po_orders', { user_id_param: user.id });
 
-      // Fetch all records in batches to bypass any limits
-      let allData: any[] = [];
-      let hasMore = true;
-      let offset = 0;
-      const batchSize = 1000;
+      if (error) throw error;
 
-      while (hasMore) {
-        const { data: batchData, error } = await supabase
-          .from('po_orders')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-          .range(offset, offset + batchSize - 1);
-
-        if (error) throw error;
-
-        if (batchData && batchData.length > 0) {
-          allData = [...allData, ...batchData];
-          offset += batchSize;
-          hasMore = batchData.length === batchSize; // Continue if we got a full batch
-          
-          console.log(`Loaded batch: ${batchData.length} records, total so far: ${allData.length}`);
-        } else {
-          hasMore = false;
-        }
-      }
-
-      console.log(`Total records fetched: ${allData.length}`);
+      console.log(`Total records fetched: ${allData?.length || 0}`);
+      console.log('Sample order with SKU:', allData?.[0]);
 
       setLoadingProgress(80);
       setLoadingStatus('Processing order data...');
@@ -90,7 +67,7 @@ export const usePOOrders = () => {
       const allOrders = (allData || []).map(order => ({
         ...order,
         status: order.status as POOrder['status'],
-        sunsky_sku: null // Will be populated separately if needed
+        // sunsky_sku is already included from the database function
       }));
 
       setPOOrders(allOrders);
