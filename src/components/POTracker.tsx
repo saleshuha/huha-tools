@@ -487,30 +487,12 @@ export function POTracker() {
                             onClick={matchedCount > 0 ? () => handlePORowClick(poNumber) : undefined}
                           >
                             <TableCell>
-                              <div className="space-y-2">
-                                <div className="font-mono font-medium text-primary text-sm">
+                              <div className="space-y-1">
+                                <div className="font-mono font-bold text-primary text-lg">
                                   {poNumber}
                                 </div>
-                                <div className="flex items-center gap-2">
-                                  <Badge variant="outline" className="text-xs">
-                                    {orders.length} items
-                                  </Badge>
-                                  {matchedCount > 0 ? (
-                                    <>
-                                      <Badge variant="default" className="text-xs">
-                                        {matchedCount} matched
-                                      </Badge>
-                                      {matchedCount < orders.length && (
-                                        <Badge variant="destructive" className="text-xs">
-                                          {orders.length - matchedCount} unmatched
-                                        </Badge>
-                                      )}
-                                    </>
-                                  ) : (
-                                    <Badge variant="destructive" className="text-xs">
-                                      No items match
-                                    </Badge>
-                                  )}
+                                <div className="text-sm text-muted-foreground">
+                                  Ship to: {orders[0]?.ship_to_location || 'Not specified'}
                                 </div>
                               </div>
                             </TableCell>
