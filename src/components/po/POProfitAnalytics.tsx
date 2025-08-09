@@ -142,8 +142,8 @@ export function POProfitAnalytics({ poOrders, sunskySKUs }: POProfitAnalyticsPro
           const shippingCost = weight * shippingRate;
           const purchaseCostWithShipping = baseCost + shippingCost;
           
-          // Calculate sell price using multiplier
-          const sellPrice = baseCost * globalMultiplier;
+          // Calculate sell price using multiplier on purchase cost (including shipping)
+          const sellPrice = purchaseCostWithShipping * globalMultiplier;
           
           // Calculate commission
           const commissionAmount = (sellPrice * globalCommission) / 100;
