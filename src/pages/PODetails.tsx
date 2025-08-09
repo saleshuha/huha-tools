@@ -19,8 +19,6 @@ import { useToast } from '@/hooks/use-toast';
 interface StatusProgress {
   pending: number;
   ordered: number;
-  shipped: number;
-  delivered: number;
   total: number;
 }
 
@@ -81,14 +79,16 @@ export default function PODetailsPage() {
 
   // Calculate status progress
   const statusProgress: StatusProgress = matchedOrders.reduce((acc, order) => {
-    acc[order.status as keyof Omit<StatusProgress, 'total'>]++;
+    if (order.status === 'pending' || order.status === 'ordered') {
+      acc[order.status as keyof Omit<StatusProgress, 'total'>]++;
+    }
     acc.total++;
     return acc;
-  }, { pending: 0, ordered: 0, shipped: 0, delivered: 0, total: 0 });
+  }, { pending: 0, ordered: 0, total: 0 });
 
   // Calculate progress percentage
   const progressPercentage = statusProgress.total > 0 
-    ? ((statusProgress.delivered + statusProgress.shipped) / statusProgress.total) * 100 
+    ? (statusProgress.ordered / statusProgress.total) * 100 
     : 0;
 
   // Get PO summary data
@@ -319,7 +319,7 @@ export default function PODetailsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <div className="text-center p-4 bg-yellow-50 dark:bg-yellow-900/10 rounded-lg">
                 <div className="text-2xl font-bold text-yellow-600">{statusProgress.pending}</div>
                 <div className="text-sm text-yellow-600">Pending</div>
@@ -327,14 +327,6 @@ export default function PODetailsPage() {
               <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/10 rounded-lg">
                 <div className="text-2xl font-bold text-blue-600">{statusProgress.ordered}</div>
                 <div className="text-sm text-blue-600">Ordered</div>
-              </div>
-              <div className="text-center p-4 bg-purple-50 dark:bg-purple-900/10 rounded-lg">
-                <div className="text-2xl font-bold text-purple-600">{statusProgress.shipped}</div>
-                <div className="text-sm text-purple-600">Shipped</div>
-              </div>
-              <div className="text-center p-4 bg-green-50 dark:bg-green-900/10 rounded-lg">
-                <div className="text-2xl font-bold text-green-600">{statusProgress.delivered}</div>
-                <div className="text-sm text-green-600">Delivered</div>
               </div>
             </div>
           </CardContent>
@@ -438,26 +430,6 @@ export default function PODetailsPage() {
                               className="text-xs"
                             >
                               Mark Ordered
-                            </Button>
-                          )}
-                          {order.status === 'ordered' && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => updateOrderStatus(order.id, 'shipped')}
-                              className="text-xs"
-                            >
-                              Mark Shipped
-                            </Button>
-                          )}
-                          {order.status === 'shipped' && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => updateOrderStatus(order.id, 'delivered')}
-                              className="text-xs"
-                            >
-                              Mark Delivered
                             </Button>
                           )}
                         </div>
