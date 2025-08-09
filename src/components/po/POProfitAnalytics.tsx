@@ -5,7 +5,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { TrendingUp, TrendingDown, DollarSign, Package, Search, Download, Filter, Settings, Calculator, Plus, Minus, Save } from 'lucide-react';
+import { Slider } from '@/components/ui/slider';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { TrendingUp, TrendingDown, DollarSign, Package, Search, Download, Filter, Settings, Calculator, Plus, Minus, Save, HelpCircle, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useToast } from '@/hooks/use-toast';
@@ -316,159 +318,244 @@ export function POProfitAnalytics({ poOrders, sunskySKUs }: POProfitAnalyticsPro
         </Card>
       </div>
 
-      {/* Controls for Multiplier and Commission */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Settings className="h-5 w-5" />
-            Pricing Controls
-          </CardTitle>
-          <CardDescription>
-            Set multiplier and commission rates for profit calculations
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Multiplier Control */}
-            <div className="space-y-3">
-              <label className="text-sm font-medium flex items-center gap-2">
-                <Calculator className="h-4 w-4" />
-                Sell Price Multiplier
-              </label>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleMultiplierChange(Math.max(1, globalMultiplier - 0.1))}
-                  className="h-8 w-8 p-0"
-                >
-                  <Minus className="h-3 w-3" />
-                </Button>
-                <div className="flex-1 text-center">
-                  <div className="text-lg font-bold">{globalMultiplier.toFixed(1)}x</div>
-                  <div className="text-xs text-muted-foreground">SKU Cost</div>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleMultiplierChange(Math.min(10, globalMultiplier + 0.1))}
-                  className="h-8 w-8 p-0"
-                >
-                  <Plus className="h-3 w-3" />
-                </Button>
+      {/* Advanced Pricing Controls */}
+      <Card className="border-2 border-primary/20 bg-gradient-to-br from-background to-primary/5">
+        <CardHeader className="pb-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-primary/10">
+                <Settings className="h-5 w-5 text-primary" />
               </div>
-              <div className="flex gap-1">
-                {[2.0, 2.5, 3.0, 4.0].map(value => (
-                  <Button
-                    key={value}
-                    variant={globalMultiplier === value ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => handleMultiplierChange(value)}
-                    className="text-xs h-6"
-                  >
-                    {value}x
-                  </Button>
-                ))}
+              <div>
+                <CardTitle className="text-lg">Pricing Controls</CardTitle>
+                <CardDescription>
+                  Configure multiplier, commission, and shipping rates for profit calculations
+                </CardDescription>
               </div>
             </div>
-
-            {/* Commission Control */}
-            <div className="space-y-3">
-              <label className="text-sm font-medium flex items-center gap-2">
-                <DollarSign className="h-4 w-4" />
-                Commission Rate
-              </label>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleCommissionChange(Math.max(0, globalCommission - 1))}
-                  className="h-8 w-8 p-0"
-                >
-                  <Minus className="h-3 w-3" />
-                </Button>
-                <div className="flex-1 text-center">
-                  <div className="text-lg font-bold">{globalCommission.toFixed(1)}%</div>
-                  <div className="text-xs text-muted-foreground">of Sell Price</div>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleCommissionChange(Math.min(50, globalCommission + 1))}
-                  className="h-8 w-8 p-0"
-                >
-                  <Plus className="h-3 w-3" />
-                </Button>
+            {hasUnsavedChanges && (
+              <div className="flex items-center gap-2 text-amber-600">
+                <AlertCircle className="h-4 w-4" />
+                <span className="text-sm font-medium">Unsaved Changes</span>
               </div>
-              <div className="flex gap-1">
-                {[10, 15, 20, 25].map(value => (
-                  <Button
-                    key={value}
-                    variant={globalCommission === value ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => handleCommissionChange(value)}
-                    className="text-xs h-6"
-                  >
-                    {value}%
-                  </Button>
-                ))}
-              </div>
-            </div>
-
-            {/* Shipping Rate Control */}
-            <div className="space-y-3">
-              <label className="text-sm font-medium flex items-center gap-2">
-                <Package className="h-4 w-4" />
-                Shipping Rate
-              </label>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleShippingRateChange(Math.max(0, shippingRate - 0.001))}
-                  className="h-8 w-8 p-0"
-                >
-                  <Minus className="h-3 w-3" />
-                </Button>
-                <div className="flex-1 text-center">
-                  <div className="text-lg font-bold">{shippingRate.toFixed(3)}</div>
-                  <div className="text-xs text-muted-foreground">AED per gram</div>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleShippingRateChange(Math.min(1, shippingRate + 0.001))}
-                  className="h-8 w-8 p-0"
-                >
-                  <Plus className="h-3 w-3" />
-                </Button>
-              </div>
-              <div className="flex gap-1">
-                {[0.003, 0.005, 0.007, 0.010].map(value => (
-                  <Button
-                    key={value}
-                    variant={Math.abs(shippingRate - value) < 0.0001 ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => handleShippingRateChange(value)}
-                    className="text-xs h-6"
-                  >
-                    {value.toFixed(3)}
-                  </Button>
-                ))}
-              </div>
-            </div>
+            )}
           </div>
+        </CardHeader>
+        <CardContent className="space-y-8">
+          <TooltipProvider>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              
+              {/* Sell Price Multiplier */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded bg-blue-100 dark:bg-blue-900/30">
+                    <Calculator className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <div className="flex-1">
+                    <label className="text-sm font-semibold text-blue-900 dark:text-blue-100">
+                      Sell Price Multiplier
+                    </label>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <HelpCircle className="h-3 w-3 text-muted-foreground ml-1 cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="max-w-48">Multiplies the SKU cost to determine the selling price</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                </div>
+                
+                <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-4 space-y-3">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                      {globalMultiplier.toFixed(1)}x
+                    </div>
+                    <div className="text-xs text-muted-foreground">Current multiplier</div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Slider
+                      value={[globalMultiplier]}
+                      onValueChange={([value]) => handleMultiplierChange(value)}
+                      min={1}
+                      max={5}
+                      step={0.1}
+                      className="w-full"
+                    />
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>1.0x</span>
+                      <span>5.0x</span>
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-1 flex-wrap">
+                    {[1.5, 2.0, 2.5, 3.0, 3.5, 4.0].map(value => (
+                      <Button
+                        key={value}
+                        variant={Math.abs(globalMultiplier - value) < 0.1 ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => handleMultiplierChange(value)}
+                        className="text-xs h-7 px-2"
+                      >
+                        {value}x
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Commission Rate */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded bg-green-100 dark:bg-green-900/30">
+                    <DollarSign className="h-4 w-4 text-green-600 dark:text-green-400" />
+                  </div>
+                  <div className="flex-1">
+                    <label className="text-sm font-semibold text-green-900 dark:text-green-100">
+                      Commission Rate
+                    </label>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <HelpCircle className="h-3 w-3 text-muted-foreground ml-1 cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="max-w-48">Platform commission charged as percentage of sell price</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                </div>
+                
+                <div className="bg-green-50 dark:bg-green-950/20 rounded-lg p-4 space-y-3">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                      {globalCommission.toFixed(1)}%
+                    </div>
+                    <div className="text-xs text-muted-foreground">Platform fee</div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Slider
+                      value={[globalCommission]}
+                      onValueChange={([value]) => handleCommissionChange(value)}
+                      min={0}
+                      max={30}
+                      step={0.5}
+                      className="w-full"
+                    />
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>0%</span>
+                      <span>30%</span>
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-1 flex-wrap">
+                    {[5, 10, 15, 20, 25].map(value => (
+                      <Button
+                        key={value}
+                        variant={Math.abs(globalCommission - value) < 0.1 ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => handleCommissionChange(value)}
+                        className="text-xs h-7 px-2"
+                      >
+                        {value}%
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Shipping Rate */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded bg-purple-100 dark:bg-purple-900/30">
+                    <Package className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                  </div>
+                  <div className="flex-1">
+                    <label className="text-sm font-semibold text-purple-900 dark:text-purple-100">
+                      Shipping Rate
+                    </label>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <HelpCircle className="h-3 w-3 text-muted-foreground ml-1 cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="max-w-48">Cost per gram for shipping from supplier to warehouse</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                </div>
+                
+                <div className="bg-purple-50 dark:bg-purple-950/20 rounded-lg p-4 space-y-3">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                      {shippingRate.toFixed(3)}
+                    </div>
+                    <div className="text-xs text-muted-foreground">AED per gram</div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Slider
+                      value={[shippingRate * 1000]}
+                      onValueChange={([value]) => handleShippingRateChange(value / 1000)}
+                      min={1}
+                      max={15}
+                      step={0.5}
+                      className="w-full"
+                    />
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>0.001</span>
+                      <span>0.015</span>
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-1 flex-wrap">
+                    {[0.002, 0.003, 0.005, 0.007, 0.010].map(value => (
+                      <Button
+                        key={value}
+                        variant={Math.abs(shippingRate - value) < 0.0001 ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => handleShippingRateChange(value)}
+                        className="text-xs h-7 px-1.5"
+                      >
+                        {value.toFixed(3)}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </TooltipProvider>
           
-          {/* Save Button */}
-          <div className="flex justify-center mt-6">
+          {/* Action Bar */}
+          <div className="flex items-center justify-between pt-4 border-t border-primary/20">
+            <div className="text-sm text-muted-foreground">
+              {hasUnsavedChanges ? (
+                <span className="flex items-center gap-2 text-amber-600">
+                  <AlertCircle className="h-4 w-4" />
+                  Changes will take effect after saving
+                </span>
+              ) : (
+                <span className="flex items-center gap-2 text-green-600">
+                  <div className="h-2 w-2 rounded-full bg-green-500"></div>
+                  All settings saved
+                </span>
+              )}
+            </div>
+            
             <Button 
               onClick={savePricingSettings}
               disabled={!hasUnsavedChanges}
-              className="gap-2"
+              className={`gap-2 transition-all duration-200 ${
+                hasUnsavedChanges 
+                  ? "bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg" 
+                  : ""
+              }`}
               variant={hasUnsavedChanges ? "default" : "outline"}
+              size="lg"
             >
               <Save className="h-4 w-4" />
-              {hasUnsavedChanges ? "Save Changes" : "All Changes Saved"}
+              {hasUnsavedChanges ? "Save Changes & Apply" : "All Changes Saved"}
             </Button>
           </div>
         </CardContent>
