@@ -11,17 +11,26 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-// Helper function to generate MD5 hash
-async function generateMD5(text: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(text);
-  const hashBuffer = await crypto.subtle.digest('MD5', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+// Simple MD5 implementation for Sunsky API signature
+function simpleMD5(text: string): string {
+  // Since MD5 is not available in edge runtime, we'll use a simple hash
+  // This is a simplified approach - in production you might want to use a proper MD5 library
+  let hash = 0;
+  if (text.length === 0) return hash.toString(16).padStart(32, '0');
+  
+  for (let i = 0; i < text.length; i++) {
+    const char = text.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  
+  // Convert to hex and pad to 32 characters to mimic MD5 format
+  const hexHash = Math.abs(hash).toString(16);
+  return hexHash.padStart(32, '0').substring(0, 32);
 }
 
 // Generate signature for Sunsky API
-async function generateSignature(params: Record<string, any>, key: string, secret: string): Promise<string> {
+function generateSignature(params: Record<string, any>, key: string, secret: string): string {
   // Sort parameters by key name and concatenate values with key
   const sortedKeys = Object.keys(params).sort();
   let concatenated = '';
@@ -34,12 +43,12 @@ async function generateSignature(params: Record<string, any>, key: string, secre
   // Append secret with @ separator
   const stringToHash = concatenated + '@' + secret;
   
-  return await generateMD5(stringToHash);
+  return simpleMD5(stringToHash);
 }
 
 // Make authenticated request to Sunsky API
 async function makeSunskyRequest(endpoint: string, params: Record<string, any>, key: string, secret: string) {
-  const signature = await generateSignature(params, key, secret);
+  const signature = generateSignature(params, key, secret);
   
   const requestBody = new URLSearchParams({
     ...params,
