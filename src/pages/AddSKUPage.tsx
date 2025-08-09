@@ -406,13 +406,6 @@ export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIs
                   error={processingStatus.error}
                 />
                 
-                {/* Processing Progress and Status */}
-                <ProcessingProgress
-                  isProcessingBulk={isProcessingBulk}
-                  bulkProgress={bulkProgress}
-                  globalMapping={globalMapping}
-                  selectedFilesLength={selectedFiles?.length || 0}
-                />
                 
                 {/* Bulk Processing Settings */}
                 <BulkProcessingSettingsPanel
@@ -429,6 +422,7 @@ export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIs
                   selectedFiles={selectedFiles}
                   fileStatuses={fileStatuses}
                   fileProgress={fileProgress}
+                  fileRowCounts={fileRowCounts}
                 />
               </div>
             )}
