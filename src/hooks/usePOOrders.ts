@@ -94,7 +94,7 @@ export const usePOOrders = () => {
     }
   }, [toast]);
 
-  // Process PO files with mapped data - Updated to handle new mandatory fields
+  // Process PO files with mapped data - Updated to handle new mandatory fields and prevent duplicates
   const processPOFiles = useCallback(async (mappedData: any[], sunskySKUs: any[]) => {
     setIsLoading(true);
     setLoadingProgress(0);
@@ -105,15 +105,43 @@ export const usePOOrders = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      setLoadingProgress(20);
-      setLoadingStatus('Validating data...');
+      setLoadingProgress(10);
+      setLoadingStatus('Fetching existing PO orders...');
+
+      // Fetch existing PO orders to check for duplicates
+      const { data: existingPOs, error: fetchError } = await supabase
+        .from('po_orders')
+        .select('po_number, sku_code, asin, model_number, quantity, ship_to_location')
+        .eq('user_id', user.id);
+
+      if (fetchError) throw fetchError;
+
+      setLoadingProgress(30);
+      setLoadingStatus('Checking for duplicates...');
 
       const validOrders: any[] = [];
+      const duplicateCount = { count: 0 };
 
       mappedData.forEach(item => {
         // Validate that all mandatory fields are present
         if (item.po_number && item.ship_to_location && item.asin && 
             item.model_number && item.title && item.quantity) {
+          
+          // Check for duplicates based on key identifying fields
+          const isDuplicate = existingPOs?.some(existing => 
+            existing.po_number === item.po_number &&
+            existing.sku_code === (item.model_number || item.asin) &&
+            existing.asin === item.asin &&
+            existing.model_number === item.model_number &&
+            existing.quantity === item.quantity &&
+            existing.ship_to_location === item.ship_to_location
+          );
+
+          if (isDuplicate) {
+            duplicateCount.count++;
+            console.log(`Skipping duplicate PO: ${item.po_number} - ${item.model_number}`);
+            return; // Skip this item
+          }
           
           validOrders.push({
             po_number: item.po_number,
@@ -141,7 +169,7 @@ export const usePOOrders = () => {
       });
 
       setLoadingProgress(60);
-      setLoadingStatus(`Inserting ${validOrders.length} valid orders...`);
+      setLoadingStatus(`Inserting ${validOrders.length} new orders...`);
 
       if (validOrders.length > 0) {
         const { data, error } = await supabase
@@ -161,16 +189,32 @@ export const usePOOrders = () => {
 
         setLoadingProgress(100);
         
-        const skippedCount = mappedData.length - validOrders.length;
+        const skippedCount = mappedData.length - validOrders.length - duplicateCount.count;
+        const fileCount = new Set(mappedData.map(item => item.file_name)).size;
+        
+        let description = `Processed ${validOrders.length} new PO items from ${fileCount} file(s)`;
+        
+        if (duplicateCount.count > 0) {
+          description += `. ${duplicateCount.count} duplicates skipped`;
+        }
+        
+        if (skippedCount > 0) {
+          description += `. ${skippedCount} items skipped due to missing mandatory fields`;
+        }
+
         toast({
           title: "Success",
-          description: `Processed ${validOrders.length} PO items from ${new Set(mappedData.map(item => item.file_name)).size} file(s)${skippedCount > 0 ? `. ${skippedCount} items skipped due to missing mandatory fields.` : ''}`
+          description
         });
       } else {
+        const message = duplicateCount.count > 0 
+          ? `All ${duplicateCount.count} items were duplicates and skipped`
+          : "No valid orders found - all items are missing required fields";
+        
         toast({
-          title: "No valid orders found",
-          description: "All items are missing required fields (PO, Ship to Location, ASIN, Model Number, Title, Quantity)",
-          variant: "destructive"
+          title: duplicateCount.count > 0 ? "No new orders to process" : "No valid orders found",
+          description: message,
+          variant: duplicateCount.count > 0 ? "default" : "destructive"
         });
       }
     } catch (error) {
