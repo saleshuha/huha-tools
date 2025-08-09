@@ -440,12 +440,12 @@ export function POTracker() {
             <Clock className="h-4 w-4 text-yellow-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">{pendingMatchedOrders.toLocaleString()}</div>
+            <div className="text-2xl font-bold text-yellow-600">{pendingMatchedQuantity.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">
-              Matched items pending placement
+              Total quantity pending placement
             </p>
             <Badge variant="secondary" className="mt-1 text-xs">
-              {pendingMatchedQuantity.toLocaleString()} total quantity
+              {pendingMatchedOrders.toLocaleString()} pending items
             </Badge>
           </CardContent>
         </Card>
