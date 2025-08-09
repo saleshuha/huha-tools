@@ -17,6 +17,7 @@ import { BulkProcessingSettingsPanel } from '@/components/file-upload/BulkProces
 import { ProcessingProgress } from '@/components/file-upload/ProcessingProgress';
 import { ProcessingAnalyticsDisplay } from '@/components/file-upload/ProcessingAnalytics';
 import { ProcessingErrorsDisplay } from '@/components/file-upload/ProcessingErrors';
+import { ProcessingStatusPanel } from '@/components/file-upload/ProcessingStatusPanel';
 import { useBulkFileProcessor } from '@/hooks/useBulkFileProcessor';
 import { AddSKUPageProps, BulkProcessingSettings, UploadMode } from '@/types/file-upload';
 import { useBackgroundTasks } from '@/contexts/BackgroundTasksContext';
@@ -37,6 +38,26 @@ export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIs
   const [currentFileData, setCurrentFileData] = useState<{ headers: string[]; rows: any[][] } | null>(null);
   const [currentFileName, setCurrentFileName] = useState('');
   const [isBulkMapping, setIsBulkMapping] = useState(false);
+  
+  // Processing status state
+  const [processingStatus, setProcessingStatus] = useState<{
+    isProcessing: boolean;
+    currentStep: string;
+    currentFileIndex: number;
+    totalFiles: number;
+    currentFileName: string;
+    overallProgress: number;
+    status: 'idle' | 'parsing' | 'mapping' | 'uploading' | 'completed' | 'error';
+    error?: string;
+  }>({
+    isProcessing: false,
+    currentStep: '',
+    currentFileIndex: 0,
+    totalFiles: 0,
+    currentFileName: '',
+    overallProgress: 0,
+    status: 'idle'
+  });
   
   // Bulk processing settings
   const [bulkSettings, setBulkSettings] = useState<BulkProcessingSettings>({
@@ -249,6 +270,24 @@ export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIs
   const handleBulkProcessing = useCallback(async () => {
     if (!selectedFiles || !globalMapping) return;
     
+    // Initialize processing status
+    setProcessingStatus({
+      isProcessing: true,
+      currentStep: 'Starting file processing...',
+      currentFileIndex: 0,
+      totalFiles: selectedFiles.length,
+      currentFileName: '',
+      overallProgress: 0,
+      status: 'parsing'
+    });
+    
+    // Show initial processing toast
+    toast({
+      title: "Starting File Processing",
+      description: `Beginning to process ${selectedFiles.length} files...`,
+      variant: "default"
+    });
+    
     console.log('🚀 Starting bulk processing with:', {
       fileCount: selectedFiles.length,
       mapping: globalMapping
@@ -265,11 +304,34 @@ export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIs
         const file = selectedFiles[fileIndex];
         console.log(`📄 Processing file ${fileIndex + 1}/${selectedFiles.length}: ${file.name}`);
         
+        // Update processing status
+        setProcessingStatus(prev => ({
+          ...prev,
+          currentStep: `Parsing file ${fileIndex + 1} of ${selectedFiles.length}`,
+          currentFileIndex: fileIndex + 1,
+          currentFileName: file.name,
+          overallProgress: (fileIndex / selectedFiles.length) * 80 // 80% for parsing, 20% for upload
+        }));
+        
+        // Show progress toast for each file
+        toast({
+          title: `Processing File ${fileIndex + 1}/${selectedFiles.length}`,
+          description: `Parsing ${file.name}...`,
+          variant: "default"
+        });
+        
         try {
           const data = await parseFileSimply(file);
           console.log(`✅ File parsed successfully: ${file.name}, rows: ${data?.length || 0}`);
           
           if (data && data.length > 0) {
+            // Update status to mapping
+            setProcessingStatus(prev => ({
+              ...prev,
+              currentStep: `Mapping data from ${file.name}`,
+              status: 'mapping'
+            }));
+            
             console.log(`📊 Processing ${data.length} rows from ${file.name}`);
             console.log(`🔍 Sample raw row:`, data[0]);
             console.log(`🗺️ Current mapping:`, globalMapping);
@@ -318,6 +380,11 @@ export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIs
           }
         } catch (fileError) {
           console.error(`❌ Error processing file ${file.name}:`, fileError);
+          setProcessingStatus(prev => ({
+            ...prev,
+            status: 'error',
+            error: `Error processing ${file.name}: ${fileError instanceof Error ? fileError.message : 'Unknown error'}`
+          }));
         }
       }
       
@@ -326,6 +393,11 @@ export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIs
       
       if (skuData.length === 0) {
         console.error('💥 No SKU data collected from any files');
+        setProcessingStatus(prev => ({
+          ...prev,
+          status: 'error',
+          error: 'No valid SKU data found in any of the selected files'
+        }));
         toast({
           title: "No Data Found",
           description: "No valid SKU data found in the selected files.",
@@ -333,6 +405,14 @@ export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIs
         });
         return;
       }
+      
+      // Update status to uploading
+      setProcessingStatus(prev => ({
+        ...prev,
+        currentStep: `Starting background upload of ${skuData.length} SKUs...`,
+        status: 'uploading',
+        overallProgress: 80
+      }));
       
       // Start background upload
       console.log('🔄 About to start background upload with:', {
@@ -350,6 +430,14 @@ export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIs
       );
       console.log('✅ runBackgroundUpload completed');
       
+      // Update status to completed
+      setProcessingStatus(prev => ({
+        ...prev,
+        currentStep: `Successfully uploaded ${skuData.length} SKUs`,
+        status: 'completed',
+        overallProgress: 100
+      }));
+      
       // Clear local state and show success
       clearSelectedFiles();
       setGlobalMapping(null);
@@ -360,16 +448,36 @@ export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIs
         variant: "default"
       });
       
+      // Reset processing status after a delay
+      setTimeout(() => {
+        setProcessingStatus({
+          isProcessing: false,
+          currentStep: '',
+          currentFileIndex: 0,
+          totalFiles: 0,
+          currentFileName: '',
+          overallProgress: 0,
+          status: 'idle'
+        });
+      }, 5000);
+      
     } catch (error) {
       console.error('❌ Error in handleBulkProcessing:', error);
       console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+      
+      setProcessingStatus(prev => ({
+        ...prev,
+        status: 'error',
+        error: error instanceof Error ? error.message : 'Unknown error occurred during processing'
+      }));
+      
       toast({
         title: "Upload Failed",
         description: error instanceof Error ? error.message : "Failed to start background upload",
         variant: "destructive"
       });
     }
-  }, [selectedFiles, globalMapping, selectedCountry, runBackgroundUpload, onAddSKUs, clearSelectedFiles, toast]);
+  }, [selectedFiles, globalMapping, selectedCountry, runBackgroundUpload, onAddSKUs, clearSelectedFiles, toast, profile?.id]);
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -457,6 +565,19 @@ export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIs
                     )}
                   </div>
                 </div>
+                
+                
+                {/* Processing Status Panel */}
+                <ProcessingStatusPanel
+                  isProcessing={processingStatus.isProcessing}
+                  currentStep={processingStatus.currentStep}
+                  currentFileIndex={processingStatus.currentFileIndex}
+                  totalFiles={processingStatus.totalFiles}
+                  currentFileName={processingStatus.currentFileName}
+                  overallProgress={processingStatus.overallProgress}
+                  status={processingStatus.status}
+                  error={processingStatus.error}
+                />
                 
                 {/* Processing Progress and Status */}
                 <ProcessingProgress
