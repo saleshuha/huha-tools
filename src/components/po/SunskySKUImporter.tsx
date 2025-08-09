@@ -42,7 +42,7 @@ export const SunskySKUImporter: React.FC = () => {
   
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [categories, setCategories] = useState<SunskyCategory[]>([]);
   const [products, setProducts] = useState<SunskyProduct[]>([]);
   const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
@@ -88,7 +88,7 @@ export const SunskySKUImporter: React.FC = () => {
         pageSize: 20
       };
 
-      if (selectedCategory) {
+      if (selectedCategory && selectedCategory !== 'all') {
         searchParams.categoryId = selectedCategory;
       }
 
@@ -249,7 +249,7 @@ export const SunskySKUImporter: React.FC = () => {
                       <SelectValue placeholder="All categories" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All categories</SelectItem>
+                      <SelectItem value="all">All categories</SelectItem>
                       {categories.map((category) => (
                         <SelectItem key={category.id} value={category.id.toString()}>
                           {category.name}
