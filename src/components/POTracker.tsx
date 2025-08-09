@@ -434,6 +434,7 @@ export function POTracker() {
                 isLoading={skuLoading}
                 hasMore={hasMoreSKUs}
                 onLoadMore={loadMoreSKUs}
+                onSkuUpdated={refreshSKUs}
               />
             </CardContent>
           </Card>

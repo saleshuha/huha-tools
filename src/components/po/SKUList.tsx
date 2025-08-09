@@ -5,8 +5,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Package, Calendar, Calculator, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { useToast } from '@/hooks/use-toast';
+import { Package, Calendar, Calculator, ChevronLeft, ChevronRight, Loader2, Edit, Save, X } from 'lucide-react';
 import { SunskySKU } from '@/hooks/useSKUManager';
+import { supabase } from '@/integrations/supabase/client';
 
 interface SKUListProps {
   skus: SunskySKU[];
@@ -14,11 +20,16 @@ interface SKUListProps {
   isLoading: boolean;
   hasMore?: boolean;
   onLoadMore?: () => void;
+  onSkuUpdated?: () => void;
 }
 
-export function SKUList({ skus, shippingRate, isLoading, hasMore, onLoadMore }: SKUListProps) {
+export function SKUList({ skus, shippingRate, isLoading, hasMore, onLoadMore, onSkuUpdated }: SKUListProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
+  const [editingSku, setEditingSku] = useState<SunskySKU | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const { toast } = useToast();
   
   // Memoize expensive calculations
   const { totalPages, currentSkus, startIndex, endIndex } = useMemo(() => {
@@ -37,6 +48,52 @@ export function SKUList({ skus, shippingRate, isLoading, hasMore, onLoadMore }: 
   const handleItemsPerPageChange = (value: string) => {
     setItemsPerPage(Number(value));
     setCurrentPage(1); // Reset to first page
+  };
+
+  const handleEditSku = (sku: SunskySKU) => {
+    setEditingSku(sku);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleUpdateSku = async (updatedData: Partial<SunskySKU>) => {
+    if (!editingSku) return;
+
+    setIsUpdating(true);
+    try {
+      const { error } = await supabase
+        .from('sunsky_skus')
+        .update({
+          title: updatedData.title,
+          description: updatedData.description,
+          cost: updatedData.cost,
+          weight: updatedData.weight,
+          notes: updatedData.notes,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', editingSku.id);
+
+      if (error) {
+        throw error;
+      }
+
+      toast({
+        title: "SKU Updated",
+        description: `SKU ${editingSku.sku_code} has been updated successfully.`
+      });
+
+      setIsEditDialogOpen(false);
+      setEditingSku(null);
+      onSkuUpdated?.();
+    } catch (error) {
+      console.error('Error updating SKU:', error);
+      toast({
+        title: "Update Failed",
+        description: "Failed to update SKU. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsUpdating(false);
+    }
   };
   if (isLoading) {
     return (
@@ -86,6 +143,7 @@ export function SKUList({ skus, shippingRate, isLoading, hasMore, onLoadMore }: 
               <TableHead>Shipping Cost</TableHead>
               <TableHead>Total Cost</TableHead>
               <TableHead>Added</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -148,6 +206,16 @@ export function SKUList({ skus, shippingRate, isLoading, hasMore, onLoadMore }: 
                       <Calendar className="h-3 w-3 mr-1" />
                       {new Date(sku.created_at).toLocaleDateString()}
                     </div>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleEditSku(sku)}
+                      className="h-8 w-8 p-0"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
                   </TableCell>
                 </TableRow>
               );
@@ -269,7 +337,140 @@ export function SKUList({ skus, shippingRate, isLoading, hasMore, onLoadMore }: 
             </div>
           )}
         </div>
+
+        {/* Edit SKU Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Edit SKU: {editingSku?.sku_code}</DialogTitle>
+            </DialogHeader>
+            {editingSku && (
+              <EditSKUForm
+                sku={editingSku}
+                onSave={handleUpdateSku}
+                onCancel={() => setIsEditDialogOpen(false)}
+                isLoading={isUpdating}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
+  );
+}
+
+// Edit SKU Form Component
+interface EditSKUFormProps {
+  sku: SunskySKU;
+  onSave: (data: Partial<SunskySKU>) => void;
+  onCancel: () => void;
+  isLoading: boolean;
+}
+
+function EditSKUForm({ sku, onSave, onCancel, isLoading }: EditSKUFormProps) {
+  const [formData, setFormData] = useState({
+    title: sku.title || '',
+    description: sku.description || '',
+    cost: sku.cost?.toString() || '',
+    weight: sku.weight?.toString() || '',
+    notes: sku.notes || ''
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const updatedData: Partial<SunskySKU> = {
+      title: formData.title.trim() || null,
+      description: formData.description.trim() || null,
+      cost: formData.cost ? parseFloat(formData.cost) : null,
+      weight: formData.weight ? parseFloat(formData.weight) : null,
+      notes: formData.notes.trim() || null
+    };
+
+    onSave(updatedData);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="grid gap-2">
+        <Label htmlFor="edit-title">Title</Label>
+        <Input
+          id="edit-title"
+          value={formData.title}
+          onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+          placeholder="Enter product title"
+        />
+      </div>
+      
+      <div className="grid gap-2">
+        <Label htmlFor="edit-description">Description</Label>
+        <Textarea
+          id="edit-description"
+          value={formData.description}
+          onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+          placeholder="Enter product description"
+          rows={3}
+        />
+      </div>
+      
+      <div className="grid grid-cols-2 gap-4">
+        <div className="grid gap-2">
+          <Label htmlFor="edit-cost">Cost ({sku.currency || 'AED'})</Label>
+          <Input
+            id="edit-cost"
+            type="number"
+            step="0.01"
+            min="0"
+            value={formData.cost}
+            onChange={(e) => setFormData(prev => ({ ...prev, cost: e.target.value }))}
+            placeholder="0.00"
+          />
+        </div>
+        
+        <div className="grid gap-2">
+          <Label htmlFor="edit-weight">Weight (g)</Label>
+          <Input
+            id="edit-weight"
+            type="number"
+            step="0.01"
+            min="0"
+            value={formData.weight}
+            onChange={(e) => setFormData(prev => ({ ...prev, weight: e.target.value }))}
+            placeholder="0.00"
+          />
+        </div>
+      </div>
+      
+      <div className="grid gap-2">
+        <Label htmlFor="edit-notes">Notes</Label>
+        <Textarea
+          id="edit-notes"
+          value={formData.notes}
+          onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+          placeholder="Additional notes"
+          rows={2}
+        />
+      </div>
+      
+      <div className="flex justify-end gap-2 pt-4">
+        <Button type="button" variant="outline" onClick={onCancel}>
+          <X className="h-4 w-4 mr-2" />
+          Cancel
+        </Button>
+        <Button type="submit" disabled={isLoading}>
+          {isLoading ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Updating...
+            </>
+          ) : (
+            <>
+              <Save className="h-4 w-4 mr-2" />
+              Save Changes
+            </>
+          )}
+        </Button>
+      </div>
+    </form>
   );
 }
