@@ -266,207 +266,45 @@ export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIs
     console.log('🗺️ Global mapping saved:', mapping);
   }, [currentFileName, selectedFiles, setFileStatuses, setFileMappings, toast]);
 
-  // Handle bulk processing
+  // Handle bulk processing with queue-based approach
   const handleBulkProcessing = useCallback(async () => {
-    if (!selectedFiles || !globalMapping) return;
-    
-    // Initialize processing status
-    setProcessingStatus({
-      isProcessing: true,
-      currentStep: 'Starting file processing...',
-      currentFileIndex: 0,
-      totalFiles: selectedFiles.length,
-      currentFileName: '',
-      overallProgress: 0,
-      status: 'parsing'
-    });
-    
-    // Show initial processing toast
-    toast({
-      title: "Starting File Processing",
-      description: `Beginning to process ${selectedFiles.length} files...`,
-      variant: "default"
-    });
-    
-    console.log('🚀 Starting bulk processing with:', {
-      fileCount: selectedFiles.length,
-      mapping: globalMapping
-    });
-    
+    if (!selectedFiles || !globalMapping) {
+      console.warn('❌ Missing requirements for bulk processing');
+      return;
+    }
+
     try {
-      // Prepare SKU data for background processing
-      const skuData: any[] = [];
+      console.log('🚀 Starting queue-based bulk processing...', { 
+        fileCount: selectedFiles.length,
+        mappingKeys: Object.keys(globalMapping)
+      });
       
-      console.log('📋 Starting file processing loop...');
+      // Initialize file states in the queue
+      initializeFileStates(selectedFiles);
       
-      // Parse all files and collect SKU data
-      for (let fileIndex = 0; fileIndex < selectedFiles.length; fileIndex++) {
-        const file = selectedFiles[fileIndex];
-        console.log(`📄 Processing file ${fileIndex + 1}/${selectedFiles.length}: ${file.name}`);
-        
-        // Update processing status
-        setProcessingStatus(prev => ({
-          ...prev,
-          currentStep: `Parsing file ${fileIndex + 1} of ${selectedFiles.length}`,
-          currentFileIndex: fileIndex + 1,
-          currentFileName: file.name,
-          overallProgress: (fileIndex / selectedFiles.length) * 80 // 80% for parsing, 20% for upload
-        }));
-        
-        // Show progress toast for each file
-        toast({
-          title: `Processing File ${fileIndex + 1}/${selectedFiles.length}`,
-          description: `Parsing ${file.name}...`,
-          variant: "default"
-        });
-        
-        try {
-          const data = await parseFileSimply(file);
-          console.log(`✅ File parsed successfully: ${file.name}, rows: ${data?.length || 0}`);
-          
-          if (data && data.length > 0) {
-            // Update status to mapping
-            setProcessingStatus(prev => ({
-              ...prev,
-              currentStep: `Mapping data from ${file.name}`,
-              status: 'mapping'
-            }));
-            
-            console.log(`📊 Processing ${data.length} rows from ${file.name}`);
-            console.log(`🔍 Sample raw row:`, data[0]);
-            console.log(`🗺️ Current mapping:`, globalMapping);
-            
-            const mappedRows = data.map((row: any, rowIndex: number) => {
-              const mappedRow: any = {
-                country: selectedCountry,
-                user_id: profile?.id
-              };
-              
-              // Map the columns according to the global mapping
-              Object.entries(globalMapping as Record<string, string>).forEach(([expectedCol, actualCol]) => {
-                if (actualCol && row[actualCol as string] !== undefined) {
-                  let value = row[actualCol as string];
-                  
-                  // Convert weight and cost to numbers if needed
-                  if (expectedCol === 'weight' || expectedCol === 'cost') {
-                    value = parseFloat(value) || 0;
-                  }
-                  
-                  // Map to the correct column names for the database
-                  if (expectedCol === 'sku') {
-                    mappedRow['sku_code'] = value;
-                  } else if (expectedCol === 'cost') {
-                    mappedRow['cost'] = value;
-                  } else {
-                    mappedRow[expectedCol] = value;
-                  }
-                }
-              });
-              
-              // Log first few mapped rows for debugging
-              if (skuData.length + rowIndex < 3) {
-                console.log(`📝 Mapped row ${skuData.length + rowIndex + 1}:`, mappedRow);
-              }
-              
-              return mappedRow;
-            });
-            
-            console.log(`➕ Adding ${mappedRows.length} mapped rows to skuData`);
-            skuData.push(...mappedRows);
-            console.log(`📊 Current total SKUs: ${skuData.length}`);
-            
-          } else {
-            console.warn(`⚠️ No data found in file: ${file.name}`);
-          }
-        } catch (fileError) {
-          console.error(`❌ Error processing file ${file.name}:`, fileError);
-          setProcessingStatus(prev => ({
-            ...prev,
-            status: 'error',
-            error: `Error processing ${file.name}: ${fileError instanceof Error ? fileError.message : 'Unknown error'}`
-          }));
-        }
-      }
+      // Start bulk processing with queue system
+      await processBulkFiles(
+        selectedFiles,
+        globalMapping,
+        bulkSettings,
+        existingSkuSet
+      );
       
-      console.log(`✅ File processing complete. Total SKUs collected: ${skuData.length}`);
-      console.log(`🔍 Sample final SKU:`, skuData[0]);
-      
-      if (skuData.length === 0) {
-        console.error('💥 No SKU data collected from any files');
-        setProcessingStatus(prev => ({
-          ...prev,
-          status: 'error',
-          error: 'No valid SKU data found in any of the selected files'
-        }));
-        toast({
-          title: "No Data Found",
-          description: "No valid SKU data found in the selected files.",
-          variant: "destructive"
-        });
-        return;
-      }
-      
-      // Update status to uploading
-      setProcessingStatus(prev => ({
-        ...prev,
-        currentStep: `Starting background upload of ${skuData.length} SKUs...`,
-        status: 'uploading',
-        overallProgress: 80
-      }));
-      
-      // Direct upload using addSKUs
-      console.log('🔄 Starting direct upload of SKUs:', skuData.length);
-      await addSKUs(skuData);
-      console.log('✅ Direct upload completed');
-      
-      // Update status to completed
-      setProcessingStatus(prev => ({
-        ...prev,
-        currentStep: `Successfully uploaded ${skuData.length} SKUs`,
-        status: 'completed',
-        overallProgress: 100
-      }));
-      
-      // Clear local state and show success
+      // Clear the selected files and mapping after completion
       clearSelectedFiles();
       setGlobalMapping(null);
       
-      toast({
-        title: "Upload Completed",
-        description: `Successfully processed ${skuData.length} SKUs`,
-        variant: "default"
-      });
-      
-      // Reset processing status after a delay
-      setTimeout(() => {
-        setProcessingStatus({
-          isProcessing: false,
-          currentStep: '',
-          currentFileIndex: 0,
-          totalFiles: 0,
-          currentFileName: '',
-          overallProgress: 0,
-          status: 'idle'
-        });
-      }, 5000);
+      console.log('✅ Queue-based bulk processing completed');
       
     } catch (error) {
-      console.error('❌ Error in handleBulkProcessing:', error);
-      console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack trace');
-      
-      setProcessingStatus(prev => ({
-        ...prev,
-        status: 'error',
-        error: error instanceof Error ? error.message : 'Unknown error occurred during processing'
-      }));
-      
+      console.error('❌ Bulk processing failed:', error);
       toast({
-        title: "Upload Failed",
-        description: error instanceof Error ? error.message : "Failed to start background upload",
+        title: "Processing Failed",
+        description: error instanceof Error ? error.message : "An unexpected error occurred during processing.",
         variant: "destructive"
       });
     }
-  }, [selectedFiles, globalMapping, selectedCountry, addSKUs, clearSelectedFiles, toast, profile?.id]);
+  }, [selectedFiles, globalMapping, processBulkFiles, initializeFileStates, clearSelectedFiles, toast, bulkSettings, existingSkuSet]);
 
   return (
     <div className="container mx-auto p-6 space-y-6">
