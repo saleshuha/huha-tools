@@ -1418,6 +1418,10 @@ export type Database = {
           updated_at: string
         }[]
       }
+      get_exchange_rate: {
+        Args: { from_currency: string; to_currency: string }
+        Returns: number
+      }
       get_items_needing_restock: {
         Args: Record<PropertyKey, never> | { country_filter?: string }
         Returns: {
