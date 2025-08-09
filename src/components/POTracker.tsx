@@ -256,26 +256,45 @@ export function POTracker() {
   // Placed orders - all orders with status 'ordered'
   const placedOrders = poOrders.filter(order => order.status === 'ordered').length;
 
-  // Calculate inventory matches for all PO items
+  // Calculate inventory matches for all PO items - SIMPLIFIED LOGIC
   const inventoryMatches = poOrders.map(order => {
     const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code);
-    const isActuallyInStock = inventoryMatch && 
-                             inventoryMatch.status === 'in-stock' && 
-                             inventoryMatch.quantity > 0;
+    
+    // Simple check: item is in stock ONLY if it has inventory match AND status='in-stock' AND quantity > 0
+    const isInStock = inventoryMatch && 
+                     inventoryMatch.status === 'in-stock' && 
+                     inventoryMatch.quantity > 0;
     
     return {
       ...order,
       inventoryMatch,
-      isActuallyInStock
+      isInStock
     };
   });
 
-  // Calculate inventory statistics - only count items that are truly in stock
-  const totalItemsWithInventory = inventoryMatches.filter(item => item.inventoryMatch).length;
-  const inStockItems = inventoryMatches.filter(item => item.isActuallyInStock).length;
-  const totalInStockQuantity = inventoryMatches
-    .filter(item => item.isActuallyInStock)
-    .reduce((sum, item) => sum + (item.inventoryMatch?.quantity || 0), 0);
+  // Debug what we're actually getting
+  console.log('=== INVENTORY CHECK ===');
+  const itemsWithInventory = inventoryMatches.filter(item => item.inventoryMatch);
+  const itemsInStock = inventoryMatches.filter(item => item.isInStock);
+  
+  console.log('Total PO items:', poOrders.length);
+  console.log('Items with inventory data:', itemsWithInventory.length);
+  console.log('Items marked as in-stock:', itemsInStock.length);
+  
+  // Show sample data
+  if (itemsWithInventory.length > 0) {
+    console.log('Sample item with inventory:', {
+      asin: itemsWithInventory[0].asin,
+      inventoryStatus: itemsWithInventory[0].inventoryMatch?.status,
+      inventoryQuantity: itemsWithInventory[0].inventoryMatch?.quantity,
+      isInStock: itemsWithInventory[0].isInStock
+    });
+  }
+
+  // Calculate final metrics - ONLY count items that are truly in stock
+  const totalItemsWithInventory = itemsWithInventory.length;
+  const inStockItems = itemsInStock.length;
+  const totalInStockQuantity = itemsInStock.reduce((sum, item) => sum + (item.inventoryMatch?.quantity || 0), 0);
 
   // Group orders by PO number for the tracking table
   const groupedPOOrders = poOrders.reduce((groups, order) => {
@@ -685,20 +704,21 @@ export function POTracker() {
                                      // Calculate inventory stats for this specific PO group using same logic
                                      const poInventoryMatches = orders.map(order => {
                                        const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code);
-                                       const isActuallyInStock = inventoryMatch && 
-                                                                inventoryMatch.status === 'in-stock' && 
-                                                                inventoryMatch.quantity > 0;
+                                       // Use same simple logic: in stock = has inventory AND status='in-stock' AND quantity > 0
+                                       const isInStock = inventoryMatch && 
+                                                        inventoryMatch.status === 'in-stock' && 
+                                                        inventoryMatch.quantity > 0;
                                        return {
                                          ...order,
                                          inventoryMatch,
-                                         isActuallyInStock
+                                         isInStock
                                        };
                                      });
                                      
                                      const poItemsWithInventory = poInventoryMatches.filter(item => item.inventoryMatch).length;
-                                      const poInStockItems = poInventoryMatches.filter(item => item.isActuallyInStock).length;
+                                      const poInStockItems = poInventoryMatches.filter(item => item.isInStock).length;
                                       const poInStockQuantity = poInventoryMatches
-                                        .filter(item => item.isActuallyInStock)
+                                        .filter(item => item.isInStock)
                                         .reduce((sum, item) => sum + (item.inventoryMatch?.quantity || 0), 0);
                                      
                                      return (
