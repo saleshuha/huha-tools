@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Package, Truck, CheckCircle, Clock, AlertTriangle, Plus, Save, ExternalLink, Upload, Edit } from 'lucide-react';
+import { ArrowLeft, Package, Truck, CheckCircle, Clock, AlertTriangle, Plus, Save, ExternalLink, Upload, Edit, PackageCheck, PackageX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { usePOOrders } from '@/hooks/usePOOrders';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 // Cache busting comment - Fixed poDetails issue - v2
 
@@ -37,6 +38,10 @@ export default function PODetailsPage() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [inventoryData, setInventoryData] = useState<{asinInventory: any[], skuInventory: any[]}>({
+    asinInventory: [],
+    skuInventory: []
+  });
   
   // Individual tracking dialog state
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
@@ -60,12 +65,70 @@ export default function PODetailsPage() {
     const loadData = async () => {
       console.log('PODetailsPage: Loading data...');
       setLoading(true);
-      await fetchPOOrders();
+      await Promise.all([
+        fetchPOOrders(),
+        fetchInventoryData()
+      ]);
       setLoading(false);
       console.log('PODetailsPage: Data loaded');
     };
     loadData();
   }, [fetchPOOrders]);
+
+  // Fetch inventory data to match with PO ASINs
+  const fetchInventoryData = async () => {
+    try {
+      const [asinResult, skuResult] = await Promise.all([
+        supabase
+          .from('asin_inventory')
+          .select('asin, quantity, status, sku')
+          .eq('user_id', (await supabase.auth.getUser()).data.user?.id),
+        supabase
+          .from('sku_inventory')
+          .select('sku_number, quantity, status')
+          .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
+      ]);
+
+      if (asinResult.error) throw asinResult.error;
+      if (skuResult.error) throw skuResult.error;
+
+      setInventoryData({
+        asinInventory: asinResult.data || [],
+        skuInventory: skuResult.data || []
+      });
+    } catch (error) {
+      console.error('Error fetching inventory data:', error);
+    }
+  };
+
+  // Function to find inventory match for an ASIN
+  const findInventoryMatch = (asin: string, sku?: string) => {
+    // First check ASIN inventory
+    const asinMatch = inventoryData.asinInventory.find(item => item.asin === asin);
+    if (asinMatch) {
+      return {
+        type: 'ASIN',
+        status: asinMatch.status,
+        quantity: asinMatch.quantity,
+        identifier: asinMatch.asin
+      };
+    }
+
+    // Then check SKU inventory if SKU is available
+    if (sku) {
+      const skuMatch = inventoryData.skuInventory.find(item => item.sku_number === sku);
+      if (skuMatch) {
+        return {
+          type: 'SKU',
+          status: skuMatch.status,
+          quantity: skuMatch.quantity,
+          identifier: skuMatch.sku_number
+        };
+      }
+    }
+
+    return null;
+  };
 
   if (!poNumber) {
     return <div>PO Number not provided</div>;
@@ -342,6 +405,7 @@ export default function PODetailsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Item Details</TableHead>
+                  <TableHead>Inventory Status</TableHead>
                   <TableHead>Tracking Info</TableHead>
                   <TableHead className="text-center">Qty</TableHead>
                   <TableHead className="text-center">Status</TableHead>
@@ -371,6 +435,39 @@ export default function PODetailsPage() {
                           </div>
                         )}
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      {(() => {
+                        const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code);
+                        if (inventoryMatch) {
+                          return (
+                            <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-1">
+                                <PackageCheck className="h-4 w-4 text-green-600" />
+                                <Badge 
+                                  variant={inventoryMatch.status === 'in-stock' ? 'default' : 'secondary'}
+                                  className={inventoryMatch.status === 'in-stock' ? 'bg-green-100 text-green-800' : ''}
+                                >
+                                  {inventoryMatch.status}
+                                </Badge>
+                              </div>
+                              <div className="text-sm font-medium">
+                                Qty: {inventoryMatch.quantity}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                ({inventoryMatch.type})
+                              </div>
+                            </div>
+                          );
+                        } else {
+                          return (
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                              <PackageX className="h-4 w-4" />
+                              <span className="text-sm">Not in inventory</span>
+                            </div>
+                          );
+                        }
+                      })()}
                     </TableCell>
                     <TableCell className="max-w-xs">
                       <div className="space-y-1 text-xs">
