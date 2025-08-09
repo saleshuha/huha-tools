@@ -23,6 +23,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
 import { SidebarNotificationLogs } from "@/components/sidebar/SidebarNotificationLogs"
+import { SidebarProgressIndicator } from "@/components/sidebar/SidebarProgressIndicator"
 
 const navigationItems = [
   {
@@ -373,6 +374,9 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="p-3 border-t border-sidebar-border space-y-3">
+        {/* Progress Indicator */}
+        <SidebarProgressIndicator />
+        
         {/* Notification Logs above User Management */}
         <SidebarNotificationLogs />
         
