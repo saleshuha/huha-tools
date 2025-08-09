@@ -479,9 +479,9 @@ export function POTracker() {
                         return (
                           <TableRow 
                             key={poNumber}
-                            className={`transition-colors border-b-2 border-border ${
+                            className={`transition-colors border-b-2 border-gray-300 ${
                               matchedCount > 0 
-                                ? 'cursor-pointer hover:bg-muted/50' 
+                                ? 'cursor-pointer hover:bg-muted/50 hover:border-primary' 
                                 : 'opacity-60 cursor-not-allowed bg-muted/20'
                             }`}
                             onClick={matchedCount > 0 ? () => handlePORowClick(poNumber) : undefined}
