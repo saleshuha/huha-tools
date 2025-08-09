@@ -541,18 +541,18 @@ export function POTracker() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-orange-600">
-              {inStockItems.toLocaleString()}
+              {itemsWithStock.toLocaleString()}
             </div>
             <p className="text-xs text-muted-foreground">
               Items with stock quantity &gt; 0
             </p>
             <div className="flex gap-2 mt-1">
               <Badge variant="secondary" className="text-xs">
-                Total qty: {totalInStockQuantity.toLocaleString()}
+                Total qty: {totalStockQty.toLocaleString()}
               </Badge>
-              {totalItemsWithInventory > 0 && (
+              {itemsWithInventory > 0 && (
                 <Badge variant="secondary" className="text-xs">
-                  {((inStockItems / totalItemsWithInventory) * 100).toFixed(1)}% with stock
+                  {((itemsWithStock / itemsWithInventory) * 100).toFixed(1)}% with stock
                 </Badge>
               )}
             </div>
@@ -753,24 +753,24 @@ export function POTracker() {
                                    
                                    {/* Inventory Stock Progress */}
                                    {matchedCount > 0 && (() => {
-                                     // REWRITTEN: Use same logic as main calculation
+                                     // FIXED: Use same simple logic - only check quantity > 0
                                      const poInventoryData = orders.map(order => {
                                        const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code);
                                        const hasInventory = inventoryMatch !== null;
-                                       const isInStock = isItemInStock(inventoryMatch);
+                                       const hasStock = inventoryMatch && inventoryMatch.quantity > 0; // Only check quantity > 0
                                        
                                        return {
                                          order,
                                          inventoryMatch,
                                          hasInventory,
-                                         isInStock
+                                         hasStock
                                        };
                                      });
                                      
                                      const poItemsWithInventory = poInventoryData.filter(item => item.hasInventory).length;
-                                      const poInStockItems = poInventoryData.filter(item => item.isInStock).length;
+                                      const poInStockItems = poInventoryData.filter(item => item.hasStock).length;
                                       const poInStockQuantity = poInventoryData
-                                        .filter(item => item.isInStock)
+                                        .filter(item => item.hasStock)
                                         .reduce((sum, item) => sum + (item.inventoryMatch?.quantity || 0), 0);
                                      
                                      return (
