@@ -519,17 +519,26 @@ export function POTracker() {
             <PackageCheck className="h-4 w-4 text-orange-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600">{inStockItems.toLocaleString()}</div>
+            <div className="text-2xl font-bold text-orange-600">
+              {poItemsWithInventoryData.filter(item => 
+                item.inventoryMatch && item.inventoryMatch.quantity > 0
+              ).length.toLocaleString()}
+            </div>
             <p className="text-xs text-muted-foreground">
-              Items available in inventory
+              Items with stock quantity &gt; 0
             </p>
             <div className="flex gap-2 mt-1">
               <Badge variant="secondary" className="text-xs">
-                Total qty: {totalInStockQuantity.toLocaleString()}
+                Total qty: {poItemsWithInventoryData
+                  .filter(item => item.inventoryMatch && item.inventoryMatch.quantity > 0)
+                  .reduce((sum, item) => sum + (item.inventoryMatch?.quantity || 0), 0)
+                  .toLocaleString()}
               </Badge>
               {totalItemsWithInventory > 0 && (
                 <Badge variant="secondary" className="text-xs">
-                  {((inStockItems / totalItemsWithInventory) * 100).toFixed(1)}% covered
+                  {((poItemsWithInventoryData.filter(item => 
+                    item.inventoryMatch && item.inventoryMatch.quantity > 0
+                  ).length / totalItemsWithInventory) * 100).toFixed(1)}% with stock
                 </Badge>
               )}
             </div>
