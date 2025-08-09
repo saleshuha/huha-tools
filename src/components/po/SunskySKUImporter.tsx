@@ -10,10 +10,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
-import { Search, Plus, Download, AlertCircle, CheckCircle2, Package, Globe } from "lucide-react";
+import { DatePickerWithRange } from "@/components/ui/date-range-picker";
+import { Search, Plus, Download, AlertCircle, CheckCircle2, Package, Globe, Calendar } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useUserProfile } from "@/hooks/useUserProfile";
+import { DateRange } from "react-day-picker";
 
 interface SunskyProduct {
   id: number;
@@ -36,6 +38,12 @@ interface SunskyCategory {
   parentId: number;
 }
 
+interface SunskyBrand {
+  id: number;
+  name: string;
+  code?: string;
+}
+
 export const SunskySKUImporter: React.FC = () => {
   const { toast } = useToast();
   const { profile } = useUserProfile();
@@ -43,7 +51,10 @@ export const SunskySKUImporter: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedBrand, setSelectedBrand] = useState<string>('all');
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [categories, setCategories] = useState<SunskyCategory[]>([]);
+  const [brands, setBrands] = useState<SunskyBrand[]>([]);
   const [products, setProducts] = useState<SunskyProduct[]>([]);
   const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
   const [importing, setImporting] = useState(false);
@@ -51,9 +62,10 @@ export const SunskySKUImporter: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
-  // Load categories on mount
+  // Load categories and brands on mount
   useEffect(() => {
     loadCategories();
+    loadBrands();
   }, []);
 
   const loadCategories = async () => {
@@ -79,6 +91,29 @@ export const SunskySKUImporter: React.FC = () => {
     }
   };
 
+  const loadBrands = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('sunsky-api', {
+        body: { action: 'getBrands' }
+      });
+
+      if (error) throw error;
+
+      if (data.result === 'success') {
+        setBrands(data.data || []);
+      } else {
+        throw new Error(data.message || 'Failed to load brands');
+      }
+    } catch (error) {
+      console.error('Error loading brands:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load Sunsky brands",
+        variant: "destructive",
+      });
+    }
+  };
+
   const searchProducts = async (page = 1) => {
     setLoading(true);
     try {
@@ -92,10 +127,20 @@ export const SunskySKUImporter: React.FC = () => {
         searchParams.categoryId = selectedCategory;
       }
 
+      if (selectedBrand && selectedBrand !== 'all') {
+        searchParams.brandId = selectedBrand;
+      }
+
       if (searchTerm) {
-        // Note: Sunsky API doesn't support direct search terms, 
-        // so we'll filter by brand or use category-based search
-        searchParams.brandName = searchTerm;
+        searchParams.keyword = searchTerm;
+      }
+
+      if (dateRange?.from) {
+        searchParams.dateFrom = dateRange.from.toISOString().split('T')[0];
+      }
+
+      if (dateRange?.to) {
+        searchParams.dateTo = dateRange.to.toISOString().split('T')[0];
       }
 
       const { data, error } = await supabase.functions.invoke('sunsky-api', {
@@ -227,46 +272,95 @@ export const SunskySKUImporter: React.FC = () => {
             
             <TabsContent value="search" className="space-y-4">
               {/* Search Controls */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="search">Search by Brand</Label>
-                  <div className="relative">
-                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="search"
-                      placeholder="Enter brand name..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-8"
-                    />
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="search">Search Keyword</Label>
+                    <div className="relative">
+                      <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="search"
+                        placeholder="Enter keyword..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-8"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="brand">Brand</Label>
+                    <Select value={selectedBrand} onValueChange={setSelectedBrand}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="All brands" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All brands</SelectItem>
+                        {brands.map((brand) => (
+                          <SelectItem key={brand.id} value={brand.id.toString()}>
+                            {brand.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="category">Category</Label>
+                    <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="All categories" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All categories</SelectItem>
+                        {categories.map((category) => (
+                          <SelectItem key={category.id} value={category.id.toString()}>
+                            {category.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex items-end">
+                    <Button 
+                      onClick={() => searchProducts(1)} 
+                      disabled={loading}
+                      className="w-full"
+                    >
+                      {loading ? "Searching..." : "Search Products"}
+                    </Button>
                   </div>
                 </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="category">Category</Label>
-                  <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="All categories" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All categories</SelectItem>
-                      {categories.map((category) => (
-                        <SelectItem key={category.id} value={category.id.toString()}>
-                          {category.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
 
-                <div className="flex items-end">
-                  <Button 
-                    onClick={() => searchProducts(1)} 
-                    disabled={loading}
-                    className="w-full"
-                  >
-                    {loading ? "Searching..." : "Search Products"}
-                  </Button>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="date-range">Date Range Filter</Label>
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-muted-foreground" />
+                      <DatePickerWithRange
+                        date={dateRange}
+                        onDateChange={setDateRange}
+                        className="flex-1"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-end">
+                    <Button 
+                      variant="outline"
+                      onClick={() => {
+                        setSearchTerm('');
+                        setSelectedBrand('all');
+                        setSelectedCategory('all');
+                        setDateRange(undefined);
+                        setProducts([]);
+                      }}
+                      className="w-full"
+                    >
+                      Clear Filters
+                    </Button>
+                  </div>
                 </div>
               </div>
 

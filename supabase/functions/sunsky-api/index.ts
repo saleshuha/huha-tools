@@ -118,6 +118,10 @@ serve(async (req) => {
       case 'searchProducts': {
         const { 
           categoryId, 
+          brandId,
+          keyword,
+          dateFrom,
+          dateTo,
           pageSize = 40, 
           page = 1, 
           brandName,
@@ -133,6 +137,10 @@ serve(async (req) => {
         };
 
         if (categoryId) params.categoryId = categoryId;
+        if (brandId) params.brandId = brandId;
+        if (keyword) params.keyword = keyword;
+        if (dateFrom) params.dateFrom = dateFrom;
+        if (dateTo) params.dateTo = dateTo;
         if (brandName) params.brandName = brandName;
         if (leadTimeLevel) params.leadTimeLevel = leadTimeLevel;
 
@@ -255,6 +263,22 @@ serve(async (req) => {
         };
 
         const result = await makeSunskyRequest('/openapi/category!getChildren.do', params, sunskyKey, sunskySecret);
+        
+        if (result.result === 'error') {
+          throw new Error(result.messages?.[0] || 'Sunsky API error');
+        }
+
+        return new Response(JSON.stringify(result), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      case 'getBrands': {
+        const params = {
+          lang: 'en'
+        };
+
+        const result = await makeSunskyRequest('/openapi/brand!getAll.do', params, sunskyKey, sunskySecret);
         
         if (result.result === 'error') {
           throw new Error(result.messages?.[0] || 'Sunsky API error');
