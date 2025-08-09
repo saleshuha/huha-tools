@@ -8,6 +8,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Progress } from '@/components/ui/progress';
 import { usePOOrders } from '@/hooks/usePOOrders';
 
+// Cache busting comment - Fixed poDetails issue - v2
+
 interface StatusProgress {
   pending: number;
   ordered: number;
@@ -30,11 +32,16 @@ export default function PODetailsPage() {
   const { poOrders, fetchPOOrders, updateOrderStatus, updateTrackingInfo } = usePOOrders();
   const [loading, setLoading] = useState(true);
 
+  console.log('PODetailsPage: Rendering with poNumber:', poNumber);
+  console.log('PODetailsPage: poOrders:', poOrders);
+
   useEffect(() => {
     const loadData = async () => {
+      console.log('PODetailsPage: Loading data...');
       setLoading(true);
       await fetchPOOrders();
       setLoading(false);
+      console.log('PODetailsPage: Data loaded');
     };
     loadData();
   }, [fetchPOOrders]);
