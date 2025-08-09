@@ -281,7 +281,14 @@ export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIs
                   value = parseFloat(value) || 0;
                 }
                 
-                mappedRow[expectedCol] = value;
+                // Map to the correct column names for the database
+                if (expectedCol === 'sku') {
+                  mappedRow['sku_code'] = value;
+                } else if (expectedCol === 'cost') {
+                  mappedRow['cost'] = value;
+                } else {
+                  mappedRow[expectedCol] = value;
+                }
               }
             });
             
