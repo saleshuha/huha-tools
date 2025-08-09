@@ -665,7 +665,6 @@ export default function PODetailsPage() {
                   <TableHead>Tracking Info</TableHead>
                   <TableHead className="text-center">Qty</TableHead>
                   <TableHead className="text-center">Status</TableHead>
-                  <TableHead className="text-right">Cost</TableHead>
                   <TableHead className="text-center">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -768,16 +767,6 @@ export default function PODetailsPage() {
                       <Badge className={statusColors[order.status as keyof typeof statusColors] || statusColors.pending}>
                         {order.status}
                       </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="space-y-1">
-                        {order.unit_cost && (
-                          <div className="text-sm">{order.unit_cost.toFixed(2)} {currency}</div>
-                        )}
-                        {order.total_cost && (
-                          <div className="font-semibold">{order.total_cost.toFixed(2)} {currency}</div>
-                        )}
-                      </div>
                     </TableCell>
                     <TableCell className="text-center">
                       <div className="flex flex-col gap-1">
