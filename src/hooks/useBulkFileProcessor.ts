@@ -73,38 +73,46 @@ export const useBulkFileProcessor = (
         // Map and validate batch
         const mappedBatch = batch.map(row => {
           const mappedRow: any = {};
+          
+          // Process all mappings from the wizard
           Object.entries(mapping).forEach(([expectedCol, sourceCol]) => {
             let value = row[sourceCol as string];
             
             // Type conversion based on expected column
             if (expectedCol === 'cost' && value) {
-              value = parseFloat(value) || 0;
+              const parsed = parseFloat(String(value).replace(/[^\d.-]/g, ''));
+              value = isNaN(parsed) ? null : parsed;
             } else if (expectedCol === 'weight' && value) {
-              value = parseFloat(value) || 0;
-            }
-            
-            if (typeof value === 'string') {
+              const parsed = parseFloat(String(value).replace(/[^\d.-]/g, ''));
+              value = isNaN(parsed) ? null : parsed;
+            } else if (typeof value === 'string') {
               value = value.trim();
             }
             
-            // Always assign the value, even if it's empty - we want to preserve the mapping
-            if (value !== undefined && value !== null) {
-              mappedRow[expectedCol] = value === '' ? null : value;
-            }
+            // Always assign mapped values
+            mappedRow[expectedCol] = (value === undefined || value === null || value === '') ? null : value;
           });
           
-          // Ensure required fields are present
+          // Ensure required fields are present with fallbacks
           if (!mappedRow.sku_code) {
             // Try common SKU field names if mapping didn't work
-            mappedRow.sku_code = row.id || row.sku || row.product_id || row.item_code;
+            mappedRow.sku_code = row.id || row.sku || row.product_id || row.item_code || row.code;
           }
           
-          // Add metadata with proper currency based on country
-          mappedRow.country = selectedCountry;
-          mappedRow.currency = selectedCountry === 'KSA' ? 'SAR' : 'AED';
-          mappedRow.notes = mappedRow.notes || `Imported from ${file.name}`;
+          // Ensure all database columns have values (even if null)
+          const defaultFields = {
+            sku_code: mappedRow.sku_code || null,
+            title: mappedRow.title || mappedRow.name || mappedRow.product_name || null,
+            description: mappedRow.description || mappedRow.desc || mappedRow.product_description || null,
+            cost: mappedRow.cost || mappedRow.price || mappedRow.unit_cost || null,
+            weight: mappedRow.weight || mappedRow.unit_weight || null,
+            notes: mappedRow.notes || `Imported from ${file.name}`,
+            country: selectedCountry,
+            currency: selectedCountry === 'KSA' ? 'SAR' : 'AED'
+          };
           
-          return mappedRow;
+          // Merge mapped data with defaults, prioritizing mapped values
+          return { ...defaultFields, ...mappedRow };
         }).filter(row => row.sku_code && row.sku_code.toString().trim());
 
         // Handle duplicates based on settings
@@ -142,7 +150,7 @@ export const useBulkFileProcessor = (
               id: `${Date.now()}-${file.name}-batch-${i}`,
               timestamp: new Date().toISOString(),
               file: file.name,
-              error: `Batch save failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+              error: `Database save failed: ${error instanceof Error ? error.message : 'Unknown database error'}. Batch contained ${uniqueBatch.length} SKUs with fields: ${Object.keys(uniqueBatch[0] || {}).join(', ')}`,
               rowsAffected: uniqueBatch.length,
               type: 'database'
             }]);
@@ -193,7 +201,7 @@ export const useBulkFileProcessor = (
         id: `${Date.now()}-${file.name}`,
         timestamp: new Date().toISOString(),
         file: file.name,
-        error: errorMsg,
+        error: `File processing failed: ${errorMsg}. Please check file format and column mapping.`,
         rowsAffected: 0,
         type: 'parsing'
       }]);
