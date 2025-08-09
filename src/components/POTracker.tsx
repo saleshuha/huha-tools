@@ -190,7 +190,13 @@ export function POTracker() {
   const totalSKUs = totalCount; // Use the actual database count
   const totalOrders = totalPOCount || poOrders.length; // Use accurate database count, fallback to loaded count
   const uniquePONumbers = new Set(poOrders.map(order => order.po_number)).size;
-  const pendingOrders = poOrders.filter(order => order.status === 'pending').length;
+  const pendingMatchedOrders = poOrders.filter(order => 
+    order.status === 'pending' && 
+    sunskySKUs.some(sku => 
+      sku.sku_code === order.sku_code || 
+      (order.model_number && sku.sku_code === order.model_number)
+    )
+  ).length;
   const placedOrders = poOrders.filter(order => order.status === 'ordered').length;
   
   console.log('POTracker stats:', {
@@ -198,7 +204,7 @@ export function POTracker() {
     poOrdersLength: poOrders.length,
     totalOrders,
     uniquePONumbers,
-    pendingOrders,
+    pendingMatchedOrders,
     placedOrders
   });
   
@@ -347,9 +353,9 @@ export function POTracker() {
             <Clock className="h-4 w-4 text-yellow-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">{pendingOrders.toLocaleString()}</div>
+            <div className="text-2xl font-bold text-yellow-600">{pendingMatchedOrders.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">
-              Items awaiting placement
+              Matched items pending placement
             </p>
           </CardContent>
         </Card>
