@@ -308,6 +308,79 @@ export default function PODetailsPage() {
     });
   };
 
+  // Mark item as ordered and reduce inventory stock
+  const markAsOrderedFromInventory = async (order: any) => {
+    setIsUpdating(true);
+    try {
+      const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code);
+      
+      if (!inventoryMatch || inventoryMatch.quantity <= 0) {
+        toast({
+          title: "Cannot Mark as Ordered",
+          description: "Item has no stock available in inventory",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Check if order quantity exceeds available stock
+      if (order.quantity > inventoryMatch.quantity) {
+        toast({
+          title: "Insufficient Stock",
+          description: `Order quantity (${order.quantity}) exceeds available stock (${inventoryMatch.quantity})`,
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Update inventory quantity
+      const newQuantity = inventoryMatch.quantity - order.quantity;
+      
+      let inventoryError: any = null;
+      
+      if (inventoryMatch.type === 'ASIN') {
+        const { error } = await supabase
+          .from('asin_inventory')
+          .update({ quantity: newQuantity })
+          .eq('asin', inventoryMatch.identifier)
+          .eq('user_id', (await supabase.auth.getUser()).data.user?.id);
+        inventoryError = error;
+      } else {
+        const { error } = await supabase
+          .from('sku_inventory')
+          .update({ quantity: newQuantity })
+          .eq('sku_number', inventoryMatch.identifier)
+          .eq('user_id', (await supabase.auth.getUser()).data.user?.id);
+        inventoryError = error;
+      }
+
+      if (inventoryError) {
+        throw new Error(`Failed to update inventory: ${inventoryError.message}`);
+      }
+
+      // Update order status to 'ordered'
+      await updateOrderStatus(order.id, 'ordered');
+
+      // Refresh inventory data
+      await fetchInventoryData();
+
+      toast({
+        title: "Item Marked as Ordered",
+        description: `Order marked as placed and ${order.quantity} units deducted from inventory (${inventoryMatch.quantity} → ${newQuantity})`
+      });
+
+    } catch (error) {
+      console.error('Error marking item as ordered from inventory:', error);
+      toast({
+        title: "Update Failed",
+        description: error instanceof Error ? error.message : "Failed to update item and inventory",
+        variant: "destructive"
+      });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-surface">
@@ -709,16 +782,35 @@ export default function PODetailsPage() {
                     <TableCell className="text-center">
                       <div className="flex flex-col gap-1">
                         <div className="flex gap-1 justify-center">
-                          {order.status === 'pending' && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => updateOrderStatus(order.id, 'ordered')}
-                              className="text-xs"
-                            >
-                              Mark Ordered
-                            </Button>
-                          )}
+                          {(() => {
+                            const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code);
+                            const hasStock = inventoryMatch && inventoryMatch.quantity > 0;
+                            
+                            if (order.status === 'pending' && hasStock) {
+                              return (
+                                <Button
+                                  size="sm"
+                                  variant="default"
+                                  onClick={() => markAsOrderedFromInventory(order)}
+                                  className="text-xs bg-green-600 hover:bg-green-700"
+                                >
+                                  Mark Ordered (From Stock)
+                                </Button>
+                              );
+                            } else if (order.status === 'pending') {
+                              return (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => updateOrderStatus(order.id, 'ordered')}
+                                  className="text-xs"
+                                >
+                                  Mark Ordered
+                                </Button>
+                              );
+                            }
+                            return null;
+                          })()}
                         </div>
                         <Button
                           size="sm"
