@@ -1,7 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.5';
-import { createHash } from "https://deno.land/std@0.168.0/hash/mod.ts";
+import { crypto } from "https://deno.land/std@0.168.0/crypto/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,14 +13,16 @@ const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 // MD5 implementation for Sunsky API signature
-function md5(text: string): string {
-  const hash = createHash("md5");
-  hash.update(text);
-  return hash.toString();
+async function md5(text: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(text);
+  const hashBuffer = await crypto.subtle.digest('MD5', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
 // Generate signature for Sunsky API
-function generateSignature(params: Record<string, any>, key: string, secret: string): string {
+async function generateSignature(params: Record<string, any>, key: string, secret: string): Promise<string> {
   // Sort parameters by key name and concatenate values with key
   const sortedKeys = Object.keys(params).sort();
   let concatenated = '';
@@ -35,12 +37,12 @@ function generateSignature(params: Record<string, any>, key: string, secret: str
   
   console.log('String to hash:', stringToHash);
   
-  return md5(stringToHash);
+  return await md5(stringToHash);
 }
 
 // Make authenticated request to Sunsky API
 async function makeSunskyRequest(endpoint: string, params: Record<string, any>, key: string, secret: string) {
-  const signature = generateSignature(params, key, secret);
+  const signature = await generateSignature(params, key, secret);
   
   const requestBody = new URLSearchParams({
     ...params,
