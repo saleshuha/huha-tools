@@ -1,15 +1,15 @@
 import { useState, useEffect } from 'react';
-// Cache busting comment - Fixed pendingOrders reference issue - v3
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Upload, Search, Package, Clock, CheckCircle, AlertCircle, BarChart3, RefreshCw, Loader2 } from 'lucide-react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Upload, Search, Package, Clock, CheckCircle, AlertCircle, BarChart3, RefreshCw, Eye, MousePointer } from 'lucide-react';
 import { POFileUpload } from './po/POFileUpload';
 import { SKUList } from './po/SKUList';
-import { POOrderTracking } from './po/POOrderTracking';
 import { AddSKUDialog } from './po/AddSKUDialog';
 import { POProfitAnalytics } from './po/POProfitAnalytics';
 import { ShippingRateDialog } from './po/ShippingRateDialog';
@@ -20,11 +20,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 export function POTracker() {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('upload');
   const [searchTerm, setSearchTerm] = useState('');
-  const [shippingRate, setShippingRate] = useState(0.005); // Default: 0.005 AED per gram
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [shippingRate, setShippingRate] = useState(0.005);
   const [isUpdatingRate, setIsUpdatingRate] = useState(false);
-  const [totalPOCount, setTotalPOCount] = useState(0); // Track actual database count
   const { profile } = useUserProfile();
   const { toast } = useToast();
 
@@ -116,47 +117,14 @@ export function POTracker() {
     updateTrackingInfo
   } = usePOOrders();
 
-  // Function to fetch actual PO count from database
-  const fetchPOCount = async () => {
-    try {
-      console.log('Fetching PO count from database...');
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // Use a direct count query for accuracy
-      const { count, error } = await supabase
-        .from('po_orders')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id);
-
-      console.log('PO count query result:', { count, error });
-      
-      if (error) throw error;
-      if (count !== null) {
-        console.log('Setting totalPOCount to:', count);
-        setTotalPOCount(count);
-      }
-    } catch (error) {
-      console.error('Error fetching PO count:', error);
-    }
-  };
-
   // Force refresh all data
   const forceRefreshData = async () => {
-    console.log('Force refreshing all PO data...');
-    setTotalPOCount(0); // Reset to trigger UI update
-    await Promise.all([
-      fetchPOCount(),
-      fetchPOOrders()
-    ]);
+    await fetchPOOrders();
   };
 
   // Load data based on active tab
   useEffect(() => {
-    // Always load SKU count for metrics display
     fetchSKUCount();
-    // Always load PO count for accurate metrics
-    fetchPOCount();
     
     if (activeTab === 'skus' && sunskySKUs.length === 0) {
       fetchSKUs();
@@ -187,10 +155,20 @@ export function POTracker() {
     sku.description?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Calculate stats
-  const totalSKUs = totalCount; // Use the actual database count
-  const totalOrders = totalPOCount || poOrders.length; // Use accurate database count, fallback to loaded count
+  // Calculate accurate metrics
+  const totalSKUs = totalCount;
+  const totalOrders = poOrders.length;
   const uniquePONumbers = new Set(poOrders.map(order => order.po_number)).size;
+  
+  // Matched items - items that have matching SKUs in catalog
+  const matchedItems = poOrders.filter(order => 
+    sunskySKUs.some(sku => 
+      sku.sku_code === order.sku_code || 
+      (order.model_number && sku.sku_code === order.model_number)
+    )
+  ).length;
+  
+  // Pending matched orders - matched items that are still pending
   const pendingMatchedOrders = poOrders.filter(order => 
     order.status === 'pending' && 
     sunskySKUs.some(sku => 
@@ -198,24 +176,39 @@ export function POTracker() {
       (order.model_number && sku.sku_code === order.model_number)
     )
   ).length;
+  
+  // Placed orders - all orders with status 'ordered'
   const placedOrders = poOrders.filter(order => order.status === 'ordered').length;
-  
-  console.log('POTracker stats:', {
-    totalPOCount,
-    poOrdersLength: poOrders.length,
-    totalOrders,
-    uniquePONumbers,
-    pendingMatchedOrders,
-    placedOrders
+
+  // Group orders by PO number for the tracking table
+  const groupedPOOrders = poOrders.reduce((groups, order) => {
+    const poNumber = order.po_number;
+    if (!groups[poNumber]) {
+      groups[poNumber] = [];
+    }
+    groups[poNumber].push(order);
+    return groups;
+  }, {} as Record<string, typeof poOrders>);
+
+  // Filter grouped orders based on search and status
+  const filteredPOGroups = Object.entries(groupedPOOrders).filter(([poNumber, orders]) => {
+    const matchesSearch = !searchTerm || 
+      poNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      orders.some(order => 
+        order.asin?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.model_number?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    
+    const matchesStatus = statusFilter === 'all' || 
+      orders.some(order => order.status === statusFilter);
+    
+    return matchesSearch && matchesStatus;
   });
-  
-  // Calculate matched items (PO orders that have matching SKUs in catalog - includes model_number matching)
-  const matchedItems = poOrders.filter(order => 
-    sunskySKUs.some(sku => 
-      sku.sku_code === order.sku_code || 
-      (order.model_number && sku.sku_code === order.model_number)
-    )
-  ).length;
+
+  const handlePORowClick = (poNumber: string) => {
+    navigate(`/po-details/${encodeURIComponent(poNumber)}`);
+  };
 
   return (
     <div className="space-y-6">
@@ -403,16 +396,133 @@ export function POTracker() {
             <CardHeader>
               <CardTitle>PO Order Tracking</CardTitle>
               <CardDescription>
-                Track the status of purchase orders - which items are placed, pending, or need attention.
+                Track the status of purchase orders. Click on any row to view detailed information and manage tracking.
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <POOrderTracking 
-                orders={poOrders} 
-                onUpdateStatus={updateOrderStatus}
-                onUpdateTracking={updateTrackingInfo}
-                isLoading={ordersLoading}
-              />
+            <CardContent className="space-y-4">
+              {/* Search and Filter Controls */}
+              <div className="flex gap-4">
+                <div className="relative flex-1">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search by PO number, ASIN, title..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-8"
+                  />
+                </div>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="px-3 py-2 border rounded-md bg-background"
+                >
+                  <option value="all">All Status</option>
+                  <option value="pending">Pending</option>
+                  <option value="ordered">Ordered</option>
+                  <option value="shipped">Shipped</option>
+                  <option value="delivered">Delivered</option>
+                </select>
+              </div>
+
+              {/* PO Orders Table */}
+              {ordersLoading ? (
+                <div className="flex items-center justify-center py-16">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                  <span className="ml-2">Loading orders...</span>
+                </div>
+              ) : filteredPOGroups.length === 0 ? (
+                <div className="text-center py-16">
+                  <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">No PO Orders Found</h3>
+                  <p className="text-muted-foreground">Upload PO files to start tracking orders.</p>
+                </div>
+              ) : (
+                <div className="border rounded-md">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>PO Number</TableHead>
+                        <TableHead>Items</TableHead>
+                        <TableHead>Matched</TableHead>
+                        <TableHead>Status Summary</TableHead>
+                        <TableHead>Total Cost</TableHead>
+                        <TableHead>Ship To</TableHead>
+                        <TableHead className="text-center">
+                          <MousePointer className="h-4 w-4 mx-auto" />
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredPOGroups.map(([poNumber, orders]) => {
+                        const matchedCount = orders.filter(order => 
+                          sunskySKUs.some(sku => 
+                            sku.sku_code === order.sku_code || 
+                            (order.model_number && sku.sku_code === order.model_number)
+                          )
+                        ).length;
+                        
+                        const statusCounts = orders.reduce((acc, order) => {
+                          acc[order.status] = (acc[order.status] || 0) + 1;
+                          return acc;
+                        }, {} as Record<string, number>);
+                        
+                        const totalCost = orders.reduce((sum, order) => sum + (order.total_cost || 0), 0);
+                        const currency = orders[0]?.currency || 'AED';
+                        const shipTo = orders[0]?.ship_to_location || 'N/A';
+                        
+                        return (
+                          <TableRow 
+                            key={poNumber}
+                            className="cursor-pointer hover:bg-muted/50 transition-colors"
+                            onClick={() => handlePORowClick(poNumber)}
+                          >
+                            <TableCell className="font-mono font-medium text-primary">
+                              {poNumber}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline">{orders.length} items</Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <Badge variant={matchedCount > 0 ? "default" : "secondary"}>
+                                  {matchedCount} matched
+                                </Badge>
+                                {matchedCount < orders.length && (
+                                  <Badge variant="destructive">
+                                    {orders.length - matchedCount} unmatched
+                                  </Badge>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex flex-wrap gap-1">
+                                {Object.entries(statusCounts).map(([status, count]) => (
+                                  <Badge 
+                                    key={status} 
+                                    variant={status === 'delivered' ? 'default' : 'secondary'}
+                                    className="text-xs"
+                                  >
+                                    {count} {status}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </TableCell>
+                            <TableCell className="font-semibold">
+                              {totalCost > 0 ? `${totalCost.toFixed(2)} ${currency}` : '-'}
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {shipTo}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Eye className="h-4 w-4 text-muted-foreground mx-auto" />
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
