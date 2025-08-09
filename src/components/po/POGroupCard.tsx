@@ -27,14 +27,15 @@ export function POGroupCard({ poNumber, orders, onUpdateStatus, onUpdateTracking
   const [isExpanded, setIsExpanded] = useState(false);
   const navigate = useNavigate();
 
-  // Filter to only show orders with matched SKUs
+  // Show all orders, don't filter by matched SKUs
+  const allOrders = orders;
   const matchedOrders = orders.filter(order => order.sunsky_sku !== null && order.sunsky_sku !== undefined);
   const hasMatchedItems = matchedOrders.length > 0;
 
-  // Calculate summary data based on matched orders only
-  const totalItems = matchedOrders.reduce((sum, order) => sum + order.quantity, 0);
-  const totalCost = matchedOrders.reduce((sum, order) => sum + (order.total_cost || 0), 0);
-  const uniqueStatuses = [...new Set(matchedOrders.map(order => order.status))];
+  // Calculate summary data based on all orders
+  const totalItems = allOrders.reduce((sum, order) => sum + order.quantity, 0);
+  const totalCost = allOrders.reduce((sum, order) => sum + (order.total_cost || 0), 0);
+  const uniqueStatuses = [...new Set(allOrders.map(order => order.status))];
   const shipToLocation = orders[0]?.ship_to_location || 'Not specified';
   const currency = orders[0]?.currency || 'AED';
   const fileName = orders[0]?.file_name || 'Unknown';
@@ -177,7 +178,7 @@ export function POGroupCard({ poNumber, orders, onUpdateStatus, onUpdateTracking
                 </div>
               </div>
 
-              {/* Items Table - Only showing matched items */}
+              {/* Items Table - Showing all items */}
               <div className="border rounded-md">
                 <Table>
                   <TableHeader>
@@ -186,6 +187,7 @@ export function POGroupCard({ poNumber, orders, onUpdateStatus, onUpdateTracking
                       <TableHead>Model Number</TableHead>
                       <TableHead>Title</TableHead>
                       <TableHead className="text-center">Qty</TableHead>
+                      <TableHead className="text-center">Match Status</TableHead>
                       <TableHead className="text-center">Status</TableHead>
                       <TableHead className="text-right">Unit Cost</TableHead>
                       <TableHead className="text-right">Total</TableHead>
@@ -193,8 +195,10 @@ export function POGroupCard({ poNumber, orders, onUpdateStatus, onUpdateTracking
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {matchedOrders.map((order) => (
-                      <TableRow key={order.id}>
+                    {allOrders.map((order) => {
+                      const hasMatch = order.sunsky_sku !== null && order.sunsky_sku !== undefined;
+                      return (
+                      <TableRow key={order.id} className={!hasMatch ? 'opacity-60' : ''}>
                         <TableCell className="font-mono text-xs">
                           {order.asin}
                           {order.external_id && (
@@ -213,6 +217,17 @@ export function POGroupCard({ poNumber, orders, onUpdateStatus, onUpdateTracking
                         </TableCell>
                         <TableCell className="text-center font-semibold">
                           {order.quantity}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {hasMatch ? (
+                            <Badge className="bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300">
+                              Matched
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300">
+                              No Match
+                            </Badge>
+                          )}
                         </TableCell>
                         <TableCell className="text-center">
                           <Badge 
@@ -272,7 +287,8 @@ export function POGroupCard({ poNumber, orders, onUpdateStatus, onUpdateTracking
                           </div>
                         </TableCell>
                       </TableRow>
-                    ))}
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>

@@ -86,11 +86,6 @@ export function POOrderTracking({ orders, onUpdateStatus, onUpdateTracking, isLo
     return filteredGroups;
   }, [groupedOrders, searchTerm, statusFilter, sortBy]);
 
-  const totalPOs = Object.keys(groupedOrders).length;
-  const totalItems = orders.length;
-  const pendingCount = Object.values(groupedOrders).filter(orders => 
-    orders.some(order => order.status === 'pending')
-  ).length;
 
   if (orders.length === 0) {
     return (
@@ -108,37 +103,6 @@ export function POOrderTracking({ orders, onUpdateStatus, onUpdateTracking, isLo
 
   return (
     <div className="space-y-6">
-      {/* Summary Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total PO Numbers</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalPOs}</div>
-            <p className="text-xs text-muted-foreground">Unique purchase orders</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Items</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalItems}</div>
-            <p className="text-xs text-muted-foreground">Individual order items</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">POs with Pending Items</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">{pendingCount}</div>
-            <p className="text-xs text-muted-foreground">Need attention</p>
-          </CardContent>
-        </Card>
-      </div>
-
       {/* Filters and Controls */}
       <Card>
         <CardContent className="pt-6">
@@ -187,7 +151,7 @@ export function POOrderTracking({ orders, onUpdateStatus, onUpdateTracking, isLo
       {/* Results Summary */}
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
-          Showing {filteredAndSortedGroups.length} of {totalPOs} PO numbers
+          Showing {filteredAndSortedGroups.length} of {Object.keys(groupedOrders).length} PO numbers
           {searchTerm && ` matching "${searchTerm}"`}
           {statusFilter !== 'all' && ` with ${statusFilter} status`}
         </p>
