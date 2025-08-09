@@ -303,31 +303,29 @@ serve(async (req) => {
       }
 
       case 'getBrands': {
-        const params = {
-          lang: 'en',
-          pageSize: 100,
-          page: 1
-        };
+        // Sunsky API doesn't have a dedicated brands endpoint
+        // Instead, we'll return common brands or empty array
+        const commonBrands = [
+          { id: 1, name: 'Apple' },
+          { id: 2, name: 'Samsung' },
+          { id: 3, name: 'Huawei' },
+          { id: 4, name: 'Xiaomi' },
+          { id: 5, name: 'OnePlus' },
+          { id: 6, name: 'Google' },
+          { id: 7, name: 'Sony' },
+          { id: 8, name: 'LG' },
+          { id: 9, name: 'Nokia' },
+          { id: 10, name: 'Oppo' },
+          { id: 11, name: 'Vivo' },
+          { id: 12, name: 'Realme' }
+        ];
 
-        console.log('Getting brands with params:', params);
+        console.log('Returning common brands list');
 
-        // Try the brand list endpoint - this might need to be adjusted based on actual API
-        const result = await makeSunskyRequest('/openapi/brand!list.do', params, sunskyKey, sunskySecret);
-        
-        console.log('Brand API result:', result);
-        
-        if (result.result === 'error') {
-          console.error('Brand API error:', result);
-          // Return empty array instead of throwing error to prevent component crash
-          return new Response(JSON.stringify({
-            result: 'success',
-            data: []
-          }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
-        }
-
-        return new Response(JSON.stringify(result), {
+        return new Response(JSON.stringify({
+          result: 'success',
+          data: commonBrands
+        }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }

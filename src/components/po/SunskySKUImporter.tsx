@@ -130,7 +130,11 @@ export const SunskySKUImporter: React.FC = () => {
       }
 
       if (selectedBrand && selectedBrand !== 'all') {
-        searchParams.brandId = selectedBrand;
+        // Find the brand name from the brands array
+        const selectedBrandObj = brands.find(b => b.id.toString() === selectedBrand);
+        if (selectedBrandObj) {
+          searchParams.brandName = selectedBrandObj.name;
+        }
       }
 
       if (searchTerm) {
