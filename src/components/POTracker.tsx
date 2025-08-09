@@ -374,11 +374,35 @@ export function POTracker() {
 
       {/* Main Content */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="upload">PO Upload</TabsTrigger>
-          <TabsTrigger value="tracking">Order Tracking</TabsTrigger>
-          <TabsTrigger value="analytics">Profit Analytics</TabsTrigger>
-          <TabsTrigger value="skus">SKU Management</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-4 h-14 p-2 bg-gradient-to-r from-primary/5 to-primary/10 border-2 border-primary/20 rounded-xl shadow-lg">
+          <TabsTrigger 
+            value="upload" 
+            className="relative h-10 px-6 text-sm font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:scale-105 hover:bg-primary/10 rounded-lg flex items-center gap-2"
+          >
+            <Upload className="h-4 w-4" />
+            PO Upload
+          </TabsTrigger>
+          <TabsTrigger 
+            value="tracking" 
+            className="relative h-10 px-6 text-sm font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:scale-105 hover:bg-primary/10 rounded-lg flex items-center gap-2"
+          >
+            <Truck className="h-4 w-4" />
+            Order Tracking
+          </TabsTrigger>
+          <TabsTrigger 
+            value="analytics" 
+            className="relative h-10 px-6 text-sm font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:scale-105 hover:bg-primary/10 rounded-lg flex items-center gap-2"
+          >
+            <BarChart3 className="h-4 w-4" />
+            Profit Analytics
+          </TabsTrigger>
+          <TabsTrigger 
+            value="skus" 
+            className="relative h-10 px-6 text-sm font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:scale-105 hover:bg-primary/10 rounded-lg flex items-center gap-2"
+          >
+            <Package className="h-4 w-4" />
+            SKU Management
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="upload" className="space-y-4">
