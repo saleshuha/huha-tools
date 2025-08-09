@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { TrendingUp, TrendingDown, DollarSign, Package, Search, Download, Filter, Settings, Calculator } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, Package, Search, Download, Filter, Settings, Calculator, Plus, Minus, Save } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useToast } from '@/hooks/use-toast';
@@ -43,12 +43,75 @@ export function POProfitAnalytics({ poOrders, sunskySKUs }: POProfitAnalyticsPro
   const [globalMultiplier, setGlobalMultiplier] = useState(2.5);
   const [globalCommission, setGlobalCommission] = useState(15);
   const [shippingRate, setShippingRate] = useState(0.005);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const { profile } = useUserProfile();
   const { toast } = useToast();
+
+  // Load saved values on component mount
+  useEffect(() => {
+    const loadSavedValues = () => {
+      try {
+        const savedMultiplier = localStorage.getItem(`po_multiplier_${profile?.id || 'default'}`);
+        const savedCommission = localStorage.getItem(`po_commission_${profile?.id || 'default'}`);
+        const savedShipping = localStorage.getItem(`po_shipping_rate_${profile?.id || 'default'}`);
+        
+        if (savedMultiplier) setGlobalMultiplier(parseFloat(savedMultiplier));
+        if (savedCommission) setGlobalCommission(parseFloat(savedCommission));
+        if (savedShipping) setShippingRate(parseFloat(savedShipping));
+      } catch (error) {
+        console.error('Failed to load saved pricing values:', error);
+      }
+    };
+
+    if (profile?.id) {
+      loadSavedValues();
+    }
+  }, [profile?.id]);
 
   useEffect(() => {
     calculateProfitAnalytics();
   }, [poOrders, sunskySKUs]);
+
+  // Mark changes as unsaved when values change
+  const handleMultiplierChange = (newValue: number) => {
+    setGlobalMultiplier(newValue);
+    setHasUnsavedChanges(true);
+  };
+
+  const handleCommissionChange = (newValue: number) => {
+    setGlobalCommission(newValue);
+    setHasUnsavedChanges(true);
+  };
+
+  const handleShippingRateChange = (newValue: number) => {
+    setShippingRate(newValue);
+    setHasUnsavedChanges(true);
+  };
+
+  // Save values permanently
+  const savePricingSettings = async () => {
+    try {
+      // Save to localStorage for immediate persistence
+      localStorage.setItem(`po_multiplier_${profile?.id || 'default'}`, globalMultiplier.toString());
+      localStorage.setItem(`po_commission_${profile?.id || 'default'}`, globalCommission.toString());
+      localStorage.setItem(`po_shipping_rate_${profile?.id || 'default'}`, shippingRate.toString());
+      
+      setHasUnsavedChanges(false);
+      calculateProfitAnalytics(); // Recalculate with new values
+      
+      toast({
+        title: "Settings Saved",
+        description: "Pricing settings have been saved permanently",
+      });
+    } catch (error) {
+      console.error('Failed to save pricing settings:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save pricing settings",
+        variant: "destructive"
+      });
+    }
+  };
 
   useEffect(() => {
     filterData();
@@ -155,12 +218,12 @@ export function POProfitAnalytics({ poOrders, sunskySKUs }: POProfitAnalyticsPro
   const totalOrders = filteredData.length;
   const profitableItems = filteredData.filter(item => item.profit_amount > 0).length;
 
-  // Update calculations when multiplier or commission changes
-  useEffect(() => {
-    if (analyticsData.length > 0) {
-      calculateProfitAnalytics();
-    }
-  }, [globalMultiplier, globalCommission, shippingRate]);
+  // Remove auto-recalculation - only recalculate when saved
+  // useEffect(() => {
+  //   if (analyticsData.length > 0) {
+  //     calculateProfitAnalytics();
+  //   }
+  // }, [globalMultiplier, globalCommission, shippingRate]);
 
   const exportToCSV = () => {
     const headers = ['PO', 'SKU Code', 'Purchase Cost (inc. shipping)', 'Sell Price', 'Commission %', 'Commission Amount', 'Profit', 'Margin %', 'QTY', 'Total Profit', 'Status'];
@@ -265,57 +328,148 @@ export function POProfitAnalytics({ poOrders, sunskySKUs }: POProfitAnalyticsPro
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Sell Price Multiplier</label>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Multiplier Control */}
+            <div className="space-y-3">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <Calculator className="h-4 w-4" />
+                Sell Price Multiplier
+              </label>
               <div className="flex items-center gap-2">
-                <Calculator className="h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="number"
-                  step="0.1"
-                  min="1"
-                  max="10"
-                  value={globalMultiplier}
-                  onChange={(e) => setGlobalMultiplier(parseFloat(e.target.value) || 2.5)}
-                  className="w-20"
-                />
-                <span className="text-sm text-muted-foreground">x SKU Cost</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleMultiplierChange(Math.max(1, globalMultiplier - 0.1))}
+                  className="h-8 w-8 p-0"
+                >
+                  <Minus className="h-3 w-3" />
+                </Button>
+                <div className="flex-1 text-center">
+                  <div className="text-lg font-bold">{globalMultiplier.toFixed(1)}x</div>
+                  <div className="text-xs text-muted-foreground">SKU Cost</div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleMultiplierChange(Math.min(10, globalMultiplier + 0.1))}
+                  className="h-8 w-8 p-0"
+                >
+                  <Plus className="h-3 w-3" />
+                </Button>
+              </div>
+              <div className="flex gap-1">
+                {[2.0, 2.5, 3.0, 4.0].map(value => (
+                  <Button
+                    key={value}
+                    variant={globalMultiplier === value ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => handleMultiplierChange(value)}
+                    className="text-xs h-6"
+                  >
+                    {value}x
+                  </Button>
+                ))}
               </div>
             </div>
-            
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Commission Rate (%)</label>
+
+            {/* Commission Control */}
+            <div className="space-y-3">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <DollarSign className="h-4 w-4" />
+                Commission Rate
+              </label>
               <div className="flex items-center gap-2">
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="number"
-                  step="0.5"
-                  min="0"
-                  max="50"
-                  value={globalCommission}
-                  onChange={(e) => setGlobalCommission(parseFloat(e.target.value) || 15)}
-                  className="w-20"
-                />
-                <span className="text-sm text-muted-foreground">% of sell price</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleCommissionChange(Math.max(0, globalCommission - 1))}
+                  className="h-8 w-8 p-0"
+                >
+                  <Minus className="h-3 w-3" />
+                </Button>
+                <div className="flex-1 text-center">
+                  <div className="text-lg font-bold">{globalCommission.toFixed(1)}%</div>
+                  <div className="text-xs text-muted-foreground">of Sell Price</div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleCommissionChange(Math.min(50, globalCommission + 1))}
+                  className="h-8 w-8 p-0"
+                >
+                  <Plus className="h-3 w-3" />
+                </Button>
+              </div>
+              <div className="flex gap-1">
+                {[10, 15, 20, 25].map(value => (
+                  <Button
+                    key={value}
+                    variant={globalCommission === value ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => handleCommissionChange(value)}
+                    className="text-xs h-6"
+                  >
+                    {value}%
+                  </Button>
+                ))}
               </div>
             </div>
-            
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Shipping Rate (per gram)</label>
+
+            {/* Shipping Rate Control */}
+            <div className="space-y-3">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <Package className="h-4 w-4" />
+                Shipping Rate
+              </label>
               <div className="flex items-center gap-2">
-                <Package className="h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="number"
-                  step="0.001"
-                  min="0"
-                  max="1"
-                  value={shippingRate}
-                  onChange={(e) => setShippingRate(parseFloat(e.target.value) || 0.005)}
-                  className="w-20"
-                />
-                <span className="text-sm text-muted-foreground">AED/g</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleShippingRateChange(Math.max(0, shippingRate - 0.001))}
+                  className="h-8 w-8 p-0"
+                >
+                  <Minus className="h-3 w-3" />
+                </Button>
+                <div className="flex-1 text-center">
+                  <div className="text-lg font-bold">{shippingRate.toFixed(3)}</div>
+                  <div className="text-xs text-muted-foreground">AED per gram</div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleShippingRateChange(Math.min(1, shippingRate + 0.001))}
+                  className="h-8 w-8 p-0"
+                >
+                  <Plus className="h-3 w-3" />
+                </Button>
+              </div>
+              <div className="flex gap-1">
+                {[0.003, 0.005, 0.007, 0.010].map(value => (
+                  <Button
+                    key={value}
+                    variant={Math.abs(shippingRate - value) < 0.0001 ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => handleShippingRateChange(value)}
+                    className="text-xs h-6"
+                  >
+                    {value.toFixed(3)}
+                  </Button>
+                ))}
               </div>
             </div>
+          </div>
+          
+          {/* Save Button */}
+          <div className="flex justify-center mt-6">
+            <Button 
+              onClick={savePricingSettings}
+              disabled={!hasUnsavedChanges}
+              className="gap-2"
+              variant={hasUnsavedChanges ? "default" : "outline"}
+            >
+              <Save className="h-4 w-4" />
+              {hasUnsavedChanges ? "Save Changes" : "All Changes Saved"}
+            </Button>
           </div>
         </CardContent>
       </Card>
