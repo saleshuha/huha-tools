@@ -60,53 +60,14 @@ export function POGroupCard({ poNumber, orders, onUpdateStatus, onUpdateTracking
     }
   };
 
-  // If no matched items, show just PO number without click functionality
-  if (!hasMatchedItems) {
-    return (
-      <Card className="w-full opacity-50">
-        <CardHeader className="transition-colors">
-          <CardTitle className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2">
-                <Package className="h-5 w-5 text-muted-foreground" />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-lg font-semibold text-muted-foreground">PO: {poNumber}</span>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <MapPin className="h-3 w-3" />
-                  <span>{shipToLocation}</span>
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="text-right">
-                <div className="text-sm text-muted-foreground">No SKU Matches</div>
-                <div className="text-lg font-semibold text-muted-foreground">0 items</div>
-              </div>
-              <Badge className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
-                No Match
-              </Badge>
-            </div>
-          </CardTitle>
-        </CardHeader>
-      </Card>
-    );
-  }
-
+  // Show all PO groups but modify display based on match status
   return (
-    <Card className="w-full">
+    <Card className={`w-full ${!hasMatchedItems ? 'opacity-70' : ''}`}>
       <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
         <div className="relative">
-          {/* Clickable PO header area */}
-          <div 
-            className="absolute inset-0 cursor-pointer hover:bg-muted/30 transition-colors rounded-t-lg z-10"
-            onClick={handlePOClick}
-            title="Click to view PO details in a new page"
-          />
-          
           {/* Collapsible trigger for dropdown */}
           <CollapsibleTrigger asChild>
-            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors relative z-20">
+            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
               <CardTitle className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-2">
@@ -127,8 +88,10 @@ export function POGroupCard({ poNumber, orders, onUpdateStatus, onUpdateTracking
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="text-right">
-                    <div className="text-sm text-muted-foreground">Matched Items</div>
-                    <div className="text-lg font-semibold">{totalItems}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {hasMatchedItems ? `${matchedOrders.length}/${allOrders.length} matched` : `0/${allOrders.length} matched`}
+                    </div>
+                    <div className="text-lg font-semibold">{totalItems} items</div>
                   </div>
                   {totalCost > 0 && (
                     <div className="text-right">

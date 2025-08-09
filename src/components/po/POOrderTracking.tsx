@@ -20,9 +20,21 @@ export function POOrderTracking({ orders, onUpdateStatus, onUpdateTracking, isLo
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'po_number' | 'status' | 'total_cost' | 'created_at'>('created_at');
 
+  // Debug logging to see what orders we're getting
+  console.log('🔍 POOrderTracking received orders:', orders.length);
+  console.log('📊 Orders with sunsky_sku:', orders.filter(o => o.sunsky_sku).length);
+  console.log('📝 Sample orders:', orders.slice(0, 3).map(o => ({
+    id: o.id,
+    po_number: o.po_number,
+    sku_code: o.sku_code,
+    asin: o.asin,
+    has_sunsky_sku: !!o.sunsky_sku,
+    sunsky_sku_id: o.sunsky_sku?.id
+  })));
+
   // Group orders by PO number
   const groupedOrders = useMemo(() => {
-    return orders.reduce((groups, order) => {
+    const groups = orders.reduce((groups, order) => {
       const poNumber = order.po_number;
       if (!groups[poNumber]) {
         groups[poNumber] = [];
@@ -30,6 +42,13 @@ export function POOrderTracking({ orders, onUpdateStatus, onUpdateTracking, isLo
       groups[poNumber].push(order);
       return groups;
     }, {} as Record<string, POOrder[]>);
+    
+    console.log('📦 Grouped orders:', Object.keys(groups).length, 'PO groups');
+    console.log('🔍 Groups with matched items:', Object.entries(groups).filter(([_, orders]) => 
+      orders.some(o => o.sunsky_sku)
+    ).length);
+    
+    return groups;
   }, [orders]);
 
   // Filter and sort grouped orders
@@ -83,6 +102,7 @@ export function POOrderTracking({ orders, onUpdateStatus, onUpdateTracking, isLo
       }
     });
 
+    console.log('🎯 Filtered groups:', filteredGroups.length);
     return filteredGroups;
   }, [groupedOrders, searchTerm, statusFilter, sortBy]);
 
