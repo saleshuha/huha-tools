@@ -302,34 +302,6 @@ serve(async (req) => {
         });
       }
 
-      case 'getBrands': {
-        // Sunsky API doesn't have a dedicated brands endpoint
-        // Instead, we'll return common brands or empty array
-        const commonBrands = [
-          { id: 1, name: 'Apple' },
-          { id: 2, name: 'Samsung' },
-          { id: 3, name: 'Huawei' },
-          { id: 4, name: 'Xiaomi' },
-          { id: 5, name: 'OnePlus' },
-          { id: 6, name: 'Google' },
-          { id: 7, name: 'Sony' },
-          { id: 8, name: 'LG' },
-          { id: 9, name: 'Nokia' },
-          { id: 10, name: 'Oppo' },
-          { id: 11, name: 'Vivo' },
-          { id: 12, name: 'Realme' }
-        ];
-
-        console.log('Returning common brands list');
-
-        return new Response(JSON.stringify({
-          result: 'success',
-          data: commonBrands
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-
       default:
         throw new Error(`Unknown action: ${action}`);
     }

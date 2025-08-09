@@ -36,12 +36,10 @@ interface SunskyCategory {
   code: string;
   name: string;
   parentId: number;
-}
-
-interface SunskyBrand {
-  id: number;
-  name: string;
-  code?: string;
+  status: number;
+  shortName?: string;
+  hsCode?: string;
+  gmtModified?: string;
 }
 
 export const SunskySKUImporter: React.FC = () => {
@@ -51,10 +49,10 @@ export const SunskySKUImporter: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [selectedBrand, setSelectedBrand] = useState<string>('all');
+  const [selectedSubCategory, setSelectedSubCategory] = useState<string>('all');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [categories, setCategories] = useState<SunskyCategory[]>([]);
-  const [brands, setBrands] = useState<SunskyBrand[]>([]);
+  const [subCategories, setSubCategories] = useState<SunskyCategory[]>([]);
   const [products, setProducts] = useState<SunskyProduct[]>([]);
   const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
   const [importing, setImporting] = useState(false);
@@ -62,11 +60,20 @@ export const SunskySKUImporter: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
-  // Load categories and brands on mount
+  // Load categories on mount
   useEffect(() => {
     loadCategories();
-    loadBrands();
   }, []);
+
+  // Load subcategories when main category changes
+  useEffect(() => {
+    if (selectedCategory && selectedCategory !== 'all') {
+      loadSubCategories(parseInt(selectedCategory));
+    } else {
+      setSubCategories([]);
+      setSelectedSubCategory('all');
+    }
+  }, [selectedCategory]);
 
   const loadCategories = async () => {
     try {
@@ -92,27 +99,23 @@ export const SunskySKUImporter: React.FC = () => {
     }
   };
 
-  const loadBrands = async () => {
+  const loadSubCategories = async (parentId: number) => {
     try {
       const { data, error } = await supabase.functions.invoke('sunsky-api', {
-        body: { action: 'getBrands' }
+        body: { action: 'getCategories', parentId }
       });
 
       if (error) throw error;
 
       if (data.result === 'success') {
-        setBrands(data.data || []);
+        setSubCategories(data.data || []);
       } else {
-        console.warn('Brands API returned:', data);
-        setBrands([]); // Set empty array instead of throwing error
+        console.warn('Sub-categories API returned:', data);
+        setSubCategories([]);
       }
     } catch (error) {
-      console.error('Error loading brands:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load Sunsky brands",
-        variant: "destructive",
-      });
+      console.error('Error loading sub-categories:', error);
+      setSubCategories([]);
     }
   };
 
@@ -125,16 +128,11 @@ export const SunskySKUImporter: React.FC = () => {
         pageSize: 20
       };
 
-      if (selectedCategory && selectedCategory !== 'all') {
+      // Use subcategory if selected, otherwise use main category
+      if (selectedSubCategory && selectedSubCategory !== 'all') {
+        searchParams.categoryId = selectedSubCategory;
+      } else if (selectedCategory && selectedCategory !== 'all') {
         searchParams.categoryId = selectedCategory;
-      }
-
-      if (selectedBrand && selectedBrand !== 'all') {
-        // Find the brand name from the brands array
-        const selectedBrandObj = brands.find(b => b.id.toString() === selectedBrand);
-        if (selectedBrandObj) {
-          searchParams.brandName = selectedBrandObj.name;
-        }
       }
 
       if (searchTerm) {
@@ -279,7 +277,7 @@ export const SunskySKUImporter: React.FC = () => {
             <TabsContent value="search" className="space-y-4">
               {/* Search Controls */}
               <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="search">Search Keyword</Label>
                     <div className="relative">
@@ -295,24 +293,7 @@ export const SunskySKUImporter: React.FC = () => {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="brand">Brand</Label>
-                    <Select value={selectedBrand} onValueChange={setSelectedBrand}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="All brands" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All brands</SelectItem>
-                        {brands.map((brand) => (
-                          <SelectItem key={brand.id} value={brand.id.toString()}>
-                            {brand.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="category">Category</Label>
+                    <Label htmlFor="category">Main Category</Label>
                     <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                       <SelectTrigger>
                         <SelectValue placeholder="All categories" />
@@ -328,18 +309,29 @@ export const SunskySKUImporter: React.FC = () => {
                     </Select>
                   </div>
 
-                  <div className="flex items-end">
-                    <Button 
-                      onClick={() => searchProducts(1)} 
-                      disabled={loading}
-                      className="w-full"
+                  <div className="space-y-2">
+                    <Label htmlFor="subcategory">Sub Category</Label>
+                    <Select 
+                      value={selectedSubCategory} 
+                      onValueChange={setSelectedSubCategory}
+                      disabled={selectedCategory === 'all' || subCategories.length === 0}
                     >
-                      {loading ? "Searching..." : "Search Products"}
-                    </Button>
+                      <SelectTrigger>
+                        <SelectValue placeholder="All sub-categories" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All sub-categories</SelectItem>
+                        {subCategories.map((subCategory) => (
+                          <SelectItem key={subCategory.id} value={subCategory.id.toString()}>
+                            {subCategory.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="date-range">Date Range Filter</Label>
                     <div className="flex items-center gap-2">
@@ -351,14 +343,24 @@ export const SunskySKUImporter: React.FC = () => {
                       />
                     </div>
                   </div>
+
+                  <div className="flex items-end">
+                    <Button 
+                      onClick={() => searchProducts(1)} 
+                      disabled={loading}
+                      className="w-full"
+                    >
+                      {loading ? "Searching..." : "Search Products"}
+                    </Button>
+                  </div>
                   
                   <div className="flex items-end">
                     <Button 
                       variant="outline"
                       onClick={() => {
                         setSearchTerm('');
-                        setSelectedBrand('all');
                         setSelectedCategory('all');
+                        setSelectedSubCategory('all');
                         setDateRange(undefined);
                         setProducts([]);
                       }}
