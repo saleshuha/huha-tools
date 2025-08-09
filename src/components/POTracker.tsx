@@ -252,99 +252,96 @@ export function POTracker() {
   // Placed orders - all orders with status 'ordered'
   const placedOrders = poOrders.filter(order => order.status === 'ordered').length;
 
-  // FIXED APPROACH: Only calculate when data is actually loaded
-  const calculateInventoryStats = () => {
-    // Don't calculate if data isn't loaded yet
-    if (poOrders.length === 0 || (inventoryData.asinInventory.length === 0 && inventoryData.skuInventory.length === 0)) {
-      return { itemsWithStock: 0, totalStockQty: 0, itemsWithInventory: 0 };
-    }
-
-    let itemsWithStock = 0;
-    let totalStockQty = 0;
-    let itemsWithInventory = 0;
-
-    console.log('=== CALCULATING WITH DATA ===');
-    console.log('PO Orders:', poOrders.length);
-    console.log('ASIN Inventory:', inventoryData.asinInventory.length);
-    console.log('SKU Inventory:', inventoryData.skuInventory.length);
-
-    for (let i = 0; i < poOrders.length; i++) {
-      const order = poOrders[i];
-      let foundInventory = false;
-      let hasStock = false;
-      let stockQty = 0;
-
-      // Check ASIN inventory first
-      if (order.asin) {
-        const asinInventory = inventoryData.asinInventory.find(item => item.asin === order.asin);
-        if (asinInventory) {
-          foundInventory = true;
-          if (asinInventory.quantity > 0) {
-            hasStock = true;
-            stockQty = asinInventory.quantity;
-          }
-          
-          if (i < 3) {
-            console.log(`Order ${i + 1} (ASIN):`, {
-              asin: order.asin,
-              found: true,
-              quantity: asinInventory.quantity,
-              hasStock
-            });
-          }
-        }
-      }
-
-      // If no ASIN match, check SKU inventory
-      if (!foundInventory) {
-        const skusToCheck = [order.sunsky_sku?.sku_code, order.sku_code].filter(Boolean);
-        
-        for (const sku of skusToCheck) {
-          const skuInventory = inventoryData.skuInventory.find(item => item.sku_number === sku);
-          if (skuInventory) {
-            foundInventory = true;
-            if (skuInventory.quantity > 0) {
-              hasStock = true;
-              stockQty = skuInventory.quantity;
-            }
-            
-            if (i < 3) {
-              console.log(`Order ${i + 1} (SKU):`, {
-                sku: sku,
-                found: true,
-                quantity: skuInventory.quantity,
-                hasStock
-              });
-            }
+  // COMPLETELY REWRITTEN: Simple function to count items with stock > 0
+  const getItemsWithStock = () => {
+    if (!poOrders || poOrders.length === 0) return { count: 0, totalQty: 0 };
+    
+    let count = 0;
+    let totalQty = 0;
+    
+    for (const order of poOrders) {
+      let foundStock = false;
+      
+      // Check ASIN inventory
+      if (order.asin && inventoryData.asinInventory) {
+        for (const asinItem of inventoryData.asinInventory) {
+          if (asinItem.asin === order.asin && asinItem.quantity > 0) {
+            count++;
+            totalQty += asinItem.quantity;
+            foundStock = true;
             break;
           }
         }
       }
-
-      if (foundInventory) {
-        itemsWithInventory++;
-        if (hasStock) {
-          itemsWithStock++;
-          totalStockQty += stockQty;
+      
+      // If no ASIN stock found, check SKU inventory
+      if (!foundStock && inventoryData.skuInventory) {
+        const skusToCheck = [order.sunsky_sku?.sku_code, order.sku_code].filter(Boolean);
+        for (const sku of skusToCheck) {
+          for (const skuItem of inventoryData.skuInventory) {
+            if (skuItem.sku_number === sku && skuItem.quantity > 0) {
+              count++;
+              totalQty += skuItem.quantity;
+              foundStock = true;
+              break;
+            }
+          }
+          if (foundStock) break;
         }
       }
     }
-
-    console.log('FINAL CALCULATION RESULTS:');
-    console.log('- Items with inventory data:', itemsWithInventory);
-    console.log('- Items with stock > 0:', itemsWithStock);
-    console.log('- Total stock quantity:', totalStockQty);
-
-    return { itemsWithStock, totalStockQty, itemsWithInventory };
+    
+    return { count, totalQty };
   };
 
-  const { itemsWithStock, totalStockQty, itemsWithInventory } = calculateInventoryStats();
+  // COMPLETELY REWRITTEN: Simple function to count items with any inventory data
+  const getItemsWithInventory = () => {
+    if (!poOrders || poOrders.length === 0) return 0;
+    
+    let count = 0;
+    
+    for (const order of poOrders) {
+      let hasInventory = false;
+      
+      // Check ASIN inventory
+      if (order.asin && inventoryData.asinInventory) {
+        for (const asinItem of inventoryData.asinInventory) {
+          if (asinItem.asin === order.asin) {
+            count++;
+            hasInventory = true;
+            break;
+          }
+        }
+      }
+      
+      // If no ASIN inventory found, check SKU inventory
+      if (!hasInventory && inventoryData.skuInventory) {
+        const skusToCheck = [order.sunsky_sku?.sku_code, order.sku_code].filter(Boolean);
+        for (const sku of skusToCheck) {
+          for (const skuItem of inventoryData.skuInventory) {
+            if (skuItem.sku_number === sku) {
+              count++;
+              hasInventory = true;
+              break;
+            }
+          }
+          if (hasInventory) break;
+        }
+      }
+    }
+    
+    return count;
+  };
+
+  // Get the actual counts using our new functions
+  const stockResults = getItemsWithStock();
+  const inventoryResults = getItemsWithInventory();
   
-  // For backward compatibility, assign to original variable names
-  const totalItemsWithInventory = itemsWithInventory;
-  const inStockItems = itemsWithStock;
-  const totalInStockQuantity = totalStockQty;
-  const poItemsWithInventoryData = []; // Empty array for compatibility
+  // For compatibility with existing code, use simple variable names
+  const totalItemsWithInventory = inventoryResults;
+  const inStockItems = stockResults.count;
+  const totalInStockQuantity = stockResults.totalQty;
+  const poItemsWithInventoryData = [];
 
   // Group orders by PO number for the tracking table
   const groupedPOOrders = poOrders.reduce((groups, order) => {
@@ -541,18 +538,18 @@ export function POTracker() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-orange-600">
-              {itemsWithStock.toLocaleString()}
+              {inStockItems.toLocaleString()}
             </div>
             <p className="text-xs text-muted-foreground">
               Items with stock quantity &gt; 0
             </p>
             <div className="flex gap-2 mt-1">
               <Badge variant="secondary" className="text-xs">
-                Total qty: {totalStockQty.toLocaleString()}
+                Total qty: {totalInStockQuantity.toLocaleString()}
               </Badge>
-              {itemsWithInventory > 0 && (
+              {totalItemsWithInventory > 0 && (
                 <Badge variant="secondary" className="text-xs">
-                  {((itemsWithStock / itemsWithInventory) * 100).toFixed(1)}% with stock
+                  {((inStockItems / totalItemsWithInventory) * 100).toFixed(1)}% with stock
                 </Badge>
               )}
             </div>
@@ -753,42 +750,67 @@ export function POTracker() {
                                    
                                    {/* Inventory Stock Progress */}
                                    {matchedCount > 0 && (() => {
-                                     // FIXED: Use same simple logic - only check quantity > 0
-                                     const poInventoryData = orders.map(order => {
-                                       const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code);
-                                       const hasInventory = inventoryMatch !== null;
-                                       const hasStock = inventoryMatch && inventoryMatch.quantity > 0; // Only check quantity > 0
+                                     // COMPLETELY REWRITTEN: Use exact same logic as metrics card
+                                     let poItemsWithStock = 0;
+                                     let poTotalStockQty = 0;
+                                     let poItemsWithInventory = 0;
+                                     
+                                     for (const order of orders) {
+                                       let foundInventory = false;
+                                       let foundStock = false;
                                        
-                                       return {
-                                         order,
-                                         inventoryMatch,
-                                         hasInventory,
-                                         hasStock
-                                       };
-                                     });
-                                     
-                                     const poItemsWithInventory = poInventoryData.filter(item => item.hasInventory).length;
-                                      const poInStockItems = poInventoryData.filter(item => item.hasStock).length;
-                                      const poInStockQuantity = poInventoryData
-                                        .filter(item => item.hasStock)
-                                        .reduce((sum, item) => sum + (item.inventoryMatch?.quantity || 0), 0);
-                                     
-                                     return (
-                                       <div className="space-y-1">
-                                         <div className="flex justify-between items-center">
-                                           <span className="text-xs font-medium text-orange-600">In Stock</span>
-                                           <span className="text-xs text-orange-600">{poInStockItems}/{poItemsWithInventory}</span>
-                                         </div>
-                                         <Progress 
-                                           value={poItemsWithInventory > 0 ? (poInStockItems / poItemsWithInventory) * 100 : 0} 
-                                           className="h-2 [&>div]:bg-orange-500"
-                                         />
-                                         <div className="text-xs text-muted-foreground">
-                                           Stock qty: {poInStockQuantity.toLocaleString()}
-                                         </div>
-                                       </div>
-                                     );
-                                   })()}
+                                       // Check ASIN inventory first
+                                       if (order.asin && inventoryData.asinInventory) {
+                                         for (const asinItem of inventoryData.asinInventory) {
+                                           if (asinItem.asin === order.asin) {
+                                             foundInventory = true;
+                                             if (asinItem.quantity > 0) {
+                                               foundStock = true;
+                                               poTotalStockQty += asinItem.quantity;
+                                             }
+                                             break;
+                                           }
+                                         }
+                                       }
+                                       
+                                       // If no ASIN inventory, check SKU inventory
+                                       if (!foundInventory && inventoryData.skuInventory) {
+                                         const skusToCheck = [order.sunsky_sku?.sku_code, order.sku_code].filter(Boolean);
+                                         for (const sku of skusToCheck) {
+                                           for (const skuItem of inventoryData.skuInventory) {
+                                             if (skuItem.sku_number === sku) {
+                                               foundInventory = true;
+                                               if (skuItem.quantity > 0) {
+                                                 foundStock = true;
+                                                 poTotalStockQty += skuItem.quantity;
+                                               }
+                                               break;
+                                             }
+                                           }
+                                           if (foundInventory) break;
+                                         }
+                                       }
+                                       
+                                       if (foundInventory) poItemsWithInventory++;
+                                       if (foundStock) poItemsWithStock++;
+                                     }
+                                      
+                                      return (
+                                        <div className="space-y-1">
+                                          <div className="flex justify-between items-center">
+                                            <span className="text-xs font-medium text-orange-600">In Stock</span>
+                                            <span className="text-xs text-orange-600">{poItemsWithStock}/{poItemsWithInventory}</span>
+                                          </div>
+                                          <Progress 
+                                            value={poItemsWithInventory > 0 ? (poItemsWithStock / poItemsWithInventory) * 100 : 0} 
+                                            className="h-2 [&>div]:bg-orange-500"
+                                          />
+                                          <div className="text-xs text-muted-foreground">
+                                            Stock qty: {poTotalStockQty.toLocaleString()}
+                                          </div>
+                                        </div>
+                                      );
+                                    })()}
                                    
                                    {/* Status Summary */}
                                   <div className="flex flex-wrap gap-1">
