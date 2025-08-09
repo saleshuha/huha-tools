@@ -83,19 +83,28 @@ export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIs
 
   // SKU adding function
   const onAddSKUs = useCallback(async (skus: any[]) => {
+    console.log('🔄 onAddSKUs called with:', skus.length, 'SKUs');
+    console.log('📝 Sample SKU data:', skus.slice(0, 2));
+    
     try {
+      // Add user_id to each SKU if not already present
+      const skusWithUserId = skus.map(sku => ({
+        ...sku,
+        user_id: profile?.id
+      }));
+      
       // Use prop function if provided, otherwise use hook
       if (propOnAddSKUs) {
-        await propOnAddSKUs(skus);
+        await propOnAddSKUs(skusWithUserId);
       } else {
-        await addSKUs(skus);
+        await addSKUs(skusWithUserId);
       }
-      console.log(`Successfully added ${skus.length} SKUs to database`);
+      console.log(`✅ Successfully added ${skus.length} SKUs to database`);
     } catch (error) {
-      console.error('Error adding SKUs:', error);
+      console.error('❌ Error adding SKUs:', error);
       throw error;
     }
-  }, [addSKUs, propOnAddSKUs]);
+  }, [addSKUs, propOnAddSKUs, profile?.id]);
 
   // Initialize bulk file processor
   const {
@@ -240,28 +249,68 @@ export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIs
   const handleBulkProcessing = useCallback(async () => {
     if (!selectedFiles || !globalMapping) return;
     
+    console.log('🚀 Starting bulk processing with:', {
+      fileCount: selectedFiles.length,
+      mapping: globalMapping
+    });
+    
     try {
       // Prepare SKU data for background processing
       const skuData: any[] = [];
       
       // Parse all files and collect SKU data
       for (const file of Array.from(selectedFiles)) {
+        console.log(`📄 Processing file: ${file.name}`);
         const data = await parseFileSimply(file);
+        
         if (data && data.length > 0) {
+          console.log(`📊 File ${file.name} has ${data.length} rows`);
           const mappedRows = data.map((row: any) => {
-            const mappedRow: any = {};
+            const mappedRow: any = {
+              country: selectedCountry, // Add country to each row
+              user_id: profile?.id // Add user_id to each row
+            };
+            
+            // Map the columns according to the global mapping
             Object.entries(globalMapping as Record<string, string>).forEach(([expectedCol, actualCol]) => {
               if (actualCol && row[actualCol as string] !== undefined) {
-                mappedRow[expectedCol] = row[actualCol as string];
+                let value = row[actualCol as string];
+                
+                // Convert weight and cost to numbers if needed
+                if (expectedCol === 'weight' || expectedCol === 'cost') {
+                  value = parseFloat(value) || 0;
+                }
+                
+                mappedRow[expectedCol] = value;
               }
             });
+            
+            // Log first few mapped rows for debugging
+            if (skuData.length < 3) {
+              console.log(`📝 Mapped row sample:`, mappedRow);
+            }
+            
             return mappedRow;
           });
           skuData.push(...mappedRows);
+        } else {
+          console.warn(`⚠️ No data found in file: ${file.name}`);
         }
       }
       
+      console.log(`✅ Total SKUs collected: ${skuData.length}`);
+      
+      if (skuData.length === 0) {
+        toast({
+          title: "No Data Found",
+          description: "No valid SKU data found in the selected files.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
       // Start background upload
+      console.log('🔄 Starting background upload...');
       await runBackgroundUpload(
         skuData,
         onAddSKUs,
@@ -270,21 +319,23 @@ export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIs
       
       // Clear local state and show success
       clearSelectedFiles();
+      setGlobalMapping(null);
+      
       toast({
         title: "Background Upload Started",
-        description: "Files are being processed in the background. You can navigate away and check progress later.",
+        description: `Processing ${skuData.length} SKUs in the background. Check the sidebar progress indicator.`,
         variant: "default"
       });
       
     } catch (error) {
-      console.error('Error starting background upload:', error);
+      console.error('❌ Error starting background upload:', error);
       toast({
         title: "Upload Failed",
         description: error instanceof Error ? error.message : "Failed to start background upload",
         variant: "destructive"
       });
     }
-  }, [selectedFiles, globalMapping, runBackgroundUpload, onAddSKUs, clearSelectedFiles, toast]);
+  }, [selectedFiles, globalMapping, selectedCountry, runBackgroundUpload, onAddSKUs, clearSelectedFiles, toast]);
 
   return (
     <div className="container mx-auto p-6 space-y-6">
