@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Package, Truck, CheckCircle, Clock, AlertTriangle, Plus, Save, ExternalLink, Upload, Edit, PackageCheck, PackageX } from 'lucide-react';
+import { ArrowLeft, Package, Truck, CheckCircle, Clock, AlertTriangle, Plus, Save, ExternalLink, Upload, Edit, PackageCheck, PackageX, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -11,6 +11,8 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { usePOOrders } from '@/hooks/usePOOrders';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -41,6 +43,15 @@ export default function PODetailsPage() {
   const [inventoryData, setInventoryData] = useState<{asinInventory: any[], skuInventory: any[]}>({
     asinInventory: [],
     skuInventory: []
+  });
+  
+  // Bulk operations state
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [bulkStatus, setBulkStatus] = useState('');
+  const [bulkTrackingInfo, setBulkTrackingInfo] = useState({
+    supplier_order_number: '',
+    tracking_number: '',
+    tracking_url: ''
   });
   
   // Individual tracking dialog state
@@ -159,6 +170,84 @@ export default function PODetailsPage() {
   const currency = matchedOrders[0]?.currency || 'AED';
   const shipToLocation = matchedOrders[0]?.ship_to_location || 'N/A';
 
+  // Handle bulk status update
+  const handleBulkStatusUpdate = async () => {
+    if (selectedItems.size === 0 || !bulkStatus) return;
+    
+    setIsUpdating(true);
+    try {
+      const updatePromises = Array.from(selectedItems).map(orderId => 
+        updateOrderStatus(orderId, bulkStatus as "pending" | "ordered" | "shipped" | "delivered" | "cancelled")
+      );
+      
+      await Promise.all(updatePromises);
+      
+      toast({
+        title: "Bulk Status Updated",
+        description: `Updated status to ${bulkStatus} for ${selectedItems.size} items`
+      });
+      setSelectedItems(new Set());
+      setBulkStatus('');
+    } catch (error) {
+      toast({
+        title: "Bulk Update Failed",
+        description: "Failed to update status for some items",
+        variant: "destructive"
+      });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  // Handle bulk tracking update for selected items
+  const handleBulkTrackingUpdateSelected = async () => {
+    if (selectedItems.size === 0) return;
+    
+    setIsUpdating(true);
+    try {
+      const updatePromises = Array.from(selectedItems).map(orderId => 
+        updateTrackingInfo(orderId, bulkTrackingInfo)
+      );
+      
+      await Promise.all(updatePromises);
+      
+      toast({
+        title: "Bulk Tracking Updated",
+        description: `Updated tracking information for ${selectedItems.size} items`
+      });
+      setSelectedItems(new Set());
+      setBulkTrackingInfo({ supplier_order_number: '', tracking_number: '', tracking_url: '' });
+    } catch (error) {
+      toast({
+        title: "Bulk Update Failed",
+        description: "Failed to update tracking information for some items",
+        variant: "destructive"
+      });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  // Handle select all/none
+  const handleSelectAll = () => {
+    if (selectedItems.size === matchedOrders.length) {
+      setSelectedItems(new Set());
+    } else {
+      setSelectedItems(new Set(matchedOrders.map(order => order.id)));
+    }
+  };
+
+  // Handle individual item selection
+  const handleItemSelect = (orderId: string) => {
+    const newSelected = new Set(selectedItems);
+    if (newSelected.has(orderId)) {
+      newSelected.delete(orderId);
+    } else {
+      newSelected.add(orderId);
+    }
+    setSelectedItems(newSelected);
+  };
+
   // Handle individual tracking update
   const handleIndividualTrackingUpdate = async () => {
     if (!selectedOrder) return;
@@ -274,12 +363,99 @@ export default function PODetailsPage() {
         </div>
 
         {/* Action Buttons */}
-        <div className="flex gap-4 mb-6">
+        <div className="flex flex-wrap gap-4 mb-6">
+          {/* Bulk Operations */}
+          {selectedItems.size > 0 && (
+            <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+              <Badge variant="secondary">{selectedItems.size} selected</Badge>
+              
+              <Select value={bulkStatus} onValueChange={setBulkStatus}>
+                <SelectTrigger className="w-32">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="ordered">Ordered</SelectItem>
+                  <SelectItem value="shipped">Shipped</SelectItem>
+                  <SelectItem value="delivered">Delivered</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              <Button 
+                size="sm" 
+                onClick={handleBulkStatusUpdate}
+                disabled={!bulkStatus || isUpdating}
+              >
+                Update Status
+              </Button>
+              
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button size="sm" variant="outline">
+                    Update Tracking
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Bulk Update Tracking</DialogTitle>
+                    <DialogDescription>
+                      Update tracking information for {selectedItems.size} selected items
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="bulk-selected-supplier-order">Supplier Order Number</Label>
+                      <Input
+                        id="bulk-selected-supplier-order"
+                        value={bulkTrackingInfo.supplier_order_number}
+                        onChange={(e) => setBulkTrackingInfo({...bulkTrackingInfo, supplier_order_number: e.target.value})}
+                        placeholder="Enter supplier order number"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="bulk-selected-tracking-number">Tracking Number</Label>
+                      <Input
+                        id="bulk-selected-tracking-number"
+                        value={bulkTrackingInfo.tracking_number}
+                        onChange={(e) => setBulkTrackingInfo({...bulkTrackingInfo, tracking_number: e.target.value})}
+                        placeholder="Enter tracking number"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="bulk-selected-tracking-url">Tracking URL</Label>
+                      <Input
+                        id="bulk-selected-tracking-url"
+                        value={bulkTrackingInfo.tracking_url}
+                        onChange={(e) => setBulkTrackingInfo({...bulkTrackingInfo, tracking_url: e.target.value})}
+                        placeholder="Enter tracking URL"
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button onClick={handleBulkTrackingUpdateSelected} disabled={isUpdating}>
+                      {isUpdating ? 'Updating...' : 'Update Selected Items'}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+              
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={() => setSelectedItems(new Set())}
+              >
+                <Trash2 className="h-4 w-4 mr-1" />
+                Clear
+              </Button>
+            </div>
+          )}
+          
+          {/* Original Bulk Update All Button */}
           <Dialog>
             <DialogTrigger asChild>
               <Button variant="outline" className="gap-2">
                 <Upload className="h-4 w-4" />
-                Bulk Update Tracking
+                Bulk Update All Tracking
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-md">
@@ -404,6 +580,13 @@ export default function PODetailsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12">
+                    <Checkbox
+                      checked={selectedItems.size === matchedOrders.length && matchedOrders.length > 0}
+                      onCheckedChange={handleSelectAll}
+                      aria-label="Select all items"
+                    />
+                  </TableHead>
                   <TableHead>Item Details</TableHead>
                   <TableHead>Inventory Status</TableHead>
                   <TableHead>Tracking Info</TableHead>
@@ -415,7 +598,14 @@ export default function PODetailsPage() {
               </TableHeader>
               <TableBody>
                 {matchedOrders.map((order) => (
-                  <TableRow key={order.id}>
+                  <TableRow key={order.id} className={selectedItems.has(order.id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''}>
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedItems.has(order.id)}
+                        onCheckedChange={() => handleItemSelect(order.id)}
+                        aria-label={`Select item ${order.asin}`}
+                      />
+                    </TableCell>
                     <TableCell>
                       <div className="space-y-1">
                         <div className="font-mono text-sm font-medium">
