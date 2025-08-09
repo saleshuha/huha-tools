@@ -157,11 +157,15 @@ export function POTracker() {
 
   // Calculate accurate metrics based on database matching
   const totalSKUs = totalCount;
-  const totalOrders = poOrders.length;
+  const totalOrderRecords = poOrders.length;
+  const totalItemsQuantity = poOrders.reduce((sum, order) => sum + (order.quantity || 0), 0);
   const uniquePONumbers = new Set(poOrders.map(order => order.po_number)).size;
   
   // Matched items - use database-level matching (items with sunsky_sku populated)
   const matchedItems = poOrders.filter(order => order.sunsky_sku !== null).length;
+  const matchedItemsQuantity = poOrders
+    .filter(order => order.sunsky_sku !== null)
+    .reduce((sum, order) => sum + (order.quantity || 0), 0);
   
   // Pending matched orders - matched items that are still pending
   const pendingMatchedOrders = poOrders.filter(order => 
@@ -315,15 +319,13 @@ export function POTracker() {
             <BarChart3 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalOrders.toLocaleString()}</div>
+            <div className="text-2xl font-bold">{totalItemsQuantity.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">
-              Individual PO items
+              Total quantity in PO orders
             </p>
-            {poOrders.length !== totalOrders && (
-              <Badge variant="secondary" className="mt-1 text-xs">
-                {poOrders.length.toLocaleString()} loaded
-              </Badge>
-            )}
+            <Badge variant="secondary" className="mt-1 text-xs">
+              {totalOrderRecords.toLocaleString()} order records
+            </Badge>
           </CardContent>
         </Card>
 
@@ -333,15 +335,20 @@ export function POTracker() {
             <CheckCircle className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{matchedItems.toLocaleString()}</div>
+            <div className="text-2xl font-bold text-green-600">{matchedItemsQuantity.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">
-              Items found in SKU catalog
+              Quantity of matched items
             </p>
-            {totalOrders > 0 && (
-              <Badge variant="secondary" className="mt-1 text-xs">
-                {((matchedItems / totalOrders) * 100).toFixed(1)}% match rate
+            <div className="flex gap-2 mt-1">
+              <Badge variant="secondary" className="text-xs">
+                {matchedItems.toLocaleString()} records matched
               </Badge>
-            )}
+              {totalItemsQuantity > 0 && (
+                <Badge variant="secondary" className="text-xs">
+                  {((matchedItemsQuantity / totalItemsQuantity) * 100).toFixed(1)}% by quantity
+                </Badge>
+              )}
+            </div>
           </CardContent>
         </Card>
 
