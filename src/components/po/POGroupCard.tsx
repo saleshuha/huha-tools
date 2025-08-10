@@ -21,6 +21,7 @@ const statusColors = {
   ordered: 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300',
   shipped: 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-300',
   delivered: 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300',
+  closed: 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-300',
   cancelled: 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300',
 } as const;
 
@@ -33,10 +34,10 @@ export const POGroupCard: React.FC<POGroupCardProps> = ({
   const [isExpanded, setIsExpanded] = useState(false);
   const navigate = useNavigate();
 
-  // Filter only matched orders (orders with sunsky_sku) - SHOW ONLY MATCHED ITEMS
-  const matchedOrders = orders.filter(order => order.sunsky_sku !== null && order.sunsky_sku !== undefined);
+  // Filter only matched orders (orders with sunsky_sku) AND exclude closed POs
+  const matchedOrders = orders.filter(order => order.sunsky_sku !== null && order.sunsky_sku !== undefined && order.status !== 'closed');
   
-  // If no matched orders, don't render this card
+  // If no matched orders (or all are closed), don't render this card
   if (matchedOrders.length === 0) {
     return null;
   }
@@ -248,6 +249,16 @@ export const POGroupCard: React.FC<POGroupCardProps> = ({
                               className="text-xs"
                             >
                               Mark Delivered
+                            </Button>
+                          )}
+                          {order.status === 'delivered' && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => onUpdateStatus(order.id, 'closed')}
+                              className="text-xs"
+                            >
+                              Close PO
                             </Button>
                           )}
                           {order.tracking_url && (
