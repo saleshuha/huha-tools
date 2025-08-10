@@ -104,9 +104,27 @@ export const POGroupCard: React.FC<POGroupCardProps> = ({
                 <Eye className="h-3 w-3 mr-1" />
                 View Details
               </Button>
-              <span className="text-sm text-muted-foreground">
-                {totalItems} matched items • {totalCost.toFixed(2)} {currency}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">
+                  {totalItems} matched items
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    // Update all orders in this PO to 'closed' status
+                    matchedOrders.forEach(order => {
+                      if (order.status === 'delivered') {
+                        onUpdateStatus(order.id, 'closed');
+                      }
+                    });
+                  }}
+                  disabled={!matchedOrders.some(order => order.status === 'delivered')}
+                  className="text-xs"
+                >
+                  Close PO
+                </Button>
+              </div>
             </div>
           </div>
           
