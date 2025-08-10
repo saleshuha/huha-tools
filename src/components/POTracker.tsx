@@ -234,23 +234,23 @@ export function POTracker() {
   const totalItemsQuantity = poOrders.reduce((sum, order) => sum + (order.quantity || 0), 0);
   const uniquePONumbers = new Set(poOrders.map(order => order.po_number)).size;
   
-  // Matched items - use database-level matching (items with sunsky_sku populated) EXCLUDING closed POs
-  const matchedItems = poOrders.filter(order => order.sunsky_sku !== null && order.status !== 'closed').length;
+  // Matched items - use database-level matching (items with sunsky_sku populated)
+  const matchedItems = poOrders.filter(order => order.sunsky_sku !== null).length;
   const matchedItemsQuantity = poOrders
-    .filter(order => order.sunsky_sku !== null && order.status !== 'closed')
+    .filter(order => order.sunsky_sku !== null)
     .reduce((sum, order) => sum + (order.quantity || 0), 0);
   
-  // Pending matched orders - matched items that are still pending and not closed
+  // Pending matched orders - matched items that are still pending
   const pendingMatchedOrders = poOrders.filter(order => 
     order.status === 'pending' && order.sunsky_sku !== null
   ).length;
   
-  // Pending matched quantity - total quantity of matched items that are still pending and not closed
+  // Pending matched quantity - total quantity of matched items that are still pending
   const pendingMatchedQuantity = poOrders
     .filter(order => order.status === 'pending' && order.sunsky_sku !== null)
     .reduce((sum, order) => sum + (order.quantity || 0), 0);
   
-  // Placed orders - all orders with status 'ordered' and not closed
+  // Placed orders - all orders with status 'ordered'
   const placedOrders = poOrders.filter(order => order.status === 'ordered').length;
 
   // REWRITTEN: Only count MATCHED items (with sunsky_sku) that have stock > 0
@@ -260,8 +260,8 @@ export function POTracker() {
     let count = 0;
     let totalQty = 0;
     
-    // ONLY process matched items (items with sunsky_sku populated) EXCLUDING closed POs
-    const matchedItems = poOrders.filter(order => order.sunsky_sku !== null && order.status !== 'closed');
+    // ONLY process matched items (items with sunsky_sku populated)
+    const matchedItems = poOrders.filter(order => order.sunsky_sku !== null);
     
     console.log('Total PO Orders:', poOrders.length);
     console.log('Matched Items (with sunsky_sku):', matchedItems.length);
@@ -310,8 +310,8 @@ export function POTracker() {
     
     let count = 0;
     
-    // ONLY process matched items (items with sunsky_sku populated) EXCLUDING closed POs
-    const matchedItems = poOrders.filter(order => order.sunsky_sku !== null && order.status !== 'closed');
+    // ONLY process matched items (items with sunsky_sku populated)
+    const matchedItems = poOrders.filter(order => order.sunsky_sku !== null);
     
     for (const order of matchedItems) {
       let hasInventory = false;
@@ -662,7 +662,6 @@ export function POTracker() {
                   <option value="ordered">Ordered</option>
                   <option value="shipped">Shipped</option>
                   <option value="delivered">Delivered</option>
-                  <option value="closed">PO Delivered & Closed</option>
                 </select>
               </div>
 
@@ -694,12 +693,11 @@ export function POTracker() {
                     </TableHeader>
                     <TableBody>
                       {filteredPOGroups.map(([poNumber, orders]) => {
-                        const matchedCount = orders.filter(order => order.sunsky_sku !== null && order.status !== 'closed').length;
+                        const matchedCount = orders.filter(order => order.sunsky_sku !== null).length;
                         const pendingCount = orders.filter(order => order.status === 'pending' && order.sunsky_sku !== null).length;
-                        const placedCount = orders.filter(order => order.status === 'ordered' && order.sunsky_sku !== null).length;
-                        const shippedCount = orders.filter(order => order.status === 'shipped' && order.sunsky_sku !== null).length;
-                        const deliveredCount = orders.filter(order => order.status === 'delivered' && order.sunsky_sku !== null).length;
-                        const closedCount = orders.filter(order => order.status === 'closed' && order.sunsky_sku !== null).length;
+                        const placedCount = orders.filter(order => order.status === 'ordered').length;
+                        const shippedCount = orders.filter(order => order.status === 'shipped').length;
+                        const deliveredCount = orders.filter(order => order.status === 'delivered').length;
                         
                         const totalCost = orders.reduce((sum, order) => sum + (order.total_cost || 0), 0);
                         const currency = orders[0]?.currency || 'AED';
@@ -767,13 +765,13 @@ export function POTracker() {
                                    
                                    {/* Inventory Stock Progress */}
                                    {matchedCount > 0 && (() => {
-                                      // ONLY process matched items (same logic as metrics card) EXCLUDING closed POs
-                                      let poItemsWithStock = 0;
-                                      let poTotalStockQty = 0;
-                                      let poItemsWithInventory = 0;
-                                      
-                                      // ONLY process matched items (items with sunsky_sku populated) EXCLUDING closed POs
-                                      const matchedOrders = orders.filter(order => order.sunsky_sku !== null && order.status !== 'closed');
+                                     // REWRITTEN: Only process MATCHED items (same logic as metrics card)
+                                     let poItemsWithStock = 0;
+                                     let poTotalStockQty = 0;
+                                     let poItemsWithInventory = 0;
+                                     
+                                     // ONLY process matched items (items with sunsky_sku populated)
+                                     const matchedOrders = orders.filter(order => order.sunsky_sku !== null);
                                      
                                      for (const order of matchedOrders) {
                                        let foundInventory = false;

@@ -30,7 +30,6 @@ const statusColors = {
   ordered: 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300',
   shipped: 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-300',
   delivered: 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300',
-  closed: 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-300',
   cancelled: 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300',
 };
 
@@ -227,36 +226,6 @@ export default function PODetailsPage() {
       toast({
         title: "Bulk Update Failed",
         description: "Failed to mark some items as ordered from supplier",
-        variant: "destructive"
-      });
-    } finally {
-      setIsUpdating(false);
-    }
-  };
-
-  // Handle bulk close delivered POs
-  const handleBulkClosePO = async () => {
-    if (selectedItems.size === 0) return;
-    
-    setIsUpdating(true);
-    try {
-      const updatePromises = Array.from(selectedItems).map(orderId => 
-        updateOrderStatus(orderId, 'closed')
-      );
-      
-      await Promise.all(updatePromises);
-      
-      toast({
-        title: "POs Closed",
-        description: `${selectedItems.size} PO items have been marked as closed`
-      });
-      
-      setSelectedItems(new Set());
-    } catch (error) {
-      console.error('Error closing POs:', error);
-      toast({
-        title: "Error",
-        description: "Failed to close PO items. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -573,22 +542,6 @@ export default function PODetailsPage() {
               >
                 Mark From Supplier
               </Button>
-              
-              {/* Add Close PO button for delivered items */}
-              {Array.from(selectedItems).some(id => {
-                const order = matchedOrders.find(o => o.id === id);
-                return order && order.status === 'delivered';
-              }) && (
-                <Button 
-                  size="sm" 
-                  variant="outline"
-                  onClick={handleBulkClosePO}
-                  disabled={isUpdating}
-                  className="text-gray-600 border-gray-300 hover:bg-gray-50"
-                >
-                  Close PO
-                </Button>
-              )}
               
               <Dialog>
                 <DialogTrigger asChild>
