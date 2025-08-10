@@ -34,22 +34,27 @@ export const POGroupCard: React.FC<POGroupCardProps> = ({
   const [isExpanded, setIsExpanded] = useState(false);
   const navigate = useNavigate();
 
-  // Filter only matched orders (orders with sunsky_sku) AND exclude closed POs
-  const matchedOrders = orders.filter(order => order.sunsky_sku !== null && order.sunsky_sku !== undefined && order.status !== 'closed');
+  // Filter only non-closed orders - show all orders including unmatched ones
+  const activeOrders = orders.filter(order => order.status !== 'closed');
   
-  // If no matched orders (or all are closed), don't render this card
-  if (matchedOrders.length === 0) {
+  // If no active orders (all are closed), don't render this card
+  if (activeOrders.length === 0) {
     return null;
   }
 
-  // Calculate summary data for display (only for matched orders)
-  const totalItems = matchedOrders.length;
+  // Separate matched and unmatched orders for display
+  const matchedOrders = activeOrders.filter(order => order.sunsky_sku !== null && order.sunsky_sku !== undefined);
+  const unmatchedOrders = activeOrders.filter(order => order.sunsky_sku === null || order.sunsky_sku === undefined);
+
+  // Calculate summary data for display (for all active orders)
+  const totalItems = activeOrders.length;
+  const matchedCount = matchedOrders.length;
   const totalCost = matchedOrders.reduce((sum, order) => sum + (order.total_cost || 0), 0);
-  const currency = matchedOrders[0]?.currency || 'AED';
-  const shipToLocation = matchedOrders[0]?.ship_to_location || 'Not specified';
+  const currency = activeOrders[0]?.currency || 'AED';
+  const shipToLocation = activeOrders[0]?.ship_to_location || 'Not specified';
   
-  // Count unique statuses (only for matched orders)
-  const statusCounts = matchedOrders.reduce((acc, order) => {
+  // Count unique statuses (for all active orders)
+  const statusCounts = activeOrders.reduce((acc, order) => {
     acc[order.status] = (acc[order.status] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
@@ -106,20 +111,20 @@ export const POGroupCard: React.FC<POGroupCardProps> = ({
               </Button>
               <div className="flex items-center gap-2">
                 <span className="text-sm text-muted-foreground">
-                  {totalItems} matched items
+                  {totalItems} total items ({matchedCount} matched)
                 </span>
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={() => {
-                    // Update all orders in this PO to 'closed' status
-                    matchedOrders.forEach(order => {
+                    // Update all delivered orders in this PO to 'closed' status
+                    activeOrders.forEach(order => {
                       if (order.status === 'delivered') {
                         onUpdateStatus(order.id, 'closed');
                       }
                     });
                   }}
-                  disabled={!matchedOrders.some(order => order.status === 'delivered')}
+                  disabled={!activeOrders.some(order => order.status === 'delivered')}
                   className="text-xs"
                 >
                   Close PO
@@ -194,106 +199,205 @@ export const POGroupCard: React.FC<POGroupCardProps> = ({
                     <TableHead className="text-center">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
-                <TableBody>
-                  {matchedOrders.map((order) => (
-                    <TableRow key={order.id}>
-                      <TableCell className="font-mono text-xs">
-                        {order.asin}
-                        {order.external_id && (
-                          <div className="text-xs text-muted-foreground">
-                            {order.external_id_type}: {order.external_id}
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell className="font-mono text-xs">
-                        {order.model_number}
-                      </TableCell>
-                      <TableCell className="max-w-xs">
-                        <div className="truncate" title={order.title}>
-                          {order.title}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-center font-semibold">
-                        {order.quantity}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Badge className="bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300">
-                          Matched
-                        </Badge>
-                        {order.sunsky_sku && (
-                          <div className="text-xs text-green-600 font-medium mt-1">
-                            SKU: {order.sunsky_sku.sku_code}
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Badge className={statusColors[order.status as keyof typeof statusColors] || statusColors.pending}>
-                          {order.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {order.unit_cost ? `${order.unit_cost.toFixed(2)} ${currency}` : '-'}
-                      </TableCell>
-                      <TableCell className="text-right font-semibold">
-                        {order.total_cost ? `${order.total_cost.toFixed(2)} ${currency}` : '-'}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <div className="flex gap-1 justify-center">
-                          {order.status === 'pending' && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => onUpdateStatus(order.id, 'ordered')}
-                              className="text-xs"
-                            >
-                              Mark Ordered
-                            </Button>
-                          )}
-                          {order.status === 'ordered' && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => onUpdateStatus(order.id, 'shipped')}
-                              className="text-xs"
-                            >
-                              Mark Shipped
-                            </Button>
-                          )}
-                          {order.status === 'shipped' && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => onUpdateStatus(order.id, 'delivered')}
-                              className="text-xs"
-                            >
-                              Mark Delivered
-                            </Button>
-                          )}
-                          {order.status === 'delivered' && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => onUpdateStatus(order.id, 'closed')}
-                              className="text-xs"
-                            >
-                              Close PO
-                            </Button>
-                          )}
-                          {order.tracking_url && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => window.open(order.tracking_url, '_blank')}
-                              className="text-xs"
-                            >
-                              Track
-                            </Button>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
+                 <TableBody>
+                   {/* Show matched orders first */}
+                   {matchedOrders.map((order) => (
+                     <TableRow key={order.id}>
+                       <TableCell className="font-mono text-xs">
+                         {order.asin}
+                         {order.external_id && (
+                           <div className="text-xs text-muted-foreground">
+                             {order.external_id_type}: {order.external_id}
+                           </div>
+                         )}
+                       </TableCell>
+                       <TableCell className="font-mono text-xs">
+                         {order.model_number}
+                       </TableCell>
+                       <TableCell className="max-w-xs">
+                         <div className="truncate" title={order.title}>
+                           {order.title}
+                         </div>
+                       </TableCell>
+                       <TableCell className="text-center font-semibold">
+                         {order.quantity}
+                       </TableCell>
+                       <TableCell className="text-center">
+                         <Badge className="bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300">
+                           Matched
+                         </Badge>
+                         {order.sunsky_sku && (
+                           <div className="text-xs text-green-600 font-medium mt-1">
+                             SKU: {order.sunsky_sku.sku_code}
+                           </div>
+                         )}
+                       </TableCell>
+                       <TableCell className="text-center">
+                         <Badge className={statusColors[order.status as keyof typeof statusColors] || statusColors.pending}>
+                           {order.status}
+                         </Badge>
+                       </TableCell>
+                       <TableCell className="text-right">
+                         {order.unit_cost ? `${order.unit_cost.toFixed(2)} ${currency}` : '-'}
+                       </TableCell>
+                       <TableCell className="text-right font-semibold">
+                         {order.total_cost ? `${order.total_cost.toFixed(2)} ${currency}` : '-'}
+                       </TableCell>
+                       <TableCell className="text-center">
+                         <div className="flex gap-1 justify-center">
+                           {order.status === 'pending' && (
+                             <Button
+                               size="sm"
+                               variant="outline"
+                               onClick={() => onUpdateStatus(order.id, 'ordered')}
+                               className="text-xs"
+                             >
+                               Mark Ordered
+                             </Button>
+                           )}
+                           {order.status === 'ordered' && (
+                             <Button
+                               size="sm"
+                               variant="outline"
+                               onClick={() => onUpdateStatus(order.id, 'shipped')}
+                               className="text-xs"
+                             >
+                               Mark Shipped
+                             </Button>
+                           )}
+                           {order.status === 'shipped' && (
+                             <Button
+                               size="sm"
+                               variant="outline"
+                               onClick={() => onUpdateStatus(order.id, 'delivered')}
+                               className="text-xs"
+                             >
+                               Mark Delivered
+                             </Button>
+                           )}
+                           {order.status === 'delivered' && (
+                             <Button
+                               size="sm"
+                               variant="outline"
+                               onClick={() => onUpdateStatus(order.id, 'closed')}
+                               className="text-xs"
+                             >
+                               Close PO
+                             </Button>
+                           )}
+                           {order.tracking_url && (
+                             <Button
+                               size="sm"
+                               variant="ghost"
+                               onClick={() => window.open(order.tracking_url, '_blank')}
+                               className="text-xs"
+                             >
+                               Track
+                             </Button>
+                           )}
+                         </div>
+                       </TableCell>
+                     </TableRow>
+                   ))}
+                   
+                   {/* Show unmatched orders */}
+                   {unmatchedOrders.map((order) => (
+                     <TableRow key={order.id} className="bg-muted/50">
+                       <TableCell className="font-mono text-xs">
+                         {order.asin}
+                         {order.external_id && (
+                           <div className="text-xs text-muted-foreground">
+                             {order.external_id_type}: {order.external_id}
+                           </div>
+                         )}
+                       </TableCell>
+                       <TableCell className="font-mono text-xs">
+                         {order.model_number}
+                       </TableCell>
+                       <TableCell className="max-w-xs">
+                         <div className="truncate" title={order.title}>
+                           {order.title}
+                         </div>
+                       </TableCell>
+                       <TableCell className="text-center font-semibold">
+                         {order.quantity}
+                       </TableCell>
+                       <TableCell className="text-center">
+                         <Badge className="bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-300">
+                           Unmatched
+                         </Badge>
+                         <div className="text-xs text-orange-600 font-medium mt-1">
+                           No SKU found
+                         </div>
+                       </TableCell>
+                       <TableCell className="text-center">
+                         <Badge className={statusColors[order.status as keyof typeof statusColors] || statusColors.pending}>
+                           {order.status}
+                         </Badge>
+                       </TableCell>
+                       <TableCell className="text-right">
+                         {order.unit_cost ? `${order.unit_cost.toFixed(2)} ${currency}` : '-'}
+                       </TableCell>
+                       <TableCell className="text-right font-semibold">
+                         {order.total_cost ? `${order.total_cost.toFixed(2)} ${currency}` : '-'}
+                       </TableCell>
+                       <TableCell className="text-center">
+                         <div className="flex gap-1 justify-center">
+                           {order.status === 'pending' && (
+                             <Button
+                               size="sm"
+                               variant="outline"
+                               onClick={() => onUpdateStatus(order.id, 'ordered')}
+                               className="text-xs"
+                             >
+                               Mark Ordered
+                             </Button>
+                           )}
+                           {order.status === 'ordered' && (
+                             <Button
+                               size="sm"
+                               variant="outline"
+                               onClick={() => onUpdateStatus(order.id, 'shipped')}
+                               className="text-xs"
+                             >
+                               Mark Shipped
+                             </Button>
+                           )}
+                           {order.status === 'shipped' && (
+                             <Button
+                               size="sm"
+                               variant="outline"
+                               onClick={() => onUpdateStatus(order.id, 'delivered')}
+                               className="text-xs"
+                             >
+                               Mark Delivered
+                             </Button>
+                           )}
+                           {order.status === 'delivered' && (
+                             <Button
+                               size="sm"
+                               variant="outline"
+                               onClick={() => onUpdateStatus(order.id, 'closed')}
+                               className="text-xs"
+                             >
+                               Close PO
+                             </Button>
+                           )}
+                           {order.tracking_url && (
+                             <Button
+                               size="sm"
+                               variant="ghost"
+                               onClick={() => window.open(order.tracking_url, '_blank')}
+                               className="text-xs"
+                             >
+                               Track
+                             </Button>
+                           )}
+                         </div>
+                       </TableCell>
+                     </TableRow>
+                   ))}
+                 </TableBody>
               </Table>
             </div>
           </div>
