@@ -225,7 +225,7 @@ export function POTracker() {
 
   const filteredSKUs = sunskySKUs.filter(sku => 
     sku.sku_code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    sku.description?.toLowerCase().includes(searchTerm.toLowerCase())
+    sku.title?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   // Calculate accurate metrics based on database matching

@@ -7,10 +7,8 @@ export interface SunskySKU {
   user_id: string;
   sku_code: string;
   title?: string;
-  description?: string;
   cost?: number;
   weight?: number;
-  notes?: string;
   currency?: string;
   country?: string;
   created_at: string;
@@ -126,10 +124,8 @@ export const useSKUManager = () => {
           user_id,
           sku_code,
           title,
-          description,
           cost,
           weight,
-          notes,
           currency,
           country,
           created_at,

@@ -64,10 +64,8 @@ export function SKUList({ skus, shippingRate, isLoading, hasMore, onLoadMore, on
         .from('sunsky_skus')
         .update({
           title: updatedData.title,
-          description: updatedData.description,
           cost: updatedData.cost,
           weight: updatedData.weight,
-          notes: updatedData.notes,
           updated_at: new Date().toISOString()
         })
         .eq('id', editingSku.id);
@@ -370,10 +368,8 @@ interface EditSKUFormProps {
 function EditSKUForm({ sku, onSave, onCancel, isLoading }: EditSKUFormProps) {
   const [formData, setFormData] = useState({
     title: sku.title || '',
-    description: sku.description || '',
     cost: sku.cost?.toString() || '',
-    weight: sku.weight?.toString() || '',
-    notes: sku.notes || ''
+    weight: sku.weight?.toString() || ''
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -381,10 +377,8 @@ function EditSKUForm({ sku, onSave, onCancel, isLoading }: EditSKUFormProps) {
     
     const updatedData: Partial<SunskySKU> = {
       title: formData.title.trim() || null,
-      description: formData.description.trim() || null,
       cost: formData.cost ? parseFloat(formData.cost) : null,
-      weight: formData.weight ? parseFloat(formData.weight) : null,
-      notes: formData.notes.trim() || null
+      weight: formData.weight ? parseFloat(formData.weight) : null
     };
 
     onSave(updatedData);
@@ -402,16 +396,6 @@ function EditSKUForm({ sku, onSave, onCancel, isLoading }: EditSKUFormProps) {
         />
       </div>
       
-      <div className="grid gap-2">
-        <Label htmlFor="edit-description">Description</Label>
-        <Textarea
-          id="edit-description"
-          value={formData.description}
-          onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-          placeholder="Enter product description"
-          rows={3}
-        />
-      </div>
       
       <div className="grid grid-cols-2 gap-4">
         <div className="grid gap-2">
@@ -441,16 +425,6 @@ function EditSKUForm({ sku, onSave, onCancel, isLoading }: EditSKUFormProps) {
         </div>
       </div>
       
-      <div className="grid gap-2">
-        <Label htmlFor="edit-notes">Notes</Label>
-        <Textarea
-          id="edit-notes"
-          value={formData.notes}
-          onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-          placeholder="Additional notes"
-          rows={2}
-        />
-      </div>
       
       <div className="flex justify-end gap-2 pt-4">
         <Button type="button" variant="outline" onClick={onCancel}>

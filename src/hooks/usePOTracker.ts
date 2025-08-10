@@ -7,10 +7,8 @@ export interface SunskySKU {
   user_id: string;
   sku_code: string;
   title?: string;
-  description?: string;
   cost?: number;
   weight?: number;
-  notes?: string;
   currency?: string;
   country?: string;
   created_at: string;
