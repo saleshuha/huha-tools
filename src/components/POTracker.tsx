@@ -7,13 +7,14 @@ import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Upload, Search, Package, Clock, CheckCircle, AlertCircle, BarChart3, RefreshCw, Eye, MousePointer, Truck, ExternalLink, PackageCheck } from 'lucide-react';
+import { Upload, Search, Package, Clock, CheckCircle, AlertCircle, BarChart3, RefreshCw, Eye, MousePointer, Truck, ExternalLink, PackageCheck, Archive } from 'lucide-react';
 import { POFileUpload } from './po/POFileUpload';
 import { SKUList } from './po/SKUList';
 import { AddSKUDialog } from './po/AddSKUDialog';
 import { POProfitAnalytics } from './po/POProfitAnalytics';
 import { ShippingRateDialog } from './po/ShippingRateDialog';
 import { SunskySKUImporter } from './po/SunskySKUImporter';
+import { BulkPOProcessor } from './po/BulkPOProcessor';
 import { useSKUManager } from '@/hooks/useSKUManager';
 import { usePOOrders } from '@/hooks/usePOOrders';
 import { useUserProfile } from '@/hooks/useUserProfile';
@@ -368,37 +369,79 @@ export function POTracker() {
     return groups;
   }, {} as Record<string, typeof poOrders>);
 
-  // Filter grouped orders based on search and status
-  const filteredPOGroups = Object.entries(groupedPOOrders)
-    .filter(([poNumber, orders]) => {
-      const matchesSearch = !searchTerm || 
-        poNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        orders.some(order => 
-          order.asin?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          order.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          order.model_number?.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-      
-      const matchesStatus = statusFilter === 'all' || 
-        orders.some(order => order.status === statusFilter);
-      
-      return matchesSearch && matchesStatus;
-    })
-    // Sort groups - ALWAYS put matched POs first
-    .sort(([poA, ordersA], [poB, ordersB]) => {
-      // Primary sort: matched POs first
-      const matchedA = ordersA.filter(order => order.sunsky_sku !== null).length > 0;
-      const matchedB = ordersB.filter(order => order.sunsky_sku !== null).length > 0;
-      
-      if (matchedA && !matchedB) return -1; // A has matches, B doesn't - A comes first
-      if (!matchedA && matchedB) return 1;  // B has matches, A doesn't - B comes first
-      
-      // Secondary sort: for items with same match status, sort by PO number
-      return poA.localeCompare(poB);
-    });
+  // Separate active and closed POs
+  const activePOGroups = Object.entries(groupedPOOrders).filter(([poNumber, orders]) => 
+    !orders.every(order => order.status === 'closed')
+  );
+  
+  const closedPOGroups = Object.entries(groupedPOOrders).filter(([poNumber, orders]) => 
+    orders.every(order => order.status === 'closed')
+  );
+
+  // Filter grouped orders based on search and status  
+  const filterPOGroups = (groups: [string, typeof poOrders][]) => {
+    return groups
+      .filter(([poNumber, orders]) => {
+        const matchesSearch = !searchTerm || 
+          poNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          orders.some(order => 
+            order.asin?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            order.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            order.model_number?.toLowerCase().includes(searchTerm.toLowerCase())
+          );
+        
+        const matchesStatus = statusFilter === 'all' || 
+          orders.some(order => order.status === statusFilter);
+        
+        return matchesSearch && matchesStatus;
+      })
+      // Sort groups - ALWAYS put matched POs first
+      .sort(([poA, ordersA], [poB, ordersB]) => {
+        // Primary sort: matched POs first
+        const matchedA = ordersA.filter(order => order.sunsky_sku !== null).length > 0;
+        const matchedB = ordersB.filter(order => order.sunsky_sku !== null).length > 0;
+        
+        if (matchedA && !matchedB) return -1; // A has matches, B doesn't - A comes first
+        if (!matchedA && matchedB) return 1;  // B has matches, A doesn't - B comes first
+        
+        // Secondary sort: for items with same match status, sort by PO number
+        return poA.localeCompare(poB);
+      });
+  };
+
+  const filteredPOGroups = filterPOGroups(activePOGroups);
+  const filteredClosedPOGroups = filterPOGroups(closedPOGroups);
 
   const handlePORowClick = (poNumber: string) => {
     navigate(`/po-details/${encodeURIComponent(poNumber)}`);
+  };
+
+  // Handle marking PO as delivered and closed
+  const handleMarkPODeliveredAndClosed = async (poNumber: string) => {
+    try {
+      const { error } = await supabase
+        .from('po_orders')
+        .update({ status: 'closed' })
+        .eq('po_number', poNumber)
+        .in('status', ['delivered', 'shipped']);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: `PO ${poNumber} has been closed`,
+      });
+
+      // Refresh data
+      await fetchPOOrders();
+    } catch (error) {
+      console.error('Error closing PO:', error);
+      toast({
+        title: "Error",
+        description: "Failed to close PO",
+        variant: "destructive"
+      });
+    }
   };
 
   return (
@@ -587,7 +630,7 @@ export function POTracker() {
 
       {/* Main Content */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4 h-14 p-2 bg-gradient-to-r from-primary/5 to-primary/10 border-2 border-primary/20 rounded-xl shadow-lg">
+        <TabsList className="grid w-full grid-cols-5 h-14 p-2 bg-gradient-to-r from-primary/5 to-primary/10 border-2 border-primary/20 rounded-xl shadow-lg">
           <TabsTrigger 
             value="upload" 
             className="relative h-10 px-6 text-sm font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:scale-105 hover:bg-primary/10 rounded-lg flex items-center gap-2"
@@ -608,6 +651,13 @@ export function POTracker() {
           >
             <BarChart3 className="h-4 w-4" />
             Profit Analytics
+          </TabsTrigger>
+          <TabsTrigger 
+            value="closed" 
+            className="relative h-10 px-6 text-sm font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:scale-105 hover:bg-primary/10 rounded-lg flex items-center gap-2"
+          >
+            <Archive className="h-4 w-4" />
+            Closed POs
           </TabsTrigger>
           <TabsTrigger 
             value="skus" 
@@ -633,11 +683,13 @@ export function POTracker() {
         </TabsContent>
 
         <TabsContent value="tracking" className="space-y-4">
+          <BulkPOProcessor onProcessComplete={fetchPOOrders} />
+          
           <Card>
             <CardHeader>
-              <CardTitle>PO Order Tracking</CardTitle>
+              <CardTitle>Active PO Order Tracking</CardTitle>
               <CardDescription>
-                Track the status of purchase orders. Click on any row to view detailed information and manage tracking.
+                Track the status of active purchase orders. Click on any row to view detailed information and manage tracking.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -685,7 +737,7 @@ export function POTracker() {
                         <TableHead>PO Details</TableHead>
                         <TableHead>Progress & Status</TableHead>
                         <TableHead>Tracking Info</TableHead>
-                        <TableHead>Total Cost</TableHead>
+                        <TableHead>PO Status</TableHead>
                         <TableHead className="text-center">
                           <MousePointer className="h-4 w-4 mx-auto" />
                         </TableHead>
@@ -905,8 +957,26 @@ export function POTracker() {
                               )}
                             </TableCell>
                             
-                            <TableCell className="font-semibold">
-                              {totalCost > 0 ? `${totalCost.toFixed(2)} ${currency}` : '-'}
+                            <TableCell>
+                              {deliveredCount > 0 ? (
+                                <Button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleMarkPODeliveredAndClosed(poNumber);
+                                  }}
+                                  size="sm"
+                                  className="bg-green-600 hover:bg-green-700 text-white"
+                                >
+                                  <CheckCircle className="h-4 w-4 mr-1" />
+                                  Close PO
+                                </Button>
+                              ) : (
+                                <Badge variant="secondary" className="text-xs">
+                                  {pendingCount > 0 ? 'Pending' : 
+                                   placedCount > 0 ? 'In Progress' : 
+                                   shippedCount > 0 ? 'Shipped' : 'No Activity'}
+                                </Badge>
+                              )}
                             </TableCell>
                             
                             <TableCell className="text-center">
@@ -915,6 +985,149 @@ export function POTracker() {
                               ) : (
                                 <AlertCircle className="h-4 w-4 text-muted-foreground mx-auto" />
                               )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="closed" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Closed PO Orders</CardTitle>
+              <CardDescription>
+                View completed and closed purchase orders. These POs are no longer available for matching.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Search Controls for Closed POs */}
+              <div className="flex gap-4">
+                <div className="relative flex-1">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search closed PO numbers..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-8"
+                  />
+                </div>
+              </div>
+
+              {/* Closed PO Orders Table */}
+              {ordersLoading ? (
+                <div className="flex items-center justify-center py-16">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                  <span className="ml-2">Loading closed orders...</span>
+                </div>
+              ) : filteredClosedPOGroups.length === 0 ? (
+                <div className="text-center py-16">
+                  <Archive className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">No Closed PO Orders</h3>
+                  <p className="text-muted-foreground">Closed POs will appear here once you mark them as completed.</p>
+                </div>
+              ) : (
+                <div className="border-2 border-primary/20 rounded-md">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="border-b-2 border-primary/30">
+                        <TableHead>PO Details</TableHead>
+                        <TableHead>Items Summary</TableHead>
+                        <TableHead>Tracking Info</TableHead>
+                        <TableHead>Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredClosedPOGroups.map(([poNumber, orders]) => {
+                        const totalItems = orders.length;
+                        const closedItems = orders.filter(order => order.status === 'closed').length;
+                        
+                        // Get tracking numbers for this PO
+                        const trackingNumbers = orders
+                          .filter(order => order.tracking_number)
+                          .map(order => ({
+                            number: order.tracking_number,
+                            url: order.tracking_url
+                          }))
+                          .filter((item, index, arr) => 
+                            arr.findIndex(x => x.number === item.number) === index
+                          );
+                        
+                        return (
+                          <TableRow 
+                            key={poNumber}
+                            className="transition-colors border-b-2 border-primary/20 bg-muted/10"
+                          >
+                            <TableCell>
+                              <div className="space-y-1">
+                                <div className="font-mono font-bold text-primary text-lg">
+                                  {poNumber}
+                                </div>
+                                <div className="text-sm text-muted-foreground">
+                                  Ship to: {orders[0]?.ship_to_location || 'Not specified'}
+                                </div>
+                                <Badge variant="secondary" className="bg-green-100 text-green-800 text-xs">
+                                  <Archive className="h-3 w-3 mr-1" />
+                                  Closed
+                                </Badge>
+                              </div>
+                            </TableCell>
+                            
+                            <TableCell>
+                              <div className="space-y-2">
+                                <div className="text-sm">
+                                  <span className="font-medium">{totalItems}</span> total items
+                                </div>
+                                <div className="text-sm">
+                                  <span className="font-medium text-green-600">{closedItems}</span> closed items
+                                </div>
+                                <Progress 
+                                  value={totalItems > 0 ? (closedItems / totalItems) * 100 : 0} 
+                                  className="h-2 [&>div]:bg-green-500"
+                                />
+                              </div>
+                            </TableCell>
+                            
+                            <TableCell>
+                              {trackingNumbers.length > 0 ? (
+                                <div className="flex flex-wrap gap-1">
+                                  {trackingNumbers.map((tracking, index) => (
+                                    tracking.url ? (
+                                      <a
+                                        key={index}
+                                        href={tracking.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1 px-2 py-1 bg-primary/10 hover:bg-primary/20 text-primary rounded text-xs font-medium transition-colors border border-primary/20 hover:border-primary/40"
+                                      >
+                                        📦 {tracking.number}
+                                        <ExternalLink className="h-3 w-3" />
+                                      </a>
+                                    ) : (
+                                      <span
+                                        key={index}
+                                        className="inline-flex items-center gap-1 px-2 py-1 bg-muted text-muted-foreground rounded text-xs font-medium border"
+                                      >
+                                        📦 {tracking.number}
+                                      </span>
+                                    )
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">No tracking info</span>
+                              )}
+                            </TableCell>
+                            
+                            <TableCell>
+                              <Badge variant="secondary" className="bg-green-100 text-green-800">
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                                Completed
+                              </Badge>
                             </TableCell>
                           </TableRow>
                         );
