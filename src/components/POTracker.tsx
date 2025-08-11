@@ -646,18 +646,18 @@ export function POTracker() {
             Order Tracking
           </TabsTrigger>
           <TabsTrigger 
-            value="analytics" 
-            className="relative h-10 px-6 text-sm font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:scale-105 hover:bg-primary/10 rounded-lg flex items-center gap-2"
-          >
-            <BarChart3 className="h-4 w-4" />
-            Profit Analytics
-          </TabsTrigger>
-          <TabsTrigger 
             value="closed" 
             className="relative h-10 px-6 text-sm font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:scale-105 hover:bg-primary/10 rounded-lg flex items-center gap-2"
           >
             <Archive className="h-4 w-4" />
             Closed POs
+          </TabsTrigger>
+          <TabsTrigger 
+            value="analytics" 
+            className="relative h-10 px-6 text-sm font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:scale-105 hover:bg-primary/10 rounded-lg flex items-center gap-2"
+          >
+            <BarChart3 className="h-4 w-4" />
+            Profit Analytics
           </TabsTrigger>
           <TabsTrigger 
             value="skus" 
@@ -683,14 +683,17 @@ export function POTracker() {
         </TabsContent>
 
         <TabsContent value="tracking" className="space-y-4">
-          <BulkPOProcessor onProcessComplete={fetchPOOrders} />
-          
           <Card>
             <CardHeader>
-              <CardTitle>Active PO Order Tracking</CardTitle>
-              <CardDescription>
-                Track the status of active purchase orders. Click on any row to view detailed information and manage tracking.
-              </CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Active PO Order Tracking</CardTitle>
+                  <CardDescription>
+                    Track the status of active purchase orders. Click on any row to view detailed information and manage tracking.
+                  </CardDescription>
+                </div>
+                <BulkPOProcessor onProcessComplete={fetchPOOrders} />
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
               {/* Search and Filter Controls */}
