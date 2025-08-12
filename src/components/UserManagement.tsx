@@ -25,6 +25,8 @@ export function UserManagement() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [checking, setChecking] = useState(true);
   const [newUser, setNewUser] = useState({
     email: '',
     password: '',
@@ -35,11 +37,60 @@ export function UserManagement() {
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchProfiles();
+    checkAdminAccess();
   }, []);
 
-  const fetchProfiles = async () => {
+  const checkAdminAccess = async () => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setChecking(false);
+        return;
+      }
+
+      // Check if user is admin by trying to fetch their own profile
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+      if (error) {
+        console.error('Error checking admin access:', error);
+        setChecking(false);
+        return;
+      }
+
+      const adminAccess = profile?.role === 'admin';
+      setIsAdmin(adminAccess);
+      
+      if (adminAccess) {
+        fetchProfiles();
+      } else {
+        setLoading(false);
+        toast({
+          title: "Access Denied",
+          description: "You don't have permission to access user management",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error checking admin access:', error);
+      toast({
+        title: "Error",
+        description: "Failed to verify admin access",
+        variant: "destructive"
+      });
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  const fetchProfiles = async () => {
+    if (!isAdmin) return;
+    
+    try {
+      // This query will only succeed if the user is an admin due to RLS policies
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -51,7 +102,7 @@ export function UserManagement() {
       console.error('Error fetching profiles:', error);
       toast({
         title: "Error",
-        description: "Failed to fetch users",
+        description: "Failed to fetch users. You may not have admin privileges.",
         variant: "destructive"
       });
     } finally {
@@ -60,6 +111,15 @@ export function UserManagement() {
   };
 
   const createUser = async () => {
+    if (!isAdmin) {
+      toast({
+        title: "Access Denied",
+        description: "You don't have permission to create users",
+        variant: "destructive"
+      });
+      return;
+    }
+
     if (!newUser.email || !newUser.password) {
       toast({
         title: "Error",
@@ -112,6 +172,15 @@ export function UserManagement() {
   };
 
   const deleteUser = async (userId: string) => {
+    if (!isAdmin) {
+      toast({
+        title: "Access Denied",
+        description: "You don't have permission to delete users",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
       const { error } = await supabase.auth.admin.deleteUser(userId);
       if (error) throw error;
@@ -131,6 +200,21 @@ export function UserManagement() {
       });
     }
   };
+
+  if (checking) {
+    return <div>Checking permissions...</div>;
+  }
+
+  if (!isAdmin) {
+    return (
+      <Card>
+        <CardContent className="p-6 text-center">
+          <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
+          <p className="text-muted-foreground">You don't have permission to access user management.</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (loading) {
     return <div>Loading...</div>;
