@@ -58,6 +58,30 @@ export default {
 					DEFAULT: 'hsl(var(--warning))',
 					foreground: 'hsl(var(--warning-foreground))'
 				},
+				emerald: {
+					DEFAULT: 'hsl(var(--emerald))',
+					foreground: 'hsl(var(--emerald-foreground))',
+					light: 'hsl(var(--emerald-light))',
+					dark: 'hsl(var(--emerald-dark))'
+				},
+				sky: {
+					DEFAULT: 'hsl(var(--sky))',
+					foreground: 'hsl(var(--sky-foreground))',
+					light: 'hsl(var(--sky-light))',
+					dark: 'hsl(var(--sky-dark))'
+				},
+				cyan: {
+					DEFAULT: 'hsl(var(--cyan))',
+					foreground: 'hsl(var(--cyan-foreground))',
+					light: 'hsl(var(--cyan-light))',
+					dark: 'hsl(var(--cyan-dark))'
+				},
+				teal: {
+					DEFAULT: 'hsl(var(--teal))',
+					foreground: 'hsl(var(--teal-foreground))',
+					light: 'hsl(var(--teal-light))',
+					dark: 'hsl(var(--teal-dark))'
+				},
 				popover: {
 					DEFAULT: 'hsl(var(--popover))',
 					foreground: 'hsl(var(--popover-foreground))'
@@ -86,15 +110,22 @@ export default {
 				'gradient-primary': 'var(--gradient-primary)',
 				'gradient-accent': 'var(--gradient-accent)',
 				'gradient-surface': 'var(--gradient-surface)',
-				'gradient-glow': 'var(--gradient-glow)',
-				'gradient-hero': 'var(--gradient-hero)'
+				'gradient-emerald': 'var(--gradient-emerald)',
+				'gradient-sky': 'var(--gradient-sky)',
+				'gradient-cyan': 'var(--gradient-cyan)',
+				'gradient-teal': 'var(--gradient-teal)',
+				'gradient-ocean': 'var(--gradient-ocean)',
+				'gradient-nature': 'var(--gradient-nature)'
 			},
 			boxShadow: {
 				'soft': 'var(--shadow-soft)',
 				'medium': 'var(--shadow-medium)',
 				'strong': 'var(--shadow-strong)',
 				'glow': 'var(--shadow-glow)',
-				'accent-glow': 'var(--shadow-accent-glow)'
+				'accent-glow': 'var(--shadow-accent-glow)',
+				'emerald-glow': 'var(--shadow-emerald-glow)',
+				'sky-glow': 'var(--shadow-sky-glow)',
+				'cyan-glow': 'var(--shadow-cyan-glow)'
 			},
 			transitionTimingFunction: {
 				'smooth': 'var(--transition-smooth)',

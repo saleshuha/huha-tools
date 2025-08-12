@@ -35,6 +35,27 @@
     --accent: 142 76% 50%;
     --accent-foreground: 0 0% 100%;
 
+    /* Enhanced color palette */
+    --emerald: 142 76% 50%;
+    --emerald-foreground: 0 0% 100%;
+    --emerald-light: 142 76% 60%;
+    --emerald-dark: 142 76% 40%;
+
+    --sky: 199 89% 48%;
+    --sky-foreground: 0 0% 100%;
+    --sky-light: 199 89% 58%;
+    --sky-dark: 199 89% 38%;
+
+    --cyan: 188 94% 42%;
+    --cyan-foreground: 0 0% 100%;
+    --cyan-light: 188 94% 52%;
+    --cyan-dark: 188 94% 32%;
+
+    --teal: 173 58% 39%;
+    --teal-foreground: 0 0% 100%;
+    --teal-light: 173 58% 49%;
+    --teal-dark: 173 58% 29%;
+
     /* Clean status colors */
     --success: 142 76% 50%;
     --success-foreground: 0 0% 100%;
@@ -52,15 +73,26 @@
 
     --radius: 0.75rem;
     
-    /* Subtle gradients */
+    /* Beautiful gradients */
     --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-light)));
-    --gradient-accent: linear-gradient(135deg, hsl(var(--accent)), hsl(142 76% 60%));
+    --gradient-accent: linear-gradient(135deg, hsl(var(--accent)), hsl(var(--emerald-light)));
     --gradient-surface: linear-gradient(145deg, hsl(var(--background)), hsl(var(--muted)));
+    --gradient-emerald: linear-gradient(135deg, hsl(var(--emerald)), hsl(var(--emerald-light)));
+    --gradient-sky: linear-gradient(135deg, hsl(var(--sky)), hsl(var(--sky-light)));
+    --gradient-cyan: linear-gradient(135deg, hsl(var(--cyan)), hsl(var(--cyan-light)));
+    --gradient-teal: linear-gradient(135deg, hsl(var(--teal)), hsl(var(--teal-light)));
+    --gradient-ocean: linear-gradient(135deg, hsl(var(--sky)), hsl(var(--cyan)));
+    --gradient-nature: linear-gradient(135deg, hsl(var(--emerald)), hsl(var(--teal)));
     
-    /* Clean shadows */
+    /* Enhanced shadows with color tints */
     --shadow-soft: 0 1px 3px 0 hsl(210 15% 15% / 0.1), 0 1px 2px -1px hsl(210 15% 15% / 0.1);
     --shadow-medium: 0 4px 6px -1px hsl(210 15% 15% / 0.1), 0 2px 4px -2px hsl(210 15% 15% / 0.1);
     --shadow-strong: 0 10px 15px -3px hsl(210 15% 15% / 0.1), 0 4px 6px -4px hsl(210 15% 15% / 0.1);
+    --shadow-glow: 0 0 40px hsl(var(--primary) / 0.15);
+    --shadow-accent-glow: 0 0 40px hsl(var(--accent) / 0.15);
+    --shadow-emerald-glow: 0 0 40px hsl(var(--emerald) / 0.15);
+    --shadow-sky-glow: 0 0 40px hsl(var(--sky) / 0.15);
+    --shadow-cyan-glow: 0 0 40px hsl(var(--cyan) / 0.15);
     
     /* Smooth animations */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -101,6 +133,27 @@
 
     --accent: 142 76% 55%;
     --accent-foreground: 210 20% 11%;
+
+    /* Enhanced dark theme colors */
+    --emerald: 142 76% 55%;
+    --emerald-foreground: 210 20% 11%;
+    --emerald-light: 142 76% 65%;
+    --emerald-dark: 142 76% 45%;
+
+    --sky: 199 89% 58%;
+    --sky-foreground: 210 20% 11%;
+    --sky-light: 199 89% 68%;
+    --sky-dark: 199 89% 48%;
+
+    --cyan: 188 94% 52%;
+    --cyan-foreground: 210 20% 11%;
+    --cyan-light: 188 94% 62%;
+    --cyan-dark: 188 94% 42%;
+
+    --teal: 173 58% 49%;
+    --teal-foreground: 210 20% 11%;
+    --teal-light: 173 58% 59%;
+    --teal-dark: 173 58% 39%;
 
     --success: 142 76% 55%;
     --success-foreground: 210 20% 11%;
