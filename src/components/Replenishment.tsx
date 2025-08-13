@@ -478,16 +478,38 @@ export function Replenishment() {
     const itemsToExport = filteredRestockItems.filter(item => item.current_quantity === 0 && item.status !== 'ordered');
     
     const csvContent = [
-      ['Type', 'ASIN/SKU', 'Serial/Bin', 'Current Quantity', 'Days Since Restock', 'Status'], 
+      ['Type', 'ASIN', 'SKU', 'Serial/Bin', 'Current Quantity', 'Days Since Restock', 'Status'], 
       ...itemsToExport.map(item => {
-        // Extract ASIN/SKU and Serial/Bin from identifier
-        const parts = item.identifier.split(' (');
-        const mainId = parts[0] || item.identifier;
-        const serialBin = parts[1] ? parts[1].replace(')', '') : '';
+        let asin = '';
+        let sku = '';
+        let serialBin = '';
+        
+        if (item.table_name === 'asin_inventory') {
+          // Parse ASIN format: "ASIN123 (Serial456) | SKU: SKU789" or "ASIN123 (Serial456)"
+          const asinMatch = item.identifier.match(/^([A-Z0-9]+)\s*\(([^)]+)\)/);
+          if (asinMatch) {
+            asin = asinMatch[1];
+            serialBin = asinMatch[2];
+          }
+          
+          // Extract SKU if present
+          const skuMatch = item.identifier.match(/\|\s*SKU:\s*([^\s]+)/);
+          if (skuMatch) {
+            sku = skuMatch[1];
+          }
+        } else {
+          // Parse SKU format: "SKU: SKU123 (Bin456)"
+          const skuMatch = item.identifier.match(/SKU:\s*([^\s]+)\s*\(([^)]+)\)/);
+          if (skuMatch) {
+            sku = skuMatch[1];
+            serialBin = skuMatch[2];
+          }
+        }
         
         return [
           item.table_name === 'asin_inventory' ? 'ASIN' : 'SKU', 
-          mainId, 
+          asin, 
+          sku,
           serialBin,
           item.current_quantity, 
           item.days_since_last_restock || 'Never', 
@@ -503,16 +525,38 @@ export function Replenishment() {
     const itemsToExport = orderedItems.filter(item => item.status === 'ordered');
     
     const csvContent = [
-      ['Type', 'ASIN/SKU', 'Serial/Bin', 'Current Quantity', 'Days Since Restock', 'Order Status', 'Date Marked'], 
+      ['Type', 'ASIN', 'SKU', 'Serial/Bin', 'Current Quantity', 'Days Since Restock', 'Order Status', 'Date Marked'], 
       ...itemsToExport.map(item => {
-        // Extract ASIN/SKU and Serial/Bin from identifier
-        const parts = item.identifier.split(' (');
-        const mainId = parts[0] || item.identifier;
-        const serialBin = parts[1] ? parts[1].replace(')', '') : '';
+        let asin = '';
+        let sku = '';
+        let serialBin = '';
+        
+        if (item.table_name === 'asin_inventory') {
+          // Parse ASIN format: "ASIN123 (Serial456) | SKU: SKU789" or "ASIN123 (Serial456)"
+          const asinMatch = item.identifier.match(/^([A-Z0-9]+)\s*\(([^)]+)\)/);
+          if (asinMatch) {
+            asin = asinMatch[1];
+            serialBin = asinMatch[2];
+          }
+          
+          // Extract SKU if present
+          const skuMatch = item.identifier.match(/\|\s*SKU:\s*([^\s]+)/);
+          if (skuMatch) {
+            sku = skuMatch[1];
+          }
+        } else {
+          // Parse SKU format: "SKU: SKU123 (Bin456)"
+          const skuMatch = item.identifier.match(/SKU:\s*([^\s]+)\s*\(([^)]+)\)/);
+          if (skuMatch) {
+            sku = skuMatch[1];
+            serialBin = skuMatch[2];
+          }
+        }
         
         return [
           item.table_name === 'asin_inventory' ? 'ASIN' : 'SKU', 
-          mainId, 
+          asin, 
+          sku,
           serialBin,
           item.current_quantity, 
           item.days_since_last_restock || 'Never', 
@@ -637,16 +681,38 @@ export function Replenishment() {
   // Export trends data
   const exportTrendsData = () => {
     const csvContent = [
-      ['Type', 'ASIN/SKU', 'Serial/Bin', 'Current Stock', 'Sold Quantity', 'Sell Rate/Day', 'Last Sold', 'Days Since Restock', 'Stock Status'], 
+      ['Type', 'ASIN', 'SKU', 'Serial/Bin', 'Current Stock', 'Sold Quantity', 'Sell Rate/Day', 'Last Sold', 'Days Since Restock', 'Stock Status'], 
       ...filteredTrendsItems.map(item => {
-        // Extract ASIN/SKU and Serial/Bin from identifier
-        const parts = item.identifier.split(' (');
-        const mainId = parts[0] || item.identifier;
-        const serialBin = parts[1] ? parts[1].replace(')', '') : '';
+        let asin = '';
+        let sku = '';
+        let serialBin = '';
+        
+        if (item.table_name === 'asin_inventory') {
+          // Parse ASIN format: "ASIN123 (Serial456) | SKU: SKU789" or "ASIN123 (Serial456)"
+          const asinMatch = item.identifier.match(/^([A-Z0-9]+)\s*\(([^)]+)\)/);
+          if (asinMatch) {
+            asin = asinMatch[1];
+            serialBin = asinMatch[2];
+          }
+          
+          // Extract SKU if present
+          const skuMatch = item.identifier.match(/\|\s*SKU:\s*([^\s]+)/);
+          if (skuMatch) {
+            sku = skuMatch[1];
+          }
+        } else {
+          // Parse SKU format: "SKU: SKU123 (Bin456)"
+          const skuMatch = item.identifier.match(/SKU:\s*([^\s]+)\s*\(([^)]+)\)/);
+          if (skuMatch) {
+            sku = skuMatch[1];
+            serialBin = skuMatch[2];
+          }
+        }
         
         return [
           item.table_name === 'asin_inventory' ? 'ASIN' : 'SKU', 
-          mainId, 
+          asin, 
+          sku,
           serialBin,
           item.current_quantity, 
           item.sold_quantity, 
