@@ -68,18 +68,6 @@ const toolsItems = [
     title: "Bulk Column Editor",
     url: "/bulk-column-editor",
     icon: Database
-  },
-  {
-    title: "DF Payment Tracker",
-    url: "https://fulfillment-coin-tracker.lovable.app/",
-    icon: ExternalLink,
-    external: true
-  },
-  {
-    title: "Data Viewer",
-    url: "https://huha-data-viewer.lovable.app/",
-    icon: Eye,
-    external: true
   }
 ]
 
@@ -384,43 +372,71 @@ export function AppSidebar() {
                         key={item.title}
                         asChild
                         className={`group relative w-full rounded-lg transition-all duration-200 hover:scale-[1.01] ml-2 ${
-                          !item.external && isActive(item.url)
+                          isActive(item.url)
                             ? "bg-gradient-to-r from-primary/80 to-primary/70 text-primary-foreground shadow-md shadow-primary/20" 
                             : "hover:bg-gradient-to-r hover:from-sidebar-accent/60 hover:to-sidebar-accent/50 hover:text-sidebar-accent-foreground"
                         }`}
                       >
-                        {item.external ? (
-                          <a 
-                            href={item.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-lg"
-                          >
-                            <item.icon className="h-4 w-4 flex-shrink-0 opacity-75" />
-                            {!isCollapsed && (
-                              <span className="font-medium text-xs">
-                                {item.title}
-                              </span>
-                            )}
-                          </a>
-                        ) : (
-                          <NavLink 
-                            to={item.url} 
-                            end
-                            className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-lg"
-                          >
-                            <item.icon className="h-4 w-4 flex-shrink-0 opacity-75" />
-                            {!isCollapsed && (
-                              <span className="font-medium text-xs">
-                                {item.title}
-                              </span>
-                            )}
-                          </NavLink>
-                        )}
+                        <NavLink 
+                          to={item.url} 
+                          end
+                          className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-lg"
+                        >
+                          <item.icon className="h-4 w-4 flex-shrink-0 opacity-75" />
+                          {!isCollapsed && (
+                            <span className="font-medium text-xs">
+                              {item.title}
+                            </span>
+                          )}
+                        </NavLink>
                       </SidebarMenuButton>
                     ))}
                   </CollapsibleContent>
                 </Collapsible>
+              </SidebarMenuItem>
+
+              {/* DF Payment Tracker standalone item */}
+              <SidebarMenuItem>
+                <SidebarMenuButton 
+                  asChild
+                  className="group relative w-full rounded-xl transition-all duration-200 hover:scale-[1.02] hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
+                >
+                  <a 
+                    href="https://fulfillment-coin-tracker.lovable.app/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
+                  >
+                    <ExternalLink className="h-5 w-5 flex-shrink-0" />
+                    {!isCollapsed && (
+                      <span className="font-semibold text-sm">
+                        DF Payment Tracker
+                      </span>
+                    )}
+                  </a>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              {/* Data Viewer standalone item */}
+              <SidebarMenuItem>
+                <SidebarMenuButton 
+                  asChild
+                  className="group relative w-full rounded-xl transition-all duration-200 hover:scale-[1.02] hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
+                >
+                  <a 
+                    href="https://huha-data-viewer.lovable.app/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
+                  >
+                    <Eye className="h-5 w-5 flex-shrink-0" />
+                    {!isCollapsed && (
+                      <span className="font-semibold text-sm">
+                        Data Viewer
+                      </span>
+                    )}
+                  </a>
+                </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
