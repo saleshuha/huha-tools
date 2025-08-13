@@ -25,6 +25,7 @@ import { SkuEditor } from './SkuEditor';
 import { SkuInventoryMetrics } from './SkuInventoryMetrics';
 import { BulkSkuUploadSku } from './BulkSkuUploadSku';
 import { InventoryDashboard } from './InventoryDashboard';
+import { WarehouseManager } from './WarehouseManager';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -62,6 +63,12 @@ export function SSInventory() {
   const [quickFilter, setQuickFilter] = useState<'all' | 'low-stock' | 'out-of-stock' | 'recent'>('all');
   const [dateFilterFrom, setDateFilterFrom] = useState<Date>();
   const [dateFilterTo, setDateFilterTo] = useState<Date>();
+  
+  // Warehouse management
+  const [warehouses, setWarehouses] = useState([
+    { id: '1', code: 'WH001', name: 'Main Warehouse' }
+  ]);
+  const [selectedWarehouse, setSelectedWarehouse] = useState(warehouses[0]);
   const {
     toast
   } = useToast();
@@ -213,7 +220,19 @@ export function SSInventory() {
     });
   };
   const exportInventory = () => {
-    const csvData = [['SKU Number', 'Bin/Serial Number', 'Status', 'Quantity', 'Date Added'], ...filteredInventory.map(item => [item.skuNumber, item.binSerialNumber, item.status, item.quantity.toString(), new Date(item.dateAdded).toLocaleDateString()])];
+    const csvData = [
+      ['SKU', 'UPC', 'ASIN', 'Title', 'Warehouse', 'Warehouse name', 'Available units', 'Status'],
+      ...filteredInventory.map(item => [
+        item.skuNumber,  // SKU
+        '',  // UPC (blank)
+        '',  // ASIN (blank for SKU inventory)
+        '',  // Title (blank)
+        selectedWarehouse?.code || '',  // Warehouse
+        selectedWarehouse?.name || '',  // Warehouse name
+        item.quantity.toString(),  // Available units
+        'active'  // Status (active for all)
+      ])
+    ];
     const csvContent = csvData.map(row => row.map(field => `"${field}"`).join(',')).join('\n');
     const blob = new Blob([csvContent], {
       type: 'text/csv;charset=utf-8;'
@@ -257,11 +276,34 @@ export function SSInventory() {
   };
   const handleRefresh = () => {
     refetch();
-    toast({
-      title: "Refreshed",
-      description: "Inventory data refreshed"
-    });
-  };
+      toast({
+        title: "Refreshed",
+        description: "Inventory data refreshed"
+      });
+    };
+
+    // Warehouse management functions
+    const handleWarehouseAdd = (warehouse: Omit<{id: string; code: string; name: string}, 'id'>) => {
+      const newWarehouse = {
+        id: Date.now().toString(),
+        ...warehouse
+      };
+      setWarehouses([...warehouses, newWarehouse]);
+    };
+
+    const handleWarehouseUpdate = (id: string, warehouse: Omit<{id: string; code: string; name: string}, 'id'>) => {
+      setWarehouses(warehouses.map(w => w.id === id ? { ...w, ...warehouse } : w));
+      if (selectedWarehouse?.id === id) {
+        setSelectedWarehouse({ id, ...warehouse });
+      }
+    };
+
+    const handleWarehouseDelete = (id: string) => {
+      setWarehouses(warehouses.filter(w => w.id !== id));
+      if (selectedWarehouse?.id === id) {
+        setSelectedWarehouse(warehouses.find(w => w.id !== id) || null);
+      }
+    };
   if (loading) {
     return <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex flex-col items-center gap-4">
@@ -274,6 +316,20 @@ export function SSInventory() {
       {/* Header with Stats */}
       <div className="space-y-6">
         <SkuInventoryMetrics />
+        
+        {/* Warehouse Management */}
+        <Card>
+          <CardContent className="p-6">
+            <WarehouseManager
+              warehouses={warehouses}
+              onWarehouseAdd={handleWarehouseAdd}
+              onWarehouseUpdate={handleWarehouseUpdate}
+              onWarehouseDelete={handleWarehouseDelete}
+              selectedWarehouse={selectedWarehouse}
+              onWarehouseSelect={setSelectedWarehouse}
+            />
+          </CardContent>
+        </Card>
       </div>
 
       {/* Prominent Search Bar */}

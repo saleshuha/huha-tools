@@ -24,6 +24,7 @@ import { SkuEditor } from './SkuEditor';
 import { InventoryMetrics } from './InventoryMetrics';
 import { InventoryDashboard } from './InventoryDashboard';
 import { BulkSkuUpload } from './BulkSkuUpload';
+import { WarehouseManager } from './WarehouseManager';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 export function AsinInventory() {
@@ -60,6 +61,12 @@ export function AsinInventory() {
   const [quickFilter, setQuickFilter] = useState<'all' | 'low-stock' | 'out-of-stock' | 'recent'>('all');
   const [dateFilterFrom, setDateFilterFrom] = useState<Date>();
   const [dateFilterTo, setDateFilterTo] = useState<Date>();
+  
+  // Warehouse management
+  const [warehouses, setWarehouses] = useState([
+    { id: '1', code: 'WH001', name: 'Main Warehouse' }
+  ]);
+  const [selectedWarehouse, setSelectedWarehouse] = useState(warehouses[0]);
   const {
     toast
   } = useToast();
@@ -221,7 +228,19 @@ export function AsinInventory() {
     });
   };
   const exportInventory = () => {
-    const csvData = [['ASIN', 'Serial Number', 'SKU', 'Status', 'Quantity', 'Date Added', 'Notes'], ...filteredInventory.map(item => [item.asin, item.serialNumber, item.sku || '', item.status, item.quantity.toString(), new Date(item.dateAdded).toLocaleDateString(), item.notes || ''])];
+    const csvData = [
+      ['SKU', 'UPC', 'ASIN', 'Title', 'Warehouse', 'Warehouse name', 'Available units', 'Status'],
+      ...filteredInventory.map(item => [
+        item.sku || '',  // SKU
+        '',  // UPC (blank)
+        item.asin,  // ASIN
+        '',  // Title (blank)
+        selectedWarehouse?.code || '',  // Warehouse
+        selectedWarehouse?.name || '',  // Warehouse name
+        item.quantity.toString(),  // Available units
+        'active'  // Status (active for all)
+      ])
+    ];
     const csvContent = csvData.map(row => row.map(field => `"${field}"`).join(',')).join('\n');
     const blob = new Blob([csvContent], {
       type: 'text/csv;charset=utf-8;'
@@ -265,11 +284,34 @@ export function AsinInventory() {
   };
   const handleRefresh = () => {
     refetch();
-    toast({
-      title: "Refreshed",
-      description: "Inventory data refreshed"
-    });
-  };
+      toast({
+        title: "Refreshed",
+        description: "Inventory data refreshed"
+      });
+    };
+
+    // Warehouse management functions
+    const handleWarehouseAdd = (warehouse: Omit<{id: string; code: string; name: string}, 'id'>) => {
+      const newWarehouse = {
+        id: Date.now().toString(),
+        ...warehouse
+      };
+      setWarehouses([...warehouses, newWarehouse]);
+    };
+
+    const handleWarehouseUpdate = (id: string, warehouse: Omit<{id: string; code: string; name: string}, 'id'>) => {
+      setWarehouses(warehouses.map(w => w.id === id ? { ...w, ...warehouse } : w));
+      if (selectedWarehouse?.id === id) {
+        setSelectedWarehouse({ id, ...warehouse });
+      }
+    };
+
+    const handleWarehouseDelete = (id: string) => {
+      setWarehouses(warehouses.filter(w => w.id !== id));
+      if (selectedWarehouse?.id === id) {
+        setSelectedWarehouse(warehouses.find(w => w.id !== id) || null);
+      }
+    };
   if (loading) {
     return <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex flex-col items-center gap-4">
@@ -282,6 +324,20 @@ export function AsinInventory() {
       {/* Header with Stats */}
       <div className="space-y-6">
         <InventoryMetrics showOnlyAsin={true} />
+        
+        {/* Warehouse Management */}
+        <Card>
+          <CardContent className="p-6">
+            <WarehouseManager
+              warehouses={warehouses}
+              onWarehouseAdd={handleWarehouseAdd}
+              onWarehouseUpdate={handleWarehouseUpdate}
+              onWarehouseDelete={handleWarehouseDelete}
+              selectedWarehouse={selectedWarehouse}
+              onWarehouseSelect={setSelectedWarehouse}
+            />
+          </CardContent>
+        </Card>
       </div>
 
       {/* Prominent Search Bar */}
