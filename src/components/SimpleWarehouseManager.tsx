@@ -82,47 +82,69 @@ export function SimpleWarehouseManager() {
 
   return (
     <div className="flex items-center gap-2">
-      {/* Warehouse Selector */}
-      <Select 
-        value={selectedWarehouse?.id || ''} 
-        onValueChange={(value) => {
-          const warehouse = warehouses.find(w => w.id === value);
-          setSelectedWarehouse(warehouse || null);
-        }}
-      >
-        <SelectTrigger className="w-48">
-          <SelectValue placeholder="Select warehouse" />
-        </SelectTrigger>
-        <SelectContent>
-          {warehouses.map((warehouse) => (
-            <SelectItem key={warehouse.id} value={warehouse.id}>
-              <div className="flex items-center gap-2">
-                <Building2 className="w-4 h-4" />
-                <span>{warehouse.code} - {warehouse.name}</span>
-                {warehouse.is_default && (
-                  <Badge variant="secondary" className="text-xs">Default</Badge>
-                )}
-              </div>
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-
-      {/* Manage Warehouses Dialog */}
+      {/* Simple Warehouse Management Button */}
       <Dialog open={isOpen} onOpenChange={(open) => {
         setIsOpen(open);
         if (!open) resetForm();
       }}>
         <DialogTrigger asChild>
-          <Button variant="outline" size="sm">
-            <Warehouse className="w-4 h-4 mr-1" />
-            Manage
+          <Button size="lg" variant="outline" className="border-orange-300 hover:bg-orange-50">
+            <Warehouse className="w-5 h-5 mr-2" />
+            Warehouse Settings
           </Button>
         </DialogTrigger>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Manage Warehouses</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Warehouse className="w-5 h-5" />
+              Warehouse Management
+            </DialogTitle>
           </DialogHeader>
+          
+          {/* Current Selected Warehouse Display */}
+          <div className="mb-4 p-3 bg-muted/30 rounded-lg border">
+            <Label className="text-sm font-medium">Currently Selected:</Label>
+            {selectedWarehouse ? (
+              <div className="flex items-center gap-2 mt-1">
+                <Building2 className="w-4 h-4" />
+                <span className="font-medium">{selectedWarehouse.code} - {selectedWarehouse.name}</span>
+                {selectedWarehouse.is_default && (
+                  <Badge variant="secondary" className="text-xs">Default</Badge>
+                )}
+              </div>
+            ) : (
+              <div className="text-muted-foreground text-sm mt-1">No warehouse selected</div>
+            )}
+          </div>
+
+          {/* Warehouse Selector */}
+          <div className="mb-4">
+            <Label className="text-sm font-medium">Switch Warehouse:</Label>
+            <Select 
+              value={selectedWarehouse?.id || ''} 
+              onValueChange={(value) => {
+                const warehouse = warehouses.find(w => w.id === value);
+                setSelectedWarehouse(warehouse || null);
+              }}
+            >
+              <SelectTrigger className="w-full mt-1">
+                <SelectValue placeholder="Select warehouse" />
+              </SelectTrigger>
+              <SelectContent>
+                {warehouses.map((warehouse) => (
+                  <SelectItem key={warehouse.id} value={warehouse.id}>
+                    <div className="flex items-center gap-2">
+                      <Building2 className="w-4 h-4" />
+                      <span>{warehouse.code} - {warehouse.name}</span>
+                      {warehouse.is_default && (
+                        <Badge variant="secondary" className="text-xs">Default</Badge>
+                      )}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           
           <div className="space-y-4">
             {/* Existing Warehouses List */}

@@ -302,7 +302,7 @@ export function SSInventory() {
                 SKU Inventory Management
               </CardTitle>
               <div className="flex items-center gap-2">
-                <SimpleWarehouseManager />
+                
                 <Button onClick={emailInventory} variant="outline" size="sm" className="gap-2">
                   <Mail className="w-4 h-4" />
                   Email Report
@@ -336,6 +336,7 @@ export function SSInventory() {
                 Actions:
               </Label>
               <div className="flex flex-wrap gap-3">
+                <SimpleWarehouseManager />
                 <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                   <DialogTrigger asChild>
                     <Button size="lg" className="bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 text-white">
