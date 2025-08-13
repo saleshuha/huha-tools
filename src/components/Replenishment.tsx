@@ -72,6 +72,7 @@ export function Replenishment() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPeriod, setSelectedPeriod] = useState('30d');
   const [restockItems, setRestockItems] = useState<RestockItem[]>([]);
+  const [orderedItems, setOrderedItems] = useState<RestockItem[]>([]);
   const [salesData, setSalesData] = useState<SalesData[]>([]);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
 
@@ -136,12 +137,12 @@ export function Replenishment() {
   // Load ordered items separately for analytics and display
   const loadOrderedItems = async () => {
     try {
-      const [asinOrdered, skuOrdered] = await Promise.all([supabase.from('asin_inventory').select('id, asin, serial_number, quantity, status, days_since_last_restock:last_restock_date').eq('country', selectedCountry).eq('status', 'ordered').eq('quantity', 0), supabase.from('sku_inventory').select('id, sku_number, bin_serial_number, quantity, status, days_since_last_restock:last_restock_date').eq('country', selectedCountry).eq('status', 'ordered').eq('quantity', 0)]);
+      const [asinOrdered, skuOrdered] = await Promise.all([supabase.from('asin_inventory').select('id, asin, serial_number, quantity, status, sku, days_since_last_restock:last_restock_date').eq('country', selectedCountry).eq('status', 'ordered').eq('quantity', 0), supabase.from('sku_inventory').select('id, sku_number, bin_serial_number, quantity, status, days_since_last_restock:last_restock_date').eq('country', selectedCountry).eq('status', 'ordered').eq('quantity', 0)]);
       if (asinOrdered.error) throw asinOrdered.error;
       if (skuOrdered.error) throw skuOrdered.error;
       const orderedItemsData = [...(asinOrdered.data || []).map(item => ({
         id: item.id,
-        identifier: `${item.asin} (${item.serial_number})`,
+        identifier: `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}`,
         current_quantity: item.quantity,
         table_name: 'asin_inventory',
         status: item.status,
@@ -273,8 +274,8 @@ export function Replenishment() {
   const loadAllData = async () => {
     setLoading(true);
     try {
-      // Load critical data first (restock items), then load analytics in background
-      await loadRestockItems();
+      // Load critical data first (restock items and ordered items), then load analytics in background
+      await Promise.all([loadRestockItems(), loadOrderedItems()]);
 
       // Load analytics data in parallel without blocking the UI
       Promise.all([calculateSalesData(), loadAnalytics(selectedCountry)]).catch(error => {
@@ -301,7 +302,6 @@ export function Replenishment() {
 
   // Since database function now excludes ordered items, all filtered items are pending
   const pendingItems = filteredRestockItems;
-  const [orderedItems, setOrderedItems] = useState<RestockItem[]>([]);
 
   // Bulk selection handlers - only allow selection of pending items
   const handleSelectAll = (checked: boolean) => {
@@ -445,14 +445,56 @@ export function Replenishment() {
     const csvContent = [['Period', 'ASIN Sold', 'SKU Sold', 'Total Sold', 'ASIN Restocked', 'SKU Restocked', 'Total Restocked', 'Daily Sell Rate'], ...salesData.map(item => [item.period, item.asin_sold, item.sku_sold, item.total_sold, item.asin_restocked, item.sku_restocked, item.total_restocked, item.sell_rate.toFixed(2)])].map(row => row.join(',')).join('\n');
     downloadCSV(csvContent, `sales-data-${selectedCountry}-${new Date().toISOString().split('T')[0]}.csv`);
   };
+  
   const exportRestockData = () => {
-    const filteredItems = restockItems.filter(item => item.status === 'pending' && item.identifier.toLowerCase().includes(searchTerm.toLowerCase()));
-    const csvContent = [['Type', 'Identifier', 'Current Quantity', 'Days Since Restock', 'Status'], ...filteredItems.map(item => [item.table_name === 'asin_inventory' ? 'ASIN' : 'SKU', item.identifier, item.current_quantity, item.days_since_last_restock || 'Never', item.status])].map(row => row.join(',')).join('\n');
+    // Filter items based on search term - use filteredRestockItems to get proper filtered data
+    const itemsToExport = filteredRestockItems.filter(item => item.current_quantity === 0 && item.status !== 'ordered');
+    
+    const csvContent = [
+      ['Type', 'ASIN/SKU', 'Serial/Bin', 'Current Quantity', 'Days Since Restock', 'Status'], 
+      ...itemsToExport.map(item => {
+        // Extract ASIN/SKU and Serial/Bin from identifier
+        const parts = item.identifier.split(' (');
+        const mainId = parts[0] || item.identifier;
+        const serialBin = parts[1] ? parts[1].replace(')', '') : '';
+        
+        return [
+          item.table_name === 'asin_inventory' ? 'ASIN' : 'SKU', 
+          mainId, 
+          serialBin,
+          item.current_quantity, 
+          item.days_since_last_restock || 'Never', 
+          item.status || 'Critical'
+        ];
+      })
+    ].map(row => row.join(',')).join('\n');
+    
     downloadCSV(csvContent, `restock-items-${selectedCountry}-${new Date().toISOString().split('T')[0]}.csv`);
   };
+  
   const exportOrderedData = () => {
-    const orderedItemsList = orderedItems.filter(item => item.status === 'ordered');
-    const csvContent = [['Type', 'Identifier', 'Current Quantity', 'Days Since Restock', 'Order Status', 'Date Marked'], ...orderedItemsList.map(item => [item.table_name === 'asin_inventory' ? 'ASIN' : 'SKU', item.identifier, item.current_quantity, item.days_since_last_restock || 'Never', item.status, new Date().toLocaleDateString()])].map(row => row.join(',')).join('\n');
+    const itemsToExport = orderedItems.filter(item => item.status === 'ordered');
+    
+    const csvContent = [
+      ['Type', 'ASIN/SKU', 'Serial/Bin', 'Current Quantity', 'Days Since Restock', 'Order Status', 'Date Marked'], 
+      ...itemsToExport.map(item => {
+        // Extract ASIN/SKU and Serial/Bin from identifier
+        const parts = item.identifier.split(' (');
+        const mainId = parts[0] || item.identifier;
+        const serialBin = parts[1] ? parts[1].replace(')', '') : '';
+        
+        return [
+          item.table_name === 'asin_inventory' ? 'ASIN' : 'SKU', 
+          mainId, 
+          serialBin,
+          item.current_quantity, 
+          item.days_since_last_restock || 'Never', 
+          item.status, 
+          new Date().toLocaleDateString()
+        ];
+      })
+    ].map(row => row.join(',')).join('\n');
+    
     downloadCSV(csvContent, `ordered-items-${selectedCountry}-${new Date().toISOString().split('T')[0]}.csv`);
   };
   const downloadCSV = (content: string, filename: string) => {
@@ -496,7 +538,7 @@ export function Replenishment() {
         const sellRate = soldInPeriod / daysNum;
         return {
           id: item.id,
-          identifier: `${item.asin} (${item.serial_number})`,
+          identifier: `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}`,
           table_name: 'asin_inventory',
           current_quantity: item.quantity || 0,
           sold_quantity: soldInPeriod,
@@ -506,13 +548,13 @@ export function Replenishment() {
         };
       });
 
-      // Process SKU items
+      // Process SKU items  
       const skuItems: TrendsItem[] = (skuResult.data || []).map(item => {
         const soldInPeriod = item.date_sold && new Date(item.date_sold) >= startDate ? 1 : 0;
         const sellRate = soldInPeriod / daysNum;
         return {
           id: item.id,
-          identifier: `${item.sku_number} (${item.bin_serial_number})`,
+        identifier: `SKU: ${item.sku_number} (${item.bin_serial_number})`,
           table_name: 'sku_inventory',
           current_quantity: item.quantity || 0,
           sold_quantity: soldInPeriod,
@@ -567,7 +609,28 @@ export function Replenishment() {
 
   // Export trends data
   const exportTrendsData = () => {
-    const csvContent = [['Type', 'Identifier', 'Current Stock', 'Sold Quantity', 'Sell Rate/Day', 'Last Sold', 'Days Since Restock', 'Stock Status'], ...filteredTrendsItems.map(item => [item.table_name === 'asin_inventory' ? 'ASIN' : 'SKU', item.identifier, item.current_quantity, item.sold_quantity, item.sell_rate.toFixed(2), item.last_sold_date ? new Date(item.last_sold_date).toLocaleDateString() : 'Never', item.days_since_last_restock || 'Never', item.current_quantity <= 5 ? 'Critical' : item.current_quantity <= 10 ? 'Low' : 'Good'])].map(row => row.join(',')).join('\n');
+    const csvContent = [
+      ['Type', 'ASIN/SKU', 'Serial/Bin', 'Current Stock', 'Sold Quantity', 'Sell Rate/Day', 'Last Sold', 'Days Since Restock', 'Stock Status'], 
+      ...filteredTrendsItems.map(item => {
+        // Extract ASIN/SKU and Serial/Bin from identifier
+        const parts = item.identifier.split(' (');
+        const mainId = parts[0] || item.identifier;
+        const serialBin = parts[1] ? parts[1].replace(')', '') : '';
+        
+        return [
+          item.table_name === 'asin_inventory' ? 'ASIN' : 'SKU', 
+          mainId, 
+          serialBin,
+          item.current_quantity, 
+          item.sold_quantity, 
+          item.sell_rate.toFixed(2), 
+          item.last_sold_date ? new Date(item.last_sold_date).toLocaleDateString() : 'Never', 
+          item.days_since_last_restock || 'Never', 
+          item.current_quantity <= 5 ? 'Critical' : item.current_quantity <= 10 ? 'Low' : 'Good'
+        ];
+      })
+    ].map(row => row.join(',')).join('\n');
+    
     downloadCSV(csvContent, `trends-analysis-${selectedCountry}-${trendsDateRange}-${new Date().toISOString().split('T')[0]}.csv`);
   };
 
