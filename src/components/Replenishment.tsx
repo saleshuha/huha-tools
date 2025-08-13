@@ -7,13 +7,20 @@ import { Progress } from './ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
+import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
+import { Calendar } from './ui/calendar';
+import { Label } from './ui/label';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from './ui/chart';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useCountry } from '@/contexts/CountryContext';
 import { useInventoryAnalytics } from '@/hooks/useInventoryAnalytics';
 import { InventoryAnalytics } from './InventoryAnalytics';
-import { TrendingUp, TrendingDown, AlertTriangle, Package, Download, RefreshCw, Search, BarChart3, Clock, ShoppingCart, Activity, DollarSign, Database, PieChart, LineChart, Calendar, CheckCircle, XCircle, Eye, Truck, ArrowRight, Target, Zap, ChevronLeft, ChevronRight } from 'lucide-react';
+import { format } from 'date-fns';
+import Papa from 'papaparse';
+import { cn } from '@/lib/utils';
+import { TrendingUp, TrendingDown, AlertTriangle, Package, Download, RefreshCw, Search, BarChart3, Clock, ShoppingCart, Activity, DollarSign, Database, PieChart, LineChart, CalendarIcon, CheckCircle, XCircle, Eye, Truck, ArrowRight, Target, Zap, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Filter, X } from 'lucide-react';
 import { Checkbox } from './ui/checkbox';
 import { LineChart as RechartsLineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, AreaChart, Area, BarChart as RechartsBarChart, Bar, PieChart as RechartsPieChart, Cell, Pie, Legend } from 'recharts';
 interface RestockItem {
@@ -53,6 +60,21 @@ interface TrendsItem {
   days_since_last_restock: number | null;
   sell_rate: number;
 }
+
+interface AllInventoryItem {
+  id: string;
+  item_type: 'ASIN' | 'SKU';
+  asin?: string;
+  sku?: string;
+  serial_number?: string;
+  quantity: number;
+  status: string;
+  last_sold_date?: string | null;
+  last_order_date?: string | null;
+  days_since_ordered?: number | null;
+  date_added: string;
+  notes?: string;
+}
 export function Replenishment() {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -79,9 +101,36 @@ export function Replenishment() {
   const [selectedPeriod, setSelectedPeriod] = useState('30d');
   const [restockItems, setRestockItems] = useState<RestockItem[]>([]);
   const [orderedItems, setOrderedItems] = useState<RestockItem[]>([]);
-  const [allInventoryItems, setAllInventoryItems] = useState<RestockItem[]>([]);
+  const [allInventoryItems, setAllInventoryItems] = useState<AllInventoryItem[]>([]);
+  const [filteredItems, setFilteredItems] = useState<AllInventoryItem[]>([]);
   const [salesData, setSalesData] = useState<SalesData[]>([]);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  
+  // Sorting and filtering state
+  const [sortConfig, setSortConfig] = useState<{key: keyof AllInventoryItem | null, direction: 'asc' | 'desc'}>({
+    key: null,
+    direction: 'asc'
+  });
+  const [filters, setFilters] = useState({
+    search: '',
+    itemType: 'all' as 'all' | 'ASIN' | 'SKU',
+    stockStatus: 'all' as 'all' | 'in-stock' | 'out-of-stock' | 'low-stock' | 'critical',
+    orderStatus: 'all' as 'all' | 'ordered' | 'not-ordered' | 'overdue',
+    dateRange: {
+      lastSoldFrom: null as Date | null,
+      lastSoldTo: null as Date | null,
+      lastOrderFrom: null as Date | null,
+      lastOrderTo: null as Date | null,
+    },
+    stockRange: {
+      min: null as number | null,
+      max: null as number | null,
+    },
+    daysSinceOrderRange: {
+      min: null as number | null,
+      max: null as number | null,
+    }
+  });
 
   // Trends state
   const [trendsSearchTerm, setTrendsSearchTerm] = useState('');
@@ -176,7 +225,7 @@ export function Replenishment() {
     try {
       const [asinAll, skuAll] = await Promise.all([
         supabase.from('asin_inventory')
-          .select('id, asin, serial_number, quantity, status, sku, last_restock_date, date_sold, date_added')
+          .select('id, asin, serial_number, quantity, status, sku, last_restock_date, date_sold, date_added, notes')
           .eq('country', selectedCountry),
         supabase.from('sku_inventory')
           .select('id, sku_number, bin_serial_number, quantity, status, last_restock_date, date_sold, date_added')
@@ -186,44 +235,78 @@ export function Replenishment() {
       if (asinAll.error) throw asinAll.error;
       if (skuAll.error) throw skuAll.error;
       
-      const allInventoryItems = [
-        ...(asinAll.data || []).map(item => ({
-          id: item.id,
-          identifier: `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}`,
-          current_quantity: item.quantity,
-          table_name: 'asin_inventory',
-          status: item.status,
-          date_sold: item.date_sold,
-          last_restock_date: item.last_restock_date,
-          // Calculate days since last restock/order
-          days_since_last_restock: item.last_restock_date ? 
-            Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null
-        })),
-        ...(skuAll.data || []).map(item => ({
-          id: item.id,
-          identifier: `SKU: ${item.sku_number} (${item.bin_serial_number})`,
-          current_quantity: item.quantity,
-          table_name: 'sku_inventory',
-          status: item.status,
-          date_sold: item.date_sold,
-          last_restock_date: item.last_restock_date,
-          // Calculate days since last restock/order
-          days_since_last_restock: item.last_restock_date ? 
-            Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null
-        }))
-      ];
+      // Process ASIN items into AllInventoryItem format
+      const asinItems: AllInventoryItem[] = (asinAll.data || []).map(item => ({
+        id: item.id,
+        item_type: 'ASIN' as const,
+        asin: item.asin,
+        sku: item.sku,
+        serial_number: item.serial_number,
+        quantity: item.quantity,
+        status: item.status,
+        last_sold_date: item.date_sold,
+        last_order_date: item.last_restock_date,
+        days_since_ordered: item.last_restock_date ? 
+          Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null,
+        date_added: item.date_added,
+        notes: item.notes
+      }));
       
-      // Separate items based on status for the existing logic
-      const restockNeeded = allInventoryItems.filter(item => item.current_quantity === 0 && item.status !== 'ordered');
-      const orderedItems = allInventoryItems.filter(item => item.status === 'ordered' && item.current_quantity === 0);
+      // Process SKU items into AllInventoryItem format
+      const skuItems: AllInventoryItem[] = (skuAll.data || []).map(item => ({
+        id: item.id,
+        item_type: 'SKU' as const,
+        sku: item.sku_number,
+        serial_number: item.bin_serial_number,
+        quantity: item.quantity,
+        status: item.status,
+        last_sold_date: item.date_sold,
+        last_order_date: item.last_restock_date,
+        days_since_ordered: item.last_restock_date ? 
+          Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null,
+        date_added: item.date_added
+      }));
+      
+      const allInventoryItems = [...asinItems, ...skuItems];
+      
+      // Separate items based on status for the existing logic (convert to RestockItem format)
+      const restockNeeded = allInventoryItems
+        .filter(item => item.quantity === 0 && item.status !== 'ordered')
+        .map(item => ({
+          id: item.id,
+          identifier: item.item_type === 'ASIN' 
+            ? `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}` 
+            : `SKU: ${item.sku} (${item.serial_number})`,
+          current_quantity: item.quantity,
+          table_name: item.item_type === 'ASIN' ? 'asin_inventory' : 'sku_inventory',
+          status: item.status,
+          date_sold: item.last_sold_date,
+          last_restock_date: item.last_order_date,
+          days_since_last_restock: item.days_since_ordered
+        }));
+      
+      const orderedItemsData = allInventoryItems
+        .filter(item => item.status === 'ordered' && item.quantity === 0)
+        .map(item => ({
+          id: item.id,
+          identifier: item.item_type === 'ASIN' 
+            ? `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}` 
+            : `SKU: ${item.sku} (${item.serial_number})`,
+          current_quantity: item.quantity,
+          table_name: item.item_type === 'ASIN' ? 'asin_inventory' : 'sku_inventory',
+          status: item.status,
+          date_sold: item.last_sold_date,
+          last_restock_date: item.last_order_date,
+          days_since_last_restock: item.days_since_ordered
+        }));
       
       setRestockItems(restockNeeded);
-      setOrderedItems(orderedItems);
-      setAllInventoryItems(allInventoryItems); // Store all items for comprehensive view
+      setOrderedItems(orderedItemsData);
+      setAllInventoryItems(allInventoryItems);
       
       console.log('Loaded all inventory items:', allInventoryItems.length);
       console.log('Items needing restock:', restockNeeded.length);
-      console.log('Items on order:', orderedItems.length);
+      console.log('Items on order:', orderedItemsData.length);
     } catch (error: any) {
       console.error('Error loading all inventory items:', error);
       toast({
