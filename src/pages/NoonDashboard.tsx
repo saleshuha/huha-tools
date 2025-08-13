@@ -150,17 +150,18 @@ export default function NoonDashboard() {
   const totalModules = modules.filter(m => m.status === 'active').length;
   const completedModules = [stats.stores > 0, stats.salesDataUploads > 0, stats.feesReports > 0, stats.skuCosts > 0].filter(Boolean).length;
   const completionPercentage = completedModules / totalModules * 100;
-  return <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
-      <div className="max-w-7xl mx-auto space-y-8">
+  return (
+    <div className="app-page">
+      <div className="app-container">
         {/* Header */}
-        <div className="text-center space-y-4">
-          <h1 className="text-4xl font-bold text-slate-900">
-            Noon Reports Dashboard
+        <div className="page-header text-center">
+          <h1 className="page-title">
+            🌙 Noon Reports Dashboard
           </h1>
-          <p className="text-lg text-slate-600 max-w-2xl mx-auto">
+          <p className="page-subtitle">
             Comprehensive management system for Noon marketplace data, analytics, and reporting
           </p>
-          <div className="flex items-center justify-center gap-2 text-sm text-slate-500">
+          <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground mt-2">
             <span>Country: {selectedCountry}</span>
           </div>
         </div>
@@ -209,5 +210,6 @@ export default function NoonDashboard() {
           
         </Card>
       </div>
-    </div>;
+    </div>
+  );
 }

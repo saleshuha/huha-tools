@@ -1,8 +1,20 @@
 import { Inventory } from '@/components/Inventory';
 export default function InventoryPage() {
-  return <div className="min-h-screen bg-gradient-surface">
-      <div className="w-full px-4 md:px-6 py-4 animate-fade-in">
-        <Inventory />
+  return (
+    <div className="app-page">
+      <div className="app-container">
+        <div className="page-header">
+          <h1 className="page-title">
+            📦 Inventory Management
+          </h1>
+          <p className="page-subtitle">
+            Comprehensive inventory tracking and management system
+          </p>
+        </div>
+        <div className="glass-container p-8">
+          <Inventory />
+        </div>
       </div>
-    </div>;
+    </div>
+  );
 }
