@@ -24,7 +24,8 @@ import { SkuEditor } from './SkuEditor';
 import { InventoryMetrics } from './InventoryMetrics';
 import { InventoryDashboard } from './InventoryDashboard';
 import { BulkSkuUpload } from './BulkSkuUpload';
-import { WarehouseManager } from './WarehouseManager';
+import { SimpleWarehouseManager } from './SimpleWarehouseManager';
+import { useWarehouseManager } from '@/hooks/useWarehouseManager';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 export function AsinInventory() {
@@ -62,18 +63,8 @@ export function AsinInventory() {
   const [dateFilterFrom, setDateFilterFrom] = useState<Date>();
   const [dateFilterTo, setDateFilterTo] = useState<Date>();
   
-  // Warehouse management
-  const [warehouses, setWarehouses] = useState([
-    { id: '1', code: 'WH001', name: 'Main Warehouse' }
-  ]);
-  const [selectedWarehouse, setSelectedWarehouse] = useState<{id: string; code: string; name: string} | null>(null);
-  
-  // Initialize selectedWarehouse after warehouses are set
-  useEffect(() => {
-    if (warehouses.length > 0 && !selectedWarehouse) {
-      setSelectedWarehouse(warehouses[0]);
-    }
-  }, [warehouses, selectedWarehouse]);
+  // Use warehouse management from hook
+  const { selectedWarehouse } = useWarehouseManager();
   const {
     toast
   } = useToast();
@@ -297,28 +288,6 @@ export function AsinInventory() {
       });
     };
 
-    // Warehouse management functions
-    const handleWarehouseAdd = (warehouse: Omit<{id: string; code: string; name: string}, 'id'>) => {
-      const newWarehouse = {
-        id: Date.now().toString(),
-        ...warehouse
-      };
-      setWarehouses([...warehouses, newWarehouse]);
-    };
-
-    const handleWarehouseUpdate = (id: string, warehouse: Omit<{id: string; code: string; name: string}, 'id'>) => {
-      setWarehouses(warehouses.map(w => w.id === id ? { ...w, ...warehouse } : w));
-      if (selectedWarehouse?.id === id) {
-        setSelectedWarehouse({ id, ...warehouse });
-      }
-    };
-
-    const handleWarehouseDelete = (id: string) => {
-      setWarehouses(warehouses.filter(w => w.id !== id));
-      if (selectedWarehouse?.id === id) {
-        setSelectedWarehouse(warehouses.find(w => w.id !== id) || null);
-      }
-    };
   if (loading) {
     return <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex flex-col items-center gap-4">
@@ -332,17 +301,27 @@ export function AsinInventory() {
       <div className="space-y-6">
         <InventoryMetrics showOnlyAsin={true} />
         
-        {/* Warehouse Management */}
-        <Card>
+        <Card className="glass-container">
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Package className="w-5 h-5" />
+                ASIN Inventory Management
+              </CardTitle>
+              <div className="flex items-center gap-2">
+                <SimpleWarehouseManager />
+                <Button onClick={emailInventory} variant="outline" size="sm" className="gap-2">
+                  <Mail className="w-4 h-4" />
+                  Email Report
+                </Button>
+                <Button onClick={exportInventory} variant="outline" size="sm" className="gap-2">
+                  <Download className="w-4 h-4" />
+                  Export CSV
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
           <CardContent className="p-6">
-            <WarehouseManager
-              warehouses={warehouses}
-              onWarehouseAdd={handleWarehouseAdd}
-              onWarehouseUpdate={handleWarehouseUpdate}
-              onWarehouseDelete={handleWarehouseDelete}
-              selectedWarehouse={selectedWarehouse}
-              onWarehouseSelect={setSelectedWarehouse}
-            />
           </CardContent>
         </Card>
       </div>
