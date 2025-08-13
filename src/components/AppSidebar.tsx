@@ -442,12 +442,14 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="p-3 border-t border-sidebar-border space-y-3">
+      <SidebarFooter className="p-3 border-t border-sidebar-border">
         {/* Progress Indicator */}
         <SidebarProgressIndicator />
         
         {/* Notification Logs above User Management */}
-        <SidebarNotificationLogs />
+        <div className="mb-3">
+          <SidebarNotificationLogs />
+        </div>
         
         <SidebarMenuButton 
           asChild
