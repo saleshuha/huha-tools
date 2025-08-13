@@ -105,25 +105,52 @@ export function Replenishment() {
   const loadRestockItems = async () => {
     try {
       console.log('Loading restock items for country:', selectedCountry);
-      const {
-        data,
-        error
-      } = await supabase.rpc('get_items_needing_restock', {
-        country_filter: selectedCountry
-      });
-      if (error) throw error;
-      console.log('Raw restock data from function:', data);
-
-      // The database function now excludes ordered items and returns status
-      const itemsWithStatus = (data || []).map((item: any) => ({
-        ...item,
-        id: item.item_id // Use item_id directly from the database function
-        // status comes directly from database now
-      })).filter(item => item.status !== 'ordered'); // Extra filter to ensure no ordered items
-
-      console.log('First item structure:', itemsWithStatus[0]);
-      setRestockItems(itemsWithStatus);
-      console.log('Set restock items for', selectedCountry, ':', itemsWithStatus.length, 'items');
+      
+      // Get ASIN inventory items that need restocking (quantity = 0 and not ordered)
+      const asinQuery = supabase.from('asin_inventory')
+        .select('id, asin, serial_number, quantity, status, sku, last_restock_date')
+        .eq('country', selectedCountry)
+        .eq('quantity', 0)
+        .neq('status', 'ordered');
+        
+      // Get SKU inventory items that need restocking (quantity = 0 and not ordered)  
+      const skuQuery = supabase.from('sku_inventory')
+        .select('id, sku_number, bin_serial_number, quantity, status, last_restock_date')
+        .eq('country', selectedCountry)
+        .eq('quantity', 0)
+        .neq('status', 'ordered');
+        
+      const [asinResult, skuResult] = await Promise.all([asinQuery, skuQuery]);
+      
+      if (asinResult.error) throw asinResult.error;
+      if (skuResult.error) throw skuResult.error;
+      
+      // Process ASIN items
+      const asinItems = (asinResult.data || []).map(item => ({
+        id: item.id,
+        identifier: `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}`,
+        current_quantity: item.quantity,
+        table_name: 'asin_inventory',
+        status: item.status,
+        days_since_last_restock: item.last_restock_date ? 
+          Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null
+      }));
+      
+      // Process SKU items
+      const skuItems = (skuResult.data || []).map(item => ({
+        id: item.id,
+        identifier: `SKU: ${item.sku_number} (${item.bin_serial_number})`,
+        current_quantity: item.quantity,
+        table_name: 'sku_inventory', 
+        status: item.status,
+        days_since_last_restock: item.last_restock_date ?
+          Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null
+      }));
+      
+      const allItems = [...asinItems, ...skuItems];
+      console.log('Processed restock items:', allItems);
+      setRestockItems(allItems);
+      console.log('Set restock items for', selectedCountry, ':', allItems.length, 'items');
     } catch (error: any) {
       console.error('Error loading restock items:', error);
       toast({
