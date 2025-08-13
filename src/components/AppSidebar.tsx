@@ -1,4 +1,4 @@
-import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, Wrench, LogOut, Home, Users, TrendingUp, Merge, Edit3, Database, CreditCard, Upload, BarChart3, DollarSign, Store, ShoppingCart, Globe } from "lucide-react"
+import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, Wrench, LogOut, Home, Users, TrendingUp, Merge, Edit3, Database, CreditCard, Upload, BarChart3, DollarSign, Store, ShoppingCart, Globe, ExternalLink, Eye } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
 import { useState } from "react"
 import { supabase } from "@/integrations/supabase/client"
@@ -68,6 +68,18 @@ const toolsItems = [
     title: "Bulk Column Editor",
     url: "/bulk-column-editor",
     icon: Database
+  },
+  {
+    title: "DF Payment Tracker",
+    url: "https://fulfillment-coin-tracker.lovable.app/",
+    icon: ExternalLink,
+    external: true
+  },
+  {
+    title: "Data Viewer",
+    url: "https://huha-data-viewer.lovable.app/",
+    icon: Eye,
+    external: true
   }
 ]
 
@@ -372,23 +384,39 @@ export function AppSidebar() {
                         key={item.title}
                         asChild
                         className={`group relative w-full rounded-lg transition-all duration-200 hover:scale-[1.01] ml-2 ${
-                          isActive(item.url)
+                          !item.external && isActive(item.url)
                             ? "bg-gradient-to-r from-primary/80 to-primary/70 text-primary-foreground shadow-md shadow-primary/20" 
                             : "hover:bg-gradient-to-r hover:from-sidebar-accent/60 hover:to-sidebar-accent/50 hover:text-sidebar-accent-foreground"
                         }`}
                       >
-                        <NavLink 
-                          to={item.url} 
-                          end
-                          className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-lg"
-                        >
-                          <item.icon className="h-4 w-4 flex-shrink-0 opacity-75" />
-                          {!isCollapsed && (
-                            <span className="font-medium text-xs">
-                              {item.title}
-                            </span>
-                          )}
-                        </NavLink>
+                        {item.external ? (
+                          <a 
+                            href={item.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-lg"
+                          >
+                            <item.icon className="h-4 w-4 flex-shrink-0 opacity-75" />
+                            {!isCollapsed && (
+                              <span className="font-medium text-xs">
+                                {item.title}
+                              </span>
+                            )}
+                          </a>
+                        ) : (
+                          <NavLink 
+                            to={item.url} 
+                            end
+                            className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-lg"
+                          >
+                            <item.icon className="h-4 w-4 flex-shrink-0 opacity-75" />
+                            {!isCollapsed && (
+                              <span className="font-medium text-xs">
+                                {item.title}
+                              </span>
+                            )}
+                          </NavLink>
+                        )}
                       </SidebarMenuButton>
                     ))}
                   </CollapsibleContent>
