@@ -19,8 +19,9 @@ export default {
 		},
 		extend: {
 			fontFamily: {
-				'sans': ['Courier Prime', 'Courier New', 'monospace'],
-				'mono': ['Courier Prime', 'Courier New', 'monospace'],
+				'sans': ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+				'mono': ['JetBrains Mono', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+				'display': ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
 			},
 			colors: {
 				border: 'hsl(var(--border))',
