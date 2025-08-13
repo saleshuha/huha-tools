@@ -300,29 +300,6 @@ export function AsinInventory() {
       {/* Header with Stats */}
       <div className="space-y-6">
         <InventoryMetrics showOnlyAsin={true} />
-        
-        <Card className="glass-container">
-          <CardHeader className="pb-4">
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <Package className="w-5 h-5" />
-                ASIN Inventory Management
-              </CardTitle>
-              <div className="flex items-center gap-2">
-                <Button onClick={emailInventory} variant="outline" size="sm" className="gap-2">
-                  <Mail className="w-4 h-4" />
-                  Email Report
-                </Button>
-                <Button onClick={exportInventory} variant="outline" size="sm" className="gap-2">
-                  <Download className="w-4 h-4" />
-                  Export CSV
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="p-6">
-          </CardContent>
-        </Card>
       </div>
 
       {/* Prominent Search Bar */}
@@ -342,7 +319,7 @@ export function AsinInventory() {
                 Actions:
               </Label>
               <div className="flex flex-wrap gap-3">
-                <SimpleWarehouseManager />
+                {/* 1. Add New Item */}
                 <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                   <DialogTrigger asChild>
                     <Button size="lg" className="bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 text-white">
@@ -420,6 +397,7 @@ export function AsinInventory() {
                   </DialogContent>
                 </Dialog>
 
+                {/* 2. Bulk Add Items */}
                 <Dialog open={isBulkDialogOpen} onOpenChange={setIsBulkDialogOpen}>
                   <DialogTrigger asChild>
                     <Button size="lg" variant="outline" className="border-2 hover:border-primary/50">
@@ -453,21 +431,31 @@ export function AsinInventory() {
                   </DialogContent>
                 </Dialog>
 
+                {/* 3. Bulk SKU Update */}
                 <BulkSkuUpload 
                   inventory={inventory}
                   onSkuUpdate={bulkUpdateSkus}
                 />
+
+                {/* 4. Warehouse Settings */}
+                <SimpleWarehouseManager />
+
+                {/* 5. Export */}
                 <Button size="lg" variant="outline" className="border-primary/30 hover:bg-primary/5" onClick={exportInventory}>
                   <Download className="w-5 h-5 mr-2" />
                   Export
                 </Button>
-                <Button size="lg" variant="outline" className="border-blue-300 hover:bg-blue-50" onClick={handleRefresh}>
-                  <RefreshCw className="w-5 h-5 mr-2" />
-                  Refresh
-                </Button>
+
+                {/* 6. Email Report */}
                 <Button size="lg" variant="outline" className="border-purple-300 hover:bg-purple-50" onClick={emailInventory}>
                   <Mail className="w-5 h-5 mr-2" />
                   Email Report
+                </Button>
+
+                {/* 7. Refresh */}
+                <Button size="lg" variant="outline" className="border-blue-300 hover:bg-blue-50" onClick={handleRefresh}>
+                  <RefreshCw className="w-5 h-5 mr-2" />
+                  Refresh
                 </Button>
               </div>
             </div>
