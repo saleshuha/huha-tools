@@ -24,8 +24,14 @@ export default {
 				'display': ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
 			},
 			colors: {
-				border: 'hsl(var(--border))',
-				input: 'hsl(var(--input))',
+				border: {
+					DEFAULT: 'hsl(var(--border))',
+					hover: 'hsl(var(--border-hover))'
+				},
+				input: {
+					DEFAULT: 'hsl(var(--input))',
+					hover: 'hsl(var(--input-hover))'
+				},
 				ring: 'hsl(var(--ring))',
 				background: {
 					DEFAULT: 'hsl(var(--background))',
@@ -37,11 +43,15 @@ export default {
 					DEFAULT: 'hsl(var(--primary))',
 					foreground: 'hsl(var(--primary-foreground))',
 					light: 'hsl(var(--primary-light))',
-					dark: 'hsl(var(--primary-dark))'
+					dark: 'hsl(var(--primary-dark))',
+					hover: 'hsl(var(--primary-hover))',
+					active: 'hsl(var(--primary-active))'
 				},
 				secondary: {
 					DEFAULT: 'hsl(var(--secondary))',
-					foreground: 'hsl(var(--secondary-foreground))'
+					foreground: 'hsl(var(--secondary-foreground))',
+					hover: 'hsl(var(--secondary-hover))',
+					active: 'hsl(var(--secondary-active))'
 				},
 				destructive: {
 					DEFAULT: 'hsl(var(--destructive))',
@@ -49,11 +59,14 @@ export default {
 				},
 				muted: {
 					DEFAULT: 'hsl(var(--muted))',
-					foreground: 'hsl(var(--muted-foreground))'
+					foreground: 'hsl(var(--muted-foreground))',
+					hover: 'hsl(var(--muted-hover))'
 				},
 				accent: {
 					DEFAULT: 'hsl(var(--accent))',
-					foreground: 'hsl(var(--accent-foreground))'
+					foreground: 'hsl(var(--accent-foreground))',
+					hover: 'hsl(var(--accent-hover))',
+					active: 'hsl(var(--accent-active))'
 				},
 				success: {
 					DEFAULT: 'hsl(var(--success))',
@@ -67,25 +80,29 @@ export default {
 					DEFAULT: 'hsl(var(--emerald))',
 					foreground: 'hsl(var(--emerald-foreground))',
 					light: 'hsl(var(--emerald-light))',
-					dark: 'hsl(var(--emerald-dark))'
+					dark: 'hsl(var(--emerald-dark))',
+					hover: 'hsl(var(--emerald-hover))'
 				},
 				sky: {
 					DEFAULT: 'hsl(var(--sky))',
 					foreground: 'hsl(var(--sky-foreground))',
 					light: 'hsl(var(--sky-light))',
-					dark: 'hsl(var(--sky-dark))'
+					dark: 'hsl(var(--sky-dark))',
+					hover: 'hsl(var(--sky-hover))'
 				},
 				cyan: {
 					DEFAULT: 'hsl(var(--cyan))',
 					foreground: 'hsl(var(--cyan-foreground))',
 					light: 'hsl(var(--cyan-light))',
-					dark: 'hsl(var(--cyan-dark))'
+					dark: 'hsl(var(--cyan-dark))',
+					hover: 'hsl(var(--cyan-hover))'
 				},
 				teal: {
 					DEFAULT: 'hsl(var(--teal))',
 					foreground: 'hsl(var(--teal-foreground))',
 					light: 'hsl(var(--teal-light))',
-					dark: 'hsl(var(--teal-dark))'
+					dark: 'hsl(var(--teal-dark))',
+					hover: 'hsl(var(--teal-hover))'
 				},
 				popover: {
 					DEFAULT: 'hsl(var(--popover))',
@@ -93,7 +110,9 @@ export default {
 				},
 				card: {
 					DEFAULT: 'hsl(var(--card))',
-					foreground: 'hsl(var(--card-foreground))'
+					foreground: 'hsl(var(--card-foreground))',
+					glass: 'hsl(var(--card-glass))',
+					hover: 'hsl(var(--card-hover))'
 				},
 				sidebar: {
 					DEFAULT: 'hsl(var(--sidebar-background))',
