@@ -510,7 +510,7 @@ export function Replenishment() {
           item.table_name === 'asin_inventory' ? 'ASIN' : 'SKU', 
           asin, 
           sku,
-          serialBin,
+          `="${serialBin}"`, // Preserve leading zeros with formula format
           item.current_quantity, 
           item.days_since_last_restock || 'Never', 
           item.status || 'Critical'
@@ -557,7 +557,7 @@ export function Replenishment() {
           item.table_name === 'asin_inventory' ? 'ASIN' : 'SKU', 
           asin, 
           sku,
-          serialBin,
+          `="${serialBin}"`, // Preserve leading zeros with formula format
           item.current_quantity, 
           item.days_since_last_restock || 'Never', 
           item.status, 
@@ -713,7 +713,7 @@ export function Replenishment() {
           item.table_name === 'asin_inventory' ? 'ASIN' : 'SKU', 
           asin, 
           sku,
-          serialBin,
+          `="${serialBin}"`, // Preserve leading zeros with formula format
           item.current_quantity, 
           item.sold_quantity, 
           item.sell_rate.toFixed(2), 

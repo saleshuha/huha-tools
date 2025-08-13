@@ -123,7 +123,7 @@ export function SkuInventoryMetrics() {
       setExportLoading(true);
       const exportData = filteredItems.map(item => ({
         'SKU Number': item.sku_number,
-        'Bin/Serial Number': item.bin_serial_number,
+        'Bin/Serial Number': `="${item.bin_serial_number}"`, // Preserve leading zeros
         'Quantity': item.quantity,
         'Status': item.status,
         'Country': item.country,

@@ -567,7 +567,12 @@ export function OrderProcessor() {
       'Inventory Status': match.inventoryMatch ? 'Found' : 'Not Found',
       'Inventory Type': match.inventoryType || 'N/A',
       'Current Stock': match.inventoryMatch?.quantity || 0,
-      'Match Type': match.matchType || 'N/A'
+      'Match Type': match.matchType || 'N/A',
+      'Serial/Bin Number': match.inventoryMatch ? 
+        ('serialNumber' in match.inventoryMatch ? 
+          `="${match.inventoryMatch.serialNumber}"` : // Preserve leading zeros for serial numbers
+          `="${match.inventoryMatch.binSerialNumber}"`) : // Preserve leading zeros for bin numbers
+        'N/A'
     }));
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
