@@ -442,7 +442,7 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="p-3 border-t border-sidebar-border">
+      <SidebarFooter className="px-3 pb-3 pt-1 border-t border-sidebar-border">
         {/* Progress Indicator */}
         <SidebarProgressIndicator />
         
