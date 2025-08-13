@@ -22,7 +22,10 @@ interface RestockItem {
   current_quantity: number;
   table_name: string;
   days_since_last_restock: number | null;
-  status: string; // Added status from database
+  status: string;
+  date_sold?: string | null;
+  last_restock_date?: string | null;
+  restock_quantity?: number | null;
 }
 interface SalesData {
   period: string;
@@ -1039,8 +1042,8 @@ export function Replenishment() {
         <TabsContent value="sales" className="space-y-6">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-lg font-semibold">Sales Performance Analytics</h3>
-              <p className="text-muted-foreground">Track sales across different time periods</p>
+              <h3 className="text-lg font-semibold">Comprehensive Inventory Tracking</h3>
+              <p className="text-muted-foreground">Track all ASIN and SKU inventory with detailed analytics and status</p>
             </div>
             <div className="flex items-center gap-4">
               <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
@@ -1065,123 +1068,185 @@ export function Replenishment() {
             </div>
           </div>
 
-          {/* Ordered Items Tracking */}
+          {/* Comprehensive Inventory Tracking */}
           <div className="space-y-6">
-            <div>
-              <h4 className="text-lg font-semibold mb-2">Out of Stock Analytics</h4>
-              <p className="text-sm text-muted-foreground">Track items that are out of stock and their replenishment status</p>
-            </div>
+            {/* Filters and Controls */}
+            <Card className="glass-container">
+              <CardContent className="p-4">
+                <div className="flex flex-wrap items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <Search className="w-4 h-4 text-muted-foreground" />
+                    <Input 
+                      placeholder="Search ASINs, SKUs, or serial numbers..." 
+                      value={searchTerm} 
+                      onChange={(e) => setSearchTerm(e.target.value)} 
+                      className="w-80" 
+                    />
+                  </div>
+                  <Select value={trendsItemType || 'all'} onValueChange={setTrendsItemType}>
+                    <SelectTrigger className="w-32">
+                      <SelectValue placeholder="Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Items</SelectItem>
+                      <SelectItem value="asin">ASIN Only</SelectItem>
+                      <SelectItem value="sku">SKU Only</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={trendsSortBy || 'sold_desc'} onValueChange={setTrendsSortBy}>
+                    <SelectTrigger className="w-48">
+                      <SelectValue placeholder="Sort By" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="sold_desc">Most Sold</SelectItem>
+                      <SelectItem value="sold_asc">Least Sold</SelectItem>
+                      <SelectItem value="recent_sold">Recently Sold</SelectItem>
+                      <SelectItem value="recent_ordered">Recently Ordered</SelectItem>
+                      <SelectItem value="quantity_low">Low Stock</SelectItem>
+                      <SelectItem value="needs_restock">Needs Restock</SelectItem>
+                      <SelectItem value="slow_restock">Slow Restock</SelectItem>
+                      <SelectItem value="in_transit">In Transit</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button onClick={() => loadAnalytics()} variant="outline" size="sm" disabled={loading} className="gap-2">
+                    <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                    Refresh
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Inventory Tracking Table */}
             <Card className="glass-container">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Truck className="w-5 h-5 text-primary" />
-                  Ordered Items Tracking
+                  <Database className="w-5 h-5" />
+                  Complete Inventory Tracking
                 </CardTitle>
-                <p className="text-muted-foreground">Items with orders placed awaiting restock</p>
+                <p className="text-muted-foreground">Comprehensive view of all ASIN and SKU inventory with sales and restock analytics</p>
               </CardHeader>
               <CardContent>
-                {orderedItems.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Truck className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                    <p>No pending orders to track</p>
+                {loading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" />
+                    <span className="ml-2 text-muted-foreground">Loading inventory data...</span>
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b">
-                          <th className="text-left p-3">Item</th>
+                          <th className="text-left p-3">Item Details</th>
                           <th className="text-center p-3">Type</th>
+                          <th className="text-center p-3">Current Stock</th>
+                          <th className="text-center p-3">Status</th>
+                          <th className="text-center p-3">Last Sold Date</th>
+                          <th className="text-center p-3">Last Order Date</th>
+                          <th className="text-center p-3">Order Qty</th>
                           <th className="text-center p-3">Days Since Order</th>
-                          <th className="text-center p-3">Order Status</th>
-                          <th className="text-center p-3">Expected Restock</th>
-                          <th className="text-center p-3">Actions</th>
+                          <th className="text-center p-3">Restock Status</th>
+                          <th className="text-center p-3">Performance</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {orderedItems.map((item, index) => {
+                        {[...restockItems, ...orderedItems].map((item, index) => {
                           const daysSinceOrder = item.days_since_last_restock || 0;
-                          const isOverdue = daysSinceOrder > 14;
+                          const isSlowRestock = daysSinceOrder > 14 && item.status === 'ordered';
+                          const needsRestock = item.current_quantity === 0 && item.status !== 'ordered';
+                          
                           return (
-                            <tr key={index} className="border-b hover:bg-muted/50 transition-colors">
-                              <td className="p-3 font-medium">{item.identifier}</td>
+                            <tr key={item.id || index} className="border-b hover:bg-muted/50 transition-colors">
+                              <td className="p-3">
+                                <div>
+                                  <p className="font-medium">{item.identifier}</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {item.table_name === 'asin_inventory' ? 'ASIN Inventory' : 'SKU Inventory'}
+                                  </p>
+                                </div>
+                              </td>
                               <td className="text-center p-3">
                                 <Badge variant="outline" className="text-xs">
                                   {item.table_name === 'asin_inventory' ? 'ASIN' : 'SKU'}
                                 </Badge>
                               </td>
                               <td className="text-center p-3">
-                                <Badge variant={isOverdue ? "destructive" : "default"}>
-                                  {daysSinceOrder} days
-                                </Badge>
+                                <span className={`font-semibold ${
+                                  item.current_quantity === 0 ? 'text-destructive' : 
+                                  item.current_quantity <= 5 ? 'text-amber-600' : 'text-green-600'
+                                }`}>
+                                  {item.current_quantity}
+                                </span>
                               </td>
                               <td className="text-center p-3">
-                                <Badge variant="secondary">
-                                  {isOverdue ? 'Overdue' : 'In Transit'}
+                                <Badge variant={
+                                  item.status === 'ordered' ? 'default' : 
+                                  item.current_quantity === 0 ? 'destructive' : 'secondary'
+                                }>
+                                  {item.status === 'ordered' ? 'Order Placed' : 
+                                   item.current_quantity === 0 ? 'Out of Stock' : 'In Stock'}
                                 </Badge>
                               </td>
                               <td className="text-center p-3 text-muted-foreground">
-                                {isOverdue ? 'Overdue' : `${Math.max(0, 14 - daysSinceOrder)} days`}
+                                {item.date_sold ? new Date(item.date_sold).toLocaleDateString() : 'Never'}
+                              </td>
+                              <td className="text-center p-3 text-muted-foreground">
+                                {item.last_restock_date ? new Date(item.last_restock_date).toLocaleDateString() : 'Never'}
                               </td>
                               <td className="text-center p-3">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => {
-                                    // Handle restock action when item arrives
-                                  }}
-                                  className="text-xs"
-                                >
-                                  Mark Restocked
-                                </Button>
+                                {item.restock_quantity || '-'}
+                              </td>
+                              <td className="text-center p-3">
+                                {daysSinceOrder > 0 ? (
+                                  <Badge variant={isSlowRestock ? "destructive" : "default"}>
+                                    {daysSinceOrder} days
+                                  </Badge>
+                                ) : '-'}
+                              </td>
+                              <td className="text-center p-3">
+                                {item.status === 'ordered' ? (
+                                  <Badge variant={isSlowRestock ? "destructive" : "secondary"}>
+                                    {isSlowRestock ? 'Overdue' : 'In Transit'}
+                                  </Badge>
+                                ) : needsRestock ? (
+                                  <Badge variant="destructive">Needs Order</Badge>
+                                ) : (
+                                  <Badge variant="default">Stocked</Badge>
+                                )}
+                              </td>
+                              <td className="text-center p-3">
+                                <div className="flex flex-col items-center gap-1">
+                                  {needsRestock && (
+                                    <Badge variant="destructive" className="text-xs">High Priority</Badge>
+                                  )}
+                                  {isSlowRestock && (
+                                    <Badge variant="secondary" className="text-xs">Slow Transit</Badge>
+                                  )}
+                                  {item.current_quantity > 0 && item.current_quantity <= 5 && (
+                                    <Badge variant="default" className="text-xs">Low Stock</Badge>
+                                  )}
+                                  {item.current_quantity > 10 && (
+                                    <Badge variant="secondary" className="text-xs">Well Stocked</Badge>
+                                  )}
+                                </div>
                               </td>
                             </tr>
                           );
                         })}
                       </tbody>
                     </table>
+                    
+                    {[...restockItems, ...orderedItems].length === 0 && (
+                      <div className="text-center py-12 text-muted-foreground">
+                        <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                        <p className="text-lg font-medium">No inventory items found</p>
+                        <p className="text-sm">Start by adding items to your inventory</p>
+                      </div>
+                    )}
                   </div>
                 )}
               </CardContent>
             </Card>
           </div>
-
-          {/* Detailed Sales Table */}
-          <Card className="glass-container">
-            <CardHeader>
-              <CardTitle>Detailed Analytics Table</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left p-3">Period</th>
-                      <th className="text-center p-3">ASIN Sold</th>
-                      <th className="text-center p-3">SKU Sold</th>
-                      <th className="text-center p-3">Total Sold</th>
-                      <th className="text-center p-3">Total Restocked</th>
-                      <th className="text-center p-3">Daily Rate</th>
-                      <th className="text-center p-3">Performance</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {salesData.map((data, index) => <tr key={index} className="border-b hover:bg-muted/50 transition-colors">
-                        <td className="p-3 font-medium">{data.period}</td>
-                        <td className="text-center p-3">{data.asin_sold}</td>
-                        <td className="text-center p-3">{data.sku_sold}</td>
-                        <td className="text-center p-3 font-semibold">{data.total_sold}</td>
-                        <td className="text-center p-3">{data.total_restocked}</td>
-                        <td className="text-center p-3">{data.sell_rate.toFixed(2)}/day</td>
-                        <td className="text-center p-3">
-                          {data.total_sold > data.total_restocked ? <Badge variant="destructive" className="text-xs">Undersupplied</Badge> : data.total_sold === data.total_restocked ? <Badge variant="default" className="text-xs">Balanced</Badge> : <Badge variant="secondary" className="text-xs">Well Stocked</Badge>}
-                        </td>
-                      </tr>)}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
         </TabsContent>
 
         {/* Restock Management Tab with Separate Tabs */}
