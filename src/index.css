@@ -239,7 +239,7 @@
 @layer components {
   /* Modern Page Layout System */
   .app-page {
-    @apply min-h-screen bg-gradient-to-br from-background via-background-secondary to-background-tertiary;
+    @apply min-h-screen bg-gradient-to-br from-background to-background-secondary;
   }
   
   .app-container {
