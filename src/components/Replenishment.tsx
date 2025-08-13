@@ -20,7 +20,7 @@ import { InventoryAnalytics } from './InventoryAnalytics';
 import { format } from 'date-fns';
 import Papa from 'papaparse';
 import { cn } from '@/lib/utils';
-import { TrendingUp, TrendingDown, AlertTriangle, Package, Download, RefreshCw, Search, BarChart3, Clock, ShoppingCart, Activity, DollarSign, Database, PieChart, LineChart, CalendarIcon, CheckCircle, XCircle, Eye, Truck, ArrowRight, Target, Zap, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Filter, X } from 'lucide-react';
+import { TrendingUp, TrendingDown, AlertTriangle, Package, Download, RefreshCw, Search, BarChart3, Clock, ShoppingCart, Activity, DollarSign, Database, PieChart, LineChart, CalendarIcon, CheckCircle, XCircle, Eye, Truck, ArrowRight, Target, Zap, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Settings, Gauge, Star, Minus } from 'lucide-react';
 import { Checkbox } from './ui/checkbox';
 import { LineChart as RechartsLineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, AreaChart, Area, BarChart as RechartsBarChart, Bar, PieChart as RechartsPieChart, Cell, Pie, Legend } from 'recharts';
 interface RestockItem {
@@ -75,10 +75,80 @@ interface AllInventoryItem {
   date_added: string;
   notes?: string;
 }
+
+interface InventoryMetrics {
+  velocityScore: number;
+  urgencyLevel: 'low' | 'medium' | 'high' | 'critical';
+  stockDaysRemaining: number | null;
+  turnoverRate: number;
+  performanceRating: number;
+}
 export function Replenishment() {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(20);
+
+  // Header filter functions
+  const updateHeaderFilter = (field: string, value: string) => {
+    setHeaderFilters(prev => ({ ...prev, [field]: value }));
+  };
+
+  const updateHeaderRangeFilter = (field: string, type: 'min' | 'max', value: string) => {
+    setHeaderFilters(prev => ({
+      ...prev,
+      [field]: { ...prev[field as keyof typeof prev], [type]: value }
+    }));
+  };
+
+  const clearHeaderFilters = () => {
+    setHeaderFilters({
+      type: '',
+      asin: '',
+      sku: '',
+      serial: '',
+      status: '',
+      quantity: { min: '', max: '' },
+      daysSince: { min: '', max: '' }
+    });
+  };
+
+  // Calculate item metrics
+  const calculateItemMetrics = (item: AllInventoryItem): InventoryMetrics => {
+    const daysSinceSold = item.last_sold_date ? 
+      Math.floor((Date.now() - new Date(item.last_sold_date).getTime()) / (1000 * 60 * 60 * 24)) : null;
+    
+    let velocityScore = 0;
+    if (daysSinceSold !== null && daysSinceSold > 0) {
+      velocityScore = Math.max(0, 100 - (daysSinceSold / 30) * 100);
+    }
+    
+    let urgencyLevel: 'low' | 'medium' | 'high' | 'critical' = 'low';
+    if (item.quantity === 0) urgencyLevel = 'critical';
+    else if (item.quantity <= 2) urgencyLevel = 'high';
+    else if (item.quantity <= 5) urgencyLevel = 'medium';
+    
+    let stockDaysRemaining: number | null = null;
+    if (velocityScore > 0 && item.quantity > 0) {
+      stockDaysRemaining = Math.floor(item.quantity / Math.max(velocityScore / 100, 0.1));
+    }
+    
+    const daysSinceAdded = Math.floor((Date.now() - new Date(item.date_added).getTime()) / (1000 * 60 * 60 * 24));
+    const turnoverRate = daysSinceAdded > 0 ? (velocityScore / daysSinceAdded) * 365 : 0;
+    
+    let performanceRating = 2.5;
+    if (item.quantity > 0 && velocityScore > 70) performanceRating = 5;
+    else if (item.quantity > 0 && velocityScore > 50) performanceRating = 4;
+    else if (item.quantity > 0 && velocityScore > 30) performanceRating = 3;
+    else if (item.quantity === 0) performanceRating = 1;
+    
+    return {
+      velocityScore,
+      urgencyLevel,
+      stockDaysRemaining,
+      turnoverRate,
+      performanceRating
+    };
+  };
   const {
     selectedCountry
   } = useCountry();
@@ -130,6 +200,17 @@ export function Replenishment() {
       min: null as number | null,
       max: null as number | null,
     }
+  });
+
+  // Header filter states
+  const [headerFilters, setHeaderFilters] = useState({
+    type: '',
+    asin: '',
+    sku: '',
+    serial: '',
+    status: '',
+    quantity: { min: '', max: '' },
+    daysSince: { min: '', max: '' }
   });
 
   // Trends state
@@ -331,15 +412,16 @@ export function Replenishment() {
     }
   };
 
-  // Apply filters and sorting
+  // Apply filters and sorting (including header filters)
   useEffect(() => {
     console.log('Filtering effect triggered. allInventoryItems length:', allInventoryItems.length);
     console.log('Current filters:', filters);
+    console.log('Header filters:', headerFilters);
     
     let filtered = [...allInventoryItems];
     console.log('Starting with items:', filtered.length);
 
-    // Search filter
+    // Search filter (main search)
     if (filters.search) {
       const searchLower = filters.search.toLowerCase();
       filtered = filtered.filter(item => 
@@ -348,6 +430,58 @@ export function Replenishment() {
         item.serial_number?.toLowerCase().includes(searchLower)
       );
       console.log('After search filter:', filtered.length);
+    }
+
+    // Header filters
+    if (headerFilters.type) {
+      filtered = filtered.filter(item => 
+        item.item_type.toLowerCase().includes(headerFilters.type.toLowerCase())
+      );
+    }
+    
+    if (headerFilters.asin) {
+      filtered = filtered.filter(item => 
+        item.asin?.toLowerCase().includes(headerFilters.asin.toLowerCase())
+      );
+    }
+    
+    if (headerFilters.sku) {
+      filtered = filtered.filter(item => 
+        item.sku?.toLowerCase().includes(headerFilters.sku.toLowerCase())
+      );
+    }
+    
+    if (headerFilters.serial) {
+      filtered = filtered.filter(item => 
+        item.serial_number?.toLowerCase().includes(headerFilters.serial.toLowerCase())
+      );
+    }
+    
+    if (headerFilters.status) {
+      filtered = filtered.filter(item => 
+        item.status.toLowerCase().includes(headerFilters.status.toLowerCase())
+      );
+    }
+    
+    if (headerFilters.quantity.min || headerFilters.quantity.max) {
+      filtered = filtered.filter(item => {
+        const min = headerFilters.quantity.min ? parseInt(headerFilters.quantity.min) : null;
+        const max = headerFilters.quantity.max ? parseInt(headerFilters.quantity.max) : null;
+        if (min !== null && item.quantity < min) return false;
+        if (max !== null && item.quantity > max) return false;
+        return true;
+      });
+    }
+    
+    if (headerFilters.daysSince.min || headerFilters.daysSince.max) {
+      filtered = filtered.filter(item => {
+        if (item.days_since_ordered === null) return false;
+        const min = headerFilters.daysSince.min ? parseInt(headerFilters.daysSince.min) : null;
+        const max = headerFilters.daysSince.max ? parseInt(headerFilters.daysSince.max) : null;
+        if (min !== null && item.days_since_ordered < min) return false;
+        if (max !== null && item.days_since_ordered > max) return false;
+        return true;
+      });
     }
 
     // Item type filter
@@ -1745,180 +1879,426 @@ export function Replenishment() {
                       </div>
                     </div>
 
-                    {/* Advanced Data Table */}
-                    <div className="border rounded-lg overflow-hidden">
+                    {/* Enhanced Advanced Data Table with Header Filters */}
+                    <div className="rounded-xl border border-border/50 bg-gradient-to-br from-card via-card/95 to-muted/30 overflow-hidden shadow-lg">
                       <Table>
                         <TableHeader>
-                          <TableRow className="bg-muted/50">
+                          {/* Sort Headers Row */}
+                          <TableRow className="bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 border-b-2 border-primary/20">
                             <TableHead 
-                              className="cursor-pointer select-none hover:bg-muted/75 transition-colors"
+                              className="cursor-pointer select-none hover:bg-primary/15 transition-all duration-200 font-semibold"
                               onClick={() => handleSort('item_type')}
                             >
                               <div className="flex items-center gap-2">
+                                <Database className="h-4 w-4 text-primary" />
                                 Type
-                                <ArrowUpDown className="h-4 w-4" />
+                                <ArrowUpDown className="h-4 w-4 opacity-50" />
                                 {sortConfig.key === 'item_type' && (
-                                  sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                                  sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3 text-primary" /> : <ArrowDown className="h-3 w-3 text-primary" />
                                 )}
                               </div>
                             </TableHead>
                             <TableHead 
-                              className="cursor-pointer select-none hover:bg-muted/75 transition-colors"
+                              className="cursor-pointer select-none hover:bg-primary/15 transition-all duration-200 font-semibold"
                               onClick={() => handleSort('asin')}
                             >
                               <div className="flex items-center gap-2">
+                                <Package className="h-4 w-4 text-primary" />
                                 ASIN
-                                <ArrowUpDown className="h-4 w-4" />
+                                <ArrowUpDown className="h-4 w-4 opacity-50" />
                                 {sortConfig.key === 'asin' && (
-                                  sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                                  sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3 text-primary" /> : <ArrowDown className="h-3 w-3 text-primary" />
                                 )}
                               </div>
                             </TableHead>
                             <TableHead 
-                              className="cursor-pointer select-none hover:bg-muted/75 transition-colors"
+                              className="cursor-pointer select-none hover:bg-primary/15 transition-all duration-200 font-semibold"
                               onClick={() => handleSort('sku')}
                             >
                               <div className="flex items-center gap-2">
+                                <ShoppingCart className="h-4 w-4 text-primary" />
                                 SKU
-                                <ArrowUpDown className="h-4 w-4" />
+                                <ArrowUpDown className="h-4 w-4 opacity-50" />
                                 {sortConfig.key === 'sku' && (
-                                  sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                                  sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3 text-primary" /> : <ArrowDown className="h-3 w-3 text-primary" />
                                 )}
                               </div>
                             </TableHead>
                             <TableHead 
-                              className="cursor-pointer select-none hover:bg-muted/75 transition-colors"
+                              className="cursor-pointer select-none hover:bg-primary/15 transition-all duration-200 font-semibold"
                               onClick={() => handleSort('serial_number')}
                             >
                               <div className="flex items-center gap-2">
+                                <Target className="h-4 w-4 text-primary" />
                                 Serial Number
-                                <ArrowUpDown className="h-4 w-4" />
+                                <ArrowUpDown className="h-4 w-4 opacity-50" />
                                 {sortConfig.key === 'serial_number' && (
-                                  sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                                  sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3 text-primary" /> : <ArrowDown className="h-3 w-3 text-primary" />
                                 )}
                               </div>
                             </TableHead>
                             <TableHead 
-                              className="cursor-pointer select-none hover:bg-muted/75 transition-colors"
+                              className="cursor-pointer select-none hover:bg-primary/15 transition-all duration-200 font-semibold"
                               onClick={() => handleSort('quantity')}
                             >
                               <div className="flex items-center gap-2">
+                                <Gauge className="h-4 w-4 text-primary" />
                                 Quantity
-                                <ArrowUpDown className="h-4 w-4" />
+                                <ArrowUpDown className="h-4 w-4 opacity-50" />
                                 {sortConfig.key === 'quantity' && (
-                                  sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                                  sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3 text-primary" /> : <ArrowDown className="h-3 w-3 text-primary" />
                                 )}
                               </div>
                             </TableHead>
                             <TableHead 
-                              className="cursor-pointer select-none hover:bg-muted/75 transition-colors"
+                              className="cursor-pointer select-none hover:bg-primary/15 transition-all duration-200 font-semibold"
                               onClick={() => handleSort('status')}
                             >
                               <div className="flex items-center gap-2">
+                                <Activity className="h-4 w-4 text-primary" />
                                 Status
-                                <ArrowUpDown className="h-4 w-4" />
+                                <ArrowUpDown className="h-4 w-4 opacity-50" />
                                 {sortConfig.key === 'status' && (
-                                  sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                                  sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3 text-primary" /> : <ArrowDown className="h-3 w-3 text-primary" />
                                 )}
                               </div>
                             </TableHead>
                             <TableHead 
-                              className="cursor-pointer select-none hover:bg-muted/75 transition-colors"
+                              className="cursor-pointer select-none hover:bg-primary/15 transition-all duration-200 font-semibold"
                               onClick={() => handleSort('last_sold_date')}
                             >
                               <div className="flex items-center gap-2">
-                                Last Sold Date
-                                <ArrowUpDown className="h-4 w-4" />
+                                <Clock className="h-4 w-4 text-primary" />
+                                Last Sold
+                                <ArrowUpDown className="h-4 w-4 opacity-50" />
                                 {sortConfig.key === 'last_sold_date' && (
-                                  sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                                  sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3 text-primary" /> : <ArrowDown className="h-3 w-3 text-primary" />
                                 )}
                               </div>
                             </TableHead>
                             <TableHead 
-                              className="cursor-pointer select-none hover:bg-muted/75 transition-colors"
+                              className="cursor-pointer select-none hover:bg-primary/15 transition-all duration-200 font-semibold"
                               onClick={() => handleSort('last_order_date')}
                             >
                               <div className="flex items-center gap-2">
-                                Last Order Date
-                                <ArrowUpDown className="h-4 w-4" />
+                                <Truck className="h-4 w-4 text-primary" />
+                                Last Order
+                                <ArrowUpDown className="h-4 w-4 opacity-50" />
                                 {sortConfig.key === 'last_order_date' && (
-                                  sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                                  sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3 text-primary" /> : <ArrowDown className="h-3 w-3 text-primary" />
                                 )}
                               </div>
                             </TableHead>
                             <TableHead 
-                              className="cursor-pointer select-none hover:bg-muted/75 transition-colors"
+                              className="cursor-pointer select-none hover:bg-primary/15 transition-all duration-200 font-semibold"
                               onClick={() => handleSort('days_since_ordered')}
                             >
                               <div className="flex items-center gap-2">
-                                Days Since Order
-                                <ArrowUpDown className="h-4 w-4" />
+                                <CalendarIcon className="h-4 w-4 text-primary" />
+                                Days Since
+                                <ArrowUpDown className="h-4 w-4 opacity-50" />
                                 {sortConfig.key === 'days_since_ordered' && (
-                                  sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                                  sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3 text-primary" /> : <ArrowDown className="h-3 w-3 text-primary" />
                                 )}
                               </div>
                             </TableHead>
-                            <TableHead>Notes</TableHead>
+                            <TableHead className="font-semibold">
+                              <div className="flex items-center gap-2">
+                                <Star className="h-4 w-4 text-primary" />
+                                Metrics
+                              </div>
+                            </TableHead>
+                          </TableRow>
+                          
+                          {/* Filter Headers Row */}
+                          <TableRow className="bg-muted/30 border-b border-border/50">
+                            <TableHead className="p-2">
+                              <Select value={headerFilters.type} onValueChange={(value) => updateHeaderFilter('type', value)}>
+                                <SelectTrigger className="h-8 text-xs border-border/50 bg-background/80">
+                                  <SelectValue placeholder="All Types" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="">All Types</SelectItem>
+                                  <SelectItem value="ASIN">ASIN</SelectItem>
+                                  <SelectItem value="SKU">SKU</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </TableHead>
+                            <TableHead className="p-2">
+                              <Input
+                                placeholder="Filter ASIN..."
+                                value={headerFilters.asin}
+                                onChange={(e) => updateHeaderFilter('asin', e.target.value)}
+                                className="h-8 text-xs border-border/50 bg-background/80"
+                              />
+                            </TableHead>
+                            <TableHead className="p-2">
+                              <Input
+                                placeholder="Filter SKU..."
+                                value={headerFilters.sku}
+                                onChange={(e) => updateHeaderFilter('sku', e.target.value)}
+                                className="h-8 text-xs border-border/50 bg-background/80"
+                              />
+                            </TableHead>
+                            <TableHead className="p-2">
+                              <Input
+                                placeholder="Filter Serial..."
+                                value={headerFilters.serial}
+                                onChange={(e) => updateHeaderFilter('serial', e.target.value)}
+                                className="h-8 text-xs border-border/50 bg-background/80"
+                              />
+                            </TableHead>
+                            <TableHead className="p-2">
+                              <div className="flex gap-1">
+                                <Input
+                                  placeholder="Min"
+                                  value={headerFilters.quantity.min}
+                                  onChange={(e) => updateHeaderRangeFilter('quantity', 'min', e.target.value)}
+                                  className="h-8 text-xs w-12 border-border/50 bg-background/80"
+                                  type="number"
+                                />
+                                <Input
+                                  placeholder="Max"
+                                  value={headerFilters.quantity.max}
+                                  onChange={(e) => updateHeaderRangeFilter('quantity', 'max', e.target.value)}
+                                  className="h-8 text-xs w-12 border-border/50 bg-background/80"
+                                  type="number"
+                                />
+                              </div>
+                            </TableHead>
+                            <TableHead className="p-2">
+                              <Select value={headerFilters.status} onValueChange={(value) => updateHeaderFilter('status', value)}>
+                                <SelectTrigger className="h-8 text-xs border-border/50 bg-background/80">
+                                  <SelectValue placeholder="All Status" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="">All Status</SelectItem>
+                                  <SelectItem value="in-stock">In Stock</SelectItem>
+                                  <SelectItem value="out-of-stock">Out of Stock</SelectItem>
+                                  <SelectItem value="ordered">Ordered</SelectItem>
+                                  <SelectItem value="low-stock">Low Stock</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </TableHead>
+                            <TableHead className="p-2">
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                className="h-8 text-xs opacity-60 hover:opacity-100"
+                                disabled
+                              >
+                                Date Filter
+                              </Button>
+                            </TableHead>
+                            <TableHead className="p-2">
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                className="h-8 text-xs opacity-60 hover:opacity-100"
+                                disabled
+                              >
+                                Date Filter
+                              </Button>
+                            </TableHead>
+                            <TableHead className="p-2">
+                              <div className="flex gap-1">
+                                <Input
+                                  placeholder="Min"
+                                  value={headerFilters.daysSince.min}
+                                  onChange={(e) => updateHeaderRangeFilter('daysSince', 'min', e.target.value)}
+                                  className="h-8 text-xs w-12 border-border/50 bg-background/80"
+                                  type="number"
+                                />
+                                <Input
+                                  placeholder="Max"
+                                  value={headerFilters.daysSince.max}
+                                  onChange={(e) => updateHeaderRangeFilter('daysSince', 'max', e.target.value)}
+                                  className="h-8 text-xs w-12 border-border/50 bg-background/80"
+                                  type="number"
+                                />
+                              </div>
+                            </TableHead>
+                            <TableHead className="p-2">
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={clearHeaderFilters}
+                                className="h-8 text-xs border-border/50"
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {currentItems.length === 0 ? (
                             <TableRow>
-                              <TableCell colSpan={10} className="text-center p-8 text-muted-foreground">
-                                No inventory items found
+                              <TableCell colSpan={10} className="text-center p-12 text-muted-foreground">
+                                <div className="flex flex-col items-center gap-3">
+                                  <Database className="h-12 w-12 opacity-30" />
+                                  <div>
+                                    <p className="text-lg font-medium">No inventory items found</p>
+                                    <p className="text-sm">Try adjusting your filters or search criteria</p>
+                                  </div>
+                                </div>
                               </TableCell>
                             </TableRow>
                           ) : (
-                            currentItems.map((item) => (
-                              <TableRow key={`${item.item_type}-${item.id}`} className="hover:bg-muted/25">
-                                <TableCell>
-                                  <Badge variant={item.item_type === 'ASIN' ? 'default' : 'secondary'}>
-                                    {item.item_type}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell className="font-mono text-sm">{item.asin || 'N/A'}</TableCell>
-                                <TableCell className="font-mono text-sm">{item.sku || 'N/A'}</TableCell>
-                                <TableCell className="font-mono text-sm">{item.serial_number || 'N/A'}</TableCell>
-                                <TableCell>
-                                  <Badge 
-                                    variant={item.quantity === 0 ? 'destructive' : item.quantity <= 2 ? 'secondary' : 'default'}
-                                    className={item.quantity === 0 ? 'bg-red-100 text-red-800' : item.quantity <= 2 ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}
-                                  >
-                                    {item.quantity}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell>
-                                  <Badge variant={item.status === 'in-stock' ? 'default' : 'secondary'}>
-                                    {item.status.replace('-', ' ')}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell className="text-sm">
-                                  {item.last_sold_date ? format(new Date(item.last_sold_date), 'MMM dd, yyyy') : 'Never'}
-                                </TableCell>
-                                <TableCell className="text-sm">
-                                  {item.last_order_date ? format(new Date(item.last_order_date), 'MMM dd, yyyy') : 'Never'}
-                                </TableCell>
-                                <TableCell>
-                                  {item.days_since_ordered !== null ? (
+                            currentItems.map((item) => {
+                              const metrics = calculateItemMetrics(item);
+                              return (
+                                <TableRow 
+                                  key={`${item.item_type}-${item.id}`} 
+                                  className="hover:bg-gradient-to-r hover:from-primary/5 hover:to-transparent transition-all duration-200 border-b border-border/50"
+                                >
+                                  <TableCell>
                                     <Badge 
-                                      variant={item.days_since_ordered > 30 ? 'destructive' : item.days_since_ordered > 14 ? 'secondary' : 'default'}
-                                      className={
-                                        item.days_since_ordered > 30 ? 'bg-red-100 text-red-800' : 
-                                        item.days_since_ordered > 14 ? 'bg-yellow-100 text-yellow-800' : 
-                                        'bg-blue-100 text-blue-800'
-                                      }
+                                      variant={item.item_type === 'ASIN' ? 'default' : 'secondary'}
+                                      className="font-medium"
                                     >
-                                      {item.days_since_ordered} days
+                                      {item.item_type}
                                     </Badge>
-                                  ) : (
-                                    <span className="text-muted-foreground text-sm">N/A</span>
-                                  )}
-                                </TableCell>
-                                <TableCell className="text-sm max-w-32 truncate" title={item.notes || ''}>
-                                  {item.notes || '-'}
-                                </TableCell>
-                              </TableRow>
-                            ))
+                                  </TableCell>
+                                  <TableCell className="font-mono text-sm font-medium">{item.asin || 'N/A'}</TableCell>
+                                  <TableCell className="font-mono text-sm font-medium">{item.sku || 'N/A'}</TableCell>
+                                  <TableCell className="font-mono text-sm">{item.serial_number || 'N/A'}</TableCell>
+                                  <TableCell>
+                                    <div className="flex items-center gap-2">
+                                      <Badge 
+                                        variant={item.quantity === 0 ? 'destructive' : item.quantity <= 2 ? 'secondary' : 'default'}
+                                        className={cn(
+                                          "font-bold transition-colors",
+                                          item.quantity === 0 ? 'bg-destructive/20 text-destructive border-destructive/50' : 
+                                          item.quantity <= 2 ? 'bg-warning/20 text-warning border-warning/50' : 
+                                          'bg-success/20 text-success border-success/50'
+                                        )}
+                                      >
+                                        {item.quantity}
+                                      </Badge>
+                                      {item.quantity <= 5 && (
+                                        <Progress 
+                                          value={Math.min((item.quantity / 10) * 100, 100)} 
+                                          className="w-12 h-2"
+                                        />
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Badge 
+                                      variant={item.status === 'in-stock' ? 'default' : 'secondary'}
+                                      className={cn(
+                                        "capitalize",
+                                        item.status === 'in-stock' ? 'bg-success/20 text-success border-success/50' : 
+                                        item.status === 'ordered' ? 'bg-primary/20 text-primary border-primary/50' :
+                                        'bg-muted/50 text-muted-foreground'
+                                      )}
+                                    >
+                                      {item.status.replace('-', ' ')}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className="text-sm">
+                                    <div className="flex items-center gap-2">
+                                      {item.last_sold_date ? (
+                                        <>
+                                          <Clock className="h-3 w-3 text-muted-foreground" />
+                                          {format(new Date(item.last_sold_date), 'MMM dd, yyyy')}
+                                        </>
+                                      ) : (
+                                        <span className="text-muted-foreground flex items-center gap-1">
+                                          <XCircle className="h-3 w-3" />
+                                          Never
+                                        </span>
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="text-sm">
+                                    <div className="flex items-center gap-2">
+                                      {item.last_order_date ? (
+                                        <>
+                                          <Truck className="h-3 w-3 text-muted-foreground" />
+                                          {format(new Date(item.last_order_date), 'MMM dd, yyyy')}
+                                        </>
+                                      ) : (
+                                        <span className="text-muted-foreground flex items-center gap-1">
+                                          <XCircle className="h-3 w-3" />
+                                          Never
+                                        </span>
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    {item.days_since_ordered !== null ? (
+                                      <Badge 
+                                        variant={item.days_since_ordered > 30 ? 'destructive' : item.days_since_ordered > 14 ? 'secondary' : 'default'}
+                                        className={cn(
+                                          "font-medium",
+                                          item.days_since_ordered > 30 ? 'bg-destructive/20 text-destructive border-destructive/50' : 
+                                          item.days_since_ordered > 14 ? 'bg-warning/20 text-warning border-warning/50' : 
+                                          'bg-primary/20 text-primary border-primary/50'
+                                        )}
+                                      >
+                                        {item.days_since_ordered} days
+                                      </Badge>
+                                    ) : (
+                                      <span className="text-muted-foreground text-sm flex items-center gap-1">
+                                        <XCircle className="h-3 w-3" />
+                                        N/A
+                                      </span>
+                                    )}
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="flex flex-col gap-2">
+                                      {/* Performance Rating */}
+                                      <div className="flex items-center gap-1">
+                                        {[...Array(5)].map((_, i) => (
+                                          <Star 
+                                            key={i} 
+                                            className={cn(
+                                              "h-3 w-3",
+                                              i < Math.floor(metrics.performanceRating) ? "text-yellow-500 fill-yellow-500" : "text-muted-foreground/30"
+                                            )} 
+                                          />
+                                        ))}
+                                        <span className="text-xs ml-1 font-medium">{metrics.performanceRating.toFixed(1)}</span>
+                                      </div>
+                                      
+                                      {/* Velocity & Urgency */}
+                                      <div className="flex items-center gap-2">
+                                        <Badge 
+                                          variant="outline" 
+                                          className={cn(
+                                            "text-xs px-1 py-0",
+                                            metrics.urgencyLevel === 'critical' ? 'border-destructive text-destructive' :
+                                            metrics.urgencyLevel === 'high' ? 'border-warning text-warning' :
+                                            metrics.urgencyLevel === 'medium' ? 'border-primary text-primary' :
+                                            'border-muted-foreground text-muted-foreground'
+                                          )}
+                                        >
+                                          {metrics.urgencyLevel === 'critical' ? <AlertTriangle className="h-2 w-2 mr-1" /> :
+                                           metrics.urgencyLevel === 'high' ? <TrendingUp className="h-2 w-2 mr-1" /> :
+                                           metrics.urgencyLevel === 'medium' ? <Minus className="h-2 w-2 mr-1" /> :
+                                           <TrendingDown className="h-2 w-2 mr-1" />}
+                                          {metrics.urgencyLevel}
+                                        </Badge>
+                                        
+                                        <Badge variant="outline" className="text-xs px-1 py-0">
+                                          <Zap className="h-2 w-2 mr-1" />
+                                          {metrics.velocityScore.toFixed(0)}
+                                        </Badge>
+                                      </div>
+                                      
+                                      {/* Stock Days Remaining */}
+                                      {metrics.stockDaysRemaining && (
+                                        <div className="text-xs text-muted-foreground">
+                                          <Clock className="h-2 w-2 inline mr-1" />
+                                          {metrics.stockDaysRemaining}d stock
+                                        </div>
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })
                           )}
                         </TableBody>
                       </Table>
