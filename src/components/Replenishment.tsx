@@ -107,11 +107,11 @@ export function Replenishment() {
 
   const clearHeaderFilters = () => {
     setHeaderFilters({
-      type: '',
+      type: 'all',
       asin: '',
       sku: '',
       serial: '',
-      status: '',
+      status: 'all',
       quantity: { min: '', max: '' },
       daysSince: { min: '', max: '' }
     });
@@ -209,11 +209,11 @@ export function Replenishment() {
 
   // Header filter states
   const [headerFilters, setHeaderFilters] = useState({
-    type: '',
+    type: 'all',
     asin: '',
     sku: '',
     serial: '',
-    status: '',
+    status: 'all',
     quantity: { min: '', max: '' },
     daysSince: { min: '', max: '' }
   });
@@ -438,7 +438,7 @@ export function Replenishment() {
     }
 
     // Header filters
-    if (headerFilters.type) {
+    if (headerFilters.type && headerFilters.type !== 'all') {
       filtered = filtered.filter(item => 
         item.item_type.toLowerCase().includes(headerFilters.type.toLowerCase())
       );
@@ -462,7 +462,7 @@ export function Replenishment() {
       );
     }
     
-    if (headerFilters.status) {
+    if (headerFilters.status && headerFilters.status !== 'all') {
       filtered = filtered.filter(item => 
         item.status.toLowerCase().includes(headerFilters.status.toLowerCase())
       );
@@ -2018,12 +2018,12 @@ export function Replenishment() {
                           {/* Filter Headers Row */}
                           <TableRow className="bg-muted/30 border-b border-border/50">
                             <TableHead className="p-2">
-                              <Select value={headerFilters.type} onValueChange={(value) => updateHeaderFilter('type', value)}>
+                              <Select value={headerFilters.type} onValueChange={(value) => updateHeaderFilter('type', value === 'all' ? '' : value)}>
                                 <SelectTrigger className="h-8 text-xs border-border/50 bg-background/80">
                                   <SelectValue placeholder="All Types" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="">All Types</SelectItem>
+                                  <SelectItem value="all">All Types</SelectItem>
                                   <SelectItem value="ASIN">ASIN</SelectItem>
                                   <SelectItem value="SKU">SKU</SelectItem>
                                 </SelectContent>
@@ -2072,12 +2072,12 @@ export function Replenishment() {
                               </div>
                             </TableHead>
                             <TableHead className="p-2">
-                              <Select value={headerFilters.status} onValueChange={(value) => updateHeaderFilter('status', value)}>
+                              <Select value={headerFilters.status} onValueChange={(value) => updateHeaderFilter('status', value === 'all' ? '' : value)}>
                                 <SelectTrigger className="h-8 text-xs border-border/50 bg-background/80">
                                   <SelectValue placeholder="All Status" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="">All Status</SelectItem>
+                                  <SelectItem value="all">All Status</SelectItem>
                                   <SelectItem value="in-stock">In Stock</SelectItem>
                                   <SelectItem value="out-of-stock">Out of Stock</SelectItem>
                                   <SelectItem value="ordered">Ordered</SelectItem>
