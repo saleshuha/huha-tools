@@ -223,6 +223,8 @@ export function Replenishment() {
   // Load all inventory items for comprehensive tracking
   const loadAllInventoryItems = async () => {
     try {
+      console.log('Starting loadAllInventoryItems for country:', selectedCountry);
+      
       const [asinAll, skuAll] = await Promise.all([
         supabase.from('asin_inventory')
           .select('id, asin, serial_number, quantity, status, sku, last_restock_date, date_sold, date_added, notes')
@@ -232,8 +234,17 @@ export function Replenishment() {
           .eq('country', selectedCountry)
       ]);
       
-      if (asinAll.error) throw asinAll.error;
-      if (skuAll.error) throw skuAll.error;
+      if (asinAll.error) {
+        console.error('ASIN query error:', asinAll.error);
+        throw asinAll.error;
+      }
+      if (skuAll.error) {
+        console.error('SKU query error:', skuAll.error);
+        throw skuAll.error;
+      }
+      
+      console.log('Raw ASIN data:', asinAll.data);
+      console.log('Raw SKU data:', skuAll.data);
       
       // Process ASIN items into AllInventoryItem format
       const asinItems: AllInventoryItem[] = (asinAll.data || []).map(item => ({
@@ -268,6 +279,8 @@ export function Replenishment() {
       }));
       
       const allInventoryItems = [...asinItems, ...skuItems];
+      console.log('Processed inventory items:', allInventoryItems);
+      console.log('Total items count:', allInventoryItems.length);
       
       // Separate items based on status for the existing logic (convert to RestockItem format)
       const restockNeeded = allInventoryItems
@@ -300,11 +313,12 @@ export function Replenishment() {
           days_since_last_restock: item.days_since_ordered
         }));
       
+      console.log('Setting allInventoryItems state with:', allInventoryItems.length, 'items');
+      setAllInventoryItems(allInventoryItems);
       setRestockItems(restockNeeded);
       setOrderedItems(orderedItemsData);
-      setAllInventoryItems(allInventoryItems);
       
-      console.log('Loaded all inventory items:', allInventoryItems.length);
+      console.log('State updated - allInventoryItems length:', allInventoryItems.length);
       console.log('Items needing restock:', restockNeeded.length);
       console.log('Items on order:', orderedItemsData.length);
     } catch (error: any) {
@@ -316,6 +330,245 @@ export function Replenishment() {
       });
     }
   };
+
+  // Apply filters and sorting
+  useEffect(() => {
+    console.log('Filtering effect triggered. allInventoryItems length:', allInventoryItems.length);
+    console.log('Current filters:', filters);
+    
+    let filtered = [...allInventoryItems];
+    console.log('Starting with items:', filtered.length);
+
+    // Search filter
+    if (filters.search) {
+      const searchLower = filters.search.toLowerCase();
+      filtered = filtered.filter(item => 
+        item.asin?.toLowerCase().includes(searchLower) ||
+        item.sku?.toLowerCase().includes(searchLower) ||
+        item.serial_number?.toLowerCase().includes(searchLower)
+      );
+      console.log('After search filter:', filtered.length);
+    }
+
+    // Item type filter
+    if (filters.itemType !== 'all') {
+      filtered = filtered.filter(item => item.item_type === filters.itemType);
+      console.log('After item type filter:', filtered.length);
+    }
+
+    // Stock status filter
+    if (filters.stockStatus !== 'all') {
+      filtered = filtered.filter(item => {
+        switch (filters.stockStatus) {
+          case 'in-stock': return item.quantity > 5;
+          case 'low-stock': return item.quantity > 0 && item.quantity <= 5;
+          case 'critical': return item.quantity <= 2;
+          case 'out-of-stock': return item.quantity === 0;
+          default: return true;
+        }
+      });
+      console.log('After stock status filter:', filtered.length);
+    }
+
+    // Order status filter
+    if (filters.orderStatus !== 'all') {
+      filtered = filtered.filter(item => {
+        const daysSinceOrder = item.days_since_ordered;
+        switch (filters.orderStatus) {
+          case 'ordered': return daysSinceOrder !== null && daysSinceOrder >= 0;
+          case 'not-ordered': return daysSinceOrder === null;
+          case 'overdue': return daysSinceOrder !== null && daysSinceOrder > 30;
+          default: return true;
+        }
+      });
+      console.log('After order status filter:', filtered.length);
+    }
+
+    // Date range filters
+    if (filters.dateRange.lastSoldFrom || filters.dateRange.lastSoldTo) {
+      filtered = filtered.filter(item => {
+        if (!item.last_sold_date) return false;
+        const soldDate = new Date(item.last_sold_date);
+        if (filters.dateRange.lastSoldFrom && soldDate < filters.dateRange.lastSoldFrom) return false;
+        if (filters.dateRange.lastSoldTo && soldDate > filters.dateRange.lastSoldTo) return false;
+        return true;
+      });
+      console.log('After last sold date filter:', filtered.length);
+    }
+
+    if (filters.dateRange.lastOrderFrom || filters.dateRange.lastOrderTo) {
+      filtered = filtered.filter(item => {
+        if (!item.last_order_date) return false;
+        const orderDate = new Date(item.last_order_date);
+        if (filters.dateRange.lastOrderFrom && orderDate < filters.dateRange.lastOrderFrom) return false;
+        if (filters.dateRange.lastOrderTo && orderDate > filters.dateRange.lastOrderTo) return false;
+        return true;
+      });
+      console.log('After last order date filter:', filtered.length);
+    }
+
+    // Stock range filter
+    if (filters.stockRange.min !== null || filters.stockRange.max !== null) {
+      filtered = filtered.filter(item => {
+        if (filters.stockRange.min !== null && item.quantity < filters.stockRange.min) return false;
+        if (filters.stockRange.max !== null && item.quantity > filters.stockRange.max) return false;
+        return true;
+      });
+      console.log('After stock range filter:', filtered.length);
+    }
+
+    // Days since order range filter
+    if (filters.daysSinceOrderRange.min !== null || filters.daysSinceOrderRange.max !== null) {
+      filtered = filtered.filter(item => {
+        if (item.days_since_ordered === null) return false;
+        if (filters.daysSinceOrderRange.min !== null && item.days_since_ordered < filters.daysSinceOrderRange.min) return false;
+        if (filters.daysSinceOrderRange.max !== null && item.days_since_ordered > filters.daysSinceOrderRange.max) return false;
+        return true;
+      });
+      console.log('After days since order range filter:', filtered.length);
+    }
+
+    // Apply sorting
+    if (sortConfig.key) {
+      filtered.sort((a, b) => {
+        const aValue = a[sortConfig.key!];
+        const bValue = b[sortConfig.key!];
+        
+        if (aValue === null && bValue === null) return 0;
+        if (aValue === null) return 1;
+        if (bValue === null) return -1;
+        
+        let comparison = 0;
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
+          comparison = aValue.localeCompare(bValue);
+        } else if (typeof aValue === 'number' && typeof bValue === 'number') {
+          comparison = aValue - bValue;
+        } else if (aValue && bValue && typeof aValue === 'string' && typeof bValue === 'string' && 
+                   (sortConfig.key === 'last_sold_date' || sortConfig.key === 'last_order_date' || sortConfig.key === 'date_added')) {
+          comparison = new Date(aValue).getTime() - new Date(bValue).getTime();
+        } else {
+          comparison = String(aValue).localeCompare(String(bValue));
+        }
+        
+        return sortConfig.direction === 'desc' ? -comparison : comparison;
+      });
+      console.log('After sorting:', filtered.length);
+    }
+
+    console.log('Final filtered items count:', filtered.length);
+    setFilteredItems(filtered);
+    setCurrentPage(1); // Reset to first page when filters change
+  }, [allInventoryItems, filters, sortConfig]);
+
+  // Sorting handler
+  const handleSort = (key: keyof AllInventoryItem) => {
+    setSortConfig(prev => ({
+      key,
+      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
+    }));
+  };
+
+  // Filter handlers
+  const updateFilter = (filterType: string, value: any) => {
+    setFilters(prev => ({
+      ...prev,
+      [filterType]: value
+    }));
+  };
+
+  const updateDateRangeFilter = (type: 'lastSoldFrom' | 'lastSoldTo' | 'lastOrderFrom' | 'lastOrderTo', date: Date | null) => {
+    setFilters(prev => ({
+      ...prev,
+      dateRange: {
+        ...prev.dateRange,
+        [type]: date
+      }
+    }));
+  };
+
+  const updateRangeFilter = (type: 'stockRange' | 'daysSinceOrderRange', field: 'min' | 'max', value: number | null) => {
+    setFilters(prev => ({
+      ...prev,
+      [type]: {
+        ...prev[type],
+        [field]: value
+      }
+    }));
+  };
+
+  const clearAllFilters = () => {
+    setFilters({
+      search: '',
+      itemType: 'all',
+      stockStatus: 'all',
+      orderStatus: 'all',
+      dateRange: {
+        lastSoldFrom: null,
+        lastSoldTo: null,
+        lastOrderFrom: null,
+        lastOrderTo: null,
+      },
+      stockRange: {
+        min: null,
+        max: null,
+      },
+      daysSinceOrderRange: {
+        min: null,
+        max: null,
+      }
+    });
+    setSortConfig({ key: null, direction: 'asc' });
+  };
+
+  const getActiveFiltersCount = () => {
+    let count = 0;
+    if (filters.search) count++;
+    if (filters.itemType !== 'all') count++;
+    if (filters.stockStatus !== 'all') count++;
+    if (filters.orderStatus !== 'all') count++;
+    if (filters.dateRange.lastSoldFrom || filters.dateRange.lastSoldTo) count++;
+    if (filters.dateRange.lastOrderFrom || filters.dateRange.lastOrderTo) count++;
+    if (filters.stockRange.min !== null || filters.stockRange.max !== null) count++;
+    if (filters.daysSinceOrderRange.min !== null || filters.daysSinceOrderRange.max !== null) count++;
+    return count;
+  };
+
+  const exportFilteredData = () => {
+    const dataToExport = filteredItems.map(item => ({
+      'Item Type': item.item_type,
+      'ASIN': item.asin || 'N/A',
+      'SKU': item.sku || 'N/A',
+      'Serial Number': item.serial_number || 'N/A',
+      'Quantity': item.quantity,
+      'Status': item.status,
+      'Last Sold Date': item.last_sold_date ? format(new Date(item.last_sold_date), 'yyyy-MM-dd') : 'Never',
+      'Last Order Date': item.last_order_date ? format(new Date(item.last_order_date), 'yyyy-MM-dd') : 'Never',
+      'Days Since Order': item.days_since_ordered ?? 'N/A',
+      'Date Added': format(new Date(item.date_added), 'yyyy-MM-dd'),
+      'Notes': item.notes || ''
+    }));
+
+    const csv = Papa.unparse(dataToExport);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    
+    const activeFilters = getActiveFiltersCount();
+    const filename = `inventory-${activeFilters > 0 ? 'filtered-' : ''}${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    link.download = filename;
+    link.click();
+    
+    toast({
+      title: "Export Complete",
+      description: `Exported ${dataToExport.length} items ${activeFilters > 0 ? '(filtered)' : ''}`,
+    });
+  };
+
+  // Pagination
+  const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentItems = filteredItems.slice(startIndex, endIndex);
 
   // Load ordered items separately for analytics and display
   const loadOrderedItems = async () => {
@@ -1300,11 +1553,406 @@ export function Replenishment() {
                     <span className="ml-2 text-muted-foreground">Loading inventory data...</span>
                   </div>
                 ) : (
-                  <div className="text-center py-12 text-muted-foreground">
-                    <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                    <p className="text-lg font-medium">Complete inventory tracking view</p>
-                    <p className="text-sm">Use the advanced table above for detailed inventory management</p>
-                  </div>
+                  <>
+                    <div className="space-y-4 mb-6">
+                      {/* Search and Quick Actions */}
+                      <div className="flex flex-col lg:flex-row gap-4">
+                        <div className="flex-1">
+                          <div className="relative">
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                            <Input
+                              placeholder="Search by ASIN, SKU, or Serial Number..."
+                              value={filters.search}
+                              onChange={(e) => updateFilter('search', e.target.value)}
+                              className="pl-10"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={exportFilteredData}
+                            className="whitespace-nowrap"
+                          >
+                            <Download className="h-4 w-4 mr-2" />
+                            Export {getActiveFiltersCount() > 0 ? 'Filtered' : 'All'}
+                          </Button>
+                          {getActiveFiltersCount() > 0 && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={clearAllFilters}
+                              className="whitespace-nowrap"
+                            >
+                              <X className="h-4 w-4 mr-2" />
+                              Clear ({getActiveFiltersCount()})
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Advanced Filters */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                        <Select value={filters.itemType} onValueChange={(value) => updateFilter('itemType', value)}>
+                          <SelectTrigger className="h-8">
+                            <SelectValue placeholder="Type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Types</SelectItem>
+                            <SelectItem value="ASIN">ASIN</SelectItem>
+                            <SelectItem value="SKU">SKU</SelectItem>
+                          </SelectContent>
+                        </Select>
+
+                        <Select value={filters.stockStatus} onValueChange={(value) => updateFilter('stockStatus', value)}>
+                          <SelectTrigger className="h-8">
+                            <SelectValue placeholder="Stock" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Stock</SelectItem>
+                            <SelectItem value="in-stock">In Stock (&gt;5)</SelectItem>
+                            <SelectItem value="low-stock">Low Stock (1-5)</SelectItem>
+                            <SelectItem value="critical">Critical (≤2)</SelectItem>
+                            <SelectItem value="out-of-stock">Out of Stock</SelectItem>
+                          </SelectContent>
+                        </Select>
+
+                        <Select value={filters.orderStatus} onValueChange={(value) => updateFilter('orderStatus', value)}>
+                          <SelectTrigger className="h-8">
+                            <SelectValue placeholder="Orders" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Orders</SelectItem>
+                            <SelectItem value="ordered">Ordered</SelectItem>
+                            <SelectItem value="not-ordered">Not Ordered</SelectItem>
+                            <SelectItem value="overdue">Overdue (&gt;30d)</SelectItem>
+                          </SelectContent>
+                        </Select>
+
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" size="sm" className="h-8 justify-start text-left font-normal">
+                              <CalendarIcon className="h-4 w-4 mr-2" />
+                              Last Sold
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-4" align="start">
+                            <div className="space-y-2">
+                              <Label>From:</Label>
+                              <Calendar
+                                mode="single"
+                                selected={filters.dateRange.lastSoldFrom}
+                                onSelect={(date) => updateDateRangeFilter('lastSoldFrom', date)}
+                                className={cn("p-3 pointer-events-auto")}
+                              />
+                              <Label>To:</Label>
+                              <Calendar
+                                mode="single"
+                                selected={filters.dateRange.lastSoldTo}
+                                onSelect={(date) => updateDateRangeFilter('lastSoldTo', date)}
+                                className={cn("p-3 pointer-events-auto")}
+                              />
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" size="sm" className="h-8 justify-start text-left font-normal">
+                              <CalendarIcon className="h-4 w-4 mr-2" />
+                              Last Order
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-4" align="start">
+                            <div className="space-y-2">
+                              <Label>From:</Label>
+                              <Calendar
+                                mode="single"
+                                selected={filters.dateRange.lastOrderFrom}
+                                onSelect={(date) => updateDateRangeFilter('lastOrderFrom', date)}
+                                className={cn("p-3 pointer-events-auto")}
+                              />
+                              <Label>To:</Label>
+                              <Calendar
+                                mode="single"
+                                selected={filters.dateRange.lastOrderTo}
+                                onSelect={(date) => updateDateRangeFilter('lastOrderTo', date)}
+                                className={cn("p-3 pointer-events-auto")}
+                              />
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" size="sm" className="h-8 justify-start text-left font-normal">
+                              <Filter className="h-4 w-4 mr-2" />
+                              More
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-80 p-4" align="start">
+                            <div className="space-y-4">
+                              <div>
+                                <Label>Stock Range:</Label>
+                                <div className="flex gap-2 mt-1">
+                                  <Input
+                                    type="number"
+                                    placeholder="Min"
+                                    value={filters.stockRange.min ?? ''}
+                                    onChange={(e) => updateRangeFilter('stockRange', 'min', e.target.value ? Number(e.target.value) : null)}
+                                    className="h-8"
+                                  />
+                                  <Input
+                                    type="number"
+                                    placeholder="Max"
+                                    value={filters.stockRange.max ?? ''}
+                                    onChange={(e) => updateRangeFilter('stockRange', 'max', e.target.value ? Number(e.target.value) : null)}
+                                    className="h-8"
+                                  />
+                                </div>
+                              </div>
+                              <div>
+                                <Label>Days Since Order:</Label>
+                                <div className="flex gap-2 mt-1">
+                                  <Input
+                                    type="number"
+                                    placeholder="Min"
+                                    value={filters.daysSinceOrderRange.min ?? ''}
+                                    onChange={(e) => updateRangeFilter('daysSinceOrderRange', 'min', e.target.value ? Number(e.target.value) : null)}
+                                    className="h-8"
+                                  />
+                                  <Input
+                                    type="number"
+                                    placeholder="Max"
+                                    value={filters.daysSinceOrderRange.max ?? ''}
+                                    onChange={(e) => updateRangeFilter('daysSinceOrderRange', 'max', e.target.value ? Number(e.target.value) : null)}
+                                    className="h-8"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+
+                      {/* Results Info */}
+                      <div className="flex justify-between items-center text-sm text-muted-foreground">
+                        <span>
+                          Showing {currentItems.length} of {filteredItems.length} items
+                          {getActiveFiltersCount() > 0 && ` (${getActiveFiltersCount()} filters active)`}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Advanced Data Table */}
+                    <div className="border rounded-lg overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-muted/50">
+                            <TableHead 
+                              className="cursor-pointer select-none hover:bg-muted/75 transition-colors"
+                              onClick={() => handleSort('item_type')}
+                            >
+                              <div className="flex items-center gap-2">
+                                Type
+                                <ArrowUpDown className="h-4 w-4" />
+                                {sortConfig.key === 'item_type' && (
+                                  sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                                )}
+                              </div>
+                            </TableHead>
+                            <TableHead 
+                              className="cursor-pointer select-none hover:bg-muted/75 transition-colors"
+                              onClick={() => handleSort('asin')}
+                            >
+                              <div className="flex items-center gap-2">
+                                ASIN
+                                <ArrowUpDown className="h-4 w-4" />
+                                {sortConfig.key === 'asin' && (
+                                  sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                                )}
+                              </div>
+                            </TableHead>
+                            <TableHead 
+                              className="cursor-pointer select-none hover:bg-muted/75 transition-colors"
+                              onClick={() => handleSort('sku')}
+                            >
+                              <div className="flex items-center gap-2">
+                                SKU
+                                <ArrowUpDown className="h-4 w-4" />
+                                {sortConfig.key === 'sku' && (
+                                  sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                                )}
+                              </div>
+                            </TableHead>
+                            <TableHead 
+                              className="cursor-pointer select-none hover:bg-muted/75 transition-colors"
+                              onClick={() => handleSort('serial_number')}
+                            >
+                              <div className="flex items-center gap-2">
+                                Serial Number
+                                <ArrowUpDown className="h-4 w-4" />
+                                {sortConfig.key === 'serial_number' && (
+                                  sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                                )}
+                              </div>
+                            </TableHead>
+                            <TableHead 
+                              className="cursor-pointer select-none hover:bg-muted/75 transition-colors"
+                              onClick={() => handleSort('quantity')}
+                            >
+                              <div className="flex items-center gap-2">
+                                Quantity
+                                <ArrowUpDown className="h-4 w-4" />
+                                {sortConfig.key === 'quantity' && (
+                                  sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                                )}
+                              </div>
+                            </TableHead>
+                            <TableHead 
+                              className="cursor-pointer select-none hover:bg-muted/75 transition-colors"
+                              onClick={() => handleSort('status')}
+                            >
+                              <div className="flex items-center gap-2">
+                                Status
+                                <ArrowUpDown className="h-4 w-4" />
+                                {sortConfig.key === 'status' && (
+                                  sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                                )}
+                              </div>
+                            </TableHead>
+                            <TableHead 
+                              className="cursor-pointer select-none hover:bg-muted/75 transition-colors"
+                              onClick={() => handleSort('last_sold_date')}
+                            >
+                              <div className="flex items-center gap-2">
+                                Last Sold Date
+                                <ArrowUpDown className="h-4 w-4" />
+                                {sortConfig.key === 'last_sold_date' && (
+                                  sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                                )}
+                              </div>
+                            </TableHead>
+                            <TableHead 
+                              className="cursor-pointer select-none hover:bg-muted/75 transition-colors"
+                              onClick={() => handleSort('last_order_date')}
+                            >
+                              <div className="flex items-center gap-2">
+                                Last Order Date
+                                <ArrowUpDown className="h-4 w-4" />
+                                {sortConfig.key === 'last_order_date' && (
+                                  sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                                )}
+                              </div>
+                            </TableHead>
+                            <TableHead 
+                              className="cursor-pointer select-none hover:bg-muted/75 transition-colors"
+                              onClick={() => handleSort('days_since_ordered')}
+                            >
+                              <div className="flex items-center gap-2">
+                                Days Since Order
+                                <ArrowUpDown className="h-4 w-4" />
+                                {sortConfig.key === 'days_since_ordered' && (
+                                  sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                                )}
+                              </div>
+                            </TableHead>
+                            <TableHead>Notes</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {currentItems.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={10} className="text-center p-8 text-muted-foreground">
+                                No inventory items found
+                              </TableCell>
+                            </TableRow>
+                          ) : (
+                            currentItems.map((item) => (
+                              <TableRow key={`${item.item_type}-${item.id}`} className="hover:bg-muted/25">
+                                <TableCell>
+                                  <Badge variant={item.item_type === 'ASIN' ? 'default' : 'secondary'}>
+                                    {item.item_type}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="font-mono text-sm">{item.asin || 'N/A'}</TableCell>
+                                <TableCell className="font-mono text-sm">{item.sku || 'N/A'}</TableCell>
+                                <TableCell className="font-mono text-sm">{item.serial_number || 'N/A'}</TableCell>
+                                <TableCell>
+                                  <Badge 
+                                    variant={item.quantity === 0 ? 'destructive' : item.quantity <= 2 ? 'secondary' : 'default'}
+                                    className={item.quantity === 0 ? 'bg-red-100 text-red-800' : item.quantity <= 2 ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}
+                                  >
+                                    {item.quantity}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant={item.status === 'in-stock' ? 'default' : 'secondary'}>
+                                    {item.status.replace('-', ' ')}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="text-sm">
+                                  {item.last_sold_date ? format(new Date(item.last_sold_date), 'MMM dd, yyyy') : 'Never'}
+                                </TableCell>
+                                <TableCell className="text-sm">
+                                  {item.last_order_date ? format(new Date(item.last_order_date), 'MMM dd, yyyy') : 'Never'}
+                                </TableCell>
+                                <TableCell>
+                                  {item.days_since_ordered !== null ? (
+                                    <Badge 
+                                      variant={item.days_since_ordered > 30 ? 'destructive' : item.days_since_ordered > 14 ? 'secondary' : 'default'}
+                                      className={
+                                        item.days_since_ordered > 30 ? 'bg-red-100 text-red-800' : 
+                                        item.days_since_ordered > 14 ? 'bg-yellow-100 text-yellow-800' : 
+                                        'bg-blue-100 text-blue-800'
+                                      }
+                                    >
+                                      {item.days_since_ordered} days
+                                    </Badge>
+                                  ) : (
+                                    <span className="text-muted-foreground text-sm">N/A</span>
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-sm max-w-32 truncate" title={item.notes || ''}>
+                                  {item.notes || '-'}
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+
+                    {/* Pagination */}
+                    {filteredItems.length > itemsPerPage && (
+                      <div className="flex justify-center items-center gap-2 mt-6">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                          disabled={currentPage === 1}
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                          Previous
+                        </Button>
+                        
+                        <span className="text-sm text-muted-foreground px-4">
+                          Page {currentPage} of {totalPages}
+                        </span>
+                        
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                          disabled={currentPage === totalPages}
+                        >
+                          Next
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </>
                 )}
               </CardContent>
             </Card>
