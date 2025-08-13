@@ -94,10 +94,15 @@ export function Replenishment() {
   };
 
   const updateHeaderRangeFilter = (field: string, type: 'min' | 'max', value: string) => {
-    setHeaderFilters(prev => ({
-      ...prev,
-      [field]: { ...prev[field as keyof typeof prev], [type]: value }
-    }));
+    setHeaderFilters(prev => {
+      if (field === 'quantity' || field === 'daysSince') {
+        return {
+          ...prev,
+          [field]: { ...prev[field], [type]: value }
+        };
+      }
+      return prev;
+    });
   };
 
   const clearHeaderFilters = () => {
