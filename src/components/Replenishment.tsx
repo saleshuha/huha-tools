@@ -54,6 +54,9 @@ interface TrendsItem {
   sell_rate: number;
 }
 export function Replenishment() {
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(20);
   const {
     selectedCountry
   } = useCountry();
@@ -89,7 +92,6 @@ export function Replenishment() {
   
   // Pagination state for trends
   const [trendsCurrentPage, setTrendsCurrentPage] = useState(1);
-  const itemsPerPage = 10;
 
   // Visual Analytics layout state
   const [chartLayout, setChartLayout] = useState('default');
@@ -1142,98 +1144,130 @@ export function Replenishment() {
                           <th className="text-center p-3">Status</th>
                           <th className="text-center p-3">Last Sold Date</th>
                           <th className="text-center p-3">Last Order Date</th>
-                          <th className="text-center p-3">Order Qty</th>
                           <th className="text-center p-3">Days Since Order</th>
                           <th className="text-center p-3">Restock Status</th>
                           <th className="text-center p-3">Performance</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {[...restockItems, ...orderedItems].map((item, index) => {
-                          const daysSinceOrder = item.days_since_last_restock || 0;
-                          const isSlowRestock = daysSinceOrder > 14 && item.status === 'ordered';
-                          const needsRestock = item.current_quantity === 0 && item.status !== 'ordered';
-                          
-                          return (
-                            <tr key={item.id || index} className="border-b hover:bg-muted/50 transition-colors">
-                              <td className="p-3">
-                                <div>
-                                  <p className="font-medium">{item.identifier}</p>
-                                  <p className="text-xs text-muted-foreground">
-                                    {item.table_name === 'asin_inventory' ? 'ASIN Inventory' : 'SKU Inventory'}
-                                  </p>
-                                </div>
-                              </td>
-                              <td className="text-center p-3">
-                                <Badge variant="outline" className="text-xs">
-                                  {item.table_name === 'asin_inventory' ? 'ASIN' : 'SKU'}
-                                </Badge>
-                              </td>
-                              <td className="text-center p-3">
-                                <span className={`font-semibold ${
-                                  item.current_quantity === 0 ? 'text-destructive' : 
-                                  item.current_quantity <= 5 ? 'text-amber-600' : 'text-green-600'
-                                }`}>
-                                  {item.current_quantity}
-                                </span>
-                              </td>
-                              <td className="text-center p-3">
-                                <Badge variant={
-                                  item.status === 'ordered' ? 'default' : 
-                                  item.current_quantity === 0 ? 'destructive' : 'secondary'
-                                }>
-                                  {item.status === 'ordered' ? 'Order Placed' : 
-                                   item.current_quantity === 0 ? 'Out of Stock' : 'In Stock'}
-                                </Badge>
-                              </td>
-                              <td className="text-center p-3 text-muted-foreground">
-                                {item.date_sold ? new Date(item.date_sold).toLocaleDateString() : 'Never'}
-                              </td>
-                              <td className="text-center p-3 text-muted-foreground">
-                                {item.last_restock_date ? new Date(item.last_restock_date).toLocaleDateString() : 'Never'}
-                              </td>
-                              <td className="text-center p-3">
-                                {item.restock_quantity || '-'}
-                              </td>
-                              <td className="text-center p-3">
-                                {daysSinceOrder > 0 ? (
-                                  <Badge variant={isSlowRestock ? "destructive" : "default"}>
-                                    {daysSinceOrder} days
+                        {[...restockItems, ...orderedItems]
+                          .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+                          .map((item, index) => {
+                            const daysSinceOrder = item.days_since_last_restock || 0;
+                            const isSlowRestock = daysSinceOrder > 14 && item.status === 'ordered';
+                            const needsRestock = item.current_quantity === 0 && item.status !== 'ordered';
+                            
+                            return (
+                              <tr key={item.id || index} className="border-b hover:bg-muted/50 transition-colors">
+                                <td className="p-3">
+                                  <div>
+                                    <p className="font-medium">{item.identifier}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {item.table_name === 'asin_inventory' ? 'ASIN Inventory' : 'SKU Inventory'}
+                                    </p>
+                                  </div>
+                                </td>
+                                <td className="text-center p-3">
+                                  <Badge variant="outline" className="text-xs">
+                                    {item.table_name === 'asin_inventory' ? 'ASIN' : 'SKU'}
                                   </Badge>
-                                ) : '-'}
-                              </td>
-                              <td className="text-center p-3">
-                                {item.status === 'ordered' ? (
-                                  <Badge variant={isSlowRestock ? "destructive" : "secondary"}>
-                                    {isSlowRestock ? 'Overdue' : 'In Transit'}
+                                </td>
+                                <td className="text-center p-3">
+                                  <span className={`font-semibold ${
+                                    item.current_quantity === 0 ? 'text-destructive' : 
+                                    item.current_quantity <= 5 ? 'text-amber-600' : 'text-green-600'
+                                  }`}>
+                                    {item.current_quantity}
+                                  </span>
+                                </td>
+                                <td className="text-center p-3">
+                                  <Badge variant={
+                                    item.status === 'ordered' ? 'default' : 
+                                    item.current_quantity === 0 ? 'destructive' : 'secondary'
+                                  }>
+                                    {item.status === 'ordered' ? 'Order Placed' : 
+                                     item.current_quantity === 0 ? 'Out of Stock' : 'In Stock'}
                                   </Badge>
-                                ) : needsRestock ? (
-                                  <Badge variant="destructive">Needs Order</Badge>
-                                ) : (
-                                  <Badge variant="default">Stocked</Badge>
-                                )}
-                              </td>
-                              <td className="text-center p-3">
-                                <div className="flex flex-col items-center gap-1">
-                                  {needsRestock && (
-                                    <Badge variant="destructive" className="text-xs">High Priority</Badge>
+                                </td>
+                                <td className="text-center p-3 text-muted-foreground">
+                                  {item.date_sold ? new Date(item.date_sold).toLocaleDateString() : 'Never'}
+                                </td>
+                                <td className="text-center p-3 text-muted-foreground">
+                                  {item.last_restock_date ? new Date(item.last_restock_date).toLocaleDateString() : 'Never'}
+                                </td>
+                                <td className="text-center p-3">
+                                  {daysSinceOrder > 0 ? (
+                                    <Badge variant={isSlowRestock ? "destructive" : "default"}>
+                                      {daysSinceOrder} days
+                                    </Badge>
+                                  ) : '-'}
+                                </td>
+                                <td className="text-center p-3">
+                                  {item.status === 'ordered' ? (
+                                    <Badge variant={isSlowRestock ? "destructive" : "secondary"}>
+                                      {isSlowRestock ? 'Overdue' : 'In Transit'}
+                                    </Badge>
+                                  ) : needsRestock ? (
+                                    <Badge variant="destructive">Needs Order</Badge>
+                                  ) : (
+                                    <Badge variant="default">Stocked</Badge>
                                   )}
-                                  {isSlowRestock && (
-                                    <Badge variant="secondary" className="text-xs">Slow Transit</Badge>
-                                  )}
-                                  {item.current_quantity > 0 && item.current_quantity <= 5 && (
-                                    <Badge variant="default" className="text-xs">Low Stock</Badge>
-                                  )}
-                                  {item.current_quantity > 10 && (
-                                    <Badge variant="secondary" className="text-xs">Well Stocked</Badge>
-                                  )}
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
+                                </td>
+                                <td className="text-center p-3">
+                                  <div className="flex flex-col items-center gap-1">
+                                    {needsRestock && (
+                                      <Badge variant="destructive" className="text-xs">High Priority</Badge>
+                                    )}
+                                    {isSlowRestock && (
+                                      <Badge variant="secondary" className="text-xs">Slow Transit</Badge>
+                                    )}
+                                    {item.current_quantity > 0 && item.current_quantity <= 5 && (
+                                      <Badge variant="default" className="text-xs">Low Stock</Badge>
+                                    )}
+                                    {item.current_quantity > 10 && (
+                                      <Badge variant="secondary" className="text-xs">Well Stocked</Badge>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
                       </tbody>
                     </table>
+                    
+                    {/* Pagination Controls */}
+                    {[...restockItems, ...orderedItems].length > itemsPerPage && (
+                      <div className="flex items-center justify-between mt-6 pt-4 border-t border-border">
+                        <p className="text-sm text-muted-foreground">
+                          Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, [...restockItems, ...orderedItems].length)} of {[...restockItems, ...orderedItems].length} items
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                            disabled={currentPage === 1}
+                            className="gap-1"
+                          >
+                            <ChevronLeft className="w-4 h-4" />
+                            Previous
+                          </Button>
+                          <span className="text-sm text-muted-foreground px-3">
+                            Page {currentPage} of {Math.ceil([...restockItems, ...orderedItems].length / itemsPerPage)}
+                          </span>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => setCurrentPage(prev => Math.min(Math.ceil([...restockItems, ...orderedItems].length / itemsPerPage), prev + 1))}
+                            disabled={currentPage >= Math.ceil([...restockItems, ...orderedItems].length / itemsPerPage)}
+                            className="gap-1"
+                          >
+                            Next
+                            <ChevronRight className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                     
                     {[...restockItems, ...orderedItems].length === 0 && (
                       <div className="text-center py-12 text-muted-foreground">
