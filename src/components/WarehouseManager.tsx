@@ -18,7 +18,7 @@ interface WarehouseManagerProps {
   onWarehouseAdd: (warehouse: Omit<WarehouseItem, 'id'>) => void;
   onWarehouseUpdate: (id: string, warehouse: Omit<WarehouseItem, 'id'>) => void;
   onWarehouseDelete: (id: string) => void;
-  selectedWarehouse?: WarehouseItem;
+  selectedWarehouse?: WarehouseItem | null;
   onWarehouseSelect: (warehouse: WarehouseItem) => void;
 }
 

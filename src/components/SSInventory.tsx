@@ -68,7 +68,14 @@ export function SSInventory() {
   const [warehouses, setWarehouses] = useState([
     { id: '1', code: 'WH001', name: 'Main Warehouse' }
   ]);
-  const [selectedWarehouse, setSelectedWarehouse] = useState(warehouses[0]);
+  const [selectedWarehouse, setSelectedWarehouse] = useState<{id: string; code: string; name: string} | null>(null);
+  
+  // Initialize selectedWarehouse after warehouses are set
+  useEffect(() => {
+    if (warehouses.length > 0 && !selectedWarehouse) {
+      setSelectedWarehouse(warehouses[0]);
+    }
+  }, [warehouses, selectedWarehouse]);
   const {
     toast
   } = useToast();
