@@ -79,6 +79,7 @@ export function Replenishment() {
   const [selectedPeriod, setSelectedPeriod] = useState('30d');
   const [restockItems, setRestockItems] = useState<RestockItem[]>([]);
   const [orderedItems, setOrderedItems] = useState<RestockItem[]>([]);
+  const [allInventoryItems, setAllInventoryItems] = useState<RestockItem[]>([]);
   const [salesData, setSalesData] = useState<SalesData[]>([]);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
 
@@ -113,14 +114,14 @@ export function Replenishment() {
       
       // Get ASIN inventory items that need restocking (quantity = 0 and not ordered)
       const asinQuery = supabase.from('asin_inventory')
-        .select('id, asin, serial_number, quantity, status, sku, last_restock_date')
+        .select('id, asin, serial_number, quantity, status, sku, last_restock_date, date_sold, date_added')
         .eq('country', selectedCountry)
         .eq('quantity', 0)
         .neq('status', 'ordered');
         
       // Get SKU inventory items that need restocking (quantity = 0 and not ordered)  
       const skuQuery = supabase.from('sku_inventory')
-        .select('id, sku_number, bin_serial_number, quantity, status, last_restock_date')
+        .select('id, sku_number, bin_serial_number, quantity, status, last_restock_date, date_sold, date_added')
         .eq('country', selectedCountry)
         .eq('quantity', 0)
         .neq('status', 'ordered');
@@ -137,6 +138,8 @@ export function Replenishment() {
         current_quantity: item.quantity,
         table_name: 'asin_inventory',
         status: item.status,
+        date_sold: item.date_sold,
+        last_restock_date: item.last_restock_date,
         days_since_last_restock: item.last_restock_date ? 
           Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null
       }));
@@ -148,6 +151,8 @@ export function Replenishment() {
         current_quantity: item.quantity,
         table_name: 'sku_inventory', 
         status: item.status,
+        date_sold: item.date_sold,
+        last_restock_date: item.last_restock_date,
         days_since_last_restock: item.last_restock_date ?
           Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null
       }));
@@ -166,10 +171,84 @@ export function Replenishment() {
     }
   };
 
+  // Load all inventory items for comprehensive tracking
+  const loadAllInventoryItems = async () => {
+    try {
+      const [asinAll, skuAll] = await Promise.all([
+        supabase.from('asin_inventory')
+          .select('id, asin, serial_number, quantity, status, sku, last_restock_date, date_sold, date_added')
+          .eq('country', selectedCountry),
+        supabase.from('sku_inventory')
+          .select('id, sku_number, bin_serial_number, quantity, status, last_restock_date, date_sold, date_added')
+          .eq('country', selectedCountry)
+      ]);
+      
+      if (asinAll.error) throw asinAll.error;
+      if (skuAll.error) throw skuAll.error;
+      
+      const allInventoryItems = [
+        ...(asinAll.data || []).map(item => ({
+          id: item.id,
+          identifier: `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}`,
+          current_quantity: item.quantity,
+          table_name: 'asin_inventory',
+          status: item.status,
+          date_sold: item.date_sold,
+          last_restock_date: item.last_restock_date,
+          // Calculate days since last restock/order
+          days_since_last_restock: item.last_restock_date ? 
+            Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null
+        })),
+        ...(skuAll.data || []).map(item => ({
+          id: item.id,
+          identifier: `SKU: ${item.sku_number} (${item.bin_serial_number})`,
+          current_quantity: item.quantity,
+          table_name: 'sku_inventory',
+          status: item.status,
+          date_sold: item.date_sold,
+          last_restock_date: item.last_restock_date,
+          // Calculate days since last restock/order
+          days_since_last_restock: item.last_restock_date ? 
+            Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null
+        }))
+      ];
+      
+      // Separate items based on status for the existing logic
+      const restockNeeded = allInventoryItems.filter(item => item.current_quantity === 0 && item.status !== 'ordered');
+      const orderedItems = allInventoryItems.filter(item => item.status === 'ordered' && item.current_quantity === 0);
+      
+      setRestockItems(restockNeeded);
+      setOrderedItems(orderedItems);
+      setAllInventoryItems(allInventoryItems); // Store all items for comprehensive view
+      
+      console.log('Loaded all inventory items:', allInventoryItems.length);
+      console.log('Items needing restock:', restockNeeded.length);
+      console.log('Items on order:', orderedItems.length);
+    } catch (error: any) {
+      console.error('Error loading all inventory items:', error);
+      toast({
+        title: "Error loading inventory",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  };
+
   // Load ordered items separately for analytics and display
   const loadOrderedItems = async () => {
     try {
-      const [asinOrdered, skuOrdered] = await Promise.all([supabase.from('asin_inventory').select('id, asin, serial_number, quantity, status, sku, days_since_last_restock:last_restock_date').eq('country', selectedCountry).eq('status', 'ordered').eq('quantity', 0), supabase.from('sku_inventory').select('id, sku_number, bin_serial_number, quantity, status, days_since_last_restock:last_restock_date').eq('country', selectedCountry).eq('status', 'ordered').eq('quantity', 0)]);
+      const [asinOrdered, skuOrdered] = await Promise.all([
+        supabase.from('asin_inventory')
+          .select('id, asin, serial_number, quantity, status, sku, last_restock_date, date_sold, date_added')
+          .eq('country', selectedCountry)
+          .eq('status', 'ordered')
+          .eq('quantity', 0), 
+        supabase.from('sku_inventory')
+          .select('id, sku_number, bin_serial_number, quantity, status, last_restock_date, date_sold, date_added')
+          .eq('country', selectedCountry)
+          .eq('status', 'ordered')
+          .eq('quantity', 0)
+      ]);
       if (asinOrdered.error) throw asinOrdered.error;
       if (skuOrdered.error) throw skuOrdered.error;
       const orderedItemsData = [...(asinOrdered.data || []).map(item => ({
@@ -178,14 +257,18 @@ export function Replenishment() {
         current_quantity: item.quantity,
         table_name: 'asin_inventory',
         status: item.status,
-        days_since_last_restock: item.days_since_last_restock ? Math.floor((Date.now() - new Date(item.days_since_last_restock).getTime()) / (1000 * 60 * 60 * 24)) : null
+        date_sold: item.date_sold,
+        last_restock_date: item.last_restock_date,
+        days_since_last_restock: item.last_restock_date ? Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null
       })), ...(skuOrdered.data || []).map(item => ({
         id: item.id,
         identifier: `${item.sku_number} (${item.bin_serial_number})`,
         current_quantity: item.quantity,
         table_name: 'sku_inventory',
         status: item.status,
-        days_since_last_restock: item.days_since_last_restock ? Math.floor((Date.now() - new Date(item.days_since_last_restock).getTime()) / (1000 * 60 * 60 * 24)) : null
+        date_sold: item.date_sold,
+        last_restock_date: item.last_restock_date,
+        days_since_last_restock: item.last_restock_date ? Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null
       }))];
       return orderedItemsData;
     } catch (error: any) {
@@ -306,8 +389,8 @@ export function Replenishment() {
   const loadAllData = async () => {
     setLoading(true);
     try {
-      // Load critical data first (restock items and ordered items), then load analytics in background
-      await Promise.all([loadRestockItems(), loadOrderedItems()]);
+      // Load all inventory data comprehensively
+      await loadAllInventoryItems();
 
       // Load analytics data in parallel without blocking the UI
       Promise.all([calculateSalesData(), loadAnalytics(selectedCountry)]).catch(error => {
@@ -838,8 +921,8 @@ export function Replenishment() {
       table: 'asin_inventory',
       filter: `country=eq.${selectedCountry}`
     }, async () => {
-      // Only reload critical stock items on quantity changes
-      loadRestockItems();
+      // Reload all inventory data on changes
+      loadAllInventoryItems();
       // Check if any ordered items are now back in stock and remove them
       await removeRestockedOrderedItems();
     }), supabase.channel('sku-inventory-realtime').on('postgres_changes', {
@@ -848,8 +931,8 @@ export function Replenishment() {
       table: 'sku_inventory',
       filter: `country=eq.${selectedCountry}`
     }, async () => {
-      // Only reload critical stock items on quantity changes
-      loadRestockItems();
+      // Reload all inventory data on changes
+      loadAllInventoryItems();
       // Check if any ordered items are now back in stock and remove them
       await removeRestockedOrderedItems();
     })];
@@ -1150,10 +1233,12 @@ export function Replenishment() {
                         </tr>
                       </thead>
                       <tbody>
-                        {[...restockItems, ...orderedItems]
+                        {allInventoryItems
                           .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
                           .map((item, index) => {
-                            const daysSinceOrder = item.days_since_last_restock || 0;
+                            // For ordered items, use the last_restock_date as when order was placed
+                            const daysSinceOrder = item.status === 'ordered' && item.last_restock_date ? 
+                              Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : 0;
                             const isSlowRestock = daysSinceOrder > 14 && item.status === 'ordered';
                             const needsRestock = item.current_quantity === 0 && item.status !== 'ordered';
                             
@@ -1236,10 +1321,10 @@ export function Replenishment() {
                     </table>
                     
                     {/* Pagination Controls */}
-                    {[...restockItems, ...orderedItems].length > itemsPerPage && (
+                    {allInventoryItems.length > itemsPerPage && (
                       <div className="flex items-center justify-between mt-6 pt-4 border-t border-border">
                         <p className="text-sm text-muted-foreground">
-                          Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, [...restockItems, ...orderedItems].length)} of {[...restockItems, ...orderedItems].length} items
+                          Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, allInventoryItems.length)} of {allInventoryItems.length} items
                         </p>
                         <div className="flex items-center gap-2">
                           <Button 
@@ -1253,13 +1338,13 @@ export function Replenishment() {
                             Previous
                           </Button>
                           <span className="text-sm text-muted-foreground px-3">
-                            Page {currentPage} of {Math.ceil([...restockItems, ...orderedItems].length / itemsPerPage)}
+                            Page {currentPage} of {Math.ceil(allInventoryItems.length / itemsPerPage)}
                           </span>
                           <Button 
                             variant="outline" 
                             size="sm" 
-                            onClick={() => setCurrentPage(prev => Math.min(Math.ceil([...restockItems, ...orderedItems].length / itemsPerPage), prev + 1))}
-                            disabled={currentPage >= Math.ceil([...restockItems, ...orderedItems].length / itemsPerPage)}
+                            onClick={() => setCurrentPage(prev => Math.min(Math.ceil(allInventoryItems.length / itemsPerPage), prev + 1))}
+                            disabled={currentPage >= Math.ceil(allInventoryItems.length / itemsPerPage)}
                             className="gap-1"
                           >
                             Next
@@ -1269,7 +1354,7 @@ export function Replenishment() {
                       </div>
                     )}
                     
-                    {[...restockItems, ...orderedItems].length === 0 && (
+                    {allInventoryItems.length === 0 && (
                       <div className="text-center py-12 text-muted-foreground">
                         <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
                         <p className="text-lg font-medium">No inventory items found</p>
