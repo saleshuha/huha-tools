@@ -114,21 +114,31 @@ const Homepage = () => {
       {/* Main content - calendar now extends further left */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Country-specific Header */}
-        <div className="glass-container p-6 mx-4 my-4 flex-shrink-0 animate-slide-up">
-          <div className="flex items-center gap-4">
-            <div className="text-4xl">
+        <div className="glass-container p-8 mx-4 my-4 flex-shrink-0 animate-slide-up bg-gradient-to-br from-card/95 to-primary/5 hover:from-card/98 hover:to-primary/8 transition-all duration-500">
+          <div className="flex items-center gap-6">
+            <div className="text-6xl animate-float">
               {selectedCountry === 'UAE' ? '🇦🇪' : '🇸🇦'}
             </div>
-            <div>
-              <h1 className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+            <div className="flex-1">
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-primary via-emerald to-sky bg-clip-text text-transparent mb-2">
                 {selectedCountry === 'UAE' ? 'UAE Operations Dashboard' : 'KSA Operations Dashboard'}
               </h1>
-              <p className="text-muted-foreground">
+              <p className="text-muted-foreground text-lg">
                 {selectedCountry === 'UAE' 
                   ? 'Managing inventory and operations in the United Arab Emirates' 
                   : 'Managing inventory and operations in Saudi Arabia'
                 }
               </p>
+              <div className="flex items-center gap-4 mt-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-gradient-to-r from-primary to-emerald animate-pulse"></div>
+                  <span className="text-sm text-muted-foreground">Live Analytics</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-gradient-to-r from-sky to-cyan animate-pulse"></div>
+                  <span className="text-sm text-muted-foreground">Task Management</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
