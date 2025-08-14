@@ -326,7 +326,7 @@ export function Replenishment() {
       
       // Get ASIN inventory items
       const asinQuery = supabase.from('asin_inventory').select('*');
-      if (selectedCountry && selectedCountry !== 'ALL') {
+      if (selectedCountry && selectedCountry !== 'ALL' as any) {
         asinQuery.eq('country', selectedCountry);
       }
       const { data: asinData, error: asinError } = await asinQuery;
@@ -335,7 +335,7 @@ export function Replenishment() {
 
       // Get SKU inventory items  
       const skuQuery = supabase.from('sku_inventory').select('*');
-      if (selectedCountry && selectedCountry !== 'ALL') {
+      if (selectedCountry && selectedCountry !== 'ALL' as any) {
         skuQuery.eq('country', selectedCountry);
       }
       const { data: skuData, error: skuError } = await skuQuery;
@@ -352,21 +352,21 @@ export function Replenishment() {
           serial_number: item.serial_number,
           quantity: item.quantity || 0,
           status: item.quantity > 0 ? 'in-stock' : 'out-of-stock',
-          last_sold_date: item.last_sold_date,
-          last_order_date: item.last_order_date,
-          days_since_ordered: item.days_since_ordered
+          last_sold_date: item.date_sold,
+          last_order_date: item.restock_date,
+          days_since_ordered: null
         })),
         ...(skuData || []).map(item => ({
           id: item.id,
           item_type: 'SKU' as const,
-          asin: item.asin,
-          sku: item.sku,
-          serial_number: item.serial_number,
+          asin: null,
+          sku: item.sku_number,
+          serial_number: item.bin_serial_number,
           quantity: item.quantity || 0,
-          status: item.quantity > 0 ? 'in-stock' : 'out-of-stock',
-          last_sold_date: item.last_sold_date,
-          last_order_date: item.last_order_date,
-          days_since_ordered: item.days_since_ordered
+          status: item.status,
+          last_sold_date: item.date_sold,
+          last_order_date: item.restock_date,
+          days_since_ordered: null
         }))
       ];
 
@@ -637,7 +637,7 @@ export function Replenishment() {
                   {allInventoryItems.filter(item => item.quantity > 5).length}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Items with >5 quantity
+                  Items with &gt;5 quantity
                 </p>
               </div>
               <CheckCircle className="h-8 w-8 text-success" />
