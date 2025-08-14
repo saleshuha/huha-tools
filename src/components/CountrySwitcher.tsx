@@ -13,7 +13,7 @@ export function CountrySwitcher() {
   return (
     <div className="flex items-center gap-2">
       <Select value={selectedCountry} onValueChange={(value: 'UAE' | 'KSA') => setSelectedCountry(value)}>
-        <SelectTrigger className="w-[140px] h-10 bg-gradient-to-r from-primary/20 to-emerald/10 border border-border/40 rounded-xl shadow-soft hover:shadow-medium transition-all duration-300 backdrop-blur-sm hover:bg-primary/30">
+        <SelectTrigger className="w-[140px] h-10 bg-gradient-to-r from-primary/20 to-primary/10 border-0 rounded-full shadow-sm hover:shadow-md transition-all duration-200">
           <SelectValue>
             <div className="flex items-center gap-2">
               <span className="text-xl">{countries.find(c => c.code === selectedCountry)?.flag}</span>
