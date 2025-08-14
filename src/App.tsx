@@ -177,24 +177,26 @@ const App = () => {
             <div className="min-h-screen flex w-full">
               <AppSidebar />
               <div className="flex-1 flex flex-col">
-                <header className="h-14 flex items-center border-b bg-background shadow-sm">
-                  <div className="flex items-center justify-between w-full gap-4 pl-6 pr-4">
-                    <div className="flex items-center gap-3">
-                      <SidebarTrigger className="bg-primary hover:bg-primary/90 text-primary-foreground border-primary" />
-                      <div className="bg-primary/10 rounded-md p-1.5">
+                <header className="h-16 flex items-center border-b border-border/30 bg-gradient-to-r from-background via-background/95 to-background shadow-elegant backdrop-blur-xl">
+                  <div className="flex items-center justify-between w-full gap-6 pl-8 pr-6">
+                    <div className="flex items-center gap-4">
+                      <SidebarTrigger className="bg-gradient-primary hover:shadow-glow text-primary-foreground border-0 rounded-xl h-10 w-10 hover:scale-105 transition-all duration-300" />
+                      <div className="bg-gradient-primary/20 backdrop-blur-sm rounded-2xl p-3 border border-primary/20 shadow-soft">
                         <img 
                           src="/lovable-uploads/4f9a15c5-2d12-4ee0-b0bd-e982c5b4ece7.png" 
                           alt="HuHa Logo" 
-                          className="h-6 w-6 object-contain"
+                          className="h-7 w-7 object-contain"
                         />
                       </div>
-                      <div className="flex flex-col">
-                        <h1 className="font-semibold text-base text-foreground tracking-wide">HuHa Product Management System</h1>
-                        <p className="text-[10px] text-muted-foreground font-medium leading-tight">Professional Inventory & Analytics Platform</p>
+                      <div className="flex flex-col gap-1">
+                        <h1 className="font-bold text-lg text-gradient-primary tracking-wide">HuHa Product Management System</h1>
+                        <p className="text-xs text-muted-foreground/90 font-semibold leading-tight tracking-wide">Professional Inventory & Analytics Platform</p>
                       </div>
                     </div>
                     <div className="flex-1 flex justify-center">
-                      <span className="text-sm font-medium text-foreground">اللَّهُمَّ صل عَلَى مُحَمَّدٍ وَعَلَى آلِ مُحَمَّدٍ</span>
+                      <div className="bg-gradient-to-r from-primary/10 via-accent/10 to-primary/10 px-6 py-2 rounded-full border border-primary/20 backdrop-blur-sm">
+                        <span className="text-sm font-bold text-gradient-primary tracking-wide">اللَّهُمَّ صل عَلَى مُحَمَّدٍ وَعَلَى آلِ مُحَمَّدٍ</span>
+                      </div>
                     </div>
                     <CountrySwitcher />
                   </div>
