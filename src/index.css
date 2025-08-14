@@ -253,14 +253,15 @@
   /* Enhanced Upload Zone */
   .upload-zone {
     @apply border-2 border-dashed border-border/40 rounded-2xl p-12 text-center 
-           hover:border-primary hover:bg-gradient-primary/10 hover:shadow-glow
+           hover:border-primary hover:bg-primary/10 hover:shadow-glow
            transition-all duration-500 cursor-pointer group relative overflow-hidden bg-card;
   }
   
   .upload-zone::before {
     content: '';
-    @apply absolute inset-0 bg-gradient-sunset opacity-0 group-hover:opacity-10 
+    @apply absolute inset-0 opacity-0 group-hover:opacity-10 
            transition-opacity duration-500;
+    background: var(--gradient-sunset);
   }
   
   .upload-zone.drag-over {
@@ -280,8 +281,9 @@
   
   .column-card::before {
     content: '';
-    @apply absolute inset-0 bg-gradient-primary opacity-0 group-hover:opacity-5 
+    @apply absolute inset-0 opacity-0 group-hover:opacity-5 
            transition-opacity duration-300;
+    background: var(--gradient-primary);
   }
   
   .column-card.dragging {
@@ -336,7 +338,7 @@
 
   .btn-ghost {
     @apply bg-transparent border-2 border-border/50 text-foreground 
-           hover:bg-gradient-primary/10 hover:border-primary hover:text-primary
+           hover:bg-primary/10 hover:border-primary hover:text-primary
            rounded-xl font-semibold tracking-wide
            transition-all duration-300;
   }
@@ -409,10 +411,15 @@
   }
 
   .card-featured {
-    @apply bg-gradient-to-br from-primary/5 via-card to-accent/5 
-           border-2 border-primary/20 rounded-2xl shadow-glow
+    @apply bg-card border-2 border-primary/20 rounded-2xl shadow-glow
            hover:shadow-accent-glow hover:scale-[1.02] 
            transition-all duration-300 backdrop-blur-lg relative overflow-hidden;
+  }
+  
+  .card-featured::before {
+    content: '';
+    @apply absolute inset-0 opacity-10 pointer-events-none;
+    background: linear-gradient(135deg, hsl(var(--primary) / 0.1), hsl(var(--accent) / 0.1));
   }
 
   /* Enhanced Tables */
@@ -422,7 +429,7 @@
   }
 
   .table-row {
-    @apply hover:bg-gradient-to-r hover:from-primary/5 hover:to-accent/5 
+    @apply hover:bg-primary/5 
            transition-all duration-200 border-b border-border/20;
   }
 
@@ -433,8 +440,7 @@
   /* Enhanced Navigation */
   .nav-link {
     @apply px-4 py-3 rounded-xl font-medium transition-all duration-300
-           hover:bg-gradient-to-r hover:from-primary/10 hover:to-accent/10 
-           hover:text-primary hover:shadow-soft;
+           hover:bg-primary/10 hover:text-primary hover:shadow-soft;
   }
 
   .nav-link-active {
