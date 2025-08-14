@@ -20,7 +20,7 @@ import { InventoryAnalytics } from './InventoryAnalytics';
 import { format } from 'date-fns';
 import Papa from 'papaparse';
 import { cn } from '@/lib/utils';
-import { TrendingUp, TrendingDown, AlertTriangle, Package, Download, RefreshCw, Search, BarChart3, Clock, ShoppingCart, Activity, DollarSign, Database, PieChart, LineChart, CalendarIcon, CheckCircle, XCircle, Eye, Truck, ArrowRight, Target, Zap, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Settings, Gauge, Star, Minus } from 'lucide-react';
+import { TrendingUp, TrendingDown, AlertTriangle, Package, Download, RefreshCw, Search, BarChart3, Clock, ShoppingCart, Activity, DollarSign, Database, PieChart, LineChart, CalendarIcon, CheckCircle, XCircle, Eye, Truck, ArrowRight, Target, Zap, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Settings, Gauge, Star, Minus, Columns3, GripVertical } from 'lucide-react';
 import { Checkbox } from './ui/checkbox';
 import { LineChart as RechartsLineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, AreaChart, Area, BarChart as RechartsBarChart, Bar, PieChart as RechartsPieChart, Cell, Pie, Legend } from 'recharts';
 interface RestockItem {
@@ -83,6 +83,17 @@ interface InventoryMetrics {
   turnoverRate: number;
   performanceRating: number;
 }
+
+interface ColumnConfig {
+  key: string;
+  label: string;
+  visible: boolean;
+  width: number;
+  minWidth: number;
+  resizable: boolean;
+  icon: any;
+}
+
 export function Replenishment() {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -217,6 +228,72 @@ export function Replenishment() {
     quantity: { min: '', max: '' },
     daysSince: { min: '', max: '' }
   });
+
+  // Column configuration state
+  const [columnConfig, setColumnConfig] = useState<ColumnConfig[]>([
+    { key: 'item_type', label: 'Type', visible: true, width: 120, minWidth: 80, resizable: true, icon: Database },
+    { key: 'asin', label: 'ASIN', visible: true, width: 150, minWidth: 100, resizable: true, icon: Package },
+    { key: 'sku', label: 'SKU', visible: true, width: 150, minWidth: 100, resizable: true, icon: ShoppingCart },
+    { key: 'serial_number', label: 'Serial Number', visible: true, width: 140, minWidth: 100, resizable: true, icon: Target },
+    { key: 'quantity', label: 'Quantity', visible: true, width: 120, minWidth: 80, resizable: true, icon: Gauge },
+    { key: 'status', label: 'Status', visible: true, width: 120, minWidth: 80, resizable: true, icon: Activity },
+    { key: 'last_sold_date', label: 'Last Sold', visible: true, width: 140, minWidth: 100, resizable: true, icon: Clock },
+    { key: 'last_order_date', label: 'Last Order', visible: true, width: 140, minWidth: 100, resizable: true, icon: Truck },
+    { key: 'days_since_ordered', label: 'Days Since', visible: true, width: 120, minWidth: 80, resizable: true, icon: CalendarIcon },
+    { key: 'metrics', label: 'Metrics', visible: true, width: 160, minWidth: 120, resizable: true, icon: Star }
+  ]);
+
+  // Column resize state
+  const [isResizing, setIsResizing] = useState(false);
+  const [resizeColumnKey, setResizeColumnKey] = useState<string | null>(null);
+
+  // Column management functions
+  const toggleColumnVisibility = (columnKey: string) => {
+    setColumnConfig(prev => 
+      prev.map(col => 
+        col.key === columnKey ? { ...col, visible: !col.visible } : col
+      )
+    );
+  };
+
+  const updateColumnWidth = (columnKey: string, newWidth: number) => {
+    setColumnConfig(prev =>
+      prev.map(col =>
+        col.key === columnKey 
+          ? { ...col, width: Math.max(newWidth, col.minWidth) }
+          : col
+      )
+    );
+  };
+
+  const resetColumnWidths = () => {
+    setColumnConfig(prev =>
+      prev.map(col => ({
+        ...col,
+        width: col.key === 'item_type' ? 120 :
+               col.key === 'asin' || col.key === 'sku' ? 150 :
+               col.key === 'serial_number' || col.key === 'last_sold_date' || col.key === 'last_order_date' ? 140 :
+               col.key === 'quantity' || col.key === 'status' || col.key === 'days_since_ordered' ? 120 :
+               160
+      }))
+    );
+  };
+
+  const showAllColumns = () => {
+    setColumnConfig(prev => prev.map(col => ({ ...col, visible: true })));
+  };
+
+  const hideAllColumns = () => {
+    // Keep at least one column visible
+    setColumnConfig(prev => 
+      prev.map((col, index) => ({ 
+        ...col, 
+        visible: index === 0 // Keep first column (Type) visible
+      }))
+    );
+  };
+
+  const visibleColumns = columnConfig.filter(col => col.visible);
 
   // Trends state
   const [trendsSearchTerm, setTrendsSearchTerm] = useState('');
@@ -1708,6 +1785,70 @@ export function Replenishment() {
                           </div>
                         </div>
                         <div className="flex gap-2">
+                          {/* Column Visibility Control */}
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button variant="outline" size="sm" className="whitespace-nowrap">
+                                <Columns3 className="h-4 w-4 mr-2" />
+                                Columns ({visibleColumns.length})
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-64 p-4" align="end">
+                              <div className="space-y-4">
+                                <div className="flex items-center justify-between">
+                                  <h4 className="font-medium text-sm">Table Columns</h4>
+                                  <div className="flex gap-1">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={showAllColumns}
+                                      className="h-6 px-2 text-xs"
+                                    >
+                                      Show All
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={hideAllColumns}
+                                      className="h-6 px-2 text-xs"
+                                    >
+                                      Hide All
+                                    </Button>
+                                  </div>
+                                </div>
+                                <div className="space-y-2 max-h-64 overflow-y-auto">
+                                  {columnConfig.map((column) => (
+                                    <div key={column.key} className="flex items-center space-x-2">
+                                      <Checkbox
+                                        id={column.key}
+                                        checked={column.visible}
+                                        onCheckedChange={() => toggleColumnVisibility(column.key)}
+                                        disabled={column.key === 'item_type' && visibleColumns.length === 1}
+                                      />
+                                      <label 
+                                        htmlFor={column.key}
+                                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center gap-2 cursor-pointer"
+                                      >
+                                        <column.icon className="h-3 w-3" />
+                                        {column.label}
+                                      </label>
+                                    </div>
+                                  ))}
+                                </div>
+                                <div className="pt-2 border-t">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={resetColumnWidths}
+                                    className="w-full text-xs"
+                                  >
+                                    Reset Column Widths
+                                  </Button>
+                                </div>
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                          
                           <Button
                             variant="outline"
                             size="sm"
@@ -1890,255 +2031,194 @@ export function Replenishment() {
                         <TableHeader>
                           {/* Sort Headers Row */}
                           <TableRow className="bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 border-b-2 border-primary/20">
-                            <TableHead 
-                              className="cursor-pointer select-none hover:bg-primary/15 transition-all duration-200 font-semibold"
-                              onClick={() => handleSort('item_type')}
-                            >
-                              <div className="flex items-center gap-2">
-                                <Database className="h-4 w-4 text-primary" />
-                                Type
-                                <ArrowUpDown className="h-4 w-4 opacity-50" />
-                                {sortConfig.key === 'item_type' && (
-                                  sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3 text-primary" /> : <ArrowDown className="h-3 w-3 text-primary" />
+                            {visibleColumns.map((column, index) => (
+                              <TableHead
+                                key={column.key}
+                                className="cursor-pointer select-none hover:bg-primary/15 transition-all duration-200 font-semibold relative group"
+                                style={{ 
+                                  width: `${column.width}px`,
+                                  minWidth: `${column.minWidth}px`,
+                                  maxWidth: `${column.width}px`
+                                }}
+                                onClick={() => column.key !== 'metrics' && handleSort(column.key as keyof AllInventoryItem)}
+                              >
+                                <div className="flex items-center gap-2 pr-2">
+                                  <column.icon className="h-4 w-4 text-primary flex-shrink-0" />
+                                  <span className="truncate">{column.label}</span>
+                                  {column.key !== 'metrics' && (
+                                    <>
+                                      <ArrowUpDown className="h-4 w-4 opacity-50 flex-shrink-0" />
+                                      {sortConfig.key === column.key && (
+                                        sortConfig.direction === 'asc' ? 
+                                          <ArrowUp className="h-3 w-3 text-primary flex-shrink-0" /> : 
+                                          <ArrowDown className="h-3 w-3 text-primary flex-shrink-0" />
+                                      )}
+                                    </>
+                                  )}
+                                </div>
+                                
+                                {/* Resize Handle */}
+                                {column.resizable && index < visibleColumns.length - 1 && (
+                                  <div
+                                    className="absolute right-0 top-0 bottom-0 w-1 bg-transparent hover:bg-primary/30 cursor-col-resize group-hover:bg-primary/20 transition-colors"
+                                    onMouseDown={(e) => {
+                                      e.preventDefault();
+                                      setIsResizing(true);
+                                      setResizeColumnKey(column.key);
+                                      
+                                      const startX = e.clientX;
+                                      const startWidth = column.width;
+                                      
+                                      const handleMouseMove = (e: MouseEvent) => {
+                                        const deltaX = e.clientX - startX;
+                                        const newWidth = Math.max(startWidth + deltaX, column.minWidth);
+                                        updateColumnWidth(column.key, newWidth);
+                                      };
+                                      
+                                      const handleMouseUp = () => {
+                                        setIsResizing(false);
+                                        setResizeColumnKey(null);
+                                        document.removeEventListener('mousemove', handleMouseMove);
+                                        document.removeEventListener('mouseup', handleMouseUp);
+                                      };
+                                      
+                                      document.addEventListener('mousemove', handleMouseMove);
+                                      document.addEventListener('mouseup', handleMouseUp);
+                                    }}
+                                  >
+                                    <GripVertical className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
+                                  </div>
                                 )}
-                              </div>
-                            </TableHead>
-                            <TableHead 
-                              className="cursor-pointer select-none hover:bg-primary/15 transition-all duration-200 font-semibold"
-                              onClick={() => handleSort('asin')}
-                            >
-                              <div className="flex items-center gap-2">
-                                <Package className="h-4 w-4 text-primary" />
-                                ASIN
-                                <ArrowUpDown className="h-4 w-4 opacity-50" />
-                                {sortConfig.key === 'asin' && (
-                                  sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3 text-primary" /> : <ArrowDown className="h-3 w-3 text-primary" />
-                                )}
-                              </div>
-                            </TableHead>
-                            <TableHead 
-                              className="cursor-pointer select-none hover:bg-primary/15 transition-all duration-200 font-semibold"
-                              onClick={() => handleSort('sku')}
-                            >
-                              <div className="flex items-center gap-2">
-                                <ShoppingCart className="h-4 w-4 text-primary" />
-                                SKU
-                                <ArrowUpDown className="h-4 w-4 opacity-50" />
-                                {sortConfig.key === 'sku' && (
-                                  sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3 text-primary" /> : <ArrowDown className="h-3 w-3 text-primary" />
-                                )}
-                              </div>
-                            </TableHead>
-                            <TableHead 
-                              className="cursor-pointer select-none hover:bg-primary/15 transition-all duration-200 font-semibold"
-                              onClick={() => handleSort('serial_number')}
-                            >
-                              <div className="flex items-center gap-2">
-                                <Target className="h-4 w-4 text-primary" />
-                                Serial Number
-                                <ArrowUpDown className="h-4 w-4 opacity-50" />
-                                {sortConfig.key === 'serial_number' && (
-                                  sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3 text-primary" /> : <ArrowDown className="h-3 w-3 text-primary" />
-                                )}
-                              </div>
-                            </TableHead>
-                            <TableHead 
-                              className="cursor-pointer select-none hover:bg-primary/15 transition-all duration-200 font-semibold"
-                              onClick={() => handleSort('quantity')}
-                            >
-                              <div className="flex items-center gap-2">
-                                <Gauge className="h-4 w-4 text-primary" />
-                                Quantity
-                                <ArrowUpDown className="h-4 w-4 opacity-50" />
-                                {sortConfig.key === 'quantity' && (
-                                  sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3 text-primary" /> : <ArrowDown className="h-3 w-3 text-primary" />
-                                )}
-                              </div>
-                            </TableHead>
-                            <TableHead 
-                              className="cursor-pointer select-none hover:bg-primary/15 transition-all duration-200 font-semibold"
-                              onClick={() => handleSort('status')}
-                            >
-                              <div className="flex items-center gap-2">
-                                <Activity className="h-4 w-4 text-primary" />
-                                Status
-                                <ArrowUpDown className="h-4 w-4 opacity-50" />
-                                {sortConfig.key === 'status' && (
-                                  sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3 text-primary" /> : <ArrowDown className="h-3 w-3 text-primary" />
-                                )}
-                              </div>
-                            </TableHead>
-                            <TableHead 
-                              className="cursor-pointer select-none hover:bg-primary/15 transition-all duration-200 font-semibold"
-                              onClick={() => handleSort('last_sold_date')}
-                            >
-                              <div className="flex items-center gap-2">
-                                <Clock className="h-4 w-4 text-primary" />
-                                Last Sold
-                                <ArrowUpDown className="h-4 w-4 opacity-50" />
-                                {sortConfig.key === 'last_sold_date' && (
-                                  sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3 text-primary" /> : <ArrowDown className="h-3 w-3 text-primary" />
-                                )}
-                              </div>
-                            </TableHead>
-                            <TableHead 
-                              className="cursor-pointer select-none hover:bg-primary/15 transition-all duration-200 font-semibold"
-                              onClick={() => handleSort('last_order_date')}
-                            >
-                              <div className="flex items-center gap-2">
-                                <Truck className="h-4 w-4 text-primary" />
-                                Last Order
-                                <ArrowUpDown className="h-4 w-4 opacity-50" />
-                                {sortConfig.key === 'last_order_date' && (
-                                  sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3 text-primary" /> : <ArrowDown className="h-3 w-3 text-primary" />
-                                )}
-                              </div>
-                            </TableHead>
-                            <TableHead 
-                              className="cursor-pointer select-none hover:bg-primary/15 transition-all duration-200 font-semibold"
-                              onClick={() => handleSort('days_since_ordered')}
-                            >
-                              <div className="flex items-center gap-2">
-                                <CalendarIcon className="h-4 w-4 text-primary" />
-                                Days Since
-                                <ArrowUpDown className="h-4 w-4 opacity-50" />
-                                {sortConfig.key === 'days_since_ordered' && (
-                                  sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3 text-primary" /> : <ArrowDown className="h-3 w-3 text-primary" />
-                                )}
-                              </div>
-                            </TableHead>
-                            <TableHead className="font-semibold">
-                              <div className="flex items-center gap-2">
-                                <Star className="h-4 w-4 text-primary" />
-                                Metrics
-                              </div>
-                            </TableHead>
+                              </TableHead>
+                            ))}
                           </TableRow>
                           
                           {/* Filter Headers Row */}
                           <TableRow className="bg-muted/30 border-b border-border/50">
-                            <TableHead className="p-2">
-                              <Select value={headerFilters.type} onValueChange={(value) => updateHeaderFilter('type', value === 'all' ? '' : value)}>
-                                <SelectTrigger className="h-8 text-xs border-border/50 bg-background/80">
-                                  <SelectValue placeholder="All Types" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="all">All Types</SelectItem>
-                                  <SelectItem value="ASIN">ASIN</SelectItem>
-                                  <SelectItem value="SKU">SKU</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </TableHead>
-                            <TableHead className="p-2">
-                              <Input
-                                placeholder="Filter ASIN..."
-                                value={headerFilters.asin}
-                                onChange={(e) => updateHeaderFilter('asin', e.target.value)}
-                                className="h-8 text-xs border-border/50 bg-background/80"
-                              />
-                            </TableHead>
-                            <TableHead className="p-2">
-                              <Input
-                                placeholder="Filter SKU..."
-                                value={headerFilters.sku}
-                                onChange={(e) => updateHeaderFilter('sku', e.target.value)}
-                                className="h-8 text-xs border-border/50 bg-background/80"
-                              />
-                            </TableHead>
-                            <TableHead className="p-2">
-                              <Input
-                                placeholder="Filter Serial..."
-                                value={headerFilters.serial}
-                                onChange={(e) => updateHeaderFilter('serial', e.target.value)}
-                                className="h-8 text-xs border-border/50 bg-background/80"
-                              />
-                            </TableHead>
-                            <TableHead className="p-2">
-                              <div className="flex gap-1">
-                                <Input
-                                  placeholder="Min"
-                                  value={headerFilters.quantity.min}
-                                  onChange={(e) => updateHeaderRangeFilter('quantity', 'min', e.target.value)}
-                                  className="h-8 text-xs w-12 border-border/50 bg-background/80"
-                                  type="number"
-                                />
-                                <Input
-                                  placeholder="Max"
-                                  value={headerFilters.quantity.max}
-                                  onChange={(e) => updateHeaderRangeFilter('quantity', 'max', e.target.value)}
-                                  className="h-8 text-xs w-12 border-border/50 bg-background/80"
-                                  type="number"
-                                />
-                              </div>
-                            </TableHead>
-                            <TableHead className="p-2">
-                              <Select value={headerFilters.status} onValueChange={(value) => updateHeaderFilter('status', value === 'all' ? '' : value)}>
-                                <SelectTrigger className="h-8 text-xs border-border/50 bg-background/80">
-                                  <SelectValue placeholder="All Status" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="all">All Status</SelectItem>
-                                  <SelectItem value="in-stock">In Stock</SelectItem>
-                                  <SelectItem value="out-of-stock">Out of Stock</SelectItem>
-                                  <SelectItem value="ordered">Ordered</SelectItem>
-                                  <SelectItem value="low-stock">Low Stock</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </TableHead>
-                            <TableHead className="p-2">
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
-                                className="h-8 text-xs opacity-60 hover:opacity-100"
-                                disabled
+                            {visibleColumns.map((column) => (
+                              <TableHead 
+                                key={column.key} 
+                                className="p-2"
+                                style={{ 
+                                  width: `${column.width}px`,
+                                  minWidth: `${column.minWidth}px`,
+                                  maxWidth: `${column.width}px`
+                                }}
                               >
-                                Date Filter
-                              </Button>
-                            </TableHead>
-                            <TableHead className="p-2">
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
-                                className="h-8 text-xs opacity-60 hover:opacity-100"
-                                disabled
-                              >
-                                Date Filter
-                              </Button>
-                            </TableHead>
-                            <TableHead className="p-2">
-                              <div className="flex gap-1">
-                                <Input
-                                  placeholder="Min"
-                                  value={headerFilters.daysSince.min}
-                                  onChange={(e) => updateHeaderRangeFilter('daysSince', 'min', e.target.value)}
-                                  className="h-8 text-xs w-12 border-border/50 bg-background/80"
-                                  type="number"
-                                />
-                                <Input
-                                  placeholder="Max"
-                                  value={headerFilters.daysSince.max}
-                                  onChange={(e) => updateHeaderRangeFilter('daysSince', 'max', e.target.value)}
-                                  className="h-8 text-xs w-12 border-border/50 bg-background/80"
-                                  type="number"
-                                />
-                              </div>
-                            </TableHead>
-                            <TableHead className="p-2">
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                onClick={clearHeaderFilters}
-                                className="h-8 text-xs border-border/50"
-                              >
-                                <X className="h-3 w-3" />
-                              </Button>
-                            </TableHead>
+                                {column.key === 'item_type' && (
+                                  <Select value={headerFilters.type} onValueChange={(value) => updateHeaderFilter('type', value === 'all' ? '' : value)}>
+                                    <SelectTrigger className="h-8 text-xs border-border/50 bg-background/80">
+                                      <SelectValue placeholder="All Types" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="all">All Types</SelectItem>
+                                      <SelectItem value="ASIN">ASIN</SelectItem>
+                                      <SelectItem value="SKU">SKU</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                )}
+                                {column.key === 'asin' && (
+                                  <Input
+                                    placeholder="Filter ASIN..."
+                                    value={headerFilters.asin}
+                                    onChange={(e) => updateHeaderFilter('asin', e.target.value)}
+                                    className="h-8 text-xs border-border/50 bg-background/80"
+                                  />
+                                )}
+                                {column.key === 'sku' && (
+                                  <Input
+                                    placeholder="Filter SKU..."
+                                    value={headerFilters.sku}
+                                    onChange={(e) => updateHeaderFilter('sku', e.target.value)}
+                                    className="h-8 text-xs border-border/50 bg-background/80"
+                                  />
+                                )}
+                                {column.key === 'serial_number' && (
+                                  <Input
+                                    placeholder="Filter Serial..."
+                                    value={headerFilters.serial}
+                                    onChange={(e) => updateHeaderFilter('serial', e.target.value)}
+                                    className="h-8 text-xs border-border/50 bg-background/80"
+                                  />
+                                )}
+                                {column.key === 'quantity' && (
+                                  <div className="flex gap-1">
+                                    <Input
+                                      placeholder="Min"
+                                      value={headerFilters.quantity.min}
+                                      onChange={(e) => updateHeaderRangeFilter('quantity', 'min', e.target.value)}
+                                      className="h-8 text-xs w-12 border-border/50 bg-background/80"
+                                      type="number"
+                                    />
+                                    <Input
+                                      placeholder="Max"
+                                      value={headerFilters.quantity.max}
+                                      onChange={(e) => updateHeaderRangeFilter('quantity', 'max', e.target.value)}
+                                      className="h-8 text-xs w-12 border-border/50 bg-background/80"
+                                      type="number"
+                                    />
+                                  </div>
+                                )}
+                                {column.key === 'status' && (
+                                  <Select value={headerFilters.status} onValueChange={(value) => updateHeaderFilter('status', value === 'all' ? '' : value)}>
+                                    <SelectTrigger className="h-8 text-xs border-border/50 bg-background/80">
+                                      <SelectValue placeholder="All Status" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="all">All Status</SelectItem>
+                                      <SelectItem value="in-stock">In Stock</SelectItem>
+                                      <SelectItem value="out-of-stock">Out of Stock</SelectItem>
+                                      <SelectItem value="ordered">Ordered</SelectItem>
+                                      <SelectItem value="low-stock">Low Stock</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                )}
+                                {(column.key === 'last_sold_date' || column.key === 'last_order_date') && (
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm"
+                                    className="h-8 text-xs opacity-60 hover:opacity-100"
+                                    disabled
+                                  >
+                                    Date Filter
+                                  </Button>
+                                )}
+                                {column.key === 'days_since_ordered' && (
+                                  <div className="flex gap-1">
+                                    <Input
+                                      placeholder="Min"
+                                      value={headerFilters.daysSince.min}
+                                      onChange={(e) => updateHeaderRangeFilter('daysSince', 'min', e.target.value)}
+                                      className="h-8 text-xs w-12 border-border/50 bg-background/80"
+                                      type="number"
+                                    />
+                                    <Input
+                                      placeholder="Max"
+                                      value={headerFilters.daysSince.max}
+                                      onChange={(e) => updateHeaderRangeFilter('daysSince', 'max', e.target.value)}
+                                      className="h-8 text-xs w-12 border-border/50 bg-background/80"
+                                      type="number"
+                                    />
+                                  </div>
+                                )}
+                                {column.key === 'metrics' && (
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    onClick={clearHeaderFilters}
+                                    className="h-8 text-xs border-border/50"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </Button>
+                                )}
+                              </TableHead>
+                            ))}
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {currentItems.length === 0 ? (
                             <TableRow>
-                              <TableCell colSpan={10} className="text-center p-12 text-muted-foreground">
+                              <TableCell colSpan={visibleColumns.length} className="text-center p-12 text-muted-foreground">
                                 <div className="flex flex-col items-center gap-3">
                                   <Database className="h-12 w-12 opacity-30" />
                                   <div>
@@ -2156,18 +2236,92 @@ export function Replenishment() {
                                   key={`${item.item_type}-${item.id}`} 
                                   className="hover:bg-gradient-to-r hover:from-primary/5 hover:to-transparent transition-all duration-200 border-b border-border/50"
                                 >
-                                  <TableCell>
-                                    <Badge 
-                                      variant={item.item_type === 'ASIN' ? 'default' : 'secondary'}
-                                      className="font-medium"
+                                  {visibleColumns.map((column) => (
+                                    <TableCell 
+                                      key={column.key}
+                                      style={{ 
+                                        width: `${column.width}px`,
+                                        minWidth: `${column.minWidth}px`,
+                                        maxWidth: `${column.width}px`
+                                      }}
+                                      className={column.key === 'asin' || column.key === 'sku' ? 'font-mono text-sm font-medium' : column.key === 'serial_number' ? 'font-mono text-sm' : ''}
                                     >
-                                      {item.item_type}
-                                    </Badge>
-                                  </TableCell>
-                                  <TableCell className="font-mono text-sm font-medium">{item.asin || 'N/A'}</TableCell>
-                                  <TableCell className="font-mono text-sm font-medium">{item.sku || 'N/A'}</TableCell>
-                                  <TableCell className="font-mono text-sm">{item.serial_number || 'N/A'}</TableCell>
-                                  <TableCell>
+                                      {column.key === 'item_type' && (
+                                        <Badge 
+                                          variant={item.item_type === 'ASIN' ? 'default' : 'secondary'}
+                                          className="font-medium"
+                                        >
+                                          {item.item_type}
+                                        </Badge>
+                                      )}
+                                      {column.key === 'asin' && (item.asin || 'N/A')}
+                                      {column.key === 'sku' && (item.sku || 'N/A')}
+                                      {column.key === 'serial_number' && (item.serial_number || 'N/A')}
+                                      {column.key === 'quantity' && (
+                                        <div className="flex items-center gap-2">
+                                          <Badge 
+                                            variant={item.quantity === 0 ? 'destructive' : item.quantity <= 2 ? 'secondary' : 'default'}
+                                            className={cn(
+                                              "font-bold transition-colors",
+                                              item.quantity === 0 ? 'bg-destructive/20 text-destructive border-destructive/50' : 
+                                              item.quantity <= 2 ? 'bg-warning/20 text-warning border-warning/50' : 
+                                              'bg-success/20 text-success border-success/50'
+                                            )}
+                                          >
+                                            {item.quantity}
+                                          </Badge>
+                                          {item.quantity <= 5 && (
+                                            <Progress 
+                                              value={Math.min((item.quantity / 10) * 100, 100)} 
+                                              className="w-12 h-2"
+                                            />
+                                          )}
+                                        </div>
+                                      )}
+                                      {column.key === 'status' && (
+                                        <Badge 
+                                          variant={item.status === 'in-stock' ? 'default' : 'secondary'}
+                                          className={cn(
+                                            "capitalize",
+                                            item.status === 'in-stock' ? 'bg-success/20 text-success border-success/50' : 
+                                            item.status === 'ordered' ? 'bg-primary/20 text-primary border-primary/50' :
+                                            'bg-muted/50 text-muted-foreground'
+                                          )}
+                                        >
+                                          {item.status}
+                                        </Badge>
+                                      )}
+                                      {column.key === 'last_sold_date' && (
+                                        <span className="text-sm text-muted-foreground">
+                                          {item.last_sold_date ? format(new Date(item.last_sold_date), 'MMM dd, yyyy') : 'Never'}
+                                        </span>
+                                      )}
+                                      {column.key === 'last_order_date' && (
+                                        <span className="text-sm text-muted-foreground">
+                                          {item.last_order_date ? format(new Date(item.last_order_date), 'MMM dd, yyyy') : 'Never'}
+                                        </span>
+                                      )}
+                                      {column.key === 'days_since_ordered' && (
+                                        <span className="text-sm font-medium">
+                                          {item.days_since_ordered !== null ? `${item.days_since_ordered} days` : 'N/A'}
+                                        </span>
+                                      )}
+                                      {column.key === 'metrics' && (
+                                        <div className="flex items-center gap-2">
+                                          <Badge 
+                                            variant={metrics.urgencyLevel === 'critical' ? 'destructive' : metrics.urgencyLevel === 'high' ? 'secondary' : 'default'}
+                                            className="text-xs"
+                                          >
+                                            {metrics.urgencyLevel}
+                                          </Badge>
+                                          <span className="text-xs text-muted-foreground">
+                                            Score: {Math.round(metrics.velocityScore)}
+                                          </span>
+                                        </div>
+                                      )}
+                                    </TableCell>
+                                  ))}
+                                </TableRow>
                                     <div className="flex items-center gap-2">
                                       <Badge 
                                         variant={item.quantity === 0 ? 'destructive' : item.quantity <= 2 ? 'secondary' : 'default'}
