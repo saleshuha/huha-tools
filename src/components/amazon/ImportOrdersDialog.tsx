@@ -67,7 +67,7 @@ export const ImportOrdersDialog = ({ open, onOpenChange, onImportOrders, loading
           sku: getCellValue(row, headers, ['sku']),
           item_title: getCellValue(row, headers, ['item_title', 'item title', 'title', 'product_name']),
           quantity: parseInt(getCellValue(row, headers, ['quantity', 'qty'])) || 1,
-          item_cost: parseFloat(getCellValue(row, headers, ['item_cost', 'cost', 'price', 'amount'])) || 0,
+          item_cost: parseCostValue(getCellValue(row, headers, ['item_cost', 'cost', 'price', 'amount'])),
           currency: getCellValue(row, headers, ['currency']) || 'USD',
           status: getCellValue(row, headers, ['status']) || 'Non Submitted',
           payment_status: getCellValue(row, headers, ['payment_status', 'payment status']) || 'pending',
@@ -103,6 +103,34 @@ export const ImportOrdersDialog = ({ open, onOpenChange, onImportOrders, loading
       }
     }
     return '';
+  };
+
+  const parseCostValue = (value: string): number => {
+    if (!value || typeof value !== 'string') return 0;
+    
+    // Remove any whitespace
+    const cleanValue = value.trim();
+    
+    // Handle AED format (AED17, AED 17, etc.)
+    if (cleanValue.toLowerCase().startsWith('aed')) {
+      const numericPart = cleanValue.replace(/^aed\s*/i, '');
+      return parseFloat(numericPart) || 0;
+    }
+    
+    // Handle USD format ($25, $ 25, USD25, etc.)
+    if (cleanValue.startsWith('$') || cleanValue.toLowerCase().startsWith('usd')) {
+      const numericPart = cleanValue.replace(/^(\$|usd)\s*/i, '');
+      return parseFloat(numericPart) || 0;
+    }
+    
+    // Handle SAR format
+    if (cleanValue.toLowerCase().startsWith('sar')) {
+      const numericPart = cleanValue.replace(/^sar\s*/i, '');
+      return parseFloat(numericPart) || 0;
+    }
+    
+    // Default: try to parse as a regular number
+    return parseFloat(cleanValue) || 0;
   };
 
   const handleImport = async () => {

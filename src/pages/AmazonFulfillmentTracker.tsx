@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Plus, Upload } from 'lucide-react';
+import { Plus, Upload, DollarSign } from 'lucide-react';
 import { MetricsDashboard } from '@/components/amazon/MetricsDashboard';
 import { OrdersTable } from '@/components/amazon/OrdersTable';
 import { AddOrderDialog } from '@/components/amazon/AddOrderDialog';
 import { ImportOrdersDialog } from '@/components/amazon/ImportOrdersDialog';
+import { CurrencyRatesDialog } from '@/components/amazon/CurrencyRatesDialog';
 import { useAmazonOrders } from '@/hooks/useAmazonOrders';
 import { useCountry } from '@/contexts/CountryContext';
 
@@ -15,6 +16,7 @@ const AmazonFulfillmentTracker = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
+  const [showCurrencyDialog, setShowCurrencyDialog] = useState(false);
 
   return (
     <div className="min-h-screen bg-gradient-surface p-6">
@@ -30,6 +32,10 @@ const AmazonFulfillmentTracker = () => {
             </p>
           </div>
           <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setShowCurrencyDialog(true)}>
+              <DollarSign className="h-4 w-4 mr-2" />
+              Currency Rates
+            </Button>
             <Button variant="outline" onClick={() => setShowImportDialog(true)}>
               <Upload className="h-4 w-4 mr-2" />
               Import Orders
@@ -74,6 +80,11 @@ const AmazonFulfillmentTracker = () => {
           onOpenChange={setShowImportDialog}
           onImportOrders={bulkImportOrders}
           loading={loading}
+        />
+        
+        <CurrencyRatesDialog
+          open={showCurrencyDialog}
+          onOpenChange={setShowCurrencyDialog}
         />
       </div>
     </div>
