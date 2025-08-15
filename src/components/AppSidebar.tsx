@@ -73,9 +73,14 @@ const toolsItems = [
 
 const coreItems = [
   {
+    title: "Amazon Fulfillment Tracker",
+    url: "/amazon-fulfillment",
+    icon: Package
+  },
+  {
     title: "Instock Inventory",
     url: "/inventory",
-    icon: Package
+    icon: Database
   },
   {
     title: "Sales & Replenishment",
