@@ -115,21 +115,31 @@ const Homepage = () => {
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Country-specific Header */}
         <div className="glass-container p-6 mx-4 my-4 flex-shrink-0 animate-slide-up">
-          <div className="flex items-center gap-4">
-            <div className="text-4xl">
-              {selectedCountry === 'UAE' ? '🇦🇪' : '🇸🇦'}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="text-4xl">
+                {selectedCountry === 'UAE' ? '🇦🇪' : '🇸🇦'}
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+                  {selectedCountry === 'UAE' ? 'UAE Operations Dashboard' : 'KSA Operations Dashboard'}
+                </h1>
+                <p className="text-muted-foreground">
+                  {selectedCountry === 'UAE' 
+                    ? 'Managing inventory and operations in the United Arab Emirates' 
+                    : 'Managing inventory and operations in Saudi Arabia'
+                  }
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-                {selectedCountry === 'UAE' ? 'UAE Operations Dashboard' : 'KSA Operations Dashboard'}
-              </h1>
-              <p className="text-muted-foreground">
-                {selectedCountry === 'UAE' 
-                  ? 'Managing inventory and operations in the United Arab Emirates' 
-                  : 'Managing inventory and operations in Saudi Arabia'
-                }
-              </p>
-            </div>
+            
+            {/* Amazon Fulfillment Tracker Button */}
+            <Button 
+              onClick={() => window.alert('Amazon Fulfillment Tracker features will be implemented soon!')} 
+              className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-semibold px-6 py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+            >
+              🚀 Add Amazon Fulfillment Tracker
+            </Button>
           </div>
         </div>
 
