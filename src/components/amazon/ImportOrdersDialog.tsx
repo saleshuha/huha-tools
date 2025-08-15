@@ -58,27 +58,37 @@ export const ImportOrdersDialog = ({ open, onOpenChange, onImportOrders, loading
 
       const headers = (jsonData[0] as string[]).map(h => h?.toString().toLowerCase().trim());
       const rows = jsonData.slice(1) as any[][];
+      
+      console.log('=== EXCEL PARSING DEBUG ===');
+      console.log('Raw headers from Excel:', jsonData[0]);
+      console.log('Processed headers:', headers);
+      console.log('First few rows:', rows.slice(0, 3));
 
       const parsedOrders: CreateOrder[] = rows.map((row, index) => {
-        console.log(`=== PROCESSING ROW ${index} ===`);
-        console.log('Row data:', row);
-        console.log('Headers:', headers);
+        console.log(`\n=== PROCESSING ROW ${index} ===`);
+        console.log('Raw row data:', row);
         
-        const costValue = getCellValue(row, headers, ['item_cost', 'cost', 'price', 'amount', 'total', 'value']);
-        console.log(`Raw cost value for row ${index}:`, costValue, 'Type:', typeof costValue);
+        // Get cost value with multiple possible column names
+        const costColumns = ['item_cost', 'cost', 'price', 'amount', 'total', 'value'];
+        const costValue = getCellValue(row, headers, costColumns);
+        console.log(`Cost value for row ${index}:`, costValue);
         
         const parsedCost = parseCostValue(costValue);
         console.log(`Final parsed cost for row ${index}:`, parsedCost);
         
+        // Get currency
+        const currencyValue = getCellValue(row, headers, ['currency']);
+        console.log(`Currency value for row ${index}:`, currencyValue);
+        
         const order: CreateOrder = {
           order_id: getCellValue(row, headers, ['order_id', 'order id', 'orderid']) || `ORDER_${Date.now()}_${index}`,
-          invoice_id: getCellValue(row, headers, ['invoice_id', 'invoice id', 'invoiceid']),
-          asin: getCellValue(row, headers, ['asin']),
-          sku: getCellValue(row, headers, ['sku']),
-          item_title: getCellValue(row, headers, ['item_title', 'item title', 'title', 'product_name']),
+          invoice_id: getCellValue(row, headers, ['invoice_id', 'invoice id', 'invoiceid']) || '',
+          asin: getCellValue(row, headers, ['asin']) || '',
+          sku: getCellValue(row, headers, ['sku']) || '',
+          item_title: getCellValue(row, headers, ['item_title', 'item title', 'title', 'product_name']) || '',
           quantity: parseInt(getCellValue(row, headers, ['quantity', 'qty'])) || 1,
           item_cost: parsedCost,
-          currency: getCellValue(row, headers, ['currency']) || 'USD',
+          currency: currencyValue || 'USD',
           status: getCellValue(row, headers, ['status']) || 'Non Submitted',
           payment_status: getCellValue(row, headers, ['payment_status', 'payment status']) || 'pending',
           country: selectedCountry,
@@ -107,40 +117,47 @@ export const ImportOrdersDialog = ({ open, onOpenChange, onImportOrders, loading
     }
   };
 
-  const getCellValue = (row: any[], headers: string[], possibleNames: string[]): string => {
+  const getCellValue = (row: any[], headers: string[], possibleNames: string[]): any => {
+    console.log('Looking for columns:', possibleNames, 'in headers:', headers);
+    
     for (const name of possibleNames) {
       const index = headers.indexOf(name);
       if (index !== -1 && row[index] !== undefined && row[index] !== null) {
-        const value = row[index].toString().trim();
-        console.log(`Found column "${name}" at index ${index} with value:`, row[index], 'cleaned:', value);
-        return value;
+        const rawValue = row[index];
+        console.log(`✓ Found "${name}" at index ${index}, raw value:`, rawValue, 'type:', typeof rawValue);
+        return rawValue; // Return raw value, don't convert to string yet
       }
     }
-    console.log(`No matching column found for:`, possibleNames, 'in headers:', headers);
-    return '';
+    console.log(`✗ No matching column found for:`, possibleNames);
+    return null;
   };
 
   const parseCostValue = (value: any): number => {
-    if (!value && value !== 0) return 0;
+    console.log('=== COST PARSING ===');
+    console.log('Input value:', value, 'Type:', typeof value);
     
-    // Convert to string and remove any whitespace
-    let cleanValue = String(value).trim();
-    
-    if (!cleanValue || cleanValue === '' || cleanValue === 'null' || cleanValue === 'undefined') return 0;
-    
-    console.log('COST PARSING - Original value:', value, 'Type:', typeof value, 'Clean value:', cleanValue);
+    if (value === null || value === undefined || value === '') {
+      console.log('Value is null/undefined/empty, returning 0');
+      return 0;
+    }
     
     // If it's already a number, return it
     if (typeof value === 'number') {
-      console.log('Already a number:', value);
+      console.log('Value is already a number:', value);
       return value;
     }
     
-    // Just parse as a simple number (no currency symbols expected)
-    const numericValue = parseFloat(cleanValue);
-    console.log('Parsed numeric value:', numericValue);
+    // Convert to string and try to parse
+    const stringValue = String(value).trim();
+    console.log('String value:', stringValue);
     
-    return isNaN(numericValue) ? 0 : numericValue;
+    const numericValue = parseFloat(stringValue);
+    console.log('Parsed numeric value:', numericValue, 'isNaN:', isNaN(numericValue));
+    
+    const result = isNaN(numericValue) ? 0 : numericValue;
+    console.log('Final result:', result);
+    
+    return result;
   };
 
   const handleImport = async () => {
