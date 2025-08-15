@@ -58,63 +58,70 @@ export const ImportOrdersDialog = ({ open, onOpenChange, onImportOrders, loading
         throw new Error('File must contain at least a header row and one data row');
       }
 
-      const headers = (jsonData[0] as string[]).map(h => h?.toString().toLowerCase().trim());
+      // Build normalized header index map
+      const rawHeaders = jsonData[0] as string[];
+      const headerMap = new Map<string, number>();
+      
+      rawHeaders.forEach((header, index) => {
+        if (header) {
+          const normalized = header.toString().toLowerCase().trim().replace(/\s+/g, '_');
+          headerMap.set(normalized, index);
+        }
+      });
+
+      console.log('Header mapping:', Object.fromEntries(headerMap));
+      
       const rows = jsonData.slice(1) as any[][];
       
-      console.log('=== EXCEL PARSING DEBUG ===');
-      console.log('Raw headers from Excel:', jsonData[0]);
-      console.log('Processed headers:', headers);
-      console.log('First few rows:', rows.slice(0, 3));
-
       const parsedOrders: CreateOrder[] = rows.map((row, index) => {
-        console.log(`\n🚀 === PROCESSING ROW ${index} ===`);
-        console.log('📊 Raw row data:', row);
-        console.log('📋 Headers:', headers);
+        const getValue = (synonyms: string[]): any => {
+          for (const synonym of synonyms) {
+            const idx = headerMap.get(synonym);
+            if (idx !== undefined && row[idx] !== undefined && row[idx] !== null && row[idx] !== '') {
+              return row[idx];
+            }
+          }
+          return null;
+        };
+
+        // Parse cost with all possible synonyms
+        const costValue = getValue(['item_cost', 'cost', 'price', 'amount', 'total', 'value', 'unit_cost', 'unit_price']);
+        const currencyValue = getValue(['currency', 'curr']);
         
-        // Get cost value and parse currency
-        const costColumns = ['item_cost', 'cost', 'price', 'amount', 'total', 'value'];
-        console.log('🔍 Looking for cost in columns:', costColumns);
+        const { amount, currency } = parseAmountCurrency(costValue, selectedCountry, currencyValue);
         
-        const costValue = getCellValue(row, headers, costColumns);
-        console.log(`💰 Raw cost value for row ${index}:`, costValue, 'Type:', typeof costValue);
-        
-        if (costValue === null || costValue === undefined) {
-          console.log('❌ Cost value is null/undefined for row', index);
-        }
-        
-        const { cost, currency } = parseCostAndCurrency(costValue);
-        
-        console.log(`Final values for row ${index} - Cost: ${cost}, Currency: ${currency}`);
+        // Convert to viewing currency
+        const viewingCurrency = selectedCountry === 'UAE' ? 'AED' : selectedCountry === 'KSA' ? 'SAR' : 'USD';
+        const convertedCost = convertCurrency(amount, currency, viewingCurrency);
         
         const order: CreateOrder = {
-          order_id: getCellValue(row, headers, ['order_id', 'order id', 'orderid']) || `ORDER_${Date.now()}_${index}`,
-          invoice_id: getCellValue(row, headers, ['invoice_id', 'invoice id', 'invoiceid']) || '',
-          asin: getCellValue(row, headers, ['asin']) || '',
-          sku: getCellValue(row, headers, ['sku']) || '',
-          item_title: getCellValue(row, headers, ['item_title', 'item title', 'title', 'product_name']) || '',
-          quantity: parseInt(getCellValue(row, headers, ['quantity', 'qty'])) || 1,
-          item_cost: cost,
-          currency: currency,
-          status: getCellValue(row, headers, ['status']) || 'Non Submitted',
-          payment_status: getCellValue(row, headers, ['payment_status', 'payment status']) || 'pending',
+          order_id: getValue(['order_id', 'order_id', 'orderid', 'order_number']) || `ORDER_${Date.now()}_${index}`,
+          invoice_id: getValue(['invoice_id', 'invoice_id', 'invoiceid', 'invoice_number']) || '',
+          asin: getValue(['asin']) || '',
+          sku: getValue(['sku']) || '',
+          item_title: getValue(['item_title', 'item_title', 'title', 'product_name', 'product_title', 'name']) || '',
+          quantity: parseInt(getValue(['quantity', 'qty', 'amount', 'count'])) || 1,
+          item_cost: convertedCost,
+          currency: viewingCurrency,
+          status: getValue(['status']) || 'Non Submitted',
+          payment_status: getValue(['payment_status', 'payment_status']) || 'pending',
           country: selectedCountry,
         };
 
-        console.log(`Final order object for row ${index}:`, order);
-
-        // Add optional fields if they exist
-        const warehouseCode = getCellValue(row, headers, ['warehouse_code', 'warehouse']);
+        // Add optional fields
+        const warehouseCode = getValue(['warehouse_code', 'warehouse']);
         if (warehouseCode) order.warehouse_code = warehouseCode;
 
-        const vatId = getCellValue(row, headers, ['vat_id', 'vat']);
+        const vatId = getValue(['vat_id', 'vat']);
         if (vatId) order.vat_id = vatId;
 
-        const paymentNotes = getCellValue(row, headers, ['payment_notes', 'notes']);
+        const paymentNotes = getValue(['payment_notes', 'notes']);
         if (paymentNotes) order.payment_notes = paymentNotes;
 
         return order;
-      }).filter(order => order.order_id); // Filter out rows without order IDs
+      }).filter(order => order.order_id);
 
+      console.log('Parsed orders:', parsedOrders);
       setPreview(parsedOrders);
       setProgress(100);
     } catch (error: any) {
@@ -123,126 +130,43 @@ export const ImportOrdersDialog = ({ open, onOpenChange, onImportOrders, loading
     }
   };
 
-  const getCellValue = (row: any[], headers: string[], possibleNames: string[]): any => {
-    for (const name of possibleNames) {
-      const index = headers.indexOf(name);
-      if (index !== -1 && row[index] !== undefined && row[index] !== null) {
-        return row[index];
-      }
-    }
-    return null;
-  };
+  const parseAmountCurrency = (raw: unknown, selectedCountry: 'UAE' | 'KSA', currencyFromColumn?: string): { amount: number; currency: string } => {
+    if (raw === null || raw === undefined || raw === '') return { amount: 0, currency: 'USD' };
+    
+    const fallbackCurrency = selectedCountry === 'UAE' ? 'AED' : selectedCountry === 'KSA' ? 'SAR' : 'USD';
 
-  const parseCostAndCurrency = (value: any): { cost: number; currency: string } => {
-    console.log('=== PARSING COST AND CURRENCY ===');
-    console.log('RAW INPUT:', JSON.stringify(value), 'Type:', typeof value, 'Value:', value);
-    
-    if (value === null || value === undefined || value === '') {
-      console.log('❌ Value is null/undefined/empty, returning defaults');
-      return { cost: 0, currency: 'USD' };
+    // If Excel gave us a numeric cell
+    if (typeof raw === 'number') {
+      return { amount: raw, currency: (currencyFromColumn || fallbackCurrency).toUpperCase() };
     }
-    
-    const stringValue = String(value).trim();
-    console.log('🔄 String conversion:', stringValue, 'Length:', stringValue.length);
-    
-    if (!stringValue || stringValue === 'null' || stringValue === 'undefined') {
-      console.log('❌ String value is empty after conversion');
-      return { cost: 0, currency: 'USD' };
+
+    const s = String(raw).trim();
+    if (!s) return { amount: 0, currency: 'USD' };
+
+    // Try to detect currency and number from combined string
+    // Handles: "$6.40", "USD6.40", "AED19.56", "SAR25.00", "19.56"
+    const match = s.match(/^\s*(?:([$])|(USD|AED|SAR))?\s*([0-9][0-9,]*(?:\.[0-9]+)?)\s*$/i);
+    if (match) {
+      const dollarSymbol = match[1];
+      const currencyCode = match[2];
+      const numberPart = match[3].replace(/,/g, '');
+      const amount = parseFloat(numberPart);
+      
+      let currency = currencyCode ? currencyCode.toUpperCase() : 
+                    dollarSymbol === '$' ? 'USD' : 
+                    undefined;
+      currency = (currency || currencyFromColumn || fallbackCurrency).toUpperCase();
+      
+      return { amount, currency };
     }
-    
-    let currency = 'USD';
-    let cost = 0;
-    let matched = false;
-    
-    console.log('🔍 Testing patterns...');
-    
-    // Test with actual sample values
-    const testValues = ['$6.40', 'AED19.56', 'AED10.77', '$4.00', '$23.96', 'AED11.75', 'SAR25.00'];
-    console.log('📝 Sample test values:', testValues);
-    
-    // USD formats: $6.40, USD6.40
-    if (stringValue.includes('$')) {
-      console.log('💲 Contains $ symbol');
-      currency = 'USD';
-      // Extract all numbers from the string
-      const numbers = stringValue.match(/\d+\.?\d*/g);
-      console.log('🔢 Found numbers:', numbers);
-      if (numbers && numbers.length > 0) {
-        cost = parseFloat(numbers[0]);
-        matched = true;
-        console.log('✅ USD $ format - Currency:', currency, 'Cost:', cost);
-      }
+
+    // If no pattern matches, try plain number
+    const numValue = parseFloat(s.replace(/,/g, ''));
+    if (!isNaN(numValue)) {
+      return { amount: numValue, currency: (currencyFromColumn || fallbackCurrency).toUpperCase() };
     }
-    // AED formats: AED19.56
-    else if (stringValue.toUpperCase().includes('AED')) {
-      console.log('🏛️ Contains AED');
-      currency = 'AED';
-      const numbers = stringValue.match(/\d+\.?\d*/g);
-      console.log('🔢 Found numbers:', numbers);
-      if (numbers && numbers.length > 0) {
-        cost = parseFloat(numbers[0]);
-        matched = true;
-        console.log('✅ AED format - Currency:', currency, 'Cost:', cost);
-      }
-    }
-    // SAR formats: SAR25.00
-    else if (stringValue.toUpperCase().includes('SAR')) {
-      console.log('🇸🇦 Contains SAR');
-      currency = 'SAR';
-      const numbers = stringValue.match(/\d+\.?\d*/g);
-      console.log('🔢 Found numbers:', numbers);
-      if (numbers && numbers.length > 0) {
-        cost = parseFloat(numbers[0]);
-        matched = true;
-        console.log('✅ SAR format - Currency:', currency, 'Cost:', cost);
-      }
-    }
-    // Plain number
-    else {
-      console.log('🔤 No currency symbol, trying plain number');
-      const numericValue = parseFloat(stringValue);
-      if (!isNaN(numericValue)) {
-        cost = numericValue;
-        currency = 'USD';
-        matched = true;
-        console.log('✅ Plain number - Currency:', currency, 'Cost:', cost);
-      } else {
-        console.log('❌ Failed to parse as plain number');
-      }
-    }
-    
-    if (!matched) {
-      console.log('❌ NO PATTERN MATCHED! Returning 0');
-      return { cost: 0, currency: 'USD' };
-    }
-    
-    console.log('✅ Successfully parsed - Cost:', cost, 'Currency:', currency);
-    
-    if (cost === 0) {
-      console.log('⚠️ Cost is 0, returning as is');
-      return { cost: 0, currency: 'USD' };
-    }
-    
-    // Convert to viewing currency
-    const viewingCurrency = selectedCountry === 'UAE' ? 'AED' : selectedCountry === 'KSA' ? 'SAR' : 'USD';
-    console.log('🌍 Viewing currency:', viewingCurrency, 'Selected country:', selectedCountry);
-    
-    let convertedCost = cost;
-    try {
-      convertedCost = convertCurrency(cost, currency, viewingCurrency);
-      console.log(`💱 Converting ${cost} ${currency} to ${viewingCurrency} = ${convertedCost}`);
-    } catch (error) {
-      console.log('❌ Currency conversion error:', error);
-      convertedCost = cost; // Fallback to original cost
-    }
-    
-    const result = { 
-      cost: convertedCost, 
-      currency: viewingCurrency 
-    };
-    
-    console.log('🎯 FINAL RESULT:', result);
-    return result;
+
+    return { amount: 0, currency: 'USD' };
   };
 
   const handleImport = async () => {
