@@ -40,6 +40,7 @@ import SKUCostManagement from "./pages/SKUCostManagement";
 import NoonOrderAnalysis from "./pages/NoonOrderAnalysis";
 import ProcessedOrders from "./pages/ProcessedOrders";
 import PODetailsPage from "./pages/PODetails";
+import AmazonFulfillmentTracker from "./pages/AmazonFulfillmentTracker";
 import AddSKUPage from "./pages/AddSKUPage";
 import BulkColumnEditor from "./pages/BulkColumnEditor";
 import SunskySKUImporterPage from "./pages/SunskySKUImporter";
@@ -218,7 +219,8 @@ const App = () => {
                      <Route path="/add-sku" element={<AddSKUPageWrapper />} />
                      <Route path="/sunsky-importer" element={<SunskySKUImporterPage />} />
                      <Route path="/excel-editor" element={<ExcelEditorPage />} />
-                     <Route path="/noon-sales-tracker" element={<NoonSalesTracker />} />
+                  <Route path="/amazon-fulfillment" element={<AmazonFulfillmentTracker />} />
+                  <Route path="/noon-sales-tracker" element={<NoonSalesTracker />} />
                      <Route path="/noon-dashboard" element={<NoonDashboard />} />
                      <Route path="/noon-stores" element={<NoonStores />} />
                      <Route path="/noon-sales-data" element={<NoonSalesData />} />
