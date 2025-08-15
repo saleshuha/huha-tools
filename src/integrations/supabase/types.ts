@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.3 (519615d)"
@@ -126,6 +126,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      exchange_rates: {
+        Row: {
+          from_currency: string
+          id: string
+          rate: number
+          to_currency: string
+          updated_at: string | null
+        }
+        Insert: {
+          from_currency: string
+          id?: string
+          rate: number
+          to_currency: string
+          updated_at?: string | null
+        }
+        Update: {
+          from_currency?: string
+          id?: string
+          rate?: number
+          to_currency?: string
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       noon_credit_data: {
         Row: {
@@ -767,6 +791,90 @@ export type Database = {
           },
         ]
       }
+      orders: {
+        Row: {
+          asin: string | null
+          country: Database["public"]["Enums"]["country_code"] | null
+          created_at: string | null
+          currency: string | null
+          id: string
+          invoice_date: string | null
+          invoice_id: string | null
+          item_cost: number | null
+          item_title: string | null
+          order_id: string
+          payment_completed_date: string | null
+          payment_due_date: string | null
+          payment_notes: string | null
+          payment_reminder_date: string | null
+          payment_schedule_days: number | null
+          payment_status: string | null
+          quantity: number | null
+          shipment_date: string | null
+          sku: string | null
+          status: string | null
+          tax_rate: number | null
+          updated_at: string | null
+          user_id: string
+          vat_id: string | null
+          warehouse_code: string | null
+        }
+        Insert: {
+          asin?: string | null
+          country?: Database["public"]["Enums"]["country_code"] | null
+          created_at?: string | null
+          currency?: string | null
+          id?: string
+          invoice_date?: string | null
+          invoice_id?: string | null
+          item_cost?: number | null
+          item_title?: string | null
+          order_id: string
+          payment_completed_date?: string | null
+          payment_due_date?: string | null
+          payment_notes?: string | null
+          payment_reminder_date?: string | null
+          payment_schedule_days?: number | null
+          payment_status?: string | null
+          quantity?: number | null
+          shipment_date?: string | null
+          sku?: string | null
+          status?: string | null
+          tax_rate?: number | null
+          updated_at?: string | null
+          user_id: string
+          vat_id?: string | null
+          warehouse_code?: string | null
+        }
+        Update: {
+          asin?: string | null
+          country?: Database["public"]["Enums"]["country_code"] | null
+          created_at?: string | null
+          currency?: string | null
+          id?: string
+          invoice_date?: string | null
+          invoice_id?: string | null
+          item_cost?: number | null
+          item_title?: string | null
+          order_id?: string
+          payment_completed_date?: string | null
+          payment_due_date?: string | null
+          payment_notes?: string | null
+          payment_reminder_date?: string | null
+          payment_schedule_days?: number | null
+          payment_status?: string | null
+          quantity?: number | null
+          shipment_date?: string | null
+          sku?: string | null
+          status?: string | null
+          tax_rate?: number | null
+          updated_at?: string | null
+          user_id?: string
+          vat_id?: string | null
+          warehouse_code?: string | null
+        }
+        Relationships: []
+      }
       payment_reports: {
         Row: {
           adjustments: number | null
@@ -855,6 +963,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      payment_terms: {
+        Row: {
+          country: Database["public"]["Enums"]["country_code"]
+          created_at: string | null
+          credit_days: number | null
+          currency: string
+          flag: string
+          id: string
+          updated_at: string | null
+          vat_rate: number | null
+        }
+        Insert: {
+          country: Database["public"]["Enums"]["country_code"]
+          created_at?: string | null
+          credit_days?: number | null
+          currency: string
+          flag: string
+          id?: string
+          updated_at?: string | null
+          vat_rate?: number | null
+        }
+        Update: {
+          country?: Database["public"]["Enums"]["country_code"]
+          created_at?: string | null
+          credit_days?: number | null
+          currency?: string
+          flag?: string
+          id?: string
+          updated_at?: string | null
+          vat_rate?: number | null
+        }
+        Relationships: []
       }
       payments: {
         Row: {
@@ -1371,33 +1512,33 @@ export type Database = {
       get_all_po_orders: {
         Args: { user_id_param: string }
         Returns: {
-          id: string
-          user_id: string
-          po_number: string
-          sku_code: string
-          quantity: number
-          status: string
-          order_date: string
-          expected_delivery: string
-          notes: string
-          file_name: string
-          country: string
-          currency: string
-          unit_cost: number
-          total_cost: number
-          sku_user_id: string
-          supplier_order_number: string
-          tracking_number: string
-          tracking_url: string
-          created_at: string
-          updated_at: string
-          sunsky_sku: Json
-          ship_to_location: string
           asin: string
-          model_number: string
-          title: string
+          country: string
+          created_at: string
+          currency: string
+          expected_delivery: string
           external_id: string
           external_id_type: string
+          file_name: string
+          id: string
+          model_number: string
+          notes: string
+          order_date: string
+          po_number: string
+          quantity: number
+          ship_to_location: string
+          sku_code: string
+          sku_user_id: string
+          status: string
+          sunsky_sku: Json
+          supplier_order_number: string
+          title: string
+          total_cost: number
+          tracking_number: string
+          tracking_url: string
+          unit_cost: number
+          updated_at: string
+          user_id: string
         }[]
       }
       get_all_po_orders_unlimited: {
@@ -1434,18 +1575,18 @@ export type Database = {
       get_all_sunsky_skus: {
         Args: { user_id_param: string }
         Returns: {
-          id: string
-          user_id: string
-          sku_code: string
-          title: string
-          description: string
           cost: number
-          weight: number
-          notes: string
-          currency: string
           country: string
           created_at: string
+          currency: string
+          description: string
+          id: string
+          notes: string
+          sku_code: string
+          title: string
           updated_at: string
+          user_id: string
+          weight: number
         }[]
       }
       get_exchange_rate: {
@@ -1455,82 +1596,82 @@ export type Database = {
       get_items_needing_restock: {
         Args: Record<PropertyKey, never> | { country_filter?: string }
         Returns: {
-          table_name: string
-          item_id: string
-          identifier: string
           current_quantity: number
           days_since_last_restock: number
+          identifier: string
+          item_id: string
+          table_name: string
         }[]
       }
       get_noon_sales_upload_summary: {
         Args: { country_filter?: string }
         Returns: {
           id: string
-          store_name: string
-          report_month: string
-          upload_date: string
           record_count: number
+          report_month: string
+          store_name: string
+          upload_date: string
         }[]
       }
       get_order_fees_analysis: {
         Args: {
           country_filter?: string
-          store_filter?: string
-          start_date?: string
           end_date?: string
+          start_date?: string
+          store_filter?: string
         }
         Returns: {
-          order_number: string
-          order_type: string
-          item_nr: string
-          sku: string
           description: string
           document_date: string
-          invoice_price: number
-          total_fees: number
-          net_amount: number
           fee_breakdown: Json
           fee_coverage_status: string
+          invoice_price: number
+          item_nr: string
+          net_amount: number
+          order_number: string
           order_status: string
-          store_name: string
+          order_type: string
           profit_margin: number
+          sku: string
+          store_name: string
+          total_fees: number
         }[]
       }
       get_order_fees_analysis_optimized: {
         Args: {
           country_filter?: string
-          store_filter?: string
-          start_date?: string
           end_date?: string
           limit_records?: number
+          start_date?: string
+          store_filter?: string
         }
         Returns: {
-          order_number: string
-          order_type: string
-          item_nr: string
-          sku: string
           description: string
           document_date: string
-          invoice_price: number
-          total_fees: number
-          net_amount: number
           fee_breakdown: Json
           fee_coverage_status: string
+          invoice_price: number
+          item_nr: string
+          net_amount: number
+          order_number: string
           order_status: string
-          store_name: string
+          order_type: string
           profit_margin: number
+          sku: string
+          store_name: string
+          total_fees: number
         }[]
       }
       get_sales_analytics: {
-        Args: { start_date?: string; end_date?: string }
+        Args: { end_date?: string; start_date?: string }
         Returns: {
-          product_type: string
-          total_sold: number
           avg_days_to_sell: number
           fastest_selling_item: string
-          slowest_selling_item: string
-          restock_frequency_days: number
           predicted_restock_needed_items: Json
+          product_type: string
+          restock_frequency_days: number
+          slowest_selling_item: string
+          total_sold: number
         }[]
       }
       is_user_admin: {
@@ -1539,6 +1680,7 @@ export type Database = {
       }
     }
     Enums: {
+      country_code: "UAE" | "KSA"
       inventory_status: "in-stock" | "sold" | "reserved" | "damaged" | "ordered"
     }
     CompositeTypes: {
@@ -1667,6 +1809,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      country_code: ["UAE", "KSA"],
       inventory_status: ["in-stock", "sold", "reserved", "damaged", "ordered"],
     },
   },
