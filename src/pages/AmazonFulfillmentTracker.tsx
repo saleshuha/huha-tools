@@ -12,7 +12,7 @@ import { useCountry } from '@/contexts/CountryContext';
 
 const AmazonFulfillmentTracker = () => {
   const { selectedCountry } = useCountry();
-  const { orders, loading, metrics, createOrder, updateOrder, deleteOrder, bulkImportOrders } = useAmazonOrders();
+  const { orders, loading, metrics, createOrder, updateOrder, deleteOrder, bulkImportOrders, clearAllOrders } = useAmazonOrders();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
@@ -39,6 +39,9 @@ const AmazonFulfillmentTracker = () => {
             <Button variant="outline" onClick={() => setShowImportDialog(true)}>
               <Upload className="h-4 w-4 mr-2" />
               Import Orders
+            </Button>
+            <Button variant="destructive" onClick={clearAllOrders} size="sm">
+              Clear All Data
             </Button>
             <Button onClick={() => setShowAddDialog(true)}>
               <Plus className="h-4 w-4 mr-2" />
