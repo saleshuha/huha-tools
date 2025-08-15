@@ -60,10 +60,15 @@ export const ImportOrdersDialog = ({ open, onOpenChange, onImportOrders, loading
       const rows = jsonData.slice(1) as any[][];
 
       const parsedOrders: CreateOrder[] = rows.map((row, index) => {
-        console.log(`Processing row ${index}:`, row); // Debug log
+        console.log(`=== PROCESSING ROW ${index} ===`);
+        console.log('Row data:', row);
+        console.log('Headers:', headers);
         
         const costValue = getCellValue(row, headers, ['item_cost', 'cost', 'price', 'amount', 'total', 'value']);
-        console.log(`Cost value for row ${index}:`, costValue);
+        console.log(`Raw cost value for row ${index}:`, costValue, 'Type:', typeof costValue);
+        
+        const parsedCost = parseCostValue(costValue);
+        console.log(`Final parsed cost for row ${index}:`, parsedCost);
         
         const order: CreateOrder = {
           order_id: getCellValue(row, headers, ['order_id', 'order id', 'orderid']) || `ORDER_${Date.now()}_${index}`,
@@ -72,14 +77,14 @@ export const ImportOrdersDialog = ({ open, onOpenChange, onImportOrders, loading
           sku: getCellValue(row, headers, ['sku']),
           item_title: getCellValue(row, headers, ['item_title', 'item title', 'title', 'product_name']),
           quantity: parseInt(getCellValue(row, headers, ['quantity', 'qty'])) || 1,
-          item_cost: parseCostValue(costValue),
+          item_cost: parsedCost,
           currency: getCellValue(row, headers, ['currency']) || 'USD',
           status: getCellValue(row, headers, ['status']) || 'Non Submitted',
           payment_status: getCellValue(row, headers, ['payment_status', 'payment status']) || 'pending',
           country: selectedCountry,
         };
 
-        console.log(`Parsed order ${index}:`, order); // Debug log
+        console.log(`Final order object for row ${index}:`, order);
 
         // Add optional fields if they exist
         const warehouseCode = getCellValue(row, headers, ['warehouse_code', 'warehouse']);
@@ -119,58 +124,30 @@ export const ImportOrdersDialog = ({ open, onOpenChange, onImportOrders, loading
     if (!value && value !== 0) return 0;
     
     // Convert to string and remove any whitespace
-    const cleanValue = String(value).trim();
+    let cleanValue = String(value).trim();
     
-    if (!cleanValue || cleanValue === '' || cleanValue === '0') return 0;
+    if (!cleanValue || cleanValue === '' || cleanValue === 'null' || cleanValue === 'undefined') return 0;
     
-    console.log('Original value:', value, 'Clean value:', cleanValue); // Debug log
+    console.log('COST PARSING - Original value:', value, 'Type:', typeof value, 'Clean value:', cleanValue);
     
-    // Handle AED format (AED17, AED 17, etc.)
-    if (cleanValue.toLowerCase().includes('aed')) {
-      // Extract numbers after AED
-      const match = cleanValue.match(/aed\s*(\d+(?:\.\d+)?)/i);
-      if (match) {
-        const parsed = parseFloat(match[1]);
-        console.log('AED matched:', match[1], 'parsed:', parsed);
-        return parsed;
-      }
+    // If it's already a number, return it
+    if (typeof value === 'number') {
+      console.log('Already a number:', value);
+      return value;
     }
     
-    // Handle USD format ($25, $ 25, USD25, etc.)
-    if (cleanValue.includes('$')) {
-      // Extract numbers after $
-      const match = cleanValue.match(/\$\s*(\d+(?:\.\d+)?)/);
-      if (match) {
-        const parsed = parseFloat(match[1]);
-        console.log('USD $ matched:', match[1], 'parsed:', parsed);
-        return parsed;
-      }
+    // Remove any currency symbols and extract just the number
+    // This handles: AED17, $25, SAR30, USD100, etc.
+    const numberMatch = cleanValue.match(/(\d+(?:\.\d+)?)/);
+    
+    if (numberMatch) {
+      const extractedNumber = parseFloat(numberMatch[1]);
+      console.log('EXTRACTED NUMBER:', extractedNumber, 'from:', cleanValue);
+      return extractedNumber;
     }
     
-    if (cleanValue.toLowerCase().includes('usd')) {
-      // Extract numbers after USD
-      const match = cleanValue.match(/usd\s*(\d+(?:\.\d+)?)/i);
-      if (match) {
-        const parsed = parseFloat(match[1]);
-        console.log('USD matched:', match[1], 'parsed:', parsed);
-        return parsed;
-      }
-    }
-    
-    // Handle SAR format
-    if (cleanValue.toLowerCase().includes('sar')) {
-      const match = cleanValue.match(/sar\s*(\d+(?:\.\d+)?)/i);
-      if (match) {
-        const parsed = parseFloat(match[1]);
-        console.log('SAR matched:', match[1], 'parsed:', parsed);
-        return parsed;
-      }
-    }
-    
-    // Default: try to parse as a regular number
-    const numericValue = parseFloat(cleanValue);
-    console.log('Default numeric parse:', numericValue);
-    return isNaN(numericValue) ? 0 : numericValue;
+    console.log('NO NUMBER FOUND in:', cleanValue);
+    return 0;
   };
 
   const handleImport = async () => {
