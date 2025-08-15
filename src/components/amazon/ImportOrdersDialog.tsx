@@ -136,18 +136,11 @@ export const ImportOrdersDialog = ({ open, onOpenChange, onImportOrders, loading
       return value;
     }
     
-    // Remove any currency symbols and extract just the number
-    // This handles: AED17, $25, SAR30, USD100, etc.
-    const numberMatch = cleanValue.match(/(\d+(?:\.\d+)?)/);
+    // Just parse as a simple number (no currency symbols expected)
+    const numericValue = parseFloat(cleanValue);
+    console.log('Parsed numeric value:', numericValue);
     
-    if (numberMatch) {
-      const extractedNumber = parseFloat(numberMatch[1]);
-      console.log('EXTRACTED NUMBER:', extractedNumber, 'from:', cleanValue);
-      return extractedNumber;
-    }
-    
-    console.log('NO NUMBER FOUND in:', cleanValue);
-    return 0;
+    return isNaN(numericValue) ? 0 : numericValue;
   };
 
   const handleImport = async () => {
@@ -282,7 +275,7 @@ export const ImportOrdersDialog = ({ open, onOpenChange, onImportOrders, loading
               <Alert>
                 <Upload className="h-4 w-4" />
                 <AlertDescription>
-                  Expected columns: order_id (required), invoice_id, asin, sku, item_title, quantity, item_cost/cost/price (supports AED17, $25 formats), currency, status, payment_status
+                  Expected columns: order_id (required), invoice_id, asin, sku, item_title, quantity, item_cost/cost/price (numeric only), currency (AED/USD/SAR), status, payment_status
                 </AlertDescription>
               </Alert>
             </div>
