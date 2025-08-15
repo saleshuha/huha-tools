@@ -4,13 +4,17 @@ import { Button } from '@/components/ui/button';
 import { Plus, Upload } from 'lucide-react';
 import { MetricsDashboard } from '@/components/amazon/MetricsDashboard';
 import { OrdersTable } from '@/components/amazon/OrdersTable';
+import { AddOrderDialog } from '@/components/amazon/AddOrderDialog';
+import { ImportOrdersDialog } from '@/components/amazon/ImportOrdersDialog';
 import { useAmazonOrders } from '@/hooks/useAmazonOrders';
 import { useCountry } from '@/contexts/CountryContext';
 
 const AmazonFulfillmentTracker = () => {
   const { selectedCountry } = useCountry();
-  const { orders, loading, metrics, updateOrder, deleteOrder } = useAmazonOrders();
+  const { orders, loading, metrics, createOrder, updateOrder, deleteOrder, bulkImportOrders } = useAmazonOrders();
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false);
 
   return (
     <div className="min-h-screen bg-gradient-surface p-6">
@@ -26,11 +30,11 @@ const AmazonFulfillmentTracker = () => {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline">
+            <Button variant="outline" onClick={() => setShowImportDialog(true)}>
               <Upload className="h-4 w-4 mr-2" />
               Import Orders
             </Button>
-            <Button>
+            <Button onClick={() => setShowAddDialog(true)}>
               <Plus className="h-4 w-4 mr-2" />
               Add Order
             </Button>
@@ -56,6 +60,21 @@ const AmazonFulfillmentTracker = () => {
             />
           </TabsContent>
         </Tabs>
+
+        {/* Dialogs */}
+        <AddOrderDialog
+          open={showAddDialog}
+          onOpenChange={setShowAddDialog}
+          onCreateOrder={createOrder}
+          loading={loading}
+        />
+        
+        <ImportOrdersDialog
+          open={showImportDialog}
+          onOpenChange={setShowImportDialog}
+          onImportOrders={bulkImportOrders}
+          loading={loading}
+        />
       </div>
     </div>
   );
