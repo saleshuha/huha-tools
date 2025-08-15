@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Upload, FileSpreadsheet, CheckCircle, XCircle } from 'lucide-react';
 import { CreateOrder } from '@/types/amazon-fulfillment';
 import { useCountry } from '@/contexts/CountryContext';
+import { useCurrencyConverter } from '@/hooks/useCurrencyConverter';
 import * as XLSX from 'xlsx';
 
 interface ImportOrdersDialogProps {
@@ -19,6 +20,7 @@ interface ImportOrdersDialogProps {
 
 export const ImportOrdersDialog = ({ open, onOpenChange, onImportOrders, loading }: ImportOrdersDialogProps) => {
   const { selectedCountry } = useCountry();
+  const { convertCurrency, formatCurrency } = useCurrencyConverter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [progress, setProgress] = useState(0);
@@ -68,17 +70,12 @@ export const ImportOrdersDialog = ({ open, onOpenChange, onImportOrders, loading
         console.log(`\n=== PROCESSING ROW ${index} ===`);
         console.log('Raw row data:', row);
         
-        // Get cost value with multiple possible column names
+        // Get cost value and parse currency
         const costColumns = ['item_cost', 'cost', 'price', 'amount', 'total', 'value'];
         const costValue = getCellValue(row, headers, costColumns);
-        console.log(`Cost value for row ${index}:`, costValue);
+        const { cost, currency } = parseCostAndCurrency(costValue);
         
-        const parsedCost = parseCostValue(costValue);
-        console.log(`Final parsed cost for row ${index}:`, parsedCost);
-        
-        // Get currency
-        const currencyValue = getCellValue(row, headers, ['currency']);
-        console.log(`Currency value for row ${index}:`, currencyValue);
+        console.log(`Final values for row ${index} - Cost: ${cost}, Currency: ${currency}`);
         
         const order: CreateOrder = {
           order_id: getCellValue(row, headers, ['order_id', 'order id', 'orderid']) || `ORDER_${Date.now()}_${index}`,
@@ -87,8 +84,8 @@ export const ImportOrdersDialog = ({ open, onOpenChange, onImportOrders, loading
           sku: getCellValue(row, headers, ['sku']) || '',
           item_title: getCellValue(row, headers, ['item_title', 'item title', 'title', 'product_name']) || '',
           quantity: parseInt(getCellValue(row, headers, ['quantity', 'qty'])) || 1,
-          item_cost: parsedCost,
-          currency: currencyValue || 'USD',
+          item_cost: cost,
+          currency: currency,
           status: getCellValue(row, headers, ['status']) || 'Non Submitted',
           payment_status: getCellValue(row, headers, ['payment_status', 'payment status']) || 'pending',
           country: selectedCountry,
@@ -118,46 +115,78 @@ export const ImportOrdersDialog = ({ open, onOpenChange, onImportOrders, loading
   };
 
   const getCellValue = (row: any[], headers: string[], possibleNames: string[]): any => {
-    console.log('Looking for columns:', possibleNames, 'in headers:', headers);
-    
     for (const name of possibleNames) {
       const index = headers.indexOf(name);
       if (index !== -1 && row[index] !== undefined && row[index] !== null) {
-        const rawValue = row[index];
-        console.log(`✓ Found "${name}" at index ${index}, raw value:`, rawValue, 'type:', typeof rawValue);
-        return rawValue; // Return raw value, don't convert to string yet
+        return row[index];
       }
     }
-    console.log(`✗ No matching column found for:`, possibleNames);
     return null;
   };
 
-  const parseCostValue = (value: any): number => {
-    console.log('=== COST PARSING ===');
-    console.log('Input value:', value, 'Type:', typeof value);
+  const parseCostAndCurrency = (value: any): { cost: number; currency: string } => {
+    console.log('=== PARSING COST AND CURRENCY ===');
+    console.log('Input:', value, 'Type:', typeof value);
     
-    if (value === null || value === undefined || value === '') {
-      console.log('Value is null/undefined/empty, returning 0');
-      return 0;
+    if (!value && value !== 0) {
+      console.log('Empty value, returning defaults');
+      return { cost: 0, currency: 'USD' };
     }
     
-    // If it's already a number, return it
-    if (typeof value === 'number') {
-      console.log('Value is already a number:', value);
-      return value;
-    }
-    
-    // Convert to string and try to parse
     const stringValue = String(value).trim();
     console.log('String value:', stringValue);
     
-    const numericValue = parseFloat(stringValue);
-    console.log('Parsed numeric value:', numericValue, 'isNaN:', isNaN(numericValue));
+    // Parse different currency formats
+    let currency = 'USD';
+    let cost = 0;
     
-    const result = isNaN(numericValue) ? 0 : numericValue;
-    console.log('Final result:', result);
+    // USD formats: $6.40, USD6.40
+    if (stringValue.includes('$')) {
+      currency = 'USD';
+      const match = stringValue.match(/\$\s*(\d+(?:\.\d+)?)/);
+      if (match) {
+        cost = parseFloat(match[1]);
+        console.log('USD $ format - Currency:', currency, 'Cost:', cost);
+      }
+    }
+    // AED formats: AED19.56
+    else if (stringValue.toLowerCase().includes('aed')) {
+      currency = 'AED';
+      const match = stringValue.match(/aed\s*(\d+(?:\.\d+)?)/i);
+      if (match) {
+        cost = parseFloat(match[1]);
+        console.log('AED format - Currency:', currency, 'Cost:', cost);
+      }
+    }
+    // SAR formats: SAR25.00
+    else if (stringValue.toLowerCase().includes('sar')) {
+      currency = 'SAR';
+      const match = stringValue.match(/sar\s*(\d+(?:\.\d+)?)/i);
+      if (match) {
+        cost = parseFloat(match[1]);
+        console.log('SAR format - Currency:', currency, 'Cost:', cost);
+      }
+    }
+    // Plain number
+    else {
+      const numericValue = parseFloat(stringValue);
+      if (!isNaN(numericValue)) {
+        cost = numericValue;
+        currency = 'USD'; // Default currency for plain numbers
+        console.log('Plain number - Currency:', currency, 'Cost:', cost);
+      }
+    }
     
-    return result;
+    // Convert to viewing currency
+    const viewingCurrency = selectedCountry === 'UAE' ? 'AED' : selectedCountry === 'KSA' ? 'SAR' : 'USD';
+    const convertedCost = convertCurrency(cost, currency, viewingCurrency);
+    
+    console.log(`Converting ${cost} ${currency} to ${viewingCurrency} = ${convertedCost}`);
+    
+    return { 
+      cost: convertedCost, 
+      currency: viewingCurrency 
+    };
   };
 
   const handleImport = async () => {
@@ -274,7 +303,7 @@ export const ImportOrdersDialog = ({ open, onOpenChange, onImportOrders, loading
                         <td className="p-2">{order.asin || '-'}</td>
                         <td className="p-2">{order.item_title || '-'}</td>
                         <td className="p-2">{order.quantity}</td>
-                        <td className="p-2">{order.currency} {order.item_cost}</td>
+                        <td className="p-2">{formatCurrency(order.item_cost || 0, order.currency || 'USD')}</td>
                         <td className="p-2">{order.status}</td>
                       </tr>
                     ))}
@@ -292,7 +321,7 @@ export const ImportOrdersDialog = ({ open, onOpenChange, onImportOrders, loading
               <Alert>
                 <Upload className="h-4 w-4" />
                 <AlertDescription>
-                  Expected columns: order_id (required), invoice_id, asin, sku, item_title, quantity, item_cost/cost/price (numeric only), currency (AED/USD/SAR), status, payment_status
+                  Expected columns: order_id (required), invoice_id, asin, sku, item_title, quantity, item_cost/cost/price (supports $6.40, AED19.56, SAR25.00 formats), status, payment_status. Costs will be auto-converted to your viewing currency.
                 </AlertDescription>
               </Alert>
             </div>
