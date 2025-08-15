@@ -67,7 +67,7 @@ export const ImportOrdersDialog = ({ open, onOpenChange, onImportOrders, loading
           sku: getCellValue(row, headers, ['sku']),
           item_title: getCellValue(row, headers, ['item_title', 'item title', 'title', 'product_name']),
           quantity: parseInt(getCellValue(row, headers, ['quantity', 'qty'])) || 1,
-          item_cost: parseCostValue(getCellValue(row, headers, ['item_cost', 'cost', 'price', 'amount'])),
+          item_cost: parseCostValue(getCellValue(row, headers, ['item_cost', 'cost', 'price', 'amount', 'total', 'value'])),
           currency: getCellValue(row, headers, ['currency']) || 'USD',
           status: getCellValue(row, headers, ['status']) || 'Non Submitted',
           payment_status: getCellValue(row, headers, ['payment_status', 'payment status']) || 'pending',
@@ -106,31 +106,44 @@ export const ImportOrdersDialog = ({ open, onOpenChange, onImportOrders, loading
   };
 
   const parseCostValue = (value: string): number => {
-    if (!value || typeof value !== 'string') return 0;
+    if (!value) return 0;
     
-    // Remove any whitespace
-    const cleanValue = value.trim();
+    // Convert to string and remove any whitespace
+    const cleanValue = value.toString().trim();
+    
+    if (!cleanValue || cleanValue === '' || cleanValue === '0') return 0;
+    
+    console.log('Parsing cost value:', cleanValue); // Debug log
     
     // Handle AED format (AED17, AED 17, etc.)
-    if (cleanValue.toLowerCase().startsWith('aed')) {
-      const numericPart = cleanValue.replace(/^aed\s*/i, '');
-      return parseFloat(numericPart) || 0;
+    if (cleanValue.toLowerCase().includes('aed')) {
+      const numericPart = cleanValue.replace(/aed\s*/gi, '').replace(/[^\d.-]/g, '');
+      const parsed = parseFloat(numericPart);
+      console.log('AED parsed:', parsed);
+      return isNaN(parsed) ? 0 : parsed;
     }
     
     // Handle USD format ($25, $ 25, USD25, etc.)
-    if (cleanValue.startsWith('$') || cleanValue.toLowerCase().startsWith('usd')) {
-      const numericPart = cleanValue.replace(/^(\$|usd)\s*/i, '');
-      return parseFloat(numericPart) || 0;
+    if (cleanValue.includes('$') || cleanValue.toLowerCase().includes('usd')) {
+      const numericPart = cleanValue.replace(/(\$|usd)\s*/gi, '').replace(/[^\d.-]/g, '');
+      const parsed = parseFloat(numericPart);
+      console.log('USD parsed:', parsed);
+      return isNaN(parsed) ? 0 : parsed;
     }
     
     // Handle SAR format
-    if (cleanValue.toLowerCase().startsWith('sar')) {
-      const numericPart = cleanValue.replace(/^sar\s*/i, '');
-      return parseFloat(numericPart) || 0;
+    if (cleanValue.toLowerCase().includes('sar')) {
+      const numericPart = cleanValue.replace(/sar\s*/gi, '').replace(/[^\d.-]/g, '');
+      const parsed = parseFloat(numericPart);
+      console.log('SAR parsed:', parsed);
+      return isNaN(parsed) ? 0 : parsed;
     }
     
-    // Default: try to parse as a regular number
-    return parseFloat(cleanValue) || 0;
+    // Default: try to parse as a regular number (remove any non-numeric characters except decimal point and minus)
+    const numericPart = cleanValue.replace(/[^\d.-]/g, '');
+    const parsed = parseFloat(numericPart);
+    console.log('Default parsed:', parsed);
+    return isNaN(parsed) ? 0 : parsed;
   };
 
   const handleImport = async () => {
@@ -247,7 +260,7 @@ export const ImportOrdersDialog = ({ open, onOpenChange, onImportOrders, loading
                         <td className="p-2">{order.asin || '-'}</td>
                         <td className="p-2">{order.item_title || '-'}</td>
                         <td className="p-2">{order.quantity}</td>
-                        <td className="p-2">{order.item_cost}</td>
+                        <td className="p-2">{order.currency} {order.item_cost}</td>
                         <td className="p-2">{order.status}</td>
                       </tr>
                     ))}
@@ -265,7 +278,7 @@ export const ImportOrdersDialog = ({ open, onOpenChange, onImportOrders, loading
               <Alert>
                 <Upload className="h-4 w-4" />
                 <AlertDescription>
-                  Expected columns: order_id (required), invoice_id, asin, sku, item_title, quantity, item_cost, currency, status, payment_status
+                  Expected columns: order_id (required), invoice_id, asin, sku, item_title, quantity, item_cost/cost/price (supports AED17, $25 formats), currency, status, payment_status
                 </AlertDescription>
               </Alert>
             </div>
