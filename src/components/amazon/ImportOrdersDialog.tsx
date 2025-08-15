@@ -60,6 +60,11 @@ export const ImportOrdersDialog = ({ open, onOpenChange, onImportOrders, loading
       const rows = jsonData.slice(1) as any[][];
 
       const parsedOrders: CreateOrder[] = rows.map((row, index) => {
+        console.log(`Processing row ${index}:`, row); // Debug log
+        
+        const costValue = getCellValue(row, headers, ['item_cost', 'cost', 'price', 'amount', 'total', 'value']);
+        console.log(`Cost value for row ${index}:`, costValue);
+        
         const order: CreateOrder = {
           order_id: getCellValue(row, headers, ['order_id', 'order id', 'orderid']) || `ORDER_${Date.now()}_${index}`,
           invoice_id: getCellValue(row, headers, ['invoice_id', 'invoice id', 'invoiceid']),
@@ -67,12 +72,14 @@ export const ImportOrdersDialog = ({ open, onOpenChange, onImportOrders, loading
           sku: getCellValue(row, headers, ['sku']),
           item_title: getCellValue(row, headers, ['item_title', 'item title', 'title', 'product_name']),
           quantity: parseInt(getCellValue(row, headers, ['quantity', 'qty'])) || 1,
-          item_cost: parseCostValue(getCellValue(row, headers, ['item_cost', 'cost', 'price', 'amount', 'total', 'value'])),
+          item_cost: parseCostValue(costValue),
           currency: getCellValue(row, headers, ['currency']) || 'USD',
           status: getCellValue(row, headers, ['status']) || 'Non Submitted',
           payment_status: getCellValue(row, headers, ['payment_status', 'payment status']) || 'pending',
           country: selectedCountry,
         };
+
+        console.log(`Parsed order ${index}:`, order); // Debug log
 
         // Add optional fields if they exist
         const warehouseCode = getCellValue(row, headers, ['warehouse_code', 'warehouse']);
@@ -99,51 +106,71 @@ export const ImportOrdersDialog = ({ open, onOpenChange, onImportOrders, loading
     for (const name of possibleNames) {
       const index = headers.indexOf(name);
       if (index !== -1 && row[index] !== undefined && row[index] !== null) {
-        return row[index].toString().trim();
+        const value = row[index].toString().trim();
+        console.log(`Found column "${name}" at index ${index} with value:`, row[index], 'cleaned:', value);
+        return value;
       }
     }
+    console.log(`No matching column found for:`, possibleNames, 'in headers:', headers);
     return '';
   };
 
-  const parseCostValue = (value: string): number => {
-    if (!value) return 0;
+  const parseCostValue = (value: any): number => {
+    if (!value && value !== 0) return 0;
     
     // Convert to string and remove any whitespace
-    const cleanValue = value.toString().trim();
+    const cleanValue = String(value).trim();
     
     if (!cleanValue || cleanValue === '' || cleanValue === '0') return 0;
     
-    console.log('Parsing cost value:', cleanValue); // Debug log
+    console.log('Original value:', value, 'Clean value:', cleanValue); // Debug log
     
     // Handle AED format (AED17, AED 17, etc.)
     if (cleanValue.toLowerCase().includes('aed')) {
-      const numericPart = cleanValue.replace(/aed\s*/gi, '').replace(/[^\d.-]/g, '');
-      const parsed = parseFloat(numericPart);
-      console.log('AED parsed:', parsed);
-      return isNaN(parsed) ? 0 : parsed;
+      // Extract numbers after AED
+      const match = cleanValue.match(/aed\s*(\d+(?:\.\d+)?)/i);
+      if (match) {
+        const parsed = parseFloat(match[1]);
+        console.log('AED matched:', match[1], 'parsed:', parsed);
+        return parsed;
+      }
     }
     
     // Handle USD format ($25, $ 25, USD25, etc.)
-    if (cleanValue.includes('$') || cleanValue.toLowerCase().includes('usd')) {
-      const numericPart = cleanValue.replace(/(\$|usd)\s*/gi, '').replace(/[^\d.-]/g, '');
-      const parsed = parseFloat(numericPart);
-      console.log('USD parsed:', parsed);
-      return isNaN(parsed) ? 0 : parsed;
+    if (cleanValue.includes('$')) {
+      // Extract numbers after $
+      const match = cleanValue.match(/\$\s*(\d+(?:\.\d+)?)/);
+      if (match) {
+        const parsed = parseFloat(match[1]);
+        console.log('USD $ matched:', match[1], 'parsed:', parsed);
+        return parsed;
+      }
+    }
+    
+    if (cleanValue.toLowerCase().includes('usd')) {
+      // Extract numbers after USD
+      const match = cleanValue.match(/usd\s*(\d+(?:\.\d+)?)/i);
+      if (match) {
+        const parsed = parseFloat(match[1]);
+        console.log('USD matched:', match[1], 'parsed:', parsed);
+        return parsed;
+      }
     }
     
     // Handle SAR format
     if (cleanValue.toLowerCase().includes('sar')) {
-      const numericPart = cleanValue.replace(/sar\s*/gi, '').replace(/[^\d.-]/g, '');
-      const parsed = parseFloat(numericPart);
-      console.log('SAR parsed:', parsed);
-      return isNaN(parsed) ? 0 : parsed;
+      const match = cleanValue.match(/sar\s*(\d+(?:\.\d+)?)/i);
+      if (match) {
+        const parsed = parseFloat(match[1]);
+        console.log('SAR matched:', match[1], 'parsed:', parsed);
+        return parsed;
+      }
     }
     
-    // Default: try to parse as a regular number (remove any non-numeric characters except decimal point and minus)
-    const numericPart = cleanValue.replace(/[^\d.-]/g, '');
-    const parsed = parseFloat(numericPart);
-    console.log('Default parsed:', parsed);
-    return isNaN(parsed) ? 0 : parsed;
+    // Default: try to parse as a regular number
+    const numericValue = parseFloat(cleanValue);
+    console.log('Default numeric parse:', numericValue);
+    return isNaN(numericValue) ? 0 : numericValue;
   };
 
   const handleImport = async () => {
