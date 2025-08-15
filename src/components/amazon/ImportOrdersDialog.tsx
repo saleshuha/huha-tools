@@ -20,7 +20,7 @@ interface ImportOrdersDialogProps {
 
 export const ImportOrdersDialog = ({ open, onOpenChange, onImportOrders, loading }: ImportOrdersDialogProps) => {
   const { selectedCountry } = useCountry();
-  const { convertCurrency, formatCurrency } = useCurrencyConverter();
+  const { convertCurrency, formatCurrency, exchangeRates, loading: currencyLoading } = useCurrencyConverter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [progress, setProgress] = useState(0);
@@ -96,10 +96,19 @@ export const ImportOrdersDialog = ({ open, onOpenChange, onImportOrders, loading
         const viewingCurrency = selectedCountry === 'UAE' ? 'AED' : selectedCountry === 'KSA' ? 'SAR' : 'USD';
         
         console.log(`Row ${index} - Parsed: ${amount} ${currency}, Converting to: ${viewingCurrency}`);
+        console.log(`Row ${index} - Exchange rates available:`, exchangeRates);
+        console.log(`Row ${index} - Currency converter loading:`, currencyLoading);
         
-        const convertedCost = convertCurrency(amount, currency, viewingCurrency);
+        let convertedCost = amount;
+        if (currency !== viewingCurrency) {
+          console.log(`Row ${index} - Calling convertCurrency(${amount}, "${currency}", "${viewingCurrency}")`);
+          convertedCost = convertCurrency(amount, currency, viewingCurrency);
+          console.log(`Row ${index} - Conversion result: ${convertedCost}`);
+        } else {
+          console.log(`Row ${index} - No conversion needed, currencies match`);
+        }
         
-        console.log(`Row ${index} - Converted: ${convertedCost} ${viewingCurrency}`);
+        console.log(`Row ${index} - Final cost: ${convertedCost} ${viewingCurrency}`);
         
         const order: CreateOrder = {
           order_id: getValue(['order_id', 'order_id', 'orderid', 'order_number']) || `ORDER_${Date.now()}_${index}`,
