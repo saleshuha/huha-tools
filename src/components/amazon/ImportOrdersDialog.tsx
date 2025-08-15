@@ -143,7 +143,8 @@ export const ImportOrdersDialog = ({ open, onOpenChange, onImportOrders, loading
     // USD formats: $6.40, USD6.40
     if (stringValue.includes('$')) {
       currency = 'USD';
-      const match = stringValue.match(/\$\s*(\d+(?:\.\d+)?)/);
+      // More flexible regex to handle various formats
+      const match = stringValue.match(/(\d+(?:\.\d+)?)/);
       if (match) {
         cost = parseFloat(match[1]);
         console.log('USD $ format - Currency:', currency, 'Cost:', cost);
@@ -152,7 +153,7 @@ export const ImportOrdersDialog = ({ open, onOpenChange, onImportOrders, loading
     // AED formats: AED19.56
     else if (stringValue.toLowerCase().includes('aed')) {
       currency = 'AED';
-      const match = stringValue.match(/aed\s*(\d+(?:\.\d+)?)/i);
+      const match = stringValue.match(/(\d+(?:\.\d+)?)/);
       if (match) {
         cost = parseFloat(match[1]);
         console.log('AED format - Currency:', currency, 'Cost:', cost);
@@ -161,7 +162,7 @@ export const ImportOrdersDialog = ({ open, onOpenChange, onImportOrders, loading
     // SAR formats: SAR25.00
     else if (stringValue.toLowerCase().includes('sar')) {
       currency = 'SAR';
-      const match = stringValue.match(/sar\s*(\d+(?:\.\d+)?)/i);
+      const match = stringValue.match(/(\d+(?:\.\d+)?)/);
       if (match) {
         cost = parseFloat(match[1]);
         console.log('SAR format - Currency:', currency, 'Cost:', cost);
@@ -175,6 +176,13 @@ export const ImportOrdersDialog = ({ open, onOpenChange, onImportOrders, loading
         currency = 'USD'; // Default currency for plain numbers
         console.log('Plain number - Currency:', currency, 'Cost:', cost);
       }
+    }
+    
+    console.log('Before conversion - Cost:', cost, 'Currency:', currency);
+    
+    if (cost === 0) {
+      console.log('Cost is 0, returning as is');
+      return { cost: 0, currency: 'USD' };
     }
     
     // Convert to viewing currency
