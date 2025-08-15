@@ -88,11 +88,18 @@ export const ImportOrdersDialog = ({ open, onOpenChange, onImportOrders, loading
         const costValue = getValue(['item_cost', 'cost', 'price', 'amount', 'total', 'value', 'unit_cost', 'unit_price']);
         const currencyValue = getValue(['currency', 'curr']);
         
+        console.log(`Row ${index} - Raw cost: ${costValue}, Currency column: ${currencyValue}`);
+        
         const { amount, currency } = parseAmountCurrency(costValue, selectedCountry, currencyValue);
         
         // Convert to viewing currency
         const viewingCurrency = selectedCountry === 'UAE' ? 'AED' : selectedCountry === 'KSA' ? 'SAR' : 'USD';
+        
+        console.log(`Row ${index} - Parsed: ${amount} ${currency}, Converting to: ${viewingCurrency}`);
+        
         const convertedCost = convertCurrency(amount, currency, viewingCurrency);
+        
+        console.log(`Row ${index} - Converted: ${convertedCost} ${viewingCurrency}`);
         
         const order: CreateOrder = {
           order_id: getValue(['order_id', 'order_id', 'orderid', 'order_number']) || `ORDER_${Date.now()}_${index}`,
