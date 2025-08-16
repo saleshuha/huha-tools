@@ -35,11 +35,15 @@ export const MetricsDashboard = ({ metrics, loading }: MetricsDashboardProps) =>
 
   if (!metrics) return null;
 
-  // Memoize conversion to ensure it updates when country/metrics change
+  // Force conversion recalculation and add logging
   const convertedTotalValue = useMemo(() => {
     if (!metrics?.totalValue) return 0;
-    return convertCurrency(metrics.totalValue, 'USD', countryCurrency);
+    const converted = convertCurrency(metrics.totalValue, 'USD', countryCurrency);
+    console.log(`Converting ${metrics.totalValue} USD to ${countryCurrency}: ${converted}`);
+    return converted;
   }, [metrics?.totalValue, countryCurrency, convertCurrency]);
+
+  console.log('MetricsDashboard render - Country:', selectedCountry, 'Currency:', countryCurrency, 'Total Value:', metrics?.totalValue, 'Converted:', convertedTotalValue);
 
   return (
     <div className="space-y-6">

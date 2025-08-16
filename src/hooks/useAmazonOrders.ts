@@ -70,6 +70,8 @@ export const useAmazonOrders = () => {
   };
 
   const calculateMetrics = (ordersData: Order[]) => {
+    console.log('Calculating metrics for orders:', ordersData.length);
+    
     if (!ordersData || ordersData.length === 0) {
       setMetrics({
         totalOrders: 0,
@@ -93,33 +95,51 @@ export const useAmazonOrders = () => {
       return sum + (cost * qty);
     }, 0);
     
+    console.log('Total value calculated:', totalValue);
+    
     const statusBreakdown = ordersData.reduce((acc, order) => {
       const status = order.status || 'Unknown';
       acc[status] = (acc[status] || 0) + 1;
       return acc;
     }, {} as { [key: string]: number });
 
+    // Count payment statuses
     const paymentStatusBreakdown = ordersData.reduce((acc, order) => {
       const paymentStatus = order.payment_status || 'unknown';
       acc[paymentStatus] = (acc[paymentStatus] || 0) + 1;
       return acc;
     }, {} as { [key: string]: number });
 
-    // Calculate payment metrics based on invoice_date + 45 days
-    const now = new Date();
-    const pendingPayments = ordersData.filter(o => o.payment_status === 'pending').length;
+    console.log('Payment status breakdown:', paymentStatusBreakdown);
+
+    // Calculate payment metrics based on actual payment_status field
+    const pendingOrders = ordersData.filter(o => {
+      const isPending = o.payment_status === 'pending';
+      return isPending;
+    });
+    const pendingPayments = pendingOrders.length;
     
-    const overduePayments = ordersData.filter(o => {
-      if (!o.invoice_date || o.payment_status === 'completed') return false;
+    console.log('Pending orders count:', pendingPayments);
+    
+    // Calculate overdue payments: orders with invoice_date + 45 days < today and status = pending
+    const now = new Date();
+    const overdueOrders = ordersData.filter(o => {
+      if (o.payment_status !== 'pending' || !o.invoice_date) return false;
       try {
         const invoiceDate = new Date(o.invoice_date);
         const dueDate = new Date(invoiceDate);
         dueDate.setDate(dueDate.getDate() + 45); // Add 45 days to invoice date
-        return dueDate < now && o.payment_status === 'pending';
-      } catch {
+        const isOverdue = dueDate < now;
+        return isOverdue;
+      } catch (error) {
+        console.error('Error parsing invoice date:', o.invoice_date, error);
         return false;
       }
-    }).length;
+    });
+    const overduePayments = overdueOrders.length;
+    
+    console.log('Overdue orders count:', overduePayments);
+    console.log('Sample overdue order:', overdueOrders[0]);
     
     const completedPayments = ordersData.filter(o => o.payment_status === 'completed').length;
 
@@ -130,41 +150,41 @@ export const useAmazonOrders = () => {
 
     const upcomingPayments = {
       next7Days: ordersData.filter(o => {
-        if (!o.invoice_date || o.payment_status === 'completed') return false;
+        if (o.payment_status !== 'pending' || !o.invoice_date) return false;
         try {
           const invoiceDate = new Date(o.invoice_date);
           const dueDate = new Date(invoiceDate);
           dueDate.setDate(dueDate.getDate() + 45);
-          return dueDate <= next7Days && dueDate >= now && o.payment_status === 'pending';
+          return dueDate <= next7Days && dueDate >= now;
         } catch {
           return false;
         }
       }).length,
       next30Days: ordersData.filter(o => {
-        if (!o.invoice_date || o.payment_status === 'completed') return false;
+        if (o.payment_status !== 'pending' || !o.invoice_date) return false;
         try {
           const invoiceDate = new Date(o.invoice_date);
           const dueDate = new Date(invoiceDate);
           dueDate.setDate(dueDate.getDate() + 45);
-          return dueDate <= next30Days && dueDate >= now && o.payment_status === 'pending';
+          return dueDate <= next30Days && dueDate >= now;
         } catch {
           return false;
         }
       }).length,
       next90Days: ordersData.filter(o => {
-        if (!o.invoice_date || o.payment_status === 'completed') return false;
+        if (o.payment_status !== 'pending' || !o.invoice_date) return false;
         try {
           const invoiceDate = new Date(o.invoice_date);
           const dueDate = new Date(invoiceDate);
           dueDate.setDate(dueDate.getDate() + 45);
-          return dueDate <= next90Days && dueDate >= now && o.payment_status === 'pending';
+          return dueDate <= next90Days && dueDate >= now;
         } catch {
           return false;
         }
       }).length,
     };
 
-    setMetrics({
+    const finalMetrics = {
       totalOrders,
       totalValue,
       pendingPayments,
@@ -173,7 +193,10 @@ export const useAmazonOrders = () => {
       statusBreakdown,
       paymentStatusBreakdown,
       upcomingPayments,
-    });
+    };
+    
+    console.log('Final metrics:', finalMetrics);
+    setMetrics(finalMetrics);
   };
 
   const createOrder = async (orderData: CreateOrder) => {
