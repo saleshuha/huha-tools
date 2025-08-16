@@ -224,9 +224,26 @@ export const useAmazonOrders = () => {
     }
   };
 
-  const bulkImportOrders = async (ordersData: CreateOrder[]) => {
+  const bulkImportOrders = async (ordersData: CreateOrder[], clearOldData: boolean = false) => {
     try {
+      setLoading(true);
       const user = (await supabase.auth.getUser()).data.user;
+
+      // Clear existing data if requested
+      if (clearOldData) {
+        const { error: deleteError } = await supabase
+          .from('orders')
+          .delete()
+          .eq('country', selectedCountry)
+          .eq('user_id', user?.id);
+
+        if (deleteError) {
+          console.warn('Error clearing existing data:', deleteError);
+        } else {
+          console.log(`Cleared existing data for ${selectedCountry}`);
+        }
+      }
+
       const formattedOrders = ordersData.map(order => ({
         ...order,
         country: selectedCountry,
@@ -242,7 +259,7 @@ export const useAmazonOrders = () => {
 
       toast({
         title: 'Bulk import successful',
-        description: `${data.length} orders imported successfully`,
+        description: `${data.length} orders imported successfully. ${clearOldData ? 'Previous data cleared.' : ''}`,
       });
 
       await fetchOrders();
@@ -254,6 +271,8 @@ export const useAmazonOrders = () => {
         variant: 'destructive',
       });
       throw error;
+    } finally {
+      setLoading(false);
     }
   };
 

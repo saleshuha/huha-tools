@@ -14,7 +14,7 @@ import * as XLSX from 'xlsx';
 interface ImportOrdersDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onImportOrders: (orders: CreateOrder[]) => Promise<any>;
+  onImportOrders: (orders: CreateOrder[], clearOldData?: boolean) => Promise<any>;
   loading: boolean;
 }
 
@@ -83,40 +83,53 @@ export const ImportOrdersDialog = ({ open, onOpenChange, onImportOrders, loading
           return null;
         };
 
-        // Parse cost with all possible synonyms
-        const costValue = getValue(['item_cost', 'cost', 'price', 'amount', 'total', 'value', 'unit_cost', 'unit_price']);
-        const currencyValue = getValue(['currency', 'curr']);
-        
-        console.log(`Row ${index} - Raw cost: ${costValue}, Currency column: ${currencyValue}`);
-        
-        const { amount, currency } = parseAmountCurrency(costValue, selectedCountry, currencyValue);
-        
-        console.log(`Row ${index} - Storing original: ${amount} ${currency}`);
-        
-        const order: CreateOrder = {
-          order_id: getValue(['order_id', 'order_id', 'orderid', 'order_number']) || `ORDER_${Date.now()}_${index}`,
-          invoice_id: getValue(['invoice_id', 'invoice_id', 'invoiceid', 'invoice_number']) || '',
-          asin: getValue(['asin']) || '',
-          sku: getValue(['sku']) || '',
-          item_title: getValue(['item_title', 'item_title', 'title', 'product_name', 'product_title', 'name']) || '',
-          quantity: parseInt(getValue(['quantity', 'qty', 'amount', 'count'])) || 1,
-          item_cost: amount,
-          currency: currency,
-          status: getValue(['status']) || 'Non Submitted',
-          payment_status: getValue(['payment_status', 'payment_status']) || 'pending',
-          country: selectedCountry,
+        // KSA-specific header mapping with exact names
+        const getKSAValue = (exactHeader: string, synonyms: string[] = []): any => {
+          // First try exact header match
+          const exactIdx = headerMap.get(exactHeader.toLowerCase().replace(/\s+/g, '_'));
+          if (exactIdx !== undefined && row[exactIdx] !== undefined && row[exactIdx] !== null && row[exactIdx] !== '') {
+            return row[exactIdx];
+          }
+          
+          // Then try synonyms
+          return getValue(synonyms);
         };
 
-        // Add optional fields
-        const warehouseCode = getValue(['warehouse_code', 'warehouse']);
-        if (warehouseCode) order.warehouse_code = warehouseCode;
+        // Parse cost with currency detection
+        const costValue = getKSAValue('item_cost', ['cost', 'price', 'amount', 'total', 'value', 'unit_cost', 'unit_price']);
+        const { amount, currency } = parseAmountCurrency(costValue, selectedCountry);
+        
+        // Parse dates
+        const parseDate = (dateValue: any): string | undefined => {
+          if (!dateValue) return undefined;
+          try {
+            const date = new Date(dateValue);
+            return isNaN(date.getTime()) ? undefined : date.toISOString().split('T')[0];
+          } catch {
+            return undefined;
+          }
+        };
 
-        const vatId = getValue(['vat_id', 'vat']);
-        if (vatId) order.vat_id = vatId;
+        const order: CreateOrder = {
+          order_id: getKSAValue('order_id', ['orderid', 'order_number']) || `ORDER_${Date.now()}_${index}`,
+          invoice_id: getKSAValue('invoice_id', ['invoiceid', 'invoice_number']) || '',
+          shipment_date: parseDate(getKSAValue('shipment_date', ['ship_date', 'shipped_date'])),
+          invoice_date: parseDate(getKSAValue('invoice_date', ['inv_date'])),
+          vat_id: getKSAValue('vat_id', ['vat']) || '',
+          asin: getKSAValue('asin') || '',
+          sku: getKSAValue('sku') || '',
+          item_title: getKSAValue('item_title', ['title', 'product_name', 'product_title', 'name']) || '',
+          quantity: parseInt(getKSAValue('quantity', ['qty', 'count'])) || 1,
+          item_cost: amount,
+          tax_rate: parseFloat(getKSAValue('tax_rate', ['tax', 'vat_rate'])) || 0,
+          warehouse_code: getKSAValue('warehouse_code', ['warehouse']) || '',
+          status: getKSAValue('status') || 'Non Submitted',
+          currency: currency,
+          country: selectedCountry,
+          payment_status: 'pending',
+        };
 
-        const paymentNotes = getValue(['payment_notes', 'notes']);
-        if (paymentNotes) order.payment_notes = paymentNotes;
-
+        console.log(`Row ${index + 1} parsed:`, order);
         return order;
       }).filter(order => order.order_id);
 
@@ -129,16 +142,15 @@ export const ImportOrdersDialog = ({ open, onOpenChange, onImportOrders, loading
     }
   };
 
-  const parseAmountCurrency = (raw: unknown, selectedCountry: 'UAE' | 'KSA', currencyFromColumn?: string): { amount: number; currency: string } => {
+  const parseAmountCurrency = (raw: unknown, selectedCountry: 'UAE' | 'KSA'): { amount: number; currency: string } => {
     if (raw === null || raw === undefined || raw === '') return { amount: 0, currency: 'USD' };
     
-    console.log(`parseAmountCurrency - Raw input: "${raw}", currencyFromColumn: "${currencyFromColumn}"`);
+    console.log(`parseAmountCurrency - Raw input: "${raw}"`);
 
-    // If Excel gave us a numeric cell, don't default to country currency - use USD as neutral default
+    // If Excel gave us a numeric cell, use USD as neutral default
     if (typeof raw === 'number') {
-      const detectedCurrency = currencyFromColumn ? currencyFromColumn.toUpperCase() : 'USD';
-      console.log(`parseAmountCurrency - Numeric value: ${raw}, using currency: ${detectedCurrency}`);
-      return { amount: raw, currency: detectedCurrency };
+      console.log(`parseAmountCurrency - Numeric value: ${raw}, using USD`);
+      return { amount: raw, currency: 'USD' };
     }
 
     const s = String(raw).trim();
@@ -170,30 +182,38 @@ export const ImportOrdersDialog = ({ open, onOpenChange, onImportOrders, loading
           currency = match[2].toUpperCase();
         } else { // Plain number
           amount = parseFloat(match[1].replace(/,/g, ''));
-          // For plain numbers, prioritize currency column, then USD as neutral default
-          currency = currencyFromColumn ? currencyFromColumn.toUpperCase() : 'USD';
+          currency = 'USD'; // Default to USD for plain numbers
         }
 
-        console.log(`parseAmountCurrency - Detected: ${amount} ${currency}`);
-        return { amount, currency };
+        const numericValue = isNaN(amount) ? 0 : amount;
+        console.log(`parseAmountCurrency - Detected: ${numericValue} ${currency}`);
+        return { amount: numericValue, currency };
       }
     }
-
-    console.log(`parseAmountCurrency - No pattern matched, defaulting to USD`);
-    return { amount: 0, currency: 'USD' };
+    
+    // Default currency based on country if no currency detected
+    const defaultCurrency = selectedCountry === 'UAE' ? 'AED' : selectedCountry === 'KSA' ? 'SAR' : 'USD';
+    
+    console.log(`parseAmountCurrency - No pattern matched, using default: ${defaultCurrency}`);
+    
+    return { 
+      amount: 0, 
+      currency: defaultCurrency
+    };
   };
 
   const handleImport = async () => {
     if (preview.length === 0) return;
     
     try {
-      await onImportOrders(preview);
+      // Clear existing data for the current country before importing
+      await onImportOrders(preview, true); // Pass true to indicate clearing old data
       setFile(null);
       setPreview([]);
       setProgress(0);
       onOpenChange(false);
     } catch (error) {
-      setError('Failed to import orders. Please try again.');
+      console.error('Import failed:', error);
     }
   };
 
@@ -316,7 +336,7 @@ export const ImportOrdersDialog = ({ open, onOpenChange, onImportOrders, loading
               <Alert>
                 <Upload className="h-4 w-4" />
                 <AlertDescription>
-                  Expected columns: order_id (required), invoice_id, asin, sku, item_title, quantity, item_cost/cost/price (supports $6.40, AED19.56, SAR25.00 formats), status, payment_status. Costs will be stored as-is from the file.
+                  Expected columns: Order ID, Invoice ID, Shipment date, Invoice date, VAT ID, ASIN, SKU, Item Title, Quantity, Item Cost, Tax Rate, Warehouse Code, Status. Costs will be stored as-is from the file. Importing will clear all existing data for {selectedCountry}.
                 </AlertDescription>
               </Alert>
             </div>
