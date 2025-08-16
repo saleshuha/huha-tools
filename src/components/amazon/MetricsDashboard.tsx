@@ -34,6 +34,7 @@ export const MetricsDashboard = ({ metrics, loading }: MetricsDashboardProps) =>
 
   if (!metrics) return null;
 
+  // Force re-calculation when country changes
   const convertedTotalValue = convertCurrency(metrics.totalValue, 'USD', countryCurrency);
 
   return (

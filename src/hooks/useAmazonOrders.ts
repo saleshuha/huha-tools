@@ -85,6 +85,8 @@ export const useAmazonOrders = () => {
     }
 
     const totalOrders = ordersData.length;
+    
+    // Calculate total value in USD (all orders are stored in USD)
     const totalValue = ordersData.reduce((sum, order) => {
       const cost = parseFloat(order.item_cost?.toString() || '0') || 0;
       const qty = parseInt(order.quantity?.toString() || '1') || 1;
@@ -103,46 +105,59 @@ export const useAmazonOrders = () => {
       return acc;
     }, {} as { [key: string]: number });
 
+    // Calculate payment metrics based on invoice_date + 45 days
+    const now = new Date();
     const pendingPayments = ordersData.filter(o => o.payment_status === 'pending').length;
+    
     const overduePayments = ordersData.filter(o => {
-      if (!o.payment_due_date) return false;
+      if (!o.invoice_date || o.payment_status === 'completed') return false;
       try {
-        return new Date(o.payment_due_date) < new Date() && o.payment_status !== 'completed';
+        const invoiceDate = new Date(o.invoice_date);
+        const dueDate = new Date(invoiceDate);
+        dueDate.setDate(dueDate.getDate() + 45); // Add 45 days to invoice date
+        return dueDate < now && o.payment_status === 'pending';
       } catch {
         return false;
       }
     }).length;
+    
     const completedPayments = ordersData.filter(o => o.payment_status === 'completed').length;
 
-    const now = new Date();
+    // Calculate upcoming payments based on invoice_date + 45 days
     const next7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
     const next30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
     const next90Days = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
 
     const upcomingPayments = {
       next7Days: ordersData.filter(o => {
-        if (!o.payment_due_date) return false;
+        if (!o.invoice_date || o.payment_status === 'completed') return false;
         try {
-          const dueDate = new Date(o.payment_due_date);
-          return dueDate <= next7Days && dueDate >= now && o.payment_status !== 'completed';
+          const invoiceDate = new Date(o.invoice_date);
+          const dueDate = new Date(invoiceDate);
+          dueDate.setDate(dueDate.getDate() + 45);
+          return dueDate <= next7Days && dueDate >= now && o.payment_status === 'pending';
         } catch {
           return false;
         }
       }).length,
       next30Days: ordersData.filter(o => {
-        if (!o.payment_due_date) return false;
+        if (!o.invoice_date || o.payment_status === 'completed') return false;
         try {
-          const dueDate = new Date(o.payment_due_date);
-          return dueDate <= next30Days && dueDate >= now && o.payment_status !== 'completed';
+          const invoiceDate = new Date(o.invoice_date);
+          const dueDate = new Date(invoiceDate);
+          dueDate.setDate(dueDate.getDate() + 45);
+          return dueDate <= next30Days && dueDate >= now && o.payment_status === 'pending';
         } catch {
           return false;
         }
       }).length,
       next90Days: ordersData.filter(o => {
-        if (!o.payment_due_date) return false;
+        if (!o.invoice_date || o.payment_status === 'completed') return false;
         try {
-          const dueDate = new Date(o.payment_due_date);
-          return dueDate <= next90Days && dueDate >= now && o.payment_status !== 'completed';
+          const invoiceDate = new Date(o.invoice_date);
+          const dueDate = new Date(invoiceDate);
+          dueDate.setDate(dueDate.getDate() + 45);
+          return dueDate <= next90Days && dueDate >= now && o.payment_status === 'pending';
         } catch {
           return false;
         }
