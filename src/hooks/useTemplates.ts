@@ -59,9 +59,14 @@ export const useTemplates = () => {
       console.log('saveTemplate: Starting save for template:', { name, headers, fileType, storeName, defaultValues });
       
       const user = await supabase.auth.getUser();
+      console.log('saveTemplate: User check result:', user);
+      
       if (!user.data.user?.id) {
+        console.error('saveTemplate: User not authenticated');
         throw new Error('User not authenticated');
       }
+
+      console.log('saveTemplate: User authenticated, ID:', user.data.user.id);
 
       const templateData = {
         file_type: name,
@@ -71,25 +76,35 @@ export const useTemplates = () => {
       };
 
       console.log('saveTemplate: Inserting template data:', templateData);
+      console.log('saveTemplate: Table structure check - inserting into noon_file_headers');
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('noon_file_headers')
-        .insert(templateData);
+        .insert(templateData)
+        .select();
+
+      console.log('saveTemplate: Insert result - data:', data, 'error:', error);
 
       if (error) {
-        console.error('saveTemplate: Database error:', error);
+        console.error('saveTemplate: Database error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
         throw error;
       }
 
-      console.log('saveTemplate: Successfully saved to database');
+      console.log('saveTemplate: Successfully saved to database, data returned:', data);
 
       toast({
         title: "Template saved",
         description: `Template "${name}" has been saved successfully`,
       });
 
+      console.log('saveTemplate: About to refresh templates');
       await fetchTemplates();
-      console.log('saveTemplate: Templates refreshed');
+      console.log('saveTemplate: Templates refreshed successfully');
     } catch (error) {
       console.error('saveTemplate: Error occurred:', error);
       toast({

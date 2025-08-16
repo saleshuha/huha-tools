@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { FileTemplate } from '@/types/template';
 import { useTemplates } from '@/hooks/useTemplates';
+import { useToast } from '@/hooks/use-toast';
 import { FileText, Calendar, Columns, Edit3, Plus, Trash2, Settings, Store } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
@@ -262,6 +263,7 @@ const CreateNewTemplate = ({ onSave, selectedStore }: { onSave: (template: FileT
 
 export const TemplateSelector = ({ onTemplateSelect, selectedTemplate }: TemplateSelectorProps) => {
   const { templates, loading, saveTemplate, deleteTemplate, getUniqueStores, addStore, refreshTemplates } = useTemplates();
+  const { toast } = useToast();
   const [editingTemplate, setEditingTemplate] = useState<FileTemplate | null>(null);
   const [selectedStore, setSelectedStore] = useState<string>('all');
   const [newStoreName, setNewStoreName] = useState('');
@@ -307,20 +309,55 @@ export const TemplateSelector = ({ onTemplateSelect, selectedTemplate }: Templat
 
   const handleCreateTemplate = async (newTemplate: FileTemplate) => {
     try {
-      await saveTemplate(newTemplate.name, newTemplate.headers, newTemplate.file_type, newTemplate.store_name, newTemplate.defaultValues);
+      console.log('handleCreateTemplate: Starting template creation:', newTemplate);
+      
+      // Validate required fields
+      if (!newTemplate.name || !newTemplate.name.trim()) {
+        console.error('handleCreateTemplate: Template name is empty');
+        toast({
+          title: "Validation Error",
+          description: "Template name is required",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      if (!newTemplate.headers || newTemplate.headers.length === 0) {
+        console.error('handleCreateTemplate: No headers provided');
+        toast({
+          title: "Validation Error", 
+          description: "At least one header is required",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      console.log('handleCreateTemplate: Validation passed, calling saveTemplate');
+      
+      await saveTemplate(
+        newTemplate.name, 
+        newTemplate.headers, 
+        newTemplate.file_type, 
+        newTemplate.store_name, 
+        newTemplate.defaultValues
+      );
+      
+      console.log('handleCreateTemplate: Template saved successfully');
       setShowCreateDialog(false);
+      
       // Refresh stores list
       try {
         const stores = await getUniqueStores();
         if (Array.isArray(stores)) {
           setAvailableStores(stores);
+          console.log('handleCreateTemplate: Stores refreshed:', stores);
         }
       } catch (error) {
         console.error('Error refreshing stores:', error);
       }
     } catch (error) {
-      // Error already handled in saveTemplate
-      console.error('Failed to create template:', error);
+      console.error('handleCreateTemplate: Failed to create template:', error);
+      // Don't close dialog on error so user can try again
     }
   };
 
