@@ -44,6 +44,7 @@ import AmazonFulfillmentTracker from "./pages/AmazonFulfillmentTracker";
 import AddSKUPage from "./pages/AddSKUPage";
 import BulkColumnEditor from "./pages/BulkColumnEditor";
 import SunskySKUImporterPage from "./pages/SunskySKUImporter";
+import TemplateDataMapperPage from "./pages/TemplateDataMapper";
 import { useState as useReactState } from "react";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -210,6 +211,7 @@ const App = () => {
                      <Route path="/zip-splitter" element={<ZipSplitter />} />
                      <Route path="/file-merger" element={<FileMergerPage />} />
                      <Route path="/bulk-column-editor" element={<BulkColumnEditor />} />
+                     <Route path="/template-mapper" element={<TemplateDataMapperPage />} />
                      <Route path="/inventory" element={<Inventory />} />
                     <Route path="/processed-orders" element={<ProcessedOrders />} />
                     <Route path="/users" element={<UserManagementPage />} />
