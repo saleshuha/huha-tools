@@ -304,6 +304,7 @@ export type Database = {
       noon_file_headers: {
         Row: {
           created_at: string
+          default_values: Json | null
           file_type: string
           headers: string[]
           id: string
@@ -313,6 +314,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          default_values?: Json | null
           file_type: string
           headers: string[]
           id?: string
@@ -322,6 +324,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          default_values?: Json | null
           file_type?: string
           headers?: string[]
           id?: string

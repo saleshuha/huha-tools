@@ -37,6 +37,7 @@ export const useTemplates = () => {
         description: `Template with ${item.headers.length} columns`,
         created_at: item.created_at,
         file_type: item.file_type,
+        defaultValues: item.default_values || {},
         store_name: item.store_name
       })) || [];
 
@@ -72,7 +73,8 @@ export const useTemplates = () => {
         file_type: name,
         headers: headers,
         user_id: user.data.user.id,
-        store_name: storeName || null
+        store_name: storeName || null,
+        default_values: defaultValues || null
       };
 
       console.log('saveTemplate: Inserting template data:', templateData);
