@@ -207,10 +207,10 @@ const CreateNewTemplate = ({ onSave, selectedStore }: { onSave: (template: FileT
         </div>
 
         <div>
-          <label className="text-sm font-medium">Headers & Default Values</label>
+          <label className="text-sm font-medium">Headers</label>
           <div className="space-y-3">
             {headers.map((header, index) => (
-              <div key={index} className="space-y-2 p-3 border rounded-lg">
+              <div key={index} className="space-y-2 p-3 border rounded-lg bg-muted/30">
                 <div className="flex gap-2">
                   <Input
                     placeholder={`Header ${index + 1}`}
@@ -226,14 +226,18 @@ const CreateNewTemplate = ({ onSave, selectedStore }: { onSave: (template: FileT
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
-                {header.trim() && (
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">
+                    Default value for this column (optional)
+                  </label>
                   <Input
-                    placeholder="Default value for all rows (optional)"
+                    placeholder={header.trim() ? `Default value for "${header}"` : "Enter header name first"}
                     value={defaultValues[header] || ''}
                     onChange={(e) => updateDefaultValue(header, e.target.value)}
                     className="text-sm"
+                    disabled={!header.trim()}
                   />
-                )}
+                </div>
               </div>
             ))}
             <Button variant="outline" onClick={addHeader} className="w-full">
