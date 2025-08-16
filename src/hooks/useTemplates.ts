@@ -38,7 +38,8 @@ export const useTemplates = () => {
         created_at: item.created_at,
         file_type: item.file_type,
         defaultValues: item.default_values || {},
-        store_name: item.store_name
+        store_name: item.store_name,
+        lockedHeaders: item.locked_headers || []
       })) || [];
 
       console.log('fetchTemplates: Formatted templates:', formattedTemplates);
@@ -55,7 +56,7 @@ export const useTemplates = () => {
     }
   }, [toast]);
 
-  const saveTemplate = async (name: string, headers: string[], fileType: string = 'custom', storeName?: string, defaultValues?: Record<string, string>) => {
+  const saveTemplate = async (name: string, headers: string[], fileType: string = 'custom', storeName?: string, defaultValues?: Record<string, string>, lockedHeaders?: string[]) => {
     try {
       console.log('saveTemplate: Starting save for template:', { name, headers, fileType, storeName, defaultValues });
       
@@ -74,7 +75,8 @@ export const useTemplates = () => {
         headers: headers,
         user_id: user.data.user.id,
         store_name: storeName || null,
-        default_values: defaultValues || null
+        default_values: defaultValues || null,
+        locked_headers: lockedHeaders || []
       };
 
       console.log('saveTemplate: Inserting template data:', templateData);

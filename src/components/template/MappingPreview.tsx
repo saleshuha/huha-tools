@@ -10,17 +10,19 @@ interface MappingPreviewProps {
   targetHeaders: string[];
   mappings: ColumnMapping;
   onMappingChange: (sourceColumn: string, targetColumn: string) => void;
+  lockedHeaders?: string[];
 }
 
 export const MappingPreview = ({ 
   sourceHeaders, 
   targetHeaders, 
   mappings, 
-  onMappingChange 
+  onMappingChange,
+  lockedHeaders = []
 }: MappingPreviewProps) => {
   const uniqueSourceHeaders = [...new Set(sourceHeaders)];
   const unmappedTargetHeaders = targetHeaders.filter(
-    header => !Object.values(mappings).includes(header)
+    header => !Object.values(mappings).includes(header) && !lockedHeaders.includes(header)
   );
 
   const removeMappingForTarget = (targetColumn: string) => {
@@ -74,32 +76,55 @@ export const MappingPreview = ({
               Unmapped Target Columns ({unmappedTargetHeaders.length})
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {unmappedTargetHeaders.map((targetHeader) => (
-              <div key={targetHeader} className="flex items-center gap-3">
-                <Badge variant="secondary" className="min-w-0 flex-1 text-xs">
-                  {targetHeader}
-                </Badge>
-                <ArrowRight className="h-3 w-3 text-muted-foreground" />
-                <Select
-                  onValueChange={(sourceColumn) => onMappingChange(sourceColumn, targetHeader)}
-                >
-                  <SelectTrigger className="w-[200px]">
-                    <SelectValue placeholder="Select source column" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {uniqueSourceHeaders
-                      .filter(header => !Object.keys(mappings).includes(header))
-                      .map((header) => (
-                        <SelectItem key={header} value={header}>
-                          {header}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            ))}
-          </CardContent>
+           <CardContent className="space-y-3">
+             {unmappedTargetHeaders.map((targetHeader) => (
+               <div key={targetHeader} className="flex items-center gap-3">
+                 <Badge variant="secondary" className="min-w-0 flex-1 text-xs">
+                   {targetHeader}
+                 </Badge>
+                 <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                 <Select
+                   onValueChange={(sourceColumn) => onMappingChange(sourceColumn, targetHeader)}
+                 >
+                   <SelectTrigger className="w-[200px]">
+                     <SelectValue placeholder="Select source column" />
+                   </SelectTrigger>
+                   <SelectContent>
+                     {uniqueSourceHeaders
+                       .filter(header => !Object.keys(mappings).includes(header))
+                       .map((header) => (
+                         <SelectItem key={header} value={header}>
+                           {header}
+                         </SelectItem>
+                       ))}
+                   </SelectContent>
+                 </Select>
+               </div>
+             ))}
+           </CardContent>
+         </Card>
+       )}
+
+       {/* Locked Headers */}
+       {lockedHeaders.length > 0 && (
+         <Card>
+           <CardHeader>
+             <CardTitle className="text-sm text-green-600">
+               Locked Headers ({lockedHeaders.length}) - Will use default values
+             </CardTitle>
+           </CardHeader>
+           <CardContent className="space-y-2">
+             {lockedHeaders.map((header) => (
+               <div key={header} className="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-800">
+                 <Badge variant="outline" className="text-xs border-green-500 text-green-700">
+                   🔒 {header}
+                 </Badge>
+                 <span className="text-xs text-muted-foreground">
+                   Uses default value (not mapped)
+                 </span>
+               </div>
+             ))}
+           </CardContent>
         </Card>
       )}
     </div>

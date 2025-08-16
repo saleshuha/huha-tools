@@ -7,6 +7,7 @@ export interface FileTemplate {
   file_type: string;
   defaultValues?: Record<string, string>;
   store_name?: string;
+  lockedHeaders?: string[];
 }
 
 export interface TemplateMappingRule {

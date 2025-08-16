@@ -124,6 +124,7 @@ const CreateNewTemplate = ({ onSave, selectedStore }: { onSave: (template: FileT
   const [headers, setHeaders] = useState<string[]>(['']);
   const [storeName, setStoreName] = useState(selectedStore || '');
   const [defaultValues, setDefaultValues] = useState<Record<string, string>>({});
+  const [lockedHeaders, setLockedHeaders] = useState<string[]>([]);
 
   const addHeader = () => {
     setHeaders([...headers, '']);
@@ -167,6 +168,14 @@ const CreateNewTemplate = ({ onSave, selectedStore }: { onSave: (template: FileT
     }));
   };
 
+  const toggleHeaderLock = (header: string) => {
+    setLockedHeaders(prev => 
+      prev.includes(header) 
+        ? prev.filter(h => h !== header)
+        : [...prev, header]
+    );
+  };
+
   const handleSave = () => {
     if (!templateName.trim()) return;
     
@@ -180,7 +189,8 @@ const CreateNewTemplate = ({ onSave, selectedStore }: { onSave: (template: FileT
       file_type: templateName.trim(),
       created_at: new Date().toISOString(),
       store_name: storeName.trim() || undefined,
-      defaultValues: defaultValues
+      defaultValues: defaultValues,
+      lockedHeaders: lockedHeaders
     };
     
     onSave(newTemplate);
@@ -227,18 +237,34 @@ const CreateNewTemplate = ({ onSave, selectedStore }: { onSave: (template: FileT
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">
-                    Default value for this column (optional)
-                  </label>
-                  <Input
-                    placeholder={header.trim() ? `Default value for "${header}"` : "Enter header name first"}
-                    value={defaultValues[header] || ''}
-                    onChange={(e) => updateDefaultValue(header, e.target.value)}
-                    className="text-sm"
-                    disabled={!header.trim()}
-                  />
-                </div>
+                 <div className="space-y-2">
+                   <div className="space-y-1">
+                     <label className="text-xs font-medium text-muted-foreground">
+                       Default value for this column (optional)
+                     </label>
+                     <Input
+                       placeholder={header.trim() ? `Default value for "${header}"` : "Enter header name first"}
+                       value={defaultValues[header] || ''}
+                       onChange={(e) => updateDefaultValue(header, e.target.value)}
+                       className="text-sm"
+                       disabled={!header.trim()}
+                     />
+                   </div>
+                   {header.trim() && (
+                     <div className="flex items-center gap-2">
+                       <input
+                         type="checkbox"
+                         id={`lock-${index}`}
+                         checked={lockedHeaders.includes(header)}
+                         onChange={() => toggleHeaderLock(header)}
+                         className="h-3 w-3"
+                       />
+                       <label htmlFor={`lock-${index}`} className="text-xs text-muted-foreground">
+                         Lock header (disable mapping for this column)
+                       </label>
+                     </div>
+                   )}
+                 </div>
               </div>
             ))}
             <Button variant="outline" onClick={addHeader} className="w-full">
@@ -335,11 +361,12 @@ export const TemplateSelector = ({ onTemplateSelect, selectedTemplate }: Templat
       console.log('handleCreateTemplate: Validation passed, calling saveTemplate');
       
       await saveTemplate(
-        newTemplate.name, 
-        newTemplate.headers, 
-        newTemplate.file_type, 
-        newTemplate.store_name, 
-        newTemplate.defaultValues
+        newTemplate.name,
+        newTemplate.headers,
+        newTemplate.file_type,
+        newTemplate.store_name,
+        newTemplate.defaultValues,
+        newTemplate.lockedHeaders
       );
       
       console.log('handleCreateTemplate: Template saved successfully');
