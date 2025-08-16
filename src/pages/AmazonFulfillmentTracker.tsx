@@ -13,7 +13,7 @@ import { useUserProfile } from '@/hooks/useUserProfile';
 
 const AmazonFulfillmentTracker = () => {
   const { selectedCountry } = useCountry();
-  const { profile } = useUserProfile();
+  const { profile, user } = useUserProfile();
   const { orders, loading, metrics, updateOrder, deleteOrder, bulkImportOrders, clearAllOrders } = useAmazonOrders();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showImportDialog, setShowImportDialog] = useState(false);
@@ -43,8 +43,16 @@ const AmazonFulfillmentTracker = () => {
               <Upload className="h-4 w-4 mr-2" />
               Import Orders
             </Button>
-            {profile?.role === 'admin' && (
-              <Button variant="destructive" onClick={clearAllOrders} size="sm">
+            {user && profile?.role === 'admin' && (
+              <Button 
+                variant="destructive" 
+                onClick={() => {
+                  if (window.confirm('Are you sure you want to clear all data? This action cannot be undone.')) {
+                    clearAllOrders();
+                  }
+                }}
+                size="sm"
+              >
                 Clear All Data
               </Button>
             )}
