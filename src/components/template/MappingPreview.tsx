@@ -30,6 +30,16 @@ export const MappingPreview = ({
     header => !Object.values(mappings).includes(header) && !defaultValues[header]
   );
 
+  // Debug logging
+  console.log('🔍 MappingPreview Debug:', {
+    targetHeaders,
+    mappings,
+    defaultValues,
+    headersWithDefaults,
+    unmappedTargetHeaders,
+    mappedHeaders: Object.values(mappings)
+  });
+
   const removeMappingForTarget = (targetColumn: string) => {
     const sourceColumn = Object.keys(mappings).find(
       key => mappings[key] === targetColumn
