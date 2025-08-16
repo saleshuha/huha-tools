@@ -33,9 +33,10 @@ export const useTemplateMapping = () => {
           }
         }
         
-        // Common patterns
+        // Common patterns - order matters for priority
         const patterns: Record<string, string[]> = {
-          'sku': ['sku', 'product_id', 'item_id', 'product_code'],
+          'id_partner': ['id', 'partner_id', 'product_id', 'item_id'],
+          'partner_sku': ['sku', 'product_sku', 'item_sku', 'product_code'],
           'title': ['title', 'name', 'product_name', 'description'],
           'price': ['price', 'cost', 'amount', 'value'],
           'quantity': ['quantity', 'qty', 'amount', 'count'],
