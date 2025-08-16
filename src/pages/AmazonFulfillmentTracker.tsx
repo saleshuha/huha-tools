@@ -6,6 +6,7 @@ import { MetricsDashboard } from '@/components/amazon/MetricsDashboard';
 import { OrdersTable } from '@/components/amazon/OrdersTable';
 import { ImportOrdersDialog } from '@/components/amazon/ImportOrdersDialog';
 import { CurrencyRatesDialog } from '@/components/amazon/CurrencyRatesDialog';
+import { CurrencyDisplayProvider, CurrencySelector } from '@/components/amazon/CurrencySelector';
 import { useAmazonOrders } from '@/hooks/useAmazonOrders';
 import { useCountry } from '@/contexts/CountryContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
@@ -19,7 +20,8 @@ const AmazonFulfillmentTracker = () => {
   const [showCurrencyDialog, setShowCurrencyDialog] = useState(false);
 
   return (
-    <div className="min-h-screen bg-gradient-surface p-6">
+    <CurrencyDisplayProvider>
+      <div className="min-h-screen bg-gradient-surface p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -32,6 +34,7 @@ const AmazonFulfillmentTracker = () => {
             </p>
           </div>
           <div className="flex gap-2">
+            <CurrencySelector />
             <Button variant="outline" onClick={() => setShowCurrencyDialog(true)}>
               <DollarSign className="h-4 w-4 mr-2" />
               Currency Rates
@@ -80,8 +83,9 @@ const AmazonFulfillmentTracker = () => {
           open={showCurrencyDialog}
           onOpenChange={setShowCurrencyDialog}
         />
+        </div>
       </div>
-    </div>
+    </CurrencyDisplayProvider>
   );
 };
 
