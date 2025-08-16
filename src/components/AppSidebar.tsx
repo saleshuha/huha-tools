@@ -1,4 +1,4 @@
-import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, Wrench, LogOut, Home, Users, TrendingUp, Merge, Edit3, Database, CreditCard, Upload, BarChart3, DollarSign, Store, ShoppingCart, Globe, ExternalLink, Eye, FileText } from "lucide-react"
+import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, Wrench, LogOut, Home, Users, TrendingUp, Merge, Edit3, Database, CreditCard, Upload, BarChart3, DollarSign, Store, ShoppingCart, Globe, ExternalLink, Eye } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
 import { useState } from "react"
 import { supabase } from "@/integrations/supabase/client"
@@ -68,11 +68,6 @@ const toolsItems = [
     title: "Bulk Column Editor",
     url: "/bulk-column-editor",
     icon: Database
-  },
-  {
-    title: "Template Data Mapper",
-    url: "/template-mapper",
-    icon: FileText
   }
 ]
 

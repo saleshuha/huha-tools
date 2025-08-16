@@ -15,8 +15,6 @@ import { useBatchExport, BatchFile } from '@/hooks/useBatchExport';
 import { FileSpreadsheet, Download, CheckCircle, AlertCircle, Clock, ArrowLeft } from 'lucide-react';
 import { ExcelData, ColumnMapping } from '@/types/excel';
 import { MappingMethod } from '@/types/mappingMethods';
-import { FileTemplate } from '@/types/template';
-import { TemplateSelector } from './template/TemplateSelector';
 
 interface ProcessingBatchFile extends BatchFile {
   status: 'pending' | 'processing' | 'completed' | 'error';
@@ -25,13 +23,11 @@ interface ProcessingBatchFile extends BatchFile {
 
 export const BatchProcessor = () => {
   const [targetData, setTargetData] = useState<ExcelData | null>(null);
-  const [selectedTemplate, setSelectedTemplate] = useState<FileTemplate | null>(null);
   const [sourceFiles, setSourceFiles] = useState<ProcessingBatchFile[]>([]);
   const [mappingMethod, setMappingMethod] = useState<MappingMethod>('dropdown');
   const [templateMappings, setTemplateMappings] = useState<ColumnMapping>({});
   const [isProcessing, setIsProcessing] = useState(false);
   const [showMappingSetup, setShowMappingSetup] = useState(false);
-  const [useTemplateAsTarget, setUseTemplateAsTarget] = useState(false);
   
   const { toast } = useToast();
   const { exportIndividualFiles } = useBatchExport();
