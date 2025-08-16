@@ -202,6 +202,7 @@ export const TemplateDataMapper = () => {
               targetHeaders={selectedTemplate.headers}
               mappings={mappings}
               onMappingChange={handleMappingChange}
+              defaultValues={selectedTemplate.defaultValues}
             />
 
             <div className="flex gap-4 pt-4">
