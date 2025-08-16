@@ -98,6 +98,15 @@ export const TemplateDataMapper = () => {
       return;
     }
 
+    console.log("🔍 Export Debug Info:", {
+      selectedTemplate: selectedTemplate.name,
+      templateHeaders: selectedTemplate.headers,
+      defaultValues: selectedTemplate.defaultValues,
+      mappings: mappings,
+      baseFilesCount: baseFiles.length,
+      firstBaseFileHeaders: baseFiles[0]?.headers
+    });
+
     // Combine all base files into one dataset
     const combinedData: ExcelData = {
       headers: selectedTemplate.headers,
@@ -106,27 +115,50 @@ export const TemplateDataMapper = () => {
     };
 
     // Process each base file and merge the data
-    baseFiles.forEach(baseFile => {
-      baseFile.data.forEach(sourceRow => {
+    baseFiles.forEach((baseFile, fileIndex) => {
+      console.log(`🔍 Processing file ${fileIndex + 1}:`, baseFile.fileName);
+      
+      baseFile.data.forEach((sourceRow, rowIndex) => {
         const targetRow = new Array(selectedTemplate.headers.length).fill('');
         
         // Apply mappings from source to target
         Object.entries(mappings).forEach(([sourceCol, targetCol]) => {
           const sourceIndex = baseFile.headers.indexOf(sourceCol);
           const targetIndex = selectedTemplate.headers.indexOf(targetCol);
+          
           if (sourceIndex !== -1 && targetIndex !== -1) {
             const value = sourceRow[sourceIndex];
             targetRow[targetIndex] = value !== undefined ? String(value) : '';
+            
+            if (rowIndex === 0) {
+              console.log(`🔍 Mapping: ${sourceCol} -> ${targetCol}`, {
+                sourceIndex,
+                targetIndex,
+                value: value
+              });
+            }
           }
         });
         
-        // Apply default values for unmapped columns
+        // Apply default values for ALL columns that don't have mapped values
         if (selectedTemplate.defaultValues) {
           selectedTemplate.headers.forEach((header, index) => {
-            if (!targetRow[index] && selectedTemplate.defaultValues?.[header]) {
-              targetRow[index] = selectedTemplate.defaultValues[header];
+            // Only apply default if the field is empty (including empty strings)
+            if (!targetRow[index] || targetRow[index] === '') {
+              const defaultValue = selectedTemplate.defaultValues?.[header];
+              if (defaultValue !== undefined && defaultValue !== null && defaultValue !== '') {
+                targetRow[index] = String(defaultValue);
+                
+                if (rowIndex === 0) {
+                  console.log(`🔍 Applied default for ${header}:`, defaultValue);
+                }
+              }
             }
           });
+        }
+        
+        if (rowIndex === 0) {
+          console.log("🔍 First target row:", targetRow);
         }
         
         combinedData.data.push(targetRow);
@@ -138,6 +170,12 @@ export const TemplateDataMapper = () => {
       combinedData.data = combinedData.data.slice(0, maxRows);
       combinedData.fileName += `_${maxRows}rows`;
     }
+
+    console.log("🔍 Final combined data:", {
+      headers: combinedData.headers,
+      dataRowsCount: combinedData.data.length,
+      firstDataRow: combinedData.data[0]
+    });
 
     await exportMappedData(combinedData, { headers: selectedTemplate.headers, data: [], fileName: selectedTemplate.name }, mappings);
   };
