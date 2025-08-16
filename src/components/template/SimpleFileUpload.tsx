@@ -22,6 +22,10 @@ export const SimpleFileUpload = ({
     const files = Array.from(event.target.files || []);
     if (files.length > 0) {
       onFilesSelected(files);
+      // Clear the input to allow re-selecting the same files
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
@@ -48,7 +52,10 @@ export const SimpleFileUpload = ({
         <Upload className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
         <h3 className="text-lg font-medium mb-2">Upload Files</h3>
         <p className="text-muted-foreground mb-4">
-          Click to select {multiple ? 'files' : 'a file'} or drag and drop
+          Click to select {multiple ? 'CSV/Excel files' : 'a CSV/Excel file'} (up to 1GB each)
+        </p>
+        <p className="text-xs text-muted-foreground mb-4">
+          Supported formats: .csv, .xlsx, .xls
         </p>
         <Button onClick={handleClick} disabled={disabled}>
           <Upload className="h-4 w-4 mr-2" />

@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { SimpleFileUpload } from '@/components/template/SimpleFileUpload';
 import { TemplateSelector } from '@/components/template/TemplateSelector';
 import { MappingPreview } from '@/components/template/MappingPreview';
+import { ExportSizeDialog } from '@/components/template/ExportSizeDialog';
 import { ExcelData, ColumnMapping } from '@/types/excel';
 import { FileTemplate } from '@/types/template';
 import { useExcelExport } from '@/hooks/useExcelExport';
@@ -18,6 +19,7 @@ export const TemplateDataMapper = () => {
   const [selectedTemplate, setSelectedTemplate] = useState<FileTemplate | null>(null);
   const [mappings, setMappings] = useState<ColumnMapping>({});
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showExportDialog, setShowExportDialog] = useState(false);
   
   const { toast } = useToast();
   const { exportMappedData } = useExcelExport();
@@ -26,6 +28,19 @@ export const TemplateDataMapper = () => {
   const handleFileUpload = async (files: File[]) => {
     setIsProcessing(true);
     try {
+      // Check file sizes (1GB = 1024 * 1024 * 1024 bytes)
+      const maxSize = 1024 * 1024 * 1024; // 1GB
+      const oversizedFiles = files.filter(file => file.size > maxSize);
+      
+      if (oversizedFiles.length > 0) {
+        toast({
+          title: "File size exceeded",
+          description: `Files larger than 1GB are not supported: ${oversizedFiles.map(f => f.name).join(', ')}`,
+          variant: "destructive"
+        });
+        return;
+      }
+
       const processedFiles = await Promise.all(
         files.map(async (file) => {
           const data = await parseFileSimply(file);
@@ -73,7 +88,7 @@ export const TemplateDataMapper = () => {
     }));
   };
 
-  const handleExport = async () => {
+  const handleExport = async (maxRows?: number) => {
     if (!selectedTemplate || baseFiles.length === 0) {
       toast({
         title: "Cannot export",
@@ -118,7 +133,22 @@ export const TemplateDataMapper = () => {
       });
     });
 
+    // Limit rows if specified
+    if (maxRows && maxRows < combinedData.data.length) {
+      combinedData.data = combinedData.data.slice(0, maxRows);
+      combinedData.fileName += `_${maxRows}rows`;
+    }
+
     await exportMappedData(combinedData, { headers: selectedTemplate.headers, data: [], fileName: selectedTemplate.name }, mappings);
+  };
+
+  const handleExportClick = () => {
+    const totalRows = baseFiles.reduce((sum, file) => sum + file.data.length, 0);
+    if (totalRows > 10000) {
+      setShowExportDialog(true);
+    } else {
+      handleExport();
+    }
   };
 
   const mappingCoverage = selectedTemplate 
@@ -206,14 +236,21 @@ export const TemplateDataMapper = () => {
 
             <div className="flex gap-4 pt-4">
               <Button 
-                onClick={handleExport}
+                onClick={handleExportClick}
                 className="flex-1"
                 disabled={Object.keys(mappings).length === 0}
               >
                 <Download className="h-4 w-4 mr-2" />
-                Export Mapped Data
+                Export Mapped Data ({baseFiles.reduce((sum, file) => sum + file.data.length, 0).toLocaleString()} rows)
               </Button>
             </div>
+            
+            <ExportSizeDialog
+              open={showExportDialog}
+              onOpenChange={setShowExportDialog}
+              totalRows={baseFiles.reduce((sum, file) => sum + file.data.length, 0)}
+              onExport={handleExport}
+            />
           </CardContent>
         </Card>
       )}
