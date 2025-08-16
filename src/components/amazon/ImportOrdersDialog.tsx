@@ -9,7 +9,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Upload, FileSpreadsheet, CheckCircle, XCircle } from 'lucide-react';
 import { CreateOrder } from '@/types/amazon-fulfillment';
 import { useCountry } from '@/contexts/CountryContext';
-import { useCurrencyConverter } from '@/hooks/useCurrencyConverter';
 import * as XLSX from 'xlsx';
 
 interface ImportOrdersDialogProps {
@@ -21,15 +20,11 @@ interface ImportOrdersDialogProps {
 
 export const ImportOrdersDialog = ({ open, onOpenChange, onImportOrders, loading }: ImportOrdersDialogProps) => {
   const { selectedCountry } = useCountry();
-  const { convertCurrency, formatCurrency, exchangeRates, loading: currencyLoading } = useCurrencyConverter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<CreateOrder[]>([]);
-  const [viewingCurrency, setViewingCurrency] = useState<'USD' | 'AED' | 'SAR'>(
-    selectedCountry === 'UAE' ? 'AED' : selectedCountry === 'KSA' ? 'SAR' : 'USD'
-  );
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
@@ -96,20 +91,7 @@ export const ImportOrdersDialog = ({ open, onOpenChange, onImportOrders, loading
         
         const { amount, currency } = parseAmountCurrency(costValue, selectedCountry, currencyValue);
         
-        console.log(`Row ${index} - Parsed: ${amount} ${currency}, Converting to: ${viewingCurrency}`);
-        console.log(`Row ${index} - Exchange rates available:`, exchangeRates);
-        console.log(`Row ${index} - Currency converter loading:`, currencyLoading);
-        
-        let convertedCost = amount;
-        if (currency !== viewingCurrency) {
-          console.log(`Row ${index} - Calling convertCurrency(${amount}, "${currency}", "${viewingCurrency}")`);
-          convertedCost = convertCurrency(amount, currency, viewingCurrency);
-          console.log(`Row ${index} - Conversion result: ${convertedCost}`);
-        } else {
-          console.log(`Row ${index} - No conversion needed, currencies match`);
-        }
-        
-        console.log(`Row ${index} - Final cost: ${convertedCost} ${viewingCurrency}`);
+        console.log(`Row ${index} - Storing original: ${amount} ${currency}`);
         
         const order: CreateOrder = {
           order_id: getValue(['order_id', 'order_id', 'orderid', 'order_number']) || `ORDER_${Date.now()}_${index}`,
@@ -118,8 +100,8 @@ export const ImportOrdersDialog = ({ open, onOpenChange, onImportOrders, loading
           sku: getValue(['sku']) || '',
           item_title: getValue(['item_title', 'item_title', 'title', 'product_name', 'product_title', 'name']) || '',
           quantity: parseInt(getValue(['quantity', 'qty', 'amount', 'count'])) || 1,
-          item_cost: convertedCost,
-          currency: viewingCurrency,
+          item_cost: amount,
+          currency: currency,
           status: getValue(['status']) || 'Non Submitted',
           payment_status: getValue(['payment_status', 'payment_status']) || 'pending',
           country: selectedCountry,
@@ -272,35 +254,6 @@ export const ImportOrdersDialog = ({ open, onOpenChange, onImportOrders, loading
             )}
           </div>
 
-          {/* Currency Selection - Always visible */}
-          <div className="space-y-2 border border-red-500 p-4 bg-red-50">
-            <Label htmlFor="viewing-currency" className="text-lg font-bold text-red-600">
-              Viewing Currency (DEBUG - This should be visible)
-            </Label>
-            <div className="text-sm text-red-600 mb-2">
-              Current value: {viewingCurrency}
-            </div>
-            <Select
-              value={viewingCurrency}
-              onValueChange={(value: 'USD' | 'AED' | 'SAR') => {
-                console.log('Currency changed to:', value);
-                setViewingCurrency(value);
-                if (file) parseFile(file); // Re-parse with new currency
-              }}
-            >
-              <SelectTrigger className="w-[120px] border-2 border-red-500">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="bg-background border border-border shadow-md z-50">
-                <SelectItem value="USD">USD ($)</SelectItem>
-                <SelectItem value="AED">AED (د.إ)</SelectItem>
-                <SelectItem value="SAR">SAR (ر.س)</SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              All costs will be converted to this currency for viewing
-            </p>
-          </div>
 
           {/* Progress Bar */}
           {progress > 0 && progress < 100 && (
@@ -345,7 +298,7 @@ export const ImportOrdersDialog = ({ open, onOpenChange, onImportOrders, loading
                         <td className="p-2">{order.asin || '-'}</td>
                         <td className="p-2">{order.item_title || '-'}</td>
                         <td className="p-2">{order.quantity}</td>
-                        <td className="p-2">{formatCurrency(order.item_cost || 0, order.currency || 'USD')}</td>
+                        <td className="p-2">{(order.item_cost || 0).toFixed(2)} {order.currency || 'USD'}</td>
                         <td className="p-2">{order.status}</td>
                       </tr>
                     ))}
@@ -363,7 +316,7 @@ export const ImportOrdersDialog = ({ open, onOpenChange, onImportOrders, loading
               <Alert>
                 <Upload className="h-4 w-4" />
                 <AlertDescription>
-                  Expected columns: order_id (required), invoice_id, asin, sku, item_title, quantity, item_cost/cost/price (supports $6.40, AED19.56, SAR25.00 formats), status, payment_status. Costs will be auto-converted to your viewing currency.
+                  Expected columns: order_id (required), invoice_id, asin, sku, item_title, quantity, item_cost/cost/price (supports $6.40, AED19.56, SAR25.00 formats), status, payment_status. Costs will be stored as-is from the file.
                 </AlertDescription>
               </Alert>
             </div>
