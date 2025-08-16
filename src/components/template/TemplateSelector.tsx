@@ -122,6 +122,7 @@ const CreateNewTemplate = ({ onSave, selectedStore }: { onSave: (template: FileT
   const [templateName, setTemplateName] = useState('');
   const [headers, setHeaders] = useState<string[]>(['']);
   const [storeName, setStoreName] = useState(selectedStore || '');
+  const [defaultValues, setDefaultValues] = useState<Record<string, string>>({});
 
   const addHeader = () => {
     setHeaders([...headers, '']);
@@ -129,14 +130,40 @@ const CreateNewTemplate = ({ onSave, selectedStore }: { onSave: (template: FileT
 
   const updateHeader = (index: number, value: string) => {
     const newHeaders = [...headers];
+    const oldHeader = newHeaders[index];
     newHeaders[index] = value;
     setHeaders(newHeaders);
+    
+    // Update default values if header name changed
+    if (oldHeader && oldHeader !== value && defaultValues[oldHeader]) {
+      const newDefaults = { ...defaultValues };
+      if (value.trim()) {
+        newDefaults[value] = newDefaults[oldHeader];
+      }
+      delete newDefaults[oldHeader];
+      setDefaultValues(newDefaults);
+    }
   };
 
   const removeHeader = (index: number) => {
     if (headers.length > 1) {
+      const headerToRemove = headers[index];
       setHeaders(headers.filter((_, i) => i !== index));
+      
+      // Remove default value for removed header
+      if (headerToRemove && defaultValues[headerToRemove]) {
+        const newDefaults = { ...defaultValues };
+        delete newDefaults[headerToRemove];
+        setDefaultValues(newDefaults);
+      }
     }
+  };
+
+  const updateDefaultValue = (header: string, value: string) => {
+    setDefaultValues(prev => ({
+      ...prev,
+      [header]: value
+    }));
   };
 
   const handleSave = () => {
@@ -151,7 +178,8 @@ const CreateNewTemplate = ({ onSave, selectedStore }: { onSave: (template: FileT
       headers: filteredHeaders,
       file_type: templateName.trim(),
       created_at: new Date().toISOString(),
-      store_name: storeName.trim() || undefined
+      store_name: storeName.trim() || undefined,
+      defaultValues: defaultValues
     };
     
     onSave(newTemplate);
@@ -179,23 +207,33 @@ const CreateNewTemplate = ({ onSave, selectedStore }: { onSave: (template: FileT
         </div>
 
         <div>
-          <label className="text-sm font-medium">Headers</label>
-          <div className="space-y-2">
+          <label className="text-sm font-medium">Headers & Default Values</label>
+          <div className="space-y-3">
             {headers.map((header, index) => (
-              <div key={index} className="flex gap-2">
-                <Input
-                  placeholder={`Header ${index + 1}`}
-                  value={header}
-                  onChange={(e) => updateHeader(index, e.target.value)}
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => removeHeader(index)}
-                  disabled={headers.length === 1}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+              <div key={index} className="space-y-2 p-3 border rounded-lg">
+                <div className="flex gap-2">
+                  <Input
+                    placeholder={`Header ${index + 1}`}
+                    value={header}
+                    onChange={(e) => updateHeader(index, e.target.value)}
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => removeHeader(index)}
+                    disabled={headers.length === 1}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+                {header.trim() && (
+                  <Input
+                    placeholder="Default value for all rows (optional)"
+                    value={defaultValues[header] || ''}
+                    onChange={(e) => updateDefaultValue(header, e.target.value)}
+                    className="text-sm"
+                  />
+                )}
               </div>
             ))}
             <Button variant="outline" onClick={addHeader} className="w-full">
@@ -254,21 +292,31 @@ export const TemplateSelector = ({ onTemplateSelect, selectedTemplate }: Templat
   };
 
   const handleTemplateUpdate = async (updatedTemplate: FileTemplate) => {
-    await saveTemplate(updatedTemplate.name, updatedTemplate.headers, updatedTemplate.file_type, updatedTemplate.store_name);
-    setEditingTemplate(null);
+    try {
+      await saveTemplate(updatedTemplate.name, updatedTemplate.headers, updatedTemplate.file_type, updatedTemplate.store_name, updatedTemplate.defaultValues);
+      setEditingTemplate(null);
+    } catch (error) {
+      // Error already handled in saveTemplate
+      console.error('Failed to update template:', error);
+    }
   };
 
   const handleCreateTemplate = async (newTemplate: FileTemplate) => {
-    await saveTemplate(newTemplate.name, newTemplate.headers, newTemplate.file_type, newTemplate.store_name);
-    setShowCreateDialog(false);
-    // Refresh stores list
     try {
-      const stores = await getUniqueStores();
-      if (Array.isArray(stores)) {
-        setAvailableStores(stores);
+      await saveTemplate(newTemplate.name, newTemplate.headers, newTemplate.file_type, newTemplate.store_name, newTemplate.defaultValues);
+      setShowCreateDialog(false);
+      // Refresh stores list
+      try {
+        const stores = await getUniqueStores();
+        if (Array.isArray(stores)) {
+          setAvailableStores(stores);
+        }
+      } catch (error) {
+        console.error('Error refreshing stores:', error);
       }
     } catch (error) {
-      console.error('Error refreshing stores:', error);
+      // Error already handled in saveTemplate
+      console.error('Failed to create template:', error);
     }
   };
 

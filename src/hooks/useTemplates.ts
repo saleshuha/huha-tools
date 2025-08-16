@@ -54,18 +54,34 @@ export const useTemplates = () => {
     }
   }, [toast]);
 
-  const saveTemplate = async (name: string, headers: string[], fileType: string = 'custom', storeName?: string) => {
+  const saveTemplate = async (name: string, headers: string[], fileType: string = 'custom', storeName?: string, defaultValues?: Record<string, string>) => {
     try {
+      console.log('saveTemplate: Starting save for template:', { name, headers, fileType, storeName, defaultValues });
+      
+      const user = await supabase.auth.getUser();
+      if (!user.data.user?.id) {
+        throw new Error('User not authenticated');
+      }
+
+      const templateData = {
+        file_type: name,
+        headers: headers,
+        user_id: user.data.user.id,
+        store_name: storeName || null
+      };
+
+      console.log('saveTemplate: Inserting template data:', templateData);
+
       const { error } = await supabase
         .from('noon_file_headers')
-        .insert({
-          file_type: name,
-          headers: headers,
-          user_id: (await supabase.auth.getUser()).data.user?.id,
-          store_name: storeName
-        });
+        .insert(templateData);
 
-      if (error) throw error;
+      if (error) {
+        console.error('saveTemplate: Database error:', error);
+        throw error;
+      }
+
+      console.log('saveTemplate: Successfully saved to database');
 
       toast({
         title: "Template saved",
@@ -73,12 +89,15 @@ export const useTemplates = () => {
       });
 
       await fetchTemplates();
+      console.log('saveTemplate: Templates refreshed');
     } catch (error) {
+      console.error('saveTemplate: Error occurred:', error);
       toast({
         title: "Failed to save template",
-        description: "Could not save the template",
+        description: error instanceof Error ? error.message : "Could not save the template",
         variant: "destructive"
       });
+      throw error; // Re-throw so calling code knows it failed
     }
   };
 
