@@ -17,8 +17,9 @@ interface TemplateSelectorProps {
 
 const TemplateEditor = ({ template, onSave }: { template: FileTemplate; onSave: (updated: FileTemplate) => void }) => {
   const [headers, setHeaders] = useState<string[]>([...template.headers]);
-  const [defaultValues, setDefaultValues] = useState<Record<string, string>>({});
+  const [defaultValues, setDefaultValues] = useState<Record<string, string>>(template.defaultValues || {});
   const [newHeader, setNewHeader] = useState('');
+  const [storeName, setStoreName] = useState(template.store_name || '');
 
   const addHeader = () => {
     if (newHeader.trim()) {
@@ -48,13 +49,24 @@ const TemplateEditor = ({ template, onSave }: { template: FileTemplate; onSave: 
     const updatedTemplate: FileTemplate = {
       ...template,
       headers,
-      defaultValues
+      defaultValues,
+      store_name: storeName.trim() || undefined
     };
     onSave(updatedTemplate);
   };
 
   return (
     <div className="space-y-6 max-h-[60vh] overflow-y-auto">
+      {/* Store Name */}
+      <div className="space-y-2">
+        <h4 className="font-medium text-sm">Store Name</h4>
+        <Input
+          placeholder="Enter store name (optional)"
+          value={storeName}
+          onChange={(e) => setStoreName(e.target.value)}
+        />
+      </div>
+
       {/* Add New Header */}
       <div className="space-y-2">
         <h4 className="font-medium text-sm">Add New Header</h4>
@@ -106,11 +118,112 @@ const TemplateEditor = ({ template, onSave }: { template: FileTemplate; onSave: 
   );
 };
 
+const CreateNewTemplate = ({ onSave, selectedStore }: { onSave: (template: FileTemplate) => void; selectedStore?: string }) => {
+  const [templateName, setTemplateName] = useState('');
+  const [headers, setHeaders] = useState<string[]>(['']);
+  const [storeName, setStoreName] = useState(selectedStore || '');
+
+  const addHeader = () => {
+    setHeaders([...headers, '']);
+  };
+
+  const updateHeader = (index: number, value: string) => {
+    const newHeaders = [...headers];
+    newHeaders[index] = value;
+    setHeaders(newHeaders);
+  };
+
+  const removeHeader = (index: number) => {
+    if (headers.length > 1) {
+      setHeaders(headers.filter((_, i) => i !== index));
+    }
+  };
+
+  const handleSave = () => {
+    if (!templateName.trim()) return;
+    
+    const filteredHeaders = headers.filter(h => h.trim() !== '');
+    if (filteredHeaders.length === 0) return;
+
+    const newTemplate: FileTemplate = {
+      id: '',
+      name: templateName.trim(),
+      headers: filteredHeaders,
+      file_type: templateName.trim(),
+      created_at: new Date().toISOString(),
+      store_name: storeName.trim() || undefined
+    };
+    
+    onSave(newTemplate);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="space-y-4">
+        <div>
+          <label className="text-sm font-medium">Template Name</label>
+          <Input
+            placeholder="Enter template name"
+            value={templateName}
+            onChange={(e) => setTemplateName(e.target.value)}
+          />
+        </div>
+        
+        <div>
+          <label className="text-sm font-medium">Store Name</label>
+          <Input
+            placeholder="Enter store name (optional)"
+            value={storeName}
+            onChange={(e) => setStoreName(e.target.value)}
+          />
+        </div>
+
+        <div>
+          <label className="text-sm font-medium">Headers</label>
+          <div className="space-y-2">
+            {headers.map((header, index) => (
+              <div key={index} className="flex gap-2">
+                <Input
+                  placeholder={`Header ${index + 1}`}
+                  value={header}
+                  onChange={(e) => updateHeader(index, e.target.value)}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => removeHeader(index)}
+                  disabled={headers.length === 1}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+            <Button variant="outline" onClick={addHeader} className="w-full">
+              <Plus className="h-4 w-4 mr-2" />
+              Add Header
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex justify-end gap-2 pt-4 border-t">
+        <Button 
+          onClick={handleSave}
+          disabled={!templateName.trim() || headers.filter(h => h.trim()).length === 0}
+        >
+          Create Template
+        </Button>
+      </div>
+    </div>
+  );
+};
+
 export const TemplateSelector = ({ onTemplateSelect, selectedTemplate }: TemplateSelectorProps) => {
   const { templates, loading, saveTemplate, deleteTemplate, getUniqueStores, refreshTemplates } = useTemplates();
   const [editingTemplate, setEditingTemplate] = useState<FileTemplate | null>(null);
   const [selectedStore, setSelectedStore] = useState<string>('all');
   const [newStoreName, setNewStoreName] = useState('');
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
 
   useEffect(() => {
     refreshTemplates(selectedStore === 'all' ? undefined : selectedStore);
@@ -119,6 +232,16 @@ export const TemplateSelector = ({ onTemplateSelect, selectedTemplate }: Templat
   const handleDeleteTemplate = async (templateId: string) => {
     console.log('handleDeleteTemplate: Called with ID:', templateId, 'and store filter:', selectedStore);
     await deleteTemplate(templateId, selectedStore === 'all' ? undefined : selectedStore);
+  };
+
+  const handleTemplateUpdate = async (updatedTemplate: FileTemplate) => {
+    await saveTemplate(updatedTemplate.name, updatedTemplate.headers, updatedTemplate.file_type, updatedTemplate.store_name);
+    setEditingTemplate(null);
+  };
+
+  const handleCreateTemplate = async (newTemplate: FileTemplate) => {
+    await saveTemplate(newTemplate.name, newTemplate.headers, newTemplate.file_type, newTemplate.store_name);
+    setShowCreateDialog(false);
   };
 
   if (loading) {
@@ -176,14 +299,35 @@ export const TemplateSelector = ({ onTemplateSelect, selectedTemplate }: Templat
           </div>
         </div>
 
+        {/* Create New Template Button */}
+        <div className="flex justify-between items-center">
+          <h3 className="text-lg font-medium">No Templates Found</h3>
+          <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+            <DialogTrigger asChild>
+              <Button variant="outline">
+                <Plus className="h-4 w-4 mr-2" />
+                Create New Template
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Create New Template</DialogTitle>
+              </DialogHeader>
+              <CreateNewTemplate
+                onSave={handleCreateTemplate}
+                selectedStore={selectedStore === 'all' ? undefined : selectedStore}
+              />
+            </DialogContent>
+          </Dialog>
+        </div>
+
         <Card>
           <CardContent className="p-6 text-center">
             <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-            <h3 className="text-lg font-medium mb-2">No Templates Found</h3>
             <p className="text-muted-foreground">
               {selectedStore === 'all' 
-                ? 'Upload some files to create templates, or contact support for pre-built templates.'
-                : `No templates found for "${selectedStore}" store.`
+                ? 'Create a new template to get started.'
+                : `No templates found for "${selectedStore}" store. Create one to get started.`
               }
             </p>
           </CardContent>
@@ -191,11 +335,6 @@ export const TemplateSelector = ({ onTemplateSelect, selectedTemplate }: Templat
       </div>
     );
   }
-
-  const handleTemplateUpdate = async (updatedTemplate: FileTemplate) => {
-    await saveTemplate(updatedTemplate.name, updatedTemplate.headers, updatedTemplate.file_type, updatedTemplate.store_name);
-    setEditingTemplate(null);
-  };
 
   return (
     <div className="space-y-4">
@@ -236,6 +375,28 @@ export const TemplateSelector = ({ onTemplateSelect, selectedTemplate }: Templat
             Add Store
           </Button>
         </div>
+      </div>
+
+      {/* Create New Template Button */}
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-medium">Select a Template</h3>
+        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+          <DialogTrigger asChild>
+            <Button variant="outline">
+              <Plus className="h-4 w-4 mr-2" />
+              Create New Template
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Create New Template</DialogTitle>
+            </DialogHeader>
+            <CreateNewTemplate
+              onSave={handleCreateTemplate}
+              selectedStore={selectedStore === 'all' ? undefined : selectedStore}
+            />
+          </DialogContent>
+        </Dialog>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
