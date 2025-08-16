@@ -273,16 +273,22 @@ export const ImportOrdersDialog = ({ open, onOpenChange, onImportOrders, loading
           </div>
 
           {/* Currency Selection - Always visible */}
-          <div className="space-y-2">
-            <Label htmlFor="viewing-currency">Viewing Currency</Label>
+          <div className="space-y-2 border border-red-500 p-4 bg-red-50">
+            <Label htmlFor="viewing-currency" className="text-lg font-bold text-red-600">
+              Viewing Currency (DEBUG - This should be visible)
+            </Label>
+            <div className="text-sm text-red-600 mb-2">
+              Current value: {viewingCurrency}
+            </div>
             <Select
               value={viewingCurrency}
               onValueChange={(value: 'USD' | 'AED' | 'SAR') => {
+                console.log('Currency changed to:', value);
                 setViewingCurrency(value);
                 if (file) parseFile(file); // Re-parse with new currency
               }}
             >
-              <SelectTrigger className="w-[120px]">
+              <SelectTrigger className="w-[120px] border-2 border-red-500">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="bg-background border border-border shadow-md z-50">
