@@ -232,8 +232,18 @@ export const TemplateSelector = ({ onTemplateSelect, selectedTemplate }: Templat
 
   useEffect(() => {
     const loadStores = async () => {
-      const stores = await getUniqueStores();
-      setAvailableStores(stores);
+      try {
+        const stores = await getUniqueStores();
+        if (Array.isArray(stores)) {
+          setAvailableStores(stores);
+        } else {
+          console.error('getUniqueStores did not return an array:', stores);
+          setAvailableStores([]);
+        }
+      } catch (error) {
+        console.error('Error loading stores:', error);
+        setAvailableStores([]);
+      }
     };
     loadStores();
   }, [getUniqueStores]);
@@ -252,8 +262,14 @@ export const TemplateSelector = ({ onTemplateSelect, selectedTemplate }: Templat
     await saveTemplate(newTemplate.name, newTemplate.headers, newTemplate.file_type, newTemplate.store_name);
     setShowCreateDialog(false);
     // Refresh stores list
-    const stores = await getUniqueStores();
-    setAvailableStores(stores);
+    try {
+      const stores = await getUniqueStores();
+      if (Array.isArray(stores)) {
+        setAvailableStores(stores);
+      }
+    } catch (error) {
+      console.error('Error refreshing stores:', error);
+    }
   };
 
   const handleAddStore = async () => {
@@ -263,8 +279,14 @@ export const TemplateSelector = ({ onTemplateSelect, selectedTemplate }: Templat
         setSelectedStore(newStoreName.trim());
         setNewStoreName('');
         // Refresh stores list
-        const stores = await getUniqueStores();
-        setAvailableStores(stores);
+        try {
+          const stores = await getUniqueStores();
+          if (Array.isArray(stores)) {
+            setAvailableStores(stores);
+          }
+        } catch (error) {
+          console.error('Error refreshing stores:', error);
+        }
       }
     }
   };
@@ -277,7 +299,7 @@ export const TemplateSelector = ({ onTemplateSelect, selectedTemplate }: Templat
     );
   }
 
-  const stores = availableStores;
+  const stores = Array.isArray(availableStores) ? availableStores : [];
   const filteredTemplates = selectedStore === 'all' 
     ? templates 
     : templates.filter(template => template.store_name === selectedStore);
