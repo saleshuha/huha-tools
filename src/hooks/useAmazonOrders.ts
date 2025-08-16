@@ -14,15 +14,33 @@ export const useAmazonOrders = () => {
   const fetchOrders = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('country', selectedCountry)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
       
-      const validOrders = (data || []).filter(order => 
+      // Fetch all orders without any limit
+      let allOrders = [];
+      let from = 0;
+      const batchSize = 1000;
+      let hasMore = true;
+
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from('orders')
+          .select('*')
+          .eq('country', selectedCountry)
+          .order('created_at', { ascending: false })
+          .range(from, from + batchSize - 1);
+
+        if (error) throw error;
+        
+        if (data && data.length > 0) {
+          allOrders = [...allOrders, ...data];
+          from += batchSize;
+          hasMore = data.length === batchSize;
+        } else {
+          hasMore = false;
+        }
+      }
+      
+      const validOrders = (allOrders || []).filter(order => 
         order && order.id && order.order_id
       );
       
