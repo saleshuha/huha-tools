@@ -1,20 +1,20 @@
 import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Plus, Upload, DollarSign } from 'lucide-react';
+import { Upload, DollarSign } from 'lucide-react';
 import { MetricsDashboard } from '@/components/amazon/MetricsDashboard';
 import { OrdersTable } from '@/components/amazon/OrdersTable';
-import { AddOrderDialog } from '@/components/amazon/AddOrderDialog';
 import { ImportOrdersDialog } from '@/components/amazon/ImportOrdersDialog';
 import { CurrencyRatesDialog } from '@/components/amazon/CurrencyRatesDialog';
 import { useAmazonOrders } from '@/hooks/useAmazonOrders';
 import { useCountry } from '@/contexts/CountryContext';
+import { useUserProfile } from '@/hooks/useUserProfile';
 
 const AmazonFulfillmentTracker = () => {
   const { selectedCountry } = useCountry();
-  const { orders, loading, metrics, createOrder, updateOrder, deleteOrder, bulkImportOrders, clearAllOrders } = useAmazonOrders();
+  const { profile } = useUserProfile();
+  const { orders, loading, metrics, updateOrder, deleteOrder, bulkImportOrders, clearAllOrders } = useAmazonOrders();
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [showAddDialog, setShowAddDialog] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [showCurrencyDialog, setShowCurrencyDialog] = useState(false);
 
@@ -40,13 +40,11 @@ const AmazonFulfillmentTracker = () => {
               <Upload className="h-4 w-4 mr-2" />
               Import Orders
             </Button>
-            <Button variant="destructive" onClick={clearAllOrders} size="sm">
-              Clear All Data
-            </Button>
-            <Button onClick={() => setShowAddDialog(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Order
-            </Button>
+            {profile?.role === 'admin' && (
+              <Button variant="destructive" onClick={clearAllOrders} size="sm">
+                Clear All Data
+              </Button>
+            )}
           </div>
         </div>
 
@@ -71,13 +69,6 @@ const AmazonFulfillmentTracker = () => {
         </Tabs>
 
         {/* Dialogs */}
-        <AddOrderDialog
-          open={showAddDialog}
-          onOpenChange={setShowAddDialog}
-          onCreateOrder={createOrder}
-          loading={loading}
-        />
-        
         <ImportOrdersDialog
           open={showImportDialog}
           onOpenChange={setShowImportDialog}

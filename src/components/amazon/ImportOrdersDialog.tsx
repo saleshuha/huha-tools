@@ -272,31 +272,29 @@ export const ImportOrdersDialog = ({ open, onOpenChange, onImportOrders, loading
             )}
           </div>
 
-          {/* Currency Selection */}
-          {file && (
-            <div className="space-y-2">
-              <Label htmlFor="viewing-currency">Viewing Currency</Label>
-              <Select
-                value={viewingCurrency}
-                onValueChange={(value: 'USD' | 'AED' | 'SAR') => {
-                  setViewingCurrency(value);
-                  if (file) parseFile(file); // Re-parse with new currency
-                }}
-              >
-                <SelectTrigger className="w-[120px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-background border border-border shadow-md z-50">
-                  <SelectItem value="USD">USD ($)</SelectItem>
-                  <SelectItem value="AED">AED (د.إ)</SelectItem>
-                  <SelectItem value="SAR">SAR (ر.س)</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                All costs will be converted to this currency for viewing
-              </p>
-            </div>
-          )}
+          {/* Currency Selection - Always visible */}
+          <div className="space-y-2">
+            <Label htmlFor="viewing-currency">Viewing Currency</Label>
+            <Select
+              value={viewingCurrency}
+              onValueChange={(value: 'USD' | 'AED' | 'SAR') => {
+                setViewingCurrency(value);
+                if (file) parseFile(file); // Re-parse with new currency
+              }}
+            >
+              <SelectTrigger className="w-[120px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-background border border-border shadow-md z-50">
+                <SelectItem value="USD">USD ($)</SelectItem>
+                <SelectItem value="AED">AED (د.إ)</SelectItem>
+                <SelectItem value="SAR">SAR (ر.س)</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              All costs will be converted to this currency for viewing
+            </p>
+          </div>
 
           {/* Progress Bar */}
           {progress > 0 && progress < 100 && (
