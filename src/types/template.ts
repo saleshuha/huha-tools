@@ -5,6 +5,7 @@ export interface FileTemplate {
   description?: string;
   created_at: string;
   file_type: string;
+  defaultValues?: Record<string, string>;
 }
 
 export interface TemplateMappingRule {

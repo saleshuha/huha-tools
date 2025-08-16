@@ -94,6 +94,8 @@ export const TemplateDataMapper = () => {
     baseFiles.forEach(baseFile => {
       baseFile.data.forEach(sourceRow => {
         const targetRow = new Array(selectedTemplate.headers.length).fill('');
+        
+        // Apply mappings from source to target
         Object.entries(mappings).forEach(([sourceCol, targetCol]) => {
           const sourceIndex = baseFile.headers.indexOf(sourceCol);
           const targetIndex = selectedTemplate.headers.indexOf(targetCol);
@@ -102,6 +104,16 @@ export const TemplateDataMapper = () => {
             targetRow[targetIndex] = value !== undefined ? String(value) : '';
           }
         });
+        
+        // Apply default values for unmapped columns
+        if (selectedTemplate.defaultValues) {
+          selectedTemplate.headers.forEach((header, index) => {
+            if (!targetRow[index] && selectedTemplate.defaultValues?.[header]) {
+              targetRow[index] = selectedTemplate.defaultValues[header];
+            }
+          });
+        }
+        
         combinedData.data.push(targetRow);
       });
     });
