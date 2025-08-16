@@ -9,6 +9,7 @@ export const useTemplates = () => {
   const { toast } = useToast();
 
   const fetchTemplates = useCallback(async (storeFilter?: string) => {
+    console.log('fetchTemplates: Starting fetch with store filter:', storeFilter);
     try {
       let query = supabase
         .from('noon_file_headers')
@@ -17,11 +18,17 @@ export const useTemplates = () => {
 
       if (storeFilter) {
         query = query.eq('store_name', storeFilter);
+        console.log('fetchTemplates: Added store filter to query:', storeFilter);
       }
 
       const { data, error } = await query;
 
-      if (error) throw error;
+      if (error) {
+        console.error('fetchTemplates: Database error:', error);
+        throw error;
+      }
+
+      console.log('fetchTemplates: Raw data from database:', data);
 
       const formattedTemplates: FileTemplate[] = data?.map((item: any) => ({
         id: item.id,
@@ -33,8 +40,10 @@ export const useTemplates = () => {
         store_name: item.store_name
       })) || [];
 
+      console.log('fetchTemplates: Formatted templates:', formattedTemplates);
       setTemplates(formattedTemplates);
     } catch (error) {
+      console.error('fetchTemplates: Error occurred:', error);
       toast({
         title: "Failed to load templates",
         description: "Could not fetch saved templates",
@@ -75,20 +84,31 @@ export const useTemplates = () => {
 
   const deleteTemplate = async (templateId: string, currentStoreFilter?: string) => {
     try {
+      console.log('deleteTemplate: Starting deletion for template ID:', templateId);
+      console.log('deleteTemplate: Current store filter:', currentStoreFilter);
+      
       const { error } = await supabase
         .from('noon_file_headers')
         .delete()
         .eq('id', templateId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('deleteTemplate: Database error:', error);
+        throw error;
+      }
+
+      console.log('deleteTemplate: Successfully deleted from database');
 
       toast({
         title: "Template deleted",
         description: "Template has been deleted successfully",
       });
 
+      console.log('deleteTemplate: Refreshing templates with filter:', currentStoreFilter);
       await fetchTemplates(currentStoreFilter);
+      console.log('deleteTemplate: Templates refreshed');
     } catch (error) {
+      console.error('deleteTemplate: Error occurred:', error);
       toast({
         title: "Failed to delete template",
         description: "Could not delete the template",
