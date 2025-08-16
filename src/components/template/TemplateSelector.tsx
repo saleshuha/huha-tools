@@ -117,7 +117,7 @@ export const TemplateSelector = ({ onTemplateSelect, selectedTemplate }: Templat
   }, [selectedStore, refreshTemplates]);
 
   const handleDeleteTemplate = async (templateId: string) => {
-    await deleteTemplate(templateId);
+    await deleteTemplate(templateId, selectedStore === 'all' ? undefined : selectedStore);
   };
 
   if (loading) {

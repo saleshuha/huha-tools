@@ -73,7 +73,7 @@ export const useTemplates = () => {
     }
   };
 
-  const deleteTemplate = async (templateId: string) => {
+  const deleteTemplate = async (templateId: string, currentStoreFilter?: string) => {
     try {
       const { error } = await supabase
         .from('noon_file_headers')
@@ -87,7 +87,7 @@ export const useTemplates = () => {
         description: "Template has been deleted successfully",
       });
 
-      await fetchTemplates();
+      await fetchTemplates(currentStoreFilter);
     } catch (error) {
       toast({
         title: "Failed to delete template",
