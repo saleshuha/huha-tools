@@ -28,35 +28,27 @@ export const useExcelExport = () => {
     targetData: ExcelData | null,
     mappings: ColumnMapping
   ) => {
-    if (!sourceData || !targetData || Object.keys(mappings).length === 0) {
+    if (!sourceData) {
       toast({
         title: "Cannot export",
-        description: "Please upload both files and create at least one mapping",
+        description: "No data to export",
         variant: "destructive"
       });
       return;
     }
 
     try {
-      // Prepare mapped data rows
-      const mappedRows: string[][] = [];
-      
-      sourceData.data.forEach(sourceRow => {
-        const targetRow = new Array(targetData.headers.length).fill('');
-        Object.entries(mappings).forEach(([sourceCol, targetCol]) => {
-          const sourceIndex = sourceData.headers.indexOf(sourceCol);
-          const targetIndex = targetData.headers.indexOf(targetCol);
-          if (sourceIndex !== -1 && targetIndex !== -1) {
-            const value = sourceRow[sourceIndex];
-            targetRow[targetIndex] = value !== undefined ? String(value) : '';
-          }
-        });
-        mappedRows.push(targetRow);
+      console.log("🔍 useExcelExport - Received data:", {
+        sourceDataHeaders: sourceData.headers,
+        sourceDataRowsCount: sourceData.data.length,
+        firstSourceRow: sourceData.data[0]
       });
 
+      // Use the sourceData as-is since it's already properly formatted
+      const mappedRows = sourceData.data;
       const totalRows = mappedRows.length;
       const maxRowsPerFile = 9900;
-      const originalName = targetData.fileName.replace(/\.[^/.]+$/, '');
+      const originalName = sourceData.fileName.replace(/\.[^/.]+$/, '');
       
       const zip = new JSZip();
       let fileCount = 1;
@@ -67,7 +59,7 @@ export const useExcelExport = () => {
         const rowsChunk = mappedRows.slice(i, endIndex);
         
         // Create CSV with headers + data chunk
-        const csvData = [targetData.headers, ...rowsChunk];
+        const csvData = [sourceData.headers, ...rowsChunk];
         const csvContent = arrayToCSV(csvData);
         
         // Create filename for this part
