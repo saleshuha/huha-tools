@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Upload, FileSpreadsheet, CheckCircle, XCircle } from 'lucide-react';
 import { CreateOrder } from '@/types/amazon-fulfillment';
 import { useCountry } from '@/contexts/CountryContext';
@@ -26,6 +27,9 @@ export const ImportOrdersDialog = ({ open, onOpenChange, onImportOrders, loading
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<CreateOrder[]>([]);
+  const [viewingCurrency, setViewingCurrency] = useState<'USD' | 'AED' | 'SAR'>(
+    selectedCountry === 'UAE' ? 'AED' : selectedCountry === 'KSA' ? 'SAR' : 'USD'
+  );
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
@@ -91,9 +95,6 @@ export const ImportOrdersDialog = ({ open, onOpenChange, onImportOrders, loading
         console.log(`Row ${index} - Raw cost: ${costValue}, Currency column: ${currencyValue}`);
         
         const { amount, currency } = parseAmountCurrency(costValue, selectedCountry, currencyValue);
-        
-        // Convert to viewing currency
-        const viewingCurrency = selectedCountry === 'UAE' ? 'AED' : selectedCountry === 'KSA' ? 'SAR' : 'USD';
         
         console.log(`Row ${index} - Parsed: ${amount} ${currency}, Converting to: ${viewingCurrency}`);
         console.log(`Row ${index} - Exchange rates available:`, exchangeRates);
@@ -270,6 +271,32 @@ export const ImportOrdersDialog = ({ open, onOpenChange, onImportOrders, loading
               </div>
             )}
           </div>
+
+          {/* Currency Selection */}
+          {file && (
+            <div className="space-y-2">
+              <Label htmlFor="viewing-currency">Viewing Currency</Label>
+              <Select
+                value={viewingCurrency}
+                onValueChange={(value: 'USD' | 'AED' | 'SAR') => {
+                  setViewingCurrency(value);
+                  if (file) parseFile(file); // Re-parse with new currency
+                }}
+              >
+                <SelectTrigger className="w-[120px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-background border border-border shadow-md z-50">
+                  <SelectItem value="USD">USD ($)</SelectItem>
+                  <SelectItem value="AED">AED (د.إ)</SelectItem>
+                  <SelectItem value="SAR">SAR (ر.س)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                All costs will be converted to this currency for viewing
+              </p>
+            </div>
+          )}
 
           {/* Progress Bar */}
           {progress > 0 && progress < 100 && (
