@@ -304,25 +304,34 @@ export type Database = {
       noon_file_headers: {
         Row: {
           created_at: string
+          default_values: Json | null
           file_type: string
           headers: string[]
           id: string
+          locked_headers: string[] | null
+          store_name: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
+          default_values?: Json | null
           file_type: string
           headers: string[]
           id?: string
+          locked_headers?: string[] | null
+          store_name?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
           created_at?: string
+          default_values?: Json | null
           file_type?: string
           headers?: string[]
           id?: string
+          locked_headers?: string[] | null
+          store_name?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -1463,6 +1472,30 @@ export type Database = {
           due_date?: string | null
           id?: string
           title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      template_stores: {
+        Row: {
+          created_at: string
+          id: string
+          store_name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          store_name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          store_name?: string
           updated_at?: string
           user_id?: string
         }
