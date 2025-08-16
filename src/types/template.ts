@@ -6,6 +6,7 @@ export interface FileTemplate {
   created_at: string;
   file_type: string;
   defaultValues?: Record<string, string>;
+  store_name?: string;
 }
 
 export interface TemplateMappingRule {
