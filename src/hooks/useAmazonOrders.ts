@@ -268,16 +268,23 @@ export const useAmazonOrders = () => {
         user_id: user?.id,
       }));
 
+      // Use upsert to handle duplicates - update if order_id exists, insert if new
       const { data, error } = await supabase
         .from('orders')
-        .insert(formattedOrders)
+        .upsert(formattedOrders, {
+          onConflict: 'order_id,user_id,country',
+          ignoreDuplicates: false
+        })
         .select();
 
       if (error) throw error;
 
+      const successCount = data?.length || 0;
+      const duplicateCount = ordersData.length - successCount;
+
       toast({
-        title: 'Bulk import successful',
-        description: `${data.length} orders imported successfully. ${clearOldData ? 'Previous data cleared.' : ''}`,
+        title: 'Import completed successfully',
+        description: `${successCount} orders processed. ${duplicateCount > 0 ? `${duplicateCount} orders updated (duplicates).` : ''} ${clearOldData ? 'Previous data cleared.' : ''}`,
       });
 
       await fetchOrders();
