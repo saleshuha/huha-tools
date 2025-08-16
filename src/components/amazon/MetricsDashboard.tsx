@@ -16,6 +16,9 @@ export const MetricsDashboard = ({ metrics, loading }: MetricsDashboardProps) =>
   const { selectedCountry } = useCountry();
   const countryCurrency = selectedCountry === 'UAE' ? 'AED' : 'SAR';
   
+  // Force re-render when country or metrics change by creating a unique key
+  const renderKey = `${selectedCountry}-${metrics?.totalValue || 0}`;
+  
   // All hooks must be called before any early returns
   const convertedTotalValue = useMemo(() => {
     if (!metrics?.totalValue) return 0;
@@ -62,17 +65,17 @@ export const MetricsDashboard = ({ metrics, loading }: MetricsDashboardProps) =>
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-success">
+        <Card className="border-l-4 border-l-success" key={renderKey}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Value</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold" key={`${selectedCountry}-${metrics?.totalValue}`}>
+            <div className="text-2xl font-bold">
               {formatCurrency(convertedTotalValue, countryCurrency)}
             </div>
             <p className="text-xs text-muted-foreground">
-              Combined order value
+              Combined order value ({countryCurrency})
             </p>
           </CardContent>
         </Card>
@@ -85,7 +88,7 @@ export const MetricsDashboard = ({ metrics, loading }: MetricsDashboardProps) =>
           <CardContent>
             <div className="text-2xl font-bold">{metrics.pendingPayments}</div>
             <p className="text-xs text-muted-foreground">
-              Awaiting payment
+              Approved + Non-submitted orders
             </p>
           </CardContent>
         </Card>
@@ -98,7 +101,7 @@ export const MetricsDashboard = ({ metrics, loading }: MetricsDashboardProps) =>
           <CardContent>
             <div className="text-2xl font-bold text-destructive">{metrics.overduePayments}</div>
             <p className="text-xs text-muted-foreground">
-              Past due date
+              Past 45-day credit period
             </p>
           </CardContent>
         </Card>
