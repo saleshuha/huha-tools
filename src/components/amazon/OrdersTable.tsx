@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Search, Download, Eye, Edit, Trash2 } from 'lucide-react';
 import { Order } from '@/types/amazon-fulfillment';
 import { useCurrencyConverter } from '@/hooks/useCurrencyConverter';
+import { useCurrencyDisplay } from '@/components/amazon/CurrencySelector';
 import { useCountry } from '@/contexts/CountryContext';
 import * as XLSX from 'xlsx';
 
@@ -29,10 +30,10 @@ export const OrdersTable = ({ orders, onUpdateOrder, onDeleteOrder }: OrdersTabl
   const [paymentStatusFilter, setPaymentStatusFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const { formatCurrency, convertCurrency } = useCurrencyConverter();
+  const { displayCurrency } = useCurrencyDisplay();
   const { selectedCountry } = useCountry();
   
   const itemsPerPage = 100;
-  const countryCurrency = selectedCountry === 'UAE' ? 'AED' : 'SAR';
 
   // Filter orders
   const filteredOrders = orders.filter(order => {
@@ -200,13 +201,15 @@ export const OrdersTable = ({ orders, onUpdateOrder, onDeleteOrder }: OrdersTabl
                     <div className="space-y-1">
                       <div className="font-medium">
                         {formatCurrency(
-                          convertCurrency(order.item_cost, order.currency, countryCurrency),
-                          countryCurrency
+                          convertCurrency(order.item_cost, order.currency, displayCurrency),
+                          displayCurrency
                         )}
                       </div>
-                      <div className="text-xs text-muted-foreground">
-                        Original: {formatCurrency(order.item_cost, order.currency)}
-                      </div>
+                      {displayCurrency !== order.currency && (
+                        <div className="text-xs text-muted-foreground">
+                          Original: {formatCurrency(order.item_cost, order.currency)}
+                        </div>
+                      )}
                     </div>
                   </TableCell>
                   
