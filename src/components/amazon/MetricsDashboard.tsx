@@ -15,6 +15,16 @@ export const MetricsDashboard = ({ metrics, loading }: MetricsDashboardProps) =>
   const { formatCurrency, convertCurrency } = useCurrencyConverter();
   const { selectedCountry } = useCountry();
   const countryCurrency = selectedCountry === 'UAE' ? 'AED' : 'SAR';
+  
+  // All hooks must be called before any early returns
+  const convertedTotalValue = useMemo(() => {
+    if (!metrics?.totalValue) return 0;
+    const converted = convertCurrency(metrics.totalValue, 'USD', countryCurrency);
+    console.log(`Converting ${metrics.totalValue} USD to ${countryCurrency}: ${converted}`);
+    return converted;
+  }, [metrics?.totalValue, countryCurrency, convertCurrency]);
+
+  console.log('MetricsDashboard render - Country:', selectedCountry, 'Currency:', countryCurrency, 'Total Value:', metrics?.totalValue, 'Converted:', convertedTotalValue);
 
   if (loading) {
     return (
@@ -34,16 +44,6 @@ export const MetricsDashboard = ({ metrics, loading }: MetricsDashboardProps) =>
   }
 
   if (!metrics) return null;
-
-  // Force conversion recalculation and add logging
-  const convertedTotalValue = useMemo(() => {
-    if (!metrics?.totalValue) return 0;
-    const converted = convertCurrency(metrics.totalValue, 'USD', countryCurrency);
-    console.log(`Converting ${metrics.totalValue} USD to ${countryCurrency}: ${converted}`);
-    return converted;
-  }, [metrics?.totalValue, countryCurrency, convertCurrency]);
-
-  console.log('MetricsDashboard render - Country:', selectedCountry, 'Currency:', countryCurrency, 'Total Value:', metrics?.totalValue, 'Converted:', convertedTotalValue);
 
   return (
     <div className="space-y-6">
