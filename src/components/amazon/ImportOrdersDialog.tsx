@@ -149,39 +149,54 @@ export const ImportOrdersDialog = ({ open, onOpenChange, onImportOrders, loading
   const parseAmountCurrency = (raw: unknown, selectedCountry: 'UAE' | 'KSA', currencyFromColumn?: string): { amount: number; currency: string } => {
     if (raw === null || raw === undefined || raw === '') return { amount: 0, currency: 'USD' };
     
-    const fallbackCurrency = selectedCountry === 'UAE' ? 'AED' : selectedCountry === 'KSA' ? 'SAR' : 'USD';
+    console.log(`parseAmountCurrency - Raw input: "${raw}", currencyFromColumn: "${currencyFromColumn}"`);
 
-    // If Excel gave us a numeric cell
+    // If Excel gave us a numeric cell, don't default to country currency - use USD as neutral default
     if (typeof raw === 'number') {
-      return { amount: raw, currency: (currencyFromColumn || fallbackCurrency).toUpperCase() };
+      const detectedCurrency = currencyFromColumn ? currencyFromColumn.toUpperCase() : 'USD';
+      console.log(`parseAmountCurrency - Numeric value: ${raw}, using currency: ${detectedCurrency}`);
+      return { amount: raw, currency: detectedCurrency };
     }
 
     const s = String(raw).trim();
     if (!s) return { amount: 0, currency: 'USD' };
 
-    // Try to detect currency and number from combined string
-    // Handles: "$6.40", "USD6.40", "AED19.56", "SAR25.00", "19.56"
-    const match = s.match(/^\s*(?:([$])|(USD|AED|SAR))?\s*([0-9][0-9,]*(?:\.[0-9]+)?)\s*$/i);
-    if (match) {
-      const dollarSymbol = match[1];
-      const currencyCode = match[2];
-      const numberPart = match[3].replace(/,/g, '');
-      const amount = parseFloat(numberPart);
-      
-      let currency = currencyCode ? currencyCode.toUpperCase() : 
-                    dollarSymbol === '$' ? 'USD' : 
-                    undefined;
-      currency = (currency || currencyFromColumn || fallbackCurrency).toUpperCase();
-      
-      return { amount, currency };
+    // Enhanced currency detection patterns
+    // Handles: "$6.40", "USD6.40", "AED19.56", "SAR25.00", "6.40 USD", "19.56AED", etc.
+    const patterns = [
+      /^\s*\$\s*([0-9][0-9,]*(?:\.[0-9]+)?)\s*$/i, // $6.40
+      /^\s*(USD|AED|SAR)\s*([0-9][0-9,]*(?:\.[0-9]+)?)\s*$/i, // USD6.40, AED19.56
+      /^\s*([0-9][0-9,]*(?:\.[0-9]+)?)\s*(USD|AED|SAR)\s*$/i, // 6.40 USD, 19.56AED
+      /^\s*([0-9][0-9,]*(?:\.[0-9]+)?)\s*$/i // Plain number
+    ];
+
+    for (const pattern of patterns) {
+      const match = s.match(pattern);
+      if (match) {
+        let amount: number;
+        let currency: string;
+
+        if (pattern === patterns[0]) { // Dollar pattern
+          amount = parseFloat(match[1].replace(/,/g, ''));
+          currency = 'USD';
+        } else if (pattern === patterns[1]) { // Currency prefix
+          currency = match[1].toUpperCase();
+          amount = parseFloat(match[2].replace(/,/g, ''));
+        } else if (pattern === patterns[2]) { // Currency suffix
+          amount = parseFloat(match[1].replace(/,/g, ''));
+          currency = match[2].toUpperCase();
+        } else { // Plain number
+          amount = parseFloat(match[1].replace(/,/g, ''));
+          // For plain numbers, prioritize currency column, then USD as neutral default
+          currency = currencyFromColumn ? currencyFromColumn.toUpperCase() : 'USD';
+        }
+
+        console.log(`parseAmountCurrency - Detected: ${amount} ${currency}`);
+        return { amount, currency };
+      }
     }
 
-    // If no pattern matches, try plain number
-    const numValue = parseFloat(s.replace(/,/g, ''));
-    if (!isNaN(numValue)) {
-      return { amount: numValue, currency: (currencyFromColumn || fallbackCurrency).toUpperCase() };
-    }
-
+    console.log(`parseAmountCurrency - No pattern matched, defaulting to USD`);
     return { amount: 0, currency: 'USD' };
   };
 
