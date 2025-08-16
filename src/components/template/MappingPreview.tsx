@@ -21,10 +21,14 @@ export const MappingPreview = ({
   defaultValues = {}
 }: MappingPreviewProps) => {
   const uniqueSourceHeaders = [...new Set(sourceHeaders)];
+  
+  // Headers that have default values (no mapping needed)
+  const headersWithDefaults = targetHeaders.filter(header => defaultValues[header]);
+  
+  // Headers that need mapping (not mapped and no default values)
   const unmappedTargetHeaders = targetHeaders.filter(
     header => !Object.values(mappings).includes(header) && !defaultValues[header]
   );
-  const headersWithDefaults = targetHeaders.filter(header => defaultValues[header]);
 
   const removeMappingForTarget = (targetColumn: string) => {
     const sourceColumn = Object.keys(mappings).find(
@@ -69,12 +73,12 @@ export const MappingPreview = ({
         </Card>
       )}
 
-      {/* Headers with Default Values */}
+      {/* Headers with Default Values (No Mapping Needed) */}
       {headersWithDefaults.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="text-sm text-green-600">
-              Headers with Default Values ({headersWithDefaults.length})
+              Headers with Default Values - No Mapping Needed ({headersWithDefaults.length})
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
@@ -90,7 +94,7 @@ export const MappingPreview = ({
                   </Badge>
                 </div>
                 <Badge variant="secondary" className="text-xs">
-                  Default Value
+                  Auto-filled
                 </Badge>
               </div>
             ))}
@@ -98,12 +102,12 @@ export const MappingPreview = ({
         </Card>
       )}
 
-      {/* Unmapped Target Columns */}
+      {/* Columns That Need Mapping */}
       {unmappedTargetHeaders.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="text-sm text-amber-600">
-              Unmapped Target Columns ({unmappedTargetHeaders.length})
+              Columns That Need Mapping ({unmappedTargetHeaders.length})
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
