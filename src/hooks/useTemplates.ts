@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { FileTemplate } from '@/types/template';
 import { useToast } from '@/hooks/use-toast';
@@ -8,7 +8,7 @@ export const useTemplates = () => {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  const fetchTemplates = async (storeFilter?: string) => {
+  const fetchTemplates = useCallback(async (storeFilter?: string) => {
     try {
       let query = supabase
         .from('noon_file_headers')
@@ -23,7 +23,7 @@ export const useTemplates = () => {
 
       if (error) throw error;
 
-      const formattedTemplates: FileTemplate[] = data?.map(item => ({
+      const formattedTemplates: FileTemplate[] = data?.map((item: any) => ({
         id: item.id,
         name: item.file_type,
         headers: item.headers,
@@ -43,7 +43,7 @@ export const useTemplates = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   const saveTemplate = async (name: string, headers: string[], fileType: string = 'custom', storeName?: string) => {
     try {
