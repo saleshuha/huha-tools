@@ -6,6 +6,7 @@ import { MetricsDashboard } from '@/components/amazon/MetricsDashboard';
 import { OrdersTable } from '@/components/amazon/OrdersTable';
 import { ImportOrdersDialog } from '@/components/amazon/ImportOrdersDialog';
 import { CurrencyRatesDialog } from '@/components/amazon/CurrencyRatesDialog';
+import { ReAuthDialog } from '@/components/amazon/ReAuthDialog';
 import { CurrencyDisplayProvider, CurrencySelector } from '@/components/amazon/CurrencySelector';
 import { useAmazonOrders } from '@/hooks/useAmazonOrders';
 import { useCountry } from '@/contexts/CountryContext';
@@ -18,6 +19,7 @@ const AmazonFulfillmentTracker = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [showCurrencyDialog, setShowCurrencyDialog] = useState(false);
+  const [showReAuthDialog, setShowReAuthDialog] = useState(false);
 
   return (
     <CurrencyDisplayProvider>
@@ -46,11 +48,7 @@ const AmazonFulfillmentTracker = () => {
             {user && profile?.role === 'admin' && (
               <Button 
                 variant="destructive" 
-                onClick={() => {
-                  if (window.confirm('Are you sure you want to clear all data? This action cannot be undone.')) {
-                    clearAllOrders();
-                  }
-                }}
+                onClick={() => setShowReAuthDialog(true)}
                 size="sm"
               >
                 Clear All Data
@@ -90,6 +88,18 @@ const AmazonFulfillmentTracker = () => {
         <CurrencyRatesDialog
           open={showCurrencyDialog}
           onOpenChange={setShowCurrencyDialog}
+        />
+        
+        <ReAuthDialog
+          open={showReAuthDialog}
+          onOpenChange={setShowReAuthDialog}
+          onSuccess={() => {
+            if (window.confirm('Are you sure you want to clear all data? This action cannot be undone.')) {
+              clearAllOrders();
+            }
+          }}
+          title="Clear All Data - Authentication Required"
+          description="This is a destructive action. Please re-enter your credentials to confirm your identity."
         />
         </div>
       </div>
