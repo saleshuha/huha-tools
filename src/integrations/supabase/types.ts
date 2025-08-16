@@ -1471,6 +1471,30 @@ export type Database = {
         }
         Relationships: []
       }
+      template_stores: {
+        Row: {
+          created_at: string
+          id: string
+          store_name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          store_name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          store_name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       warehouses: {
         Row: {
           code: string

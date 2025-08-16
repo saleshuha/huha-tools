@@ -117,11 +117,51 @@ export const useTemplates = () => {
     }
   };
 
-  const getUniqueStores = () => {
-    const stores = templates
-      .map(template => template.store_name)
-      .filter(Boolean) as string[];
-    return [...new Set(stores)];
+  const getUniqueStores = useCallback(async () => {
+    try {
+      // Get stores from both template_stores table and templates
+      const [storesResult, templatesResult] = await Promise.all([
+        supabase.from('template_stores').select('store_name'),
+        supabase.from('noon_file_headers').select('store_name').not('store_name', 'is', null)
+      ]);
+
+      const storeNames = new Set<string>();
+      
+      // Add stores from template_stores table
+      storesResult.data?.forEach(store => {
+        if (store.store_name) storeNames.add(store.store_name);
+      });
+      
+      // Add stores from templates
+      templatesResult.data?.forEach(template => {
+        if (template.store_name) storeNames.add(template.store_name);
+      });
+
+      return Array.from(storeNames).sort();
+    } catch (error) {
+      console.error('Error fetching stores:', error);
+      return [];
+    }
+  }, []);
+
+  const addStore = async (storeName: string) => {
+    try {
+      const { error } = await supabase
+        .from('template_stores')
+        .insert({
+          store_name: storeName,
+          user_id: (await supabase.auth.getUser()).data.user?.id
+        });
+
+      if (error && error.code !== '23505') { // Ignore unique constraint violations
+        throw error;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error adding store:', error);
+      return false;
+    }
   };
 
   useEffect(() => {
@@ -134,6 +174,7 @@ export const useTemplates = () => {
     saveTemplate,
     deleteTemplate,
     getUniqueStores,
+    addStore,
     refreshTemplates: fetchTemplates
   };
 };

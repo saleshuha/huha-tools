@@ -219,15 +219,24 @@ const CreateNewTemplate = ({ onSave, selectedStore }: { onSave: (template: FileT
 };
 
 export const TemplateSelector = ({ onTemplateSelect, selectedTemplate }: TemplateSelectorProps) => {
-  const { templates, loading, saveTemplate, deleteTemplate, getUniqueStores, refreshTemplates } = useTemplates();
+  const { templates, loading, saveTemplate, deleteTemplate, getUniqueStores, addStore, refreshTemplates } = useTemplates();
   const [editingTemplate, setEditingTemplate] = useState<FileTemplate | null>(null);
   const [selectedStore, setSelectedStore] = useState<string>('all');
   const [newStoreName, setNewStoreName] = useState('');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [availableStores, setAvailableStores] = useState<string[]>([]);
 
   useEffect(() => {
     refreshTemplates(selectedStore === 'all' ? undefined : selectedStore);
   }, [selectedStore, refreshTemplates]);
+
+  useEffect(() => {
+    const loadStores = async () => {
+      const stores = await getUniqueStores();
+      setAvailableStores(stores);
+    };
+    loadStores();
+  }, [getUniqueStores]);
 
   const handleDeleteTemplate = async (templateId: string) => {
     console.log('handleDeleteTemplate: Called with ID:', templateId, 'and store filter:', selectedStore);
@@ -242,6 +251,22 @@ export const TemplateSelector = ({ onTemplateSelect, selectedTemplate }: Templat
   const handleCreateTemplate = async (newTemplate: FileTemplate) => {
     await saveTemplate(newTemplate.name, newTemplate.headers, newTemplate.file_type, newTemplate.store_name);
     setShowCreateDialog(false);
+    // Refresh stores list
+    const stores = await getUniqueStores();
+    setAvailableStores(stores);
+  };
+
+  const handleAddStore = async () => {
+    if (newStoreName.trim()) {
+      const success = await addStore(newStoreName.trim());
+      if (success) {
+        setSelectedStore(newStoreName.trim());
+        setNewStoreName('');
+        // Refresh stores list
+        const stores = await getUniqueStores();
+        setAvailableStores(stores);
+      }
+    }
   };
 
   if (loading) {
@@ -252,7 +277,7 @@ export const TemplateSelector = ({ onTemplateSelect, selectedTemplate }: Templat
     );
   }
 
-  const stores = getUniqueStores();
+  const stores = availableStores;
   const filteredTemplates = selectedStore === 'all' 
     ? templates 
     : templates.filter(template => template.store_name === selectedStore);
@@ -287,12 +312,7 @@ export const TemplateSelector = ({ onTemplateSelect, selectedTemplate }: Templat
             <Button 
               variant="outline" 
               size="sm"
-              onClick={() => {
-                if (newStoreName.trim()) {
-                  setSelectedStore(newStoreName.trim());
-                  setNewStoreName('');
-                }
-              }}
+              onClick={handleAddStore}
             >
               Add Store
             </Button>
@@ -365,12 +385,7 @@ export const TemplateSelector = ({ onTemplateSelect, selectedTemplate }: Templat
           <Button 
             variant="outline" 
             size="sm"
-            onClick={() => {
-              if (newStoreName.trim()) {
-                setSelectedStore(newStoreName.trim());
-                setNewStoreName('');
-              }
-            }}
+            onClick={handleAddStore}
           >
             Add Store
           </Button>
