@@ -4,6 +4,7 @@ import { DollarSign, Package, Clock, CheckCircle, AlertTriangle, Calendar } from
 import { DashboardMetrics } from '@/types/amazon-fulfillment';
 import { useCurrencyConverter } from '@/hooks/useCurrencyConverter';
 import { useCountry } from '@/contexts/CountryContext';
+import { useMemo } from 'react';
 
 interface MetricsDashboardProps {
   metrics: DashboardMetrics | null;
@@ -34,8 +35,11 @@ export const MetricsDashboard = ({ metrics, loading }: MetricsDashboardProps) =>
 
   if (!metrics) return null;
 
-  // Force re-calculation when country changes
-  const convertedTotalValue = convertCurrency(metrics.totalValue, 'USD', countryCurrency);
+  // Memoize conversion to ensure it updates when country/metrics change
+  const convertedTotalValue = useMemo(() => {
+    if (!metrics?.totalValue) return 0;
+    return convertCurrency(metrics.totalValue, 'USD', countryCurrency);
+  }, [metrics?.totalValue, countryCurrency, convertCurrency]);
 
   return (
     <div className="space-y-6">
