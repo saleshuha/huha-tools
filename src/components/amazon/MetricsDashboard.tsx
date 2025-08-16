@@ -68,7 +68,7 @@ export const MetricsDashboard = ({ metrics, loading }: MetricsDashboardProps) =>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-2xl font-bold" key={`${selectedCountry}-${metrics?.totalValue}`}>
               {formatCurrency(convertedTotalValue, countryCurrency)}
             </div>
             <p className="text-xs text-muted-foreground">
