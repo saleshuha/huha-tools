@@ -343,17 +343,17 @@ export function AppSidebar() {
                           : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
                       }`}
                     >
-                      <div className="flex items-center gap-3 w-full px-4 py-3 rounded-xl">
+                      <div className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl">
                         <Wrench className="h-5 w-5 flex-shrink-0" />
                         {!isCollapsed && (
-                          <div className="flex items-center justify-between w-full">
-                            <span className="font-semibold text-sm">
-                              Tools
-                            </span>
-                            <ChevronDown className={`h-4 w-4 transition-transform ${
-                              isToolsOpen ? "rotate-180" : ""
-                            }`} />
-                          </div>
+                          <span className="font-semibold text-sm">
+                            Tools
+                          </span>
+                        )}
+                        {!isCollapsed && (
+                          <ChevronDown className={`h-4 w-4 ml-auto transition-transform ${
+                            isToolsOpen ? "rotate-180" : ""
+                          }`} />
                         )}
                       </div>
                     </SidebarMenuButton>
