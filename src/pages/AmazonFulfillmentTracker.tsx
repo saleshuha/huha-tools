@@ -59,9 +59,19 @@ const AmazonFulfillmentTracker = () => {
 
         {/* Main Content */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-            <TabsTrigger value="orders">Orders Management</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 h-12 p-1 bg-muted/50">
+            <TabsTrigger 
+              value="dashboard" 
+              className="h-10 px-6 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all duration-200"
+            >
+              Dashboard
+            </TabsTrigger>
+            <TabsTrigger 
+              value="orders" 
+              className="h-10 px-6 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all duration-200"
+            >
+              Orders Management
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="dashboard" className="space-y-6">
