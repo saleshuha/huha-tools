@@ -138,6 +138,7 @@ export const OrdersTable = ({ orders, onUpdateOrder, onDeleteOrder }: OrdersTabl
       'Payment Due Date': order.payment_due_date || '',
       'Country': order.country,
       'Created At': new Date(order.created_at).toLocaleDateString(),
+      'Last Modified': new Date(order.updated_at).toLocaleDateString() + ' ' + new Date(order.updated_at).toLocaleTimeString(),
     }));
 
     const ws = XLSX.utils.json_to_sheet(exportData);
@@ -248,6 +249,11 @@ export const OrdersTable = ({ orders, onUpdateOrder, onDeleteOrder }: OrdersTabl
                     Dates {getSortIcon('shipment_date')}
                   </Button>
                 </TableHead>
+                <TableHead>
+                  <Button variant="ghost" onClick={() => handleSort('updated_at')} className="h-auto p-0 font-semibold hover:bg-transparent">
+                    Last Modified {getSortIcon('updated_at')}
+                  </Button>
+                </TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -319,6 +325,12 @@ export const OrdersTable = ({ orders, onUpdateOrder, onDeleteOrder }: OrdersTabl
                       {order.invoice_date && (
                         <div>Inv: {new Date(order.invoice_date).toLocaleDateString()}</div>
                       )}
+                    </div>
+                  </TableCell>
+                  
+                  <TableCell>
+                    <div className="text-xs text-muted-foreground">
+                      {new Date(order.updated_at).toLocaleDateString()} {new Date(order.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </div>
                   </TableCell>
                   
