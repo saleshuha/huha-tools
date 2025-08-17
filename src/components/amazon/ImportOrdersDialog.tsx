@@ -206,8 +206,8 @@ export const ImportOrdersDialog = ({ open, onOpenChange, onImportOrders, loading
     if (preview.length === 0) return;
     
     try {
-      // Clear existing data for the current country before importing
-      await onImportOrders(preview, true); // Pass true to indicate clearing old data
+      // Import new orders (will be added to existing data via upsert)
+      await onImportOrders(preview, false); // Pass false to keep existing data
       setFile(null);
       setPreview([]);
       setProgress(0);
