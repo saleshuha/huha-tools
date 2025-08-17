@@ -47,37 +47,46 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
     return converted;
   }, [metrics?.overdueValue, displayCurrency, convertCurrency]);
 
-  // Calculate values for status breakdown
+  // Calculate values for status breakdown (convert to USD then to display currency)
   const statusValues = useMemo(() => {
-    if (!metrics?.statusBreakdown || !metrics) return {};
+    if (!metrics?.statusBreakdown || !orders) return {};
     const values: { [key: string]: number } = {};
     
     Object.keys(metrics.statusBreakdown).forEach(status => {
-      const ordersWithStatus = orders?.filter(order => order.status === status) || [];
-      const totalValue = ordersWithStatus.reduce((sum, order) => {
+      const ordersWithStatus = orders.filter(order => order.status === status);
+      const totalValueUSD = ordersWithStatus.reduce((sum, order) => {
         const cost = parseFloat(order.item_cost?.toString() || '0') || 0;
         const qty = parseInt(order.quantity?.toString() || '1') || 1;
-        return sum + (cost * qty);
+        const orderValue = cost * qty;
+        
+        // Convert to USD if not already in USD
+        if (order.currency === 'AED') {
+          return sum + (orderValue * 0.27);
+        } else if (order.currency === 'SAR') {
+          return sum + (orderValue * 0.27);
+        } else {
+          return sum + orderValue;
+        }
       }, 0);
-      values[status] = convertCurrency(totalValue, 'USD', displayCurrency);
+      values[status] = convertCurrency(totalValueUSD, 'USD', displayCurrency);
     });
     
     return values;
-  }, [metrics?.statusBreakdown, convertCurrency, displayCurrency]);
+  }, [metrics?.statusBreakdown, orders, convertCurrency, displayCurrency]);
 
-  // Calculate values for upcoming payments
+  // Calculate values for upcoming payments (convert to USD then to display currency)
   const upcomingValues = useMemo(() => {
-    if (!metrics) return { next7Days: 0, next30Days: 0, next90Days: 0 };
+    if (!metrics || !orders) return { next7Days: 0, next30Days: 0, next90Days: 0 };
     
     const now = new Date();
     const next7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
     const next30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
     const next90Days = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
 
-    const pendingOrders = orders?.filter(o => {
+    const pendingOrders = orders.filter(o => {
       const status = (o.status || '').toLowerCase().trim();
       return status === 'approved' || status === 'non-submitted';
-    }) || [];
+    });
 
     const calculateUpcomingValue = (endDate: Date) => {
       const upcomingOrders = pendingOrders.filter(o => {
@@ -92,13 +101,22 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
         }
       });
       
-      const totalValue = upcomingOrders.reduce((sum, order) => {
+      const totalValueUSD = upcomingOrders.reduce((sum, order) => {
         const cost = parseFloat(order.item_cost?.toString() || '0') || 0;
         const qty = parseInt(order.quantity?.toString() || '1') || 1;
-        return sum + (cost * qty);
+        const orderValue = cost * qty;
+        
+        // Convert to USD if not already in USD
+        if (order.currency === 'AED') {
+          return sum + (orderValue * 0.27);
+        } else if (order.currency === 'SAR') {
+          return sum + (orderValue * 0.27);
+        } else {
+          return sum + orderValue;
+        }
       }, 0);
       
-      return convertCurrency(totalValue, 'USD', displayCurrency);
+      return convertCurrency(totalValueUSD, 'USD', displayCurrency);
     };
 
     return {
