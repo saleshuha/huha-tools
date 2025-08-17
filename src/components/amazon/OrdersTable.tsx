@@ -306,8 +306,8 @@ export const OrdersTable = ({ orders, onUpdateOrder, onDeleteOrder }: OrdersTabl
                   
                   <TableCell>
                     <div className="space-y-1">
-                      <Badge variant={getPaymentStatusVariant(order.payment_status)}>
-                        {order.payment_status.replace('_', ' ')}
+                      <Badge variant={getPaymentStatusVariant(order.status.toLowerCase() === 'paid' ? 'completed' : order.payment_status)}>
+                        {order.status.toLowerCase() === 'paid' ? 'completed' : order.payment_status.replace('_', ' ')}
                       </Badge>
                       {order.payment_due_date && (
                         <div className="text-xs text-muted-foreground">
