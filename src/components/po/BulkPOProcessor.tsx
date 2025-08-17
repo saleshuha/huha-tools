@@ -48,29 +48,30 @@ export function BulkPOProcessor({ onProcessComplete }: BulkPOProcessorProps) {
 
       for (const poNumber of poList) {
         try {
-          // First, mark all delivered orders in this PO as closed
-          const { data: deliveredOrders, error: selectError } = await supabase
+          // Get all orders in this PO (regardless of status)
+          const { data: poOrders, error: selectError } = await supabase
             .from('po_orders')
             .select('id, status')
             .eq('po_number', poNumber)
-            .eq('status', 'delivered');
+            .neq('status', 'closed'); // Only get non-closed items
 
           if (selectError) throw selectError;
 
-          if (deliveredOrders && deliveredOrders.length > 0) {
+          if (poOrders && poOrders.length > 0) {
+            // Close all items in this PO regardless of their current status
             const { error: updateError } = await supabase
               .from('po_orders')
               .update({ status: 'closed' })
               .eq('po_number', poNumber)
-              .eq('status', 'delivered');
+              .neq('status', 'closed');
 
             if (updateError) throw updateError;
 
             successCount++;
-            details.push(`✓ ${poNumber}: Closed ${deliveredOrders.length} delivered items`);
+            details.push(`✓ ${poNumber}: Closed ${poOrders.length} items`);
           } else {
             failedCount++;
-            details.push(`⚠ ${poNumber}: No delivered items found`);
+            details.push(`⚠ ${poNumber}: No items found or all items already closed`);
           }
         } catch (error) {
           failedCount++;
@@ -137,7 +138,7 @@ export function BulkPOProcessor({ onProcessComplete }: BulkPOProcessorProps) {
             Bulk PO Processor
           </DialogTitle>
           <DialogDescription>
-            Paste PO numbers to mark all delivered items as closed. Supports comma, space, or newline separated values.
+            Paste PO numbers to close all items in those POs. Supports comma, space, or newline separated values.
           </DialogDescription>
         </DialogHeader>
         
@@ -152,7 +153,7 @@ export function BulkPOProcessor({ onProcessComplete }: BulkPOProcessorProps) {
               className="resize-none"
             />
             <p className="text-xs text-muted-foreground">
-              Only delivered items within these POs will be marked as closed
+              All items within these POs will be marked as closed regardless of current status
             </p>
             {poNumbers.trim() && (
               <Badge variant="secondary">
