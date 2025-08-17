@@ -788,7 +788,9 @@ export function POTracker() {
                                     variant="ghost"
                                     size="sm"
                                     className="h-6 w-6 p-0"
-                                    onClick={() => {
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
                                       navigator.clipboard.writeText(poNumber);
                                       toast({
                                         title: "Copied!",
