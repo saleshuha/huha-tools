@@ -207,34 +207,57 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               ))}
 
-              {/* Core Application Items */}
-              {coreItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton 
-                    asChild
-                    className={`group relative w-full rounded-xl transition-all duration-200 hover:scale-[1.02] ${
-                      isActive(item.url)
-                        ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
-                        : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
-                    }`}
+              {/* Instock Inventory */}
+              <SidebarMenuItem>
+                <SidebarMenuButton 
+                  asChild
+                  className={`group relative w-full rounded-xl transition-all duration-200 hover:scale-[1.02] ${
+                    isActive("/inventory")
+                      ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
+                      : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
+                  }`}
+                >
+                  <NavLink 
+                    to="/inventory" 
+                    end
+                    className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
                   >
-                    <NavLink 
-                      to={item.url} 
-                      end
-                      className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
-                    >
-                      <item.icon className="h-5 w-5 flex-shrink-0" />
-                      {!isCollapsed && (
-                        <span className="font-semibold text-sm">
-                          {item.title}
-                        </span>
-                      )}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+                    <Database className="h-5 w-5 flex-shrink-0" />
+                    {!isCollapsed && (
+                      <span className="font-semibold text-sm">
+                        Instock Inventory
+                      </span>
+                    )}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
 
-              {/* PO Tracker standalone item */}
+              {/* Sales & Replenishment */}
+              <SidebarMenuItem>
+                <SidebarMenuButton 
+                  asChild
+                  className={`group relative w-full rounded-xl transition-all duration-200 hover:scale-[1.02] ${
+                    isActive("/replenishment")
+                      ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
+                      : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
+                  }`}
+                >
+                  <NavLink 
+                    to="/replenishment" 
+                    end
+                    className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
+                  >
+                    <TrendingUp className="h-5 w-5 flex-shrink-0" />
+                    {!isCollapsed && (
+                      <span className="font-semibold text-sm">
+                        Sales & Replenishment
+                      </span>
+                    )}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              {/* PO - SS Stock Tracker */}
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   asChild
@@ -259,8 +282,32 @@ export function AppSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
 
+              {/* Amazon Fulfillment Tracker */}
+              <SidebarMenuItem>
+                <SidebarMenuButton 
+                  asChild
+                  className={`group relative w-full rounded-xl transition-all duration-200 hover:scale-[1.02] ${
+                    isActive("/amazon-fulfillment")
+                      ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
+                      : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
+                  }`}
+                >
+                  <NavLink 
+                    to="/amazon-fulfillment" 
+                    end
+                    className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
+                  >
+                    <Package className="h-5 w-5 flex-shrink-0" />
+                    {!isCollapsed && (
+                      <span className="font-semibold text-sm">
+                        Amazon Fulfillment Tracker
+                      </span>
+                    )}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
 
-              {/* Carrefour Sales Tracker as standalone item */}
+              {/* Carrefour Sales Tracker */}
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   asChild
@@ -285,7 +332,6 @@ export function AppSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
 
-
               {/* Tools dropdown */}
               <SidebarMenuItem>
                 <Collapsible open={isToolsOpen} onOpenChange={setIsToolsOpen}>
@@ -293,7 +339,7 @@ export function AppSidebar() {
                     <SidebarMenuButton
                       className={`group relative w-full rounded-xl transition-all duration-200 hover:scale-[1.02] ${
                         isToolsSectionActive()
-                          ? "bg-gradient-to-r from-accent to-accent/90 text-accent-foreground shadow-lg shadow-accent/25" 
+                          ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
                           : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
                       }`}
                     >
@@ -341,33 +387,15 @@ export function AppSidebar() {
                 </Collapsible>
               </SidebarMenuItem>
 
-              {/* DF Payment Tracker standalone item */}
-              <SidebarMenuItem>
-                <SidebarMenuButton 
-                  asChild
-                  className="group relative w-full rounded-xl transition-all duration-200 hover:scale-[1.02] hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
-                >
-                  <a 
-                    href="https://fulfillment-coin-tracker.lovable.app/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
-                  >
-                    <ExternalLink className="h-5 w-5 flex-shrink-0" />
-                    {!isCollapsed && (
-                      <span className="font-semibold text-sm">
-                        DF Payment Tracker
-                      </span>
-                    )}
-                  </a>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-
               {/* Data Viewer standalone item */}
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   asChild
-                  className="group relative w-full rounded-xl transition-all duration-200 hover:scale-[1.02] hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
+                  className={`group relative w-full rounded-xl transition-all duration-200 hover:scale-[1.02] ${
+                    isActive("/data-viewer")
+                      ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
+                      : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
+                  }`}
                 >
                   <a 
                     href="https://huha-data-viewer.lovable.app/"
