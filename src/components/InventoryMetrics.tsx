@@ -477,7 +477,7 @@ export function InventoryMetrics({
       <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 mb-3">
         {/* Active Items */}
         <Card 
-          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-24 flex flex-col"
+          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-24 flex flex-col border-l-4 border-l-primary"
           onClick={() => handleMetricClick('active')}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
@@ -498,7 +498,7 @@ export function InventoryMetrics({
 
         {/* In Stock */}
         <Card 
-          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-24 flex flex-col"
+          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-24 flex flex-col border-l-4 border-l-green-500"
           onClick={() => handleMetricClick('instock')}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
@@ -517,7 +517,7 @@ export function InventoryMetrics({
 
         {/* Out of Stock */}
         <Card 
-          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-24 flex flex-col"
+          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-24 flex flex-col border-l-4 border-l-red-500"
           onClick={() => handleMetricClick('outofstock')}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
@@ -536,7 +536,7 @@ export function InventoryMetrics({
 
         {/* Recently Added Items */}
         <Card 
-          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-24 flex flex-col"
+          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-24 flex flex-col border-l-4 border-l-blue-500"
           onClick={() => handleMetricClick('recently-added')}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
@@ -555,7 +555,7 @@ export function InventoryMetrics({
 
         {/* Total Units */}
         <Card 
-          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-24 flex flex-col"
+          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-24 flex flex-col border-l-4 border-l-purple-500"
           onClick={() => setShowSoldModal(true)}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
@@ -577,7 +577,7 @@ export function InventoryMetrics({
         {/* Missing SKU - Only show when viewing ASIN or combined view */}
         {(!showOnlySku) && (
           <Card 
-            className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-24 flex flex-col"
+            className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-24 flex flex-col border-l-4 border-l-orange-500"
             onClick={handleMissingSkuClick}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
