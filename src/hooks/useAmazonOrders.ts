@@ -58,7 +58,9 @@ export const useAmazonOrders = () => {
         totalOrders: 0,
         totalValue: 0,
         pendingPayments: 0,
+        pendingValue: 0,
         overduePayments: 0,
+        overdueValue: 0,
         completedPayments: 0,
         statusBreakdown: {},
         paymentStatusBreakdown: {},
@@ -77,7 +79,9 @@ export const useAmazonOrders = () => {
         totalOrders: 0,
         totalValue: 0,
         pendingPayments: 0,
+        pendingValue: 0,
         overduePayments: 0,
+        overdueValue: 0,
         completedPayments: 0,
         statusBreakdown: {},
         paymentStatusBreakdown: {},
@@ -112,6 +116,13 @@ export const useAmazonOrders = () => {
       return status === 'approved' || status === 'non-submitted';
     });
     const pendingPayments = pendingOrders.length;
+
+    // Calculate pending orders value
+    const pendingValue = pendingOrders.reduce((sum, order) => {
+      const cost = parseFloat(order.item_cost?.toString() || '0') || 0;
+      const qty = parseInt(order.quantity?.toString() || '1') || 1;
+      return sum + (cost * qty);
+    }, 0);
     
     console.log('Pending payments (Approved + Non-submitted):', pendingPayments);
     console.log('Sample pending orders:', pendingOrders.slice(0, 3).map(o => ({ 
@@ -141,6 +152,13 @@ export const useAmazonOrders = () => {
       }
     });
     const overduePayments = overdueOrders.length;
+
+    // Calculate overdue orders value
+    const overdueValue = overdueOrders.reduce((sum, order) => {
+      const cost = parseFloat(order.item_cost?.toString() || '0') || 0;
+      const qty = parseInt(order.quantity?.toString() || '1') || 1;
+      return sum + (cost * qty);
+    }, 0);
     
     console.log('Overdue payments count:', overduePayments);
     
@@ -206,7 +224,9 @@ export const useAmazonOrders = () => {
       totalOrders,
       totalValue, // Keep in USD, conversion happens in UI
       pendingPayments,
+      pendingValue, // Keep in USD, conversion happens in UI
       overduePayments,
+      overdueValue, // Keep in USD, conversion happens in UI
       completedPayments,
       statusBreakdown,
       paymentStatusBreakdown,

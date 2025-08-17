@@ -70,7 +70,9 @@ export interface DashboardMetrics {
   totalOrders: number;
   totalValue: number;
   pendingPayments: number;
+  pendingValue: number;
   overduePayments: number;
+  overdueValue: number;
   completedPayments: number;
   statusBreakdown: {
     [key: string]: number;

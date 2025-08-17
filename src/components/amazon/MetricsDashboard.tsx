@@ -22,10 +22,24 @@ export const MetricsDashboard = ({ metrics, loading }: MetricsDashboardProps) =>
   // All hooks must be called before any early returns
   const convertedTotalValue = useMemo(() => {
     if (!metrics?.totalValue) return 0;
-    const converted = convertCurrency(metrics.totalValue, 'USD', countryCurrency);
-    console.log(`Converting ${metrics.totalValue} USD to ${countryCurrency}: ${converted}`);
+    const totalValue = parseFloat(metrics.totalValue?.toString()) || 0;
+    const converted = convertCurrency(totalValue, 'USD', countryCurrency);
+    console.log(`Converting ${totalValue} USD to ${countryCurrency}: ${converted}`);
     return converted;
   }, [metrics?.totalValue, countryCurrency, convertCurrency]);
+
+  // Calculate converted values for pending and overdue amounts
+  const convertedPendingValue = useMemo(() => {
+    if (!metrics?.pendingValue) return 0;
+    const pendingValue = parseFloat(metrics.pendingValue?.toString()) || 0;
+    return convertCurrency(pendingValue, 'USD', countryCurrency);
+  }, [metrics?.pendingValue, countryCurrency, convertCurrency]);
+
+  const convertedOverdueValue = useMemo(() => {
+    if (!metrics?.overdueValue) return 0;
+    const overdueValue = parseFloat(metrics.overdueValue?.toString()) || 0;
+    return convertCurrency(overdueValue, 'USD', countryCurrency);
+  }, [metrics?.overdueValue, countryCurrency, convertCurrency]);
 
   console.log('MetricsDashboard render - Country:', selectedCountry, 'Currency:', countryCurrency, 'Total Value:', metrics?.totalValue, 'Converted:', convertedTotalValue);
 
@@ -87,6 +101,9 @@ export const MetricsDashboard = ({ metrics, loading }: MetricsDashboardProps) =>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{metrics.pendingPayments}</div>
+            <div className="text-lg font-semibold text-warning">
+              {formatCurrency(convertedPendingValue, countryCurrency)}
+            </div>
             <p className="text-xs text-muted-foreground">
               Approved + Non-submitted orders
             </p>
@@ -100,6 +117,9 @@ export const MetricsDashboard = ({ metrics, loading }: MetricsDashboardProps) =>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-destructive">{metrics.overduePayments}</div>
+            <div className="text-lg font-semibold text-destructive">
+              {formatCurrency(convertedOverdueValue, countryCurrency)}
+            </div>
             <p className="text-xs text-muted-foreground">
               Past 45-day credit period
             </p>
