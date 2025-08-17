@@ -229,43 +229,46 @@ export function POTracker() {
     sku.title?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Calculate accurate metrics based on database matching
+  // Filter out closed POs for active metrics
+  const activePOOrders = poOrders.filter(order => order.status !== 'closed');
+
+  // Calculate accurate metrics based on database matching (active POs only)
   const totalSKUs = totalCount;
-  const totalOrderRecords = poOrders.length;
-  const totalItemsQuantity = poOrders.reduce((sum, order) => sum + (order.quantity || 0), 0);
-  const uniquePONumbers = new Set(poOrders.map(order => order.po_number)).size;
+  const totalOrderRecords = activePOOrders.length;
+  const totalItemsQuantity = activePOOrders.reduce((sum, order) => sum + (order.quantity || 0), 0);
+  const uniquePONumbers = new Set(activePOOrders.map(order => order.po_number)).size;
   
-  // Matched items - use database-level matching (items with sunsky_sku populated)
-  const matchedItems = poOrders.filter(order => order.sunsky_sku !== null).length;
-  const matchedItemsQuantity = poOrders
+  // Matched items - use database-level matching (items with sunsky_sku populated) from active POs only
+  const matchedItems = activePOOrders.filter(order => order.sunsky_sku !== null).length;
+  const matchedItemsQuantity = activePOOrders
     .filter(order => order.sunsky_sku !== null)
     .reduce((sum, order) => sum + (order.quantity || 0), 0);
   
-  // Pending matched orders - matched items that are still pending
-  const pendingMatchedOrders = poOrders.filter(order => 
+  // Pending matched orders - matched items that are still pending (from active POs only)
+  const pendingMatchedOrders = activePOOrders.filter(order => 
     order.status === 'pending' && order.sunsky_sku !== null
   ).length;
   
-  // Pending matched quantity - total quantity of matched items that are still pending
-  const pendingMatchedQuantity = poOrders
+  // Pending matched quantity - total quantity of matched items that are still pending (from active POs only)
+  const pendingMatchedQuantity = activePOOrders
     .filter(order => order.status === 'pending' && order.sunsky_sku !== null)
     .reduce((sum, order) => sum + (order.quantity || 0), 0);
   
-  // Placed orders - all orders with status 'ordered'
-  const placedOrders = poOrders.filter(order => order.status === 'ordered').length;
+  // Placed orders - all orders with status 'ordered' (from active POs only)
+  const placedOrders = activePOOrders.filter(order => order.status === 'ordered').length;
 
-  // REWRITTEN: Only count MATCHED items (with sunsky_sku) that have stock > 0
+  // REWRITTEN: Only count MATCHED items (with sunsky_sku) that have stock > 0 from active POs only
   const getMatchedItemsWithStock = () => {
-    if (!poOrders || poOrders.length === 0) return { count: 0, totalQty: 0 };
+    if (!activePOOrders || activePOOrders.length === 0) return { count: 0, totalQty: 0 };
     
     let count = 0;
     let totalQty = 0;
     
-    // ONLY process matched items (items with sunsky_sku populated)
-    const matchedItems = poOrders.filter(order => order.sunsky_sku !== null);
+    // ONLY process matched items (items with sunsky_sku populated) from active POs
+    const matchedItems = activePOOrders.filter(order => order.sunsky_sku !== null);
     
-    console.log('Total PO Orders:', poOrders.length);
-    console.log('Matched Items (with sunsky_sku):', matchedItems.length);
+    console.log('Total Active PO Orders:', activePOOrders.length);
+    console.log('Matched Items from Active POs (with sunsky_sku):', matchedItems.length);
     
     for (const order of matchedItems) {
       let foundStock = false;
@@ -508,13 +511,13 @@ export function POTracker() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
-        <Card>
+        <Card className="border-l-4 border-l-blue-500 bg-blue-50/50">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total SKUs</CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
+            <Package className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalSKUs.toLocaleString()}</div>
+            <div className="text-2xl font-bold text-blue-600">{totalSKUs.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">
               Sunsky supplier SKUs in database
             </p>
@@ -526,36 +529,36 @@ export function POTracker() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-l-4 border-l-purple-500 bg-purple-50/50">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">PO Numbers</CardTitle>
-            <AlertCircle className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Active PO Numbers</CardTitle>
+            <AlertCircle className="h-4 w-4 text-purple-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{uniquePONumbers}</div>
+            <div className="text-2xl font-bold text-purple-600">{uniquePONumbers}</div>
             <p className="text-xs text-muted-foreground">
-              Unique purchase orders
+              Active purchase orders (excluding closed)
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-l-4 border-l-indigo-500 bg-indigo-50/50">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Items</CardTitle>
-            <BarChart3 className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Active Items</CardTitle>
+            <BarChart3 className="h-4 w-4 text-indigo-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalItemsQuantity.toLocaleString()}</div>
+            <div className="text-2xl font-bold text-indigo-600">{totalItemsQuantity.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">
-              Total quantity in PO orders
+              Total quantity in active PO orders
             </p>
             <Badge variant="secondary" className="mt-1 text-xs">
-              {totalOrderRecords.toLocaleString()} order records
+              {totalOrderRecords.toLocaleString()} active order records
             </Badge>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-l-4 border-l-green-500 bg-green-50/50">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Matched Items</CardTitle>
             <CheckCircle className="h-4 w-4 text-green-500" />
@@ -563,17 +566,17 @@ export function POTracker() {
           <CardContent>
             <div className="text-2xl font-bold text-green-600">{matchedItemsQuantity.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">
-              Quantity of matched items
+              Quantity of matched active items
             </p>
             <div className="flex gap-2 mt-1">
               <Badge variant="secondary" className="text-xs">
-                {matchedItems.toLocaleString()} records matched
+                {matchedItems.toLocaleString()} active records matched
               </Badge>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-l-4 border-l-yellow-500 bg-yellow-50/50">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pending Items</CardTitle>
             <Clock className="h-4 w-4 text-yellow-500" />
@@ -581,15 +584,15 @@ export function POTracker() {
           <CardContent>
             <div className="text-2xl font-bold text-yellow-600">{pendingMatchedQuantity.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">
-              Total quantity pending placement
+              Quantity pending placement (active POs)
             </p>
             <Badge variant="secondary" className="mt-1 text-xs">
-              {pendingMatchedOrders.toLocaleString()} pending items
+              {pendingMatchedOrders.toLocaleString()} pending active items
             </Badge>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-l-4 border-l-orange-500 bg-orange-50/50">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">In Stock Items</CardTitle>
             <PackageCheck className="h-4 w-4 text-orange-500" />
@@ -599,7 +602,7 @@ export function POTracker() {
               {inStockItems.toLocaleString()}
             </div>
             <p className="text-xs text-muted-foreground">
-              Items with stock quantity &gt; 0
+              Active matched items with available stock
             </p>
             <div className="flex gap-2 mt-1">
               <Badge variant="secondary" className="text-xs">
@@ -614,15 +617,15 @@ export function POTracker() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-l-4 border-l-emerald-500 bg-emerald-50/50">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Placed Orders</CardTitle>
-            <CheckCircle className="h-4 w-4 text-blue-500" />
+            <CheckCircle className="h-4 w-4 text-emerald-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{placedOrders.toLocaleString()}</div>
+            <div className="text-2xl font-bold text-emerald-600">{placedOrders.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">
-              Items successfully placed
+              Active items successfully placed
             </p>
           </CardContent>
         </Card>
