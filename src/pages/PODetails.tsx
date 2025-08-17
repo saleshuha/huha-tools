@@ -122,6 +122,17 @@ export default function PODetailsPage() {
       console.log('📊 ASIN Inventory Data:', asinResult.data);
       console.log('📊 SKU Inventory Data:', skuResult.data);
       console.log('📊 SKU Inventory ASINs found:', skuResult.data?.filter(item => item.sku_number?.startsWith('B0')));
+      
+      // Specific debug for B0FHDWY5FF
+      const targetAsin = 'B0FHDWY5FF';
+      const asinInAsinInventory = asinResult.data?.find(item => item.asin === targetAsin);
+      const asinInSkuInventory = skuResult.data?.find(item => item.sku_number === targetAsin);
+      console.log(`🎯 Debug for ${targetAsin}:`, {
+        inAsinInventory: !!asinInAsinInventory,
+        asinInventoryData: asinInAsinInventory,
+        inSkuInventory: !!asinInSkuInventory,
+        skuInventoryData: asinInSkuInventory
+      });
 
       setInventoryData({
         asinInventory: asinResult.data || [],
