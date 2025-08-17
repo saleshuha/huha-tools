@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { DollarSign, Package, Clock, CheckCircle, AlertTriangle, Calendar } from 'lucide-react';
 import { DashboardMetrics } from '@/types/amazon-fulfillment';
 import { useCurrencyConverter } from '@/hooks/useCurrencyConverter';
+import { useCurrencyDisplay } from '@/components/amazon/CurrencySelector';
 import { useCountry } from '@/contexts/CountryContext';
 import { useMemo } from 'react';
 
@@ -13,35 +14,39 @@ interface MetricsDashboardProps {
 
 export const MetricsDashboard = ({ metrics, loading }: MetricsDashboardProps) => {
   const { formatCurrency, convertCurrency } = useCurrencyConverter();
+  const { displayCurrency } = useCurrencyDisplay();
   const { selectedCountry } = useCountry();
-  const countryCurrency = selectedCountry === 'UAE' ? 'AED' : 'SAR';
   
-  // Force re-render when country or metrics change by creating a unique key
-  const renderKey = `${selectedCountry}-${metrics?.totalValue || 0}`;
+  // Force re-render when display currency or metrics change by creating a unique key
+  const renderKey = `${displayCurrency}-${metrics?.totalValue || 0}`;
   
   // All hooks must be called before any early returns
   const convertedTotalValue = useMemo(() => {
     if (!metrics?.totalValue) return 0;
     const totalValue = parseFloat(metrics.totalValue?.toString()) || 0;
-    const converted = convertCurrency(totalValue, 'USD', countryCurrency);
-    console.log(`Converting ${totalValue} USD to ${countryCurrency}: ${converted}`);
+    const converted = convertCurrency(totalValue, 'USD', displayCurrency);
+    console.log(`Dashboard Converting Total ${totalValue} USD to ${displayCurrency}: ${converted}`);
     return converted;
-  }, [metrics?.totalValue, countryCurrency, convertCurrency]);
+  }, [metrics?.totalValue, displayCurrency, convertCurrency]);
 
   // Calculate converted values for pending and overdue amounts
   const convertedPendingValue = useMemo(() => {
     if (!metrics?.pendingValue) return 0;
     const pendingValue = parseFloat(metrics.pendingValue?.toString()) || 0;
-    return convertCurrency(pendingValue, 'USD', countryCurrency);
-  }, [metrics?.pendingValue, countryCurrency, convertCurrency]);
+    const converted = convertCurrency(pendingValue, 'USD', displayCurrency);
+    console.log(`Dashboard Converting Pending ${pendingValue} USD to ${displayCurrency}: ${converted}`);
+    return converted;
+  }, [metrics?.pendingValue, displayCurrency, convertCurrency]);
 
   const convertedOverdueValue = useMemo(() => {
     if (!metrics?.overdueValue) return 0;
     const overdueValue = parseFloat(metrics.overdueValue?.toString()) || 0;
-    return convertCurrency(overdueValue, 'USD', countryCurrency);
-  }, [metrics?.overdueValue, countryCurrency, convertCurrency]);
+    const converted = convertCurrency(overdueValue, 'USD', displayCurrency);
+    console.log(`Dashboard Converting Overdue ${overdueValue} USD to ${displayCurrency}: ${converted}`);
+    return converted;
+  }, [metrics?.overdueValue, displayCurrency, convertCurrency]);
 
-  console.log('MetricsDashboard render - Country:', selectedCountry, 'Currency:', countryCurrency, 'Total Value:', metrics?.totalValue, 'Converted:', convertedTotalValue);
+  console.log('MetricsDashboard render - Country:', selectedCountry, 'Display Currency:', displayCurrency, 'Total Value:', metrics?.totalValue, 'Converted:', convertedTotalValue);
 
   if (loading) {
     return (
@@ -86,10 +91,10 @@ export const MetricsDashboard = ({ metrics, loading }: MetricsDashboardProps) =>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {formatCurrency(convertedTotalValue, countryCurrency)}
+              {formatCurrency(convertedTotalValue, displayCurrency)}
             </div>
             <p className="text-xs text-muted-foreground">
-              Combined order value ({countryCurrency})
+              Combined order value ({displayCurrency})
             </p>
           </CardContent>
         </Card>
@@ -102,7 +107,7 @@ export const MetricsDashboard = ({ metrics, loading }: MetricsDashboardProps) =>
           <CardContent>
             <div className="text-2xl font-bold">{metrics.pendingPayments}</div>
             <div className="text-lg font-semibold text-warning">
-              {formatCurrency(convertedPendingValue, countryCurrency)}
+              {formatCurrency(convertedPendingValue, displayCurrency)}
             </div>
             <p className="text-xs text-muted-foreground">
               Approved + Non-submitted orders
@@ -118,7 +123,7 @@ export const MetricsDashboard = ({ metrics, loading }: MetricsDashboardProps) =>
           <CardContent>
             <div className="text-2xl font-bold text-destructive">{metrics.overduePayments}</div>
             <div className="text-lg font-semibold text-destructive">
-              {formatCurrency(convertedOverdueValue, countryCurrency)}
+              {formatCurrency(convertedOverdueValue, displayCurrency)}
             </div>
             <p className="text-xs text-muted-foreground">
               Past 45-day credit period
