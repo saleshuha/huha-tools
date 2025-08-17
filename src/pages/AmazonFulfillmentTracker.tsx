@@ -23,38 +23,36 @@ const AmazonFulfillmentTracker = () => {
 
   return (
     <CurrencyDisplayProvider>
-      <div className="min-h-screen bg-gradient-surface p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-              Amazon Fulfillment Tracker
-            </h1>
-            <p className="text-muted-foreground">
-              Direct fulfillment order payment tracking for {selectedCountry}
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <CurrencySelector />
-            <Button variant="outline" onClick={() => setShowCurrencyDialog(true)}>
-              <DollarSign className="h-4 w-4 mr-2" />
-              Currency Rates
+      <div className="container mx-auto p-6 space-y-6">
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-2">
+            Amazon Fulfillment Tracker
+          </h1>
+          <p className="text-muted-foreground text-lg">
+            Direct fulfillment order payment tracking for {selectedCountry}
+          </p>
+        </div>
+        
+        {/* Action Buttons */}
+        <div className="flex flex-wrap gap-2 mb-6">
+          <CurrencySelector />
+          <Button variant="outline" onClick={() => setShowCurrencyDialog(true)}>
+            <DollarSign className="h-4 w-4 mr-2" />
+            Currency Rates
+          </Button>
+          <Button variant="outline" onClick={() => setShowImportDialog(true)}>
+            <Upload className="h-4 w-4 mr-2" />
+            Import Orders
+          </Button>
+          {user && profile?.role === 'admin' && (
+            <Button 
+              variant="destructive" 
+              onClick={() => setShowReAuthDialog(true)}
+              size="sm"
+            >
+              Clear All Data
             </Button>
-            <Button variant="outline" onClick={() => setShowImportDialog(true)}>
-              <Upload className="h-4 w-4 mr-2" />
-              Import Orders
-            </Button>
-            {user && profile?.role === 'admin' && (
-              <Button 
-                variant="destructive" 
-                onClick={() => setShowReAuthDialog(true)}
-                size="sm"
-              >
-                Clear All Data
-              </Button>
-            )}
-          </div>
+          )}
         </div>
 
         {/* Main Content */}
@@ -117,7 +115,6 @@ const AmazonFulfillmentTracker = () => {
           title="Clear All Data - Authentication Required"
           description="This is a destructive action. Please re-enter your credentials to confirm your identity."
         />
-        </div>
       </div>
     </CurrencyDisplayProvider>
   );
