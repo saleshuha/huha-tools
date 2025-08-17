@@ -34,20 +34,6 @@ const AmazonFulfillmentTracker = () => {
             <p className="text-muted-foreground">
               Direct fulfillment order payment tracking for {selectedCountry}
             </p>
-            {metrics?.paidThroughDate && (
-              <div className="mt-2 px-3 py-1 bg-success/10 border border-success/20 rounded-lg inline-block">
-                <p className="text-sm text-success font-medium">
-                  ✓ Orders paid through: {new Date(metrics.paidThroughDate).toLocaleDateString()}
-                </p>
-              </div>
-            )}
-            {metrics && !metrics.paidThroughDate && metrics.totalOrders > 0 && (
-              <div className="mt-2 px-3 py-1 bg-warning/10 border border-warning/20 rounded-lg inline-block">
-                <p className="text-sm text-warning font-medium">
-                  ⚠ No fully paid period found - payments pending from earliest orders
-                </p>
-              </div>
-            )}
           </div>
           <div className="flex gap-2">
             <CurrencySelector />
@@ -80,6 +66,22 @@ const AmazonFulfillmentTracker = () => {
 
           <TabsContent value="dashboard" className="space-y-6">
             <MetricsDashboard metrics={metrics} loading={loading} orders={orders} />
+            
+            {/* Payment Status Row */}
+            {metrics?.paidThroughDate && (
+              <div className="w-full p-4 bg-success/10 border border-success/20 rounded-lg">
+                <p className="text-sm text-success font-medium text-center">
+                  ✓ Orders paid through: {new Date(metrics.paidThroughDate).toLocaleDateString()}
+                </p>
+              </div>
+            )}
+            {metrics && !metrics.paidThroughDate && metrics.totalOrders > 0 && (
+              <div className="w-full p-4 bg-warning/10 border border-warning/20 rounded-lg">
+                <p className="text-sm text-warning font-medium text-center">
+                  ⚠ No fully paid period found - payments pending from earliest orders
+                </p>
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="orders" className="space-y-6">
