@@ -157,12 +157,15 @@ export function POTracker() {
     }
   };
 
-  // REWRITTEN: Simple and clear inventory matching function
+  // Enhanced inventory matching function with ASIN checking in SKU inventory
   const findInventoryMatch = (asin: string, sunskySku?: string, poSku?: string) => {
-    // Try ASIN first
+    console.log(`🔍 POTracker - Finding inventory match for:`, { asin, sunskySku, poSku });
+    
+    // Try ASIN first in ASIN inventory
     if (asin) {
       const asinMatch = inventoryData.asinInventory.find(item => item.asin === asin);
       if (asinMatch) {
+        console.log(`✅ Found ASIN match in asin_inventory:`, asinMatch);
         return {
           type: 'ASIN',
           status: asinMatch.status,
@@ -177,6 +180,7 @@ export function POTracker() {
     for (const sku of skusToCheck) {
       const skuMatch = inventoryData.skuInventory.find(item => item.sku_number === sku);
       if (skuMatch) {
+        console.log(`✅ Found SKU match for ${sku}:`, skuMatch);
         return {
           type: 'SKU',
           status: skuMatch.status,
@@ -186,6 +190,24 @@ export function POTracker() {
       }
     }
 
+    // Also check SKU inventory for ASIN matches (since SKU inventory can contain ASIN-like identifiers)
+    if (asin) {
+      console.log(`🎯 POTracker - Checking SKU inventory for ASIN: ${asin}`);
+      const skuAsinMatch = inventoryData.skuInventory.find(item => item.sku_number === asin);
+      if (skuAsinMatch) {
+        console.log(`✅ Found SKU-ASIN match for ${asin}:`, skuAsinMatch);
+        return {
+          type: 'SKU-ASIN',
+          status: skuAsinMatch.status,
+          quantity: skuAsinMatch.quantity,
+          identifier: skuAsinMatch.sku_number
+        };
+      } else {
+        console.log(`❌ No SKU-ASIN match found for: ${asin}`);
+      }
+    }
+
+    console.log(`❌ No inventory match found for any identifier`);
     return null;
   };
 
@@ -285,9 +307,15 @@ export function POTracker() {
         }
       }
       
-      // If no ASIN stock found, check SKU inventory
+      // If no ASIN stock found, check SKU inventory for both SKU codes and ASIN
       if (!foundStock && inventoryData.skuInventory) {
         const skusToCheck = [order.sunsky_sku?.sku_code, order.sku_code].filter(Boolean);
+        
+        // Add ASIN to the list of SKUs to check in SKU inventory
+        if (order.asin) {
+          skusToCheck.push(order.asin);
+        }
+        
         for (const sku of skusToCheck) {
           for (const skuItem of inventoryData.skuInventory) {
             if (skuItem.sku_number === sku && skuItem.quantity > 0) {
@@ -331,9 +359,15 @@ export function POTracker() {
         }
       }
       
-      // If no ASIN inventory found, check SKU inventory
+      // If no ASIN inventory found, check SKU inventory for both SKU codes and ASIN
       if (!hasInventory && inventoryData.skuInventory) {
         const skusToCheck = [order.sunsky_sku?.sku_code, order.sku_code].filter(Boolean);
+        
+        // Add ASIN to the list of SKUs to check in SKU inventory
+        if (order.asin) {
+          skusToCheck.push(order.asin);
+        }
+        
         for (const sku of skusToCheck) {
           for (const skuItem of inventoryData.skuInventory) {
             if (skuItem.sku_number === sku) {
