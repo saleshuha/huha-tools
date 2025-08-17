@@ -65,7 +65,7 @@ const AmazonFulfillmentTracker = () => {
           </TabsList>
 
           <TabsContent value="dashboard" className="space-y-6">
-            <MetricsDashboard metrics={metrics} loading={loading} />
+            <MetricsDashboard metrics={metrics} loading={loading} orders={orders} />
           </TabsContent>
 
           <TabsContent value="orders" className="space-y-6">

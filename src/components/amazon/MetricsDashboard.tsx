@@ -10,9 +10,10 @@ import { useMemo } from 'react';
 interface MetricsDashboardProps {
   metrics: DashboardMetrics | null;
   loading: boolean;
+  orders?: any[];
 }
 
-export const MetricsDashboard = ({ metrics, loading }: MetricsDashboardProps) => {
+export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardProps) => {
   const { formatCurrency, convertCurrency } = useCurrencyConverter();
   const { displayCurrency } = useCurrencyDisplay();
   const { selectedCountry } = useCountry();
@@ -45,6 +46,67 @@ export const MetricsDashboard = ({ metrics, loading }: MetricsDashboardProps) =>
     console.log(`Dashboard Converting Overdue ${overdueValue} USD to ${displayCurrency}: ${converted}`);
     return converted;
   }, [metrics?.overdueValue, displayCurrency, convertCurrency]);
+
+  // Calculate values for status breakdown
+  const statusValues = useMemo(() => {
+    if (!metrics?.statusBreakdown || !metrics) return {};
+    const values: { [key: string]: number } = {};
+    
+    Object.keys(metrics.statusBreakdown).forEach(status => {
+      const ordersWithStatus = orders?.filter(order => order.status === status) || [];
+      const totalValue = ordersWithStatus.reduce((sum, order) => {
+        const cost = parseFloat(order.item_cost?.toString() || '0') || 0;
+        const qty = parseInt(order.quantity?.toString() || '1') || 1;
+        return sum + (cost * qty);
+      }, 0);
+      values[status] = convertCurrency(totalValue, 'USD', displayCurrency);
+    });
+    
+    return values;
+  }, [metrics?.statusBreakdown, convertCurrency, displayCurrency]);
+
+  // Calculate values for upcoming payments
+  const upcomingValues = useMemo(() => {
+    if (!metrics) return { next7Days: 0, next30Days: 0, next90Days: 0 };
+    
+    const now = new Date();
+    const next7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const next30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const next90Days = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
+
+    const pendingOrders = orders?.filter(o => {
+      const status = (o.status || '').toLowerCase().trim();
+      return status === 'approved' || status === 'non-submitted';
+    }) || [];
+
+    const calculateUpcomingValue = (endDate: Date) => {
+      const upcomingOrders = pendingOrders.filter(o => {
+        if (!o.invoice_date) return false;
+        try {
+          const invoiceDate = new Date(o.invoice_date);
+          const dueDate = new Date(invoiceDate);
+          dueDate.setDate(dueDate.getDate() + 45);
+          return dueDate <= endDate && dueDate >= now;
+        } catch {
+          return false;
+        }
+      });
+      
+      const totalValue = upcomingOrders.reduce((sum, order) => {
+        const cost = parseFloat(order.item_cost?.toString() || '0') || 0;
+        const qty = parseInt(order.quantity?.toString() || '1') || 1;
+        return sum + (cost * qty);
+      }, 0);
+      
+      return convertCurrency(totalValue, 'USD', displayCurrency);
+    };
+
+    return {
+      next7Days: calculateUpcomingValue(next7Days),
+      next30Days: calculateUpcomingValue(next30Days),
+      next90Days: calculateUpcomingValue(next90Days)
+    };
+  }, [metrics, orders, convertCurrency, displayCurrency]);
 
   console.log('MetricsDashboard render - Country:', selectedCountry, 'Display Currency:', displayCurrency, 'Total Value:', metrics?.totalValue, 'Converted:', convertedTotalValue);
 
@@ -146,7 +208,12 @@ export const MetricsDashboard = ({ metrics, loading }: MetricsDashboardProps) =>
               {Object.entries(metrics.statusBreakdown).map(([status, count]) => (
                 <div key={status} className="flex justify-between items-center">
                   <span className="text-sm">{status}</span>
-                  <Badge variant="outline">{count}</Badge>
+                  <div className="flex flex-col items-end">
+                    <Badge variant="outline">{count}</Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {formatCurrency(statusValues[status] || 0, displayCurrency)}
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>
@@ -165,11 +232,18 @@ export const MetricsDashboard = ({ metrics, loading }: MetricsDashboardProps) =>
               {Object.entries(metrics.paymentStatusBreakdown).map(([status, count]) => (
                 <div key={status} className="flex justify-between items-center">
                   <span className="text-sm capitalize">{status.replace('_', ' ')}</span>
-                  <Badge 
-                    variant={status === 'completed' ? 'default' : status === 'overdue' ? 'destructive' : 'secondary'}
-                  >
-                    {count}
-                  </Badge>
+                  <div className="flex flex-col items-end">
+                    <Badge 
+                      variant={status === 'completed' ? 'default' : status === 'overdue' ? 'destructive' : 'secondary'}
+                    >
+                      {count}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {status === 'pending' && formatCurrency(convertedPendingValue, displayCurrency)}
+                      {status === 'overdue' && formatCurrency(convertedOverdueValue, displayCurrency)}
+                      {status === 'completed' && formatCurrency(0, displayCurrency)}
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>
@@ -187,21 +261,36 @@ export const MetricsDashboard = ({ metrics, loading }: MetricsDashboardProps) =>
             <div className="space-y-3">
               <div className="flex justify-between items-center">
                 <span className="text-sm">Next 7 days</span>
-                <Badge variant={metrics.upcomingPayments.next7Days > 0 ? 'destructive' : 'outline'}>
-                  {metrics.upcomingPayments.next7Days}
-                </Badge>
+                <div className="flex flex-col items-end">
+                  <Badge variant={metrics.upcomingPayments.next7Days > 0 ? 'destructive' : 'outline'}>
+                    {metrics.upcomingPayments.next7Days}
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">
+                    {formatCurrency(upcomingValues.next7Days, displayCurrency)}
+                  </span>
+                </div>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm">Next 30 days</span>
-                <Badge variant={metrics.upcomingPayments.next30Days > 0 ? 'default' : 'outline'}>
-                  {metrics.upcomingPayments.next30Days}
-                </Badge>
+                <div className="flex flex-col items-end">
+                  <Badge variant={metrics.upcomingPayments.next30Days > 0 ? 'default' : 'outline'}>
+                    {metrics.upcomingPayments.next30Days}
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">
+                    {formatCurrency(upcomingValues.next30Days, displayCurrency)}
+                  </span>
+                </div>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm">Next 90 days</span>
-                <Badge variant="secondary">
-                  {metrics.upcomingPayments.next90Days}
-                </Badge>
+                <div className="flex flex-col items-end">
+                  <Badge variant="secondary">
+                    {metrics.upcomingPayments.next90Days}
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">
+                    {formatCurrency(upcomingValues.next90Days, displayCurrency)}
+                  </span>
+                </div>
               </div>
             </div>
           </CardContent>
