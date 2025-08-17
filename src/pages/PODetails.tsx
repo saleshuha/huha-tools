@@ -89,19 +89,39 @@ export default function PODetailsPage() {
   // Fetch inventory data to match with PO ASINs
   const fetchInventoryData = async () => {
     try {
+      const user = await supabase.auth.getUser();
+      const userId = user.data.user?.id;
+      
+      if (!userId) {
+        console.error('No user ID found');
+        return;
+      }
+
+      console.log('🔄 Fetching inventory data for user:', userId);
+
       const [asinResult, skuResult] = await Promise.all([
         supabase
           .from('asin_inventory')
-          .select('asin, quantity, status, sku, serial_number')
-          .eq('user_id', (await supabase.auth.getUser()).data.user?.id),
+          .select('asin, quantity, status, sku, serial_number, country')
+          .eq('user_id', userId),
         supabase
           .from('sku_inventory')
-          .select('sku_number, quantity, status, bin_serial_number')
-          .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
+          .select('sku_number, quantity, status, bin_serial_number, country')
+          .eq('user_id', userId)
       ]);
 
-      if (asinResult.error) throw asinResult.error;
-      if (skuResult.error) throw skuResult.error;
+      if (asinResult.error) {
+        console.error('ASIN inventory error:', asinResult.error);
+        throw asinResult.error;
+      }
+      if (skuResult.error) {
+        console.error('SKU inventory error:', skuResult.error);
+        throw skuResult.error;
+      }
+
+      console.log('📊 ASIN Inventory Data:', asinResult.data);
+      console.log('📊 SKU Inventory Data:', skuResult.data);
+      console.log('📊 SKU Inventory ASINs found:', skuResult.data?.filter(item => item.sku_number?.startsWith('B0')));
 
       setInventoryData({
         asinInventory: asinResult.data || [],
@@ -114,10 +134,18 @@ export default function PODetailsPage() {
 
   // Function to find inventory match for an ASIN - Enhanced to match ASINs and SKUs
   const findInventoryMatch = (asin: string, sunskySku?: string, poSku?: string, modelNumber?: string) => {
+    console.log(`\n🔍 Finding inventory match for:`, { asin, sunskySku, poSku, modelNumber });
+    console.log(`📦 Available inventory:`, { 
+      asinInventoryCount: inventoryData.asinInventory.length,
+      skuInventoryCount: inventoryData.skuInventory.length 
+    });
+    
     // First check ASIN inventory
     if (asin) {
+      console.log(`🎯 Checking ASIN inventory for: ${asin}`);
       const asinMatch = inventoryData.asinInventory.find(item => item.asin === asin);
       if (asinMatch) {
+        console.log(`✅ Found ASIN match:`, asinMatch);
         return {
           type: 'ASIN',
           status: asinMatch.status,
@@ -125,14 +153,19 @@ export default function PODetailsPage() {
           identifier: asinMatch.asin,
           serialNumber: asinMatch.serial_number
         };
+      } else {
+        console.log(`❌ No ASIN match found in asin_inventory`);
       }
     }
 
     // Then check SKU inventory with multiple possible SKU values
     const skusToCheck = [sunskySku, poSku, modelNumber].filter(Boolean);
+    console.log(`🔑 Checking SKU inventory for SKUs:`, skusToCheck);
+    
     for (const sku of skusToCheck) {
       const skuMatch = inventoryData.skuInventory.find(item => item.sku_number === sku);
       if (skuMatch) {
+        console.log(`✅ Found SKU match for ${sku}:`, skuMatch);
         return {
           type: 'SKU',
           status: skuMatch.status,
@@ -140,13 +173,19 @@ export default function PODetailsPage() {
           identifier: skuMatch.sku_number,
           serialNumber: skuMatch.bin_serial_number
         };
+      } else {
+        console.log(`❌ No SKU match found for: ${sku}`);
       }
     }
 
     // Also check SKU inventory for ASIN matches (since SKU inventory can contain ASIN-like identifiers)
     if (asin) {
+      console.log(`🎯 Checking SKU inventory for ASIN: ${asin}`);
+      console.log(`📋 Available SKU numbers:`, inventoryData.skuInventory.map(item => item.sku_number));
+      
       const skuAsinMatch = inventoryData.skuInventory.find(item => item.sku_number === asin);
       if (skuAsinMatch) {
+        console.log(`✅ Found SKU-ASIN match:`, skuAsinMatch);
         return {
           type: 'SKU-ASIN',
           status: skuAsinMatch.status,
@@ -154,9 +193,12 @@ export default function PODetailsPage() {
           identifier: skuAsinMatch.sku_number,
           serialNumber: skuAsinMatch.bin_serial_number
         };
+      } else {
+        console.log(`❌ No SKU-ASIN match found for: ${asin}`);
       }
     }
 
+    console.log(`❌ No inventory match found for any identifier`);
     return null;
   };
 
