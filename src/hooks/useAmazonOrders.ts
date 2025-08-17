@@ -417,6 +417,22 @@ export const useAmazonOrders = () => {
       setLoading(true);
       const user = (await supabase.auth.getUser()).data.user;
 
+      // First, fetch all existing orders to compare
+      console.log('Fetching existing orders for duplicate detection...');
+      const { data: existingOrders, error: fetchError } = await supabase
+        .from('orders')
+        .select('order_id, id, status, payment_status, updated_at')
+        .eq('country', selectedCountry)
+        .eq('user_id', user?.id);
+
+      if (fetchError) {
+        console.warn('Error fetching existing orders:', fetchError);
+      }
+
+      const existingOrdersMap = new Map(
+        (existingOrders || []).map(order => [order.order_id, order])
+      );
+
       // Clear existing data if requested
       if (clearOldData) {
         const { error: deleteError } = await supabase
@@ -429,37 +445,65 @@ export const useAmazonOrders = () => {
           console.warn('Error clearing existing data:', deleteError);
         } else {
           console.log(`Cleared existing data for ${selectedCountry}`);
+          existingOrdersMap.clear(); // Clear the map since we deleted all data
         }
       }
 
-      const formattedOrders = ordersData.map(order => ({
-        ...order,
-        country: selectedCountry,
-        user_id: user?.id,
-      }));
+      // Format orders and handle payment due date calculation
+      const formattedOrders = ordersData.map(order => {
+        const existingOrder = existingOrdersMap.get(order.order_id);
+        
+        // Calculate payment due date if invoice date is provided
+        let paymentDueDate = null;
+        if (order.invoice_date && order.payment_schedule_days) {
+          const invoiceDate = new Date(order.invoice_date);
+          paymentDueDate = new Date(invoiceDate);
+          paymentDueDate.setDate(paymentDueDate.getDate() + order.payment_schedule_days);
+        }
+
+        return {
+          ...order,
+          country: selectedCountry,
+          user_id: user?.id,
+          payment_due_date: paymentDueDate?.toISOString().split('T')[0] || null,
+          // Preserve existing payment status if order exists and is already paid
+          payment_status: existingOrder?.payment_status === 'completed' 
+            ? existingOrder.payment_status 
+            : order.payment_status || 'pending',
+          // Set payment schedule days default
+          payment_schedule_days: order.payment_schedule_days || 45,
+        };
+      });
+
+      console.log(`Processing ${formattedOrders.length} orders...`);
+      console.log(`Found ${existingOrdersMap.size} existing orders in database`);
 
       // Use upsert to handle duplicates - update if order_id exists, insert if new
       const { data, error } = await supabase
         .from('orders')
         .upsert(formattedOrders, {
           onConflict: 'order_id,user_id,country',
-          ignoreDuplicates: false
+          ignoreDuplicates: false // This ensures we update existing records
         })
         .select();
 
       if (error) throw error;
 
-      const successCount = data?.length || 0;
-      const duplicateCount = ordersData.length - successCount;
+      // Calculate statistics
+      const newOrders = formattedOrders.filter(order => !existingOrdersMap.has(order.order_id));
+      const updatedOrders = formattedOrders.filter(order => existingOrdersMap.has(order.order_id));
+      
+      console.log(`Import results: ${newOrders.length} new orders, ${updatedOrders.length} updated orders`);
 
       toast({
         title: 'Import completed successfully',
-        description: `${successCount} orders processed. ${duplicateCount > 0 ? `${duplicateCount} orders updated (duplicates).` : ''} ${clearOldData ? 'Previous data cleared.' : ''}`,
+        description: `${newOrders.length} new orders imported. ${updatedOrders.length} existing orders updated. ${clearOldData ? 'Previous data cleared.' : ''}`,
       });
 
       await fetchOrders();
       return data;
     } catch (error: any) {
+      console.error('Import error:', error);
       toast({
         title: 'Error importing orders',
         description: error.message,
