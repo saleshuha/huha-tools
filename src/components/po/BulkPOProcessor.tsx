@@ -48,20 +48,64 @@ export function BulkPOProcessor({ onProcessComplete }: BulkPOProcessorProps) {
 
       for (const poNumber of poList) {
         try {
-          const trimmedPO = poNumber.trim().toUpperCase();
-          
-          // Get all orders that match this PO (with flexible matching)
-          const { data: poOrders, error: selectError } = await supabase
+          const trimmedPO = poNumber.trim();
+          let foundOrders = [];
+          let matchType = "";
+
+          // Strategy 1: Exact match
+          const { data: exactMatch, error: exactError } = await supabase
             .from('po_orders')
             .select('id, status, po_number')
-            .or(`po_number.ilike.%${trimmedPO}%,po_number.ilike.%${poNumber.trim()}%`)
-            .neq('status', 'closed'); // Only get non-closed items
+            .eq('po_number', trimmedPO)
+            .neq('status', 'closed');
 
-          if (selectError) throw selectError;
+          if (exactError) {
+            console.error('Exact match error:', exactError);
+            throw new Error(`Exact match failed: ${exactError.message}`);
+          }
 
-          if (poOrders && poOrders.length > 0) {
-            // Get the exact PO numbers that were found
-            const foundPONumbers = [...new Set(poOrders.map(order => order.po_number))];
+          if (exactMatch && exactMatch.length > 0) {
+            foundOrders = exactMatch;
+            matchType = "exact";
+          } else {
+            // Strategy 2: Case-insensitive exact match
+            const { data: caseInsensitive, error: caseError } = await supabase
+              .from('po_orders')
+              .select('id, status, po_number')
+              .ilike('po_number', trimmedPO)
+              .neq('status', 'closed');
+
+            if (caseError) {
+              console.error('Case insensitive error:', caseError);
+              throw new Error(`Case insensitive search failed: ${caseError.message}`);
+            }
+
+            if (caseInsensitive && caseInsensitive.length > 0) {
+              foundOrders = caseInsensitive;
+              matchType = "case-insensitive";
+            } else {
+              // Strategy 3: Partial match (contains)
+              const { data: partialMatch, error: partialError } = await supabase
+                .from('po_orders')
+                .select('id, status, po_number')
+                .ilike('po_number', `%${trimmedPO}%`)
+                .neq('status', 'closed');
+
+              if (partialError) {
+                console.error('Partial match error:', partialError);
+                throw new Error(`Partial search failed: ${partialError.message}`);
+              }
+
+              if (partialMatch && partialMatch.length > 0) {
+                foundOrders = partialMatch;
+                matchType = "partial";
+              }
+            }
+          }
+
+          if (foundOrders.length > 0) {
+            // Get unique PO numbers
+            const foundPONumbers = [...new Set(foundOrders.map(order => order.po_number))];
             
             // Close all items for these PO numbers
             const { error: updateError } = await supabase
@@ -70,39 +114,22 @@ export function BulkPOProcessor({ onProcessComplete }: BulkPOProcessorProps) {
               .in('po_number', foundPONumbers)
               .neq('status', 'closed');
 
-            if (updateError) throw updateError;
+            if (updateError) {
+              console.error('Update error:', updateError);
+              throw new Error(`Failed to close orders: ${updateError.message}`);
+            }
 
             successCount++;
-            details.push(`✓ ${poNumber}: Found and closed ${poOrders.length} items across POs: ${foundPONumbers.join(', ')}`);
+            details.push(`✓ ${trimmedPO}: Closed ${foundOrders.length} items (${matchType} match) - POs: ${foundPONumbers.join(', ')}`);
           } else {
-            // Try exact match as fallback
-            const { data: exactMatch, error: exactError } = await supabase
-              .from('po_orders')
-              .select('id, status')
-              .eq('po_number', poNumber.trim())
-              .neq('status', 'closed');
-
-            if (exactError) throw exactError;
-
-            if (exactMatch && exactMatch.length > 0) {
-              const { error: updateError } = await supabase
-                .from('po_orders')
-                .update({ status: 'closed' })
-                .eq('po_number', poNumber.trim())
-                .neq('status', 'closed');
-
-              if (updateError) throw updateError;
-
-              successCount++;
-              details.push(`✓ ${poNumber}: Closed ${exactMatch.length} items (exact match)`);
-            } else {
-              failedCount++;
-              details.push(`⚠ ${poNumber}: No matching items found or all items already closed`);
-            }
+            failedCount++;
+            details.push(`⚠ ${trimmedPO}: No matching orders found (tried exact, case-insensitive, and partial matching)`);
           }
         } catch (error) {
           failedCount++;
-          details.push(`✗ ${poNumber}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          const errorMessage = error instanceof Error ? error.message : 'Unknown database error';
+          console.error('PO processing error for', poNumber, ':', error);
+          details.push(`✗ ${poNumber}: ${errorMessage}`);
         }
       }
 
