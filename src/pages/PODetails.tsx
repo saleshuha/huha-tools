@@ -112,22 +112,25 @@ export default function PODetailsPage() {
     }
   };
 
-  // Function to find inventory match for an ASIN
-  const findInventoryMatch = (asin: string, sku?: string) => {
+  // Function to find inventory match for an ASIN - Enhanced to match more SKU fields
+  const findInventoryMatch = (asin: string, sunskySku?: string, poSku?: string, modelNumber?: string) => {
     // First check ASIN inventory
-    const asinMatch = inventoryData.asinInventory.find(item => item.asin === asin);
-    if (asinMatch) {
-      return {
-        type: 'ASIN',
-        status: asinMatch.status,
-        quantity: asinMatch.quantity,
-        identifier: asinMatch.asin,
-        serialNumber: asinMatch.serial_number
-      };
+    if (asin) {
+      const asinMatch = inventoryData.asinInventory.find(item => item.asin === asin);
+      if (asinMatch) {
+        return {
+          type: 'ASIN',
+          status: asinMatch.status,
+          quantity: asinMatch.quantity,
+          identifier: asinMatch.asin,
+          serialNumber: asinMatch.serial_number
+        };
+      }
     }
 
-    // Then check SKU inventory if SKU is available
-    if (sku) {
+    // Then check SKU inventory with multiple possible SKU values
+    const skusToCheck = [sunskySku, poSku, modelNumber].filter(Boolean);
+    for (const sku of skusToCheck) {
       const skuMatch = inventoryData.skuInventory.find(item => item.sku_number === sku);
       if (skuMatch) {
         return {
@@ -177,7 +180,7 @@ export default function PODetailsPage() {
     try {
       // Prepare comprehensive export data with all possible columns
       const exportData = matchedOrders.map((order) => {
-        const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code);
+        const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number);
         
         return {
           // Basic Order Information
@@ -385,7 +388,7 @@ export default function PODetailsPage() {
       } else {
         // Already have a selection type, only select items of the same type
         const compatibleItems = matchedOrders.filter(order => {
-          const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code);
+          const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number);
           const hasStock = inventoryMatch && inventoryMatch.quantity > 0;
           const itemType = hasStock ? 'instock' : 'outstock';
           return itemType === selectionType;
@@ -400,7 +403,7 @@ export default function PODetailsPage() {
     const order = matchedOrders.find(o => o.id === orderId);
     if (!order) return;
     
-    const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code);
+    const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number);
     const hasStock = inventoryMatch && inventoryMatch.quantity > 0;
     const currentItemType = hasStock ? 'instock' : 'outstock';
     
@@ -501,7 +504,7 @@ export default function PODetailsPage() {
   const markAsOrderedFromInventory = async (order: any) => {
     setIsUpdating(true);
     try {
-      const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code);
+      const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number);
       
       if (!inventoryMatch || inventoryMatch.quantity <= 0) {
         toast({
@@ -804,7 +807,7 @@ export default function PODetailsPage() {
               </TableHeader>
               <TableBody>
                 {matchedOrders.map((order) => {
-                  const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code);
+                  const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number);
                   const hasStock = inventoryMatch && inventoryMatch.quantity > 0;
                   const itemType = hasStock ? 'instock' : 'outstock';
                   const isDisabled = selectionType !== null && selectionType !== itemType;
@@ -847,7 +850,7 @@ export default function PODetailsPage() {
                     </TableCell>
                     <TableCell>
                       {(() => {
-                        const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code);
+                        const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number);
                          if (inventoryMatch) {
                            return (
                              <div className="space-y-1">
@@ -926,7 +929,7 @@ export default function PODetailsPage() {
                       <div className="flex flex-col gap-1">
                         <div className="flex gap-1 justify-center">
                            {(() => {
-                             const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code);
+                             const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number);
                              const hasStock = inventoryMatch && inventoryMatch.quantity > 0;
                              
                              if (order.status !== 'ordered' && order.status !== 'shipped' && order.status !== 'delivered') {
