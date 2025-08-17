@@ -226,7 +226,7 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
       </div>
 
       {/* Secondary Metrics Row */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
@@ -243,37 +243,6 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
                     <Badge variant="outline">{count}</Badge>
                     <span className="text-xs text-muted-foreground">
                       {formatCurrency(statusValues[status] || 0, displayCurrency)}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <DollarSign className="h-5 w-5 text-primary" />
-              Payment Status
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {Object.entries(metrics.paymentStatusBreakdown).map(([status, count]) => (
-                <div key={status} className="flex justify-between items-center">
-                  <span className="text-sm capitalize">{status.replace('_', ' ')}</span>
-                  <div className="flex flex-col items-end">
-                    <Badge 
-                      variant={status === 'completed' ? 'default' : status === 'overdue' ? 'destructive' : 'secondary'}
-                    >
-                      {count}
-                    </Badge>
-                    <span className="text-xs text-muted-foreground">
-                      {status === 'pending' && formatCurrency(convertedPendingValue, displayCurrency)}
-                      {status === 'overdue' && formatCurrency(convertedOverdueValue, displayCurrency)}
-                      {status === 'completed' && formatCurrency(0, displayCurrency)}
-                      {status === 'paid' && formatCurrency(convertedPaidValue, displayCurrency)}
                     </span>
                   </div>
                 </div>
