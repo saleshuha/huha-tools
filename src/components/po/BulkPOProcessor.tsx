@@ -46,89 +46,106 @@ export function BulkPOProcessor({ onProcessComplete }: BulkPOProcessorProps) {
       let failedCount = 0;
       const details: string[] = [];
 
-      for (const poNumber of poList) {
-        try {
-          const trimmedPO = poNumber.trim();
-          let foundOrders = [];
-          let matchType = "";
+      // Batch process all PO numbers at once for better performance
+      try {
+        // First, try to find all POs with exact matches in a single query
+        const { data: allOrders, error: fetchError } = await supabase
+          .from('po_orders')
+          .select('id, status, po_number')
+          .in('po_number', poList)
+          .neq('status', 'closed');
 
-          // Strategy 1: Exact match
-          const { data: exactMatch, error: exactError } = await supabase
-            .from('po_orders')
-            .select('id, status, po_number')
-            .eq('po_number', trimmedPO)
-            .neq('status', 'closed');
+        if (fetchError) {
+          console.error('Batch fetch error:', fetchError);
+          throw new Error(`Failed to fetch orders: ${fetchError.message}`);
+        }
 
-          if (exactError) {
-            console.error('Exact match error:', exactError);
-            throw new Error(`Exact match failed: ${exactError.message}`);
+        // Group found orders by PO number
+        const foundPOsMap = new Map<string, any[]>();
+        allOrders?.forEach(order => {
+          const po = order.po_number;
+          if (!foundPOsMap.has(po)) {
+            foundPOsMap.set(po, []);
+          }
+          foundPOsMap.get(po)?.push(order);
+        });
+
+        // Track which POs were found
+        const processedPOs = new Set<string>();
+
+        // Process exact matches first
+        for (const inputPO of poList) {
+          const trimmedPO = inputPO.trim();
+          
+          // Check for exact match
+          let foundOrders = foundPOsMap.get(trimmedPO);
+          let matchType = "exact";
+
+          if (!foundOrders || foundOrders.length === 0) {
+            // Check case-insensitive match
+            for (const [dbPO, orders] of foundPOsMap.entries()) {
+              if (dbPO.toLowerCase() === trimmedPO.toLowerCase()) {
+                foundOrders = orders;
+                matchType = "case-insensitive";
+                break;
+              }
+            }
           }
 
-          if (exactMatch && exactMatch.length > 0) {
-            foundOrders = exactMatch;
-            matchType = "exact";
-          } else {
-            // Strategy 2: Case-insensitive exact match
-            const { data: caseInsensitive, error: caseError } = await supabase
-              .from('po_orders')
-              .select('id, status, po_number')
-              .ilike('po_number', trimmedPO)
-              .neq('status', 'closed');
-
-            if (caseError) {
-              console.error('Case insensitive error:', caseError);
-              throw new Error(`Case insensitive search failed: ${caseError.message}`);
-            }
-
-            if (caseInsensitive && caseInsensitive.length > 0) {
-              foundOrders = caseInsensitive;
-              matchType = "case-insensitive";
-            } else {
-              // Strategy 3: Partial match (contains)
-              const { data: partialMatch, error: partialError } = await supabase
-                .from('po_orders')
-                .select('id, status, po_number')
-                .ilike('po_number', `%${trimmedPO}%`)
-                .neq('status', 'closed');
-
-              if (partialError) {
-                console.error('Partial match error:', partialError);
-                throw new Error(`Partial search failed: ${partialError.message}`);
-              }
-
-              if (partialMatch && partialMatch.length > 0) {
-                foundOrders = partialMatch;
+          if (!foundOrders || foundOrders.length === 0) {
+            // Check partial match
+            for (const [dbPO, orders] of foundPOsMap.entries()) {
+              if (dbPO.toLowerCase().includes(trimmedPO.toLowerCase()) || 
+                  trimmedPO.toLowerCase().includes(dbPO.toLowerCase())) {
+                foundOrders = orders;
                 matchType = "partial";
+                break;
               }
             }
           }
 
-          if (foundOrders.length > 0) {
-            // Get unique PO numbers
+          if (foundOrders && foundOrders.length > 0) {
+            // Get unique PO numbers from found orders
             const foundPONumbers = [...new Set(foundOrders.map(order => order.po_number))];
+            processedPOs.add(trimmedPO);
             
-            // Close all items for these PO numbers
-            const { error: updateError } = await supabase
-              .from('po_orders')
-              .update({ status: 'closed' })
-              .in('po_number', foundPONumbers)
-              .neq('status', 'closed');
-
-            if (updateError) {
-              console.error('Update error:', updateError);
-              throw new Error(`Failed to close orders: ${updateError.message}`);
-            }
-
             successCount++;
-            details.push(`✓ ${trimmedPO}: Closed ${foundOrders.length} items (${matchType} match) - POs: ${foundPONumbers.join(', ')}`);
+            details.push(`✓ ${trimmedPO}: Found ${foundOrders.length} items (${matchType} match) - POs: ${foundPONumbers.join(', ')}`);
           } else {
             failedCount++;
-            details.push(`⚠ ${trimmedPO}: No matching orders found (tried exact, case-insensitive, and partial matching)`);
+            details.push(`⚠ ${trimmedPO}: No matching orders found`);
           }
-        } catch (error) {
+        }
+
+        // Batch close all found orders
+        if (allOrders && allOrders.length > 0) {
+          const orderIds = allOrders.map(order => order.id);
+          
+          const { error: updateError } = await supabase
+            .from('po_orders')
+            .update({ status: 'closed' })
+            .in('id', orderIds);
+
+          if (updateError) {
+            console.error('Batch update error:', updateError);
+            throw new Error(`Failed to close orders: ${updateError.message}`);
+          }
+
+          // Update success details
+          details.forEach((detail, index) => {
+            if (detail.startsWith('✓')) {
+              details[index] = detail.replace('Found', 'Closed');
+            }
+          });
+        }
+
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown database error';
+        console.error('Batch processing error:', error);
+        
+        // Fall back to individual processing if batch fails
+        for (const poNumber of poList) {
           failedCount++;
-          const errorMessage = error instanceof Error ? error.message : 'Unknown database error';
-          console.error('PO processing error for', poNumber, ':', error);
           details.push(`✗ ${poNumber}: ${errorMessage}`);
         }
       }
