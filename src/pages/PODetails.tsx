@@ -112,7 +112,7 @@ export default function PODetailsPage() {
     }
   };
 
-  // Function to find inventory match for an ASIN - Enhanced to match more SKU fields
+  // Function to find inventory match for an ASIN - Enhanced to match ASINs and SKUs
   const findInventoryMatch = (asin: string, sunskySku?: string, poSku?: string, modelNumber?: string) => {
     // First check ASIN inventory
     if (asin) {
@@ -139,6 +139,20 @@ export default function PODetailsPage() {
           quantity: skuMatch.quantity,
           identifier: skuMatch.sku_number,
           serialNumber: skuMatch.bin_serial_number
+        };
+      }
+    }
+
+    // Also check SKU inventory for ASIN matches (since SKU inventory can contain ASIN-like identifiers)
+    if (asin) {
+      const skuAsinMatch = inventoryData.skuInventory.find(item => item.sku_number === asin);
+      if (skuAsinMatch) {
+        return {
+          type: 'SKU-ASIN',
+          status: skuAsinMatch.status,
+          quantity: skuAsinMatch.quantity,
+          identifier: skuAsinMatch.sku_number,
+          serialNumber: skuAsinMatch.bin_serial_number
         };
       }
     }
