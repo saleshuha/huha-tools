@@ -48,30 +48,57 @@ export function BulkPOProcessor({ onProcessComplete }: BulkPOProcessorProps) {
 
       for (const poNumber of poList) {
         try {
-          // Get all orders in this PO (regardless of status)
+          const trimmedPO = poNumber.trim().toUpperCase();
+          
+          // Get all orders that match this PO (with flexible matching)
           const { data: poOrders, error: selectError } = await supabase
             .from('po_orders')
-            .select('id, status')
-            .eq('po_number', poNumber)
+            .select('id, status, po_number')
+            .or(`po_number.ilike.%${trimmedPO}%,po_number.ilike.%${poNumber.trim()}%`)
             .neq('status', 'closed'); // Only get non-closed items
 
           if (selectError) throw selectError;
 
           if (poOrders && poOrders.length > 0) {
-            // Close all items in this PO regardless of their current status
+            // Get the exact PO numbers that were found
+            const foundPONumbers = [...new Set(poOrders.map(order => order.po_number))];
+            
+            // Close all items for these PO numbers
             const { error: updateError } = await supabase
               .from('po_orders')
               .update({ status: 'closed' })
-              .eq('po_number', poNumber)
+              .in('po_number', foundPONumbers)
               .neq('status', 'closed');
 
             if (updateError) throw updateError;
 
             successCount++;
-            details.push(`✓ ${poNumber}: Closed ${poOrders.length} items`);
+            details.push(`✓ ${poNumber}: Found and closed ${poOrders.length} items across POs: ${foundPONumbers.join(', ')}`);
           } else {
-            failedCount++;
-            details.push(`⚠ ${poNumber}: No items found or all items already closed`);
+            // Try exact match as fallback
+            const { data: exactMatch, error: exactError } = await supabase
+              .from('po_orders')
+              .select('id, status')
+              .eq('po_number', poNumber.trim())
+              .neq('status', 'closed');
+
+            if (exactError) throw exactError;
+
+            if (exactMatch && exactMatch.length > 0) {
+              const { error: updateError } = await supabase
+                .from('po_orders')
+                .update({ status: 'closed' })
+                .eq('po_number', poNumber.trim())
+                .neq('status', 'closed');
+
+              if (updateError) throw updateError;
+
+              successCount++;
+              details.push(`✓ ${poNumber}: Closed ${exactMatch.length} items (exact match)`);
+            } else {
+              failedCount++;
+              details.push(`⚠ ${poNumber}: No matching items found or all items already closed`);
+            }
           }
         } catch (error) {
           failedCount++;
