@@ -69,6 +69,8 @@ export interface PaymentTerms {
 export interface DashboardMetrics {
   totalOrders: number;
   totalValue: number;
+  paidPayments: number;
+  paidValue: number;
   pendingPayments: number;
   pendingValue: number;
   overduePayments: number;

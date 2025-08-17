@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { DollarSign, Package, Clock, CheckCircle, AlertTriangle, Calendar } from 'lucide-react';
+import { DollarSign, Package, Clock, CheckCircle, AlertTriangle, Calendar, CreditCard } from 'lucide-react';
 import { DashboardMetrics } from '@/types/amazon-fulfillment';
 import { useCurrencyConverter } from '@/hooks/useCurrencyConverter';
 import { useCurrencyDisplay } from '@/components/amazon/CurrencySelector';
@@ -29,6 +29,15 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
     console.log(`Dashboard Converting Total ${totalValue} USD to ${displayCurrency}: ${converted}`);
     return converted;
   }, [metrics?.totalValue, displayCurrency, convertCurrency]);
+
+  // Calculate converted values for paid amounts
+  const convertedPaidValue = useMemo(() => {
+    if (!metrics?.paidValue) return 0;
+    const paidValue = parseFloat(metrics.paidValue?.toString()) || 0;
+    const converted = convertCurrency(paidValue, 'USD', displayCurrency);
+    console.log(`Dashboard Converting Paid ${paidValue} USD to ${displayCurrency}: ${converted}`);
+    return converted;
+  }, [metrics?.paidValue, displayCurrency, convertCurrency]);
 
   // Calculate converted values for pending and overdue amounts
   const convertedPendingValue = useMemo(() => {
@@ -153,28 +162,32 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <Card className="border-l-4 border-l-primary">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Payments</CardTitle>
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{metrics.totalOrders}</div>
+            <div className="text-lg font-semibold text-primary">
+              {formatCurrency(convertedTotalValue, displayCurrency)}
+            </div>
             <p className="text-xs text-muted-foreground">
-              Active fulfillment orders
+              All fulfillment orders ({displayCurrency})
             </p>
           </CardContent>
         </Card>
 
         <Card className="border-l-4 border-l-success" key={renderKey}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Value</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Paid Payments</CardTitle>
+            <CreditCard className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {formatCurrency(convertedTotalValue, displayCurrency)}
+            <div className="text-2xl font-bold text-success">{metrics.paidPayments}</div>
+            <div className="text-lg font-semibold text-success">
+              {formatCurrency(convertedPaidValue, displayCurrency)}
             </div>
             <p className="text-xs text-muted-foreground">
-              Combined order value ({displayCurrency})
+              Completed payments ({displayCurrency})
             </p>
           </CardContent>
         </Card>
@@ -185,7 +198,7 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{metrics.pendingPayments}</div>
+            <div className="text-2xl font-bold text-warning">{metrics.pendingPayments}</div>
             <div className="text-lg font-semibold text-warning">
               {formatCurrency(convertedPendingValue, displayCurrency)}
             </div>
@@ -260,6 +273,7 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
                       {status === 'pending' && formatCurrency(convertedPendingValue, displayCurrency)}
                       {status === 'overdue' && formatCurrency(convertedOverdueValue, displayCurrency)}
                       {status === 'completed' && formatCurrency(0, displayCurrency)}
+                      {status === 'paid' && formatCurrency(convertedPaidValue, displayCurrency)}
                     </span>
                   </div>
                 </div>

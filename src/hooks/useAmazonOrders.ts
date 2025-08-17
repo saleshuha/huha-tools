@@ -57,6 +57,8 @@ export const useAmazonOrders = () => {
       setMetrics({
         totalOrders: 0,
         totalValue: 0,
+        paidPayments: 0,
+        paidValue: 0,
         pendingPayments: 0,
         pendingValue: 0,
         overduePayments: 0,
@@ -78,6 +80,8 @@ export const useAmazonOrders = () => {
       setMetrics({
         totalOrders: 0,
         totalValue: 0,
+        paidPayments: 0,
+        paidValue: 0,
         pendingPayments: 0,
         pendingValue: 0,
         overduePayments: 0,
@@ -197,18 +201,39 @@ export const useAmazonOrders = () => {
     
     console.log('Overdue payments count:', overduePayments);
     
-    // Completed payments = orders with payment_status "completed" or status "Paid"
-    const completedPayments = ordersData.filter(o => {
+    // Paid payments = orders with payment_status "completed" or status "Paid"
+    const paidOrders = ordersData.filter(o => {
       const paymentStatus = (o.payment_status || '').toLowerCase().trim();
       const status = (o.status || '').toLowerCase().trim();
       return paymentStatus === 'completed' || status === 'paid';
-    }).length;
+    });
+    const paidPayments = paidOrders.length;
+
+    // Calculate paid orders value (convert to USD)
+    const paidValue = paidOrders.reduce((sum, order) => {
+      const cost = parseFloat(order.item_cost?.toString() || '0') || 0;
+      const qty = parseInt(order.quantity?.toString() || '1') || 1;
+      const orderValue = cost * qty;
+      
+      // Convert to USD if not already in USD
+      if (order.currency === 'AED') {
+        return sum + (orderValue * 0.27);
+      } else if (order.currency === 'SAR') {
+        return sum + (orderValue * 0.27);
+      } else {
+        return sum + orderValue;
+      }
+    }, 0);
+    
+    // Completed payments = orders with payment_status "completed" or status "Paid"
+    const completedPayments = paidPayments; // Same as paid payments
 
     // Payment status breakdown for display
     const paymentStatusBreakdown = {
       pending: pendingPayments,
       overdue: overduePayments,
-      completed: completedPayments
+      completed: completedPayments,
+      paid: paidPayments
     };
 
     // Calculate upcoming payments based on invoice_date + 45 days
@@ -258,6 +283,8 @@ export const useAmazonOrders = () => {
     const finalMetrics = {
       totalOrders,
       totalValue, // Keep in USD, conversion happens in UI
+      paidPayments,
+      paidValue, // Keep in USD, conversion happens in UI
       pendingPayments,
       pendingValue, // Keep in USD, conversion happens in UI
       overduePayments,
