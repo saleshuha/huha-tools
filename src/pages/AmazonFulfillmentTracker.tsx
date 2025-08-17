@@ -34,6 +34,20 @@ const AmazonFulfillmentTracker = () => {
             <p className="text-muted-foreground">
               Direct fulfillment order payment tracking for {selectedCountry}
             </p>
+            {metrics?.paidThroughDate && (
+              <div className="mt-2 px-3 py-1 bg-success/10 border border-success/20 rounded-lg inline-block">
+                <p className="text-sm text-success font-medium">
+                  ✓ Orders paid through: {new Date(metrics.paidThroughDate).toLocaleDateString()}
+                </p>
+              </div>
+            )}
+            {metrics && !metrics.paidThroughDate && metrics.totalOrders > 0 && (
+              <div className="mt-2 px-3 py-1 bg-warning/10 border border-warning/20 rounded-lg inline-block">
+                <p className="text-sm text-warning font-medium">
+                  ⚠ No fully paid period found - payments pending from earliest orders
+                </p>
+              </div>
+            )}
           </div>
           <div className="flex gap-2">
             <CurrencySelector />

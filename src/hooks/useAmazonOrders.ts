@@ -64,6 +64,7 @@ export const useAmazonOrders = () => {
         overduePayments: 0,
         overdueValue: 0,
         completedPayments: 0,
+        paidThroughDate: null,
         statusBreakdown: {},
         paymentStatusBreakdown: {},
         upcomingPayments: { next7Days: 0, next30Days: 0, next90Days: 0 }
@@ -87,6 +88,7 @@ export const useAmazonOrders = () => {
         overduePayments: 0,
         overdueValue: 0,
         completedPayments: 0,
+        paidThroughDate: null,
         statusBreakdown: {},
         paymentStatusBreakdown: {},
         upcomingPayments: { next7Days: 0, next30Days: 0, next90Days: 0 }
@@ -280,6 +282,35 @@ export const useAmazonOrders = () => {
       }).length,
     };
 
+    // Calculate "paid through" date - latest date where all orders before it are paid
+    let paidThroughDate: string | null = null;
+    
+    if (ordersData.length > 0) {
+      // Sort orders by invoice date
+      const sortedOrders = [...ordersData]
+        .filter(o => o.invoice_date) // Only orders with invoice dates
+        .sort((a, b) => new Date(a.invoice_date!).getTime() - new Date(b.invoice_date!).getTime());
+      
+      // Find the latest date where all orders up to that date are paid
+      for (let i = sortedOrders.length - 1; i >= 0; i--) {
+        const currentOrder = sortedOrders[i];
+        const currentDate = currentOrder.invoice_date!;
+        
+        // Check if all orders up to this date are paid
+        const ordersUpToThisDate = sortedOrders.slice(0, i + 1);
+        const allPaid = ordersUpToThisDate.every(order => {
+          const paymentStatus = (order.payment_status || '').toLowerCase().trim();
+          const status = (order.status || '').toLowerCase().trim();
+          return paymentStatus === 'completed' || status === 'paid';
+        });
+        
+        if (allPaid) {
+          paidThroughDate = currentDate;
+          break;
+        }
+      }
+    }
+
     const finalMetrics = {
       totalOrders,
       totalValue, // Keep in USD, conversion happens in UI
@@ -290,6 +321,7 @@ export const useAmazonOrders = () => {
       overduePayments,
       overdueValue, // Keep in USD, conversion happens in UI
       completedPayments,
+      paidThroughDate,
       statusBreakdown,
       paymentStatusBreakdown,
       upcomingPayments,

@@ -76,6 +76,7 @@ export interface DashboardMetrics {
   overduePayments: number;
   overdueValue: number;
   completedPayments: number;
+  paidThroughDate: string | null;
   statusBreakdown: {
     [key: string]: number;
   };
