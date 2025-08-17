@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Package, Truck, CheckCircle, Clock, AlertTriangle, Plus, Save, ExternalLink, Upload, Edit, PackageCheck, PackageX, Trash2 } from 'lucide-react';
+import { ArrowLeft, Package, Truck, CheckCircle, Clock, AlertTriangle, Plus, Save, ExternalLink, Upload, Edit, PackageCheck, PackageX, Trash2, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -171,6 +171,114 @@ export default function PODetailsPage() {
   const totalCost = matchedOrders.reduce((sum, order) => sum + (order.total_cost || 0), 0);
   const currency = matchedOrders[0]?.currency || 'AED';
   const shipToLocation = matchedOrders[0]?.ship_to_location || 'N/A';
+
+  // Export functionality
+  const handleExportPO = () => {
+    try {
+      // Prepare comprehensive export data with all possible columns
+      const exportData = matchedOrders.map((order) => {
+        const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code);
+        
+        return {
+          // Basic Order Information
+          'PO Number': order.po_number,
+          'Order ID': order.id,
+          'Status': order.status,
+          'Order Date': order.order_date ? new Date(order.order_date).toLocaleDateString() : '',
+          'Expected Delivery': order.expected_delivery ? new Date(order.expected_delivery).toLocaleDateString() : '',
+          'Created At': new Date(order.created_at).toLocaleDateString(),
+          'Updated At': new Date(order.updated_at).toLocaleDateString(),
+          
+          // Product Information
+          'ASIN': order.asin || '',
+          'SKU Code': order.sku_code || '',
+          'Model Number': order.model_number || '',
+          'Title': order.title || '',
+          'External ID': order.external_id || '',
+          'External ID Type': order.external_id_type || '',
+          
+          // Quantity and Cost
+          'Quantity': order.quantity,
+          'Unit Cost': order.unit_cost || '',
+          'Total Cost': order.total_cost || '',
+          'Currency': order.currency || '',
+          'Country': order.country || '',
+          
+          // Shipping Information
+          'Ship To Location': order.ship_to_location || '',
+          'Supplier Order Number': order.supplier_order_number || '',
+          'Tracking Number': order.tracking_number || '',
+          'Tracking URL': order.tracking_url || '',
+          
+          // Sunsky SKU Information
+          'Sunsky SKU Code': order.sunsky_sku?.sku_code || '',
+          'Sunsky Title': order.sunsky_sku?.title || '',
+          'Sunsky Cost': order.sunsky_sku?.cost || '',
+          'Sunsky Weight': order.sunsky_sku?.weight || '',
+          'Sunsky Currency': order.sunsky_sku?.currency || '',
+          'Sunsky Country': order.sunsky_sku?.country || '',
+          
+          // Inventory Information
+          'Inventory Match Type': inventoryMatch?.type || 'No Match',
+          'Inventory Status': inventoryMatch?.status || 'Not in Inventory',
+          'Inventory Quantity': inventoryMatch?.quantity || 0,
+          'Inventory Identifier': inventoryMatch?.identifier || '',
+          'Inventory Serial/Bin Number': inventoryMatch?.serialNumber || '',
+          
+          // Additional Information
+          'Notes': order.notes || '',
+          'File Name': order.file_name || '',
+          'User ID': order.user_id
+        };
+      });
+
+      // Convert to CSV
+      if (exportData.length === 0) {
+        toast({
+          title: "No Data to Export",
+          description: "There are no items to export",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const headers = Object.keys(exportData[0]);
+      const csvContent = [
+        headers.join(','),
+        ...exportData.map(row => 
+          headers.map(header => {
+            const value = row[header as keyof typeof row];
+            // Handle values that might contain commas or quotes
+            const stringValue = String(value);
+            if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+              return `"${stringValue.replace(/"/g, '""')}"`;
+            }
+            return stringValue;
+          }).join(',')
+        )
+      ].join('\n');
+
+      // Create and download file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `PO_${poNumber}_Details_${new Date().toISOString().split('T')[0]}.csv`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+
+      toast({
+        title: "Export Successful",
+        description: `Exported ${exportData.length} items to CSV file`
+      });
+    } catch (error) {
+      console.error('Export error:', error);
+      toast({
+        title: "Export Failed",
+        description: "Failed to export PO details",
+        variant: "destructive"
+      });
+    }
+  };
 
   // Handle bulk mark as ordered from inventory
   const handleBulkMarkFromInventory = async () => {
@@ -506,14 +614,23 @@ export default function PODetailsPage() {
     <div className="min-h-screen bg-gradient-surface">
       <div className="glass-container mx-6 my-4 p-8">
         {/* Header */}
-        <div className="flex items-center gap-4 mb-6">
-          <Button variant="outline" onClick={() => navigate('/po-tracker')}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to PO Tracker
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-4">
+            <Button variant="outline" onClick={() => navigate('/po-tracker')}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to PO Tracker
+            </Button>
+            <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+              PO {poNumber} Details
+            </h1>
+          </div>
+          <Button 
+            onClick={handleExportPO} 
+            className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2"
+          >
+            <Download className="h-4 w-4" />
+            Export PO Details
           </Button>
-          <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-            PO {poNumber} Details
-          </h1>
         </div>
 
         {/* Action Buttons */}
