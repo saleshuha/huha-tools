@@ -7,7 +7,7 @@ import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Upload, Search, Package, Clock, CheckCircle, AlertCircle, BarChart3, RefreshCw, Eye, MousePointer, Truck, ExternalLink, PackageCheck, Archive } from 'lucide-react';
+import { Upload, Search, Package, Clock, CheckCircle, AlertCircle, BarChart3, RefreshCw, Eye, MousePointer, Truck, ExternalLink, PackageCheck, Archive, Copy } from 'lucide-react';
 import { POFileUpload } from './po/POFileUpload';
 import { SKUList } from './po/SKUList';
 import { AddSKUDialog } from './po/AddSKUDialog';
@@ -780,8 +780,24 @@ export function POTracker() {
                           >
                             <TableCell>
                               <div className="space-y-1">
-                                <div className="font-mono font-bold text-primary text-lg">
-                                  {poNumber}
+                                <div className="flex items-center gap-2">
+                                  <div className="font-mono font-bold text-primary text-lg">
+                                    {poNumber}
+                                  </div>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 w-6 p-0"
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(poNumber);
+                                      toast({
+                                        title: "Copied!",
+                                        description: `PO number ${poNumber} copied to clipboard`,
+                                      });
+                                    }}
+                                  >
+                                    <Copy className="h-3 w-3" />
+                                  </Button>
                                 </div>
                                 <div className="text-sm text-muted-foreground">
                                   Ship to: {orders[0]?.ship_to_location || 'Not specified'}
