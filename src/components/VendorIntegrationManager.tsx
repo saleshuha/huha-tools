@@ -12,7 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useVendorIntegration } from '@/hooks/useVendorIntegration';
 import { useCountry } from '@/contexts/CountryContext';
-import { Plus, Settings, Download, Trash2, Send, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { Plus, Settings, Download, Trash2, Send, CheckCircle, XCircle, Clock, Inbox } from 'lucide-react';
 import { format } from 'date-fns';
 
 export function VendorIntegrationManager() {
@@ -27,6 +27,7 @@ export function VendorIntegrationManager() {
     updateIntegration,
     deleteIntegration,
     generateInventoryFeed,
+    receiveFiles,
   } = useVendorIntegration();
 
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -546,7 +547,16 @@ export function VendorIntegrationManager() {
                           disabled={loading}
                         >
                           <Send className="w-4 h-4 mr-2" />
-                          Generate Feed
+                          Send Feed
+                        </Button>
+                        <Button
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => receiveFiles(integration.id)}
+                          disabled={loading}
+                        >
+                          <Inbox className="w-4 h-4 mr-2" />
+                          Receive Files
                         </Button>
                         <AlertDialog>
                           <AlertDialogTrigger asChild>

@@ -289,6 +289,52 @@ export function useVendorIntegration() {
     }
   }, [toast, profile?.id, loadFeedLogs]);
 
+  const receiveFiles = useCallback(async (integrationId: string, forceCheck?: boolean) => {
+    console.log('Receiving files for integration:', integrationId);
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('amazon-sftp-receiver', {
+        body: { 
+          integration_id: integrationId, 
+          user_id: profile?.id,
+          force_check: forceCheck 
+        }
+      });
+
+      if (error) {
+        console.error('Error receiving files:', error);
+        toast({
+          title: "Error",
+          description: "Failed to receive files from Amazon",
+          variant: "destructive",
+        });
+        return null;
+      }
+
+      toast({
+        title: "Success",
+        description: "File receiving process started",
+      });
+
+      console.log('Files received successfully:', data);
+      
+      // Reload feed logs to show newly received files
+      await loadFeedLogs(integrationId);
+      
+      return data;
+    } catch (error) {
+      console.error('Error in receiveFiles:', error);
+      toast({
+        title: "Error",
+        description: "Failed to receive files from Amazon",
+        variant: "destructive",
+      });
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, [toast, profile?.id, loadFeedLogs]);
+
   return {
     integrations,
     feedLogs,
@@ -299,5 +345,6 @@ export function useVendorIntegration() {
     updateIntegration,
     deleteIntegration,
     generateInventoryFeed,
+    receiveFiles,
   };
 }
