@@ -1564,8 +1564,14 @@ export type Database = {
           primary_key_type: string
           sftp_host: string | null
           sftp_port: number | null
+          sftp_receive_host: string | null
+          sftp_receive_port: number | null
+          sftp_receive_remote_path: string | null
+          sftp_receive_username: string | null
           sftp_remote_path: string | null
           sftp_username: string | null
+          ssh_fingerprint_receiving: string | null
+          ssh_fingerprint_sending: string | null
           transport_method: string
           updated_at: string
           user_id: string
@@ -1580,8 +1586,14 @@ export type Database = {
           primary_key_type?: string
           sftp_host?: string | null
           sftp_port?: number | null
+          sftp_receive_host?: string | null
+          sftp_receive_port?: number | null
+          sftp_receive_remote_path?: string | null
+          sftp_receive_username?: string | null
           sftp_remote_path?: string | null
           sftp_username?: string | null
+          ssh_fingerprint_receiving?: string | null
+          ssh_fingerprint_sending?: string | null
           transport_method?: string
           updated_at?: string
           user_id: string
@@ -1596,8 +1608,14 @@ export type Database = {
           primary_key_type?: string
           sftp_host?: string | null
           sftp_port?: number | null
+          sftp_receive_host?: string | null
+          sftp_receive_port?: number | null
+          sftp_receive_remote_path?: string | null
+          sftp_receive_username?: string | null
           sftp_remote_path?: string | null
           sftp_username?: string | null
+          ssh_fingerprint_receiving?: string | null
+          ssh_fingerprint_sending?: string | null
           transport_method?: string
           updated_at?: string
           user_id?: string

@@ -37,9 +37,15 @@ export function VendorIntegrationManager() {
     transport_method: 'SFTP',
     sftp_host: 'eu-sftp.amazonsedi.com',
     sftp_port: 22,
-    sftp_username: '18DL8XNNYWXN1', // Default to sending username
+    sftp_username: '18DL8XNNYWXN1',
     sftp_remote_path: 'upload',
-    country: 'KSA', // Updated to KSA
+    sftp_receive_host: 'eu-sftp.amazonsedi.com',
+    sftp_receive_port: 22,
+    sftp_receive_username: '39ZYAQGPS10UV',
+    sftp_receive_remote_path: 'download',
+    ssh_fingerprint_sending: '3d9738f4f7e472c532147bd85145f69c',
+    ssh_fingerprint_receiving: '3d9738f4f7e472c532147bd85145f69c',
+    country: 'KSA',
     primary_key_type: 'SKU',
     feed_schedule: 'daily',
     is_active: false,
@@ -78,7 +84,13 @@ export function VendorIntegrationManager() {
       sftp_port: 22,
       sftp_username: '18DL8XNNYWXN1',
       sftp_remote_path: 'upload',
-      country: 'KSA', // Reset to KSA
+      sftp_receive_host: 'eu-sftp.amazonsedi.com',
+      sftp_receive_port: 22,
+      sftp_receive_username: '39ZYAQGPS10UV',
+      sftp_receive_remote_path: 'download',
+      ssh_fingerprint_sending: '3d9738f4f7e472c532147bd85145f69c',
+      ssh_fingerprint_receiving: '3d9738f4f7e472c532147bd85145f69c',
+      country: 'KSA',
       primary_key_type: 'SKU',
       feed_schedule: 'daily',
       is_active: false,
@@ -90,16 +102,22 @@ export function VendorIntegrationManager() {
     setFormData({
       vendor_name: integration.vendor_name,
       transport_method: integration.transport_method,
-      sftp_host: integration.sftp_host || '',
+      sftp_host: integration.sftp_host || 'eu-sftp.amazonsedi.com',
       sftp_port: integration.sftp_port || 22,
-      sftp_username: integration.sftp_username || '',
-      sftp_remote_path: integration.sftp_remote_path || '/incoming/inventory',
+      sftp_username: integration.sftp_username || '18DL8XNNYWXN1',
+      sftp_remote_path: integration.sftp_remote_path || 'upload',
+      sftp_receive_host: integration.sftp_receive_host || 'eu-sftp.amazonsedi.com',
+      sftp_receive_port: integration.sftp_receive_port || 22,
+      sftp_receive_username: integration.sftp_receive_username || '39ZYAQGPS10UV',
+      sftp_receive_remote_path: integration.sftp_receive_remote_path || 'download',
+      ssh_fingerprint_sending: integration.ssh_fingerprint_sending || '3d9738f4f7e472c532147bd85145f69c',
+      ssh_fingerprint_receiving: integration.ssh_fingerprint_receiving || '3d9738f4f7e472c532147bd85145f69c',
       country: integration.country,
       primary_key_type: integration.primary_key_type,
       feed_schedule: integration.feed_schedule,
       is_active: integration.is_active,
     });
-    setSshKeyUploaded(!!integration.sftp_host); // Assume key uploaded if host exists
+    setSshKeyUploaded(!!integration.sftp_host);
     setEditingIntegration(integration.id);
   };
 
@@ -235,53 +253,122 @@ export function VendorIntegrationManager() {
 
               {/* SFTP Connection Details - Only show if keys are uploaded */}
               {sshKeyUploaded && (
-                <div className="space-y-4 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200/50">
-                  <h4 className="font-semibold text-green-700 dark:text-green-300">
+                <div className="space-y-6 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200/50">
+                  <h4 className="font-semibold text-green-700 dark:text-green-300 mb-4">
                     🔗 Amazon-Provided Connection Details
                   </h4>
                   
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="sftp_host">SFTP Host (from Amazon)</Label>
-                      <Input
-                        id="sftp_host"
-                        value={formData.sftp_host}
-                        onChange={(e) => setFormData({ ...formData, sftp_host: e.target.value })}
-                        placeholder="Amazon will provide this"
-                        disabled={!sshKeyUploaded}
-                      />
+                  {/* Sending Configuration */}
+                  <div className="space-y-4">
+                    <div className="border-l-4 border-blue-500 pl-4">
+                      <h5 className="font-medium text-blue-700 dark:text-blue-300 mb-3">📤 Sending to Amazon (Inventory Feeds)</h5>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="sftp_host">SFTP Host</Label>
+                          <Input
+                            id="sftp_host"
+                            value={formData.sftp_host}
+                            onChange={(e) => setFormData({ ...formData, sftp_host: e.target.value })}
+                            disabled={!sshKeyUploaded}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="sftp_port">SFTP Port</Label>
+                          <Input
+                            id="sftp_port"
+                            type="number"
+                            value={formData.sftp_port}
+                            onChange={(e) => setFormData({ ...formData, sftp_port: parseInt(e.target.value) || 22 })}
+                            disabled={!sshKeyUploaded}
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4 mt-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="sftp_username">SFTP Username</Label>
+                          <Input
+                            id="sftp_username"
+                            value={formData.sftp_username}
+                            onChange={(e) => setFormData({ ...formData, sftp_username: e.target.value })}
+                            disabled={!sshKeyUploaded}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="sftp_remote_path">Remote Directory</Label>
+                          <Input
+                            id="sftp_remote_path"
+                            value={formData.sftp_remote_path}
+                            onChange={(e) => setFormData({ ...formData, sftp_remote_path: e.target.value })}
+                            disabled={!sshKeyUploaded}
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2 mt-4">
+                        <Label htmlFor="ssh_fingerprint_sending">SSH Key Fingerprint (Sending)</Label>
+                        <Input
+                          id="ssh_fingerprint_sending"
+                          value={formData.ssh_fingerprint_sending}
+                          onChange={(e) => setFormData({ ...formData, ssh_fingerprint_sending: e.target.value })}
+                          placeholder="MD5 fingerprint for verification"
+                          disabled={!sshKeyUploaded}
+                        />
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="sftp_port">SFTP Port</Label>
-                      <Input
-                        id="sftp_port"
-                        type="number"
-                        value={formData.sftp_port}
-                        onChange={(e) => setFormData({ ...formData, sftp_port: parseInt(e.target.value) || 22 })}
-                        disabled={!sshKeyUploaded}
-                      />
-                    </div>
-                  </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="sftp_username">SFTP Username (from Amazon)</Label>
-                      <Input
-                        id="sftp_username"
-                        value={formData.sftp_username}
-                        onChange={(e) => setFormData({ ...formData, sftp_username: e.target.value })}
-                        placeholder="Amazon will provide this"
-                        disabled={!sshKeyUploaded}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="sftp_remote_path">Remote Path</Label>
-                      <Input
-                        id="sftp_remote_path"
-                        value={formData.sftp_remote_path}
-                        onChange={(e) => setFormData({ ...formData, sftp_remote_path: e.target.value })}
-                        disabled={!sshKeyUploaded}
-                      />
+                    {/* Receiving Configuration */}
+                    <div className="border-l-4 border-purple-500 pl-4">
+                      <h5 className="font-medium text-purple-700 dark:text-purple-300 mb-3">📥 Receiving from Amazon (Orders, Acknowledgments)</h5>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="sftp_receive_host">SFTP Host</Label>
+                          <Input
+                            id="sftp_receive_host"
+                            value={formData.sftp_receive_host}
+                            onChange={(e) => setFormData({ ...formData, sftp_receive_host: e.target.value })}
+                            disabled={!sshKeyUploaded}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="sftp_receive_port">SFTP Port</Label>
+                          <Input
+                            id="sftp_receive_port"
+                            type="number"
+                            value={formData.sftp_receive_port}
+                            onChange={(e) => setFormData({ ...formData, sftp_receive_port: parseInt(e.target.value) || 22 })}
+                            disabled={!sshKeyUploaded}
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4 mt-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="sftp_receive_username">SFTP Username</Label>
+                          <Input
+                            id="sftp_receive_username"
+                            value={formData.sftp_receive_username}
+                            onChange={(e) => setFormData({ ...formData, sftp_receive_username: e.target.value })}
+                            disabled={!sshKeyUploaded}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="sftp_receive_remote_path">Remote Directory</Label>
+                          <Input
+                            id="sftp_receive_remote_path"
+                            value={formData.sftp_receive_remote_path}
+                            onChange={(e) => setFormData({ ...formData, sftp_receive_remote_path: e.target.value })}
+                            disabled={!sshKeyUploaded}
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2 mt-4">
+                        <Label htmlFor="ssh_fingerprint_receiving">SSH Key Fingerprint (Receiving)</Label>
+                        <Input
+                          id="ssh_fingerprint_receiving"
+                          value={formData.ssh_fingerprint_receiving}
+                          onChange={(e) => setFormData({ ...formData, ssh_fingerprint_receiving: e.target.value })}
+                          placeholder="MD5 fingerprint for verification"
+                          disabled={!sshKeyUploaded}
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
