@@ -65,12 +65,41 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get SSH private key from secrets
+    // Check SSH private key availability
     const privateKey = Deno.env.get('AMAZON_SFTP_PRIVATE_KEY');
+    console.log('SSH private key check:', privateKey ? 'Found' : 'Not found');
+    console.log('Available env vars:', Object.keys(Deno.env.toObject()).filter(k => k.includes('AMAZON')));
+    
     if (!privateKey) {
       console.error('SSH private key not configured');
+      
+      // Still create a log entry to show the attempt in feed history
+      const defaultFileName = file_name || `test_ofr_${Date.now()}.xml`;
+      
+      try {
+        await supabase.from('vendor_feed_logs').insert({
+          user_id: user_id,
+          integration_id: integration_id,
+          feed_type: 'test_ofr',
+          file_name: defaultFileName,
+          file_path: `${user_id}/${defaultFileName}`,
+          status: 'failed',
+          total_items: 1,
+          error_message: 'SSH private key not configured',
+          sent_at: new Date().toISOString(),
+          acknowledged_at: null
+        });
+        console.log('Logged failed attempt to feed history');
+      } catch (logError) {
+        console.error('Error logging failed attempt:', logError);
+      }
+      
       return new Response(
-        JSON.stringify({ error: 'SSH private key not configured. Please add the private key to AMAZON_SFTP_PRIVATE_KEY secret.' }),
+        JSON.stringify({ 
+          error: 'SSH private key not configured. Please add the private key to AMAZON_SFTP_PRIVATE_KEY secret.',
+          logged: true,
+          message: 'Attempt logged in Feed History'
+        }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
