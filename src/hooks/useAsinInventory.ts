@@ -73,6 +73,20 @@ export function useAsinInventory() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user || !selectedCountry) throw new Error('User not authenticated or no country');
 
+      // Check for duplicate serial numbers across all ASINs
+      const { data: existingItems, error: checkError } = await supabase
+        .from('asin_inventory')
+        .select('serial_number, asin')
+        .eq('user_id', user.id)
+        .eq('serial_number', item.serialNumber);
+
+      if (checkError) throw checkError;
+
+      if (existingItems && existingItems.length > 0) {
+        const existingAsin = existingItems[0].asin;
+        throw new Error(`Serial number "${item.serialNumber}" is already used by ASIN "${existingAsin}". Each serial number must be unique across all ASINs.`);
+      }
+
       const { data, error } = await supabase
         .from('asin_inventory')
         .insert({

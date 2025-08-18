@@ -170,6 +170,20 @@ export function AsinInventory() {
       });
       return;
     }
+
+    // Check for duplicate serial number in current inventory
+    const duplicateSerial = inventory.find(item => 
+      item.serialNumber.toLowerCase() === newItem.serialNumber.toLowerCase().trim()
+    );
+
+    if (duplicateSerial) {
+      toast({
+        title: "Duplicate Serial Number",
+        description: `Serial number "${newItem.serialNumber}" is already used by ASIN "${duplicateSerial.asin}". Each serial number must be unique across all ASINs.`,
+        variant: "destructive",
+      });
+      return;
+    }
     await addItem({
       ...newItem,
       dateAdded: new Date().toISOString()
