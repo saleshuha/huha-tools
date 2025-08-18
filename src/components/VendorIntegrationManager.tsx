@@ -39,7 +39,7 @@ export function VendorIntegrationManager() {
     sftp_port: 22,
     sftp_username: '18DL8XNNYWXN1', // Default to sending username
     sftp_remote_path: 'upload',
-    country: selectedCountry,
+    country: 'KSA', // Updated to KSA
     primary_key_type: 'SKU',
     feed_schedule: 'daily',
     is_active: false,
@@ -77,7 +77,7 @@ export function VendorIntegrationManager() {
       sftp_port: 22,
       sftp_username: '18DL8XNNYWXN1',
       sftp_remote_path: 'upload',
-      country: selectedCountry,
+      country: 'KSA', // Reset to KSA
       primary_key_type: 'SKU',
       feed_schedule: 'daily',
       is_active: false,
