@@ -19,7 +19,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    console.log('amazon-test-sender: Request received');
+    console.log('amazon-test-sender: Request received - v1.1');
     
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
