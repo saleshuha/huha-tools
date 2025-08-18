@@ -45,6 +45,7 @@ import AddSKUPage from "./pages/AddSKUPage";
 import BulkColumnEditor from "./pages/BulkColumnEditor";
 import SunskySKUImporterPage from "./pages/SunskySKUImporter";
 import NoonFileCleaner from "./pages/NoonFileCleaner";
+import AmazonVendorCentral from "./pages/AmazonVendorCentral";
 import { useState as useReactState } from "react";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -221,7 +222,8 @@ const App = () => {
                      <Route path="/sunsky-importer" element={<SunskySKUImporterPage />} />
                       <Route path="/excel-editor" element={<ExcelEditorPage />} />
                       <Route path="/noon-file-cleaner" element={<NoonFileCleaner />} />
-                  <Route path="/amazon-fulfillment" element={<AmazonFulfillmentTracker />} />
+                   <Route path="/amazon-fulfillment" element={<AmazonFulfillmentTracker />} />
+                   <Route path="/amazon-vendor-central" element={<AmazonVendorCentral />} />
                   <Route path="/noon-sales-tracker" element={<NoonSalesTracker />} />
                      <Route path="/noon-dashboard" element={<NoonDashboard />} />
                      <Route path="/noon-stores" element={<NoonStores />} />

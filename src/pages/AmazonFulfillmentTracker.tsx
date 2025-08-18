@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Upload, DollarSign } from 'lucide-react';
+import { Upload, DollarSign, Settings, ArrowRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { MetricsDashboard } from '@/components/amazon/MetricsDashboard';
 import { OrdersTable } from '@/components/amazon/OrdersTable';
 import { ImportOrdersDialog } from '@/components/amazon/ImportOrdersDialog';
@@ -13,6 +14,7 @@ import { useCountry } from '@/contexts/CountryContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
 
 const AmazonFulfillmentTracker = () => {
+  const navigate = useNavigate();
   const { selectedCountry } = useCountry();
   const { profile, user } = useUserProfile();
   const { orders, loading, metrics, updateOrder, deleteOrder, bulkImportOrders, clearAllOrders } = useAmazonOrders();
@@ -36,6 +38,15 @@ const AmazonFulfillmentTracker = () => {
             </p>
           </div>
           <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => navigate('/amazon-vendor-central')}
+              className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 border-blue-200 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              Vendor Central
+              <ArrowRight className="h-4 w-4 ml-2" />
+            </Button>
             <CurrencySelector />
             <Button variant="outline" onClick={() => setShowCurrencyDialog(true)}>
               <DollarSign className="h-4 w-4 mr-2" />
@@ -54,6 +65,31 @@ const AmazonFulfillmentTracker = () => {
                 Clear All Data
               </Button>
             )}
+          </div>
+        </div>
+
+        {/* Quick Access Cards */}
+        <div className="grid md:grid-cols-2 gap-4 mb-6">
+          <div 
+            className="p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg border border-blue-200/50 cursor-pointer hover:shadow-md transition-all duration-200"
+            onClick={() => navigate('/amazon-vendor-central')}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-blue-700 dark:text-blue-300">Amazon Vendor Central</h3>
+                <p className="text-sm text-blue-600 dark:text-blue-400">Configure inventory feed integration</p>
+              </div>
+              <ArrowRight className="h-5 w-5 text-blue-500" />
+            </div>
+          </div>
+          <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg border border-green-200/50">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-green-700 dark:text-green-300">Payment Tracking</h3>
+                <p className="text-sm text-green-600 dark:text-green-400">Direct fulfillment order management</p>
+              </div>
+              <DollarSign className="h-5 w-5 text-green-500" />
+            </div>
           </div>
         </div>
 
