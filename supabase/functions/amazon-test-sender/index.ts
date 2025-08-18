@@ -19,14 +19,28 @@ Deno.serve(async (req) => {
   }
 
   try {
+    console.log('amazon-test-sender: Request received');
+    
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { integration_id, user_id, xml_content, file_name }: TestSendRequest = await req.json();
+    let requestBody;
+    try {
+      requestBody = await req.json();
+      console.log('Request body parsed successfully');
+    } catch (parseError) {
+      console.error('Error parsing request body:', parseError);
+      return new Response(
+        JSON.stringify({ error: 'Invalid JSON in request body', details: parseError.message }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
-    console.log('Starting test XML send for integration:', integration_id);
+    const { integration_id, user_id, xml_content, file_name }: TestSendRequest = requestBody;
+
+    console.log('Starting test XML send for integration:', integration_id, 'user:', user_id);
 
     // Get integration configuration
     const { data: integration, error: integrationError } = await supabase
