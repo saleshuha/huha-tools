@@ -690,7 +690,7 @@ export function VendorIntegrationManager() {
             <div className="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200/50">
               <h3 className="font-semibold text-orange-700 dark:text-orange-300 mb-3 flex items-center gap-2">
                 <span className="bg-orange-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">2</span>
-                Upload Public Key to Amazon
+                Upload Receiving Public Key to Amazon
               </h3>
               <div className="space-y-3 text-sm text-orange-600 dark:text-orange-400">
                 <ol className="ml-4 space-y-2">
@@ -700,13 +700,36 @@ export function VendorIntegrationManager() {
                   <li>4. Choose key type: <strong>"Receiving Public Key"</strong> for inventory feeds</li>
                   <li>5. Submit the key and wait for Amazon's confirmation</li>
                 </ol>
+                <div className="p-3 bg-orange-100 dark:bg-orange-800 rounded border-l-4 border-orange-600">
+                  <p className="font-medium">📝 Note:</p>
+                  <p>Amazon will also provide you with their <strong>Sending Public Key</strong> that you'll need to add to your system for authentication.</p>
+                </div>
               </div>
             </div>
 
-            {/* Step 3: Get Connection Details */}
+            {/* Step 3: Get Amazon's Sending Key */}
+            <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200/50">
+              <h3 className="font-semibold text-purple-700 dark:text-purple-300 mb-3 flex items-center gap-2">
+                <span className="bg-purple-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">3</span>
+                Download Amazon's Sending Public Key
+              </h3>
+              <div className="space-y-3 text-sm text-purple-600 dark:text-purple-400">
+                <p>After uploading your Receiving Public Key, Amazon will provide:</p>
+                <ul className="ml-4 space-y-1">
+                  <li>• <strong>Sending Public Key</strong> (Amazon's key for authenticating their system)</li>
+                  <li>• Download this key and add it to your <code className="bg-purple-100 dark:bg-purple-800 px-2 py-1 rounded">~/.ssh/known_hosts</code> or authorized keys</li>
+                </ul>
+                <div className="bg-black/80 text-green-400 p-3 rounded font-mono text-sm overflow-x-auto">
+                  # Add Amazon's key to known hosts{"\n"}
+                  ssh-keyscan -H [amazon_host] {">>"} ~/.ssh/known_hosts
+                </div>
+              </div>
+            </div>
+
+            {/* Step 4: Get Connection Details */}
             <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200/50">
               <h3 className="font-semibold text-green-700 dark:text-green-300 mb-3 flex items-center gap-2">
-                <span className="bg-green-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">3</span>
+                <span className="bg-green-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">4</span>
                 Receive Amazon Connection Details
               </h3>
               <div className="space-y-3 text-sm text-green-600 dark:text-green-400">
@@ -721,20 +744,20 @@ export function VendorIntegrationManager() {
               </div>
             </div>
 
-            {/* Step 4: Test Connection */}
-            <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200/50">
-              <h3 className="font-semibold text-purple-700 dark:text-purple-300 mb-3 flex items-center gap-2">
-                <span className="bg-purple-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">4</span>
+            {/* Step 5: Test Connection */}
+            <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-200/50">
+              <h3 className="font-semibold text-indigo-700 dark:text-indigo-300 mb-3 flex items-center gap-2">
+                <span className="bg-indigo-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">5</span>
                 Test Connection (Optional)
               </h3>
               <div className="space-y-3">
-                <p className="text-sm text-purple-600 dark:text-purple-400">
+                <p className="text-sm text-indigo-600 dark:text-indigo-400">
                   Test your connection using:
                 </p>
                 <div className="bg-black/80 text-green-400 p-3 rounded font-mono text-sm overflow-x-auto">
                   sftp -i amazon_vendor_key username@hostname
                 </div>
-                <p className="text-sm text-purple-600 dark:text-purple-400">
+                <p className="text-sm text-indigo-600 dark:text-indigo-400">
                   Replace <code>username</code> and <code>hostname</code> with the details Amazon provided.
                 </p>
               </div>
