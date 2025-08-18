@@ -89,36 +89,65 @@ export function useInventoryAnalytics() {
 
         const { data: skuSold } = await skuQuery;
 
-        // Query ASIN inventory for restocked items
-        let asinRestockQuery = supabase
-          .from('asin_inventory')
-          .select('restock_quantity')
-          .not('last_restock_date', 'is', null)
-          .gte('last_restock_date', startDate.toISOString());
+        // Query stock changes for restocked items (positive changes)
+        let stockChangesQuery = supabase
+          .from('stock_changes')
+          .select('change_amount')
+          .gt('change_amount', 0)
+          .gte('created_at', startDate.toISOString());
 
+        // Add country filter if specified
         if (country) {
-          asinRestockQuery = asinRestockQuery.eq('country', country);
+          // We need to join with inventory tables to filter by country
+          let asinRestockQuery = supabase
+            .from('asin_inventory')
+            .select('restock_quantity, quantity')
+            .eq('country', country)
+            .or('not.last_restock_date.is.null,quantity.gt.0');
+
+          let skuRestockQuery = supabase
+            .from('sku_inventory')
+            .select('restock_quantity, quantity')
+            .eq('country', country)
+            .or('not.last_restock_date.is.null,quantity.gt.0');
+
+          const [{ data: asinRestocked }, { data: skuRestocked }, { data: stockChanges }] = await Promise.all([
+            asinRestockQuery,
+            skuRestockQuery,
+            stockChangesQuery
+          ]);
+
+          // Calculate total restocked from actual restock quantities and current stock
+          const asinRestockTotal = asinRestocked?.reduce((sum, item) => {
+            // Count restock quantity if restocked in period, or current quantity if recently added
+            return sum + (item.restock_quantity || item.quantity || 0);
+          }, 0) || 0;
+
+          const skuRestockTotal = skuRestocked?.reduce((sum, item) => {
+            return sum + (item.restock_quantity || item.quantity || 0);
+          }, 0) || 0;
+
+          const stockChangesTotal = stockChanges?.reduce((sum, change) => sum + change.change_amount, 0) || 0;
+
+          var totalRestocked = asinRestockTotal + skuRestockTotal + stockChangesTotal;
+        } else {
+          const { data: stockChanges } = await stockChangesQuery;
+          
+          // For non-country specific, get all inventory quantities
+          const [{ data: allAsin }, { data: allSku }] = await Promise.all([
+            supabase.from('asin_inventory').select('quantity, restock_quantity').neq('status', 'sold'),
+            supabase.from('sku_inventory').select('quantity, restock_quantity').neq('status', 'sold')
+          ]);
+
+          const asinTotal = allAsin?.reduce((sum, item) => sum + (item.quantity || 0), 0) || 0;
+          const skuTotal = allSku?.reduce((sum, item) => sum + (item.quantity || 0), 0) || 0;
+          const stockChangesTotal = stockChanges?.reduce((sum, change) => sum + change.change_amount, 0) || 0;
+
+          var totalRestocked = asinTotal + skuTotal + stockChangesTotal;
         }
-
-        const { data: asinRestocked } = await asinRestockQuery;
-
-        // Query SKU inventory for restocked items
-        let skuRestockQuery = supabase
-          .from('sku_inventory')
-          .select('restock_quantity')
-          .not('last_restock_date', 'is', null)
-          .gte('last_restock_date', startDate.toISOString());
-
-        if (country) {
-          skuRestockQuery = skuRestockQuery.eq('country', country);
-        }
-
-        const { data: skuRestocked } = await skuRestockQuery;
 
         // Calculate totals
         const totalSold = (asinSold?.length || 0) + (skuSold?.length || 0);
-        const totalRestocked = (asinRestocked?.reduce((sum, item) => sum + (item.restock_quantity || 0), 0) || 0) +
-                              (skuRestocked?.reduce((sum, item) => sum + (item.restock_quantity || 0), 0) || 0);
 
         salesTracking[`${days}d`] = totalSold;
         restockTracking[`${days}d`] = totalRestocked;
