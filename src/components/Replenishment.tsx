@@ -20,7 +20,7 @@ import { InventoryAnalytics } from './InventoryAnalytics';
 import { format } from 'date-fns';
 import Papa from 'papaparse';
 import { cn } from '@/lib/utils';
-import { TrendingUp, TrendingDown, AlertTriangle, Package, Download, RefreshCw, Search, BarChart3, Clock, ShoppingCart, Activity, DollarSign, Database, PieChart, LineChart, CalendarIcon, CheckCircle, XCircle, Eye, Truck, ArrowRight, Target, Zap, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Settings, Gauge, Star, Minus } from 'lucide-react';
+import { TrendingUp, TrendingDown, AlertTriangle, Package, Download, RefreshCw, Search, BarChart3, Clock, ShoppingCart, Activity, DollarSign, Database, PieChart, LineChart, CalendarIcon, CheckCircle, XCircle, Eye, Truck, ArrowRight, Target, Zap, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Settings, Gauge, Star, Minus, Timer } from 'lucide-react';
 import { Checkbox } from './ui/checkbox';
 import { LineChart as RechartsLineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, AreaChart, Area, BarChart as RechartsBarChart, Bar, PieChart as RechartsPieChart, Cell, Pie, Legend } from 'recharts';
 interface RestockItem {
@@ -1944,19 +1944,6 @@ export function Replenishment() {
                             </TableHead>
                             <TableHead 
                               className="cursor-pointer select-none hover:bg-primary/15 transition-all duration-200 font-semibold"
-                              onClick={() => handleSort('quantity')}
-                            >
-                              <div className="flex items-center gap-2">
-                                <Gauge className="h-4 w-4 text-primary" />
-                                Quantity
-                                <ArrowUpDown className="h-4 w-4 opacity-50" />
-                                {sortConfig.key === 'quantity' && (
-                                  sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3 text-primary" /> : <ArrowDown className="h-3 w-3 text-primary" />
-                                )}
-                              </div>
-                            </TableHead>
-                            <TableHead 
-                              className="cursor-pointer select-none hover:bg-primary/15 transition-all duration-200 font-semibold"
                               onClick={() => handleSort('status')}
                             >
                               <div className="flex items-center gap-2">
@@ -2000,7 +1987,7 @@ export function Replenishment() {
                             >
                               <div className="flex items-center gap-2">
                                 <CalendarIcon className="h-4 w-4 text-primary" />
-                                Days Since
+                                Days Since Order
                                 <ArrowUpDown className="h-4 w-4 opacity-50" />
                                 {sortConfig.key === 'days_since_ordered' && (
                                   sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3 text-primary" /> : <ArrowDown className="h-3 w-3 text-primary" />
@@ -2009,8 +1996,8 @@ export function Replenishment() {
                             </TableHead>
                             <TableHead className="font-semibold">
                               <div className="flex items-center gap-2">
-                                <Star className="h-4 w-4 text-primary" />
-                                Metrics
+                                <Timer className="h-4 w-4 text-primary" />
+                                Order Frequency
                               </div>
                             </TableHead>
                           </TableRow>
@@ -2138,7 +2125,7 @@ export function Replenishment() {
                         <TableBody>
                           {currentItems.length === 0 ? (
                             <TableRow>
-                              <TableCell colSpan={10} className="text-center p-12 text-muted-foreground">
+                              <TableCell colSpan={8} className="text-center p-12 text-muted-foreground">
                                 <div className="flex flex-col items-center gap-3">
                                   <Database className="h-12 w-12 opacity-30" />
                                   <div>
@@ -2150,7 +2137,16 @@ export function Replenishment() {
                             </TableRow>
                           ) : (
                             currentItems.map((item) => {
-                              const metrics = calculateItemMetrics(item);
+                              // Calculate days since last order
+                              const daysSinceLastOrder = item.last_order_date 
+                                ? Math.floor((new Date().getTime() - new Date(item.last_order_date).getTime()) / (1000 * 60 * 60 * 24))
+                                : null;
+
+                              // Calculate order frequency (placeholder logic - could be enhanced with order history)
+                              const orderFrequency = item.last_order_date 
+                                ? `${daysSinceLastOrder} days ago`
+                                : 'Never ordered';
+
                               return (
                                 <TableRow 
                                   key={`${item.item_type}-${item.id}`} 
@@ -2167,27 +2163,6 @@ export function Replenishment() {
                                   <TableCell className="font-mono text-sm font-medium">{item.asin || 'N/A'}</TableCell>
                                   <TableCell className="font-mono text-sm font-medium">{item.sku || 'N/A'}</TableCell>
                                   <TableCell className="font-mono text-sm">{item.serial_number || 'N/A'}</TableCell>
-                                  <TableCell>
-                                    <div className="flex items-center gap-2">
-                                      <Badge 
-                                        variant={item.quantity === 0 ? 'destructive' : item.quantity <= 2 ? 'secondary' : 'default'}
-                                        className={cn(
-                                          "font-bold transition-colors",
-                                          item.quantity === 0 ? 'bg-destructive/20 text-destructive border-destructive/50' : 
-                                          item.quantity <= 2 ? 'bg-warning/20 text-warning border-warning/50' : 
-                                          'bg-success/20 text-success border-success/50'
-                                        )}
-                                      >
-                                        {item.quantity}
-                                      </Badge>
-                                      {item.quantity <= 5 && (
-                                        <Progress 
-                                          value={Math.min((item.quantity / 10) * 100, 100)} 
-                                          className="w-12 h-2"
-                                        />
-                                      )}
-                                    </div>
-                                  </TableCell>
                                   <TableCell>
                                     <Badge 
                                       variant={item.status === 'in-stock' ? 'default' : 'secondary'}
@@ -2232,17 +2207,17 @@ export function Replenishment() {
                                     </div>
                                   </TableCell>
                                   <TableCell>
-                                    {item.days_since_ordered !== null ? (
+                                    {daysSinceLastOrder !== null ? (
                                       <Badge 
-                                        variant={item.days_since_ordered > 30 ? 'destructive' : item.days_since_ordered > 14 ? 'secondary' : 'default'}
+                                        variant={daysSinceLastOrder > 30 ? 'destructive' : daysSinceLastOrder > 14 ? 'secondary' : 'default'}
                                         className={cn(
                                           "font-medium",
-                                          item.days_since_ordered > 30 ? 'bg-destructive/20 text-destructive border-destructive/50' : 
-                                          item.days_since_ordered > 14 ? 'bg-warning/20 text-warning border-warning/50' : 
+                                          daysSinceLastOrder > 30 ? 'bg-destructive/20 text-destructive border-destructive/50' : 
+                                          daysSinceLastOrder > 14 ? 'bg-warning/20 text-warning border-warning/50' : 
                                           'bg-primary/20 text-primary border-primary/50'
                                         )}
                                       >
-                                        {item.days_since_ordered} days
+                                        {daysSinceLastOrder} days
                                       </Badge>
                                     ) : (
                                       <span className="text-muted-foreground text-sm flex items-center gap-1">
@@ -2252,53 +2227,11 @@ export function Replenishment() {
                                     )}
                                   </TableCell>
                                   <TableCell>
-                                    <div className="flex flex-col gap-2">
-                                      {/* Performance Rating */}
-                                      <div className="flex items-center gap-1">
-                                        {[...Array(5)].map((_, i) => (
-                                          <Star 
-                                            key={i} 
-                                            className={cn(
-                                              "h-3 w-3",
-                                              i < Math.floor(metrics.performanceRating) ? "text-yellow-500 fill-yellow-500" : "text-muted-foreground/30"
-                                            )} 
-                                          />
-                                        ))}
-                                        <span className="text-xs ml-1 font-medium">{metrics.performanceRating.toFixed(1)}</span>
-                                      </div>
-                                      
-                                      {/* Velocity & Urgency */}
-                                      <div className="flex items-center gap-2">
-                                        <Badge 
-                                          variant="outline" 
-                                          className={cn(
-                                            "text-xs px-1 py-0",
-                                            metrics.urgencyLevel === 'critical' ? 'border-destructive text-destructive' :
-                                            metrics.urgencyLevel === 'high' ? 'border-warning text-warning' :
-                                            metrics.urgencyLevel === 'medium' ? 'border-primary text-primary' :
-                                            'border-muted-foreground text-muted-foreground'
-                                          )}
-                                        >
-                                          {metrics.urgencyLevel === 'critical' ? <AlertTriangle className="h-2 w-2 mr-1" /> :
-                                           metrics.urgencyLevel === 'high' ? <TrendingUp className="h-2 w-2 mr-1" /> :
-                                           metrics.urgencyLevel === 'medium' ? <Minus className="h-2 w-2 mr-1" /> :
-                                           <TrendingDown className="h-2 w-2 mr-1" />}
-                                          {metrics.urgencyLevel}
-                                        </Badge>
-                                        
-                                        <Badge variant="outline" className="text-xs px-1 py-0">
-                                          <Zap className="h-2 w-2 mr-1" />
-                                          {metrics.velocityScore.toFixed(0)}
-                                        </Badge>
-                                      </div>
-                                      
-                                      {/* Stock Days Remaining */}
-                                      {metrics.stockDaysRemaining && (
-                                        <div className="text-xs text-muted-foreground">
-                                          <Clock className="h-2 w-2 inline mr-1" />
-                                          {metrics.stockDaysRemaining}d stock
-                                        </div>
-                                      )}
+                                    <div className="flex items-center gap-2">
+                                      <Timer className="h-3 w-3 text-muted-foreground" />
+                                      <span className="text-sm">
+                                        {orderFrequency}
+                                      </span>
                                     </div>
                                   </TableCell>
                                 </TableRow>
