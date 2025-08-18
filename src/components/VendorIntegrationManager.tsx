@@ -35,10 +35,10 @@ export function VendorIntegrationManager() {
   const [formData, setFormData] = useState({
     vendor_name: 'Amazon Vendor Central',
     transport_method: 'SFTP',
-    sftp_host: '',
+    sftp_host: 'eu-sftp.amazonsedi.com',
     sftp_port: 22,
-    sftp_username: '',
-    sftp_remote_path: '/incoming/inventory',
+    sftp_username: '18DL8XNNYWXN1', // Default to sending username
+    sftp_remote_path: 'upload',
     country: selectedCountry,
     primary_key_type: 'SKU',
     feed_schedule: 'daily',
@@ -74,10 +74,10 @@ export function VendorIntegrationManager() {
     setFormData({
       vendor_name: 'Amazon Vendor Central',
       transport_method: 'SFTP',
-      sftp_host: '',
+      sftp_host: 'eu-sftp.amazonsedi.com',
       sftp_port: 22,
-      sftp_username: '',
-      sftp_remote_path: '/incoming/inventory',
+      sftp_username: '18DL8XNNYWXN1',
+      sftp_remote_path: 'upload',
       country: selectedCountry,
       primary_key_type: 'SKU',
       feed_schedule: 'daily',
@@ -724,23 +724,44 @@ export function VendorIntegrationManager() {
               </div>
             </div>
 
-            {/* Step 4: Get Connection Details */}
+            {/* Step 4: Amazon Provides SFTP Details */}
             <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200/50">
               <h3 className="font-semibold text-green-700 dark:text-green-300 mb-3 flex items-center gap-2">
                 <span className="bg-green-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">4</span>
-                Receive Amazon Connection Details
+                ✅ Amazon Provides SFTP Connection Details
               </h3>
-              <div className="space-y-3 text-sm text-green-600 dark:text-green-400">
-                <p>After uploading your public key, Amazon will provide:</p>
-                <ul className="ml-4 space-y-1">
-                  <li>• SFTP Host address</li>
-                  <li>• SFTP Username</li>
-                  <li>• Remote directory path</li>
-                  <li>• Port number (usually 22)</li>
-                </ul>
-                <p className="font-medium">Enter these details in the form above to complete the integration setup.</p>
+              <div className="space-y-4 text-sm text-green-600 dark:text-green-400">
+                <p><strong>After uploading both keys, Amazon provides these connection details:</strong></p>
+                
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="bg-green-100 dark:bg-green-800 p-3 rounded border-l-4 border-green-600">
+                    <h4 className="font-semibold mb-2">📥 Receiving from Amazon</h4>
+                    <div className="space-y-1 font-mono text-xs">
+                      <div>Host: <span className="text-green-800 dark:text-green-200">eu-sftp.amazonsedi.com:22</span></div>
+                      <div>Username: <span className="text-green-800 dark:text-green-200">39ZYAQGPS10UV</span></div>
+                      <div>Directory: <span className="text-green-800 dark:text-green-200">download</span></div>
+                      <div>Key MD5: <span className="text-green-800 dark:text-green-200">3d9738f4f7e472c532147bd85145f69c</span></div>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-green-100 dark:bg-green-800 p-3 rounded border-l-4 border-green-600">
+                    <h4 className="font-semibold mb-2">📤 Sending to Amazon</h4>
+                    <div className="space-y-1 font-mono text-xs">
+                      <div>Host: <span className="text-green-800 dark:text-green-200">eu-sftp.amazonsedi.com:22</span></div>
+                      <div>Username: <span className="text-green-800 dark:text-green-200">18DL8XNNYWXN1</span></div>
+                      <div>Directory: <span className="text-green-800 dark:text-green-200">upload</span></div>
+                      <div>Key MD5: <span className="text-green-800 dark:text-green-200">3d9738f4f7e472c532147bd85145f69c</span></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-green-100 dark:bg-green-800 rounded border-l-4 border-green-600">
+                  <p className="font-medium">🎉 Ready to Configure!</p>
+                  <p>Use these Amazon-provided details in the form below to complete your integration setup.</p>
+                </div>
               </div>
             </div>
+
 
             {/* Step 5: Test Connection */}
             <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-200/50">
