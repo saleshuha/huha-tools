@@ -552,7 +552,10 @@ export function VendorIntegrationManager() {
                         <Button
                           variant="outline" 
                           size="sm"
-                          onClick={() => receiveFiles(integration.id)}
+                          onClick={() => {
+                            console.log('Receive Files button clicked for integration:', integration.id);
+                            receiveFiles(integration.id);
+                          }}
                           disabled={loading}
                         >
                           <Inbox className="w-4 h-4 mr-2" />

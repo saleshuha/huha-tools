@@ -290,7 +290,7 @@ export function useVendorIntegration() {
   }, [toast, profile?.id, loadFeedLogs]);
 
   const receiveFiles = useCallback(async (integrationId: string, forceCheck?: boolean) => {
-    console.log('Receiving files for integration:', integrationId);
+    console.log('receiveFiles called with:', { integrationId, forceCheck, profileId: profile?.id });
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('amazon-sftp-receiver', {
