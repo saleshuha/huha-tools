@@ -686,7 +686,7 @@ export function VendorIntegrationManager() {
               </div>
             </div>
 
-            {/* Step 2: Upload to Amazon */}
+            {/* Step 2: Upload Receiving Public Key to Amazon */}
             <div className="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200/50">
               <h3 className="font-semibold text-orange-700 dark:text-orange-300 mb-3 flex items-center gap-2">
                 <span className="bg-orange-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">2</span>
@@ -697,31 +697,29 @@ export function VendorIntegrationManager() {
                   <li>1. Login to Amazon Vendor Central</li>
                   <li>2. Navigate to <strong>Reports → Inventory Reports → Upload Public Key</strong></li>
                   <li>3. Browse and select your <code className="bg-orange-100 dark:bg-orange-800 px-2 py-1 rounded">amazon_vendor_key.pub</code> file</li>
-                  <li>4. Choose key type: <strong>"Receiving Public Key"</strong> for inventory feeds</li>
-                  <li>5. Submit the key and wait for Amazon's confirmation</li>
+                  <li>4. Choose key type: <strong>"Receiving Public Key"</strong></li>
+                  <li>5. Submit the key and wait for confirmation</li>
                 </ol>
-                <div className="p-3 bg-orange-100 dark:bg-orange-800 rounded border-l-4 border-orange-600">
-                  <p className="font-medium">📝 Note:</p>
-                  <p>Amazon will also provide you with their <strong>Sending Public Key</strong> that you'll need to add to your system for authentication.</p>
-                </div>
               </div>
             </div>
 
-            {/* Step 3: Get Amazon's Sending Key */}
+            {/* Step 3: Upload Sending Public Key to Amazon */}
             <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200/50">
               <h3 className="font-semibold text-purple-700 dark:text-purple-300 mb-3 flex items-center gap-2">
                 <span className="bg-purple-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">3</span>
-                Download Amazon's Sending Public Key
+                Upload Sending Public Key to Amazon
               </h3>
               <div className="space-y-3 text-sm text-purple-600 dark:text-purple-400">
-                <p>After uploading your Receiving Public Key, Amazon will provide:</p>
-                <ul className="ml-4 space-y-1">
-                  <li>• <strong>Sending Public Key</strong> (Amazon's key for authenticating their system)</li>
-                  <li>• Download this key and add it to your <code className="bg-purple-100 dark:bg-purple-800 px-2 py-1 rounded">~/.ssh/known_hosts</code> or authorized keys</li>
-                </ul>
-                <div className="bg-black/80 text-green-400 p-3 rounded font-mono text-sm overflow-x-auto">
-                  # Add Amazon's key to known hosts{"\n"}
-                  ssh-keyscan -H [amazon_host] {">>"} ~/.ssh/known_hosts
+                <p><strong>Amazon also requires a Sending Public Key:</strong></p>
+                <ol className="ml-4 space-y-2">
+                  <li>1. In the same Amazon Vendor Central section</li>
+                  <li>2. Browse and select your <code className="bg-purple-100 dark:bg-purple-800 px-2 py-1 rounded">amazon_vendor_key.pub</code> file again</li>
+                  <li>3. This time choose key type: <strong>"Sending Public Key"</strong></li>
+                  <li>4. Submit the key</li>
+                </ol>
+                <div className="p-3 bg-purple-100 dark:bg-purple-800 rounded border-l-4 border-purple-600">
+                  <p className="font-medium">💡 Note:</p>
+                  <p>You use the same public key file for both receiving and sending - just select the appropriate key type for each upload.</p>
                 </div>
               </div>
             </div>
