@@ -42,6 +42,8 @@ export function VendorIntegrationManager() {
     primary_key_type: 'SKU',
     feed_schedule: 'daily',
     is_active: false,
+    ssh_key_uploaded: false,
+    connection_established: false,
   });
 
   useEffect(() => {
@@ -79,6 +81,8 @@ export function VendorIntegrationManager() {
       primary_key_type: 'SKU',
       feed_schedule: 'daily',
       is_active: false,
+      ssh_key_uploaded: false,
+      connection_established: false,
     });
   };
 
@@ -94,8 +98,25 @@ export function VendorIntegrationManager() {
       primary_key_type: integration.primary_key_type,
       feed_schedule: integration.feed_schedule,
       is_active: integration.is_active,
+      ssh_key_uploaded: !!integration.sftp_host, // Assume key uploaded if host exists
+      connection_established: !!integration.sftp_host && !!integration.sftp_username,
     });
     setEditingIntegration(integration.id);
+  };
+
+  const generateSSHKeyPair = () => {
+    // In a real implementation, this would generate actual SSH keys
+    // For now, we'll provide instructions to the user
+    alert(`To generate SSH keys:
+
+1. Open terminal/command prompt
+2. Run: ssh-keygen -t rsa -b 2048 -f amazon_vendor_key
+3. This creates two files:
+   - amazon_vendor_key (private key - keep secure)
+   - amazon_vendor_key.pub (public key - upload to Amazon)
+
+4. Upload the .pub file to Amazon Vendor Central
+5. Amazon will then provide SFTP connection details`);
   };
 
   const handleGenerateFeed = async (integrationId: string) => {
@@ -151,7 +172,41 @@ export function VendorIntegrationManager() {
                 Configure a new Amazon Vendor Central integration for {selectedCountry}
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* SSH Key Setup Section */}
+              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200/50">
+                <h3 className="font-semibold text-blue-700 dark:text-blue-300 mb-3">
+                  📋 SSH Key Setup Process
+                </h3>
+                <div className="space-y-3 text-sm text-blue-600 dark:text-blue-400">
+                  <div className="flex items-start gap-2">
+                    <span className="font-bold">1.</span>
+                    <span>Generate SSH key pair (we'll help you with this)</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="font-bold">2.</span>
+                    <span>Upload public key to Amazon Vendor Central portal</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="font-bold">3.</span>
+                    <span>Amazon provides SFTP host and username</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="font-bold">4.</span>
+                    <span>Configure connection details below</span>
+                  </div>
+                </div>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={generateSSHKeyPair}
+                  className="mt-3"
+                >
+                  📋 Generate SSH Key Instructions
+                </Button>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="vendor_name">Vendor Name</Label>
@@ -171,52 +226,86 @@ export function VendorIntegrationManager() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="SFTP">SFTP</SelectItem>
+                      <SelectItem value="SFTP">SFTP (SSH Keys)</SelectItem>
                       <SelectItem value="AS2">AS2</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
 
+              {/* Connection Status Indicators */}
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="sftp_host">SFTP Host</Label>
-                  <Input
-                    id="sftp_host"
-                    value={formData.sftp_host}
-                    onChange={(e) => setFormData({ ...formData, sftp_host: e.target.value })}
-                    placeholder="vendor-sftp.amazon.com"
+                <div className="flex items-center space-x-2 p-3 bg-muted/50 rounded-lg">
+                  <Switch
+                    id="ssh_key_uploaded"
+                    checked={formData.ssh_key_uploaded}
+                    onCheckedChange={(checked) => setFormData({ ...formData, ssh_key_uploaded: checked })}
                   />
+                  <Label htmlFor="ssh_key_uploaded" className="text-sm">SSH Key Uploaded to Amazon</Label>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="sftp_port">SFTP Port</Label>
-                  <Input
-                    id="sftp_port"
-                    type="number"
-                    value={formData.sftp_port}
-                    onChange={(e) => setFormData({ ...formData, sftp_port: parseInt(e.target.value) || 22 })}
+                <div className="flex items-center space-x-2 p-3 bg-muted/50 rounded-lg">
+                  <Switch
+                    id="connection_established"
+                    checked={formData.connection_established}
+                    onCheckedChange={(checked) => setFormData({ ...formData, connection_established: checked })}
                   />
+                  <Label htmlFor="connection_established" className="text-sm">Connection Details Received</Label>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="sftp_username">SFTP Username</Label>
-                  <Input
-                    id="sftp_username"
-                    value={formData.sftp_username}
-                    onChange={(e) => setFormData({ ...formData, sftp_username: e.target.value })}
-                  />
+              {/* SFTP Connection Details - Only show if keys are uploaded */}
+              {formData.ssh_key_uploaded && (
+                <div className="space-y-4 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200/50">
+                  <h4 className="font-semibold text-green-700 dark:text-green-300">
+                    🔗 Amazon-Provided Connection Details
+                  </h4>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="sftp_host">SFTP Host (from Amazon)</Label>
+                      <Input
+                        id="sftp_host"
+                        value={formData.sftp_host}
+                        onChange={(e) => setFormData({ ...formData, sftp_host: e.target.value })}
+                        placeholder="Amazon will provide this"
+                        disabled={!formData.ssh_key_uploaded}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="sftp_port">SFTP Port</Label>
+                      <Input
+                        id="sftp_port"
+                        type="number"
+                        value={formData.sftp_port}
+                        onChange={(e) => setFormData({ ...formData, sftp_port: parseInt(e.target.value) || 22 })}
+                        disabled={!formData.ssh_key_uploaded}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="sftp_username">SFTP Username (from Amazon)</Label>
+                      <Input
+                        id="sftp_username"
+                        value={formData.sftp_username}
+                        onChange={(e) => setFormData({ ...formData, sftp_username: e.target.value })}
+                        placeholder="Amazon will provide this"
+                        disabled={!formData.ssh_key_uploaded}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="sftp_remote_path">Remote Path</Label>
+                      <Input
+                        id="sftp_remote_path"
+                        value={formData.sftp_remote_path}
+                        onChange={(e) => setFormData({ ...formData, sftp_remote_path: e.target.value })}
+                        disabled={!formData.ssh_key_uploaded}
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="sftp_remote_path">Remote Path</Label>
-                  <Input
-                    id="sftp_remote_path"
-                    value={formData.sftp_remote_path}
-                    onChange={(e) => setFormData({ ...formData, sftp_remote_path: e.target.value })}
-                  />
-                </div>
-              </div>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -257,16 +346,19 @@ export function VendorIntegrationManager() {
                   id="is_active"
                   checked={formData.is_active}
                   onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
+                  disabled={!formData.connection_established}
                 />
-                <Label htmlFor="is_active">Active Integration</Label>
+                <Label htmlFor="is_active">
+                  Active Integration {!formData.connection_established && "(Setup connection first)"}
+                </Label>
               </div>
 
               <div className="flex justify-end space-x-2">
                 <Button type="button" variant="outline" onClick={() => setShowCreateDialog(false)}>
                   Cancel
                 </Button>
-                <Button type="submit" disabled={loading}>
-                  Create Integration
+                <Button type="submit" disabled={loading || !formData.connection_established}>
+                  {!formData.connection_established ? "Complete Setup First" : "Create Integration"}
                 </Button>
               </div>
             </form>
