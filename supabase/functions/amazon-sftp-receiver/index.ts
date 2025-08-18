@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
 
     const { integration_id, user_id, force_check = false }: ReceiveFilesRequest = await req.json();
 
-    console.log('Starting SFTP receive for integration:', integration_id);
+    console.log('Starting SFTP receive for integration:', integration_id, '- v1.1');
 
     // Get integration configuration
     const { data: integration, error: integrationError } = await supabase
