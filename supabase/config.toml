@@ -13,6 +13,9 @@ verify_jwt = false
 [functions.amazon-test-sender]
 verify_jwt = true
 
+[functions.integration-diagnostics]
+verify_jwt = true
+
 [functions.amazon-sftp-receiver]
 verify_jwt = true
 

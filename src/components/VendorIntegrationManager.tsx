@@ -29,6 +29,7 @@ export function VendorIntegrationManager() {
     generateInventoryFeed,
     receiveFiles,
     sendTestFile,
+    diagnoseIntegration,
   } = useVendorIntegration();
 
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -177,6 +178,13 @@ export function VendorIntegrationManager() {
     await sendTestFile(integrationId, testXML, 'test_ofr_response.xml');
   };
 
+  const handleDiagnose = async () => {
+    const diagnosis = await diagnoseIntegration();
+    if (diagnosis) {
+      alert(JSON.stringify(diagnosis, null, 2));
+    }
+  };
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'sent':
@@ -212,6 +220,14 @@ export function VendorIntegrationManager() {
             Configure and manage inventory feed integration with Amazon Vendor Central
           </p>
         </div>
+        <div className="flex items-center space-x-2">
+          <Button variant="outline" onClick={handleDiagnose}>
+            🔍 Diagnose Integration
+          </Button>
+        </div>
+      </div>
+
+      <div className="space-y-6">
         <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
           <DialogTrigger asChild>
             <Button onClick={() => resetForm()}>

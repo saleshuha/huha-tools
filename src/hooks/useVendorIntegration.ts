@@ -382,6 +382,25 @@ export function useVendorIntegration() {
     }
   }, [toast, profile?.id, loadFeedLogs]);
 
+  const diagnoseIntegration = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('integration-diagnostics', {
+        body: { user_id: profile?.id }
+      });
+
+      if (error) {
+        console.error('Error in diagnostics:', error);
+        return null;
+      }
+
+      console.log('Integration Diagnosis:', data);
+      return data;
+    } catch (error) {
+      console.error('Error in diagnoseIntegration:', error);
+      return null;
+    }
+  }, [profile?.id]);
+
   return {
     integrations,
     feedLogs,
@@ -394,5 +413,6 @@ export function useVendorIntegration() {
     generateInventoryFeed,
     receiveFiles,
     sendTestFile,
+    diagnoseIntegration,
   };
 }
