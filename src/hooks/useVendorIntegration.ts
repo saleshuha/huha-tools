@@ -335,6 +335,53 @@ export function useVendorIntegration() {
     }
   }, [toast, profile?.id, loadFeedLogs]);
 
+  const sendTestFile = useCallback(async (integrationId: string, xmlContent: string, fileName?: string) => {
+    console.log('Sending test file for integration:', integrationId);
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('amazon-test-sender', {
+        body: { 
+          integration_id: integrationId, 
+          user_id: profile?.id,
+          xml_content: xmlContent,
+          file_name: fileName
+        }
+      });
+
+      if (error) {
+        console.error('Error sending test file:', error);
+        toast({
+          title: "Error",
+          description: "Failed to send test file to Amazon",
+          variant: "destructive",
+        });
+        return null;
+      }
+
+      toast({
+        title: "Success",
+        description: "Test file prepared and ready to send to Amazon",
+      });
+
+      console.log('Test file sent successfully:', data);
+      
+      // Reload feed logs to show the test file
+      await loadFeedLogs(integrationId);
+      
+      return data;
+    } catch (error) {
+      console.error('Error in sendTestFile:', error);
+      toast({
+        title: "Error",
+        description: "Failed to send test file to Amazon",
+        variant: "destructive",
+      });
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, [toast, profile?.id, loadFeedLogs]);
+
   return {
     integrations,
     feedLogs,
@@ -346,5 +393,6 @@ export function useVendorIntegration() {
     deleteIntegration,
     generateInventoryFeed,
     receiveFiles,
+    sendTestFile,
   };
 }

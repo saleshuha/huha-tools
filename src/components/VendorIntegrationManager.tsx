@@ -12,7 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useVendorIntegration } from '@/hooks/useVendorIntegration';
 import { useCountry } from '@/contexts/CountryContext';
-import { Plus, Settings, Download, Trash2, Send, CheckCircle, XCircle, Clock, Inbox } from 'lucide-react';
+import { Plus, Settings, Download, Trash2, Send, CheckCircle, XCircle, Clock, Inbox, TestTube } from 'lucide-react';
 import { format } from 'date-fns';
 
 export function VendorIntegrationManager() {
@@ -28,6 +28,7 @@ export function VendorIntegrationManager() {
     deleteIntegration,
     generateInventoryFeed,
     receiveFiles,
+    sendTestFile,
   } = useVendorIntegration();
 
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -128,6 +129,52 @@ export function VendorIntegrationManager() {
 
   const handleGenerateFeed = async (integrationId: string) => {
     await generateInventoryFeed(integrationId);
+  };
+
+  const handleSendTestFile = async (integrationId: string) => {
+    const testXML = `<?xml version="1.0" encoding="UTF-8"?>
+<transmission sendingPartyID="ZUS1I" receivingPartyID="AMAZONDS"
+              transmissionControlNumber="000000003539168"
+              transmissionCreationDate="2025-08-18T20:36:07Z" transmissionStructureVersion="2.2"
+              messageCount="1" isTest="0">
+  <message sendingPartyID="ZUS1I" receivingPartyID="AMAZONDS"
+           messageControlNumber="000000002530527" messageCreationDate="2025-08-18T20:36:07Z"
+           messageStructureVersion="2.2" messageType="OFR" isTest="0">
+    <OrderFulfillmentResponse>
+      <vendorParty type="BUYER_ASSIGNED">
+        <partyID>ZUS1I</partyID>
+      </vendorParty>
+      <warehouseLocationID>GAMU</warehouseLocationID>
+      <purchaseOrderNumber>DMnNN7xXX</purchaseOrderNumber>
+      <vendorOrderNumber>3227660</vendorOrderNumber>
+      <orderAcceptedDate>
+        <dateTime>2025-08-18T20:36:07Z</dateTime>
+      </orderAcceptedDate>
+      <orderResult>
+        <responseCondition>SUCCESS</responseCondition>
+        <resultCode>00</resultCode>
+        <resultDescription>Shipping 100 percent of ordered product</resultDescription>
+      </orderResult>
+      <orderLineItemDetail>
+        <lineItemSequenceNumber>1</lineItemSequenceNumber>
+        <itemID type="AMAZON_ASIN">B00012345A</itemID>
+        <quantityAccepted>
+          <quantity unitOfMeasure="EA">1</quantity>
+        </quantityAccepted>
+        <quantityAvailable>
+          <quantity unitOfMeasure="EA">1004</quantity>
+        </quantityAvailable>
+        <orderLineItemResult>
+          <responseCondition>SUCCESS</responseCondition>
+          <resultCode>00</resultCode>
+          <resultDescription>Shipping 100 percent of ordered product</resultDescription>
+        </orderLineItemResult>
+      </orderLineItemDetail>
+    </OrderFulfillmentResponse>
+  </message>
+</transmission>`;
+    
+    await sendTestFile(integrationId, testXML, 'test_ofr_response.xml');
   };
 
   const getStatusIcon = (status: string) => {
@@ -560,6 +607,15 @@ export function VendorIntegrationManager() {
                         >
                           <Inbox className="w-4 h-4 mr-2" />
                           Receive Files
+                        </Button>
+                        <Button
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleSendTestFile(integration.id)}
+                          disabled={loading}
+                        >
+                          <TestTube className="w-4 h-4 mr-2" />
+                          Send Test
                         </Button>
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
