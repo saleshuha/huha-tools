@@ -136,11 +136,27 @@ export function AppSidebar() {
   const { state } = useSidebar()
   const location = useLocation()
   const isCollapsed = state === "collapsed"
-  const [isToolsOpen, setIsToolsOpen] = useState(false)
-  const [isPaymentReportsOpen, setIsPaymentReportsOpen] = useState(false)
   
   const { toast } = useToast()
   const { isAdmin } = useUserProfile()
+
+  const isActive = (path: string) => {
+    if (path === "/") {
+      return location.pathname === "/"
+    }
+    return location.pathname === path
+  }
+
+  const isToolsSectionActive = () => {
+    return toolsItems.some(item => isActive(item.url))
+  }
+
+  const isPaymentReportsSectionActive = () => {
+    return paymentReportsItems.some(item => isActive(item.url))
+  }
+
+  const [isToolsOpen, setIsToolsOpen] = useState(() => isToolsSectionActive())
+  const [isPaymentReportsOpen, setIsPaymentReportsOpen] = useState(() => isPaymentReportsSectionActive())
 
   const handleLogout = async () => {
     try {
@@ -161,20 +177,6 @@ export function AppSidebar() {
     }
   }
 
-  const isActive = (path: string) => {
-    if (path === "/") {
-      return location.pathname === "/"
-    }
-    return location.pathname === path
-  }
-
-  const isToolsSectionActive = () => {
-    return toolsItems.some(item => isActive(item.url))
-  }
-
-  const isPaymentReportsSectionActive = () => {
-    return paymentReportsItems.some(item => isActive(item.url))
-  }
 
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border w-64 bg-sidebar">
