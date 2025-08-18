@@ -50,12 +50,15 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get SSH private key from secrets
+    // Check SSH private key availability
     const privateKey = Deno.env.get('AMAZON_SFTP_PRIVATE_KEY');
+    console.log('SSH private key check:', privateKey ? 'Found and configured' : 'Not found');
+    console.log('Available env vars:', Object.keys(Deno.env.toObject()).filter(k => k.includes('AMAZON')));
+    
     if (!privateKey) {
       console.error('SSH private key not configured');
       return new Response(
-        JSON.stringify({ error: 'SSH private key not configured' }),
+        JSON.stringify({ error: 'SSH private key not configured. Please add the private key to AMAZON_SFTP_PRIVATE_KEY secret.' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
