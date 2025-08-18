@@ -170,9 +170,12 @@ export function useVendorIntegration() {
 
   const updateIntegration = useCallback(async (id: string, updates: Partial<CreateIntegration>) => {
     try {
+      // Filter out UI-only fields that don't exist in the database
+      const { ssh_key_uploaded, connection_established, ...dbUpdates } = updates as any;
+      
       const { error } = await supabase
         .from('vendor_integrations')
-        .update(updates)
+        .update(dbUpdates)
         .eq('id', id);
 
       if (error) {

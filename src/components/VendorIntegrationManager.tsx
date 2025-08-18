@@ -43,8 +43,9 @@ export function VendorIntegrationManager() {
     primary_key_type: 'SKU',
     feed_schedule: 'daily',
     is_active: false,
-    ssh_key_uploaded: false,
   });
+
+  const [sshKeyUploaded, setSshKeyUploaded] = useState(false);
 
   useEffect(() => {
     loadIntegrations(selectedCountry);
@@ -81,8 +82,8 @@ export function VendorIntegrationManager() {
       primary_key_type: 'SKU',
       feed_schedule: 'daily',
       is_active: false,
-      ssh_key_uploaded: false,
     });
+    setSshKeyUploaded(false);
   };
 
   const handleEdit = (integration: any) => {
@@ -97,8 +98,8 @@ export function VendorIntegrationManager() {
       primary_key_type: integration.primary_key_type,
       feed_schedule: integration.feed_schedule,
       is_active: integration.is_active,
-      ssh_key_uploaded: !!integration.sftp_host, // Assume key uploaded if host exists
     });
+    setSshKeyUploaded(!!integration.sftp_host); // Assume key uploaded if host exists
     setEditingIntegration(integration.id);
   };
 
@@ -225,15 +226,15 @@ export function VendorIntegrationManager() {
                 <div className="flex items-center space-x-2 p-3 bg-muted/50 rounded-lg">
                   <Switch
                     id="ssh_key_uploaded"
-                    checked={formData.ssh_key_uploaded}
-                    onCheckedChange={(checked) => setFormData({ ...formData, ssh_key_uploaded: checked })}
+                    checked={sshKeyUploaded}
+                    onCheckedChange={setSshKeyUploaded}
                   />
                   <Label htmlFor="ssh_key_uploaded" className="text-sm">SSH Key Uploaded to Amazon</Label>
                 </div>
               </div>
 
               {/* SFTP Connection Details - Only show if keys are uploaded */}
-              {formData.ssh_key_uploaded && (
+              {sshKeyUploaded && (
                 <div className="space-y-4 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200/50">
                   <h4 className="font-semibold text-green-700 dark:text-green-300">
                     🔗 Amazon-Provided Connection Details
@@ -247,7 +248,7 @@ export function VendorIntegrationManager() {
                         value={formData.sftp_host}
                         onChange={(e) => setFormData({ ...formData, sftp_host: e.target.value })}
                         placeholder="Amazon will provide this"
-                        disabled={!formData.ssh_key_uploaded}
+                        disabled={!sshKeyUploaded}
                       />
                     </div>
                     <div className="space-y-2">
@@ -257,7 +258,7 @@ export function VendorIntegrationManager() {
                         type="number"
                         value={formData.sftp_port}
                         onChange={(e) => setFormData({ ...formData, sftp_port: parseInt(e.target.value) || 22 })}
-                        disabled={!formData.ssh_key_uploaded}
+                        disabled={!sshKeyUploaded}
                       />
                     </div>
                   </div>
@@ -270,7 +271,7 @@ export function VendorIntegrationManager() {
                         value={formData.sftp_username}
                         onChange={(e) => setFormData({ ...formData, sftp_username: e.target.value })}
                         placeholder="Amazon will provide this"
-                        disabled={!formData.ssh_key_uploaded}
+                        disabled={!sshKeyUploaded}
                       />
                     </div>
                     <div className="space-y-2">
@@ -279,7 +280,7 @@ export function VendorIntegrationManager() {
                         id="sftp_remote_path"
                         value={formData.sftp_remote_path}
                         onChange={(e) => setFormData({ ...formData, sftp_remote_path: e.target.value })}
-                        disabled={!formData.ssh_key_uploaded}
+                        disabled={!sshKeyUploaded}
                       />
                     </div>
                   </div>
@@ -325,10 +326,10 @@ export function VendorIntegrationManager() {
                   id="is_active"
                   checked={formData.is_active}
                   onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
-                  disabled={!formData.ssh_key_uploaded}
+                  disabled={!sshKeyUploaded}
                 />
                 <Label htmlFor="is_active">
-                  Active Integration {!formData.ssh_key_uploaded && "(Upload SSH key first)"}
+                  Active Integration {!sshKeyUploaded && "(Upload SSH key first)"}
                 </Label>
               </div>
 
@@ -336,8 +337,8 @@ export function VendorIntegrationManager() {
                 <Button type="button" variant="outline" onClick={() => setShowCreateDialog(false)}>
                   Cancel
                 </Button>
-                <Button type="submit" disabled={loading || !formData.ssh_key_uploaded}>
-                  {!formData.ssh_key_uploaded ? "Upload SSH Key First" : "Create Integration"}
+                <Button type="submit" disabled={loading || !sshKeyUploaded}>
+                  {!sshKeyUploaded ? "Upload SSH Key First" : "Create Integration"}
                 </Button>
               </div>
             </form>
