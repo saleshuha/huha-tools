@@ -134,50 +134,37 @@ export function VendorIntegrationManager() {
 
   const handleSendTestFile = async (integrationId: string) => {
     console.log('handleSendTestFile called for integration:', integrationId);
+    alert('Starting test file upload to Amazon...');
     
     try {
-<transmission sendingPartyID="ZUS1I" receivingPartyID="AMAZONDS"
-              transmissionControlNumber="000000003539168"
-              transmissionCreationDate="2025-08-18T20:36:07Z" transmissionStructureVersion="2.2"
-              messageCount="1" isTest="0">
-  <message sendingPartyID="ZUS1I" receivingPartyID="AMAZONDS"
-           messageControlNumber="000000002530527" messageCreationDate="2025-08-18T20:36:07Z"
-           messageStructureVersion="2.2" messageType="OFR" isTest="0">
+      const testXML = `<?xml version="1.0" encoding="UTF-8"?>
+<transmission sendingPartyID="ZUS1I" receivingPartyID="AMAZONDS" transmissionControlNumber="000000003539168" transmissionCreationDate="2025-08-18T20:36:07Z" transmissionStructureVersion="2.2" messageCount="1" isTest="0">
+  <message sendingPartyID="ZUS1I" receivingPartyID="AMAZONDS" messageControlNumber="000000002530527" messageCreationDate="2025-08-18T20:36:07Z" messageStructureVersion="2.2" messageType="OFR" isTest="0">
     <OrderFulfillmentResponse>
-      <vendorParty type="BUYER_ASSIGNED">
-        <partyID>ZUS1I</partyID>
-      </vendorParty>
+      <vendorParty type="BUYER_ASSIGNED"><partyID>ZUS1I</partyID></vendorParty>
       <warehouseLocationID>GAMU</warehouseLocationID>
       <purchaseOrderNumber>DMnNN7xXX</purchaseOrderNumber>
       <vendorOrderNumber>3227660</vendorOrderNumber>
-      <orderAcceptedDate>
-        <dateTime>2025-08-18T20:36:07Z</dateTime>
-      </orderAcceptedDate>
-      <orderResult>
-        <responseCondition>SUCCESS</responseCondition>
-        <resultCode>00</resultCode>
-        <resultDescription>Shipping 100 percent of ordered product</resultDescription>
-      </orderResult>
+      <orderAcceptedDate><dateTime>2025-08-18T20:36:07Z</dateTime></orderAcceptedDate>
+      <orderResult><responseCondition>SUCCESS</responseCondition><resultCode>00</resultCode><resultDescription>Shipping 100 percent of ordered product</resultDescription></orderResult>
       <orderLineItemDetail>
         <lineItemSequenceNumber>1</lineItemSequenceNumber>
         <itemID type="AMAZON_ASIN">B00012345A</itemID>
-        <quantityAccepted>
-          <quantity unitOfMeasure="EA">1</quantity>
-        </quantityAccepted>
-        <quantityAvailable>
-          <quantity unitOfMeasure="EA">1004</quantity>
-        </quantityAvailable>
-        <orderLineItemResult>
-          <responseCondition>SUCCESS</responseCondition>
-          <resultCode>00</resultCode>
-          <resultDescription>Shipping 100 percent of ordered product</resultDescription>
-        </orderLineItemResult>
+        <quantityAccepted><quantity unitOfMeasure="EA">1</quantity></quantityAccepted>
+        <quantityAvailable><quantity unitOfMeasure="EA">1004</quantity></quantityAvailable>
+        <orderLineItemResult><responseCondition>SUCCESS</responseCondition><resultCode>00</resultCode><resultDescription>Shipping 100 percent of ordered product</resultDescription></orderLineItemResult>
       </orderLineItemDetail>
     </OrderFulfillmentResponse>
   </message>
 </transmission>`;
-    
-    await sendTestFile(integrationId, testXML, 'test_ofr_response.xml');
+      
+      console.log('Calling sendTestFile...');
+      await sendTestFile(integrationId, testXML, 'test_ofr_response.xml');
+      alert('Test file processing completed! Check Feed History tab for results.');
+    } catch (error) {
+      console.error('Error sending test file:', error);
+      alert('Error sending test file: ' + (error as Error).message);
+    }
   };
 
   const handleDiagnose = async () => {
@@ -629,38 +616,7 @@ export function VendorIntegrationManager() {
                         <Button
                           variant="outline" 
                           size="sm"
-                          onClick={async () => {
-                            console.log('Send Test button clicked for integration:', integration.id);
-                            alert('Starting test file upload to Amazon...');
-                            try {
-                              const testXML = `<?xml version="1.0" encoding="UTF-8"?>
-<transmission sendingPartyID="ZUS1I" receivingPartyID="AMAZONDS" transmissionControlNumber="000000003539168" transmissionCreationDate="2025-08-18T20:36:07Z" transmissionStructureVersion="2.2" messageCount="1" isTest="0">
-  <message sendingPartyID="ZUS1I" receivingPartyID="AMAZONDS" messageControlNumber="000000002530527" messageCreationDate="2025-08-18T20:36:07Z" messageStructureVersion="2.2" messageType="OFR" isTest="0">
-    <OrderFulfillmentResponse>
-      <vendorParty type="BUYER_ASSIGNED"><partyID>ZUS1I</partyID></vendorParty>
-      <warehouseLocationID>GAMU</warehouseLocationID>
-      <purchaseOrderNumber>DMnNN7xXX</purchaseOrderNumber>
-      <vendorOrderNumber>3227660</vendorOrderNumber>
-      <orderAcceptedDate><dateTime>2025-08-18T20:36:07Z</dateTime></orderAcceptedDate>
-      <orderResult><responseCondition>SUCCESS</responseCondition><resultCode>00</resultCode><resultDescription>Shipping 100 percent of ordered product</resultDescription></orderResult>
-      <orderLineItemDetail>
-        <lineItemSequenceNumber>1</lineItemSequenceNumber>
-        <itemID type="AMAZON_ASIN">B00012345A</itemID>
-        <quantityAccepted><quantity unitOfMeasure="EA">1</quantity></quantityAccepted>
-        <quantityAvailable><quantity unitOfMeasure="EA">1004</quantity></quantityAvailable>
-        <orderLineItemResult><responseCondition>SUCCESS</responseCondition><resultCode>00</resultCode><resultDescription>Shipping 100 percent of ordered product</resultDescription></orderLineItemResult>
-      </orderLineItemDetail>
-    </OrderFulfillmentResponse>
-  </message>
-</transmission>`;
-                              console.log('Calling sendTestFile...');
-                              await sendTestFile(integration.id, testXML, 'test_ofr_response.xml');
-                              alert('Test file processing completed! Check Feed History tab for results.');
-                            } catch (error) {
-                              console.error('Error sending test file:', error);
-                              alert('Error sending test file: ' + error.message);
-                            }
-                          }}
+                          onClick={() => handleSendTestFile(integration.id)}
                           disabled={loading}
                         >
                           <TestTube className="w-4 h-4 mr-2" />
