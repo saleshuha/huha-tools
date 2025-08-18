@@ -1,4 +1,17 @@
 project_id = "vfqqlifvhooefxvvyebm"
 
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[functions.amazon-feed-receiver]
+verify_jwt = false
+
+[functions.vendor-inventory-feed]
+verify_jwt = true
+
 [functions.send-inventory-email]
 verify_jwt = false

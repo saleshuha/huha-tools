@@ -353,6 +353,62 @@ export function VendorIntegrationManager() {
         </TabsList>
 
         <TabsContent value="integrations" className="space-y-4">
+          {/* Webhook URLs Section */}
+          {integrations.length > 0 && (
+            <Card className="mb-4">
+              <CardHeader>
+                <CardTitle className="text-lg">Amazon Feed Receiver URLs</CardTitle>
+                <CardDescription>
+                  Configure these URLs in your Amazon Vendor Central portal to receive feeds
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {integrations.map((integration) => (
+                    <div key={integration.id} className="p-4 bg-muted/50 rounded-lg">
+                      <h4 className="font-semibold mb-2">{integration.vendor_name} - {integration.country}</h4>
+                      <div className="space-y-2 text-sm">
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Order Acknowledgment URL:</Label>
+                          <div className="flex items-center space-x-2 mt-1">
+                            <Input
+                              value={`https://vfqqlifvhooefxvvyebm.supabase.co/functions/v1/amazon-feed-receiver?integration_id=${integration.id}&feed_type=acknowledgment`}
+                              readOnly
+                              className="text-xs font-mono"
+                            />
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => navigator.clipboard.writeText(`https://vfqqlifvhooefxvvyebm.supabase.co/functions/v1/amazon-feed-receiver?integration_id=${integration.id}&feed_type=acknowledgment`)}
+                            >
+                              Copy
+                            </Button>
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Purchase Order URL:</Label>
+                          <div className="flex items-center space-x-2 mt-1">
+                            <Input
+                              value={`https://vfqqlifvhooefxvvyebm.supabase.co/functions/v1/amazon-feed-receiver?integration_id=${integration.id}&feed_type=order`}
+                              readOnly
+                              className="text-xs font-mono"
+                            />
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => navigator.clipboard.writeText(`https://vfqqlifvhooefxvvyebm.supabase.co/functions/v1/amazon-feed-receiver?integration_id=${integration.id}&feed_type=order`)}
+                            >
+                              Copy
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
           {integrations.length === 0 ? (
             <Card>
               <CardContent className="p-8 text-center">
@@ -481,9 +537,29 @@ export function VendorIntegrationManager() {
                       <div className="flex items-center space-x-4">
                         {getStatusIcon(log.status)}
                         <div>
-                          <p className="font-medium">{log.file_name}</p>
+                          <div className="flex items-center space-x-2">
+                            {getStatusIcon(log.status)}
+                            <span className="font-medium">{log.file_name}</span>
+                            <Badge variant="outline" className={getStatusColor(log.status)}>
+                              {log.status}
+                            </Badge>
+                            <Badge variant="secondary">
+                              {log.feed_type.includes('received_') ? 'Received' : 'Sent'}
+                            </Badge>
+                            {log.feed_type.includes('received_') && (
+                              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                                {log.feed_type.replace('received_', '').toUpperCase()}
+                              </Badge>
+                            )}
+                          </div>
                           <p className="text-sm text-muted-foreground">
-                            {log.total_items} items • {format(new Date(log.created_at), 'MMM dd, yyyy HH:mm')}
+                            {log.total_items !== null && (
+                              <span>{log.total_items} items • </span>
+                            )}
+                            Created: {format(new Date(log.created_at), 'MMM dd, yyyy HH:mm')}
+                            {log.acknowledged_at && (
+                              <span> • Processed: {format(new Date(log.acknowledged_at), 'MMM dd, yyyy HH:mm')}</span>
+                            )}
                           </p>
                         </div>
                       </div>
