@@ -31,6 +31,7 @@ export function VendorIntegrationManager() {
 
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [editingIntegration, setEditingIntegration] = useState<string | null>(null);
+  const [showSSHInstructions, setShowSSHInstructions] = useState(false);
   const [formData, setFormData] = useState({
     vendor_name: 'Amazon Vendor Central',
     transport_method: 'SFTP',
@@ -105,18 +106,7 @@ export function VendorIntegrationManager() {
   };
 
   const generateSSHKeyPair = () => {
-    // In a real implementation, this would generate actual SSH keys
-    // For now, we'll provide instructions to the user
-    alert(`To generate SSH keys:
-
-1. Open terminal/command prompt
-2. Run: ssh-keygen -t rsa -b 2048 -f amazon_vendor_key
-3. This creates two files:
-   - amazon_vendor_key (private key - keep secure)
-   - amazon_vendor_key.pub (public key - upload to Amazon)
-
-4. Upload the .pub file to Amazon Vendor Central
-5. Amazon will then provide SFTP connection details`);
+    setShowSSHInstructions(true);
   };
 
   const handleGenerateFeed = async (integrationId: string) => {
@@ -657,6 +647,105 @@ export function VendorIntegrationManager() {
               </Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* SSH Instructions Dialog */}
+      <Dialog open={showSSHInstructions} onOpenChange={setShowSSHInstructions}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              🔑 SSH Key Generation Instructions
+            </DialogTitle>
+            <DialogDescription>
+              Follow these steps to generate and configure SSH keys for Amazon Vendor Central
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-6">
+            {/* Step 1: Generate Keys */}
+            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200/50">
+              <h3 className="font-semibold text-blue-700 dark:text-blue-300 mb-3 flex items-center gap-2">
+                <span className="bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">1</span>
+                Generate SSH Key Pair
+              </h3>
+              <div className="space-y-3">
+                <p className="text-sm text-blue-600 dark:text-blue-400">
+                  Open your terminal or command prompt and run:
+                </p>
+                <div className="bg-black/80 text-green-400 p-3 rounded font-mono text-sm overflow-x-auto">
+                  ssh-keygen -t rsa -b 2048 -f amazon_vendor_key
+                </div>
+                <p className="text-sm text-blue-600 dark:text-blue-400">
+                  This creates two files:
+                </p>
+                <ul className="text-sm text-blue-600 dark:text-blue-400 ml-4 space-y-1">
+                  <li>• <code className="bg-blue-100 dark:bg-blue-800 px-2 py-1 rounded">amazon_vendor_key</code> (private key - keep secure)</li>
+                  <li>• <code className="bg-blue-100 dark:bg-blue-800 px-2 py-1 rounded">amazon_vendor_key.pub</code> (public key - upload to Amazon)</li>
+                </ul>
+              </div>
+            </div>
+
+            {/* Step 2: Upload to Amazon */}
+            <div className="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200/50">
+              <h3 className="font-semibold text-orange-700 dark:text-orange-300 mb-3 flex items-center gap-2">
+                <span className="bg-orange-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">2</span>
+                Upload Public Key to Amazon
+              </h3>
+              <div className="space-y-3 text-sm text-orange-600 dark:text-orange-400">
+                <ol className="ml-4 space-y-2">
+                  <li>1. Login to Amazon Vendor Central</li>
+                  <li>2. Navigate to <strong>Reports → Inventory Reports → Upload Public Key</strong></li>
+                  <li>3. Browse and select your <code className="bg-orange-100 dark:bg-orange-800 px-2 py-1 rounded">amazon_vendor_key.pub</code> file</li>
+                  <li>4. Choose key type: <strong>"Receiving Public Key"</strong> for inventory feeds</li>
+                  <li>5. Submit the key and wait for Amazon's confirmation</li>
+                </ol>
+              </div>
+            </div>
+
+            {/* Step 3: Get Connection Details */}
+            <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200/50">
+              <h3 className="font-semibold text-green-700 dark:text-green-300 mb-3 flex items-center gap-2">
+                <span className="bg-green-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">3</span>
+                Receive Amazon Connection Details
+              </h3>
+              <div className="space-y-3 text-sm text-green-600 dark:text-green-400">
+                <p>After uploading your public key, Amazon will provide:</p>
+                <ul className="ml-4 space-y-1">
+                  <li>• SFTP Host address</li>
+                  <li>• SFTP Username</li>
+                  <li>• Remote directory path</li>
+                  <li>• Port number (usually 22)</li>
+                </ul>
+                <p className="font-medium">Enter these details in the form above to complete the integration setup.</p>
+              </div>
+            </div>
+
+            {/* Step 4: Test Connection */}
+            <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200/50">
+              <h3 className="font-semibold text-purple-700 dark:text-purple-300 mb-3 flex items-center gap-2">
+                <span className="bg-purple-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">4</span>
+                Test Connection (Optional)
+              </h3>
+              <div className="space-y-3">
+                <p className="text-sm text-purple-600 dark:text-purple-400">
+                  Test your connection using:
+                </p>
+                <div className="bg-black/80 text-green-400 p-3 rounded font-mono text-sm overflow-x-auto">
+                  sftp -i amazon_vendor_key username@hostname
+                </div>
+                <p className="text-sm text-purple-600 dark:text-purple-400">
+                  Replace <code>username</code> and <code>hostname</code> with the details Amazon provided.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <Button onClick={() => setShowSSHInstructions(false)}>
+              Got it, thanks!
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
