@@ -124,10 +124,13 @@ export function useVendorIntegration() {
 
   const createIntegration = useCallback(async (integration: CreateIntegration) => {
     try {
+      // Filter out UI-only fields that don't exist in the database
+      const { ssh_key_uploaded, connection_established, ...dbIntegration } = integration as any;
+      
       const { data, error } = await supabase
         .from('vendor_integrations')
         .insert({
-          ...integration,
+          ...dbIntegration,
           user_id: profile?.id,
           vendor_name: integration.vendor_name || 'Amazon Vendor Central',
           transport_method: integration.transport_method || 'SFTP',
