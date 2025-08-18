@@ -2041,24 +2041,6 @@ export function Replenishment() {
                               />
                             </TableHead>
                             <TableHead className="p-2">
-                              <div className="flex gap-1">
-                                <Input
-                                  placeholder="Min"
-                                  value={headerFilters.quantity.min}
-                                  onChange={(e) => updateHeaderRangeFilter('quantity', 'min', e.target.value)}
-                                  className="h-8 text-xs w-12 border-border/50 bg-background/80"
-                                  type="number"
-                                />
-                                <Input
-                                  placeholder="Max"
-                                  value={headerFilters.quantity.max}
-                                  onChange={(e) => updateHeaderRangeFilter('quantity', 'max', e.target.value)}
-                                  className="h-8 text-xs w-12 border-border/50 bg-background/80"
-                                  type="number"
-                                />
-                              </div>
-                            </TableHead>
-                            <TableHead className="p-2">
                               <Select value={headerFilters.status} onValueChange={(value) => updateHeaderFilter('status', value === 'all' ? '' : value)}>
                                 <SelectTrigger className="h-8 text-xs border-border/50 bg-background/80">
                                   <SelectValue placeholder="All Status" />
@@ -2066,9 +2048,8 @@ export function Replenishment() {
                                 <SelectContent>
                                   <SelectItem value="all">All Status</SelectItem>
                                   <SelectItem value="in-stock">In Stock</SelectItem>
-                                  <SelectItem value="out-of-stock">Out of Stock</SelectItem>
                                   <SelectItem value="ordered">Ordered</SelectItem>
-                                  <SelectItem value="low-stock">Low Stock</SelectItem>
+                                  <SelectItem value="sold">Sold</SelectItem>
                                 </SelectContent>
                               </Select>
                             </TableHead>
