@@ -44,7 +44,6 @@ export function VendorIntegrationManager() {
     feed_schedule: 'daily',
     is_active: false,
     ssh_key_uploaded: false,
-    connection_established: false,
   });
 
   useEffect(() => {
@@ -83,7 +82,6 @@ export function VendorIntegrationManager() {
       feed_schedule: 'daily',
       is_active: false,
       ssh_key_uploaded: false,
-      connection_established: false,
     });
   };
 
@@ -100,7 +98,6 @@ export function VendorIntegrationManager() {
       feed_schedule: integration.feed_schedule,
       is_active: integration.is_active,
       ssh_key_uploaded: !!integration.sftp_host, // Assume key uploaded if host exists
-      connection_established: !!integration.sftp_host && !!integration.sftp_username,
     });
     setEditingIntegration(integration.id);
   };
@@ -233,14 +230,6 @@ export function VendorIntegrationManager() {
                   />
                   <Label htmlFor="ssh_key_uploaded" className="text-sm">SSH Key Uploaded to Amazon</Label>
                 </div>
-                <div className="flex items-center space-x-2 p-3 bg-muted/50 rounded-lg">
-                  <Switch
-                    id="connection_established"
-                    checked={formData.connection_established}
-                    onCheckedChange={(checked) => setFormData({ ...formData, connection_established: checked })}
-                  />
-                  <Label htmlFor="connection_established" className="text-sm">Connection Details Received</Label>
-                </div>
               </div>
 
               {/* SFTP Connection Details - Only show if keys are uploaded */}
@@ -336,10 +325,10 @@ export function VendorIntegrationManager() {
                   id="is_active"
                   checked={formData.is_active}
                   onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
-                  disabled={!formData.connection_established}
+                  disabled={!formData.ssh_key_uploaded}
                 />
                 <Label htmlFor="is_active">
-                  Active Integration {!formData.connection_established && "(Setup connection first)"}
+                  Active Integration {!formData.ssh_key_uploaded && "(Upload SSH key first)"}
                 </Label>
               </div>
 
@@ -347,8 +336,8 @@ export function VendorIntegrationManager() {
                 <Button type="button" variant="outline" onClick={() => setShowCreateDialog(false)}>
                   Cancel
                 </Button>
-                <Button type="submit" disabled={loading || !formData.connection_established}>
-                  {!formData.connection_established ? "Complete Setup First" : "Create Integration"}
+                <Button type="submit" disabled={loading || !formData.ssh_key_uploaded}>
+                  {!formData.ssh_key_uploaded ? "Upload SSH Key First" : "Create Integration"}
                 </Button>
               </div>
             </form>
