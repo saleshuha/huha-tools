@@ -1501,6 +1501,163 @@ export type Database = {
         }
         Relationships: []
       }
+      vendor_feed_logs: {
+        Row: {
+          acknowledged_at: string | null
+          created_at: string
+          error_message: string | null
+          feed_type: string
+          file_name: string
+          file_path: string | null
+          id: string
+          integration_id: string
+          sent_at: string | null
+          status: string
+          total_items: number | null
+          user_id: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          feed_type?: string
+          file_name: string
+          file_path?: string | null
+          id?: string
+          integration_id: string
+          sent_at?: string | null
+          status?: string
+          total_items?: number | null
+          user_id: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          feed_type?: string
+          file_name?: string
+          file_path?: string | null
+          id?: string
+          integration_id?: string
+          sent_at?: string | null
+          status?: string
+          total_items?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendor_feed_logs_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "vendor_integrations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vendor_integrations: {
+        Row: {
+          country: string
+          created_at: string
+          feed_schedule: string
+          id: string
+          is_active: boolean
+          primary_key_type: string
+          sftp_host: string | null
+          sftp_port: number | null
+          sftp_remote_path: string | null
+          sftp_username: string | null
+          transport_method: string
+          updated_at: string
+          user_id: string
+          vendor_name: string
+        }
+        Insert: {
+          country?: string
+          created_at?: string
+          feed_schedule?: string
+          id?: string
+          is_active?: boolean
+          primary_key_type?: string
+          sftp_host?: string | null
+          sftp_port?: number | null
+          sftp_remote_path?: string | null
+          sftp_username?: string | null
+          transport_method?: string
+          updated_at?: string
+          user_id: string
+          vendor_name?: string
+        }
+        Update: {
+          country?: string
+          created_at?: string
+          feed_schedule?: string
+          id?: string
+          is_active?: boolean
+          primary_key_type?: string
+          sftp_host?: string | null
+          sftp_port?: number | null
+          sftp_remote_path?: string | null
+          sftp_username?: string | null
+          transport_method?: string
+          updated_at?: string
+          user_id?: string
+          vendor_name?: string
+        }
+        Relationships: []
+      }
+      vendor_item_mappings: {
+        Row: {
+          country: string
+          created_at: string
+          id: string
+          integration_id: string
+          internal_asin: string | null
+          internal_sku: string | null
+          is_active: boolean
+          upc: string | null
+          updated_at: string
+          user_id: string
+          vendor_asin: string | null
+          vendor_sku: string | null
+        }
+        Insert: {
+          country?: string
+          created_at?: string
+          id?: string
+          integration_id: string
+          internal_asin?: string | null
+          internal_sku?: string | null
+          is_active?: boolean
+          upc?: string | null
+          updated_at?: string
+          user_id: string
+          vendor_asin?: string | null
+          vendor_sku?: string | null
+        }
+        Update: {
+          country?: string
+          created_at?: string
+          id?: string
+          integration_id?: string
+          internal_asin?: string | null
+          internal_sku?: string | null
+          is_active?: boolean
+          upc?: string | null
+          updated_at?: string
+          user_id?: string
+          vendor_asin?: string | null
+          vendor_sku?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendor_item_mappings_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "vendor_integrations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       warehouses: {
         Row: {
           code: string
