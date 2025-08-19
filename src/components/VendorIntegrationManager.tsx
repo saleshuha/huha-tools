@@ -249,44 +249,54 @@ export function VendorIntegrationManager() {
         return (
           <div className="space-y-6">
             <div className="text-center">
-              <Upload className="w-16 h-16 mx-auto mb-4 text-primary" />
-              <h3 className="text-xl font-semibold mb-2">Upload Public Key to Amazon</h3>
+              <Shield className="w-16 h-16 mx-auto mb-4 text-primary" />
+              <h3 className="text-xl font-semibold mb-2">Store Your Private Key Securely</h3>
               <p className="text-muted-foreground mb-6">
-                Upload the generated public key to your Amazon Vendor Central account.
+                First, we need to store your private key securely in our encrypted system.
               </p>
             </div>
             
-            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200/50">
-              <h4 className="font-medium mb-3 text-blue-700 dark:text-blue-300">Steps to upload:</h4>
-              <ol className="space-y-2 text-sm text-blue-600 dark:text-blue-400">
-                <li>1. Log in to Amazon Vendor Central</li>
-                <li>2. Navigate to "Settings" → "EDI Settings"</li>
-                <li>3. Find "SFTP Key Management" section</li>
-                <li>4. Upload your public key (.pub file)</li>
-                <li>5. Wait for Amazon to activate your keys</li>
-              </ol>
+            <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg border border-red-200/50">
+              <h4 className="font-medium mb-3 text-red-700 dark:text-red-300">🔒 Security Notice:</h4>
+              <ul className="text-sm text-red-600 dark:text-red-400 space-y-1">
+                <li>• Copy your PRIVATE key content (not the .pub file)</li>
+                <li>• This key will be encrypted and stored securely</li>
+                <li>• Never share your private key with anyone else</li>
+                <li>• You can update this anytime in project settings</li>
+              </ul>
             </div>
 
-            <div className="flex items-center space-x-2 p-3 bg-muted/50 rounded-lg">
-              <Switch
-                id="ssh_key_uploaded"
-                checked={sshKeyUploaded}
-                onCheckedChange={setSshKeyUploaded}
-              />
-              <Label htmlFor="ssh_key_uploaded" className="text-sm">
-                I have uploaded my public key to Amazon Vendor Central
-              </Label>
+            <div className="bg-muted/50 p-4 rounded-lg">
+              <h4 className="font-medium mb-3">Copy your private key:</h4>
+              <div className="bg-black p-3 rounded text-green-400 font-mono text-sm">
+                cat ~/.ssh/amazon_vendor_key
+              </div>
+              <Button 
+                size="sm" 
+                variant="outline" 
+                className="mt-2"
+                onClick={() => copyToClipboard('cat ~/.ssh/amazon_vendor_key')}
+              >
+                <Copy className="w-4 h-4 mr-2" />
+                Copy Command
+              </Button>
+            </div>
+
+            <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200/50">
+              <p className="text-sm text-blue-700 dark:text-blue-300 mb-3">
+                We've set up a secure storage for your SSH private key. Click the button above to update it with your key content.
+              </p>
+              <p className="text-xs text-blue-600 dark:text-blue-400">
+                The secret "AMAZON_SFTP_PRIVATE_KEY" is ready to be configured.
+              </p>
             </div>
 
             <div className="flex justify-between">
               <Button variant="outline" onClick={() => setSetupStep(1)}>
                 Back
               </Button>
-              <Button 
-                onClick={() => setSetupStep(3)} 
-                disabled={!sshKeyUploaded}
-              >
-                Next: Get Connection Details
+              <Button onClick={() => setSetupStep(3)}>
+                Private Key Stored - Next Step
               </Button>
             </div>
           </div>
@@ -296,36 +306,71 @@ export function VendorIntegrationManager() {
         return (
           <div className="space-y-6">
             <div className="text-center">
-              <Settings className="w-16 h-16 mx-auto mb-4 text-primary" />
-              <h3 className="text-xl font-semibold mb-2">Get Amazon Connection Details</h3>
+              <Upload className="w-16 h-16 mx-auto mb-4 text-primary" />
+              <h3 className="text-xl font-semibold mb-2">Upload Public Key to Amazon</h3>
               <p className="text-muted-foreground mb-6">
-                Amazon will provide you with SFTP connection details after key activation.
+                Upload your public key to Amazon Vendor Central. They'll provide connection details after activation.
               </p>
             </div>
             
-            <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-200/50">
-              <h4 className="font-medium mb-3 text-green-700 dark:text-green-300">Amazon will provide:</h4>
-              <ul className="space-y-2 text-sm text-green-600 dark:text-green-400">
-                <li>• SFTP hostname (e.g., eu-sftp.amazonsedi.com)</li>
-                <li>• Username for sending files</li>
-                <li>• Username for receiving files</li>
-                <li>• Directory paths</li>
-                <li>• SSH fingerprints for verification</li>
+            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200/50">
+              <h4 className="font-medium mb-3 text-blue-700 dark:text-blue-300">📤 Upload Steps:</h4>
+              <ol className="space-y-2 text-sm text-blue-600 dark:text-blue-400">
+                <li><strong>1.</strong> Log in to Amazon Vendor Central</li>
+                <li><strong>2.</strong> Navigate to "Settings" → "EDI Settings"</li>
+                <li><strong>3.</strong> Find "SFTP Key Management" section</li>
+                <li><strong>4.</strong> Upload your PUBLIC key (.pub file)</li>
+                <li><strong>5.</strong> Wait for Amazon to activate (24-48 hours)</li>
+                <li><strong>6.</strong> Amazon will send you SFTP connection details</li>
+              </ol>
+            </div>
+
+            <div className="bg-muted/50 p-4 rounded-lg">
+              <h4 className="font-medium mb-3">Copy your PUBLIC key to upload:</h4>
+              <div className="bg-black p-3 rounded text-green-400 font-mono text-sm">
+                cat ~/.ssh/amazon_vendor_key.pub
+              </div>
+              <Button 
+                size="sm" 
+                variant="outline" 
+                className="mt-2"
+                onClick={() => copyToClipboard('cat ~/.ssh/amazon_vendor_key.pub')}
+              >
+                <Copy className="w-4 h-4 mr-2" />
+                Copy Command
+              </Button>
+            </div>
+
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg border border-yellow-200/50">
+              <h4 className="font-medium mb-2 text-yellow-700 dark:text-yellow-300">⏳ What happens next:</h4>
+              <ul className="text-sm text-yellow-600 dark:text-yellow-400 space-y-1">
+                <li>• Amazon reviews and activates your SSH key</li>
+                <li>• You'll receive an email with SFTP details</li>
+                <li>• Details include: hostnames, usernames, directories</li>
+                <li>• Process typically takes 24-48 hours</li>
               </ul>
             </div>
 
-            <div className="text-center p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200/50">
-              <p className="text-sm text-yellow-700 dark:text-yellow-300">
-                ⏱️ Key activation typically takes 24-48 hours
-              </p>
+            <div className="flex items-center space-x-2 p-3 bg-muted/50 rounded-lg">
+              <Switch
+                id="ssh_key_uploaded"
+                checked={sshKeyUploaded}
+                onCheckedChange={setSshKeyUploaded}
+              />
+              <Label htmlFor="ssh_key_uploaded" className="text-sm">
+                I have uploaded my public key to Amazon and received connection details
+              </Label>
             </div>
 
             <div className="flex justify-between">
               <Button variant="outline" onClick={() => setSetupStep(2)}>
                 Back
               </Button>
-              <Button onClick={() => setSetupStep(4)}>
-                I have the connection details
+              <Button 
+                onClick={() => setSetupStep(4)} 
+                disabled={!sshKeyUploaded}
+              >
+                I Have Amazon's Connection Details
               </Button>
             </div>
           </div>
@@ -335,11 +380,21 @@ export function VendorIntegrationManager() {
         return (
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="text-center mb-6">
-              <Shield className="w-16 h-16 mx-auto mb-4 text-primary" />
-              <h3 className="text-xl font-semibold mb-2">Configure Connection</h3>
+              <Settings className="w-16 h-16 mx-auto mb-4 text-primary" />
+              <h3 className="text-xl font-semibold mb-2">Configure Amazon Connection</h3>
               <p className="text-muted-foreground">
-                Enter the connection details provided by Amazon
+                Enter the SFTP connection details that Amazon provided after activating your SSH key
               </p>
+            </div>
+
+            <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-200/50">
+              <h4 className="font-medium mb-3 text-green-700 dark:text-green-300">✅ Ready to Configure:</h4>
+              <ul className="text-sm text-green-600 dark:text-green-400 space-y-1">
+                <li>• SSH private key stored securely</li>
+                <li>• Public key uploaded to Amazon</li>
+                <li>• Amazon has provided connection details</li>
+                <li>• Ready to configure integration</li>
+              </ul>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
