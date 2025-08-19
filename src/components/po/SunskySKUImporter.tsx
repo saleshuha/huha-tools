@@ -544,8 +544,9 @@ export const SunskySKUImporter: React.FC = () => {
         // Clear selection
         setSelectedProducts(new Set());
         
-        // Refresh products list
+        // Refresh products list and imported SKUs
         searchProducts(currentPage);
+        fetchSKUs(1, false); // Force refresh without cache
       } else {
         throw new Error(data.message || 'Failed to import SKUs');
       }
@@ -1514,7 +1515,7 @@ export const SunskySKUImporter: React.FC = () => {
                     </CardDescription>
                   </div>
                   <Button 
-                    onClick={() => fetchSKUs()}
+                    onClick={() => fetchSKUs(1, false)}
                     variant="outline"
                     size="sm"
                   >
