@@ -1435,6 +1435,60 @@ export type Database = {
         }
         Relationships: []
       }
+      sunsky_import_jobs: {
+        Row: {
+          completed_at: string | null
+          country: string
+          created_at: string
+          criteria: Json
+          error_count: number
+          id: string
+          last_error: string | null
+          processed_items: number
+          started_at: string | null
+          status: string
+          success_count: number
+          total_items: number | null
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          country?: string
+          created_at?: string
+          criteria: Json
+          error_count?: number
+          id?: string
+          last_error?: string | null
+          processed_items?: number
+          started_at?: string | null
+          status?: string
+          success_count?: number
+          total_items?: number | null
+          type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          country?: string
+          created_at?: string
+          criteria?: Json
+          error_count?: number
+          id?: string
+          last_error?: string | null
+          processed_items?: number
+          started_at?: string | null
+          status?: string
+          success_count?: number
+          total_items?: number | null
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       sunsky_skus: {
         Row: {
           cost: number | null
