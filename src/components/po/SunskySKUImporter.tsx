@@ -546,10 +546,12 @@ export const SunskySKUImporter: React.FC = () => {
         setCurrentPage(page);
         setTotalPages(Math.ceil((result.data?.total || 0) / 20));
         
-        // Extract headers from first product
+        // Extract all headers from first product and set them as selected
         if (result.data?.products?.length > 0) {
           const productKeys = Object.keys(result.data.products[0]);
           setAvailableHeaders(productKeys);
+          // Auto-select all available headers to show all columns
+          setSelectedHeaders(productKeys);
         }
         
         toast({
@@ -1143,20 +1145,22 @@ export const SunskySKUImporter: React.FC = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => searchProducts(currentPage - 1)}
-                        disabled={currentPage === 1}
+                        onClick={() => searchProducts(currentPage - 1, selectedSearchAPI)}
+                        disabled={currentPage === 1 || loading}
                       >
                         Previous
                       </Button>
                       <div className="flex items-center gap-1">
                         {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                          const page = i + 1;
+                          const page = Math.max(1, currentPage - 2) + i;
+                          if (page > totalPages) return null;
                           return (
                             <Button
                               key={page}
                               variant={page === currentPage ? "default" : "outline"}
                               size="sm"
-                              onClick={() => searchProducts(page)}
+                              onClick={() => searchProducts(page, selectedSearchAPI)}
+                              disabled={loading}
                             >
                               {page}
                             </Button>
@@ -1166,8 +1170,8 @@ export const SunskySKUImporter: React.FC = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => searchProducts(currentPage + 1)}
-                        disabled={currentPage === totalPages}
+                        onClick={() => searchProducts(currentPage + 1, selectedSearchAPI)}
+                        disabled={currentPage === totalPages || loading}
                       >
                         Next
                       </Button>
