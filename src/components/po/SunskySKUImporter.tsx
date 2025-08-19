@@ -171,6 +171,85 @@ export const SunskySKUImporter: React.FC = () => {
   ]);
   const [showHeaderSelector, setShowHeaderSelector] = useState(false);
 
+  // Task control functions
+  const pauseJob = async (jobId: string) => {
+    try {
+      const { error } = await supabase
+        .from('sunsky_import_jobs')
+        .update({ paused: true })
+        .eq('id', jobId)
+        .eq('user_id', profile?.id);
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Success",
+        description: "Import job paused"
+      });
+      await fetchJobs();
+    } catch (error) {
+      console.error('Error pausing job:', error);
+      toast({
+        title: "Error",
+        description: "Failed to pause job",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const resumeJob = async (jobId: string) => {
+    try {
+      const { error } = await supabase
+        .from('sunsky_import_jobs')
+        .update({ paused: false })
+        .eq('id', jobId)
+        .eq('user_id', profile?.id);
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Success",
+        description: "Import job resumed"
+      });
+      await fetchJobs();
+    } catch (error) {
+      console.error('Error resuming job:', error);
+      toast({
+        title: "Error",
+        description: "Failed to resume job",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const cancelJob = async (jobId: string) => {
+    try {
+      const { error } = await supabase
+        .from('sunsky_import_jobs')
+        .update({ 
+          cancelled: true,
+          status: 'cancelled'
+        })
+        .eq('id', jobId)
+        .eq('user_id', profile?.id);
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Success",
+        description: "Import job cancelled"
+      });
+      await fetchJobs();
+    } catch (error) {
+      console.error('Error cancelling job:', error);
+      toast({
+        title: "Error",
+        description: "Failed to cancel job",
+        variant: "destructive"
+      });
+    }
+  };
+
   // Load categories on mount and when credentials change
   useEffect(() => {
     if (hasCredentials) {
@@ -1260,16 +1339,52 @@ export const SunskySKUImporter: React.FC = () => {
                               {job.status}
                             </Badge>
                             <span className="font-medium capitalize">{job.type}</span>
-                          </div>
-                          <div className="text-sm text-muted-foreground text-right">
-                            <div>Created: {new Date(job.created_at).toLocaleDateString()}</div>
-                            {job.started_at && (
-                              <div>Started: {new Date(job.started_at).toLocaleTimeString()}</div>
-                            )}
-                            {job.completed_at && (
-                              <div>Completed: {new Date(job.completed_at).toLocaleTimeString()}</div>
-                            )}
-                          </div>
+                           </div>
+                           <div className="flex items-center gap-2">
+                             {/* Task Control Buttons */}
+                             {job.status === 'processing' && !job.paused && !job.cancelled && (
+                               <Button
+                                 size="sm"
+                                 variant="outline"
+                                 onClick={() => pauseJob(job.id)}
+                                 className="text-yellow-600 hover:bg-yellow-50"
+                               >
+                                 Pause
+                               </Button>
+                             )}
+                             
+                             {job.status === 'processing' && job.paused && !job.cancelled && (
+                               <Button
+                                 size="sm"
+                                 variant="outline"
+                                 onClick={() => resumeJob(job.id)}
+                                 className="text-green-600 hover:bg-green-50"
+                               >
+                                 Resume
+                               </Button>
+                             )}
+                             
+                             {(job.status === 'processing' || job.status === 'queued') && !job.cancelled && (
+                               <Button
+                                 size="sm"
+                                 variant="outline"
+                                 onClick={() => cancelJob(job.id)}
+                                 className="text-red-600 hover:bg-red-50"
+                               >
+                                 Cancel
+                               </Button>
+                             )}
+                             
+                             <div className="text-sm text-muted-foreground text-right">
+                               <div>Created: {new Date(job.created_at).toLocaleDateString()}</div>
+                               {job.started_at && (
+                                 <div>Started: {new Date(job.started_at).toLocaleTimeString()}</div>
+                               )}
+                               {job.completed_at && (
+                                 <div>Completed: {new Date(job.completed_at).toLocaleTimeString()}</div>
+                               )}
+                             </div>
+                           </div>
                         </div>
                         
                         {/* Job Timing */}

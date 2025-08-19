@@ -6,7 +6,7 @@ export interface ImportJob {
   id: string;
   type: 'category' | 'brand' | 'keyword' | 'itemNos';
   criteria: Record<string, any>;
-  status: 'queued' | 'processing' | 'paused' | 'completed' | 'failed';
+  status: 'queued' | 'processing' | 'paused' | 'completed' | 'failed' | 'cancelled';
   total_items?: number;
   processed_items: number;
   success_count: number;
@@ -15,6 +15,8 @@ export interface ImportJob {
   started_at?: string;
   completed_at?: string;
   last_error?: string;
+  paused?: boolean;
+  cancelled?: boolean;
 }
 
 export const useImportJobs = () => {

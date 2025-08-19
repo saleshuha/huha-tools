@@ -1474,8 +1474,68 @@ export type Database = {
         }
         Relationships: []
       }
+      sunsky_import_job_items: {
+        Row: {
+          cost: number | null
+          created_at: string
+          currency: string | null
+          error_message: string | null
+          id: string
+          item_no: string
+          job_id: string
+          processed_at: string | null
+          sku_code: string | null
+          status: string
+          title: string | null
+          updated_at: string
+          user_id: string
+          weight: number | null
+        }
+        Insert: {
+          cost?: number | null
+          created_at?: string
+          currency?: string | null
+          error_message?: string | null
+          id?: string
+          item_no: string
+          job_id: string
+          processed_at?: string | null
+          sku_code?: string | null
+          status?: string
+          title?: string | null
+          updated_at?: string
+          user_id: string
+          weight?: number | null
+        }
+        Update: {
+          cost?: number | null
+          created_at?: string
+          currency?: string | null
+          error_message?: string | null
+          id?: string
+          item_no?: string
+          job_id?: string
+          processed_at?: string | null
+          sku_code?: string | null
+          status?: string
+          title?: string | null
+          updated_at?: string
+          user_id?: string
+          weight?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sunsky_import_job_items_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "sunsky_import_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sunsky_import_jobs: {
         Row: {
+          cancelled: boolean | null
           completed_at: string | null
           country: string
           created_at: string
@@ -1483,6 +1543,7 @@ export type Database = {
           error_count: number
           id: string
           last_error: string | null
+          paused: boolean | null
           processed_items: number
           started_at: string | null
           status: string
@@ -1493,6 +1554,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          cancelled?: boolean | null
           completed_at?: string | null
           country?: string
           created_at?: string
@@ -1500,6 +1562,7 @@ export type Database = {
           error_count?: number
           id?: string
           last_error?: string | null
+          paused?: boolean | null
           processed_items?: number
           started_at?: string | null
           status?: string
@@ -1510,6 +1573,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          cancelled?: boolean | null
           completed_at?: string | null
           country?: string
           created_at?: string
@@ -1517,6 +1581,7 @@ export type Database = {
           error_count?: number
           id?: string
           last_error?: string | null
+          paused?: boolean | null
           processed_items?: number
           started_at?: string | null
           status?: string
@@ -1527,6 +1592,44 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      sunsky_import_logs: {
+        Row: {
+          context: Json | null
+          created_at: string
+          id: string
+          job_id: string
+          level: string
+          message: string
+          user_id: string
+        }
+        Insert: {
+          context?: Json | null
+          created_at?: string
+          id?: string
+          job_id: string
+          level: string
+          message: string
+          user_id: string
+        }
+        Update: {
+          context?: Json | null
+          created_at?: string
+          id?: string
+          job_id?: string
+          level?: string
+          message?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sunsky_import_logs_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "sunsky_import_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sunsky_skus: {
         Row: {
