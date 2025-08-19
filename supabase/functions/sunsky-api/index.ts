@@ -478,6 +478,7 @@ async function processProductChunk(
   }
 
   return { successCount, errorCount };
+}
 
 // Background job processor
 async function processImportJob(job: any, userId: string, userCountry: string) {
