@@ -673,6 +673,18 @@ export function VendorIntegrationManager() {
         </TabsContent>
 
         <TabsContent value="feed-logs" className="space-y-4">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold">Feed History</h3>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => loadFeedLogs()}
+              disabled={loading}
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Refresh
+            </Button>
+          </div>
           {feedLogs.length === 0 ? (
             <Card>
               <CardContent className="p-8 text-center">
