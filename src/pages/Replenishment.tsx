@@ -1,4 +1,4 @@
-import { Replenishment } from '@/components/Replenishment';
+import Replenishment from '@/components/Replenishment';
 
 export default function ReplenishmentPage() {
   return (

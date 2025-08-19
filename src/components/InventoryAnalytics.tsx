@@ -6,7 +6,7 @@ import { Progress } from './ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from './ui/chart';
-import { useInventoryAnalytics } from '@/hooks/useInventoryAnalytics';
+// useInventoryAnalytics hook removed
 import { useCountry } from '@/contexts/CountryContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -49,11 +49,10 @@ export function InventoryAnalytics() {
   const {
     selectedCountry
   } = useCountry();
-  const {
-    inventoryMetrics,
-    loading: analyticsLoading,
-    loadAnalytics
-  } = useInventoryAnalytics();
+  // Removed inventory analytics hook
+  const inventoryMetrics = { totalValue: 0, turnoverRate: 0, activeItems: 0 };
+  const analyticsLoading = false;
+  const loadAnalytics = () => {};
   const {
     toast
   } = useToast();
@@ -205,7 +204,7 @@ export function InventoryAnalytics() {
       await generateReplenishmentForecast();
 
       // Load other analytics in background
-      Promise.all([generateTrendData(), loadAnalytics(selectedCountry)]).catch(error => {
+      Promise.all([generateTrendData(), loadAnalytics()]).catch(error => {
         console.error('Background analytics loading error:', error);
         // Don't show error to user as main functionality works
       });

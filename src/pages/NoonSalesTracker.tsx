@@ -14,13 +14,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { NoonFeesUpload } from "@/components/noon/NoonFeesUpload";
 import { NoonFeesAnalytics } from "@/components/noon/NoonFeesAnalytics";
 import { NoonFeesTable } from "@/components/noon/NoonFeesTable";
-import { SKUCostManager, SKUCost } from "@/components/noon/SKUCostManager";
+// SKUCostManager removed
 import { NoonProfitAnalytics } from "@/components/noon/NoonProfitAnalytics";
 import { NoonOrderFeesData } from "@/types/noon-fees";
 
 export default function NoonSalesTracker() {
   const [feesData, setFeesData] = useState<NoonOrderFeesData[]>([]);
-  const [skuCosts, setSkuCosts] = useState<SKUCost[]>([]);
+  const [skuCosts, setSkuCosts] = useState<any[]>([]);
   const [selectedStore, setSelectedStore] = useState<string>("all");
   const [selectedMonth, setSelectedMonth] = useState<string>("all");
   const [stores, setStores] = useState<Array<{id: string, name: string}>>([]);
@@ -365,22 +365,15 @@ export default function NoonSalesTracker() {
         </TabsContent>
 
         <TabsContent value="costs" className="space-y-6">
-          {feesData.length > 0 ? (
-            <SKUCostManager 
-              feesData={feesData} 
-              onCostsUpdated={setSkuCosts}
-            />
-          ) : (
-            <Card>
-              <CardContent className="p-8 text-center">
-                <div className="text-muted-foreground">
-                  <DollarSign className="h-12 w-12 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No Orders Data</h3>
-                  <p>Upload your Noon order fees report first to manage SKU costs.</p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          <Card>
+            <CardContent className="p-8 text-center">
+              <div className="text-muted-foreground">
+                <DollarSign className="h-12 w-12 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold mb-2">SKU Cost Management Removed</h3>
+                <p>SKU cost functionality has been removed from the system.</p>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="analysis" className="space-y-6">

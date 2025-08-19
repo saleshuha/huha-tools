@@ -28,89 +28,15 @@ import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import ExcelEditorPage from "./pages/ExcelEditor";
 import NoonSalesTracker from "./pages/NoonSalesTracker";
-import NoonDashboard from "./pages/NoonDashboard";
 import NoonStores from "./pages/NoonStores";
 import NoonSalesData from "./pages/NoonSalesData";
 import NoonFeesReports from "./pages/NoonFeesReports";
-import NoonAnalytics from "./pages/NoonAnalytics";
+import NoonOrderAnalysis from "./pages/NoonOrderAnalysis";
 import PaymentReports from "./pages/PaymentReports";
 import CarrefourSalesTracker from "./pages/CarrefourPayments";
 import StoreSelection from "./pages/StoreSelection";
-import SKUCostManagement from "./pages/SKUCostManagement";
-import NoonOrderAnalysis from "./pages/NoonOrderAnalysis";
-import ProcessedOrders from "./pages/ProcessedOrders";
-import PODetailsPage from "./pages/PODetails";
-import AmazonFulfillmentTracker from "./pages/AmazonFulfillmentTracker";
-import AddSKUPage from "./pages/AddSKUPage";
-import BulkColumnEditor from "./pages/BulkColumnEditor";
-import SunskySKUImporterPage from "./pages/SunskySKUImporter";
-import NoonFileCleaner from "./pages/NoonFileCleaner";
-import AmazonVendorCentral from "./pages/AmazonVendorCentral";
-import { useState as useReactState } from "react";
-import { useToast } from "@/components/ui/use-toast";
 
-// Wrapper component for AddSKUPage with proper onAddSKUs implementation
-function AddSKUPageWrapper() {
-  const [isLoading, setIsLoading] = useReactState(false);
-  const { toast } = useToast();
-
-  const handleAddSKUs = async (skus: any[]) => {
-    console.log('=== AddSKUPageWrapper: handleAddSKUs called ===');
-    console.log('SKUs to save:', skus.length);
-    console.log('Sample SKUs:', skus.slice(0, 3));
-    
-    setIsLoading(true);
-    
-    try {
-      // Get current user
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      
-      if (userError || !user) {
-        throw new Error('User not authenticated');
-      }
-
-      console.log('Current user ID:', user.id);
-
-      // Add user_id to each SKU
-      const skusWithUserId = skus.map(sku => ({
-        ...sku,
-        user_id: user.id
-      }));
-
-      console.log('SKUs with user_id added:', skusWithUserId.slice(0, 3));
-
-      // SKU functionality removed
-      const data = null;
-      const error = new Error('SKU functionality has been removed');
-
-      if (error) {
-        console.error('❌ Supabase insert error:', error);
-        throw error;
-      }
-
-      console.log('✅ Successfully inserted SKUs:', data?.length || 0);
-      
-      toast({
-        title: "SKUs Saved Successfully",
-        description: `${skus.length} SKUs have been saved to the database`,
-      });
-    } catch (error) {
-      console.error('❌ Failed to save SKUs:', error);
-      
-      toast({
-        title: "Save Failed",
-        description: `Failed to save SKUs: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        variant: "destructive"
-      });
-      
-      throw error; // Re-throw to let the caller handle it
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  return <AddSKUPage onAddSKUs={handleAddSKUs} isLoading={isLoading} />;
-}
+// SKU management functionality removed
 
 const queryClient = new QueryClient();
 
@@ -210,32 +136,33 @@ const App = () => {
                     <Route path="/asin-sum" element={<AsinQtySum />} />
                      <Route path="/zip-splitter" element={<ZipSplitter />} />
                      <Route path="/file-merger" element={<FileMergerPage />} />
-                     <Route path="/bulk-column-editor" element={<BulkColumnEditor />} />
-                     <Route path="/inventory" element={<Inventory />} />
-                    <Route path="/processed-orders" element={<ProcessedOrders />} />
-                    <Route path="/users" element={<UserManagementPage />} />
-                     <Route path="/replenishment" element={<ReplenishmentPage />} />
-                     <Route path="/po-tracker" element={<POTrackerPage />} />
-                     <Route path="/po-details/:poNumber" element={<PODetailsPage />} />
-                     <Route path="/add-sku" element={<AddSKUPageWrapper />} />
-                     <Route path="/sunsky-importer" element={<SunskySKUImporterPage />} />
-                      <Route path="/excel-editor" element={<ExcelEditorPage />} />
-                      <Route path="/noon-file-cleaner" element={<NoonFileCleaner />} />
-                   <Route path="/amazon-fulfillment" element={<AmazonFulfillmentTracker />} />
-                   <Route path="/amazon-vendor-central" element={<AmazonVendorCentral />} />
-                  <Route path="/noon-sales-tracker" element={<NoonSalesTracker />} />
-                     <Route path="/noon-dashboard" element={<NoonDashboard />} />
-                     <Route path="/noon-stores" element={<NoonStores />} />
-                     <Route path="/noon-sales-data" element={<NoonSalesData />} />
-                     <Route path="/noon-fees-reports" element={<NoonFeesReports />} />
-                     <Route path="/noon-analytics" element={<NoonAnalytics />} />
-                     <Route path="/noon-order-analysis" element={<NoonOrderAnalysis />} />
-                     <Route path="/payment-reports" element={<PaymentReports />} />
-                     <Route path="/noon-sku-costs" element={<SKUCostManagement />} />
-                     <Route path="/sku-costs" element={<SKUCostManagement />} />
-                     <Route path="/carrefour-payments" element={<Navigate to="/stores" replace />} />
-                     <Route path="/stores" element={<StoreSelection />} />
-                     <Route path="/carrefour-payments/:storeId" element={<CarrefourSalesTracker />} />
+                     {/* Removed routes for deleted pages */}
+                     {/* Route path="/bulk-column-editor" element={<BulkColumnEditor />} */}
+                     {/* Route path="/processed-orders" element={<ProcessedOrders />} */}
+                     {/* Route path="/po-details/:poNumber" element={<PODetailsPage />} */}
+                     {/* Route path="/add-sku" element={<AddSKUPageWrapper />} */}
+                     {/* Route path="/sunsky-importer" element={<SunskySKUImporterPage />} */}
+                     {/* Route path="/amazon-fulfillment" element={<AmazonFulfillmentTracker />} */}
+                     {/* Route path="/noon-dashboard" element={<NoonDashboard />} */}
+                     {/* Route path="/noon-analytics" element={<NoonAnalytics />} */}
+                     {/* Route path="/noon-sku-costs" element={<SKUCostManagement />} */}
+                     {/* Route path="/sku-costs" element={<SKUCostManagement />} */}
+                      <Route path="/inventory" element={<Inventory />} />
+                     <Route path="/users" element={<UserManagementPage />} />
+                      <Route path="/replenishment" element={<ReplenishmentPage />} />
+                      <Route path="/po-tracker" element={<POTrackerPage />} />
+                       <Route path="/excel-editor" element={<ExcelEditorPage />} />
+                       <Route path="/noon-file-cleaner" element={<NoonFileCleaner />} />
+                    <Route path="/amazon-vendor-central" element={<AmazonVendorCentral />} />
+                   <Route path="/noon-sales-tracker" element={<NoonSalesTracker />} />
+                      <Route path="/noon-stores" element={<NoonStores />} />
+                      <Route path="/noon-sales-data" element={<NoonSalesData />} />
+                      <Route path="/noon-fees-reports" element={<NoonFeesReports />} />
+                      <Route path="/noon-order-analysis" element={<NoonOrderAnalysis />} />
+                      <Route path="/payment-reports" element={<PaymentReports />} />
+                      <Route path="/carrefour-payments" element={<Navigate to="/stores" replace />} />
+                      <Route path="/stores" element={<StoreSelection />} />
+                      <Route path="/carrefour-payments/:storeId" element={<CarrefourSalesTracker />} />
                     
                     <Route path="/auth" element={<Navigate to="/" replace />} />
                     
