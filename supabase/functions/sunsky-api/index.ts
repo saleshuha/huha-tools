@@ -19,30 +19,48 @@ async function md5(text: string): Promise<string> {
   const data = encoder.encode(text);
   const hashBuffer = await crypto.subtle.digest('MD5', data);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-// Generate signature for Sunsky API (based on working Python implementation)
+// Generate both lowercase and uppercase MD5 for testing
+async function md5Both(text: string): Promise<{ lower: string; upper: string }> {
+  const lower = await md5(text);
+  return { lower, upper: lower.toUpperCase() };
+}
+
+// Generate signature for Sunsky API (exact format from documentation)
 async function generateSignature(params: Record<string, any>, key: string, secret: string): Promise<string> {
+  // Filter out empty values and signature/sign fields
+  const filteredParams: Record<string, string> = {};
+  Object.entries(params).forEach(([k, v]) => {
+    if (v !== null && v !== undefined && v !== '' && k !== 'signature' && k !== 'sign') {
+      filteredParams[k] = String(v);
+    }
+  });
+  
   // Add key to parameters
-  const paramsWithKey = { ...params, key };
+  filteredParams.key = key;
   
-  // Sort parameters by key names alphabetically (__ksort in Python implementation)
-  const sortedEntries = Object.entries(paramsWithKey).sort(([a], [b]) => a.localeCompare(b));
+  // Sort by parameter names using ASCII comparison (exact JavaScript equivalent of Python's sorted())
+  const sortedEntries = Object.entries(filteredParams).sort(([a], [b]) => {
+    // ASCII byte comparison - exact match to Python's default string sorting
+    return a < b ? -1 : a > b ? 1 : 0;
+  });
   
-  // Concatenate only the VALUES in sorted order (signature += item[1] in Python)
-  const valueString = sortedEntries.map(([_, value]) => String(value)).join('');
+  // Concatenate only VALUES in sorted order (keep whitespaces as per documentation)
+  const valueString = sortedEntries.map(([_, value]) => value).join('');
   
-  // Append '@' and secret (f'{signature}@{self.secret}' in Python)
+  // Append '@' and secret
   const stringToHash = valueString + '@' + secret;
   
   // Safe logging (mask sensitive data)
-  const safeParams = { ...paramsWithKey };
-  if (safeParams.key) safeParams.key = safeParams.key.substring(0, 4) + '***';
-  console.log('Parameters for signature (sorted):', Object.fromEntries(sortedEntries.map(([k, v]) => [k, k === 'key' ? safeParams.key : v])));
-  console.log('Value string (masked):', valueString.replace(key, safeParams.key));
-  console.log('String to hash (masked):', valueString.replace(key, safeParams.key) + '@***');
+  const maskedKey = key.substring(0, 4) + '***';
+  const maskedValueString = valueString.replace(key, maskedKey);
+  console.log('Parameters for signature (sorted):', Object.fromEntries(sortedEntries.map(([k, v]) => [k, k === 'key' ? maskedKey : v])));
+  console.log('Value string (masked):', maskedValueString);
+  console.log('String to hash (masked):', maskedValueString + '@***');
   
+  // Generate signature using lowercase MD5
   const signature = await md5(stringToHash);
   console.log('Generated signature:', signature);
   
@@ -81,24 +99,24 @@ async function getApiCredentials(userId: string): Promise<{ key: string; secret:
   };
 }
 
-// Make authenticated request to Sunsky API using official signature format
+// Make authenticated request to Sunsky API with retry logic for different signature formats
 async function makeSunskyRequest(endpoint: string, params: Record<string, any>, key: string, secret: string) {
   // Generate signature using the official Sunsky format
   const signature = await generateSignature(params, key, secret);
   
   console.log(`Making request to: https://open.sunsky-online.com${endpoint}`);
 
-  // Use 'signature' parameter (not 'sign') according to documentation
-  const requestBody = new URLSearchParams({
+  // First attempt: use 'signature' parameter with lowercase MD5
+  let requestBody = new URLSearchParams({
     ...params,
     key,
     signature
   });
 
-  const response = await fetch(`https://open.sunsky-online.com${endpoint}`, {
+  let response = await fetch(`https://open.sunsky-online.com${endpoint}`, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
+      'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
     },
     body: requestBody
   });
@@ -107,7 +125,33 @@ async function makeSunskyRequest(endpoint: string, params: Record<string, any>, 
     throw new Error(`Sunsky API HTTP error: ${response.status} ${response.statusText}`);
   }
 
-  const result = await response.json();
+  let result = await response.json();
+
+  // If we get signature error, retry with uppercase MD5 and 'sign' parameter
+  if (result.result === 'error' && result.messages?.[0] === 'NO_PERMISSION_DUE_TO_SIGNATURE') {
+    console.log('Retrying with uppercase MD5 and "sign" parameter...');
+    
+    const upperSignature = signature.toUpperCase();
+    requestBody = new URLSearchParams({
+      ...params,
+      key,
+      sign: upperSignature // Try 'sign' instead of 'signature'
+    });
+
+    response = await fetch(`https://open.sunsky-online.com${endpoint}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+      },
+      body: requestBody
+    });
+
+    if (!response.ok) {
+      throw new Error(`Sunsky API HTTP error: ${response.status} ${response.statusText}`);
+    }
+
+    result = await response.json();
+  }
 
   if (result.result === 'error') {
     console.error('Sunsky API Error:', result);
@@ -233,6 +277,60 @@ serve(async (req) => {
         return new Response(JSON.stringify({
           result: 'success',
           hasCredentials: !!userCredentials?.api_key
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      case 'getCredentialsInfo': {
+        const { data: userCredentials } = await supabase
+          .from('sunsky_credentials')
+          .select('api_key, api_secret')
+          .eq('user_id', user.id)
+          .single();
+
+        return new Response(JSON.stringify({
+          result: 'success',
+          hasCredentials: !!userCredentials?.api_key,
+          maskedApiKey: userCredentials?.api_key ? 
+            userCredentials.api_key.substring(0, 4) + '***' + userCredentials.api_key.slice(-3) : null,
+          hasSecret: !!userCredentials?.api_secret
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      case 'debugSignature': {
+        const { params: debugParams } = requestData;
+        const credentials = await getApiCredentials(user.id);
+        
+        // Generate signature and return debug info
+        const signature = await generateSignature(debugParams || {}, credentials.key, credentials.secret);
+        
+        // Filter and sort params like the signature function does
+        const filteredParams: Record<string, string> = {};
+        Object.entries(debugParams || {}).forEach(([k, v]) => {
+          if (v !== null && v !== undefined && v !== '' && k !== 'signature' && k !== 'sign') {
+            filteredParams[k] = String(v);
+          }
+        });
+        filteredParams.key = credentials.key;
+        
+        const sortedEntries = Object.entries(filteredParams).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0);
+        const valueString = sortedEntries.map(([_, value]) => value).join('');
+        
+        // Mask sensitive data for return
+        const maskedKey = credentials.key.substring(0, 4) + '***';
+        const maskedValueString = valueString.replace(credentials.key, maskedKey);
+        
+        return new Response(JSON.stringify({
+          result: 'success',
+          debug: {
+            maskedParams: Object.fromEntries(sortedEntries.map(([k, v]) => [k, k === 'key' ? maskedKey : v])),
+            maskedValueString,
+            signature,
+            signatureUpper: signature.toUpperCase()
+          }
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });

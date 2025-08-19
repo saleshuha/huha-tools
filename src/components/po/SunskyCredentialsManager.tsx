@@ -27,9 +27,11 @@ export const SunskyCredentialsManager: React.FC<SunskyCredentialsManagerProps> =
   const [hasCredentials, setHasCredentials] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'unknown' | 'connected' | 'disconnected'>('unknown');
   const [lastTested, setLastTested] = useState<Date | null>(null);
+  const [maskedApiKey, setMaskedApiKey] = useState<string | null>(null);
 
   useEffect(() => {
     checkCredentialsStatus();
+    loadCredentialsInfo();
   }, []);
 
   const checkCredentialsStatus = async () => {
@@ -51,6 +53,23 @@ export const SunskyCredentialsManager: React.FC<SunskyCredentialsManagerProps> =
     } catch (error) {
       console.error('Error checking credentials status:', error);
       setConnectionStatus('disconnected');
+    }
+  };
+
+  const loadCredentialsInfo = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('sunsky-api', {
+        body: { action: 'getCredentialsInfo' }
+      });
+
+      if (error) throw error;
+
+      if (data.result === 'success') {
+        setMaskedApiKey(data.maskedApiKey);
+        setHasCredentials(data.hasCredentials);
+      }
+    } catch (error) {
+      console.error('Error loading credentials info:', error);
     }
   };
 
@@ -83,6 +102,7 @@ export const SunskyCredentialsManager: React.FC<SunskyCredentialsManagerProps> =
         });
         setHasCredentials(true);
         setConnectionStatus('connected');
+        loadCredentialsInfo(); // Reload to get masked key
         onCredentialsChanged?.();
       } else {
         throw new Error(data.message || 'Failed to save credentials');
@@ -195,14 +215,21 @@ export const SunskyCredentialsManager: React.FC<SunskyCredentialsManagerProps> =
           </AlertDescription>
         </Alert>
 
+        {hasCredentials && maskedApiKey && (
+          <div className="p-3 bg-muted rounded-lg">
+            <div className="text-sm font-medium text-foreground">Current API Key</div>
+            <div className="text-sm text-muted-foreground font-mono">{maskedApiKey}</div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="apiKey">API Key</Label>
+            <Label htmlFor="apiKey">API Key {hasCredentials && "(Update)"}</Label>
             <div className="relative">
               <Input
                 id="apiKey"
                 type={showApiKey ? "text" : "password"}
-                placeholder="Enter your Sunsky API key"
+                placeholder={hasCredentials ? "Enter new API key to update" : "Enter your Sunsky API key"}
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
               />
@@ -223,12 +250,12 @@ export const SunskyCredentialsManager: React.FC<SunskyCredentialsManagerProps> =
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="apiSecret">API Secret</Label>
+            <Label htmlFor="apiSecret">API Secret {hasCredentials && "(Update)"}</Label>
             <div className="relative">
               <Input
                 id="apiSecret"
                 type={showApiSecret ? "text" : "password"}
-                placeholder="Enter your Sunsky API secret"
+                placeholder={hasCredentials ? "Enter new API secret to update" : "Enter your Sunsky API secret"}
                 value={apiSecret}
                 onChange={(e) => setApiSecret(e.target.value)}
               />
@@ -268,7 +295,7 @@ export const SunskyCredentialsManager: React.FC<SunskyCredentialsManagerProps> =
           <Button
             variant="outline"
             onClick={testConnection}
-            disabled={testing || !hasCredentials}
+            disabled={testing}
           >
             {testing ? (
               <>
