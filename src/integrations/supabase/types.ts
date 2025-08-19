@@ -1405,6 +1405,45 @@ export type Database = {
         }
         Relationships: []
       }
+      sunsky_api_usage: {
+        Row: {
+          count: number
+          created_at: string
+          endpoint: string
+          id: string
+          key_hash: string
+          last_request: string
+          period: string
+          updated_at: string
+          user_id: string | null
+          window_start: string
+        }
+        Insert: {
+          count?: number
+          created_at?: string
+          endpoint: string
+          id?: string
+          key_hash: string
+          last_request?: string
+          period: string
+          updated_at?: string
+          user_id?: string | null
+          window_start: string
+        }
+        Update: {
+          count?: number
+          created_at?: string
+          endpoint?: string
+          id?: string
+          key_hash?: string
+          last_request?: string
+          period?: string
+          updated_at?: string
+          user_id?: string | null
+          window_start?: string
+        }
+        Relationships: []
+      }
       sunsky_credentials: {
         Row: {
           api_key: string
