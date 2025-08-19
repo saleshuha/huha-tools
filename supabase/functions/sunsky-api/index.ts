@@ -370,6 +370,115 @@ async function convertCurrency(priceUSD: number, userCountry: string): Promise<n
   return priceUSD * (exchangeRate || 1);
 }
 
+// Process a chunk of products (helper function for chunked processing)
+async function processProductChunk(
+  products: any[], 
+  credentials: any, 
+  userId: string, 
+  userCountry: string, 
+  jobId: string
+): Promise<{ successCount: number; errorCount: number }> {
+  let successCount = 0;
+  let errorCount = 0;
+
+  for (const product of products) {
+    try {
+      // Create job item record
+      await supabase
+        .from('sunsky_import_job_items')
+        .insert({
+          job_id: jobId,
+          user_id: userId,
+          item_no: product.itemNo,
+          status: 'processing'
+        });
+
+      // Get detailed product info
+      const detailResult = await makeSunskyRequest(
+        '/openapi/product!detail.do',
+        { lang: 'en', itemNo: product.itemNo },
+        credentials.key,
+        credentials.secret,
+        userId
+      );
+
+      if (detailResult.result === 'success' && detailResult.data) {
+        const productDetail = detailResult.data;
+        
+        // Convert price to user's currency
+        const convertedCost = await convertCurrency(
+          parseFloat(productDetail.price || 0),
+          userCountry
+        );
+
+        // Insert/update SKU
+        const { data: skuData, error: skuError } = await supabase
+          .from('sunsky_skus')
+          .upsert({
+            user_id: userId,
+            sku_code: productDetail.itemNo,
+            title: productDetail.name,
+            cost: convertedCost,
+            weight: productDetail.unitWeight ? parseFloat(productDetail.unitWeight) : null,
+            description: `Imported from Sunsky - Lead Time: ${productDetail.leadTime || 'N/A'}`,
+            currency: userCountry === 'KSA' ? 'SAR' : 'AED',
+            country: userCountry
+          }, { 
+            onConflict: 'user_id,sku_code',
+            ignoreDuplicates: false 
+          })
+          .select()
+          .single();
+
+        if (skuError) {
+          throw skuError;
+        }
+
+        // Update job item as success
+        await supabase
+          .from('sunsky_import_job_items')
+          .update({
+            status: 'completed',
+            sku_code: skuData.sku_code,
+            title: skuData.title,
+            cost: skuData.cost,
+            weight: skuData.weight,
+            currency: skuData.currency,
+            processed_at: new Date().toISOString()
+          })
+          .eq('job_id', jobId)
+          .eq('item_no', product.itemNo);
+
+        successCount++;
+      }
+    } catch (error) {
+      errorCount++;
+      
+      // Update job item as failed
+      await supabase
+        .from('sunsky_import_job_items')
+        .update({
+          status: 'error',
+          error_message: error.message
+        })
+        .eq('job_id', jobId)
+        .eq('item_no', product.itemNo);
+
+      // Log error
+      await supabase
+        .from('sunsky_import_logs')
+        .insert({
+          job_id: jobId,
+          user_id: userId,
+          level: 'error',
+          message: `Failed to process item ${product.itemNo}`,
+          context: { error: error.message }
+        });
+    }
+  }
+
+  return { successCount, errorCount };
+
 // Background job processor
 async function processImportJob(job: any, userId: string, userCountry: string) {
   try {
@@ -411,30 +520,123 @@ async function processImportJob(job: any, userId: string, userCountry: string) {
       if (criteria.dateTo) searchParams.dateTo = criteria.dateTo;
       if (criteria.gmtModifiedStart) searchParams.gmtModifiedStart = criteria.gmtModifiedStart;
 
+      // First, get total count without fetching all items
+      try {
+        const firstResult = await makeSunskyRequest('/openapi/product!search.do', searchParams, credentials.key, credentials.secret, userId);
+        
+        if (firstResult.result === 'success' && firstResult.data?.result) {
+          // Estimate total based on first page
+          const estimatedTotal = Math.max(firstResult.data.result.length, 1000); // Conservative estimate
+          
+          // Update job with estimated total
+          await supabase
+            .from('sunsky_import_jobs')
+            .update({ 
+              total_items: estimatedTotal,
+              processed_items: 0
+            })
+            .eq('id', job.id);
+            
+          console.log(`Job ${job.id}: Estimated ${estimatedTotal} total items`);
+        }
+      } catch (error) {
+        console.error('Error getting initial count:', error);
+      }
+    }
+
+    // Process items in chunks of 200
+    const CHUNK_SIZE = 200;
+    let successCount = 0;
+    let errorCount = 0;
+    let currentChunk = 0;
+    
+    // For category import, we'll process in chunks as we fetch
+    if (type === 'category') {
+      const searchParams: any = {
+        lang: 'en',
+        pageSize: 100,
+        page: 1,
+        status: 1
+      };
+      
+      if (criteria.categoryId) searchParams.categoryId = criteria.categoryId;
+      if (criteria.dateFrom) searchParams.dateFrom = criteria.dateFrom;
+      if (criteria.dateTo) searchParams.dateTo = criteria.dateTo;
+      if (criteria.gmtModifiedStart) searchParams.gmtModifiedStart = criteria.gmtModifiedStart;
+
       let currentPage = 1;
       let hasMorePages = true;
+      let currentChunkItems: any[] = [];
 
       while (hasMorePages) {
+        // Check if job is paused or cancelled before fetching next page
+        const { data: currentJob } = await supabase
+          .from('sunsky_import_jobs')
+          .select('paused, cancelled, status')
+          .eq('id', job.id)
+          .single();
+        
+        if (currentJob?.cancelled) {
+          console.log(`Job ${job.id} cancelled, stopping processing`);
+          await supabase
+            .from('sunsky_import_jobs')
+            .update({ 
+              status: 'cancelled',
+              success_count: successCount,
+              error_count: errorCount,
+              completed_at: new Date().toISOString()
+            })
+            .eq('id', job.id);
+          return;
+        }
+        
+        if (currentJob?.paused) {
+          console.log(`Job ${job.id} paused, stopping processing`);
+          await supabase
+            .from('sunsky_import_jobs')
+            .update({ 
+              status: 'paused',
+              success_count: successCount,
+              error_count: errorCount
+            })
+            .eq('id', job.id);
+          return;
+        }
+
         searchParams.page = currentPage;
         
         try {
           const result = await makeSunskyRequest('/openapi/product!search.do', searchParams, credentials.key, credentials.secret, userId);
           
           if (result.result === 'success' && result.data?.result) {
-            products.push(...result.data.result);
+            currentChunkItems.push(...result.data.result);
+            
+            // Process chunk when we have enough items or no more pages
+            if (currentChunkItems.length >= CHUNK_SIZE || result.data.result.length < searchParams.pageSize) {
+              const chunkResults = await processProductChunk(currentChunkItems.slice(0, CHUNK_SIZE), credentials, userId, userCountry, job.id);
+              successCount += chunkResults.successCount;
+              errorCount += chunkResults.errorCount;
+              
+              // Update progress
+              await supabase
+                .from('sunsky_import_jobs')
+                .update({ 
+                  processed_items: successCount + errorCount,
+                  success_count: successCount,
+                  error_count: errorCount
+                })
+                .eq('id', job.id);
+              
+              // Remove processed items from chunk
+              currentChunkItems = currentChunkItems.slice(CHUNK_SIZE);
+              currentChunk++;
+              
+              console.log(`Job ${job.id}: Processed chunk ${currentChunk}, Success: ${chunkResults.successCount}, Errors: ${chunkResults.errorCount}`);
+            }
             
             // Check if there are more pages
             hasMorePages = result.data.result.length === searchParams.pageSize;
             currentPage++;
-            
-            // Update progress
-            await supabase
-              .from('sunsky_import_jobs')
-              .update({ 
-                total_items: products.length,
-                processed_items: 0
-              })
-              .eq('id', job.id);
           } else {
             hasMorePages = false;
           }
@@ -448,26 +650,21 @@ async function processImportJob(job: any, userId: string, userCountry: string) {
                 user_id: userId,
                 level: 'warning',
                 message: 'Rate limit hit during product search',
-                context: { page: currentPage }
+                context: { page: currentPage, chunk: currentChunk }
               });
             break;
           }
           throw error;
         }
       }
+      
+      // Process any remaining items in the last chunk
+      if (currentChunkItems.length > 0) {
+        const chunkResults = await processProductChunk(currentChunkItems, credentials, userId, userCountry, job.id);
+        successCount += chunkResults.successCount;
+        errorCount += chunkResults.errorCount;
+      }
     }
-
-    // Update total items count
-    await supabase
-      .from('sunsky_import_jobs')
-      .update({ 
-        total_items: products.length 
-      })
-      .eq('id', job.id);
-
-    // Process each product
-    let successCount = 0;
-    let errorCount = 0;
 
     for (let i = 0; i < products.length; i++) {
       const product = products[i];
