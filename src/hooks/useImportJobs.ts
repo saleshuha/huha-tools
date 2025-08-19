@@ -26,54 +26,27 @@ export const useImportJobs = () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) throw new Error('Not authenticated');
 
-    const response = await supabase.functions.invoke('sunsky-api', {
-      body: { action, ...data },
+    const response = await fetch('/supabase/functions/v1/sunsky-api', {
+      method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${session.access_token}`,
       },
+      body: JSON.stringify({ action, ...data }),
     });
 
-    if (response.error) {
-      throw new Error(response.error.message || 'API request failed');
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'API request failed');
     }
 
-    return response.data;
+    return response.json();
   }, []);
-
-  const fetchJobs = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      console.log('Fetching import jobs...');
-      
-      const result = await callSunskyAPI('listImportJobs', {});
-      console.log('Jobs fetch result:', result);
-      
-      if (result.result === 'success') {
-        setJobs(result.data);
-        console.log('Jobs set:', result.data);
-      } else {
-        throw new Error(result.message || 'Failed to fetch jobs');
-      }
-    } catch (error) {
-      console.error('Error fetching jobs:', error);
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to fetch jobs",
-        variant: "destructive"
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [callSunskyAPI, toast]);
 
   const createImportJob = useCallback(async (type: string, criteria: Record<string, any>) => {
     try {
       setIsLoading(true);
-      console.log('Creating import job:', { type, criteria });
-      
       const result = await callSunskyAPI('createImportJob', { type, criteria });
-      console.log('Import job creation result:', result);
       
       if (result.result === 'success') {
         toast({
@@ -82,7 +55,6 @@ export const useImportJobs = () => {
         });
         
         // Start the job immediately
-        console.log('Starting import job:', result.data.id);
         await callSunskyAPI('startImportJob', { jobId: result.data.id });
         
         // Refresh jobs list
@@ -103,7 +75,29 @@ export const useImportJobs = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [callSunskyAPI, toast, fetchJobs]);
+  }, [callSunskyAPI, toast]);
+
+  const fetchJobs = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const result = await callSunskyAPI('listImportJobs', {});
+      
+      if (result.result === 'success') {
+        setJobs(result.data);
+      } else {
+        throw new Error(result.message || 'Failed to fetch jobs');
+      }
+    } catch (error) {
+      console.error('Error fetching jobs:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to fetch jobs",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [callSunskyAPI, toast]);
 
   const getJobStatus = useCallback(async (jobId: string) => {
     try {

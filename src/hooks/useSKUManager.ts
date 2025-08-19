@@ -133,8 +133,7 @@ export const useSKUManager = () => {
         `)
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
-        .range(from, to)
-        .limit(1000); // Add explicit limit to prevent timeout
+        .range(from, to);
 
       if (error) throw error;
 
