@@ -139,13 +139,15 @@ Deno.serve(async (req) => {
         console.log(`SSH fingerprint expected: ${integration.ssh_fingerprint_sending}`);
         console.log(`XML content length: ${xml_content.length} characters`);
 
-        // For now, we'll simulate a successful upload since we need SSH keys properly configured
-        // In production, this would use an SFTP library like ssh2-sftp-client
-        console.log('SIMULATION: File would be uploaded to Amazon SFTP server');
-        console.log('SIMULATION: Upload successful');
+        // TODO: Implement real SFTP upload to Amazon
+        // This requires implementing actual SFTP client functionality
+        // For now, marking as failed since real upload is not implemented
+        console.log('REAL SFTP UPLOAD: Not yet implemented - would upload to Amazon SFTP server');
+        console.log('Amazon expects actual file transfer, not simulation');
         
-        // Mark as sent (simulation)
-        const uploadStatus = 'sent_simulation';
+        // Mark as failed until real SFTP is implemented
+        const uploadStatus = 'failed';
+        const errorMessage = 'Real SFTP upload not implemented yet - currently only simulation mode';
 
         // Log the test send
         const { error: logError } = await supabase
