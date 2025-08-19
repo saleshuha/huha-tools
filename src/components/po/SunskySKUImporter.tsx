@@ -439,7 +439,11 @@ export const SunskySKUImporter: React.FC = () => {
     }
     
     try {
-      const result = await callSunskyAPI('getSubCategories', { categoryId }, apiId);
+      const result = await callSunskyAPI('getCategories', { 
+        parentId: categoryId,
+        mode: categoryFetchMode,
+        modifiedSince: modifiedSinceDate
+      }, apiId || selectedSearchAPI);
       
       if (result.success) {
         setSubCategories(result.data || []);

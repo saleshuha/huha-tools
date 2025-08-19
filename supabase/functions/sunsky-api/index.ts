@@ -1315,11 +1315,15 @@ serve(async (req) => {
         try {
           const result = await makeSunskyRequest('/openapi/category!getChildren.do', params, credentials.key, credentials.secret, user.id);
         
-        if (result.result === 'error') {
-          throw new Error(result.messages?.[0] || 'Sunsky API error');
-        }
+          if (result.result === 'error') {
+            throw new Error(result.messages?.[0] || 'Sunsky API error');
+          }
 
-          return new Response(JSON.stringify(result), {
+          // Normalize response to match frontend expectations
+          return new Response(JSON.stringify({
+            success: true,
+            data: result.data || []
+          }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         } catch (error) {
@@ -1327,7 +1331,14 @@ serve(async (req) => {
           if (error instanceof Response && error.status === 429) {
             return error;
           }
-          throw error;
+          
+          return new Response(JSON.stringify({
+            success: false,
+            error: error.message || 'Unknown error'
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 500
+          });
         }
       }
 
@@ -1348,7 +1359,11 @@ serve(async (req) => {
             throw new Error(result.messages?.[0] || 'Sunsky API error');
           }
 
-          return new Response(JSON.stringify(result), {
+          // Normalize response to match frontend expectations
+          return new Response(JSON.stringify({
+            success: true,
+            data: result.data || []
+          }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         } catch (error) {
@@ -1356,7 +1371,14 @@ serve(async (req) => {
           if (error instanceof Response && error.status === 429) {
             return error;
           }
-          throw error;
+          
+          return new Response(JSON.stringify({
+            success: false,
+            error: error.message || 'Unknown error'
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 500
+          });
         }
       }
 
