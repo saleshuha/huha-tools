@@ -1571,22 +1571,42 @@ export const SunskySKUImporter: React.FC = () => {
         
         <TabsContent value="settings" className="space-y-6">
           <div className="grid grid-cols-1 gap-6">
-            {/* API Connection Settings */}
+            {/* API Management */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Settings className="h-5 w-5" />
-                  API Connection
+                  API Management
                 </CardTitle>
                 <CardDescription>
-                  Configure your Sunsky API credentials to enable product searching and importing
+                  Configure and manage your Sunsky API credentials for product searching and importing
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {/* API Management */}
+                <div className="space-y-6">
+                  {/* Connection Status */}
+                  <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/50">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-3 h-3 rounded-full ${hasCredentials ? 'bg-green-500' : 'bg-red-500'}`} />
+                      <div>
+                        <span className="font-medium">
+                          {hasCredentials ? 'Connected' : 'Not Connected'}
+                        </span>
+                        <p className="text-sm text-muted-foreground">
+                          {hasCredentials 
+                            ? 'Your API credentials are configured and ready to use.' 
+                            : 'Please configure your API credentials below to enable importing.'}
+                        </p>
+                      </div>
+                    </div>
+                    <Badge variant={hasCredentials ? 'default' : 'destructive'}>
+                      {hasCredentials ? 'Active' : 'Inactive'}
+                    </Badge>
+                  </div>
+
+                  {/* API Credentials Management */}
                   <div className="space-y-4">
-                    <h3 className="text-lg font-medium">API Credentials Management</h3>
+                    <h3 className="text-lg font-medium">API Credentials</h3>
                     <SunskyCredentialsManager onCredentialsChanged={checkCredentialsStatus} />
                   </div>
 
@@ -1623,37 +1643,6 @@ export const SunskySKUImporter: React.FC = () => {
                     </div>
                   )}
                 </div>
-              </CardContent>
-            </Card>
-            
-            {/* Connection Status */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Globe className="h-5 w-5" />
-                  Connection Status
-                </CardTitle>
-                <CardDescription>
-                  Current status of your Sunsky API connection
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <SunskyCredentialsManager onCredentialsChanged={checkCredentialsStatus} />
-                
-                <div className="flex items-center gap-3">
-                  <div className={`w-3 h-3 rounded-full ${hasCredentials ? 'bg-green-500' : 'bg-red-500'}`} />
-                  <span className="font-medium">
-                    {hasCredentials ? 'Connected' : 'Not Connected'}
-                  </span>
-                  <Badge variant={hasCredentials ? 'default' : 'destructive'}>
-                    {hasCredentials ? 'Active' : 'Inactive'}
-                  </Badge>
-                </div>
-                <p className="text-sm text-muted-foreground mt-2">
-                  {hasCredentials 
-                    ? 'Your API credentials are configured and ready to use.' 
-                    : 'Please configure your API credentials above to enable importing.'}
-                </p>
               </CardContent>
             </Card>
           </div>
