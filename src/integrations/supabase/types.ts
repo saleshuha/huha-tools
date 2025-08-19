@@ -1441,6 +1441,7 @@ export type Database = {
           country: string
           created_at: string
           currency: string | null
+          description: string | null
           id: string
           sku_code: string
           title: string | null
@@ -1453,6 +1454,7 @@ export type Database = {
           country?: string
           created_at?: string
           currency?: string | null
+          description?: string | null
           id?: string
           sku_code: string
           title?: string | null
@@ -1465,6 +1467,7 @@ export type Database = {
           country?: string
           created_at?: string
           currency?: string | null
+          description?: string | null
           id?: string
           sku_code?: string
           title?: string | null
