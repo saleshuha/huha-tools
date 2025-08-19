@@ -24,21 +24,19 @@ async function md5(text: string): Promise<string> {
 
 // Generate signature for Sunsky API
 async function generateSignature(params: Record<string, any>, key: string, secret: string): Promise<string> {
-  // Sort parameters by key name and concatenate key=value pairs
-  const sortedKeys = Object.keys(params).sort();
-  let concatenated = '';
+  // Add key to params for signature calculation
+  const allParams = { ...params, key };
   
-  for (const paramKey of sortedKeys) {
-    concatenated += paramKey + '=' + params[paramKey] + '&';
-  }
+  // Sort parameters by key name and create query string format
+  const sortedKeys = Object.keys(allParams).sort();
+  const paramString = sortedKeys
+    .map(k => `${k}=${allParams[k]}`)
+    .join('&');
   
-  // Add key parameter
-  concatenated += 'key=' + key + '&';
+  // Append secret to create the string to hash
+  const stringToHash = paramString + secret;
   
-  // Remove trailing & and append secret
-  concatenated = concatenated.slice(0, -1);
-  const stringToHash = concatenated + secret;
-  
+  console.log('Parameters for signature:', allParams);
   console.log('String to hash:', stringToHash);
   
   return await md5(stringToHash);
