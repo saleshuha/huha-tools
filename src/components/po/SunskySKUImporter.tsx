@@ -11,7 +11,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { DatePickerWithRange } from "@/components/ui/date-range-picker";
-import { Search, Plus, Download, AlertCircle, CheckCircle2, Package, Globe, Calendar } from "lucide-react";
+import { Search, Plus, Download, AlertCircle, CheckCircle2, Package, Globe, Calendar, RefreshCw, Filter, Grid, List } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useUserProfile } from "@/hooks/useUserProfile";
@@ -30,6 +31,13 @@ interface SunskyProduct {
   description?: string;
   convertedPrice?: number;
   convertedCurrency?: string;
+  unitWeight?: string;
+  dimensions?: string;
+  moq?: number;
+  status?: number;
+  categoryId?: number;
+  images?: string[];
+  specifications?: Record<string, any>;
 }
 
 interface SunskyCategory {
@@ -41,6 +49,28 @@ interface SunskyCategory {
   shortName?: string;
   hsCode?: string;
   gmtModified?: string;
+  level?: number;
+  hasChildren?: boolean;
+}
+
+interface SunskyBrand {
+  id: number;
+  name: string;
+  code?: string;
+}
+
+interface SearchFilters {
+  keyword?: string;
+  categoryId?: string;
+  brandId?: string;
+  brandName?: string;
+  leadTimeLevel?: string;
+  priceMin?: number;
+  priceMax?: number;
+  stockMin?: number;
+  status?: number;
+  dateFrom?: string;
+  dateTo?: string;
 }
 
 export const SunskySKUImporter: React.FC = () => {
@@ -51,9 +81,15 @@ export const SunskySKUImporter: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedSubCategory, setSelectedSubCategory] = useState<string>('all');
+  const [selectedBrand, setSelectedBrand] = useState<string>('');
+  const [leadTimeLevel, setLeadTimeLevel] = useState<string>('');
+  const [priceMin, setPriceMin] = useState<string>('');
+  const [priceMax, setPriceMax] = useState<string>('');
+  const [stockMin, setStockMin] = useState<string>('');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [categories, setCategories] = useState<SunskyCategory[]>([]);
   const [subCategories, setSubCategories] = useState<SunskyCategory[]>([]);
+  const [brands, setBrands] = useState<SunskyBrand[]>([]);
   const [products, setProducts] = useState<SunskyProduct[]>([]);
   const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
   const [importing, setImporting] = useState(false);
@@ -61,6 +97,8 @@ export const SunskySKUImporter: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [hasCredentials, setHasCredentials] = useState(false);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
+  const [selectedProduct, setSelectedProduct] = useState<SunskyProduct | null>(null);
 
   // Load categories on mount and when credentials change
   useEffect(() => {
@@ -159,7 +197,8 @@ export const SunskySKUImporter: React.FC = () => {
       const searchParams: any = {
         action: 'searchProducts',
         page,
-        pageSize: 20
+        pageSize: 20,
+        status: 1 // Only valid products
       };
 
       // Use subcategory if selected, otherwise use main category
@@ -169,8 +208,16 @@ export const SunskySKUImporter: React.FC = () => {
         searchParams.categoryId = selectedCategory;
       }
 
-      if (searchTerm) {
-        searchParams.keyword = searchTerm;
+      if (searchTerm.trim()) {
+        searchParams.keyword = searchTerm.trim();
+      }
+
+      if (selectedBrand.trim()) {
+        searchParams.brandName = selectedBrand.trim();
+      }
+
+      if (leadTimeLevel) {
+        searchParams.leadTimeLevel = leadTimeLevel;
       }
 
       if (dateRange?.from) {
@@ -181,6 +228,8 @@ export const SunskySKUImporter: React.FC = () => {
         searchParams.dateTo = dateRange.to.toISOString().split('T')[0];
       }
 
+      console.log('Search parameters:', searchParams);
+
       const { data, error } = await supabase.functions.invoke('sunsky-api', {
         body: searchParams
       });
@@ -188,8 +237,8 @@ export const SunskySKUImporter: React.FC = () => {
       if (error) throw error;
 
       if (data.result === 'success') {
-        setProducts(data.data.result || []);
-        setTotalPages(data.data.pageCount || 1);
+        setProducts(data.data?.result || []);
+        setTotalPages(data.data?.pageCount || 1);
         setCurrentPage(page);
       } else {
         throw new Error(data.message || 'Failed to search products');
@@ -204,6 +253,40 @@ export const SunskySKUImporter: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const getProductDetails = async (itemNo: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('sunsky-api', {
+        body: { action: 'getProductDetails', itemNo }
+      });
+
+      if (error) throw error;
+
+      if (data.result === 'success') {
+        return data.data;
+      } else {
+        throw new Error(data.message || 'Failed to get product details');
+      }
+    } catch (error) {
+      console.error('Error getting product details:', error);
+      return null;
+    }
+  };
+
+  const resetAllFilters = () => {
+    setSearchTerm('');
+    setSelectedCategory('all');
+    setSelectedSubCategory('all');
+    setSelectedBrand('');
+    setLeadTimeLevel('');
+    setPriceMin('');
+    setPriceMax('');
+    setStockMin('');
+    setDateRange(undefined);
+    setProducts([]);
+    setSelectedProducts(new Set());
+    setCurrentPage(1);
   };
 
   const toggleProductSelection = (itemNo: string) => {
@@ -342,6 +425,7 @@ export const SunskySKUImporter: React.FC = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {/* Basic Search Filters */}
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="search">Product Search</Label>
@@ -350,6 +434,16 @@ export const SunskySKUImporter: React.FC = () => {
                         placeholder="Enter keyword..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="brand">Brand Name</Label>
+                      <Input
+                        id="brand"
+                        placeholder="Enter brand name..."
+                        value={selectedBrand}
+                        onChange={(e) => setSelectedBrand(e.target.value)}
                       />
                     </div>
 
@@ -390,9 +484,66 @@ export const SunskySKUImporter: React.FC = () => {
                         </SelectContent>
                       </Select>
                     </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Advanced Filters */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="leadtime">Lead Time Level</Label>
+                      <Select value={leadTimeLevel} onValueChange={setLeadTimeLevel}>
+                        <SelectTrigger id="leadtime">
+                          <SelectValue placeholder="Select lead time" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="">All Lead Times</SelectItem>
+                          <SelectItem value="1">1-3 days</SelectItem>
+                          <SelectItem value="2">4-7 days</SelectItem>
+                          <SelectItem value="3">1-2 weeks</SelectItem>
+                          <SelectItem value="4">2-4 weeks</SelectItem>
+                          <SelectItem value="5">1+ months</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
 
                     <div className="space-y-2">
-                      <Label>Date Range</Label>
+                      <Label htmlFor="pricemin">Min Price (USD)</Label>
+                      <Input
+                        id="pricemin"
+                        type="number"
+                        placeholder="0.00"
+                        value={priceMin}
+                        onChange={(e) => setPriceMin(e.target.value)}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="pricemax">Max Price (USD)</Label>
+                      <Input
+                        id="pricemax"
+                        type="number"
+                        placeholder="999.99"
+                        value={priceMax}
+                        onChange={(e) => setPriceMax(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="stockmin">Min Stock Quantity</Label>
+                      <Input
+                        id="stockmin"
+                        type="number"
+                        placeholder="1"
+                        value={stockMin}
+                        onChange={(e) => setStockMin(e.target.value)}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Date Range (Modified)</Label>
                       <DatePickerWithRange
                         date={dateRange}
                         onDateChange={setDateRange}
@@ -401,11 +552,11 @@ export const SunskySKUImporter: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <Button onClick={() => searchProducts(1)} disabled={loading}>
                       {loading ? (
                         <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2" />
+                          <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
                           Searching...
                         </>
                       ) : (
@@ -415,18 +566,17 @@ export const SunskySKUImporter: React.FC = () => {
                         </>
                       )}
                     </Button>
+                    <Button variant="outline" onClick={resetAllFilters}>
+                      <Filter className="mr-2 h-4 w-4" />
+                      Reset All Filters
+                    </Button>
                     <Button 
                       variant="outline" 
-                      onClick={() => {
-                        setSearchTerm('');
-                        setSelectedCategory('all');
-                        setSelectedSubCategory('all');
-                        setDateRange(undefined);
-                        setProducts([]);
-                        setSelectedProducts(new Set());
-                      }}
+                      size="icon"
+                      onClick={() => setViewMode(viewMode === 'list' ? 'grid' : 'list')}
+                      title={`Switch to ${viewMode === 'list' ? 'grid' : 'list'} view`}
                     >
-                      Reset Filters
+                      {viewMode === 'list' ? <Grid className="h-4 w-4" /> : <List className="h-4 w-4" />}
                     </Button>
                   </div>
                 </CardContent>

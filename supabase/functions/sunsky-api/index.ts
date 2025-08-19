@@ -234,14 +234,15 @@ serve(async (req) => {
           page = 1, 
           brandName,
           searchTerm,
-          leadTimeLevel 
+          leadTimeLevel,
+          status = 1 // Default to valid products only
         } = requestData;
 
         const params: Record<string, any> = {
           lang: 'en',
           pageSize: Math.min(pageSize, 100),
           page,
-          status: 1, // Valid products only
+          status
         };
 
         if (categoryId) params.categoryId = categoryId;
