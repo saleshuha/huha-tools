@@ -150,48 +150,51 @@ Deno.serve(async (req) => {
           // Create SFTP client
           const sftp = new SftpClient();
           
-          // Process the private key to ensure it's in the correct format
-          let processedPrivateKey = privateKey;
+          // Process and validate the private key
+          let processedPrivateKey = privateKey.trim();
           
-          // Handle different key formats
-          if (privateKey.includes('BEGIN OPENSSH PRIVATE KEY')) {
-            console.log('Detected OpenSSH format key, converting...');
-            // For OpenSSH format, we need to handle it differently
-            processedPrivateKey = privateKey;
-          } else if (privateKey.includes('BEGIN RSA PRIVATE KEY') || privateKey.includes('BEGIN PRIVATE KEY')) {
-            console.log('Detected PEM format key');
-            processedPrivateKey = privateKey;
-          } else {
-            console.log('Key format unclear, attempting to use as-is');
-            // Ensure proper formatting
-            if (!privateKey.includes('-----BEGIN')) {
-              throw new Error('Invalid private key format - missing header');
-            }
-          }
-          
-          // Ensure proper line endings
+          // Handle escaped newlines
           processedPrivateKey = processedPrivateKey.replace(/\\n/g, '\n');
           
-          console.log('Private key format check passed');
-          console.log('Key starts with:', processedPrivateKey.substring(0, 50));
+          // Log key format for debugging (first and last line only for security)
+          const keyLines = processedPrivateKey.split('\n');
+          console.log('Key format check:');
+          console.log('First line:', keyLines[0]);
+          console.log('Last line:', keyLines[keyLines.length - 1]);
+          console.log('Total lines:', keyLines.length);
           
-          // Connection configuration with simplified algorithms
+          // Validate key format
+          if (!processedPrivateKey.includes('-----BEGIN') || !processedPrivateKey.includes('-----END')) {
+            throw new Error('Private key must be in PEM format with BEGIN/END markers');
+          }
+          
+          // For OpenSSH format keys, we need to convert them or use a different approach
+          if (processedPrivateKey.includes('BEGIN OPENSSH PRIVATE KEY')) {
+            console.log('OpenSSH format detected - this format may not be supported by ssh2-sftp-client');
+            throw new Error('OpenSSH private key format detected. Please convert to traditional PEM format (ssh-keygen -p -m PEM -f keyfile)');
+          }
+          
+          // Ensure proper PEM format
+          if (!processedPrivateKey.includes('BEGIN RSA PRIVATE KEY') && 
+              !processedPrivateKey.includes('BEGIN PRIVATE KEY') &&
+              !processedPrivateKey.includes('BEGIN EC PRIVATE KEY')) {
+            throw new Error('Unsupported private key format. Supported formats: RSA, PKCS#8, or EC private keys in PEM format');
+          }
+          
+          console.log('Private key format validation passed');
+          
+          // Simple connection configuration - remove complex algorithms that might cause issues
           const connectConfig = {
             host: host,
             port: port,
             username: username,
             privateKey: processedPrivateKey,
             readyTimeout: 30000,
-            algorithms: {
-              serverHostKey: ['rsa-sha2-512', 'rsa-sha2-256', 'ssh-rsa'],
-              cipher: ['aes128-ctr', 'aes192-ctr', 'aes256-ctr'],
-              hmac: ['hmac-sha2-256', 'hmac-sha2-512'],
-              kex: ['diffie-hellman-group14-sha256', 'ecdh-sha2-nistp256']
-            },
+            // Remove algorithms specification to use defaults
             debug: (info) => console.log('SFTP Debug:', info)
           };
           
-          console.log('Connecting to SFTP server...');
+          console.log('Connecting to SFTP server with simplified config...');
           await sftp.connect(connectConfig);
           
           console.log('SFTP connection established');
@@ -222,14 +225,16 @@ Deno.serve(async (req) => {
           console.error('Error details:', {
             message: sftpError.message,
             code: sftpError.code,
-            stack: sftpError.stack?.substring(0, 500)
+            name: sftpError.name
           });
           
           // More specific error handling
-          if (sftpError.message.includes('privateKey') || sftpError.message.includes('key format')) {
-            errorMessage = `SSH private key format error: ${sftpError.message}. Please ensure the key is in PEM format.`;
+          if (sftpError.message.includes('privateKey') || sftpError.message.includes('key format') || sftpError.message.includes('Unsupported key format')) {
+            errorMessage = `SSH private key format error: ${sftpError.message}. The key must be in traditional PEM format (RSA/PKCS#8). OpenSSH format is not supported.`;
           } else if (sftpError.message.includes('connect') || sftpError.message.includes('timeout')) {
             errorMessage = `Connection failed: ${sftpError.message}. Check host, port, and network connectivity.`;
+          } else if (sftpError.message.includes('authentication') || sftpError.message.includes('login')) {
+            errorMessage = `Authentication failed: ${sftpError.message}. Check username and private key.`;
           } else {
             errorMessage = `SFTP upload failed: ${sftpError.message}`;
           }
