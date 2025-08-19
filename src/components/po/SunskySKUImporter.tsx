@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { DatePickerWithRange } from "@/components/ui/date-range-picker";
-import { Search, Plus, Download, AlertCircle, CheckCircle2, Package, Globe, Calendar, RefreshCw, Filter, Grid, List, Settings, Eye, Save, RotateCcw, Play, Pause, X, PauseCircle, PlayCircle, XCircle } from "lucide-react";
+import { Search, Plus, Download, AlertCircle, CheckCircle2, Package, Globe, Calendar, RefreshCw, Filter, Grid, List, Settings, Eye, Save, RotateCcw, Play, Pause, X, PauseCircle, PlayCircle, XCircle, Trash2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -313,6 +313,32 @@ export const SunskySKUImporter: React.FC = () => {
       toast({
         title: "Error",
         description: "Failed to cancel job",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const clearAllSKUs = async () => {
+    try {
+      const { error } = await supabase
+        .from('sunsky_skus')
+        .delete()
+        .eq('user_id', profile?.id);
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Success",
+        description: "All imported SKUs have been cleared"
+      });
+      
+      // Refresh the SKU list
+      fetchSKUs(1, false);
+    } catch (error) {
+      console.error('Error clearing SKUs:', error);
+      toast({
+        title: "Error",
+        description: "Failed to clear SKUs",
         variant: "destructive"
       });
     }
@@ -1482,6 +1508,16 @@ export const SunskySKUImporter: React.FC = () => {
                     >
                       <RefreshCw className="h-4 w-4 mr-2" />
                       Refresh
+                    </Button>
+                    
+                    <Button 
+                      onClick={clearAllSKUs}
+                      variant="destructive"
+                      size="sm"
+                      disabled={sunskySKUs.length === 0}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Clear All
                     </Button>
                   </div>
                 </div>

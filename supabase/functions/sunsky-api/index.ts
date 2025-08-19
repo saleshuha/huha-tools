@@ -1215,11 +1215,26 @@ serve(async (req) => {
           if (productResult.result === 'success' && productResult.data) {
             const product = productResult.data;
             
-            // Convert price to user's currency
-            const convertedCost = await convertCurrency(
-              parseFloat(product.price || 0),
-              userCountry
-            );
+            // Store all product data as JSONB for complete information
+            const fullProductData = {
+              itemNo: product.itemNo,
+              name: product.name,
+              brandName: product.brandName,
+              category: product.category,
+              price: product.price,
+              unitWeight: product.unitWeight,
+              leadTime: product.leadTime,
+              warehouse: product.warehouse,
+              stock: product.stock,
+              moq: product.moq,
+              keywords: product.keywords,
+              description: product.description,
+              images: product.images,
+              specifications: product.specifications,
+              packageInfo: product.packageInfo,
+              convertedPrice: convertedCost,
+              convertedCurrency: userCountry === 'KSA' ? 'SAR' : 'AED'
+            };
 
             processedSKUs.push({
               user_id: user.id,
@@ -1229,7 +1244,8 @@ serve(async (req) => {
               weight: product.unitWeight ? parseFloat(product.unitWeight) : null,
               description: `Imported from Sunsky - Lead Time: ${product.leadTime || 'N/A'}`,
               currency: userCountry === 'KSA' ? 'SAR' : 'AED',
-              country: userCountry
+              country: userCountry,
+              product_data: fullProductData
             });
           }
           } catch (error) {
