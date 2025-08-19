@@ -22,34 +22,25 @@ async function md5(text: string): Promise<string> {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
 }
 
-// Generate signature for Sunsky API (official format from documentation)
+// Generate signature for Sunsky API (based on working Python implementation)
 async function generateSignature(params: Record<string, any>, key: string, secret: string): Promise<string> {
-  // Filter out empty/null values and add key
-  const filteredParams: Record<string, string> = {};
-  Object.keys(params).forEach(k => {
-    if (params[k] !== null && params[k] !== undefined && params[k] !== '') {
-      filteredParams[k] = String(params[k]);
-    }
-  });
-  filteredParams.key = key;
+  // Add key to parameters
+  const paramsWithKey = { ...params, key };
   
-  // Sort by parameter names alphabetically
-  const sortedKeys = Object.keys(filteredParams).sort();
+  // Sort parameters by key names alphabetically (__ksort in Python implementation)
+  const sortedEntries = Object.entries(paramsWithKey).sort(([a], [b]) => a.localeCompare(b));
   
-  // According to Sunsky docs: concatenate VALUES (not key=value) sorted by parameter names
-  // Example: 19mailMYKEYJohn Smith (age=19, gender=mail, key=MYKEY, name=John Smith)
-  const valueString = sortedKeys
-    .map(k => filteredParams[k])
-    .join('');
+  // Concatenate only the VALUES in sorted order (signature += item[1] in Python)
+  const valueString = sortedEntries.map(([_, value]) => String(value)).join('');
   
-  // Append '@' and secret: 19mailMYKEYJohn Smith@MYSECRET
+  // Append '@' and secret (f'{signature}@{self.secret}' in Python)
   const stringToHash = valueString + '@' + secret;
   
   // Safe logging (mask sensitive data)
-  const safeParams = { ...filteredParams };
+  const safeParams = { ...paramsWithKey };
   if (safeParams.key) safeParams.key = safeParams.key.substring(0, 4) + '***';
-  console.log('Parameters for signature:', safeParams);
-  console.log('Sunsky signature format: concatenated values + @secret');
+  console.log('Parameters for signature (sorted):', Object.fromEntries(sortedEntries.map(([k, v]) => [k, k === 'key' ? safeParams.key : v])));
+  console.log('Value string (masked):', valueString.replace(key, safeParams.key));
   console.log('String to hash (masked):', valueString.replace(key, safeParams.key) + '@***');
   
   const signature = await md5(stringToHash);
