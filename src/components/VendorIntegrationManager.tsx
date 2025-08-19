@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -693,50 +694,167 @@ export function VendorIntegrationManager() {
               </>
             ) : (
               <>
-                {/* AS2 Configuration */}
-                <div className="space-y-4 p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200/50">
-                  <h4 className="font-medium text-orange-700 dark:text-orange-300 flex items-center gap-2">
-                    <Shield className="w-4 h-4" />
-                    AS2 Connection Settings
-                  </h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="as2_endpoint_url">AS2 Endpoint URL</Label>
+                {/* AS2 Configuration - Connection Details */}
+                <div className="space-y-6">
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-medium text-foreground">Connection Details</h4>
+                    
+                    <div>
+                      <Label htmlFor="vendor_name_as2">Connection name</Label>
                       <Input
-                        id="as2_endpoint_url"
-                        value={formData.as2_endpoint_url}
-                        onChange={(e) => setFormData({ ...formData, as2_endpoint_url: e.target.value })}
-                        placeholder="https://as2.amazonaws.com/endpoint"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="as2_partner_id">Partner ID</Label>
-                      <Input
-                        id="as2_partner_id"
-                        value={formData.as2_partner_id}
-                        onChange={(e) => setFormData({ ...formData, as2_partner_id: e.target.value })}
-                        placeholder="Amazon Partner ID"
+                        id="vendor_name_as2"
+                        value={formData.vendor_name}
+                        onChange={(e) => setFormData({ ...formData, vendor_name: e.target.value })}
+                        placeholder="ZUS11_AS2_20250819T115104905"
                       />
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="as2_sender_id">Your AS2 ID (Sender)</Label>
+
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-medium text-foreground">Your AS2 server</h4>
+                    
+                    <div>
+                      <Label htmlFor="as2_sender_id">Your AS2 ID</Label>
                       <Input
                         id="as2_sender_id"
                         value={formData.as2_sender_id}
                         onChange={(e) => setFormData({ ...formData, as2_sender_id: e.target.value })}
-                        placeholder="Your AS2 identifier"
+                        placeholder="YOUR_COMPANY_AS2_ID"
                       />
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="as2_receiver_id">Amazon AS2 ID (Receiver)</Label>
+
+                    <div>
+                      <Label htmlFor="as2_endpoint_url">Your AS2 URL</Label>
+                      <Input
+                        id="as2_endpoint_url"
+                        value={formData.as2_endpoint_url}
+                        onChange={(e) => setFormData({ ...formData, as2_endpoint_url: e.target.value })}
+                        placeholder="https://your-domain.com/as2"
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="as2_mdn_receipt_type">Your MDN receipt type</Label>
+                      <Select value={formData.as2_mdn_required ? 'synchronous' : 'asynchronous'} onValueChange={(value) => setFormData({ ...formData, as2_mdn_required: value === 'synchronous', as2_async_mdn: value === 'asynchronous' })}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="synchronous">Synchronous</SelectItem>
+                          <SelectItem value="asynchronous">Asynchronous</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="as2_signature_algorithm">Your message signing algorithm</Label>
+                      <Select value={formData.as2_signature_algorithm} onValueChange={(value) => setFormData({ ...formData, as2_signature_algorithm: value })}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="SHA1">SHA-1</SelectItem>
+                          <SelectItem value="SHA256">SHA-256</SelectItem>
+                          <SelectItem value="SHA384">SHA-384</SelectItem>
+                          <SelectItem value="SHA512">SHA-512</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="as2_encryption_algorithm">Your message encryption algorithm</Label>
+                      <Select value={formData.as2_encryption_algorithm} onValueChange={(value) => setFormData({ ...formData, as2_encryption_algorithm: value })}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="AES128">AES 128</SelectItem>
+                          <SelectItem value="AES192">AES 192</SelectItem>
+                          <SelectItem value="AES256">AES 256</SelectItem>
+                          <SelectItem value="3DES">3DES</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-medium text-foreground">Your certificate</h4>
+                    
+                    <div>
+                      <Label htmlFor="as2_certificate_path">Certificate File</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="as2_certificate_path"
+                          value={formData.as2_certificate_path}
+                          onChange={(e) => setFormData({ ...formData, as2_certificate_path: e.target.value })}
+                          placeholder="Upload or specify certificate path"
+                          className="flex-1"
+                        />
+                        <Button type="button" variant="outline" className="bg-warning text-warning-foreground hover:bg-warning/90">
+                          Browse
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="as2_private_key_path">Private Key File</Label>
+                      <Input
+                        id="as2_private_key_path"
+                        value={formData.as2_private_key_path}
+                        onChange={(e) => setFormData({ ...formData, as2_private_key_path: e.target.value })}
+                        placeholder="Upload or specify private key path"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-medium text-foreground">Amazon Configuration</h4>
+                    
+                    <div>
+                      <Label htmlFor="as2_partner_id">Amazon AS2 ID</Label>
+                      <Input
+                        id="as2_partner_id"
+                        value={formData.as2_partner_id}
+                        onChange={(e) => setFormData({ ...formData, as2_partner_id: e.target.value })}
+                        placeholder="Will be provided by Amazon after saving"
+                        disabled
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">Amazon will provide this after you save the connection</p>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="as2_receiver_id">Amazon AS2 Receiver ID</Label>
                       <Input
                         id="as2_receiver_id"
                         value={formData.as2_receiver_id}
                         onChange={(e) => setFormData({ ...formData, as2_receiver_id: e.target.value })}
-                        placeholder="Amazon AS2 identifier"
+                        placeholder="Will be provided by Amazon after saving"
+                        disabled
                       />
+                      <p className="text-xs text-muted-foreground mt-1">Amazon will provide this after you save the connection</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="as2_compression"
+                          checked={formData.as2_compression}
+                          onCheckedChange={(checked) => setFormData({ ...formData, as2_compression: checked as boolean })}
+                        />
+                        <Label htmlFor="as2_compression">Enable Compression</Label>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="as2_retry_count">Retry Count</Label>
+                        <Input
+                          id="as2_retry_count"
+                          type="number"
+                          value={formData.as2_retry_count}
+                          onChange={(e) => setFormData({ ...formData, as2_retry_count: parseInt(e.target.value) || 3 })}
+                          min="1"
+                          max="10"
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
