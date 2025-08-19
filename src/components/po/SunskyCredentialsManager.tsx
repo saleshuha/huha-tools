@@ -26,6 +26,7 @@ export const SunskyCredentialsManager: React.FC<SunskyCredentialsManagerProps> =
   const [testing, setTesting] = useState(false);
   const [hasCredentials, setHasCredentials] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'unknown' | 'connected' | 'disconnected'>('unknown');
+  const [lastTested, setLastTested] = useState<Date | null>(null);
 
   useEffect(() => {
     checkCredentialsStatus();
@@ -113,6 +114,7 @@ export const SunskyCredentialsManager: React.FC<SunskyCredentialsManagerProps> =
           description: "Your Sunsky API credentials are working correctly",
         });
         setConnectionStatus('connected');
+        setLastTested(new Date());
       } else {
         toast({
           title: "Connection Failed",
@@ -120,6 +122,7 @@ export const SunskyCredentialsManager: React.FC<SunskyCredentialsManagerProps> =
           variant: "destructive",
         });
         setConnectionStatus('disconnected');
+        setLastTested(new Date());
       }
     } catch (error) {
       console.error('Error testing connection:', error);
@@ -173,7 +176,14 @@ export const SunskyCredentialsManager: React.FC<SunskyCredentialsManagerProps> =
               Configure your Sunsky API credentials to import products
             </CardDescription>
           </div>
-          {getStatusBadge()}
+          <div className="flex flex-col items-end gap-1">
+            {getStatusBadge()}
+            {lastTested && (
+              <span className="text-xs text-muted-foreground">
+                Last tested: {lastTested.toLocaleTimeString()}
+              </span>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">

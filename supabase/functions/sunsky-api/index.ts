@@ -19,25 +19,34 @@ async function md5(text: string): Promise<string> {
   const data = encoder.encode(text);
   const hashBuffer = await crypto.subtle.digest('MD5', data);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
 }
 
-// Generate signature for Sunsky API
+// Generate signature for Sunsky API (fixed format)
 async function generateSignature(params: Record<string, any>, key: string, secret: string): Promise<string> {
-  // Add key to params for signature calculation
-  const allParams = { ...params, key };
+  // Filter out empty/null values and add key
+  const filteredParams: Record<string, string> = {};
+  Object.keys(params).forEach(k => {
+    if (params[k] !== null && params[k] !== undefined && params[k] !== '') {
+      filteredParams[k] = String(params[k]);
+    }
+  });
+  filteredParams.key = key;
   
-  // Sort parameters by key name and create query string format
-  const sortedKeys = Object.keys(allParams).sort();
+  // Sort by keys and create string without separators (keyvalue format)
+  const sortedKeys = Object.keys(filteredParams).sort();
   const paramString = sortedKeys
-    .map(k => `${k}=${allParams[k]}`)
-    .join('&');
+    .map(k => `${k}${filteredParams[k]}`)
+    .join('');
   
-  // Append secret to create the string to hash
+  // Append secret
   const stringToHash = paramString + secret;
   
-  console.log('Parameters for signature:', allParams);
-  console.log('String to hash:', stringToHash);
+  // Safe logging (mask sensitive data)
+  const safeParams = { ...filteredParams };
+  if (safeParams.key) safeParams.key = safeParams.key.substring(0, 4) + '***';
+  console.log('Parameters for signature:', safeParams);
+  console.log('String format: keyvalue pairs + secret');
   
   return await md5(stringToHash);
 }
@@ -74,19 +83,20 @@ async function getApiCredentials(userId: string): Promise<{ key: string; secret:
   };
 }
 
-// Make authenticated request to Sunsky API
+// Make authenticated request to Sunsky API with fallback
 async function makeSunskyRequest(endpoint: string, params: Record<string, any>, key: string, secret: string) {
   const signature = await generateSignature(params, key, secret);
   
-  const requestBody = new URLSearchParams({
+  // Try with 'sign' parameter first (correct format)
+  let requestBody = new URLSearchParams({
     ...params,
     key,
-    signature
+    sign: signature
   });
 
   console.log(`Making request to: https://open.sunsky-online.com${endpoint}`);
   
-  const response = await fetch(`https://open.sunsky-online.com${endpoint}`, {
+  let response = await fetch(`https://open.sunsky-online.com${endpoint}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
@@ -95,10 +105,41 @@ async function makeSunskyRequest(endpoint: string, params: Record<string, any>, 
   });
 
   if (!response.ok) {
-    throw new Error(`Sunsky API error: ${response.status} ${response.statusText}`);
+    throw new Error(`Sunsky API HTTP error: ${response.status} ${response.statusText}`);
   }
 
-  return await response.json();
+  let result = await response.json();
+  
+  // If signature error, try fallback with 'signature' parameter
+  if (result.result === 'error' && result.messages?.[0]?.includes('SIGNATURE')) {
+    console.log('Retrying with signature parameter...');
+    requestBody = new URLSearchParams({
+      ...params,
+      key,
+      signature
+    });
+    
+    response = await fetch(`https://open.sunsky-online.com${endpoint}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: requestBody
+    });
+
+    if (!response.ok) {
+      throw new Error(`Sunsky API HTTP error: ${response.status} ${response.statusText}`);
+    }
+
+    result = await response.json();
+  }
+
+  if (result.result === 'error') {
+    console.error('Sunsky API Error:', result);
+    throw new Error(result.messages?.[0] || 'Sunsky API returned an error');
+  }
+
+  return result;
 }
 
 // Convert USD price to user's currency
