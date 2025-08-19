@@ -254,19 +254,12 @@ export function Replenishment() {
         .eq('quantity', 0)
         .neq('status', 'ordered');
         
-      // Get SKU inventory items that need restocking (quantity = 0 and not ordered)  
-      const skuQuery = supabase.from('sku_inventory')
-        .select('id, sku_number, bin_serial_number, quantity, status, last_restock_date, date_sold, date_added')
-        .eq('country', selectedCountry)
-        .eq('quantity', 0)
-        .neq('status', 'ordered');
-        
-      const [asinResult, skuResult] = await Promise.all([asinQuery, skuQuery]);
+      // SKU functionality removed - only process ASIN items        
+      const asinResult = await asinQuery;
       
       if (asinResult.error) throw asinResult.error;
-      if (skuResult.error) throw skuResult.error;
       
-      // Process ASIN items
+      // Process ASIN items only
       const asinItems = (asinResult.data || []).map(item => ({
         id: item.id,
         identifier: `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}`,
@@ -279,20 +272,7 @@ export function Replenishment() {
           Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null
       }));
       
-      // Process SKU items
-      const skuItems = (skuResult.data || []).map(item => ({
-        id: item.id,
-        identifier: `SKU: ${item.sku_number} (${item.bin_serial_number})`,
-        current_quantity: item.quantity,
-        table_name: 'sku_inventory', 
-        status: item.status,
-        date_sold: item.date_sold,
-        last_restock_date: item.last_restock_date,
-        days_since_last_restock: item.last_restock_date ?
-          Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null
-      }));
-      
-      const allItems = [...asinItems, ...skuItems];
+      const allItems = asinItems;
       console.log('Processed restock items:', allItems);
       setRestockItems(allItems);
       console.log('Set restock items for', selectedCountry, ':', allItems.length, 'items');
@@ -315,9 +295,7 @@ export function Replenishment() {
         supabase.from('asin_inventory')
           .select('id, asin, serial_number, quantity, status, sku, last_restock_date, date_sold, date_added, notes')
           .eq('country', selectedCountry),
-        supabase.from('sku_inventory')
-          .select('id, sku_number, bin_serial_number, quantity, status, last_restock_date, date_sold, date_added')
-          .eq('country', selectedCountry)
+        // SKU functionality removed
       ]);
       
       if (asinAll.error) {
@@ -712,21 +690,15 @@ export function Replenishment() {
   // Load ordered items separately for analytics and display
   const loadOrderedItems = async () => {
     try {
-      const [asinOrdered, skuOrdered] = await Promise.all([
-        supabase.from('asin_inventory')
-          .select('id, asin, serial_number, quantity, status, sku, last_restock_date, date_sold, date_added')
-          .eq('country', selectedCountry)
-          .eq('status', 'ordered')
-          .eq('quantity', 0), 
-        supabase.from('sku_inventory')
-          .select('id, sku_number, bin_serial_number, quantity, status, last_restock_date, date_sold, date_added')
-          .eq('country', selectedCountry)
-          .eq('status', 'ordered')
-          .eq('quantity', 0)
-      ]);
+      const asinOrdered = await supabase.from('asin_inventory')
+        .select('id, asin, serial_number, quantity, status, sku, last_restock_date, date_sold, date_added')
+        .eq('country', selectedCountry)
+        .eq('status', 'ordered')
+        .eq('quantity', 0);
+      
       if (asinOrdered.error) throw asinOrdered.error;
-      if (skuOrdered.error) throw skuOrdered.error;
-      const orderedItemsData = [...(asinOrdered.data || []).map(item => ({
+      
+      const orderedItemsData = (asinOrdered.data || []).map(item => ({
         id: item.id,
         identifier: `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}`,
         current_quantity: item.quantity,
@@ -735,16 +707,7 @@ export function Replenishment() {
         date_sold: item.date_sold,
         last_restock_date: item.last_restock_date,
         days_since_last_restock: item.last_restock_date ? Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null
-      })), ...(skuOrdered.data || []).map(item => ({
-        id: item.id,
-        identifier: `${item.sku_number} (${item.bin_serial_number})`,
-        current_quantity: item.quantity,
-        table_name: 'sku_inventory',
-        status: item.status,
-        date_sold: item.date_sold,
-        last_restock_date: item.last_restock_date,
-        days_since_last_restock: item.last_restock_date ? Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null
-      }))];
+      }));
       return orderedItemsData;
     } catch (error: any) {
       console.error('Error loading ordered items:', error);

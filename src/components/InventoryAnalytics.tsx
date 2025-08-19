@@ -87,7 +87,7 @@ export function InventoryAnalytics() {
   const generateSimplifiedForecast = async () => {
     try {
       // Get basic inventory data with simple calculations - limit to prevent slowness
-      const [asinData, skuData] = await Promise.all([supabase.from('asin_inventory').select('id, asin, serial_number, quantity, last_restock_date').eq('country', selectedCountry).gt('quantity', 0).limit(50), supabase.from('sku_inventory').select('id, sku_number, bin_serial_number, quantity, last_restock_date').eq('country', selectedCountry).gt('quantity', 0).limit(50)]);
+      const [asinData] = await Promise.all([supabase.from('asin_inventory').select('id, asin, serial_number, quantity, last_restock_date').eq('country', selectedCountry).gt('quantity', 0).limit(50)]);
       const forecasts: ReplenishmentForecast[] = [];
 
       // Simple forecast logic for ASINs
@@ -96,11 +96,7 @@ export function InventoryAnalytics() {
         if (forecast) forecasts.push(forecast);
       });
 
-      // Simple forecast logic for SKUs
-      (skuData.data || []).forEach(item => {
-        const forecast = generateSimpleItemForecast(item, 'sku');
-        if (forecast) forecasts.push(forecast);
-      });
+      // SKU functionality removed
       setForecastData(forecasts.sort((a, b) => a.daysToStockOut - b.daysToStockOut));
     } catch (error: any) {
       console.error('Simplified forecast error:', error);

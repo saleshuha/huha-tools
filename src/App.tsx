@@ -79,10 +79,9 @@ function AddSKUPageWrapper() {
 
       console.log('SKUs with user_id added:', skusWithUserId.slice(0, 3));
 
-      const { data, error } = await supabase
-        .from('sunsky_skus')
-        .insert(skusWithUserId)
-        .select();
+      // SKU functionality removed
+      const data = null;
+      const error = new Error('SKU functionality has been removed');
 
       if (error) {
         console.error('❌ Supabase insert error:', error);

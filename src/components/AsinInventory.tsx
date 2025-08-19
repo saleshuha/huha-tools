@@ -690,12 +690,9 @@ export function AsinInventory() {
                       </td>
                        <td className="p-4 font-mono text-sm">{item.asin}</td>
                        <td className="p-4 font-mono text-sm">{item.serialNumber}</td>
-                       <td className="p-4">
-                         <SkuEditor 
-                           currentSku={item.sku} 
-                           onUpdate={(newSku) => updateSku(item.id, newSku)} 
-                         />
-                       </td>
+                        <td className="p-4">
+                          <span className="text-sm text-muted-foreground">{item.sku || 'No SKU'}</span>
+                        </td>
                        <td className="p-4">
                         <Badge variant={item.status === 'in-stock' ? 'default' : item.status === 'sold' ? 'secondary' : item.status === 'reserved' ? 'outline' : 'destructive'}>
                           {item.status.replace('-', ' ').toUpperCase()}
@@ -753,11 +750,8 @@ export function AsinInventory() {
                        <p className="font-mono text-sm">{item.serialNumber}</p>
                      </div>
                      <div>
-                       <Label className="text-xs text-muted-foreground">SKU</Label>
-                       <SkuEditor 
-                         currentSku={item.sku} 
-                         onUpdate={(newSku) => updateSku(item.id, newSku)} 
-                       />
+                        <Label className="text-xs text-muted-foreground">SKU</Label>
+                        <span className="text-sm">{item.sku || 'No SKU'}</span>
                      </div>
                     <div>
                       <Label className="text-xs text-muted-foreground">Quantity</Label>
