@@ -174,6 +174,12 @@ export const SunskySKUImporter: React.FC = () => {
   const [jobsCurrentPage, setJobsCurrentPage] = useState(1);
   const [jobsPerPage] = useState(5);
   
+  // API selection
+  const [availableAPIs, setAvailableAPIs] = useState<Array<{id: string, name: string, is_active: boolean}>>([]);
+  const [selectedAPI, setSelectedAPI] = useState<string>('');
+  const [selectedSearchAPI, setSelectedSearchAPI] = useState<string>('');
+  const [selectedJobAPI, setSelectedJobAPI] = useState<string>('');
+  
   // SKU table column management
   const [skuTableHeaders, setSkuTableHeaders] = useState<string[]>([
     'sku_code', 'title', 'cost', 'currency', 'country', 'created_at'
@@ -310,6 +316,37 @@ export const SunskySKUImporter: React.FC = () => {
     }
   };
 
+  // Load available APIs
+  const loadAvailableAPIs = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('sunsky_credentials')
+        .select('id, api_key, is_active')
+        .eq('user_id', profile?.id)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      
+      const apis = (data || []).map((cred, index) => ({
+        id: cred.id,
+        name: `API Key ${index + 1} (${cred.api_key.substring(0, 8)}...)`,
+        is_active: cred.is_active
+      }));
+      
+      setAvailableAPIs(apis);
+      
+      // Set default selected API to first active one
+      const defaultAPI = apis.find(api => api.is_active)?.id || apis[0]?.id || '';
+      if (defaultAPI && !selectedAPI) {
+        setSelectedAPI(defaultAPI);
+        setSelectedSearchAPI(defaultAPI);
+        setSelectedJobAPI(defaultAPI);
+      }
+    } catch (error) {
+      console.error('Error loading APIs:', error);
+    }
+  };
+
   const checkCredentialsStatus = async () => {
     try {
       const { data, error } = await supabase
@@ -321,16 +358,23 @@ export const SunskySKUImporter: React.FC = () => {
       
       if (error) throw error;
       setHasCredentials(!!data);
+      
+      // Load available APIs when checking credentials
+      await loadAvailableAPIs();
     } catch (error) {
       console.error('Error checking credentials:', error);
       setHasCredentials(false);
     }
   };
 
-  const callSunskyAPI = async (action: string, data: any) => {
+  const callSunskyAPI = async (action: string, data: any, apiId?: string) => {
     try {
       const { data: result, error } = await supabase.functions.invoke('sunsky-api', {
-        body: { action, ...data }
+        body: { 
+          action, 
+          ...data,
+          apiId: apiId || selectedAPI // Use specified API or default
+        }
       });
 
       if (error) throw error;
@@ -341,7 +385,7 @@ export const SunskySKUImporter: React.FC = () => {
     }
   };
 
-  const loadCategories = async () => {
+  const loadCategories = async (apiId?: string) => {
     if (!hasCredentials) return;
     
     setFetchingCategories(true);
@@ -349,7 +393,7 @@ export const SunskySKUImporter: React.FC = () => {
       const result = await callSunskyAPI('getCategories', {
         mode: categoryFetchMode,
         modifiedSince: modifiedSinceDate
-      });
+      }, apiId);
       
       if (result.success) {
         setCategories(result.data || []);
@@ -372,14 +416,14 @@ export const SunskySKUImporter: React.FC = () => {
     }
   };
 
-  const loadSubCategories = async (categoryId: string) => {
+  const loadSubCategories = async (categoryId: string, apiId?: string) => {
     if (!hasCredentials || categoryId === 'all') {
       setSubCategories([]);
       return;
     }
     
     try {
-      const result = await callSunskyAPI('getSubCategories', { categoryId });
+      const result = await callSunskyAPI('getSubCategories', { categoryId }, apiId);
       
       if (result.success) {
         setSubCategories(result.data || []);
@@ -396,11 +440,11 @@ export const SunskySKUImporter: React.FC = () => {
     }
   };
 
-  const loadBrands = async () => {
+  const loadBrands = async (apiId?: string) => {
     if (!hasCredentials) return;
     
     try {
-      const result = await callSunskyAPI('getBrands', {});
+      const result = await callSunskyAPI('getBrands', {}, apiId);
       
       if (result.success) {
         setBrands(result.data || []);
@@ -417,7 +461,7 @@ export const SunskySKUImporter: React.FC = () => {
     }
   };
 
-  const searchProducts = async (page = 1) => {
+  const searchProducts = async (page = 1, apiId?: string) => {
     if (!hasCredentials) return;
     
     setLoading(true);
@@ -438,7 +482,7 @@ export const SunskySKUImporter: React.FC = () => {
         filters,
         page,
         pageSize: 20
-      });
+      }, apiId);
       
       if (result.success) {
         setProducts(result.data?.products || []);
@@ -639,20 +683,20 @@ export const SunskySKUImporter: React.FC = () => {
   }, [profile?.id, fetchSKUs, fetchJobs]);
 
   useEffect(() => {
-    if (hasCredentials) {
-      loadCategories();
-      loadBrands();
+    if (hasCredentials && selectedAPI) {
+      loadCategories(selectedAPI);
+      loadBrands(selectedAPI);
     }
-  }, [hasCredentials]);
+  }, [hasCredentials, selectedAPI]);
 
   useEffect(() => {
-    if (selectedCategory !== 'all') {
-      loadSubCategories(selectedCategory);
+    if (selectedCategory !== 'all' && selectedSearchAPI) {
+      loadSubCategories(selectedCategory, selectedSearchAPI);
     } else {
       setSubCategories([]);
       setSelectedSubCategory('all');
     }
-  }, [selectedCategory]);
+  }, [selectedCategory, selectedSearchAPI]);
 
   return (
     <div className="container mx-auto p-6 space-y-8">
@@ -695,6 +739,26 @@ export const SunskySKUImporter: React.FC = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* API Selection for Search */}
+              <div className="space-y-2">
+                <Label htmlFor="search-api">Select API for Search</Label>
+                <Select value={selectedSearchAPI} onValueChange={setSelectedSearchAPI}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose API credentials" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableAPIs.map((api) => (
+                      <SelectItem key={api.id} value={api.id}>
+                        <div className="flex items-center gap-2">
+                          <div className={`w-2 h-2 rounded-full ${api.is_active ? 'bg-green-500' : 'bg-red-500'}`} />
+                          {api.name}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="search">Search Term</Label>
@@ -819,8 +883,8 @@ export const SunskySKUImporter: React.FC = () => {
 
               <div className="flex items-center gap-4">
                 <Button
-                  onClick={() => searchProducts(1)}
-                  disabled={!hasCredentials || loading}
+                  onClick={() => searchProducts(1, selectedSearchAPI)}
+                  disabled={!hasCredentials || loading || !selectedSearchAPI}
                   className="flex items-center gap-2"
                 >
                   {loading ? (
@@ -1051,6 +1115,26 @@ export const SunskySKUImporter: React.FC = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
+                {/* API Selection for Jobs */}
+                <div className="space-y-2 mb-4">
+                  <Label htmlFor="job-api">Select API for Import Job</Label>
+                  <Select value={selectedJobAPI} onValueChange={setSelectedJobAPI}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose API credentials" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableAPIs.map((api) => (
+                        <SelectItem key={api.id} value={api.id}>
+                          <div className="flex items-center gap-2">
+                            <div className={`w-2 h-2 rounded-full ${api.is_active ? 'bg-green-500' : 'bg-red-500'}`} />
+                            {api.name}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 <div className="flex items-end gap-4">
                   <div className="flex-1 space-y-2">
                     <Label htmlFor="job-category">Category</Label>
@@ -1074,7 +1158,7 @@ export const SunskySKUImporter: React.FC = () => {
                         createCategoryImportJob(selectedCategory, category.name);
                       }
                     }}
-                    disabled={!hasCredentials || !selectedCategory || selectedCategory === 'all'}
+                    disabled={!hasCredentials || !selectedCategory || selectedCategory === 'all' || !selectedJobAPI}
                   >
                     <Plus className="h-4 w-4 mr-2" />
                     Create Job
@@ -1381,7 +1465,46 @@ export const SunskySKUImporter: React.FC = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <SunskyCredentialsManager onCredentialsChanged={checkCredentialsStatus} />
+                <div className="space-y-4">
+                  {/* API Management */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium">API Credentials Management</h3>
+                    <SunskyCredentialsManager onCredentialsChanged={checkCredentialsStatus} />
+                  </div>
+
+                  {/* Available APIs List */}
+                  {availableAPIs.length > 0 && (
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-medium">Available API Keys</h3>
+                      <div className="grid gap-3">
+                        {availableAPIs.map((api) => (
+                          <div key={api.id} className="flex items-center justify-between p-3 border rounded-lg">
+                            <div className="flex items-center gap-3">
+                              <div className={`w-3 h-3 rounded-full ${api.is_active ? 'bg-green-500' : 'bg-red-500'}`} />
+                              <span className="font-medium">{api.name}</span>
+                              <Badge variant={api.is_active ? 'default' : 'secondary'}>
+                                {api.is_active ? 'Active' : 'Inactive'}
+                              </Badge>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedAPI(api.id);
+                                  setSelectedSearchAPI(api.id);
+                                  setSelectedJobAPI(api.id);
+                                }}
+                              >
+                                Set as Default
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
             
@@ -1397,6 +1520,8 @@ export const SunskySKUImporter: React.FC = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
+                <SunskyCredentialsManager onCredentialsChanged={checkCredentialsStatus} />
+              </CardContent>
                 <div className="flex items-center gap-3">
                   <div className={`w-3 h-3 rounded-full ${hasCredentials ? 'bg-green-500' : 'bg-red-500'}`} />
                   <span className="font-medium">

@@ -1309,8 +1309,34 @@ serve(async (req) => {
         }
       }
 
+      case 'getBrands': {
+        const credentials = await getApiCredentials(user.id);
+        const { lang = 'en' } = requestData;
+
+        const params = { lang };
+
+        console.log('Getting brands with params:', params);
+
+        try {
+          const result = await makeSunskyRequest('/openapi/brand!getAll.do', params, credentials.key, credentials.secret, user.id);
+        
+          if (result.result === 'error') {
+            throw new Error(result.messages?.[0] || 'Sunsky API error');
+          }
+
+          return new Response(JSON.stringify(result), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        } catch (error) {
+          // Handle rate limit responses properly
+          if (error instanceof Response && error.status === 429) {
+            return error;
+          }
+          throw error;
+        }
+      }
+
       case 'createImportJob': {
-        const { type, criteria } = requestData;
         
         if (!type || !criteria) {
           throw new Error('type and criteria are required');
