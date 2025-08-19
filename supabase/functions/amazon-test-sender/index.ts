@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.5';
+import { connect } from 'https://deno.land/x/ssh2@v1.15.0/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -139,15 +140,52 @@ Deno.serve(async (req) => {
         console.log(`SSH fingerprint expected: ${integration.ssh_fingerprint_sending}`);
         console.log(`XML content length: ${xml_content.length} characters`);
 
-        // TODO: Implement real SFTP upload to Amazon
-        // This requires implementing actual SFTP client functionality
-        // For now, marking as failed since real upload is not implemented
-        console.log('REAL SFTP UPLOAD: Not yet implemented - would upload to Amazon SFTP server');
-        console.log('Amazon expects actual file transfer, not simulation');
+        // Implement real SFTP upload to Amazon
+        let uploadStatus = 'failed';
+        let errorMessage = '';
         
-        // Mark as failed until real SFTP is implemented
-        const uploadStatus = 'failed';
-        const errorMessage = 'Real SFTP upload not implemented yet - currently only simulation mode';
+        try {
+          console.log('Attempting real SFTP connection to Amazon...');
+          
+          // Create SSH connection
+          const ssh = await connect({
+            hostname: host,
+            port: port,
+            username: username,
+            privateKey: privateKey,
+            algorithms: {
+              serverHostKey: ['ssh-rsa', 'ssh-ed25519'],
+              cipher: ['aes128-ctr', 'aes128-gcm', 'aes256-ctr'],
+              hmac: ['hmac-sha2-256', 'hmac-sha1'],
+              kex: ['diffie-hellman-group14-sha256', 'diffie-hellman-group14-sha1']
+            },
+            readyTimeout: 30000,
+            keepaliveInterval: 10000
+          });
+          
+          console.log('SSH connection established, creating SFTP channel...');
+          
+          // Create SFTP channel
+          const sftp = await ssh.sftp();
+          
+          console.log(`Uploading file to remote path: ${remotePath}/${defaultFileName}`);
+          
+          // Upload file content
+          const remoteFilePath = `${remotePath}/${defaultFileName}`;
+          await sftp.writeFile(remoteFilePath, xml_content);
+          
+          console.log('File uploaded successfully to Amazon SFTP');
+          uploadStatus = 'sent';
+          
+          // Clean up connections
+          await sftp.end();
+          await ssh.end();
+          
+        } catch (sftpError) {
+          console.error('SFTP upload failed:', sftpError);
+          uploadStatus = 'failed';
+          errorMessage = `SFTP upload failed: ${sftpError.message}`;
+        }
 
         // Log the test send
         const { error: logError } = await supabase
@@ -160,6 +198,7 @@ Deno.serve(async (req) => {
             file_path: uploadData.path,
             status: uploadStatus,
             total_items: 1,
+            error_message: errorMessage || null,
             sent_at: new Date().toISOString(),
             acknowledged_at: null
           });
