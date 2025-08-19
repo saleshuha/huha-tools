@@ -22,7 +22,7 @@ async function md5(text: string): Promise<string> {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
 }
 
-// Generate signature for Sunsky API (fixed format)
+// Generate signature for Sunsky API (corrected format based on documentation)
 async function generateSignature(params: Record<string, any>, key: string, secret: string): Promise<string> {
   // Filter out empty/null values and add key
   const filteredParams: Record<string, string> = {};
@@ -33,22 +33,28 @@ async function generateSignature(params: Record<string, any>, key: string, secre
   });
   filteredParams.key = key;
   
-  // Sort by keys and create string without separators (keyvalue format)
+  // Sort by keys alphabetically
   const sortedKeys = Object.keys(filteredParams).sort();
-  const paramString = sortedKeys
-    .map(k => `${k}${filteredParams[k]}`)
-    .join('');
   
-  // Append secret
+  // Create string in format: key1=value1&key2=value2&...&secret
+  const paramString = sortedKeys
+    .map(k => `${k}=${filteredParams[k]}`)
+    .join('&');
+  
+  // Append secret directly (no & separator before secret)
   const stringToHash = paramString + secret;
   
   // Safe logging (mask sensitive data)
   const safeParams = { ...filteredParams };
   if (safeParams.key) safeParams.key = safeParams.key.substring(0, 4) + '***';
   console.log('Parameters for signature:', safeParams);
-  console.log('String format: keyvalue pairs + secret');
+  console.log('String to hash format: key1=value1&key2=value2&...secret');
+  console.log('String length:', stringToHash.length);
   
-  return await md5(stringToHash);
+  const signature = await md5(stringToHash);
+  console.log('Generated signature:', signature);
+  
+  return signature;
 }
 
 // Get API credentials for user (user-specific first, then fallback to env)
