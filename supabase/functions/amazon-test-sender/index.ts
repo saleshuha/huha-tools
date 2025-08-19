@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.5';
-import { connect } from 'https://deno.land/x/ssh2@v1.15.0/mod.ts';
+import SftpClient from 'npm:ssh2-sftp-client@10.0.3';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -147,39 +147,39 @@ Deno.serve(async (req) => {
         try {
           console.log('Attempting real SFTP connection to Amazon...');
           
-          // Create SSH connection
-          const ssh = await connect({
-            hostname: host,
+          // Create SFTP client
+          const sftp = new SftpClient();
+          
+          // Connection configuration
+          const connectConfig = {
+            host: host,
             port: port,
             username: username,
             privateKey: privateKey,
-            algorithms: {
-              serverHostKey: ['ssh-rsa', 'ssh-ed25519'],
-              cipher: ['aes128-ctr', 'aes128-gcm', 'aes256-ctr'],
-              hmac: ['hmac-sha2-256', 'hmac-sha1'],
-              kex: ['diffie-hellman-group14-sha256', 'diffie-hellman-group14-sha1']
-            },
             readyTimeout: 30000,
-            keepaliveInterval: 10000
-          });
+            strictVendor: false,
+            retries: 2,
+            retry_factor: 2,
+            retry_minTimeout: 2000
+          };
           
-          console.log('SSH connection established, creating SFTP channel...');
+          console.log('Connecting to SFTP server...');
+          await sftp.connect(connectConfig);
           
-          // Create SFTP channel
-          const sftp = await ssh.sftp();
-          
+          console.log('SFTP connection established');
           console.log(`Uploading file to remote path: ${remotePath}/${defaultFileName}`);
           
-          // Upload file content
+          // Upload file content 
           const remoteFilePath = `${remotePath}/${defaultFileName}`;
-          await sftp.writeFile(remoteFilePath, xml_content);
+          const buffer = new TextEncoder().encode(xml_content);
+          
+          await sftp.put(buffer, remoteFilePath);
           
           console.log('File uploaded successfully to Amazon SFTP');
           uploadStatus = 'sent';
           
-          // Clean up connections
+          // Close connection
           await sftp.end();
-          await ssh.end();
           
         } catch (sftpError) {
           console.error('SFTP upload failed:', sftpError);
