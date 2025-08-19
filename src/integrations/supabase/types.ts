@@ -1231,39 +1231,6 @@ export type Database = {
         }
         Relationships: []
       }
-      sku_costs: {
-        Row: {
-          cost: number
-          country: string
-          created_at: string
-          id: string
-          notes: string | null
-          sku: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          cost: number
-          country?: string
-          created_at?: string
-          id?: string
-          notes?: string | null
-          sku: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          cost?: number
-          country?: string
-          created_at?: string
-          id?: string
-          notes?: string | null
-          sku?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       sku_inventory: {
         Row: {
           bin_serial_number: string
@@ -1273,11 +1240,12 @@ export type Database = {
           date_sold: string | null
           id: string
           last_restock_date: string | null
+          notes: string | null
           quantity: number
           restock_date: string | null
           restock_quantity: number | null
           sku_number: string
-          status: Database["public"]["Enums"]["inventory_status"]
+          status: string
           updated_at: string
           user_id: string
         }
@@ -1289,11 +1257,12 @@ export type Database = {
           date_sold?: string | null
           id?: string
           last_restock_date?: string | null
+          notes?: string | null
           quantity?: number
           restock_date?: string | null
           restock_quantity?: number | null
           sku_number: string
-          status?: Database["public"]["Enums"]["inventory_status"]
+          status?: string
           updated_at?: string
           user_id: string
         }
@@ -1305,11 +1274,12 @@ export type Database = {
           date_sold?: string | null
           id?: string
           last_restock_date?: string | null
+          notes?: string | null
           quantity?: number
           restock_date?: string | null
           restock_quantity?: number | null
           sku_number?: string
-          status?: Database["public"]["Enums"]["inventory_status"]
+          status?: string
           updated_at?: string
           user_id?: string
         }
@@ -1402,48 +1372,13 @@ export type Database = {
         }
         Relationships: []
       }
-      sunsky_api_usage: {
-        Row: {
-          count: number
-          created_at: string
-          endpoint: string
-          id: string
-          key_hash: string
-          last_request: string
-          period: string
-          user_id: string | null
-          window_start: string
-        }
-        Insert: {
-          count?: number
-          created_at?: string
-          endpoint: string
-          id?: string
-          key_hash: string
-          last_request?: string
-          period: string
-          user_id?: string | null
-          window_start: string
-        }
-        Update: {
-          count?: number
-          created_at?: string
-          endpoint?: string
-          id?: string
-          key_hash?: string
-          last_request?: string
-          period?: string
-          user_id?: string | null
-          window_start?: string
-        }
-        Relationships: []
-      }
       sunsky_credentials: {
         Row: {
           api_key: string
           api_secret: string
           created_at: string
           id: string
+          is_active: boolean
           updated_at: string
           user_id: string
         }
@@ -1452,6 +1387,7 @@ export type Database = {
           api_secret: string
           created_at?: string
           id?: string
+          is_active?: boolean
           updated_at?: string
           user_id: string
         }
@@ -1460,6 +1396,7 @@ export type Database = {
           api_secret?: string
           created_at?: string
           id?: string
+          is_active?: boolean
           updated_at?: string
           user_id?: string
         }
@@ -1480,7 +1417,7 @@ export type Database = {
         }
         Insert: {
           cost?: number | null
-          country: string
+          country?: string
           created_at?: string
           currency?: string | null
           id?: string
@@ -1880,23 +1817,6 @@ export type Database = {
           unit_cost: number | null
           updated_at: string
           user_id: string
-        }[]
-      }
-      get_all_sunsky_skus: {
-        Args: { user_id_param: string }
-        Returns: {
-          cost: number
-          country: string
-          created_at: string
-          currency: string
-          description: string
-          id: string
-          notes: string
-          sku_code: string
-          title: string
-          updated_at: string
-          user_id: string
-          weight: number
         }[]
       }
       get_exchange_rate: {
