@@ -22,7 +22,7 @@ async function md5(text: string): Promise<string> {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
 }
 
-// Generate signature for Sunsky API (corrected format based on documentation)
+// Generate signature for Sunsky API - try multiple formats
 async function generateSignature(params: Record<string, any>, key: string, secret: string): Promise<string> {
   // Filter out empty/null values and add key
   const filteredParams: Record<string, string> = {};
@@ -36,25 +36,32 @@ async function generateSignature(params: Record<string, any>, key: string, secre
   // Sort by keys alphabetically
   const sortedKeys = Object.keys(filteredParams).sort();
   
-  // Create string in format: key1=value1&key2=value2&...&secret
-  const paramString = sortedKeys
-    .map(k => `${k}=${filteredParams[k]}`)
-    .join('&');
+  // Try format 1: key1value1key2value2secret (no separators)
+  const format1String = sortedKeys.map(k => `${k}${filteredParams[k]}`).join('') + secret;
   
-  // Append secret directly (no & separator before secret)
-  const stringToHash = paramString + secret;
+  // Try format 2: key1=value1&key2=value2secret (with equals and ampersands, but no & before secret)
+  const format2String = sortedKeys.map(k => `${k}=${filteredParams[k]}`).join('&') + secret;
+  
+  // Try format 3: key1=value1&key2=value2&secret (standard query string + secret)
+  const format3String = sortedKeys.map(k => `${k}=${filteredParams[k]}`).join('&') + '&' + secret;
   
   // Safe logging (mask sensitive data)
   const safeParams = { ...filteredParams };
   if (safeParams.key) safeParams.key = safeParams.key.substring(0, 4) + '***';
   console.log('Parameters for signature:', safeParams);
-  console.log('String to hash format: key1=value1&key2=value2&...secret');
-  console.log('String length:', stringToHash.length);
+  console.log('Trying multiple signature formats...');
   
-  const signature = await md5(stringToHash);
-  console.log('Generated signature:', signature);
+  // Generate signatures for all formats
+  const signature1 = await md5(format1String);
+  const signature2 = await md5(format2String);
+  const signature3 = await md5(format3String);
   
-  return signature;
+  console.log('Format 1 (keyvalue + secret):', signature1);
+  console.log('Format 2 (key=value&... + secret):', signature2);
+  console.log('Format 3 (key=value&...&secret):', signature3);
+  
+  // Return the first format as primary, others will be tried as fallbacks
+  return signature1;
 }
 
 // Get API credentials for user (user-specific first, then fallback to env)
@@ -89,19 +96,41 @@ async function getApiCredentials(userId: string): Promise<{ key: string; secret:
   };
 }
 
-// Make authenticated request to Sunsky API with fallback
+// Make authenticated request to Sunsky API with multiple signature format fallbacks
 async function makeSunskyRequest(endpoint: string, params: Record<string, any>, key: string, secret: string) {
-  const signature = await generateSignature(params, key, secret);
+  // Generate multiple signature formats
+  const filteredParams: Record<string, string> = {};
+  Object.keys(params).forEach(k => {
+    if (params[k] !== null && params[k] !== undefined && params[k] !== '') {
+      filteredParams[k] = String(params[k]);
+    }
+  });
+  filteredParams.key = key;
   
-  // Try with 'sign' parameter first (correct format)
+  const sortedKeys = Object.keys(filteredParams).sort();
+  
+  // Format 1: key1value1key2value2secret (no separators)
+  const format1String = sortedKeys.map(k => `${k}${filteredParams[k]}`).join('') + secret;
+  const signature1 = await md5(format1String);
+  
+  // Format 2: key1=value1&key2=value2secret (with equals and ampersands, but no & before secret)
+  const format2String = sortedKeys.map(k => `${k}=${filteredParams[k]}`).join('&') + secret;
+  const signature2 = await md5(format2String);
+  
+  // Format 3: key1=value1&key2=value2&secret (standard query string + secret)
+  const format3String = sortedKeys.map(k => `${k}=${filteredParams[k]}`).join('&') + '&' + secret;
+  const signature3 = await md5(format3String);
+  
+  console.log(`Making request to: https://open.sunsky-online.com${endpoint}`);
+  console.log('Trying signature format 1 (keyvalue + secret):', signature1);
+
+  // Try format 1 first
   let requestBody = new URLSearchParams({
     ...params,
     key,
-    sign: signature
+    sign: signature1
   });
 
-  console.log(`Making request to: https://open.sunsky-online.com${endpoint}`);
-  
   let response = await fetch(`https://open.sunsky-online.com${endpoint}`, {
     method: 'POST',
     headers: {
@@ -116,13 +145,61 @@ async function makeSunskyRequest(endpoint: string, params: Record<string, any>, 
 
   let result = await response.json();
   
-  // If signature error, try fallback with 'signature' parameter
+  // If format 1 fails with signature error, try format 2
   if (result.result === 'error' && result.messages?.[0]?.includes('SIGNATURE')) {
-    console.log('Retrying with signature parameter...');
+    console.log('Format 1 failed, trying format 2 (key=value&... + secret):', signature2);
     requestBody = new URLSearchParams({
       ...params,
       key,
-      signature
+      sign: signature2
+    });
+    
+    response = await fetch(`https://open.sunsky-online.com${endpoint}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: requestBody
+    });
+
+    if (!response.ok) {
+      throw new Error(`Sunsky API HTTP error: ${response.status} ${response.statusText}`);
+    }
+
+    result = await response.json();
+  }
+  
+  // If format 2 fails with signature error, try format 3
+  if (result.result === 'error' && result.messages?.[0]?.includes('SIGNATURE')) {
+    console.log('Format 2 failed, trying format 3 (key=value&...&secret):', signature3);
+    requestBody = new URLSearchParams({
+      ...params,
+      key,
+      sign: signature3
+    });
+    
+    response = await fetch(`https://open.sunsky-online.com${endpoint}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: requestBody
+    });
+
+    if (!response.ok) {
+      throw new Error(`Sunsky API HTTP error: ${response.status} ${response.statusText}`);
+    }
+
+    result = await response.json();
+  }
+  
+  // If still signature error, try with 'signature' parameter instead of 'sign'
+  if (result.result === 'error' && result.messages?.[0]?.includes('SIGNATURE')) {
+    console.log('All sign formats failed, trying with signature parameter...');
+    requestBody = new URLSearchParams({
+      ...params,
+      key,
+      signature: signature1
     });
     
     response = await fetch(`https://open.sunsky-online.com${endpoint}`, {
