@@ -73,6 +73,11 @@ const toolsItems = [
     title: "Noon File Cleaner",
     url: "/noon-file-cleaner",
     icon: Trash2
+  },
+  {
+    title: "Sunsky Importer",
+    url: "/sunsky-importer",
+    icon: Globe
   }
 ]
 
