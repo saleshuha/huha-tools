@@ -1556,9 +1556,22 @@ export type Database = {
       }
       vendor_integrations: {
         Row: {
+          as2_async_mdn: boolean | null
+          as2_certificate_path: string | null
+          as2_compression: boolean | null
+          as2_encryption_algorithm: string | null
+          as2_endpoint_url: string | null
+          as2_mdn_required: boolean | null
+          as2_partner_id: string | null
+          as2_private_key_path: string | null
+          as2_receiver_id: string | null
+          as2_retry_count: number | null
+          as2_sender_id: string | null
+          as2_signature_algorithm: string | null
           country: string
           created_at: string
           feed_schedule: string
+          firewall_ip_ranges: string[] | null
           id: string
           is_active: boolean
           primary_key_type: string
@@ -1578,9 +1591,22 @@ export type Database = {
           vendor_name: string
         }
         Insert: {
+          as2_async_mdn?: boolean | null
+          as2_certificate_path?: string | null
+          as2_compression?: boolean | null
+          as2_encryption_algorithm?: string | null
+          as2_endpoint_url?: string | null
+          as2_mdn_required?: boolean | null
+          as2_partner_id?: string | null
+          as2_private_key_path?: string | null
+          as2_receiver_id?: string | null
+          as2_retry_count?: number | null
+          as2_sender_id?: string | null
+          as2_signature_algorithm?: string | null
           country?: string
           created_at?: string
           feed_schedule?: string
+          firewall_ip_ranges?: string[] | null
           id?: string
           is_active?: boolean
           primary_key_type?: string
@@ -1600,9 +1626,22 @@ export type Database = {
           vendor_name?: string
         }
         Update: {
+          as2_async_mdn?: boolean | null
+          as2_certificate_path?: string | null
+          as2_compression?: boolean | null
+          as2_encryption_algorithm?: string | null
+          as2_endpoint_url?: string | null
+          as2_mdn_required?: boolean | null
+          as2_partner_id?: string | null
+          as2_private_key_path?: string | null
+          as2_receiver_id?: string | null
+          as2_retry_count?: number | null
+          as2_sender_id?: string | null
+          as2_signature_algorithm?: string | null
           country?: string
           created_at?: string
           feed_schedule?: string
+          firewall_ip_ranges?: string[] | null
           id?: string
           is_active?: boolean
           primary_key_type?: string

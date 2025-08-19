@@ -49,6 +49,18 @@ export function VendorIntegrationManager() {
     sftp_receive_remote_path: 'download',
     ssh_fingerprint_sending: '',
     ssh_fingerprint_receiving: '',
+    as2_endpoint_url: '',
+    as2_partner_id: '',
+    as2_sender_id: '',
+    as2_receiver_id: '',
+    as2_certificate_path: '',
+    as2_private_key_path: '',
+    as2_encryption_algorithm: 'AES128',
+    as2_signature_algorithm: 'SHA256',
+    as2_compression: false,
+    as2_mdn_required: true,
+    as2_async_mdn: false,
+    as2_retry_count: 3,
     country: selectedCountry,
     primary_key_type: 'SKU',
     feed_schedule: 'daily',
@@ -95,6 +107,18 @@ export function VendorIntegrationManager() {
       sftp_receive_remote_path: 'download',
       ssh_fingerprint_sending: '',
       ssh_fingerprint_receiving: '',
+      as2_endpoint_url: '',
+      as2_partner_id: '',
+      as2_sender_id: '',
+      as2_receiver_id: '',
+      as2_certificate_path: '',
+      as2_private_key_path: '',
+      as2_encryption_algorithm: 'AES128',
+      as2_signature_algorithm: 'SHA256',
+      as2_compression: false,
+      as2_mdn_required: true,
+      as2_async_mdn: false,
+      as2_retry_count: 3,
       country: selectedCountry,
       primary_key_type: 'SKU',
       feed_schedule: 'daily',
@@ -119,13 +143,25 @@ export function VendorIntegrationManager() {
       sftp_receive_remote_path: integration.sftp_receive_remote_path || 'download',
       ssh_fingerprint_sending: integration.ssh_fingerprint_sending || '',
       ssh_fingerprint_receiving: integration.ssh_fingerprint_receiving || '',
+      as2_endpoint_url: integration.as2_endpoint_url || '',
+      as2_partner_id: integration.as2_partner_id || '',
+      as2_sender_id: integration.as2_sender_id || '',
+      as2_receiver_id: integration.as2_receiver_id || '',
+      as2_certificate_path: integration.as2_certificate_path || '',
+      as2_private_key_path: integration.as2_private_key_path || '',
+      as2_encryption_algorithm: integration.as2_encryption_algorithm || 'AES128',
+      as2_signature_algorithm: integration.as2_signature_algorithm || 'SHA256',
+      as2_compression: integration.as2_compression || false,
+      as2_mdn_required: integration.as2_mdn_required !== false,
+      as2_async_mdn: integration.as2_async_mdn || false,
+      as2_retry_count: integration.as2_retry_count || 3,
       country: integration.country,
       primary_key_type: integration.primary_key_type,
       feed_schedule: integration.feed_schedule,
       is_active: integration.is_active,
     });
-    setSshKeyGenerated(!!integration.sftp_host);
-    setSshKeyUploaded(!!integration.sftp_host);
+    setSshKeyGenerated(!!integration.sftp_host || !!integration.as2_endpoint_url);
+    setSshKeyUploaded(!!integration.sftp_host || !!integration.as2_endpoint_url);
     setSetupStep(4);
     setEditingIntegration(integration.id);
   };
@@ -205,102 +241,205 @@ export function VendorIntegrationManager() {
           <div className="space-y-6">
             <div className="text-center">
               <Key className="w-16 h-16 mx-auto mb-4 text-primary" />
-              <h3 className="text-xl font-semibold mb-2">Generate SSH Key Pair</h3>
+              <h3 className="text-xl font-semibold mb-2">Choose Integration Method</h3>
               <p className="text-muted-foreground mb-6">
-                Amazon requires SSH key authentication for secure file transfers. We'll help you generate the required keys.
+                Select how you want to connect with Amazon. You can use SFTP (SSH File Transfer) or AS2 (Applicability Statement 2) protocol.
               </p>
             </div>
             
-            <div className="bg-muted/50 p-4 rounded-lg">
-              <h4 className="font-medium mb-3">What you'll need:</h4>
-              <ul className="space-y-2 text-sm">
-                <li className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-success" />
-                  <span>SSH key pair (we'll generate this for you)</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-success" />
-                  <span>Access to Amazon Vendor Central portal</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-success" />
-                  <span>SFTP connection details from Amazon</span>
-                </li>
-              </ul>
+            <div className="space-y-4">
+              <Label htmlFor="transport_method">Transport Method</Label>
+              <Select
+                value={formData.transport_method}
+                onValueChange={(value) => setFormData({ ...formData, transport_method: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="SFTP">SFTP (SSH File Transfer Protocol)</SelectItem>
+                  <SelectItem value="AS2">AS2 (Applicability Statement 2)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
+
+            {formData.transport_method === 'SFTP' ? (
+              <div className="bg-muted/50 p-4 rounded-lg">
+                <h4 className="font-medium mb-3">SFTP Setup Requirements:</h4>
+                <ul className="space-y-2 text-sm">
+                  <li className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-success" />
+                    <span>SSH key pair (we'll generate this for you)</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-success" />
+                    <span>Access to Amazon Vendor Central portal</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-success" />
+                    <span>SFTP connection details from Amazon</span>
+                  </li>
+                </ul>
+              </div>
+            ) : (
+              <div className="bg-muted/50 p-4 rounded-lg">
+                <h4 className="font-medium mb-3">AS2 Setup Requirements:</h4>
+                <ul className="space-y-2 text-sm">
+                  <li className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-success" />
+                    <span>Digital certificates for AS2 encryption/signing</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-success" />
+                    <span>Amazon AS2 endpoint details</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-success" />
+                    <span>Firewall configuration for Amazon IP ranges</span>
+                  </li>
+                </ul>
+                <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200/50">
+                  <h5 className="font-medium text-blue-700 dark:text-blue-300 mb-2">Required Firewall IP Ranges:</h5>
+                  <ul className="text-xs text-blue-600 dark:text-blue-400 space-y-1">
+                    <li>• 54.217.255.192/29</li>
+                    <li>• 54.217.255.200/30</li>
+                    <li>• 54.217.255.204/31</li>
+                    <li>• 54.195.239.0/28</li>
+                    <li>• 34.253.190.128/26</li>
+                  </ul>
+                </div>
+              </div>
+            )}
 
             <div className="flex justify-between">
               <Button variant="outline" onClick={() => setShowSetupDialog(false)}>
                 Cancel
               </Button>
               <Button onClick={() => {
-                setShowSSHInstructions(true);
-                setSshKeyGenerated(true);
-                setSetupStep(2);
+                if (formData.transport_method === 'SFTP') {
+                  setShowSSHInstructions(true);
+                  setSshKeyGenerated(true);
+                  setSetupStep(2);
+                } else {
+                  setSetupStep(2);
+                }
               }}>
-                <Key className="w-4 h-4 mr-2" />
-                Generate SSH Keys
+                {formData.transport_method === 'SFTP' ? (
+                  <>
+                    <Key className="w-4 h-4 mr-2" />
+                    Generate SSH Keys
+                  </>
+                ) : (
+                  <>
+                    <Shield className="w-4 h-4 mr-2" />
+                    Configure AS2
+                  </>
+                )}
               </Button>
             </div>
           </div>
         );
 
       case 2:
-        return (
-          <div className="space-y-6">
-            <div className="text-center">
-              <Shield className="w-16 h-16 mx-auto mb-4 text-primary" />
-              <h3 className="text-xl font-semibold mb-2">Store Your Private Key Securely</h3>
-              <p className="text-muted-foreground mb-6">
-                First, we need to store your private key securely in our encrypted system.
-              </p>
-            </div>
-            
-            <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg border border-red-200/50">
-              <h4 className="font-medium mb-3 text-red-700 dark:text-red-300">🔒 Security Notice:</h4>
-              <ul className="text-sm text-red-600 dark:text-red-400 space-y-1">
-                <li>• Copy your PRIVATE key content (not the .pub file)</li>
-                <li>• This key will be encrypted and stored securely</li>
-                <li>• Never share your private key with anyone else</li>
-                <li>• You can update this anytime in project settings</li>
-              </ul>
-            </div>
-
-            <div className="bg-muted/50 p-4 rounded-lg">
-              <h4 className="font-medium mb-3">Copy your private key:</h4>
-              <div className="bg-black p-3 rounded text-green-400 font-mono text-sm">
-                cat ~/.ssh/amazon_vendor_key
+        if (formData.transport_method === 'SFTP') {
+          return (
+            <div className="space-y-6">
+              <div className="text-center">
+                <Shield className="w-16 h-16 mx-auto mb-4 text-primary" />
+                <h3 className="text-xl font-semibold mb-2">Store Your Private Key Securely</h3>
+                <p className="text-muted-foreground mb-6">
+                  First, we need to store your private key securely in our encrypted system.
+                </p>
               </div>
-              <Button 
-                size="sm" 
-                variant="outline" 
-                className="mt-2"
-                onClick={() => copyToClipboard('cat ~/.ssh/amazon_vendor_key')}
-              >
-                <Copy className="w-4 h-4 mr-2" />
-                Copy Command
-              </Button>
-            </div>
+              
+              <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg border border-red-200/50">
+                <h4 className="font-medium mb-3 text-red-700 dark:text-red-300">🔒 Security Notice:</h4>
+                <ul className="text-sm text-red-600 dark:text-red-400 space-y-1">
+                  <li>• Copy your PRIVATE key content (not the .pub file)</li>
+                  <li>• This key will be encrypted and stored securely</li>
+                  <li>• Never share your private key with anyone else</li>
+                  <li>• You can update this anytime in project settings</li>
+                </ul>
+              </div>
 
-            <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200/50">
-              <p className="text-sm text-blue-700 dark:text-blue-300 mb-3">
-                We've set up a secure storage for your SSH private key. Click the button above to update it with your key content.
-              </p>
-              <p className="text-xs text-blue-600 dark:text-blue-400">
-                The secret "AMAZON_SFTP_PRIVATE_KEY" is ready to be configured.
-              </p>
-            </div>
+              <div className="bg-muted/50 p-4 rounded-lg">
+                <h4 className="font-medium mb-3">Copy your private key:</h4>
+                <div className="bg-black p-3 rounded text-green-400 font-mono text-sm">
+                  cat ~/.ssh/amazon_vendor_key
+                </div>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="mt-2"
+                  onClick={() => copyToClipboard('cat ~/.ssh/amazon_vendor_key')}
+                >
+                  <Copy className="w-4 h-4 mr-2" />
+                  Copy Command
+                </Button>
+              </div>
 
-            <div className="flex justify-between">
-              <Button variant="outline" onClick={() => setSetupStep(1)}>
-                Back
-              </Button>
-              <Button onClick={() => setSetupStep(3)}>
-                Private Key Stored - Next Step
-              </Button>
+              <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200/50">
+                <p className="text-sm text-blue-700 dark:text-blue-300 mb-3">
+                  We've set up a secure storage for your SSH private key. Click the button above to update it with your key content.
+                </p>
+                <p className="text-xs text-blue-600 dark:text-blue-400">
+                  The secret "AMAZON_SFTP_PRIVATE_KEY" is ready to be configured.
+                </p>
+              </div>
+
+              <div className="flex justify-between">
+                <Button variant="outline" onClick={() => setSetupStep(1)}>
+                  Back
+                </Button>
+                <Button onClick={() => setSetupStep(3)}>
+                  Private Key Stored - Next Step
+                </Button>
+              </div>
             </div>
-          </div>
-        );
+          );
+        } else {
+          return (
+            <div className="space-y-6">
+              <div className="text-center">
+                <Shield className="w-16 h-16 mx-auto mb-4 text-primary" />
+                <h3 className="text-xl font-semibold mb-2">Configure AS2 Certificates</h3>
+                <p className="text-muted-foreground mb-6">
+                  AS2 uses digital certificates for secure message exchange. We'll help you set up the required certificates.
+                </p>
+              </div>
+              
+              <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200/50">
+                <h4 className="font-medium mb-3 text-blue-700 dark:text-blue-300">📋 AS2 Setup Steps:</h4>
+                <ol className="space-y-2 text-sm text-blue-600 dark:text-blue-400">
+                  <li><strong>1.</strong> Generate your AS2 certificate and private key</li>
+                  <li><strong>2.</strong> Upload your public certificate to Amazon Vendor Central</li>
+                  <li><strong>3.</strong> Configure firewall to allow Amazon's IP ranges</li>
+                  <li><strong>4.</strong> Amazon will provide AS2 connection details</li>
+                  <li><strong>5.</strong> Configure endpoint URL and partner identifiers</li>
+                </ol>
+              </div>
+
+              <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg border border-yellow-200/50">
+                <h4 className="font-medium mb-2 text-yellow-700 dark:text-yellow-300">🔐 Certificate Requirements:</h4>
+                <ul className="text-sm text-yellow-600 dark:text-yellow-400 space-y-1">
+                  <li>• X.509 certificates in PEM format</li>
+                  <li>• RSA or ECDSA keys (2048-bit minimum)</li>
+                  <li>• Valid for at least 1 year</li>
+                  <li>• Subject Name should match your organization</li>
+                </ul>
+              </div>
+
+              <div className="flex justify-between">
+                <Button variant="outline" onClick={() => setSetupStep(1)}>
+                  Back
+                </Button>
+                <Button onClick={() => setSetupStep(3)}>
+                  Certificates Ready - Next Step
+                </Button>
+              </div>
+            </div>
+          );
+        }
 
       case 3:
         return (
@@ -383,17 +522,31 @@ export function VendorIntegrationManager() {
               <Settings className="w-16 h-16 mx-auto mb-4 text-primary" />
               <h3 className="text-xl font-semibold mb-2">Configure Amazon Connection</h3>
               <p className="text-muted-foreground">
-                Enter the SFTP connection details that Amazon provided after activating your SSH key
+                {formData.transport_method === 'SFTP' 
+                  ? 'Enter the SFTP connection details that Amazon provided after activating your SSH key'
+                  : 'Enter the AS2 endpoint details and certificate information provided by Amazon'
+                }
               </p>
             </div>
 
             <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-200/50">
               <h4 className="font-medium mb-3 text-green-700 dark:text-green-300">✅ Ready to Configure:</h4>
               <ul className="text-sm text-green-600 dark:text-green-400 space-y-1">
-                <li>• SSH private key stored securely</li>
-                <li>• Public key uploaded to Amazon</li>
-                <li>• Amazon has provided connection details</li>
-                <li>• Ready to configure integration</li>
+                {formData.transport_method === 'SFTP' ? (
+                  <>
+                    <li>• SSH private key stored securely</li>
+                    <li>• Public key uploaded to Amazon</li>
+                    <li>• Amazon has provided connection details</li>
+                    <li>• Ready to configure integration</li>
+                  </>
+                ) : (
+                  <>
+                    <li>• AS2 certificates configured</li>
+                    <li>• Certificate uploaded to Amazon</li>
+                    <li>• Amazon has provided AS2 endpoint details</li>
+                    <li>• Firewall configured for Amazon IP ranges</li>
+                  </>
+                )}
               </ul>
             </div>
 
@@ -405,6 +558,21 @@ export function VendorIntegrationManager() {
                   value={formData.vendor_name}
                   onChange={(e) => setFormData({ ...formData, vendor_name: e.target.value })}
                 />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="transport_method">Transport Method</Label>
+                <Select
+                  value={formData.transport_method}
+                  onValueChange={(value) => setFormData({ ...formData, transport_method: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="SFTP">SFTP (SSH File Transfer Protocol)</SelectItem>
+                    <SelectItem value="AS2">AS2 (Applicability Statement 2)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="primary_key_type">Primary Key Type</Label>
@@ -424,101 +592,246 @@ export function VendorIntegrationManager() {
               </div>
             </div>
 
-            {/* Sending Configuration */}
-            <div className="space-y-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200/50">
-              <h4 className="font-medium text-blue-700 dark:text-blue-300 flex items-center gap-2">
-                <Upload className="w-4 h-4" />
-                Sending to Amazon (Inventory Feeds)
-              </h4>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="sftp_host">SFTP Host</Label>
-                  <Input
-                    id="sftp_host"
-                    value={formData.sftp_host}
-                    onChange={(e) => setFormData({ ...formData, sftp_host: e.target.value })}
-                    placeholder="eu-sftp.amazonsedi.com"
-                  />
+            {/* Configuration based on transport method */}
+            {formData.transport_method === 'SFTP' ? (
+              <>
+                {/* SFTP Sending Configuration */}
+                <div className="space-y-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200/50">
+                  <h4 className="font-medium text-blue-700 dark:text-blue-300 flex items-center gap-2">
+                    <Upload className="w-4 h-4" />
+                    SFTP Sending to Amazon (Inventory Feeds)
+                  </h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="sftp_host">SFTP Host</Label>
+                      <Input
+                        id="sftp_host"
+                        value={formData.sftp_host}
+                        onChange={(e) => setFormData({ ...formData, sftp_host: e.target.value })}
+                        placeholder="eu-sftp.amazonsedi.com"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="sftp_username">Username</Label>
+                      <Input
+                        id="sftp_username"
+                        value={formData.sftp_username}
+                        onChange={(e) => setFormData({ ...formData, sftp_username: e.target.value })}
+                        placeholder="Amazon provided username"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="sftp_remote_path">Upload Directory</Label>
+                      <Input
+                        id="sftp_remote_path"
+                        value={formData.sftp_remote_path}
+                        onChange={(e) => setFormData({ ...formData, sftp_remote_path: e.target.value })}
+                        placeholder="upload"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="ssh_fingerprint_sending">SSH Fingerprint</Label>
+                      <Input
+                        id="ssh_fingerprint_sending"
+                        value={formData.ssh_fingerprint_sending}
+                        onChange={(e) => setFormData({ ...formData, ssh_fingerprint_sending: e.target.value })}
+                        placeholder="MD5 fingerprint from Amazon"
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="sftp_username">Username</Label>
-                  <Input
-                    id="sftp_username"
-                    value={formData.sftp_username}
-                    onChange={(e) => setFormData({ ...formData, sftp_username: e.target.value })}
-                    placeholder="Amazon provided username"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="sftp_remote_path">Upload Directory</Label>
-                  <Input
-                    id="sftp_remote_path"
-                    value={formData.sftp_remote_path}
-                    onChange={(e) => setFormData({ ...formData, sftp_remote_path: e.target.value })}
-                    placeholder="upload"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="ssh_fingerprint_sending">SSH Fingerprint</Label>
-                  <Input
-                    id="ssh_fingerprint_sending"
-                    value={formData.ssh_fingerprint_sending}
-                    onChange={(e) => setFormData({ ...formData, ssh_fingerprint_sending: e.target.value })}
-                    placeholder="MD5 fingerprint from Amazon"
-                  />
-                </div>
-              </div>
-            </div>
 
-            {/* Receiving Configuration */}
-            <div className="space-y-4 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200/50">
-              <h4 className="font-medium text-purple-700 dark:text-purple-300 flex items-center gap-2">
-                <Download className="w-4 h-4" />
-                Receiving from Amazon (Orders, Acknowledgments)
-              </h4>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="sftp_receive_host">SFTP Host</Label>
-                  <Input
-                    id="sftp_receive_host"
-                    value={formData.sftp_receive_host}
-                    onChange={(e) => setFormData({ ...formData, sftp_receive_host: e.target.value })}
-                    placeholder="eu-sftp.amazonsedi.com"
-                  />
+                {/* SFTP Receiving Configuration */}
+                <div className="space-y-4 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200/50">
+                  <h4 className="font-medium text-purple-700 dark:text-purple-300 flex items-center gap-2">
+                    <Download className="w-4 h-4" />
+                    SFTP Receiving from Amazon (Orders, Acknowledgments)
+                  </h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="sftp_receive_host">SFTP Host</Label>
+                      <Input
+                        id="sftp_receive_host"
+                        value={formData.sftp_receive_host}
+                        onChange={(e) => setFormData({ ...formData, sftp_receive_host: e.target.value })}
+                        placeholder="eu-sftp.amazonsedi.com"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="sftp_receive_username">Username</Label>
+                      <Input
+                        id="sftp_receive_username"
+                        value={formData.sftp_receive_username}
+                        onChange={(e) => setFormData({ ...formData, sftp_receive_username: e.target.value })}
+                        placeholder="Amazon provided username"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="sftp_receive_remote_path">Download Directory</Label>
+                      <Input
+                        id="sftp_receive_remote_path"
+                        value={formData.sftp_receive_remote_path}
+                        onChange={(e) => setFormData({ ...formData, sftp_receive_remote_path: e.target.value })}
+                        placeholder="download"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="ssh_fingerprint_receiving">SSH Fingerprint</Label>
+                      <Input
+                        id="ssh_fingerprint_receiving"
+                        value={formData.ssh_fingerprint_receiving}
+                        onChange={(e) => setFormData({ ...formData, ssh_fingerprint_receiving: e.target.value })}
+                        placeholder="MD5 fingerprint from Amazon"
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="sftp_receive_username">Username</Label>
-                  <Input
-                    id="sftp_receive_username"
-                    value={formData.sftp_receive_username}
-                    onChange={(e) => setFormData({ ...formData, sftp_receive_username: e.target.value })}
-                    placeholder="Amazon provided username"
-                  />
+              </>
+            ) : (
+              <>
+                {/* AS2 Configuration */}
+                <div className="space-y-4 p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200/50">
+                  <h4 className="font-medium text-orange-700 dark:text-orange-300 flex items-center gap-2">
+                    <Shield className="w-4 h-4" />
+                    AS2 Connection Settings
+                  </h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="as2_endpoint_url">AS2 Endpoint URL</Label>
+                      <Input
+                        id="as2_endpoint_url"
+                        value={formData.as2_endpoint_url}
+                        onChange={(e) => setFormData({ ...formData, as2_endpoint_url: e.target.value })}
+                        placeholder="https://as2.amazonaws.com/endpoint"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="as2_partner_id">Partner ID</Label>
+                      <Input
+                        id="as2_partner_id"
+                        value={formData.as2_partner_id}
+                        onChange={(e) => setFormData({ ...formData, as2_partner_id: e.target.value })}
+                        placeholder="Amazon Partner ID"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="as2_sender_id">Your AS2 ID (Sender)</Label>
+                      <Input
+                        id="as2_sender_id"
+                        value={formData.as2_sender_id}
+                        onChange={(e) => setFormData({ ...formData, as2_sender_id: e.target.value })}
+                        placeholder="Your AS2 identifier"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="as2_receiver_id">Amazon AS2 ID (Receiver)</Label>
+                      <Input
+                        id="as2_receiver_id"
+                        value={formData.as2_receiver_id}
+                        onChange={(e) => setFormData({ ...formData, as2_receiver_id: e.target.value })}
+                        placeholder="Amazon AS2 identifier"
+                      />
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="sftp_receive_remote_path">Download Directory</Label>
-                  <Input
-                    id="sftp_receive_remote_path"
-                    value={formData.sftp_receive_remote_path}
-                    onChange={(e) => setFormData({ ...formData, sftp_receive_remote_path: e.target.value })}
-                    placeholder="download"
-                  />
+
+                {/* AS2 Security Settings */}
+                <div className="space-y-4 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200/50">
+                  <h4 className="font-medium text-red-700 dark:text-red-300 flex items-center gap-2">
+                    <Key className="w-4 h-4" />
+                    AS2 Security & Certificates
+                  </h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="as2_certificate_path">Certificate Path</Label>
+                      <Input
+                        id="as2_certificate_path"
+                        value={formData.as2_certificate_path}
+                        onChange={(e) => setFormData({ ...formData, as2_certificate_path: e.target.value })}
+                        placeholder="/path/to/certificate.pem"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="as2_private_key_path">Private Key Path</Label>
+                      <Input
+                        id="as2_private_key_path"
+                        value={formData.as2_private_key_path}
+                        onChange={(e) => setFormData({ ...formData, as2_private_key_path: e.target.value })}
+                        placeholder="/path/to/private_key.pem"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="as2_encryption_algorithm">Encryption Algorithm</Label>
+                      <Select
+                        value={formData.as2_encryption_algorithm}
+                        onValueChange={(value) => setFormData({ ...formData, as2_encryption_algorithm: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="AES128">AES 128</SelectItem>
+                          <SelectItem value="AES192">AES 192</SelectItem>
+                          <SelectItem value="AES256">AES 256</SelectItem>
+                          <SelectItem value="3DES">3DES</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="as2_signature_algorithm">Signature Algorithm</Label>
+                      <Select
+                        value={formData.as2_signature_algorithm}
+                        onValueChange={(value) => setFormData({ ...formData, as2_signature_algorithm: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="SHA1">SHA-1</SelectItem>
+                          <SelectItem value="SHA256">SHA-256</SelectItem>
+                          <SelectItem value="SHA384">SHA-384</SelectItem>
+                          <SelectItem value="SHA512">SHA-512</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        id="as2_compression"
+                        checked={formData.as2_compression}
+                        onCheckedChange={(checked) => setFormData({ ...formData, as2_compression: checked })}
+                      />
+                      <Label htmlFor="as2_compression" className="text-sm">Enable Compression</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        id="as2_mdn_required"
+                        checked={formData.as2_mdn_required}
+                        onCheckedChange={(checked) => setFormData({ ...formData, as2_mdn_required: checked })}
+                      />
+                      <Label htmlFor="as2_mdn_required" className="text-sm">Require MDN</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        id="as2_async_mdn"
+                        checked={formData.as2_async_mdn}
+                        onCheckedChange={(checked) => setFormData({ ...formData, as2_async_mdn: checked })}
+                      />
+                      <Label htmlFor="as2_async_mdn" className="text-sm">Async MDN</Label>
+                    </div>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="ssh_fingerprint_receiving">SSH Fingerprint</Label>
-                  <Input
-                    id="ssh_fingerprint_receiving"
-                    value={formData.ssh_fingerprint_receiving}
-                    onChange={(e) => setFormData({ ...formData, ssh_fingerprint_receiving: e.target.value })}
-                    placeholder="MD5 fingerprint from Amazon"
-                  />
-                </div>
-              </div>
-            </div>
+              </>
+            )}
 
             {/* Schedule Configuration */}
             <div className="grid grid-cols-2 gap-4">
@@ -573,7 +886,7 @@ export function VendorIntegrationManager() {
             Amazon Vendor Central Integration
           </h2>
           <p className="text-muted-foreground">
-            Manage secure SSH-based file transfers with Amazon Vendor Central for {selectedCountry}
+            Manage secure file transfers with Amazon Vendor Central using SFTP or AS2 for {selectedCountry}
           </p>
         </div>
         <div className="flex items-center space-x-2">
@@ -592,9 +905,9 @@ export function VendorIntegrationManager() {
         <TabsContent value="integrations" className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-lg font-medium">SSH-Based Integrations</h3>
+              <h3 className="text-lg font-medium">Amazon Integrations</h3>
               <p className="text-sm text-muted-foreground">
-                Secure connections using SSH key authentication
+                Secure connections using SFTP or AS2 protocols
               </p>
             </div>
             <Dialog open={showSetupDialog} onOpenChange={setShowSetupDialog}>
@@ -612,7 +925,7 @@ export function VendorIntegrationManager() {
                   <DialogDescription>
                     {editingIntegration 
                       ? 'Update your integration settings'
-                      : 'Set up secure SSH-based file transfer with Amazon'
+                      : 'Set up secure file transfer with Amazon using SFTP or AS2'
                     }
                   </DialogDescription>
                 </DialogHeader>
@@ -629,7 +942,7 @@ export function VendorIntegrationManager() {
                   <Key className="w-16 h-16 text-muted-foreground mb-4" />
                   <h3 className="text-lg font-medium mb-2">No Integrations Configured</h3>
                   <p className="text-muted-foreground text-center mb-4">
-                    Set up your first Amazon Vendor Central integration with SSH key authentication.
+                    Set up your first Amazon Vendor Central integration with SFTP or AS2.
                   </p>
                   <Button onClick={() => setShowSetupDialog(true)}>
                     <Plus className="w-4 h-4 mr-2" />
@@ -665,12 +978,17 @@ export function VendorIntegrationManager() {
                       {/* Connection Info */}
                       <div className="grid grid-cols-2 gap-4 text-sm">
                         <div>
-                          <span className="font-medium">Send Host:</span>
-                          <p className="text-muted-foreground">{integration.sftp_host || 'Not configured'}</p>
+                          <span className="font-medium">{integration.transport_method} Endpoint:</span>
+                          <p className="text-muted-foreground">
+                            {integration.transport_method === 'SFTP' 
+                              ? (integration.sftp_host || 'Not configured')
+                              : ((integration as any).as2_endpoint_url || 'Not configured')
+                            }
+                          </p>
                         </div>
                         <div>
-                          <span className="font-medium">Receive Host:</span>
-                          <p className="text-muted-foreground">{integration.sftp_receive_host || 'Not configured'}</p>
+                          <span className="font-medium">Protocol:</span>
+                          <p className="text-muted-foreground">{integration.transport_method}</p>
                         </div>
                       </div>
 
