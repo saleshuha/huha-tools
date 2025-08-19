@@ -14,6 +14,8 @@ import { DatePickerWithRange } from "@/components/ui/date-range-picker";
 import { Search, Plus, Download, AlertCircle, CheckCircle2, Package, Globe, Calendar, RefreshCw, Filter, Grid, List, Settings, Eye, Save, RotateCcw, Play, Pause, X, PauseCircle, PlayCircle, XCircle } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useUserProfile } from "@/hooks/useUserProfile";
@@ -101,32 +103,29 @@ interface SunskyProduct {
 
 interface SunskyCategory {
   id: number;
-  code: string;
   name: string;
-  parentId: number;
-  status: number;
-  shortName?: string;
-  hsCode?: string;
-  gmtModified?: string;
+  parentId?: number;
   level?: number;
   hasChildren?: boolean;
+  children?: SunskyCategory[];
 }
 
 interface SunskyBrand {
   id: number;
   name: string;
-  code?: string;
 }
 
 interface SearchFilters {
   keyword?: string;
-  categoryId?: string;
-  brandId?: string;
-  brandName?: string;
-  leadTimeLevel?: string;
+  categoryId?: number;
+  brandId?: number;
   priceMin?: number;
   priceMax?: number;
   stockMin?: number;
+  leadTimeLevel?: number;
+  clearance?: boolean;
+  oem?: boolean;
+  withLogo?: boolean;
   status?: number;
   dateFrom?: string;
   dateTo?: string;
@@ -170,6 +169,67 @@ export const SunskySKUImporter: React.FC = () => {
     'itemNo', 'name', 'brandName', 'stock', 'leadTime', 'warehouse', 'price', 'convertedPrice'
   ]);
   const [showHeaderSelector, setShowHeaderSelector] = useState(false);
+  
+  // Pagination for import jobs
+  const [jobsCurrentPage, setJobsCurrentPage] = useState(1);
+  const [jobsPerPage] = useState(5);
+  
+  // SKU table column management
+  const [skuTableHeaders, setSkuTableHeaders] = useState<string[]>([
+    'sku_code', 'title', 'cost', 'currency', 'country', 'created_at'
+  ]);
+  const [availableSkuHeaders] = useState<string[]>([
+    'sku_code', 'title', 'cost', 'currency', 'country', 'created_at', 'weight', 'description'
+  ]);
+
+  // Save column preferences
+  const saveColumnPreferences = async () => {
+    try {
+      const { error } = await supabase
+        .from('noon_file_headers')
+        .upsert({
+          user_id: profile?.id,
+          file_type: 'sunsky_sku_columns',
+          headers: skuTableHeaders,
+          store_name: 'sunsky_importer'
+        });
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Success",
+        description: "Column preferences saved"
+      });
+    } catch (error) {
+      console.error('Error saving preferences:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save preferences",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Load column preferences
+  const loadColumnPreferences = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('noon_file_headers')
+        .select('headers')
+        .eq('user_id', profile?.id)
+        .eq('file_type', 'sunsky_sku_columns')
+        .eq('store_name', 'sunsky_importer')
+        .maybeSingle();
+      
+      if (error) throw error;
+      
+      if (data?.headers) {
+        setSkuTableHeaders(data.headers);
+      }
+    } catch (error) {
+      console.error('Error loading preferences:', error);
+    }
+  };
 
   // Task control functions
   const pauseJob = async (jobId: string) => {
@@ -250,181 +310,160 @@ export const SunskySKUImporter: React.FC = () => {
     }
   };
 
-  // Load categories on mount and when credentials change
-  useEffect(() => {
-    if (hasCredentials) {
-      loadCategories();
-      fetchSKUs();
-      fetchJobs();
-    }
-  }, [hasCredentials]);
-
-  // Load subcategories when main category changes
-  useEffect(() => {
-    if (selectedCategory && selectedCategory !== 'all' && hasCredentials) {
-      loadSubCategories(parseInt(selectedCategory));
-    } else {
-      setSubCategories([]);
-      setSelectedSubCategory('all');
-    }
-  }, [selectedCategory, hasCredentials]);
-
   const checkCredentialsStatus = async () => {
     try {
-      const { data, error } = await supabase.functions.invoke('sunsky-api', {
-        body: { action: 'getCredentialsStatus' }
-      });
-
+      const { data, error } = await supabase
+        .from('sunsky_credentials')
+        .select('is_active')
+        .eq('user_id', profile?.id)
+        .eq('is_active', true)
+        .maybeSingle();
+      
       if (error) throw error;
-
-      if (data.result === 'success') {
-        setHasCredentials(data.hasCredentials);
-      }
+      setHasCredentials(!!data);
     } catch (error) {
-      console.error('Error checking credentials status:', error);
+      console.error('Error checking credentials:', error);
       setHasCredentials(false);
     }
   };
 
-  useEffect(() => {
-    checkCredentialsStatus();
-  }, []);
-
-  const loadCategories = async (mode: 'top' | 'all' | 'modified' = 'top', modifiedSince?: string) => {
-    setFetchingCategories(true);
+  const callSunskyAPI = async (action: string, data: any) => {
     try {
-      const requestBody: any = { action: 'getCategories' };
-      
-      if (mode === 'top') {
-        requestBody.parentId = 0;
-      } else if (mode === 'all') {
-        // Don't set parentId to get all categories
-      } else if (mode === 'modified' && modifiedSince) {
-        requestBody.gmtModifiedStart = modifiedSince;
-      }
-
-      const { data, error } = await supabase.functions.invoke('sunsky-api', {
-        body: requestBody
+      const { data: result, error } = await supabase.functions.invoke('sunsky-api', {
+        body: { action, ...data }
       });
 
       if (error) throw error;
+      return result;
+    } catch (error) {
+      console.error('Sunsky API error:', error);
+      throw error;
+    }
+  };
 
-      if (data.result === 'success') {
-        setCategories(data.data || []);
+  const loadCategories = async () => {
+    if (!hasCredentials) return;
+    
+    setFetchingCategories(true);
+    try {
+      const result = await callSunskyAPI('getCategories', {
+        mode: categoryFetchMode,
+        modifiedSince: modifiedSinceDate
+      });
+      
+      if (result.success) {
+        setCategories(result.data || []);
         toast({
-          title: "Categories Loaded",
-          description: `Successfully loaded ${data.data?.length || 0} categories`,
+          title: "Success",
+          description: `Loaded ${result.data?.length || 0} categories`
         });
       } else {
-        console.warn('Categories API returned:', data);
-        setCategories([]);
+        throw new Error(result.error);
       }
     } catch (error) {
       console.error('Error loading categories:', error);
       toast({
         title: "Error",
-        description: "Failed to load Sunsky categories. Please check your API credentials.",
-        variant: "destructive",
+        description: "Failed to load categories",
+        variant: "destructive"
       });
     } finally {
       setFetchingCategories(false);
     }
   };
 
-  const loadSubCategories = async (parentId: number) => {
+  const loadSubCategories = async (categoryId: string) => {
+    if (!hasCredentials || categoryId === 'all') {
+      setSubCategories([]);
+      return;
+    }
+    
     try {
-      const { data, error } = await supabase.functions.invoke('sunsky-api', {
-        body: { action: 'getCategories', parentId }
-      });
-
-      if (error) throw error;
-
-      if (data.result === 'success') {
-        setSubCategories(data.data || []);
+      const result = await callSunskyAPI('getSubCategories', { categoryId });
+      
+      if (result.success) {
+        setSubCategories(result.data || []);
       } else {
-        console.warn('Sub-categories API returned:', data);
-        setSubCategories([]);
+        throw new Error(result.error);
       }
     } catch (error) {
       console.error('Error loading sub-categories:', error);
-      setSubCategories([]);
+      toast({
+        title: "Error",
+        description: "Failed to load sub-categories",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const loadBrands = async () => {
+    if (!hasCredentials) return;
+    
+    try {
+      const result = await callSunskyAPI('getBrands', {});
+      
+      if (result.success) {
+        setBrands(result.data || []);
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      console.error('Error loading brands:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load brands",
+        variant: "destructive"
+      });
     }
   };
 
   const searchProducts = async (page = 1) => {
-    if (!hasCredentials) {
-      toast({
-        title: "No API Credentials",
-        description: "Please configure your Sunsky API credentials first",
-        variant: "destructive",
-      });
-      return;
-    }
-
+    if (!hasCredentials) return;
+    
     setLoading(true);
     try {
-      const searchParams: any = {
-        action: 'searchProducts',
-        page,
-        pageSize: 20,
-        status: 1 // Only valid products
+      const filters: SearchFilters = {
+        keyword: searchTerm || undefined,
+        categoryId: selectedCategory !== 'all' ? parseInt(selectedCategory) : undefined,
+        brandId: selectedBrand ? parseInt(selectedBrand) : undefined,
+        priceMin: priceMin ? parseFloat(priceMin) : undefined,
+        priceMax: priceMax ? parseFloat(priceMax) : undefined,
+        stockMin: stockMin ? parseInt(stockMin) : undefined,
+        leadTimeLevel: leadTimeLevel ? parseInt(leadTimeLevel) : undefined,
+        dateFrom: dateRange?.from?.toISOString().split('T')[0],
+        dateTo: dateRange?.to?.toISOString().split('T')[0]
       };
 
-      // Use subcategory if selected, otherwise use main category
-      if (selectedSubCategory && selectedSubCategory !== 'all') {
-        searchParams.categoryId = selectedSubCategory;
-      } else if (selectedCategory && selectedCategory !== 'all') {
-        searchParams.categoryId = selectedCategory;
-      }
-
-      if (searchTerm.trim()) {
-        searchParams.keyword = searchTerm.trim();
-      }
-
-      if (selectedBrand.trim()) {
-        searchParams.brandName = selectedBrand.trim();
-      }
-
-      if (leadTimeLevel) {
-        searchParams.leadTimeLevel = leadTimeLevel;
-      }
-
-      if (dateRange?.from) {
-        // Format date for Sunsky API: MM/dd/yyyy HH:mm:ss
-        const fromDate = new Date(dateRange.from);
-        searchParams.gmtModifiedStart = `${(fromDate.getMonth() + 1).toString().padStart(2, '0')}/${fromDate.getDate().toString().padStart(2, '0')}/${fromDate.getFullYear()} 00:00:00`;
-      }
-
-      if (dateRange?.to) {
-        const toDate = new Date(dateRange.to);
-        searchParams.dateTo = `${(toDate.getMonth() + 1).toString().padStart(2, '0')}/${toDate.getDate().toString().padStart(2, '0')}/${toDate.getFullYear()} 23:59:59`;
-      }
-
-      console.log('Search parameters:', searchParams);
-
-      const { data, error } = await supabase.functions.invoke('sunsky-api', {
-        body: searchParams
+      const result = await callSunskyAPI('searchProducts', {
+        filters,
+        page,
+        pageSize: 20
       });
-
-      if (error) throw error;
-
-      if (data.result === 'success') {
-        const products = data.data?.result || [];
-        setProducts(products);
-        setTotalPages(data.data?.pageCount || 1);
+      
+      if (result.success) {
+        setProducts(result.data?.products || []);
         setCurrentPage(page);
+        setTotalPages(Math.ceil((result.data?.total || 0) / 20));
         
-        // Analyze available headers from the response
-        analyzeAvailableHeaders(products);
+        // Extract headers from first product
+        if (result.data?.products?.length > 0) {
+          const productKeys = Object.keys(result.data.products[0]);
+          setAvailableHeaders(productKeys);
+        }
+        
+        toast({
+          title: "Search Complete",
+          description: `Found ${result.data?.total || 0} products`
+        });
       } else {
-        throw new Error(data.message || 'Failed to search products');
+        throw new Error(result.error);
       }
     } catch (error) {
       console.error('Error searching products:', error);
       toast({
         title: "Error",
-        description: "Failed to search Sunsky products. Please check your API credentials.",
-        variant: "destructive",
+        description: "Failed to search products",
+        variant: "destructive"
       });
     } finally {
       setLoading(false);
@@ -432,17 +471,15 @@ export const SunskySKUImporter: React.FC = () => {
   };
 
   const getProductDetails = async (itemNo: string) => {
+    if (!hasCredentials) return null;
+    
     try {
-      const { data, error } = await supabase.functions.invoke('sunsky-api', {
-        body: { action: 'getProductDetails', itemNo }
-      });
-
-      if (error) throw error;
-
-      if (data.result === 'success') {
-        return data.data;
+      const result = await callSunskyAPI('getProductDetails', { itemNo });
+      
+      if (result.success) {
+        return result.data;
       } else {
-        throw new Error(data.message || 'Failed to get product details');
+        throw new Error(result.error);
       }
     } catch (error) {
       console.error('Error getting product details:', error);
@@ -450,54 +487,108 @@ export const SunskySKUImporter: React.FC = () => {
     }
   };
 
-  const createCategoryImportJob = async () => {
+  const importSelectedSKUs = async () => {
+    if (selectedProducts.size === 0) {
+      toast({
+        title: "No Products Selected",
+        description: "Please select products to import",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setImporting(true);
+    setImportProgress(0);
+    
     try {
-      const criteria: any = {};
-      
-      if (selectedSubCategory && selectedSubCategory !== 'all') {
-        criteria.categoryId = selectedSubCategory;
-      } else if (selectedCategory && selectedCategory !== 'all') {
-        criteria.categoryId = selectedCategory;
-      }
-      
-      if (dateRange?.from) {
-        criteria.dateFrom = dateRange.from.toISOString();
-      }
-      
-      if (dateRange?.to) {
-        criteria.dateTo = dateRange.to.toISOString();
+      const productList = Array.from(selectedProducts);
+      const total = productList.length;
+      let imported = 0;
+
+      for (const itemNo of productList) {
+        try {
+          const productDetails = await getProductDetails(itemNo);
+          
+          if (productDetails) {
+            const { error } = await supabase
+              .from('sunsky_skus')
+              .upsert({
+                user_id: profile?.id,
+                sku_code: productDetails.itemNo,
+                title: productDetails.name,
+                description: productDetails.description,
+                cost: parseFloat(productDetails.price || '0'),
+                weight: productDetails.unitWeight ? parseFloat(productDetails.unitWeight) : null,
+                currency: 'USD',
+                country: profile?.country || 'UAE'
+              });
+
+            if (!error) {
+              imported++;
+            }
+          }
+        } catch (error) {
+          console.error(`Error importing ${itemNo}:`, error);
+        }
+        
+        setImportProgress((imported / total) * 100);
       }
 
-      await createImportJob('category', criteria);
+      toast({
+        title: "Import Complete",
+        description: `Successfully imported ${imported} out of ${total} SKUs`
+      });
       
+      // Refresh SKUs list
+      fetchSKUs(1);
+      setSelectedProducts(new Set());
     } catch (error) {
-      console.error('Error creating import job:', error);
+      console.error('Error during import:', error);
+      toast({
+        title: "Import Error",
+        description: "Failed to import SKUs",
+        variant: "destructive"
+      });
+    } finally {
+      setImporting(false);
+      setImportProgress(0);
     }
   };
 
-  const resetAllFilters = () => {
-    setSearchTerm('');
-    setSelectedCategory('all');
-    setSelectedSubCategory('all');
-    setSelectedBrand('');
-    setLeadTimeLevel('');
-    setPriceMin('');
-    setPriceMax('');
-    setStockMin('');
-    setDateRange(undefined);
-    setProducts([]);
-    setSelectedProducts(new Set());
-    setCurrentPage(1);
+  const createCategoryImportJob = async (categoryId: string, categoryName: string) => {
+    try {
+      const result = await createImportJob('category', {
+        categoryId: parseInt(categoryId),
+        categoryName
+      });
+      
+      if (result.success) {
+        toast({
+          title: "Job Created",
+          description: `Import job created for category: ${categoryName}`
+        });
+        await fetchJobs();
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      console.error('Error creating category import job:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create import job",
+        variant: "destructive"
+      });
+    }
   };
 
   const toggleProductSelection = (itemNo: string) => {
-    const newSelection = new Set(selectedProducts);
-    if (newSelection.has(itemNo)) {
-      newSelection.delete(itemNo);
+    const newSelected = new Set(selectedProducts);
+    if (newSelected.has(itemNo)) {
+      newSelected.delete(itemNo);
     } else {
-      newSelection.add(itemNo);
+      newSelected.add(itemNo);
     }
-    setSelectedProducts(newSelection);
+    setSelectedProducts(newSelected);
   };
 
   const selectAllProducts = () => {
@@ -508,781 +599,466 @@ export const SunskySKUImporter: React.FC = () => {
     }
   };
 
-  const importSelectedSKUs = async () => {
-    if (selectedProducts.size === 0) {
-      toast({
-        title: "No Selection",
-        description: "Please select at least one product to import",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setImporting(true);
-    setImportProgress(0);
-
-    try {
-      const selectedSkus = products
-        .filter(p => selectedProducts.has(p.itemNo))
-        .map(p => ({ itemNo: p.itemNo }));
-
-      const { data, error } = await supabase.functions.invoke('sunsky-api', {
-        body: {
-          action: 'importSKUs',
-          skus: selectedSkus
-        }
-      });
-
-      if (error) throw error;
-
-      if (data.result === 'success') {
-        toast({
-          title: "Import Successful",
-          description: `Successfully imported ${data.data.imported} SKUs`,
-        });
-        
-        // Clear selection
-        setSelectedProducts(new Set());
-        
-        // Refresh products list and imported SKUs
-        searchProducts(currentPage);
-        fetchSKUs(1, false); // Force refresh without cache
-      } else {
-        throw new Error(data.message || 'Failed to import SKUs');
-      }
-    } catch (error) {
-      console.error('Error importing SKUs:', error);
-      toast({
-        title: "Import Failed",
-        description: error.message || "Failed to import SKUs",
-        variant: "destructive",
-      });
-    } finally {
-      setImporting(false);
-      setImportProgress(0);
-    }
-  };
-
-  const getCurrencySymbol = (currency: string) => {
-    switch (currency) {
-      case 'AED': return 'AED';
-      case 'SAR': return 'SAR';
-      case 'USD': return '$';
-      default: return currency;
-    }
-  };
-
-  // Available headers with their display names and descriptions
-  const headerDefinitions = {
-    itemNo: { label: 'Item No', description: 'Product item number/SKU' },
-    name: { label: 'Product Name', description: 'Full product name' },
-    brandName: { label: 'Brand', description: 'Brand/manufacturer name' },
-    stock: { label: 'Stock', description: 'Available quantity' },
-    leadTime: { label: 'Lead Time', description: 'Shipping/production time' },
-    warehouse: { label: 'Warehouse', description: 'Fulfillment location' },
-    price: { label: 'Price (USD)', description: 'Original USD price' },
-    convertedPrice: { label: 'Local Price', description: 'Price in local currency' },
-    description: { label: 'Description', description: 'Product description' },
-    categoryId: { label: 'Category ID', description: 'Product category identifier' },
-    moq: { label: 'MOQ', description: 'Minimum order quantity' },
-    unitWeight: { label: 'Weight', description: 'Unit weight' },
-    unitLength: { label: 'Length', description: 'Unit length (mm)' },
-    unitWidth: { label: 'Width', description: 'Unit width (mm)' },
-    unitHeight: { label: 'Height', description: 'Unit height (mm)' },
-    packQty: { label: 'Pack Qty', description: 'Quantity per package' },
-    barcode: { label: 'Barcode', description: 'Product barcode' },
-    gmtListed: { label: 'Listed Date', description: 'Date product was listed' },
-    gmtModified: { label: 'Modified Date', description: 'Last modification date' },
-    picCount: { label: 'Images', description: 'Number of product images' },
-    modelLabel: { label: 'Model Label', description: 'Model classification (Color, Size, etc.)' },
-    oem: { label: 'OEM', description: 'OEM support available' },
-    withLogo: { label: 'With Logo', description: 'Logo customization available' },
-    containsBattery: { label: 'Has Battery', description: 'Contains battery' },
-    clearance: { label: 'Clearance', description: 'Clearance item' },
-    orgPrice: { label: 'Original Price', description: 'Original price (if on sale)' },
-    status: { label: 'Status', description: 'Product status code' },
-    groupItemNo: { label: 'Group Item No', description: 'Base item number for variants' },
-    leadTimeLevel: { label: 'Lead Time Level', description: 'Lead time category (1-5)' },
-    packWeight: { label: 'Pack Weight', description: 'Package weight (kg)' },
-    packLength: { label: 'Pack Length', description: 'Package length (mm)' },
-    packWidth: { label: 'Pack Width', description: 'Package width (mm)' },
-    packHeight: { label: 'Pack Height', description: 'Package height (mm)' }
-  };
-
-  // Analyze products and extract available headers
-  const analyzeAvailableHeaders = (products: SunskyProduct[]) => {
-    if (products.length === 0) return;
-    
-    const headers = new Set<string>();
-    products.forEach(product => {
-      Object.keys(product).forEach(key => {
-        if (headerDefinitions[key as keyof typeof headerDefinitions]) {
-          headers.add(key);
-        }
-      });
-    });
-    
-    setAvailableHeaders(Array.from(headers).sort());
-  };
-
-  // Save header preferences
-  const saveHeaderPreferences = () => {
-    localStorage.setItem('sunsky-selected-headers', JSON.stringify(selectedHeaders));
-    toast({
-      title: "Preferences Saved",
-      description: "Your header preferences have been saved for future sessions",
-    });
-  };
-
-  // Load header preferences
-  const loadHeaderPreferences = () => {
-    const saved = localStorage.getItem('sunsky-selected-headers');
-    if (saved) {
-      try {
-        const headers = JSON.parse(saved);
-        setSelectedHeaders(headers);
-        toast({
-          title: "Preferences Loaded",
-          description: "Your saved header preferences have been restored",
-        });
-      } catch (error) {
-        console.error('Error loading header preferences:', error);
-      }
-    }
-  };
-
-  // Reset to default headers
-  const resetHeadersToDefault = () => {
-    setSelectedHeaders(['itemNo', 'name', 'brandName', 'stock', 'leadTime', 'warehouse', 'price', 'convertedPrice']);
-    toast({
-      title: "Headers Reset",
-      description: "Header selection has been reset to default",
-    });
-  };
-
-  // Format field value for display
-  const formatFieldValue = (value: any, fieldKey: string) => {
+  const formatFieldValue = (field: string, value: any) => {
     if (value === null || value === undefined) return '-';
     
-    switch (fieldKey) {
-      case 'stock':
-        return <Badge variant={value > 0 ? "default" : "secondary"}>{value}</Badge>;
+    switch (field) {
       case 'price':
-        return `$${value}`;
       case 'convertedPrice':
-        return value ? `${getCurrencySymbol(profile?.country === 'KSA' ? 'SAR' : 'AED')} ${Number(value).toFixed(2)}` : '-';
+        return typeof value === 'number' ? `$${value.toFixed(2)}` : `$${value}`;
+      case 'stock':
+        return value.toLocaleString();
+      case 'leadTime':
+        return `${value} days`;
       case 'unitWeight':
-        return value ? `${value}g` : '-';
-      case 'unitLength':
-      case 'unitWidth':
-      case 'unitHeight':
-      case 'packLength':
-      case 'packWidth':
-      case 'packHeight':
-        return value ? `${value}mm` : '-';
       case 'packWeight':
-        return value ? `${value}kg` : '-';
-      case 'oem':
-      case 'withLogo':
-      case 'containsBattery':
-      case 'clearance':
-        return value ? 'Yes' : 'No';
+        return `${value}g`;
       case 'gmtListed':
       case 'gmtModified':
-        return value ? new Date(value).toLocaleDateString() : '-';
-      case 'name':
-      case 'description':
-        return <span className="max-w-xs truncate block" title={value}>{value}</span>;
+        return new Date(value).toLocaleDateString();
       default:
-        return String(value);
+        return value.toString();
     }
   };
 
+  const saveHeaderSelection = () => {
+    setShowHeaderSelector(false);
+    toast({
+      title: "Headers Updated",
+      description: "Display headers have been updated"
+    });
+  };
+
+  useEffect(() => {
+    if (profile?.id) {
+      checkCredentialsStatus();
+      fetchSKUs(1);
+      fetchJobs();
+      loadColumnPreferences();
+    }
+  }, [profile?.id, fetchSKUs, fetchJobs]);
+
+  useEffect(() => {
+    if (hasCredentials) {
+      loadCategories();
+      loadBrands();
+    }
+  }, [hasCredentials]);
+
+  useEffect(() => {
+    if (selectedCategory !== 'all') {
+      loadSubCategories(selectedCategory);
+    } else {
+      setSubCategories([]);
+      setSelectedSubCategory('all');
+    }
+  }, [selectedCategory]);
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
+    <div className="container mx-auto p-6 space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Sunsky Product Importer</h1>
-          <p className="text-muted-foreground mt-2">
-            Search and import products from Sunsky-Online marketplace
+          <h1 className="text-3xl font-bold tracking-tight">Sunsky SKU Importer</h1>
+          <p className="text-muted-foreground">
+            Search, view, and import products from Sunsky marketplace
           </p>
         </div>
-        {profile && (
-          <Badge variant="outline">
-            <Globe className="mr-2 h-4 w-4" />
-            {profile.country} ({profile.country === 'KSA' ? 'SAR' : 'AED'})
-          </Badge>
-        )}
+        <SunskyCredentialsManager onCredentialsChanged={checkCredentialsStatus} />
       </div>
 
-      <Tabs defaultValue="credentials" className="w-full">
+      {!hasCredentials && (
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Please configure your Sunsky API credentials to start importing SKUs.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      <Tabs defaultValue="search" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="credentials">API Connection</TabsTrigger>
-          <TabsTrigger value="search" disabled={!hasCredentials}>Search Products</TabsTrigger>
-          <TabsTrigger value="imported">Imported SKUs & Tasks</TabsTrigger>
+          <TabsTrigger value="search">Search & Import</TabsTrigger>
+          <TabsTrigger value="jobs">Import Jobs</TabsTrigger>
+          <TabsTrigger value="skus">Imported SKUs</TabsTrigger>
         </TabsList>
-
-        <TabsContent value="credentials" className="space-y-6">
-          <SunskyCredentialsManager 
-            onCredentialsChanged={() => {
-              checkCredentialsStatus();
-            }}
-          />
-        </TabsContent>
-
+        
         <TabsContent value="search" className="space-y-6">
-          {!hasCredentials ? (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-12">
-                <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">API Configuration Required</h3>
-                <p className="text-muted-foreground text-center">
-                  Please configure your Sunsky API credentials in the API Connection tab first
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
-            <>
-              {/* Category Browser */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Grid className="h-5 w-5" />
-                    Category Browser
-                  </CardTitle>
-                  <CardDescription>
-                    Fetch and browse Sunsky product categories
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="fetch-mode">Fetch Mode</Label>
-                      <Select value={categoryFetchMode} onValueChange={(value: 'top' | 'all' | 'modified') => setCategoryFetchMode(value)}>
-                        <SelectTrigger id="fetch-mode">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="top">Top Level Categories</SelectItem>
-                          <SelectItem value="all">All Categories</SelectItem>
-                          <SelectItem value="modified">Modified Since Date</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+          {/* Search Filters */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Search className="h-5 w-5" />
+                Search Products
+              </CardTitle>
+              <CardDescription>
+                Search and filter products from Sunsky marketplace
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="search">Search Term</Label>
+                  <Input
+                    id="search"
+                    placeholder="Enter product name or keyword..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="category">Category</Label>
+                  <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Categories</SelectItem>
+                      {categories.map((category) => (
+                        <SelectItem key={category.id} value={category.id.toString()}>
+                          {category.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-                    {categoryFetchMode === 'modified' && (
-                      <div className="space-y-2">
-                        <Label htmlFor="modified-since">Modified Since</Label>
-                        <Input
-                          id="modified-since"
-                          type="datetime-local"
-                          value={modifiedSinceDate}
-                          onChange={(e) => setModifiedSinceDate(e.target.value)}
-                          placeholder="Select date and time"
-                        />
-                      </div>
-                    )}
-
-                    <div className="flex items-end">
-                      <Button 
-                        onClick={() => {
-                          if (categoryFetchMode === 'modified' && !modifiedSinceDate) {
-                            toast({
-                              title: "Date Required",
-                              description: "Please select a modified since date",
-                              variant: "destructive",
-                            });
-                            return;
-                          }
-                          const formattedDate = categoryFetchMode === 'modified' 
-                            ? new Date(modifiedSinceDate).toLocaleString('en-US', {
-                                month: '2-digit',
-                                day: '2-digit',
-                                year: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                                second: '2-digit',
-                                hour12: false
-                              })
-                            : undefined;
-                          loadCategories(categoryFetchMode, formattedDate);
-                        }}
-                        disabled={fetchingCategories}
-                        className="w-full"
-                      >
-                        {fetchingCategories ? (
-                          <>
-                            <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                            Fetching...
-                          </>
-                        ) : (
-                          <>
-                            <Download className="mr-2 h-4 w-4" />
-                            Fetch Categories
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-
-                  {categories.length > 0 && (
-                    <Alert>
-                      <CheckCircle2 className="h-4 w-4" />
-                      <AlertDescription>
-                        Loaded {categories.length} categories successfully. Use the search filters below to find products.
-                      </AlertDescription>
-                    </Alert>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Filters */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Search className="h-5 w-5" />
-                    Search Filters
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Basic Search Filters */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="search">Product Search</Label>
-                      <Input
-                        id="search"
-                        placeholder="Enter keyword..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="brand">Brand Name</Label>
-                      <Input
-                        id="brand"
-                        placeholder="Enter brand name..."
-                        value={selectedBrand}
-                        onChange={(e) => setSelectedBrand(e.target.value)}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="category">Category</Label>
-                      <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                        <SelectTrigger id="category">
-                          <SelectValue placeholder="Select category" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Categories</SelectItem>
-                          {categories.map((category) => (
-                            <SelectItem key={category.id} value={category.id.toString()}>
-                              {category.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="subcategory">Sub-Category</Label>
-                      <Select 
-                        value={selectedSubCategory} 
-                        onValueChange={setSelectedSubCategory}
-                        disabled={selectedCategory === 'all' || subCategories.length === 0}
-                      >
-                        <SelectTrigger id="subcategory">
-                          <SelectValue placeholder="Select sub-category" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Sub-Categories</SelectItem>
-                          {subCategories.map((subCategory) => (
-                            <SelectItem key={subCategory.id} value={subCategory.id.toString()}>
-                              {subCategory.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  {/* Advanced Filters */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="leadtime">Lead Time Level</Label>
-                      <Select value={leadTimeLevel} onValueChange={setLeadTimeLevel}>
-                        <SelectTrigger id="leadtime">
-                          <SelectValue placeholder="Select lead time" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Lead Times</SelectItem>
-                          <SelectItem value="1">1-3 days</SelectItem>
-                          <SelectItem value="2">4-7 days</SelectItem>
-                          <SelectItem value="3">1-2 weeks</SelectItem>
-                          <SelectItem value="4">2-4 weeks</SelectItem>
-                          <SelectItem value="5">1+ months</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="pricemin">Min Price (USD)</Label>
-                      <Input
-                        id="pricemin"
-                        type="number"
-                        placeholder="0.00"
-                        value={priceMin}
-                        onChange={(e) => setPriceMin(e.target.value)}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="pricemax">Max Price (USD)</Label>
-                      <Input
-                        id="pricemax"
-                        type="number"
-                        placeholder="999.99"
-                        value={priceMax}
-                        onChange={(e) => setPriceMax(e.target.value)}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="stockmin">Min Stock Quantity</Label>
-                      <Input
-                        id="stockmin"
-                        type="number"
-                        placeholder="1"
-                        value={stockMin}
-                        onChange={(e) => setStockMin(e.target.value)}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label>Date Range (Modified)</Label>
-                      <DatePickerWithRange
-                        date={dateRange}
-                        onDateChange={setDateRange}
-                        className="w-full"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    <Button onClick={() => searchProducts(1)} disabled={loading}>
-                      {loading ? (
-                        <>
-                          <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                          Searching...
-                        </>
-                      ) : (
-                        <>
-                          <Search className="mr-2 h-4 w-4" />
-                          Search Products
-                        </>
-                      )}
-                    </Button>
-                    <Button variant="outline" onClick={resetAllFilters}>
-                      <Filter className="mr-2 h-4 w-4" />
-                      Reset All Filters
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="icon"
-                      onClick={() => setViewMode(viewMode === 'list' ? 'grid' : 'list')}
-                      title={`Switch to ${viewMode === 'list' ? 'grid' : 'list'} view`}
-                    >
-                      {viewMode === 'list' ? <Grid className="h-4 w-4" /> : <List className="h-4 w-4" />}
-                    </Button>
-                    
-                    <Dialog open={showHeaderSelector} onOpenChange={setShowHeaderSelector}>
-                      <DialogTrigger asChild>
-                        <Button variant="outline" size="sm">
-                          <Settings className="mr-2 h-4 w-4" />
-                          Table Headers
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-4xl max-h-[80vh] overflow-auto">
-                        <DialogHeader>
-                          <DialogTitle className="flex items-center gap-2">
-                            <Eye className="h-5 w-5" />
-                            Customize Table Headers
-                          </DialogTitle>
-                          <DialogDescription>
-                            Select which columns you want to display in the product table. {availableHeaders.length} headers available from current data.
-                          </DialogDescription>
-                        </DialogHeader>
-                        
-                        <div className="space-y-4">
-                          {/* Header actions */}
-                          <div className="flex items-center gap-2">
-                            <Button 
-                              onClick={loadHeaderPreferences} 
-                              variant="outline" 
-                              size="sm"
-                            >
-                              <Download className="mr-2 h-4 w-4" />
-                              Load Saved
-                            </Button>
-                            <Button 
-                              onClick={saveHeaderPreferences} 
-                              variant="outline" 
-                              size="sm"
-                            >
-                              <Save className="mr-2 h-4 w-4" />
-                              Save Current
-                            </Button>
-                            <Button 
-                              onClick={resetHeadersToDefault} 
-                              variant="outline" 
-                              size="sm"
-                            >
-                              <RotateCcw className="mr-2 h-4 w-4" />
-                              Reset to Default
-                            </Button>
-                          </div>
-                          
-                          <Separator />
-                          
-                          {/* Current selection summary */}
-                          <div className="p-3 bg-muted rounded-lg">
-                            <p className="text-sm font-medium mb-2">Currently selected: {selectedHeaders.length} headers</p>
-                            <div className="flex flex-wrap gap-1">
-                              {selectedHeaders.map(header => (
-                                <Badge key={header} variant="default" className="text-xs">
-                                  {headerDefinitions[header as keyof typeof headerDefinitions]?.label || header}
-                                </Badge>
-                              ))}
-                            </div>
-                          </div>
-                          
-                          {/* Header selection grid */}
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                            {availableHeaders.map(header => {
-                              const definition = headerDefinitions[header as keyof typeof headerDefinitions];
-                              if (!definition) return null;
-                              
-                              return (
-                                <div key={header} className="flex items-start space-x-3 p-3 border rounded-lg">
-                                  <Checkbox
-                                    id={header}
-                                    checked={selectedHeaders.includes(header)}
-                                    onCheckedChange={(checked) => {
-                                      if (checked) {
-                                        setSelectedHeaders([...selectedHeaders, header]);
-                                      } else {
-                                        setSelectedHeaders(selectedHeaders.filter(h => h !== header));
-                                      }
-                                    }}
-                                  />
-                                  <div className="flex-1 min-w-0">
-                                    <label 
-                                      htmlFor={header} 
-                                      className="text-sm font-medium cursor-pointer block"
-                                    >
-                                      {definition.label}
-                                    </label>
-                                    <p className="text-xs text-muted-foreground mt-1">
-                                      {definition.description}
-                                    </p>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                          
-                          {availableHeaders.length === 0 && (
-                            <div className="text-center py-8 text-muted-foreground">
-                              <Package className="h-12 w-12 mx-auto mb-4" />
-                              <p>No product data available yet.</p>
-                              <p className="text-sm">Search for products to see available headers.</p>
-                            </div>
-                          )}
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Results */}
-              {products.length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="flex items-center gap-2">
-                        <Package className="h-5 w-5" />
-                        Search Results ({products.length} items)
-                      </CardTitle>
-                      <div className="flex items-center gap-2">
-                        {selectedProducts.size > 0 && (
-                          <Button 
-                            onClick={importSelectedSKUs}
-                            disabled={importing}
-                            size="sm"
-                          >
-                            {importing ? (
-                              <>
-                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2" />
-                                Importing {selectedProducts.size} SKUs...
-                              </>
-                            ) : (
-                              <>
-                                <Plus className="mr-2 h-4 w-4" />
-                                Import {selectedProducts.size} Selected SKUs
-                              </>
-                            )}
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    {importing && (
-                      <div className="mb-4">
-                        <Progress value={importProgress} className="w-full" />
-                      </div>
-                    )}
-
-                    <div className="rounded-md border">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead className="w-12">
-                              <Checkbox
-                                checked={selectedProducts.size === products.length && products.length > 0}
-                                onCheckedChange={selectAllProducts}
-                              />
-                            </TableHead>
-                            {selectedHeaders.map(header => {
-                              const definition = headerDefinitions[header as keyof typeof headerDefinitions];
-                              return (
-                                <TableHead key={header}>
-                                  {definition?.label || header}
-                                </TableHead>
-                              );
-                            })}
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {products.map((product) => (
-                            <TableRow key={product.itemNo}>
-                              <TableCell>
-                                <Checkbox
-                                  checked={selectedProducts.has(product.itemNo)}
-                                  onCheckedChange={() => toggleProductSelection(product.itemNo)}
-                                />
-                              </TableCell>
-                              {selectedHeaders.map(header => (
-                                <TableCell key={header} className={header === 'itemNo' ? 'font-mono' : ''}>
-                                  {formatFieldValue(product[header as keyof SunskyProduct], header)}
-                                </TableCell>
-                              ))}
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-
-                    {/* Pagination */}
-                    {totalPages > 1 && (
-                      <div className="flex items-center justify-between mt-4">
-                        <p className="text-sm text-muted-foreground">
-                          Page {currentPage} of {totalPages}
-                        </p>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => searchProducts(currentPage - 1)}
-                            disabled={currentPage === 1 || loading}
-                          >
-                            Previous
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => searchProducts(currentPage + 1)}
-                            disabled={currentPage === totalPages || loading}
-                          >
-                            Next
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Empty State */}
-              {!loading && products.length === 0 && searchTerm === '' && selectedCategory === 'all' && (
-                <Card>
-                  <CardContent className="flex flex-col items-center justify-center py-12">
-                    <Search className="h-12 w-12 text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-semibold mb-2">Start Your Product Search</h3>
-                    <p className="text-muted-foreground text-center">
-                      Use the filters above to search for products from Sunsky marketplace
-                    </p>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* No Results */}
-              {!loading && products.length === 0 && (searchTerm !== '' || selectedCategory !== 'all') && (
-                <Card>
-                  <CardContent className="flex flex-col items-center justify-center py-12">
-                    <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-semibold mb-2">No Products Found</h3>
-                    <p className="text-muted-foreground text-center">
-                      Try adjusting your search filters or keywords
-                    </p>
-                  </CardContent>
-                </Card>
-              )}
-            </>
-          )}
-        </TabsContent>
-
-        <TabsContent value="imported">
-          <div className="space-y-6">
-            {/* Import Tasks */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5" />
-                  Create Import Task
-                </CardTitle>
-                <CardDescription>
-                  Create background import jobs to process large product catalogs
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {subCategories.length > 0 && (
                   <div className="space-y-2">
-                    <Label>Task Type</Label>
-                    <Select value="category">
+                    <Label htmlFor="subcategory">Sub-Category</Label>
+                    <Select value={selectedSubCategory} onValueChange={setSelectedSubCategory}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select task type" />
+                        <SelectValue placeholder="Select sub-category" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="category">Import by Category</SelectItem>
+                        <SelectItem value="all">All Sub-Categories</SelectItem>
+                        {subCategories.map((subCategory) => (
+                          <SelectItem key={subCategory.id} value={subCategory.id.toString()}>
+                            {subCategory.name}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
-                  
-                  <div className="space-y-2">
-                    <Label>Category</Label>
+                )}
+
+                <div className="space-y-2">
+                  <Label htmlFor="brand">Brand</Label>
+                  <Select value={selectedBrand} onValueChange={setSelectedBrand}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select brand" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">All Brands</SelectItem>
+                      {brands.map((brand) => (
+                        <SelectItem key={brand.id} value={brand.id.toString()}>
+                          {brand.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="price-min">Min Price ($)</Label>
+                  <Input
+                    id="price-min"
+                    type="number"
+                    placeholder="0.00"
+                    value={priceMin}
+                    onChange={(e) => setPriceMin(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="price-max">Max Price ($)</Label>
+                  <Input
+                    id="price-max"
+                    type="number"
+                    placeholder="1000.00"
+                    value={priceMax}
+                    onChange={(e) => setPriceMax(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="stock-min">Min Stock</Label>
+                  <Input
+                    id="stock-min"
+                    type="number"
+                    placeholder="1"
+                    value={stockMin}
+                    onChange={(e) => setStockMin(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="lead-time">Lead Time Level</Label>
+                  <Select value={leadTimeLevel} onValueChange={setLeadTimeLevel}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Any lead time" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Any</SelectItem>
+                      <SelectItem value="1">1-3 days</SelectItem>
+                      <SelectItem value="2">4-7 days</SelectItem>
+                      <SelectItem value="3">8-15 days</SelectItem>
+                      <SelectItem value="4">16+ days</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Date Range</Label>
+                  <DatePickerWithRange
+                    date={dateRange}
+                    onDateChange={setDateRange}
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <Button
+                  onClick={() => searchProducts(1)}
+                  disabled={!hasCredentials || loading}
+                  className="flex items-center gap-2"
+                >
+                  {loading ? (
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Search className="h-4 w-4" />
+                  )}
+                  Search Products
+                </Button>
+
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSearchTerm('');
+                    setSelectedCategory('all');
+                    setSelectedSubCategory('all');
+                    setSelectedBrand('');
+                    setPriceMin('');
+                    setPriceMax('');
+                    setStockMin('');
+                    setLeadTimeLevel('');
+                    setDateRange(undefined);
+                  }}
+                >
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  Clear Filters
+                </Button>
+
+                {/* Header Selector */}
+                <Dialog open={showHeaderSelector} onOpenChange={setShowHeaderSelector}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" disabled={availableHeaders.length === 0}>
+                      <Settings className="h-4 w-4 mr-2" />
+                      Customize Headers
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Select Display Headers</DialogTitle>
+                      <DialogDescription>
+                        Choose which product fields to display in the results table
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid grid-cols-2 gap-4 max-h-96 overflow-y-auto">
+                      {availableHeaders.map((header) => (
+                        <div key={header} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={header}
+                            checked={selectedHeaders.includes(header)}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setSelectedHeaders([...selectedHeaders, header]);
+                              } else {
+                                setSelectedHeaders(selectedHeaders.filter(h => h !== header));
+                              }
+                            }}
+                          />
+                          <Label htmlFor={header} className="text-sm">
+                            {header.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" onClick={() => setShowHeaderSelector(false)}>
+                        Cancel
+                      </Button>
+                      <Button onClick={saveHeaderSelection}>
+                        <Save className="h-4 w-4 mr-2" />
+                        Save Selection
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Search Results */}
+          {products.length > 0 && (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Package className="h-5 w-5" />
+                      Search Results ({products.length} products)
+                    </CardTitle>
+                    <CardDescription>
+                      Select products to import to your SKU inventory
+                    </CardDescription>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={selectAllProducts}
+                    >
+                      {selectedProducts.size === products.length ? 'Deselect All' : 'Select All'}
+                    </Button>
+                    <Button
+                      onClick={importSelectedSKUs}
+                      disabled={selectedProducts.size === 0 || importing}
+                      size="sm"
+                    >
+                      {importing ? (
+                        <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                      ) : (
+                        <Download className="h-4 w-4 mr-2" />
+                      )}
+                      Import Selected ({selectedProducts.size})
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {importing && (
+                  <div className="mb-4">
+                    <div className="flex items-center justify-between text-sm mb-2">
+                      <span>Importing SKUs...</span>
+                      <span>{Math.round(importProgress)}%</span>
+                    </div>
+                    <Progress value={importProgress} className="h-2" />
+                  </div>
+                )}
+
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-12">
+                          <Checkbox
+                            checked={selectedProducts.size === products.length && products.length > 0}
+                            onCheckedChange={selectAllProducts}
+                          />
+                        </TableHead>
+                        {selectedHeaders.map((header) => (
+                          <TableHead key={header}>
+                            {header.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                          </TableHead>
+                        ))}
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {products.map((product) => (
+                        <TableRow key={product.itemNo}>
+                          <TableCell>
+                            <Checkbox
+                              checked={selectedProducts.has(product.itemNo)}
+                              onCheckedChange={() => toggleProductSelection(product.itemNo)}
+                            />
+                          </TableCell>
+                          {selectedHeaders.map((header) => (
+                            <TableCell key={header} className="max-w-xs truncate">
+                              {formatFieldValue(header, product[header as keyof SunskyProduct])}
+                            </TableCell>
+                          ))}
+                          <TableCell>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setSelectedProduct(product)}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-center mt-6">
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => searchProducts(currentPage - 1)}
+                        disabled={currentPage === 1}
+                      >
+                        Previous
+                      </Button>
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                          const page = i + 1;
+                          return (
+                            <Button
+                              key={page}
+                              variant={page === currentPage ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => searchProducts(page)}
+                            >
+                              {page}
+                            </Button>
+                          );
+                        })}
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => searchProducts(currentPage + 1)}
+                        disabled={currentPage === totalPages}
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+        
+        <TabsContent value="jobs" className="space-y-6">
+          <div className="grid grid-cols-1 gap-6">
+            {/* Create Category Import Job */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Plus className="h-5 w-5" />
+                  Create Category Import Job
+                </CardTitle>
+                <CardDescription>
+                  Import all products from a specific category in the background
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-end gap-4">
+                  <div className="flex-1 space-y-2">
+                    <Label htmlFor="job-category">Category</Label>
                     <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select category" />
+                        <SelectValue placeholder="Select category to import" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Categories</SelectItem>
                         {categories.map((category) => (
                           <SelectItem key={category.id} value={category.id.toString()}>
                             {category.name}
@@ -1291,15 +1067,19 @@ export const SunskySKUImporter: React.FC = () => {
                       </SelectContent>
                     </Select>
                   </div>
+                  <Button
+                    onClick={() => {
+                      const category = categories.find(c => c.id.toString() === selectedCategory);
+                      if (category) {
+                        createCategoryImportJob(selectedCategory, category.name);
+                      }
+                    }}
+                    disabled={!hasCredentials || !selectedCategory || selectedCategory === 'all'}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Job
+                  </Button>
                 </div>
-
-                <Button 
-                  onClick={createCategoryImportJob} 
-                  disabled={!selectedCategory || selectedCategory === 'all' || jobsLoading}
-                  className="w-full"
-                >
-                  Create Import Task
-                </Button>
               </CardContent>
             </Card>
 
@@ -1322,7 +1102,7 @@ export const SunskySKUImporter: React.FC = () => {
                     size="sm"
                   >
                     <RefreshCw className="h-4 w-4 mr-2" />
-                    Refresh
+                    Refresh Jobs
                   </Button>
                 </div>
               </CardHeader>
@@ -1334,102 +1114,150 @@ export const SunskySKUImporter: React.FC = () => {
                 ) : jobs.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <Calendar className="h-12 w-12 mx-auto mb-4" />
-                    <p>No import jobs created yet</p>
+                    <p>No import jobs yet</p>
+                    <p className="text-sm">Create category import jobs to track progress</p>
                   </div>
                 ) : (
-                  <div className="space-y-2">
-                    {jobs.map((job) => (
-                      <div key={job.id} className="border rounded-lg p-3">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <Badge 
-                              variant={
-                                job.status === 'completed' ? 'default' :
-                                job.status === 'processing' ? 'secondary' :
-                                job.status === 'failed' ? 'destructive' : 'outline'
-                              }
-                            >
-                              {job.status}
-                            </Badge>
-                            <span className="font-medium capitalize">{job.type}</span>
-                            {job.total_items && (
-                              <span className="text-sm text-muted-foreground">
-                                {job.processed_items}/{job.total_items} items 
-                                ({Math.round((job.processed_items / job.total_items) * 100)}%)
-                              </span>
-                            )}
-                            {job.success_count > 0 && (
-                              <span className="text-sm text-green-600">
-                                ✓ {job.success_count} success
-                              </span>
-                            )}
-                            {job.error_count > 0 && (
-                              <span className="text-sm text-red-600">
-                                ✗ {job.error_count} errors
-                              </span>
-                            )}
-                          </div>
-                          
-                          <div className="flex items-center gap-2">
-                            {/* Task Control Buttons */}
-                            {job.status === 'processing' && !job.paused && !job.cancelled && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => pauseJob(job.id)}
-                                className="text-yellow-600 hover:bg-yellow-50"
+                  <>
+                    <div className="space-y-4">
+                      {jobs
+                        .slice((jobsCurrentPage - 1) * jobsPerPage, jobsCurrentPage * jobsPerPage)
+                        .map((job) => (
+                        <div key={job.id} className="border rounded-lg p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <Badge 
+                                variant={
+                                  job.status === 'completed' ? 'default' :
+                                  job.status === 'processing' ? 'secondary' :
+                                  job.status === 'failed' ? 'destructive' : 'outline'
+                                }
                               >
-                                <PauseCircle className="h-4 w-4" />
-                              </Button>
-                            )}
+                                {job.status}
+                              </Badge>
+                              <div>
+                                <span className="font-medium capitalize">{job.type}</span>
+                                {job.total_items && (
+                                  <span className="text-sm text-muted-foreground ml-2">
+                                    ({job.processed_items || 0}/{job.total_items} items)
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                             
-                            {job.status === 'processing' && job.paused && !job.cancelled && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => resumeJob(job.id)}
-                                className="text-green-600 hover:bg-green-50"
-                              >
-                                <PlayCircle className="h-4 w-4" />
-                              </Button>
-                            )}
-                            
-                            {(job.status === 'processing' || job.status === 'queued') && !job.cancelled && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => cancelJob(job.id)}
-                                className="text-red-600 hover:bg-red-50"
-                              >
-                                <XCircle className="h-4 w-4" />
-                              </Button>
-                            )}
-                            
-                            <div className="text-xs text-muted-foreground text-right">
-                              <div>{new Date(job.created_at).toLocaleDateString()}</div>
-                              {job.started_at && (
-                                <div>{new Date(job.started_at).toLocaleTimeString()}</div>
+                            <div className="flex items-center gap-2">
+                              {job.status === 'processing' && !job.paused && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => pauseJob(job.id)}
+                                  className="text-orange-600 hover:bg-orange-50"
+                                >
+                                  <PauseCircle className="h-4 w-4" />
+                                </Button>
                               )}
+                              
+                              {job.status === 'processing' && job.paused && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => resumeJob(job.id)}
+                                  className="text-green-600 hover:bg-green-50"
+                                >
+                                  <PlayCircle className="h-4 w-4" />
+                                </Button>
+                              )}
+                              
+                              {(job.status === 'processing' || job.status === 'queued') && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => cancelJob(job.id)}
+                                  className="text-red-600 hover:bg-red-50"
+                                >
+                                  <XCircle className="h-4 w-4" />
+                                </Button>
+                              )}
+                              
+                              <div className="text-xs text-muted-foreground text-right">
+                                <div>{new Date(job.created_at).toLocaleDateString()}</div>
+                                {job.started_at && (
+                                  <div>{new Date(job.started_at).toLocaleTimeString()}</div>
+                                )}
+                              </div>
                             </div>
                           </div>
+                          
+                          {/* Progress bar for active jobs */}
+                          {job.total_items && job.status === 'processing' && (
+                            <div className="mt-2">
+                              <Progress 
+                                value={(job.processed_items / job.total_items) * 100} 
+                                className="h-2" 
+                              />
+                            </div>
+                          )}
                         </div>
-                        
-                        {/* Progress bar for active jobs */}
-                        {job.total_items && job.status === 'processing' && (
-                          <div className="mt-2">
-                            <Progress 
-                              value={(job.processed_items / job.total_items) * 100} 
-                              className="h-2" 
-                            />
-                          </div>
-                        )}
+                      ))}
+                    </div>
+                    
+                    {/* Jobs Pagination */}
+                    {jobs.length > jobsPerPage && (
+                      <div className="mt-6">
+                        <Pagination>
+                          <PaginationContent>
+                            <PaginationItem>
+                              <PaginationPrevious 
+                                href="#"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  if (jobsCurrentPage > 1) setJobsCurrentPage(jobsCurrentPage - 1);
+                                }}
+                                className={jobsCurrentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                              />
+                            </PaginationItem>
+                            
+                            {Array.from({ length: Math.ceil(jobs.length / jobsPerPage) }, (_, i) => i + 1).map((page) => (
+                              <PaginationItem key={page}>
+                                <PaginationLink
+                                  href="#"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    setJobsCurrentPage(page);
+                                  }}
+                                  isActive={page === jobsCurrentPage}
+                                  className="cursor-pointer"
+                                >
+                                  {page}
+                                </PaginationLink>
+                              </PaginationItem>
+                            ))}
+                            
+                            <PaginationItem>
+                              <PaginationNext 
+                                href="#"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  if (jobsCurrentPage < Math.ceil(jobs.length / jobsPerPage)) {
+                                    setJobsCurrentPage(jobsCurrentPage + 1);
+                                  }
+                                }}
+                                className={jobsCurrentPage === Math.ceil(jobs.length / jobsPerPage) ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                              />
+                            </PaginationItem>
+                          </PaginationContent>
+                        </Pagination>
                       </div>
-                    ))}
-                  </div>
+                    )}
+                  </>
                 )}
               </CardContent>
             </Card>
-
+          </div>
+        </TabsContent>
+        
+        <TabsContent value="skus" className="space-y-6">
+          <div className="grid grid-cols-1 gap-6">
             {/* Imported SKUs */}
             <Card>
               <CardHeader>
@@ -1443,14 +1271,53 @@ export const SunskySKUImporter: React.FC = () => {
                       View and manage your imported Sunsky SKUs
                     </CardDescription>
                   </div>
-                  <Button 
-                    onClick={() => fetchSKUs(1, false)}
-                    variant="outline"
-                    size="sm"
-                  >
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Refresh
-                  </Button>
+                  <div className="flex gap-2">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm">
+                          <Settings className="h-4 w-4 mr-2" />
+                          Columns
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-56">
+                        {availableSkuHeaders.map((header) => (
+                          <DropdownMenuCheckboxItem
+                            key={header}
+                            checked={skuTableHeaders.includes(header)}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setSkuTableHeaders([...skuTableHeaders, header]);
+                              } else {
+                                setSkuTableHeaders(skuTableHeaders.filter(h => h !== header));
+                              }
+                            }}
+                          >
+                            {header.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                          </DropdownMenuCheckboxItem>
+                        ))}
+                        <div className="border-t pt-2 mt-2">
+                          <Button 
+                            onClick={saveColumnPreferences}
+                            variant="ghost" 
+                            size="sm" 
+                            className="w-full justify-start"
+                          >
+                            <Save className="h-4 w-4 mr-2" />
+                            Save Preferences
+                          </Button>
+                        </div>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    
+                    <Button 
+                      onClick={() => fetchSKUs(1, false)}
+                      variant="outline"
+                      size="sm"
+                    >
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Refresh
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
@@ -1469,29 +1336,26 @@ export const SunskySKUImporter: React.FC = () => {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>SKU Code</TableHead>
-                          <TableHead>Title</TableHead>
-                          <TableHead>Cost</TableHead>
-                          <TableHead>Currency</TableHead>
-                          <TableHead>Country</TableHead>
-                          <TableHead>Imported</TableHead>
+                          {skuTableHeaders.map((header) => (
+                            <TableHead key={header}>
+                              {header.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                            </TableHead>
+                          ))}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {sunskySKUs.map((sku) => (
                           <TableRow key={sku.id}>
-                            <TableCell className="font-mono">{sku.sku_code}</TableCell>
-                            <TableCell className="max-w-xs truncate" title={sku.title}>
-                              {sku.title || '-'}
-                            </TableCell>
-                            <TableCell>
-                              {sku.cost ? `${sku.cost.toFixed(2)}` : '-'}
-                            </TableCell>
-                            <TableCell>{sku.currency || '-'}</TableCell>
-                            <TableCell>{sku.country || '-'}</TableCell>
-                            <TableCell className="text-sm text-muted-foreground">
-                              {new Date(sku.created_at).toLocaleDateString()}
-                            </TableCell>
+                            {skuTableHeaders.map((header) => (
+                              <TableCell key={header} className={header === 'sku_code' ? 'font-mono' : header === 'title' ? 'max-w-xs truncate' : header === 'created_at' ? 'text-sm text-muted-foreground' : ''}>
+                                {header === 'created_at' 
+                                  ? new Date(sku[header as keyof typeof sku] as string).toLocaleDateString()
+                                  : header === 'cost' && sku.cost
+                                  ? sku.cost.toFixed(2)
+                                  : (sku[header as keyof typeof sku] as string) || '-'
+                                }
+                              </TableCell>
+                            ))}
                           </TableRow>
                         ))}
                       </TableBody>
