@@ -1294,15 +1294,19 @@ serve(async (req) => {
         console.log('getCategories action called with data:', requestData);
         const { apiId } = requestData;
         const credentials = await getApiCredentials(user.id, apiId);
-        const { parentId, lang = 'en', gmtModifiedStart } = requestData;
+        const { parentId, lang = 'en', gmtModifiedStart, mode } = requestData;
 
         const params: Record<string, any> = {
           lang
         };
 
-        // Add parentId only if specified (null means all categories)
-        if (parentId !== null && parentId !== undefined) {
+        // Handle top-level categories request - use parentId=0 for main categories
+        if (mode === 'top' || parentId === 'root' || (parentId === null && mode !== 'subcategories')) {
+          params.parentId = '0';
+          console.log('Loading main categories with parentId=0');
+        } else if (parentId !== null && parentId !== undefined && parentId !== 'all') {
           params.parentId = parentId.toString();
+          console.log('Loading subcategories for parentId:', parentId);
         }
 
         // Add date filter if specified
@@ -1344,7 +1348,7 @@ serve(async (req) => {
 
       case 'getBrands': {
         console.log('getBrands action called with data:', requestData);
-        const { apiId } = requestData;
+        const { apiId, categoryId } = requestData;
         const credentials = await getApiCredentials(user.id, apiId);
         const { lang = 'en' } = requestData;
 
@@ -1367,9 +1371,55 @@ serve(async (req) => {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         } catch (error) {
+          console.log('Brand endpoint failed, trying fallback with product search...');
+          
           // Handle rate limit responses properly
           if (error instanceof Response && error.status === 429) {
             return error;
+          }
+          
+          // Fallback: Extract brands from products if brand endpoint fails
+          try {
+            const searchParams: Record<string, any> = {
+              lang,
+              page: 1,
+              pageSize: 50
+            };
+            
+            if (categoryId && categoryId !== 'all') {
+              searchParams.categoryId = categoryId;
+            }
+            
+            console.log('Fallback: searching products for brands with params:', searchParams);
+            
+            const productResult = await makeSunskyRequest('/openapi/product!search.do', searchParams, credentials.key, credentials.secret, user.id);
+            
+            if (productResult.result === 'success' && productResult.data?.products) {
+              // Extract unique brands from products
+              const brandSet = new Set<string>();
+              const brands: any[] = [];
+              
+              productResult.data.products.forEach((product: any) => {
+                if (product.brandName && !brandSet.has(product.brandName)) {
+                  brandSet.add(product.brandName);
+                  brands.push({
+                    id: product.brandId || brands.length + 1,
+                    name: product.brandName
+                  });
+                }
+              });
+              
+              console.log(`Fallback successful: extracted ${brands.length} brands from products`);
+              
+              return new Response(JSON.stringify({
+                success: true,
+                data: brands
+              }), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              });
+            }
+          } catch (fallbackError) {
+            console.error('Fallback also failed:', fallbackError);
           }
           
           return new Response(JSON.stringify({

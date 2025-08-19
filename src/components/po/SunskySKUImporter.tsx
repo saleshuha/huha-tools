@@ -162,6 +162,8 @@ export const SunskySKUImporter: React.FC = () => {
   const [categoryFetchMode, setCategoryFetchMode] = useState<'top' | 'all' | 'modified'>('top');
   const [modifiedSinceDate, setModifiedSinceDate] = useState<string>('');
   const [fetchingCategories, setFetchingCategories] = useState(false);
+  const [fetchingSubCategories, setFetchingSubCategories] = useState(false);
+  const [fetchingBrands, setFetchingBrands] = useState(false);
   
   // Header management
   const [availableHeaders, setAvailableHeaders] = useState<string[]>([]);
@@ -400,21 +402,25 @@ export const SunskySKUImporter: React.FC = () => {
       return;
     }
     
-    console.log('Loading categories with API ID:', apiId);
+    console.log('Loading main categories with API ID:', apiId);
     setFetchingCategories(true);
     try {
       const result = await callSunskyAPI('getCategories', {
-        mode: categoryFetchMode,
+        mode: 'top', // Load main categories
+        parentId: '0', // Explicitly request top-level categories
         modifiedSince: modifiedSinceDate
       }, apiId);
       
-      console.log('Categories result:', result);
+      console.log('Main categories result:', result);
       
       if (result.success) {
         setCategories(result.data || []);
+        // Reset subcategories when main categories change
+        setSubCategories([]);
+        setSelectedSubCategory('all');
         toast({
           title: "Success",
-          description: `Loaded ${result.data?.length || 0} categories`
+          description: `Loaded ${result.data?.length || 0} main categories`
         });
       } else {
         console.error('Categories API error:', result.error);
@@ -438,15 +444,18 @@ export const SunskySKUImporter: React.FC = () => {
       return;
     }
     
+    console.log('Loading subcategories for category:', categoryId);
+    setFetchingSubCategories(true);
     try {
       const result = await callSunskyAPI('getCategories', { 
         parentId: categoryId,
-        mode: categoryFetchMode,
+        mode: 'subcategories',
         modifiedSince: modifiedSinceDate
       }, apiId || selectedSearchAPI);
       
       if (result.success) {
         setSubCategories(result.data || []);
+        console.log(`Loaded ${result.data?.length || 0} subcategories for category ${categoryId}`);
       } else {
         throw new Error(result.error);
       }
@@ -457,35 +466,55 @@ export const SunskySKUImporter: React.FC = () => {
         description: "Failed to load sub-categories",
         variant: "destructive"
       });
+    } finally {
+      setFetchingSubCategories(false);
     }
   };
 
-  const loadBrands = async (apiId?: string) => {
+  const loadBrands = async (apiId?: string, categoryId?: string) => {
     if (!hasCredentials) {
       console.log('Skipping loadBrands - no credentials');
       return;
     }
     
-    console.log('Loading brands with API ID:', apiId);
+    console.log('Loading brands with API ID:', apiId, 'categoryId:', categoryId);
+    setFetchingBrands(true);
     try {
-      const result = await callSunskyAPI('getBrands', {}, apiId);
+      const params: any = {};
+      if (categoryId && categoryId !== 'all') {
+        params.categoryId = categoryId;
+      }
+      
+      const result = await callSunskyAPI('getBrands', params, apiId);
       
       console.log('Brands result:', result);
       
       if (result.success) {
         setBrands(result.data || []);
         console.log('Set brands:', result.data?.length || 0);
+        if (result.data?.length === 0) {
+          toast({
+            title: "Info",
+            description: "No brands found for this category",
+          });
+        }
       } else {
         console.error('Brands API error:', result.error);
-        throw new Error(result.error);
+        setBrands([]); // Clear brands on error
+        toast({
+          title: "Warning",
+          description: "Could not load brands, showing all products",
+        });
       }
     } catch (error) {
       console.error('Error loading brands:', error);
+      setBrands([]); // Clear brands on error
       toast({
-        title: "Error",
-        description: "Failed to load brands",
-        variant: "destructive"
+        title: "Warning",
+        description: "Could not load brands, showing all products",
       });
+    } finally {
+      setFetchingBrands(false);
     }
   };
 
@@ -729,9 +758,15 @@ export const SunskySKUImporter: React.FC = () => {
   useEffect(() => {
     if (selectedCategory !== 'all' && selectedSearchAPI) {
       loadSubCategories(selectedCategory, selectedSearchAPI);
+      // Also reload brands when category changes to get category-specific brands
+      loadBrands(selectedSearchAPI, selectedCategory);
     } else {
       setSubCategories([]);
       setSelectedSubCategory('all');
+      // Load all brands when no specific category is selected
+      if (selectedSearchAPI) {
+        loadBrands(selectedSearchAPI);
+      }
     }
   }, [selectedCategory, selectedSearchAPI]);
 
@@ -808,10 +843,10 @@ export const SunskySKUImporter: React.FC = () => {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="category">Category</Label>
-                  <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                  <Label htmlFor="category">Main Category</Label>
+                  <Select value={selectedCategory} onValueChange={setSelectedCategory} disabled={fetchingCategories}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
+                      <SelectValue placeholder={fetchingCategories ? "Loading categories..." : "Select main category"} />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Categories</SelectItem>
@@ -824,12 +859,12 @@ export const SunskySKUImporter: React.FC = () => {
                   </Select>
                 </div>
 
-                {subCategories.length > 0 && (
+                {(subCategories.length > 0 || fetchingSubCategories) && (
                   <div className="space-y-2">
                     <Label htmlFor="subcategory">Sub-Category</Label>
-                    <Select value={selectedSubCategory} onValueChange={setSelectedSubCategory}>
+                    <Select value={selectedSubCategory} onValueChange={setSelectedSubCategory} disabled={fetchingSubCategories}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select sub-category" />
+                        <SelectValue placeholder={fetchingSubCategories ? "Loading subcategories..." : "Select sub-category"} />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All Sub-Categories</SelectItem>
@@ -840,14 +875,17 @@ export const SunskySKUImporter: React.FC = () => {
                         ))}
                       </SelectContent>
                     </Select>
+                    {subCategories.length === 0 && !fetchingSubCategories && (
+                      <p className="text-sm text-muted-foreground">No subcategories available for this category</p>
+                    )}
                   </div>
                 )}
 
                 <div className="space-y-2">
                   <Label htmlFor="brand">Brand</Label>
-                  <Select value={selectedBrand} onValueChange={setSelectedBrand}>
+                  <Select value={selectedBrand} onValueChange={setSelectedBrand} disabled={fetchingBrands}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select brand" />
+                      <SelectValue placeholder={fetchingBrands ? "Loading brands..." : "Select brand"} />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Brands</SelectItem>
@@ -858,6 +896,9 @@ export const SunskySKUImporter: React.FC = () => {
                       ))}
                     </SelectContent>
                   </Select>
+                  {brands.length === 0 && !fetchingBrands && (
+                    <p className="text-sm text-muted-foreground">No brands available for this category</p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
