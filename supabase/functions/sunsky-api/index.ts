@@ -472,6 +472,42 @@ async function processImportJob(job: any, userId: string, userCountry: string) {
     for (let i = 0; i < products.length; i++) {
       const product = products[i];
       
+      // Check if job is paused or cancelled before processing each item
+      const { data: currentJob } = await supabase
+        .from('sunsky_import_jobs')
+        .select('paused, cancelled, status')
+        .eq('id', job.id)
+        .single();
+      
+      if (currentJob?.cancelled) {
+        console.log(`Job ${job.id} cancelled, stopping processing`);
+        await supabase
+          .from('sunsky_import_jobs')
+          .update({ 
+            status: 'cancelled',
+            processed_items: i,
+            success_count: successCount,
+            error_count: errorCount,
+            completed_at: new Date().toISOString()
+          })
+          .eq('id', job.id);
+        return;
+      }
+      
+      if (currentJob?.paused) {
+        console.log(`Job ${job.id} paused, stopping processing`);
+        await supabase
+          .from('sunsky_import_jobs')
+          .update({ 
+            status: 'paused',
+            processed_items: i,
+            success_count: successCount,
+            error_count: errorCount
+          })
+          .eq('id', job.id);
+        return;
+      }
+      
       try {
         // Create job item record
         await supabase
@@ -528,8 +564,13 @@ async function processImportJob(job: any, userId: string, userCountry: string) {
           await supabase
             .from('sunsky_import_job_items')
             .update({
-              status: 'success',
-              sku_id: skuData.id
+              status: 'completed',
+              sku_code: skuData.sku_code,
+              title: skuData.title,
+              cost: skuData.cost,
+              weight: skuData.weight,
+              currency: skuData.currency,
+              processed_at: new Date().toISOString()
             })
             .eq('job_id', job.id)
             .eq('item_no', product.itemNo);
@@ -543,7 +584,7 @@ async function processImportJob(job: any, userId: string, userCountry: string) {
         await supabase
           .from('sunsky_import_job_items')
           .update({
-            status: 'failed',
+            status: 'error',
             error_message: error.message
           })
           .eq('job_id', job.id)
