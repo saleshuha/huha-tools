@@ -1067,7 +1067,7 @@ serve(async (req) => {
       }
 
       case 'searchProducts': {
-        const { apiId } = requestData;
+        const { apiId, filters } = requestData;
         const credentials = await getApiCredentials(user.id, apiId);
         
         const { 
@@ -1082,8 +1082,11 @@ serve(async (req) => {
           searchTerm,
           leadTimeLevel,
           status = 1, // Default to valid products only
-          gmtModifiedStart
-        } = requestData;
+          gmtModifiedStart,
+          priceMin,
+          priceMax,
+          stockMin
+        } = filters || requestData;
 
         const params: Record<string, any> = {
           lang: 'en',
@@ -1100,6 +1103,9 @@ serve(async (req) => {
         if (brandName) params.brandName = brandName;
         if (leadTimeLevel) params.leadTimeLevel = leadTimeLevel;
         if (gmtModifiedStart) params.gmtModifiedStart = gmtModifiedStart;
+        if (priceMin) params.priceMin = priceMin;
+        if (priceMax) params.priceMax = priceMax;
+        if (stockMin) params.stockMin = stockMin;
 
         console.log('Search params:', params);
 
@@ -1128,7 +1134,13 @@ serve(async (req) => {
           }
         }
 
-          return new Response(JSON.stringify(result), {
+          return new Response(JSON.stringify({
+            success: true,
+            data: {
+              products: result.data?.result || [],
+              total: result.data?.total || 0
+            }
+          }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         } catch (error) {

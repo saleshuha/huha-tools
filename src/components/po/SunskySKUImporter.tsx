@@ -539,7 +539,7 @@ export const SunskySKUImporter: React.FC = () => {
         filters,
         page,
         pageSize: 20
-      }, apiId);
+      }, apiId || selectedSearchAPI);
       
       if (result.success) {
         setProducts(result.data?.products || []);
