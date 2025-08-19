@@ -31,11 +31,11 @@ async function sha256(text: string): Promise<string> {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-// Default rate limits for Level 9 (conservative estimates - adjust based on actual Sunsky docs)
+// Level 9 rate limits from Sunsky API documentation
 const DEFAULT_RATE_LIMITS = {
-  "category.getChildren": { minute: 100, day: 5000 },
-  "product.search": { minute: 60, day: 3000 },
-  "product.detail": { minute: 120, day: 10000 }
+  "category.getChildren": { minute: 480, day: 1000000 },
+  "product.search": { minute: 480, day: 1000000 },
+  "product.detail": { minute: 480, day: 1000000 }
 };
 
 // Get rate limits from environment or use defaults
