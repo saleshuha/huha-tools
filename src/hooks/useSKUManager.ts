@@ -11,6 +11,8 @@ export interface SunskySKU {
   weight?: number;
   currency?: string;
   country?: string;
+  description?: string;
+  product_data?: any;
   created_at: string;
   updated_at: string;
 }
@@ -128,6 +130,8 @@ export const useSKUManager = () => {
           weight,
           currency,
           country,
+          description,
+          product_data,
           created_at,
           updated_at
         `)

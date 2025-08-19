@@ -1639,6 +1639,7 @@ export type Database = {
           currency: string | null
           description: string | null
           id: string
+          product_data: Json | null
           sku_code: string
           title: string | null
           updated_at: string
@@ -1652,6 +1653,7 @@ export type Database = {
           currency?: string | null
           description?: string | null
           id?: string
+          product_data?: Json | null
           sku_code: string
           title?: string | null
           updated_at?: string
@@ -1665,6 +1667,7 @@ export type Database = {
           currency?: string | null
           description?: string | null
           id?: string
+          product_data?: Json | null
           sku_code?: string
           title?: string | null
           updated_at?: string
