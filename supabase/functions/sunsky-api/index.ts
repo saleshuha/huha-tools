@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.5';
@@ -38,6 +39,38 @@ async function generateSignature(params: Record<string, any>, key: string, secre
   console.log('String to hash:', stringToHash);
   
   return await md5(stringToHash);
+}
+
+// Get API credentials for user (user-specific first, then fallback to env)
+async function getApiCredentials(userId: string): Promise<{ key: string; secret: string }> {
+  // Try to get user-specific credentials first
+  const { data: userCredentials } = await supabase
+    .from('sunsky_credentials')
+    .select('api_key, api_secret')
+    .eq('user_id', userId)
+    .single();
+
+  if (userCredentials?.api_key && userCredentials?.api_secret) {
+    console.log('Using user-specific Sunsky credentials');
+    return {
+      key: userCredentials.api_key,
+      secret: userCredentials.api_secret
+    };
+  }
+
+  // Fallback to environment variables
+  const envKey = Deno.env.get('SUNSKY_API_KEY');
+  const envSecret = Deno.env.get('SUNSKY_API_SECRET');
+  
+  if (!envKey || !envSecret) {
+    throw new Error('No Sunsky API credentials available');
+  }
+
+  console.log('Using environment Sunsky credentials');
+  return {
+    key: envKey,
+    secret: envSecret
+  };
 }
 
 // Make authenticated request to Sunsky API
@@ -109,16 +142,87 @@ serve(async (req) => {
 
     const userCountry = profile?.country || 'UAE';
 
-    // Get Sunsky API credentials from secrets
-    const sunskyKey = Deno.env.get('SUNSKY_API_KEY');
-    const sunskySecret = Deno.env.get('SUNSKY_API_SECRET');
-    
-    if (!sunskyKey || !sunskySecret) {
-      throw new Error('Sunsky API credentials not configured');
-    }
-
     switch (action) {
+      case 'saveCredentials': {
+        const { apiKey, apiSecret } = requestData;
+
+        if (!apiKey || !apiSecret) {
+          throw new Error('API key and secret are required');
+        }
+
+        // Upsert user credentials
+        const { error } = await supabase
+          .from('sunsky_credentials')
+          .upsert({
+            user_id: user.id,
+            api_key: apiKey,
+            api_secret: apiSecret
+          }, {
+            onConflict: 'user_id'
+          });
+
+        if (error) {
+          throw new Error('Failed to save credentials');
+        }
+
+        return new Response(JSON.stringify({
+          result: 'success',
+          message: 'Credentials saved successfully'
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      case 'testCredentials': {
+        const credentials = await getApiCredentials(user.id);
+        
+        // Test with a simple categories request
+        const params = {
+          lang: 'en',
+          parentId: '0'
+        };
+
+        try {
+          const result = await makeSunskyRequest('/openapi/category!getChildren.do', params, credentials.key, credentials.secret);
+          
+          if (result.result === 'success') {
+            return new Response(JSON.stringify({
+              result: 'success',
+              message: 'API credentials are valid'
+            }), {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+          } else {
+            throw new Error(result.messages?.[0] || 'Invalid API credentials');
+          }
+        } catch (error) {
+          return new Response(JSON.stringify({
+            result: 'error',
+            message: 'Invalid API credentials: ' + error.message
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+      }
+
+      case 'getCredentialsStatus': {
+        const { data: userCredentials } = await supabase
+          .from('sunsky_credentials')
+          .select('api_key')
+          .eq('user_id', user.id)
+          .single();
+
+        return new Response(JSON.stringify({
+          result: 'success',
+          hasCredentials: !!userCredentials?.api_key
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
       case 'searchProducts': {
+        const credentials = await getApiCredentials(user.id);
+        
         const { 
           categoryId, 
           brandId,
@@ -149,7 +253,7 @@ serve(async (req) => {
 
         console.log('Search params:', params);
 
-        const result = await makeSunskyRequest('/openapi/product!search.do', params, sunskyKey, sunskySecret);
+        const result = await makeSunskyRequest('/openapi/product!search.do', params, credentials.key, credentials.secret);
         
         if (result.result === 'error') {
           console.error('Sunsky search error:', result);
@@ -179,6 +283,7 @@ serve(async (req) => {
       }
 
       case 'getProductDetails': {
+        const credentials = await getApiCredentials(user.id);
         const { itemNo } = requestData;
 
         if (!itemNo) {
@@ -190,7 +295,7 @@ serve(async (req) => {
           itemNo
         };
 
-        const result = await makeSunskyRequest('/openapi/product!detail.do', params, sunskyKey, sunskySecret);
+        const result = await makeSunskyRequest('/openapi/product!detail.do', params, credentials.key, credentials.secret);
         
         if (result.result === 'error') {
           throw new Error(result.messages?.[0] || 'Sunsky API error');
@@ -208,6 +313,7 @@ serve(async (req) => {
       }
 
       case 'importSKUs': {
+        const credentials = await getApiCredentials(user.id);
         const { skus } = requestData;
 
         if (!Array.isArray(skus) || skus.length === 0) {
@@ -222,8 +328,8 @@ serve(async (req) => {
           const productResult = await makeSunskyRequest(
             '/openapi/product!detail.do',
             { lang: 'en', itemNo: sku.itemNo },
-            sunskyKey,
-            sunskySecret
+            credentials.key,
+            credentials.secret
           );
 
           if (productResult.result === 'success' && productResult.data) {
@@ -278,6 +384,7 @@ serve(async (req) => {
       }
 
       case 'getCategories': {
+        const credentials = await getApiCredentials(user.id);
         const { parentId = 0 } = requestData;
 
         const params = {
@@ -285,7 +392,7 @@ serve(async (req) => {
           parentId: parentId.toString()
         };
 
-        const result = await makeSunskyRequest('/openapi/category!getChildren.do', params, sunskyKey, sunskySecret);
+        const result = await makeSunskyRequest('/openapi/category!getChildren.do', params, credentials.key, credentials.secret);
         
         if (result.result === 'error') {
           throw new Error(result.messages?.[0] || 'Sunsky API error');

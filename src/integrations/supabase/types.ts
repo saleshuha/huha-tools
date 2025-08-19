@@ -1402,6 +1402,33 @@ export type Database = {
         }
         Relationships: []
       }
+      sunsky_credentials: {
+        Row: {
+          api_key: string
+          api_secret: string
+          created_at: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          api_key: string
+          api_secret: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          api_key?: string
+          api_secret?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       sunsky_skus: {
         Row: {
           cost: number | null

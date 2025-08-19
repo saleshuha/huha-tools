@@ -16,6 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { DateRange } from "react-day-picker";
+import { SunskyCredentialsManager } from "./SunskyCredentialsManager";
 
 interface SunskyProduct {
   id: number;
@@ -59,21 +60,45 @@ export const SunskySKUImporter: React.FC = () => {
   const [importProgress, setImportProgress] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [hasCredentials, setHasCredentials] = useState(false);
 
-  // Load categories on mount
+  // Load categories on mount and when credentials change
   useEffect(() => {
-    loadCategories();
-  }, []);
+    if (hasCredentials) {
+      loadCategories();
+    }
+  }, [hasCredentials]);
 
   // Load subcategories when main category changes
   useEffect(() => {
-    if (selectedCategory && selectedCategory !== 'all') {
+    if (selectedCategory && selectedCategory !== 'all' && hasCredentials) {
       loadSubCategories(parseInt(selectedCategory));
     } else {
       setSubCategories([]);
       setSelectedSubCategory('all');
     }
-  }, [selectedCategory]);
+  }, [selectedCategory, hasCredentials]);
+
+  const checkCredentialsStatus = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('sunsky-api', {
+        body: { action: 'getCredentialsStatus' }
+      });
+
+      if (error) throw error;
+
+      if (data.result === 'success') {
+        setHasCredentials(data.hasCredentials);
+      }
+    } catch (error) {
+      console.error('Error checking credentials status:', error);
+      setHasCredentials(false);
+    }
+  };
+
+  useEffect(() => {
+    checkCredentialsStatus();
+  }, []);
 
   const loadCategories = async () => {
     try {
@@ -93,7 +118,7 @@ export const SunskySKUImporter: React.FC = () => {
       console.error('Error loading categories:', error);
       toast({
         title: "Error",
-        description: "Failed to load Sunsky categories",
+        description: "Failed to load Sunsky categories. Please check your API credentials.",
         variant: "destructive",
       });
     }
@@ -120,6 +145,15 @@ export const SunskySKUImporter: React.FC = () => {
   };
 
   const searchProducts = async (page = 1) => {
+    if (!hasCredentials) {
+      toast({
+        title: "No API Credentials",
+        description: "Please configure your Sunsky API credentials first",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
     try {
       const searchParams: any = {
@@ -164,7 +198,7 @@ export const SunskySKUImporter: React.FC = () => {
       console.error('Error searching products:', error);
       toast({
         title: "Error",
-        description: "Failed to search Sunsky products",
+        description: "Failed to search Sunsky products. Please check your API credentials.",
         variant: "destructive",
       });
     } finally {
@@ -271,257 +305,280 @@ export const SunskySKUImporter: React.FC = () => {
         )}
       </div>
 
-      <Tabs defaultValue="search" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="search">Search Products</TabsTrigger>
+      <Tabs defaultValue="credentials" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="credentials">API Connection</TabsTrigger>
+          <TabsTrigger value="search" disabled={!hasCredentials}>Search Products</TabsTrigger>
           <TabsTrigger value="imported">Imported SKUs</TabsTrigger>
         </TabsList>
 
+        <TabsContent value="credentials" className="space-y-6">
+          <SunskyCredentialsManager 
+            onCredentialsChanged={() => {
+              checkCredentialsStatus();
+            }}
+          />
+        </TabsContent>
+
         <TabsContent value="search" className="space-y-6">
-          {/* Filters */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Search className="h-5 w-5" />
-                Search Filters
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="search">Product Search</Label>
-                  <Input
-                    id="search"
-                    placeholder="Enter keyword..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="category">Category</Label>
-                  <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                    <SelectTrigger id="category">
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Categories</SelectItem>
-                      {categories.map((category) => (
-                        <SelectItem key={category.id} value={category.id.toString()}>
-                          {category.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="subcategory">Sub-Category</Label>
-                  <Select 
-                    value={selectedSubCategory} 
-                    onValueChange={setSelectedSubCategory}
-                    disabled={selectedCategory === 'all' || subCategories.length === 0}
-                  >
-                    <SelectTrigger id="subcategory">
-                      <SelectValue placeholder="Select sub-category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Sub-Categories</SelectItem>
-                      {subCategories.map((subCategory) => (
-                        <SelectItem key={subCategory.id} value={subCategory.id.toString()}>
-                          {subCategory.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Date Range</Label>
-                  <DatePickerWithRange
-                    date={dateRange}
-                    onDateChange={setDateRange}
-                    className="w-full"
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-2">
-                <Button onClick={() => searchProducts(1)} disabled={loading}>
-                  {loading ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2" />
-                      Searching...
-                    </>
-                  ) : (
-                    <>
-                      <Search className="mr-2 h-4 w-4" />
-                      Search Products
-                    </>
-                  )}
-                </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={() => {
-                    setSearchTerm('');
-                    setSelectedCategory('all');
-                    setSelectedSubCategory('all');
-                    setDateRange(undefined);
-                    setProducts([]);
-                    setSelectedProducts(new Set());
-                  }}
-                >
-                  Reset Filters
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Results */}
-          {products.length > 0 && (
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <Package className="h-5 w-5" />
-                    Search Results ({products.length} items)
-                  </CardTitle>
-                  <div className="flex items-center gap-2">
-                    {selectedProducts.size > 0 && (
-                      <Button 
-                        onClick={importSelectedSKUs}
-                        disabled={importing}
-                        size="sm"
-                      >
-                        {importing ? (
-                          <>
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2" />
-                            Importing {selectedProducts.size} SKUs...
-                          </>
-                        ) : (
-                          <>
-                            <Plus className="mr-2 h-4 w-4" />
-                            Import {selectedProducts.size} Selected SKUs
-                          </>
-                        )}
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {importing && (
-                  <div className="mb-4">
-                    <Progress value={importProgress} className="w-full" />
-                  </div>
-                )}
-
-                <div className="rounded-md border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-12">
-                          <Checkbox
-                            checked={selectedProducts.size === products.length && products.length > 0}
-                            onCheckedChange={selectAllProducts}
-                          />
-                        </TableHead>
-                        <TableHead>Item No</TableHead>
-                        <TableHead>Product Name</TableHead>
-                        <TableHead>Brand</TableHead>
-                        <TableHead>Stock</TableHead>
-                        <TableHead>Lead Time</TableHead>
-                        <TableHead>Warehouse</TableHead>
-                        <TableHead>Price (USD)</TableHead>
-                        <TableHead>Price ({getCurrencySymbol(profile?.country === 'KSA' ? 'SAR' : 'AED')})</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {products.map((product) => (
-                        <TableRow key={product.itemNo}>
-                          <TableCell>
-                            <Checkbox
-                              checked={selectedProducts.has(product.itemNo)}
-                              onCheckedChange={() => toggleProductSelection(product.itemNo)}
-                            />
-                          </TableCell>
-                          <TableCell className="font-mono">{product.itemNo}</TableCell>
-                          <TableCell className="max-w-xs truncate">{product.name}</TableCell>
-                          <TableCell>{product.brandName || '-'}</TableCell>
-                          <TableCell>
-                            <Badge variant={product.stock > 0 ? "default" : "secondary"}>
-                              {product.stock}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>{product.leadTime}</TableCell>
-                          <TableCell>{product.warehouse}</TableCell>
-                          <TableCell className="font-mono">${product.price}</TableCell>
-                          <TableCell className="font-mono">
-                            {product.convertedPrice ? 
-                              `${getCurrencySymbol(product.convertedCurrency || 'AED')} ${product.convertedPrice.toFixed(2)}` 
-                              : '-'
-                            }
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-
-                {/* Pagination */}
-                {totalPages > 1 && (
-                  <div className="flex items-center justify-between mt-4">
-                    <p className="text-sm text-muted-foreground">
-                      Page {currentPage} of {totalPages}
-                    </p>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => searchProducts(currentPage - 1)}
-                        disabled={currentPage === 1 || loading}
-                      >
-                        Previous
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => searchProducts(currentPage + 1)}
-                        disabled={currentPage === totalPages || loading}
-                      >
-                        Next
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Empty State */}
-          {!loading && products.length === 0 && searchTerm === '' && selectedCategory === 'all' && (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-12">
-                <Search className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">Start Your Product Search</h3>
-                <p className="text-muted-foreground text-center">
-                  Use the filters above to search for products from Sunsky marketplace
-                </p>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* No Results */}
-          {!loading && products.length === 0 && (searchTerm !== '' || selectedCategory !== 'all') && (
+          {!hasCredentials ? (
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12">
                 <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No Products Found</h3>
+                <h3 className="text-lg font-semibold mb-2">API Configuration Required</h3>
                 <p className="text-muted-foreground text-center">
-                  Try adjusting your search filters or keywords
+                  Please configure your Sunsky API credentials in the API Connection tab first
                 </p>
               </CardContent>
             </Card>
+          ) : (
+            <>
+              {/* Filters */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Search className="h-5 w-5" />
+                    Search Filters
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="search">Product Search</Label>
+                      <Input
+                        id="search"
+                        placeholder="Enter keyword..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="category">Category</Label>
+                      <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                        <SelectTrigger id="category">
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Categories</SelectItem>
+                          {categories.map((category) => (
+                            <SelectItem key={category.id} value={category.id.toString()}>
+                              {category.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="subcategory">Sub-Category</Label>
+                      <Select 
+                        value={selectedSubCategory} 
+                        onValueChange={setSelectedSubCategory}
+                        disabled={selectedCategory === 'all' || subCategories.length === 0}
+                      >
+                        <SelectTrigger id="subcategory">
+                          <SelectValue placeholder="Select sub-category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Sub-Categories</SelectItem>
+                          {subCategories.map((subCategory) => (
+                            <SelectItem key={subCategory.id} value={subCategory.id.toString()}>
+                              {subCategory.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Date Range</Label>
+                      <DatePickerWithRange
+                        date={dateRange}
+                        onDateChange={setDateRange}
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button onClick={() => searchProducts(1)} disabled={loading}>
+                      {loading ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2" />
+                          Searching...
+                        </>
+                      ) : (
+                        <>
+                          <Search className="mr-2 h-4 w-4" />
+                          Search Products
+                        </>
+                      )}
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => {
+                        setSearchTerm('');
+                        setSelectedCategory('all');
+                        setSelectedSubCategory('all');
+                        setDateRange(undefined);
+                        setProducts([]);
+                        setSelectedProducts(new Set());
+                      }}
+                    >
+                      Reset Filters
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Results */}
+              {products.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="flex items-center gap-2">
+                        <Package className="h-5 w-5" />
+                        Search Results ({products.length} items)
+                      </CardTitle>
+                      <div className="flex items-center gap-2">
+                        {selectedProducts.size > 0 && (
+                          <Button 
+                            onClick={importSelectedSKUs}
+                            disabled={importing}
+                            size="sm"
+                          >
+                            {importing ? (
+                              <>
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2" />
+                                Importing {selectedProducts.size} SKUs...
+                              </>
+                            ) : (
+                              <>
+                                <Plus className="mr-2 h-4 w-4" />
+                                Import {selectedProducts.size} Selected SKUs
+                              </>
+                            )}
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {importing && (
+                      <div className="mb-4">
+                        <Progress value={importProgress} className="w-full" />
+                      </div>
+                    )}
+
+                    <div className="rounded-md border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-12">
+                              <Checkbox
+                                checked={selectedProducts.size === products.length && products.length > 0}
+                                onCheckedChange={selectAllProducts}
+                              />
+                            </TableHead>
+                            <TableHead>Item No</TableHead>
+                            <TableHead>Product Name</TableHead>
+                            <TableHead>Brand</TableHead>
+                            <TableHead>Stock</TableHead>
+                            <TableHead>Lead Time</TableHead>
+                            <TableHead>Warehouse</TableHead>
+                            <TableHead>Price (USD)</TableHead>
+                            <TableHead>Price ({getCurrencySymbol(profile?.country === 'KSA' ? 'SAR' : 'AED')})</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {products.map((product) => (
+                            <TableRow key={product.itemNo}>
+                              <TableCell>
+                                <Checkbox
+                                  checked={selectedProducts.has(product.itemNo)}
+                                  onCheckedChange={() => toggleProductSelection(product.itemNo)}
+                                />
+                              </TableCell>
+                              <TableCell className="font-mono">{product.itemNo}</TableCell>
+                              <TableCell className="max-w-xs truncate">{product.name}</TableCell>
+                              <TableCell>{product.brandName || '-'}</TableCell>
+                              <TableCell>
+                                <Badge variant={product.stock > 0 ? "default" : "secondary"}>
+                                  {product.stock}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>{product.leadTime}</TableCell>
+                              <TableCell>{product.warehouse}</TableCell>
+                              <TableCell className="font-mono">${product.price}</TableCell>
+                              <TableCell className="font-mono">
+                                {product.convertedPrice ? 
+                                  `${getCurrencySymbol(product.convertedCurrency || 'AED')} ${product.convertedPrice.toFixed(2)}` 
+                                  : '-'
+                                }
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+
+                    {/* Pagination */}
+                    {totalPages > 1 && (
+                      <div className="flex items-center justify-between mt-4">
+                        <p className="text-sm text-muted-foreground">
+                          Page {currentPage} of {totalPages}
+                        </p>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => searchProducts(currentPage - 1)}
+                            disabled={currentPage === 1 || loading}
+                          >
+                            Previous
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => searchProducts(currentPage + 1)}
+                            disabled={currentPage === totalPages || loading}
+                          >
+                            Next
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Empty State */}
+              {!loading && products.length === 0 && searchTerm === '' && selectedCategory === 'all' && (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center py-12">
+                    <Search className="h-12 w-12 text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-semibold mb-2">Start Your Product Search</h3>
+                    <p className="text-muted-foreground text-center">
+                      Use the filters above to search for products from Sunsky marketplace
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* No Results */}
+              {!loading && products.length === 0 && (searchTerm !== '' || selectedCategory !== 'all') && (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center py-12">
+                    <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-semibold mb-2">No Products Found</h3>
+                    <p className="text-muted-foreground text-center">
+                      Try adjusting your search filters or keywords
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+            </>
           )}
         </TabsContent>
 
