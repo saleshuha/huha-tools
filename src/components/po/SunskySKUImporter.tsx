@@ -1521,7 +1521,7 @@ export const SunskySKUImporter: React.FC = () => {
               </CardHeader>
               <CardContent>
                 <SunskyCredentialsManager onCredentialsChanged={checkCredentialsStatus} />
-              </CardContent>
+                
                 <div className="flex items-center gap-3">
                   <div className={`w-3 h-3 rounded-full ${hasCredentials ? 'bg-green-500' : 'bg-red-500'}`} />
                   <span className="font-medium">
