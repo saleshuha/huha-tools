@@ -150,18 +150,43 @@ Deno.serve(async (req) => {
           // Create SFTP client
           const sftp = new SftpClient();
           
-          // Connection configuration
+          // Process the private key to ensure it's in the correct format
+          let processedPrivateKey = privateKey;
+          
+          // Handle different key formats
+          if (privateKey.includes('BEGIN OPENSSH PRIVATE KEY')) {
+            console.log('Detected OpenSSH format key, converting...');
+            // For OpenSSH format, we need to handle it differently
+            processedPrivateKey = privateKey;
+          } else if (privateKey.includes('BEGIN RSA PRIVATE KEY') || privateKey.includes('BEGIN PRIVATE KEY')) {
+            console.log('Detected PEM format key');
+            processedPrivateKey = privateKey;
+          } else {
+            console.log('Key format unclear, attempting to use as-is');
+            // Ensure proper formatting
+            if (!privateKey.includes('-----BEGIN')) {
+              throw new Error('Invalid private key format - missing header');
+            }
+          }
+          
+          // Ensure proper line endings
+          processedPrivateKey = processedPrivateKey.replace(/\\n/g, '\n');
+          
+          console.log('Private key format check passed');
+          console.log('Key starts with:', processedPrivateKey.substring(0, 50));
+          
+          // Connection configuration with simplified algorithms
           const connectConfig = {
             host: host,
             port: port,
             username: username,
-            privateKey: privateKey,
+            privateKey: processedPrivateKey,
             readyTimeout: 30000,
             algorithms: {
-              serverHostKey: ['ssh-rsa', 'ssh-ed25519'],
+              serverHostKey: ['rsa-sha2-512', 'rsa-sha2-256', 'ssh-rsa'],
               cipher: ['aes128-ctr', 'aes192-ctr', 'aes256-ctr'],
-              hmac: ['hmac-sha2-256', 'hmac-sha2-512', 'hmac-sha1'],
-              kex: ['diffie-hellman-group14-sha256', 'diffie-hellman-group14-sha1', 'ecdh-sha2-nistp256']
+              hmac: ['hmac-sha2-256', 'hmac-sha2-512'],
+              kex: ['diffie-hellman-group14-sha256', 'ecdh-sha2-nistp256']
             },
             debug: (info) => console.log('SFTP Debug:', info)
           };
@@ -197,10 +222,19 @@ Deno.serve(async (req) => {
           console.error('Error details:', {
             message: sftpError.message,
             code: sftpError.code,
-            stack: sftpError.stack
+            stack: sftpError.stack?.substring(0, 500)
           });
+          
+          // More specific error handling
+          if (sftpError.message.includes('privateKey') || sftpError.message.includes('key format')) {
+            errorMessage = `SSH private key format error: ${sftpError.message}. Please ensure the key is in PEM format.`;
+          } else if (sftpError.message.includes('connect') || sftpError.message.includes('timeout')) {
+            errorMessage = `Connection failed: ${sftpError.message}. Check host, port, and network connectivity.`;
+          } else {
+            errorMessage = `SFTP upload failed: ${sftpError.message}`;
+          }
+          
           uploadStatus = 'failed';
-          errorMessage = `SFTP upload failed: ${sftpError.message}`;
         }
 
         // Log the test send
