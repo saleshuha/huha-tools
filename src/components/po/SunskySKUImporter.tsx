@@ -714,7 +714,7 @@ export const SunskySKUImporter: React.FC = () => {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Categories</SelectItem>
-                      {categories.map((category) => (
+                      {categories.filter(category => category.id && category.name).map((category) => (
                         <SelectItem key={category.id} value={category.id.toString()}>
                           {category.name}
                         </SelectItem>
@@ -732,7 +732,7 @@ export const SunskySKUImporter: React.FC = () => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All Sub-Categories</SelectItem>
-                        {subCategories.map((subCategory) => (
+                        {subCategories.filter(subCategory => subCategory.id && subCategory.name).map((subCategory) => (
                           <SelectItem key={subCategory.id} value={subCategory.id.toString()}>
                             {subCategory.name}
                           </SelectItem>
@@ -750,7 +750,7 @@ export const SunskySKUImporter: React.FC = () => {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Brands</SelectItem>
-                      {brands.map((brand) => (
+                      {brands.filter(brand => brand.id && brand.name).map((brand) => (
                         <SelectItem key={brand.id} value={brand.id.toString()}>
                           {brand.name}
                         </SelectItem>
@@ -1059,7 +1059,7 @@ export const SunskySKUImporter: React.FC = () => {
                         <SelectValue placeholder="Select category to import" />
                       </SelectTrigger>
                       <SelectContent>
-                        {categories.map((category) => (
+                        {categories.filter(category => category.id && category.name).map((category) => (
                           <SelectItem key={category.id} value={category.id.toString()}>
                             {category.name}
                           </SelectItem>
