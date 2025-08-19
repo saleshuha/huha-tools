@@ -12,6 +12,12 @@ interface VendorIntegration {
   sftp_port?: number;
   sftp_username?: string;
   sftp_remote_path?: string;
+  sftp_receive_host?: string;
+  sftp_receive_port?: number;
+  sftp_receive_username?: string;
+  sftp_receive_remote_path?: string;
+  ssh_fingerprint_sending?: string;
+  ssh_fingerprint_receiving?: string;
   country: string;
   primary_key_type: string;
   feed_schedule: string;
@@ -42,6 +48,12 @@ interface CreateIntegration {
   sftp_port?: number;
   sftp_username?: string;
   sftp_remote_path?: string;
+  sftp_receive_host?: string;
+  sftp_receive_port?: number;
+  sftp_receive_username?: string;
+  sftp_receive_remote_path?: string;
+  ssh_fingerprint_sending?: string;
+  ssh_fingerprint_receiving?: string;
   country: string;
   primary_key_type: string;
   feed_schedule?: string;
@@ -124,16 +136,24 @@ export function useVendorIntegration() {
 
   const createIntegration = useCallback(async (integration: CreateIntegration) => {
     try {
-      // Filter out UI-only fields that don't exist in the database
-      const { ssh_key_uploaded, connection_established, ...dbIntegration } = integration as any;
-      
       const { data, error } = await supabase
         .from('vendor_integrations')
         .insert({
-          ...dbIntegration,
           user_id: profile?.id,
           vendor_name: integration.vendor_name || 'Amazon Vendor Central',
           transport_method: integration.transport_method || 'SFTP',
+          sftp_host: integration.sftp_host,
+          sftp_port: integration.sftp_port || 22,
+          sftp_username: integration.sftp_username,
+          sftp_remote_path: integration.sftp_remote_path || 'upload',
+          sftp_receive_host: integration.sftp_receive_host,
+          sftp_receive_port: integration.sftp_receive_port || 22,
+          sftp_receive_username: integration.sftp_receive_username,
+          sftp_receive_remote_path: integration.sftp_receive_remote_path || 'download',
+          ssh_fingerprint_sending: integration.ssh_fingerprint_sending,
+          ssh_fingerprint_receiving: integration.ssh_fingerprint_receiving,
+          country: integration.country,
+          primary_key_type: integration.primary_key_type,
           feed_schedule: integration.feed_schedule || 'daily',
           is_active: integration.is_active || false,
         })
@@ -170,12 +190,9 @@ export function useVendorIntegration() {
 
   const updateIntegration = useCallback(async (id: string, updates: Partial<CreateIntegration>) => {
     try {
-      // Filter out UI-only fields that don't exist in the database
-      const { ssh_key_uploaded, connection_established, ...dbUpdates } = updates as any;
-      
       const { error } = await supabase
         .from('vendor_integrations')
-        .update(dbUpdates)
+        .update(updates)
         .eq('id', id);
 
       if (error) {
