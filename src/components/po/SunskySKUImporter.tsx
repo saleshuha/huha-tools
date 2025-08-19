@@ -11,8 +11,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { DatePickerWithRange } from "@/components/ui/date-range-picker";
-import { Search, Plus, Download, AlertCircle, CheckCircle2, Package, Globe, Calendar, RefreshCw, Filter, Grid, List } from "lucide-react";
+import { Search, Plus, Download, AlertCircle, CheckCircle2, Package, Globe, Calendar, RefreshCw, Filter, Grid, List, Settings, Eye, Save, RotateCcw } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useUserProfile } from "@/hooks/useUserProfile";
@@ -20,22 +21,78 @@ import { DateRange } from "react-day-picker";
 import { SunskyCredentialsManager } from "./SunskyCredentialsManager";
 
 interface SunskyProduct {
+  // Core product fields
   id: number;
   itemNo: string;
+  groupItemNo?: string;
   name: string;
-  price: string;
-  leadTime: string;
-  warehouse: string;
-  stock: number;
-  brandName?: string;
   description?: string;
+  brandName?: string;
+  categoryId?: number;
+  
+  // Pricing and availability
+  price: string;
+  priceList?: Array<{ key: number; value: string }>;
   convertedPrice?: number;
   convertedCurrency?: string;
-  unitWeight?: string;
-  dimensions?: string;
+  stock: number;
   moq?: number;
+  clearance?: boolean;
+  orgPrice?: string;
+  priceExpired?: string;
+  
+  // Physical properties
+  unitWeight?: string;
+  packQty?: number;
+  unitLength?: number;
+  unitWidth?: number;
+  unitHeight?: number;
+  packWeight?: string;
+  packLength?: number;
+  packWidth?: number;
+  packHeight?: number;
+  
+  // Logistics and timing
+  warehouse: string;
+  leadTime: string;
+  leadTimeLevel?: number;
+  
+  // Product details
+  barcode?: string;
   status?: number;
-  categoryId?: number;
+  picCount?: number;
+  baseImgCount?: number;
+  videoUrl?: string;
+  modelLabel?: string;
+  modelList?: Array<{ key: string; value: string }>;
+  optionList?: {
+    display: string;
+    items: Array<{ itemNo: string; keywords: string }>;
+  };
+  
+  // Dates
+  gmtListed?: string;
+  gmtModified?: string;
+  
+  // Capabilities
+  oem?: boolean;
+  withLogo?: boolean;
+  containsBattery?: boolean;
+  giftItemNo?: string;
+  
+  // Compatibility and specs
+  brands?: Array<{
+    brand: { name: string };
+    models: Array<{ name: string }>;
+  }>;
+  params?: Array<{
+    name: string;
+    values: string[];
+  }>;
+  paramsTable?: string;
+  
+  // Legacy fields for compatibility
+  dimensions?: string;
   images?: string[];
   specifications?: Record<string, any>;
 }
@@ -102,6 +159,13 @@ export const SunskySKUImporter: React.FC = () => {
   const [categoryFetchMode, setCategoryFetchMode] = useState<'top' | 'all' | 'modified'>('top');
   const [modifiedSinceDate, setModifiedSinceDate] = useState<string>('');
   const [fetchingCategories, setFetchingCategories] = useState(false);
+  
+  // Header management
+  const [availableHeaders, setAvailableHeaders] = useState<string[]>([]);
+  const [selectedHeaders, setSelectedHeaders] = useState<string[]>([
+    'itemNo', 'name', 'brandName', 'stock', 'leadTime', 'warehouse', 'price', 'convertedPrice'
+  ]);
+  const [showHeaderSelector, setShowHeaderSelector] = useState(false);
 
   // Load categories on mount and when credentials change
   useEffect(() => {
@@ -260,9 +324,13 @@ export const SunskySKUImporter: React.FC = () => {
       if (error) throw error;
 
       if (data.result === 'success') {
-        setProducts(data.data?.result || []);
+        const products = data.data?.result || [];
+        setProducts(products);
         setTotalPages(data.data?.pageCount || 1);
         setCurrentPage(page);
+        
+        // Analyze available headers from the response
+        analyzeAvailableHeaders(products);
       } else {
         throw new Error(data.message || 'Failed to search products');
       }
@@ -390,6 +458,132 @@ export const SunskySKUImporter: React.FC = () => {
       case 'SAR': return 'SAR';
       case 'USD': return '$';
       default: return currency;
+    }
+  };
+
+  // Available headers with their display names and descriptions
+  const headerDefinitions = {
+    itemNo: { label: 'Item No', description: 'Product item number/SKU' },
+    name: { label: 'Product Name', description: 'Full product name' },
+    brandName: { label: 'Brand', description: 'Brand/manufacturer name' },
+    stock: { label: 'Stock', description: 'Available quantity' },
+    leadTime: { label: 'Lead Time', description: 'Shipping/production time' },
+    warehouse: { label: 'Warehouse', description: 'Fulfillment location' },
+    price: { label: 'Price (USD)', description: 'Original USD price' },
+    convertedPrice: { label: 'Local Price', description: 'Price in local currency' },
+    description: { label: 'Description', description: 'Product description' },
+    categoryId: { label: 'Category ID', description: 'Product category identifier' },
+    moq: { label: 'MOQ', description: 'Minimum order quantity' },
+    unitWeight: { label: 'Weight', description: 'Unit weight' },
+    unitLength: { label: 'Length', description: 'Unit length (mm)' },
+    unitWidth: { label: 'Width', description: 'Unit width (mm)' },
+    unitHeight: { label: 'Height', description: 'Unit height (mm)' },
+    packQty: { label: 'Pack Qty', description: 'Quantity per package' },
+    barcode: { label: 'Barcode', description: 'Product barcode' },
+    gmtListed: { label: 'Listed Date', description: 'Date product was listed' },
+    gmtModified: { label: 'Modified Date', description: 'Last modification date' },
+    picCount: { label: 'Images', description: 'Number of product images' },
+    modelLabel: { label: 'Model Label', description: 'Model classification (Color, Size, etc.)' },
+    oem: { label: 'OEM', description: 'OEM support available' },
+    withLogo: { label: 'With Logo', description: 'Logo customization available' },
+    containsBattery: { label: 'Has Battery', description: 'Contains battery' },
+    clearance: { label: 'Clearance', description: 'Clearance item' },
+    orgPrice: { label: 'Original Price', description: 'Original price (if on sale)' },
+    status: { label: 'Status', description: 'Product status code' },
+    groupItemNo: { label: 'Group Item No', description: 'Base item number for variants' },
+    leadTimeLevel: { label: 'Lead Time Level', description: 'Lead time category (1-5)' },
+    packWeight: { label: 'Pack Weight', description: 'Package weight (kg)' },
+    packLength: { label: 'Pack Length', description: 'Package length (mm)' },
+    packWidth: { label: 'Pack Width', description: 'Package width (mm)' },
+    packHeight: { label: 'Pack Height', description: 'Package height (mm)' }
+  };
+
+  // Analyze products and extract available headers
+  const analyzeAvailableHeaders = (products: SunskyProduct[]) => {
+    if (products.length === 0) return;
+    
+    const headers = new Set<string>();
+    products.forEach(product => {
+      Object.keys(product).forEach(key => {
+        if (headerDefinitions[key as keyof typeof headerDefinitions]) {
+          headers.add(key);
+        }
+      });
+    });
+    
+    setAvailableHeaders(Array.from(headers).sort());
+  };
+
+  // Save header preferences
+  const saveHeaderPreferences = () => {
+    localStorage.setItem('sunsky-selected-headers', JSON.stringify(selectedHeaders));
+    toast({
+      title: "Preferences Saved",
+      description: "Your header preferences have been saved for future sessions",
+    });
+  };
+
+  // Load header preferences
+  const loadHeaderPreferences = () => {
+    const saved = localStorage.getItem('sunsky-selected-headers');
+    if (saved) {
+      try {
+        const headers = JSON.parse(saved);
+        setSelectedHeaders(headers);
+        toast({
+          title: "Preferences Loaded",
+          description: "Your saved header preferences have been restored",
+        });
+      } catch (error) {
+        console.error('Error loading header preferences:', error);
+      }
+    }
+  };
+
+  // Reset to default headers
+  const resetHeadersToDefault = () => {
+    setSelectedHeaders(['itemNo', 'name', 'brandName', 'stock', 'leadTime', 'warehouse', 'price', 'convertedPrice']);
+    toast({
+      title: "Headers Reset",
+      description: "Header selection has been reset to default",
+    });
+  };
+
+  // Format field value for display
+  const formatFieldValue = (value: any, fieldKey: string) => {
+    if (value === null || value === undefined) return '-';
+    
+    switch (fieldKey) {
+      case 'stock':
+        return <Badge variant={value > 0 ? "default" : "secondary"}>{value}</Badge>;
+      case 'price':
+        return `$${value}`;
+      case 'convertedPrice':
+        return value ? `${getCurrencySymbol(profile?.country === 'KSA' ? 'SAR' : 'AED')} ${Number(value).toFixed(2)}` : '-';
+      case 'unitWeight':
+        return value ? `${value}g` : '-';
+      case 'unitLength':
+      case 'unitWidth':
+      case 'unitHeight':
+      case 'packLength':
+      case 'packWidth':
+      case 'packHeight':
+        return value ? `${value}mm` : '-';
+      case 'packWeight':
+        return value ? `${value}kg` : '-';
+      case 'oem':
+      case 'withLogo':
+      case 'containsBattery':
+      case 'clearance':
+        return value ? 'Yes' : 'No';
+      case 'gmtListed':
+      case 'gmtModified':
+        return value ? new Date(value).toLocaleDateString() : '-';
+      case 'name':
+      case 'description':
+        return <span className="max-w-xs truncate block" title={value}>{value}</span>;
+      default:
+        return String(value);
     }
   };
 
@@ -694,6 +888,113 @@ export const SunskySKUImporter: React.FC = () => {
                     >
                       {viewMode === 'list' ? <Grid className="h-4 w-4" /> : <List className="h-4 w-4" />}
                     </Button>
+                    
+                    <Dialog open={showHeaderSelector} onOpenChange={setShowHeaderSelector}>
+                      <DialogTrigger asChild>
+                        <Button variant="outline" size="sm">
+                          <Settings className="mr-2 h-4 w-4" />
+                          Table Headers
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-4xl max-h-[80vh] overflow-auto">
+                        <DialogHeader>
+                          <DialogTitle className="flex items-center gap-2">
+                            <Eye className="h-5 w-5" />
+                            Customize Table Headers
+                          </DialogTitle>
+                          <DialogDescription>
+                            Select which columns you want to display in the product table. {availableHeaders.length} headers available from current data.
+                          </DialogDescription>
+                        </DialogHeader>
+                        
+                        <div className="space-y-4">
+                          {/* Header actions */}
+                          <div className="flex items-center gap-2">
+                            <Button 
+                              onClick={loadHeaderPreferences} 
+                              variant="outline" 
+                              size="sm"
+                            >
+                              <Download className="mr-2 h-4 w-4" />
+                              Load Saved
+                            </Button>
+                            <Button 
+                              onClick={saveHeaderPreferences} 
+                              variant="outline" 
+                              size="sm"
+                            >
+                              <Save className="mr-2 h-4 w-4" />
+                              Save Current
+                            </Button>
+                            <Button 
+                              onClick={resetHeadersToDefault} 
+                              variant="outline" 
+                              size="sm"
+                            >
+                              <RotateCcw className="mr-2 h-4 w-4" />
+                              Reset to Default
+                            </Button>
+                          </div>
+                          
+                          <Separator />
+                          
+                          {/* Current selection summary */}
+                          <div className="p-3 bg-muted rounded-lg">
+                            <p className="text-sm font-medium mb-2">Currently selected: {selectedHeaders.length} headers</p>
+                            <div className="flex flex-wrap gap-1">
+                              {selectedHeaders.map(header => (
+                                <Badge key={header} variant="default" className="text-xs">
+                                  {headerDefinitions[header as keyof typeof headerDefinitions]?.label || header}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                          
+                          {/* Header selection grid */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                            {availableHeaders.map(header => {
+                              const definition = headerDefinitions[header as keyof typeof headerDefinitions];
+                              if (!definition) return null;
+                              
+                              return (
+                                <div key={header} className="flex items-start space-x-3 p-3 border rounded-lg">
+                                  <Checkbox
+                                    id={header}
+                                    checked={selectedHeaders.includes(header)}
+                                    onCheckedChange={(checked) => {
+                                      if (checked) {
+                                        setSelectedHeaders([...selectedHeaders, header]);
+                                      } else {
+                                        setSelectedHeaders(selectedHeaders.filter(h => h !== header));
+                                      }
+                                    }}
+                                  />
+                                  <div className="flex-1 min-w-0">
+                                    <label 
+                                      htmlFor={header} 
+                                      className="text-sm font-medium cursor-pointer block"
+                                    >
+                                      {definition.label}
+                                    </label>
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                      {definition.description}
+                                    </p>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          
+                          {availableHeaders.length === 0 && (
+                            <div className="text-center py-8 text-muted-foreground">
+                              <Package className="h-12 w-12 mx-auto mb-4" />
+                              <p>No product data available yet.</p>
+                              <p className="text-sm">Search for products to see available headers.</p>
+                            </div>
+                          )}
+                        </div>
+                      </DialogContent>
+                    </Dialog>
                   </div>
                 </CardContent>
               </Card>
@@ -747,14 +1048,14 @@ export const SunskySKUImporter: React.FC = () => {
                                 onCheckedChange={selectAllProducts}
                               />
                             </TableHead>
-                            <TableHead>Item No</TableHead>
-                            <TableHead>Product Name</TableHead>
-                            <TableHead>Brand</TableHead>
-                            <TableHead>Stock</TableHead>
-                            <TableHead>Lead Time</TableHead>
-                            <TableHead>Warehouse</TableHead>
-                            <TableHead>Price (USD)</TableHead>
-                            <TableHead>Price ({getCurrencySymbol(profile?.country === 'KSA' ? 'SAR' : 'AED')})</TableHead>
+                            {selectedHeaders.map(header => {
+                              const definition = headerDefinitions[header as keyof typeof headerDefinitions];
+                              return (
+                                <TableHead key={header}>
+                                  {definition?.label || header}
+                                </TableHead>
+                              );
+                            })}
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -766,23 +1067,11 @@ export const SunskySKUImporter: React.FC = () => {
                                   onCheckedChange={() => toggleProductSelection(product.itemNo)}
                                 />
                               </TableCell>
-                              <TableCell className="font-mono">{product.itemNo}</TableCell>
-                              <TableCell className="max-w-xs truncate">{product.name}</TableCell>
-                              <TableCell>{product.brandName || '-'}</TableCell>
-                              <TableCell>
-                                <Badge variant={product.stock > 0 ? "default" : "secondary"}>
-                                  {product.stock}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>{product.leadTime}</TableCell>
-                              <TableCell>{product.warehouse}</TableCell>
-                              <TableCell className="font-mono">${product.price}</TableCell>
-                              <TableCell className="font-mono">
-                                {product.convertedPrice ? 
-                                  `${getCurrencySymbol(product.convertedCurrency || 'AED')} ${product.convertedPrice.toFixed(2)}` 
-                                  : '-'
-                                }
-                              </TableCell>
+                              {selectedHeaders.map(header => (
+                                <TableCell key={header} className={header === 'itemNo' ? 'font-mono' : ''}>
+                                  {formatFieldValue(product[header as keyof SunskyProduct], header)}
+                                </TableCell>
+                              ))}
                             </TableRow>
                           ))}
                         </TableBody>
