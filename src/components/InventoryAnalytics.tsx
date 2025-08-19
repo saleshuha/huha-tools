@@ -6,7 +6,7 @@ import { Progress } from './ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from './ui/chart';
-// useInventoryAnalytics hook removed
+import { useInventoryAnalytics } from '@/hooks/useInventoryAnalytics';
 import { useCountry } from '@/contexts/CountryContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -49,10 +49,11 @@ export function InventoryAnalytics() {
   const {
     selectedCountry
   } = useCountry();
-  // Removed inventory analytics hook
-  const inventoryMetrics = { totalValue: 0, turnoverRate: 0, activeItems: 0 };
-  const analyticsLoading = false;
-  const loadAnalytics = () => {};
+  const {
+    inventoryMetrics,
+    loading: analyticsLoading,
+    loadAnalytics
+  } = useInventoryAnalytics();
   const {
     toast
   } = useToast();
@@ -86,7 +87,7 @@ export function InventoryAnalytics() {
   const generateSimplifiedForecast = async () => {
     try {
       // Get basic inventory data with simple calculations - limit to prevent slowness
-      const [asinData] = await Promise.all([supabase.from('asin_inventory').select('id, asin, serial_number, quantity, last_restock_date').eq('country', selectedCountry).gt('quantity', 0).limit(50)]);
+      const [asinData, skuData] = await Promise.all([supabase.from('asin_inventory').select('id, asin, serial_number, quantity, last_restock_date').eq('country', selectedCountry).gt('quantity', 0).limit(50), supabase.from('sku_inventory').select('id, sku_number, bin_serial_number, quantity, last_restock_date').eq('country', selectedCountry).gt('quantity', 0).limit(50)]);
       const forecasts: ReplenishmentForecast[] = [];
 
       // Simple forecast logic for ASINs
@@ -95,7 +96,11 @@ export function InventoryAnalytics() {
         if (forecast) forecasts.push(forecast);
       });
 
-      // SKU functionality removed
+      // Simple forecast logic for SKUs
+      (skuData.data || []).forEach(item => {
+        const forecast = generateSimpleItemForecast(item, 'sku');
+        if (forecast) forecasts.push(forecast);
+      });
       setForecastData(forecasts.sort((a, b) => a.daysToStockOut - b.daysToStockOut));
     } catch (error: any) {
       console.error('Simplified forecast error:', error);
@@ -204,7 +209,7 @@ export function InventoryAnalytics() {
       await generateReplenishmentForecast();
 
       // Load other analytics in background
-      Promise.all([generateTrendData(), loadAnalytics()]).catch(error => {
+      Promise.all([generateTrendData(), loadAnalytics(selectedCountry)]).catch(error => {
         console.error('Background analytics loading error:', error);
         // Don't show error to user as main functionality works
       });

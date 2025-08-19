@@ -1,38 +1,72 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Progress } from '@/components/ui/progress';
-import { Separator } from '@/components/ui/separator';
-import { Package, AlertTriangle, TrendingUp, Calendar, CheckCircle, Clock, RefreshCw, ShoppingCart, BarChart } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Badge } from './ui/badge';
+import { Progress } from './ui/progress';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
+import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
+import { Calendar } from './ui/calendar';
+import { Label } from './ui/label';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from './ui/chart';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useCountry } from '@/contexts/CountryContext';
-
-// Types
+import { useInventoryAnalytics } from '@/hooks/useInventoryAnalytics';
+import { InventoryAnalytics } from './InventoryAnalytics';
+import { format } from 'date-fns';
+import Papa from 'papaparse';
+import { cn } from '@/lib/utils';
+import { TrendingUp, TrendingDown, AlertTriangle, Package, Download, RefreshCw, Search, BarChart3, Clock, ShoppingCart, Activity, DollarSign, Database, PieChart, LineChart, CalendarIcon, CheckCircle, XCircle, Eye, Truck, ArrowRight, Target, Zap, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Settings, Gauge, Star, Minus, Timer } from 'lucide-react';
+import { Checkbox } from './ui/checkbox';
+import { LineChart as RechartsLineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, AreaChart, Area, BarChart as RechartsBarChart, Bar, PieChart as RechartsPieChart, Cell, Pie, Legend } from 'recharts';
 interface RestockItem {
   id: string;
   identifier: string;
   current_quantity: number;
   table_name: string;
+  days_since_last_restock: number | null;
   status: string;
   date_sold?: string | null;
   last_restock_date?: string | null;
-  days_since_last_restock?: number | null;
+  restock_quantity?: number | null;
+}
+interface SalesData {
+  period: string;
+  asin_sold: number;
+  sku_sold: number;
+  total_sold: number;
+  asin_restocked: number;
+  sku_restocked: number;
+  total_restocked: number;
+  sell_rate: number;
+}
+interface DialogData {
+  isOpen: boolean;
+  title: string;
+  items: RestockItem[];
+  type: 'critical' | 'ordered' | 'active' | 'sales' | 'restocks';
+}
+interface TrendsItem {
+  id: string;
+  identifier: string;
+  table_name: string;
+  current_quantity: number;
+  sold_quantity: number;
+  last_sold_date: string | null;
+  days_since_last_restock: number | null;
+  sell_rate: number;
 }
 
 interface AllInventoryItem {
   id: string;
-  item_type: 'ASIN';
+  item_type: 'ASIN' | 'SKU';
   asin?: string;
   sku?: string;
-  serial_number: string;
+  serial_number?: string;
   quantity: number;
   status: string;
   last_sold_date?: string | null;
@@ -42,51 +76,175 @@ interface AllInventoryItem {
   notes?: string;
 }
 
-interface ItemSales {
-  id: string;
-  identifier: string;
-  table_name: string;
-  current_quantity: number;
-  sold_quantity: number;
-  days_since_last_sale: number | null;
-  last_sale_date: string | null;
-  velocity: number;
-  trend: 'up' | 'down' | 'stable';
+interface InventoryMetrics {
+  velocityScore: number;
+  urgencyLevel: 'low' | 'medium' | 'high' | 'critical';
+  stockDaysRemaining: number | null;
+  turnoverRate: number;
+  performanceRating: number;
 }
+export function Replenishment() {
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(20);
 
-interface ActiveInventoryItem {
-  id: string;
-  identifier: string;
-  current_quantity: number;
-  table_name: string;
-  status: string;
-  days_since_last_restock: number | null;
-}
+  // Header filter functions
+  const updateHeaderFilter = (field: string, value: string) => {
+    setHeaderFilters(prev => ({ ...prev, [field]: value }));
+  };
 
-const Replenishment = () => {
-  const { toast } = useToast();
-  const { selectedCountry } = useCountry();
-  
-  // State
-  const [restockItems, setRestockItems] = useState<RestockItem[]>([]);
-  const [allInventoryItems, setAllInventoryItems] = useState<AllInventoryItem[]>([]);
-  const [orderedItems, setOrderedItems] = useState<RestockItem[]>([]);
-  const [salesData, setSalesData] = useState<ItemSales[]>([]);
-  const [activeInventory, setActiveInventory] = useState<ActiveInventoryItem[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [updating, setUpdating] = useState<string | null>(null);
-  const [bulkQuantities, setBulkQuantities] = useState<{ [key: string]: number }>({});
-  const [selectedItems, setSelectedItems] = useState<string[]>([]);
-  const [sortBy, setSortBy] = useState<'date' | 'quantity' | 'days'>('date');
-  const [filterStatus, setFilterStatus] = useState<'all' | 'sold' | 'in-stock' | 'ordered'>('all');
-  const [salesPeriod, setSalesPeriod] = useState(30);
+  const updateHeaderRangeFilter = (field: string, type: 'min' | 'max', value: string) => {
+    setHeaderFilters(prev => {
+      if (field === 'quantity' || field === 'daysSince') {
+        return {
+          ...prev,
+          [field]: { ...prev[field], [type]: value }
+        };
+      }
+      return prev;
+    });
+  };
 
-  // Load items that need restocking
-  const loadRestockItems = useCallback(async () => {
-    if (!selectedCountry) return;
+  const clearHeaderFilters = () => {
+    setHeaderFilters({
+      type: 'all',
+      asin: '',
+      sku: '',
+      serial: '',
+      status: 'all',
+      quantity: { min: '', max: '' },
+      daysSince: { min: '', max: '' }
+    });
+  };
+
+  // Calculate item metrics
+  const calculateItemMetrics = (item: AllInventoryItem): InventoryMetrics => {
+    const daysSinceSold = item.last_sold_date ? 
+      Math.floor((Date.now() - new Date(item.last_sold_date).getTime()) / (1000 * 60 * 60 * 24)) : null;
     
+    let velocityScore = 0;
+    if (daysSinceSold !== null && daysSinceSold > 0) {
+      velocityScore = Math.max(0, 100 - (daysSinceSold / 30) * 100);
+    }
+    
+    let urgencyLevel: 'low' | 'medium' | 'high' | 'critical' = 'low';
+    if (item.quantity === 0) urgencyLevel = 'critical';
+    else if (item.quantity <= 2) urgencyLevel = 'high';
+    else if (item.quantity <= 5) urgencyLevel = 'medium';
+    
+    let stockDaysRemaining: number | null = null;
+    if (velocityScore > 0 && item.quantity > 0) {
+      stockDaysRemaining = Math.floor(item.quantity / Math.max(velocityScore / 100, 0.1));
+    }
+    
+    const daysSinceAdded = Math.floor((Date.now() - new Date(item.date_added).getTime()) / (1000 * 60 * 60 * 24));
+    const turnoverRate = daysSinceAdded > 0 ? (velocityScore / daysSinceAdded) * 365 : 0;
+    
+    let performanceRating = 2.5;
+    if (item.quantity > 0 && velocityScore > 70) performanceRating = 5;
+    else if (item.quantity > 0 && velocityScore > 50) performanceRating = 4;
+    else if (item.quantity > 0 && velocityScore > 30) performanceRating = 3;
+    else if (item.quantity === 0) performanceRating = 1;
+    
+    return {
+      velocityScore,
+      urgencyLevel,
+      stockDaysRemaining,
+      turnoverRate,
+      performanceRating
+    };
+  };
+  const {
+    selectedCountry
+  } = useCountry();
+  const {
+    inventoryMetrics,
+    loading: analyticsLoading,
+    loadAnalytics
+  } = useInventoryAnalytics();
+  const {
+    toast
+  } = useToast();
+  const [dialogData, setDialogData] = useState<DialogData>({
+    isOpen: false,
+    title: '',
+    items: [],
+    type: 'critical'
+  });
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedPeriod, setSelectedPeriod] = useState('30d');
+  const [restockItems, setRestockItems] = useState<RestockItem[]>([]);
+  const [orderedItems, setOrderedItems] = useState<RestockItem[]>([]);
+  const [allInventoryItems, setAllInventoryItems] = useState<AllInventoryItem[]>([]);
+  const [filteredItems, setFilteredItems] = useState<AllInventoryItem[]>([]);
+  const [salesData, setSalesData] = useState<SalesData[]>([]);
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  
+  // Sorting and filtering state
+  const [sortConfig, setSortConfig] = useState<{key: keyof AllInventoryItem | null, direction: 'asc' | 'desc'}>({
+    key: null,
+    direction: 'asc'
+  });
+  const [filters, setFilters] = useState({
+    search: '',
+    itemType: 'all' as 'all' | 'ASIN' | 'SKU',
+    stockStatus: 'all' as 'all' | 'in-stock' | 'out-of-stock' | 'low-stock' | 'critical',
+    orderStatus: 'all' as 'all' | 'ordered' | 'not-ordered' | 'overdue',
+    dateRange: {
+      lastSoldFrom: null as Date | null,
+      lastSoldTo: null as Date | null,
+      lastOrderFrom: null as Date | null,
+      lastOrderTo: null as Date | null,
+    },
+    stockRange: {
+      min: null as number | null,
+      max: null as number | null,
+    },
+    daysSinceOrderRange: {
+      min: null as number | null,
+      max: null as number | null,
+    }
+  });
+
+  // Header filter states
+  const [headerFilters, setHeaderFilters] = useState({
+    type: 'all',
+    asin: '',
+    sku: '',
+    serial: '',
+    status: 'all',
+    quantity: { min: '', max: '' },
+    daysSince: { min: '', max: '' }
+  });
+
+  // Trends state
+  const [trendsSearchTerm, setTrendsSearchTerm] = useState('');
+  const [trendsDateRange, setTrendsDateRange] = useState('30d');
+  const [trendsItemType, setTrendsItemType] = useState('all');
+  const [trendsSortBy, setTrendsSortBy] = useState('sold_desc');
+  const [trendsItems, setTrendsItems] = useState<any[]>([]);
+  const [trendsLoading, setTrendsLoading] = useState(false);
+  
+  // Pagination state for trends
+  const [trendsCurrentPage, setTrendsCurrentPage] = useState(1);
+
+  // Visual Analytics layout state
+  const [chartLayout, setChartLayout] = useState('default');
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    setTrendsCurrentPage(1);
+  }, [trendsSearchTerm, trendsDateRange, trendsItemType, trendsSortBy]);
+
+  // AI Forecasting state
+  const [forecastData, setForecastData] = useState<any>(null);
+  const [forecastLoading, setForecastLoading] = useState(false);
+  const [forecastError, setForecastError] = useState<string | null>(null);
+
+  // Load restock items needing attention (excludes already ordered items)
+  const loadRestockItems = async () => {
     try {
-      setLoading(true);
       console.log('Loading restock items for country:', selectedCountry);
       
       // Get ASIN inventory items that need restocking (quantity = 0 and not ordered)
@@ -96,11 +254,19 @@ const Replenishment = () => {
         .eq('quantity', 0)
         .neq('status', 'ordered');
         
-      const asinResult = await asinQuery;
+      // Get SKU inventory items that need restocking (quantity = 0 and not ordered)  
+      const skuQuery = supabase.from('sku_inventory')
+        .select('id, sku_number, bin_serial_number, quantity, status, last_restock_date, date_sold, date_added')
+        .eq('country', selectedCountry)
+        .eq('quantity', 0)
+        .neq('status', 'ordered');
+        
+      const [asinResult, skuResult] = await Promise.all([asinQuery, skuQuery]);
       
       if (asinResult.error) throw asinResult.error;
+      if (skuResult.error) throw skuResult.error;
       
-      // Process ASIN items only
+      // Process ASIN items
       const asinItems = (asinResult.data || []).map(item => ({
         id: item.id,
         identifier: `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}`,
@@ -113,39 +279,60 @@ const Replenishment = () => {
           Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null
       }));
       
-      const allItems = asinItems;
+      // Process SKU items
+      const skuItems = (skuResult.data || []).map(item => ({
+        id: item.id,
+        identifier: `SKU: ${item.sku_number} (${item.bin_serial_number})`,
+        current_quantity: item.quantity,
+        table_name: 'sku_inventory', 
+        status: item.status,
+        date_sold: item.date_sold,
+        last_restock_date: item.last_restock_date,
+        days_since_last_restock: item.last_restock_date ?
+          Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null
+      }));
+      
+      const allItems = [...asinItems, ...skuItems];
       console.log('Processed restock items:', allItems);
       setRestockItems(allItems);
       console.log('Set restock items for', selectedCountry, ':', allItems.length, 'items');
     } catch (error: any) {
       console.error('Error loading restock items:', error);
       toast({
-        title: "Error",
-        description: `Failed to load restock items: ${error.message}`,
+        title: "Error loading restock items",
+        description: error.message,
         variant: "destructive"
       });
-    } finally {
-      setLoading(false);
     }
-  }, [selectedCountry, toast]);
+  };
 
-  // Load all inventory for detailed view
-  const loadAllInventory = useCallback(async () => {
-    if (!selectedCountry) return;
-    
+  // Load all inventory items for comprehensive tracking
+  const loadAllInventoryItems = async () => {
     try {
-      setLoading(true);
+      console.log('Starting loadAllInventoryItems for country:', selectedCountry);
       
-      const asinAll = await supabase.from('asin_inventory')
-        .select('id, asin, serial_number, quantity, status, sku, last_restock_date, date_sold, date_added, notes')
-        .eq('country', selectedCountry);
+      const [asinAll, skuAll] = await Promise.all([
+        supabase.from('asin_inventory')
+          .select('id, asin, serial_number, quantity, status, sku, last_restock_date, date_sold, date_added, notes')
+          .eq('country', selectedCountry),
+        supabase.from('sku_inventory')
+          .select('id, sku_number, bin_serial_number, quantity, status, last_restock_date, date_sold, date_added')
+          .eq('country', selectedCountry)
+      ]);
       
       if (asinAll.error) {
         console.error('ASIN query error:', asinAll.error);
         throw asinAll.error;
       }
+      if (skuAll.error) {
+        console.error('SKU query error:', skuAll.error);
+        throw skuAll.error;
+      }
       
-      // Process ASIN items into AllInventoryItem format (SKU functionality removed)
+      console.log('Raw ASIN data:', asinAll.data);
+      console.log('Raw SKU data:', skuAll.data);
+      
+      // Process ASIN items into AllInventoryItem format
       const asinItems: AllInventoryItem[] = (asinAll.data || []).map(item => ({
         id: item.id,
         item_type: 'ASIN' as const,
@@ -162,7 +349,22 @@ const Replenishment = () => {
         notes: item.notes
       }));
       
-      const allInventoryItems = asinItems;
+      // Process SKU items into AllInventoryItem format
+      const skuItems: AllInventoryItem[] = (skuAll.data || []).map(item => ({
+        id: item.id,
+        item_type: 'SKU' as const,
+        sku: item.sku_number,
+        serial_number: item.bin_serial_number,
+        quantity: item.quantity,
+        status: item.status,
+        last_sold_date: item.date_sold,
+        last_order_date: item.last_restock_date,
+        days_since_ordered: item.last_restock_date ? 
+          Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null,
+        date_added: item.date_added
+      }));
+      
+      const allInventoryItems = [...asinItems, ...skuItems];
       console.log('Processed inventory items:', allInventoryItems);
       console.log('Total items count:', allInventoryItems.length);
       
@@ -181,9 +383,9 @@ const Replenishment = () => {
           last_restock_date: item.last_order_date,
           days_since_last_restock: item.days_since_ordered
         }));
-        
-      const ordered = allInventoryItems
-        .filter(item => item.status === 'ordered')
+      
+      const orderedItemsData = allInventoryItems
+        .filter(item => item.status === 'ordered' && item.quantity === 0)
         .map(item => ({
           id: item.id,
           identifier: item.item_type === 'ASIN' 
@@ -197,36 +399,334 @@ const Replenishment = () => {
           days_since_last_restock: item.days_since_ordered
         }));
       
+      console.log('Setting allInventoryItems state with:', allInventoryItems.length, 'items');
       setAllInventoryItems(allInventoryItems);
       setRestockItems(restockNeeded);
-      setOrderedItems(ordered);
+      setOrderedItems(orderedItemsData);
       
+      console.log('State updated - allInventoryItems length:', allInventoryItems.length);
+      console.log('Items needing restock:', restockNeeded.length);
+      console.log('Items on order:', orderedItemsData.length);
     } catch (error: any) {
-      console.error('Error loading all inventory:', error);
+      console.error('Error loading all inventory items:', error);
       toast({
-        title: "Error",
-        description: `Failed to load inventory: ${error.message}`,
+        title: "Error loading inventory",
+        description: error.message,
         variant: "destructive"
       });
-    } finally {
-      setLoading(false);
     }
-  }, [selectedCountry, toast]);
+  };
 
-  // Load ordered items
-  const loadOrderedItems = useCallback(async (): Promise<RestockItem[]> => {
-    if (!selectedCountry) return [];
+  // Apply filters and sorting (including header filters)
+  useEffect(() => {
+    console.log('Filtering effect triggered. allInventoryItems length:', allInventoryItems.length);
+    console.log('Current filters:', filters);
+    console.log('Header filters:', headerFilters);
     
+    let filtered = [...allInventoryItems];
+    console.log('Starting with items:', filtered.length);
+
+    // Search filter (main search)
+    if (filters.search) {
+      const searchLower = filters.search.toLowerCase();
+      filtered = filtered.filter(item => 
+        item.asin?.toLowerCase().includes(searchLower) ||
+        item.sku?.toLowerCase().includes(searchLower) ||
+        item.serial_number?.toLowerCase().includes(searchLower)
+      );
+      console.log('After search filter:', filtered.length);
+    }
+
+    // Header filters
+    if (headerFilters.type && headerFilters.type !== 'all') {
+      filtered = filtered.filter(item => 
+        item.item_type.toLowerCase().includes(headerFilters.type.toLowerCase())
+      );
+    }
+    
+    if (headerFilters.asin) {
+      filtered = filtered.filter(item => 
+        item.asin?.toLowerCase().includes(headerFilters.asin.toLowerCase())
+      );
+    }
+    
+    if (headerFilters.sku) {
+      filtered = filtered.filter(item => 
+        item.sku?.toLowerCase().includes(headerFilters.sku.toLowerCase())
+      );
+    }
+    
+    if (headerFilters.serial) {
+      filtered = filtered.filter(item => 
+        item.serial_number?.toLowerCase().includes(headerFilters.serial.toLowerCase())
+      );
+    }
+    
+    if (headerFilters.status && headerFilters.status !== 'all') {
+      filtered = filtered.filter(item => 
+        item.status.toLowerCase().includes(headerFilters.status.toLowerCase())
+      );
+    }
+    
+    if (headerFilters.quantity.min || headerFilters.quantity.max) {
+      filtered = filtered.filter(item => {
+        const min = headerFilters.quantity.min ? parseInt(headerFilters.quantity.min) : null;
+        const max = headerFilters.quantity.max ? parseInt(headerFilters.quantity.max) : null;
+        if (min !== null && item.quantity < min) return false;
+        if (max !== null && item.quantity > max) return false;
+        return true;
+      });
+    }
+    
+    if (headerFilters.daysSince.min || headerFilters.daysSince.max) {
+      filtered = filtered.filter(item => {
+        if (item.days_since_ordered === null) return false;
+        const min = headerFilters.daysSince.min ? parseInt(headerFilters.daysSince.min) : null;
+        const max = headerFilters.daysSince.max ? parseInt(headerFilters.daysSince.max) : null;
+        if (min !== null && item.days_since_ordered < min) return false;
+        if (max !== null && item.days_since_ordered > max) return false;
+        return true;
+      });
+    }
+
+    // Item type filter
+    if (filters.itemType !== 'all') {
+      filtered = filtered.filter(item => item.item_type === filters.itemType);
+      console.log('After item type filter:', filtered.length);
+    }
+
+    // Stock status filter
+    if (filters.stockStatus !== 'all') {
+      filtered = filtered.filter(item => {
+        switch (filters.stockStatus) {
+          case 'in-stock': return item.quantity > 5;
+          case 'low-stock': return item.quantity > 0 && item.quantity <= 5;
+          case 'critical': return item.quantity <= 2;
+          case 'out-of-stock': return item.quantity === 0;
+          default: return true;
+        }
+      });
+      console.log('After stock status filter:', filtered.length);
+    }
+
+    // Order status filter
+    if (filters.orderStatus !== 'all') {
+      filtered = filtered.filter(item => {
+        const daysSinceOrder = item.days_since_ordered;
+        switch (filters.orderStatus) {
+          case 'ordered': return daysSinceOrder !== null && daysSinceOrder >= 0;
+          case 'not-ordered': return daysSinceOrder === null;
+          case 'overdue': return daysSinceOrder !== null && daysSinceOrder > 30;
+          default: return true;
+        }
+      });
+      console.log('After order status filter:', filtered.length);
+    }
+
+    // Date range filters
+    if (filters.dateRange.lastSoldFrom || filters.dateRange.lastSoldTo) {
+      filtered = filtered.filter(item => {
+        if (!item.last_sold_date) return false;
+        const soldDate = new Date(item.last_sold_date);
+        if (filters.dateRange.lastSoldFrom && soldDate < filters.dateRange.lastSoldFrom) return false;
+        if (filters.dateRange.lastSoldTo && soldDate > filters.dateRange.lastSoldTo) return false;
+        return true;
+      });
+      console.log('After last sold date filter:', filtered.length);
+    }
+
+    if (filters.dateRange.lastOrderFrom || filters.dateRange.lastOrderTo) {
+      filtered = filtered.filter(item => {
+        if (!item.last_order_date) return false;
+        const orderDate = new Date(item.last_order_date);
+        if (filters.dateRange.lastOrderFrom && orderDate < filters.dateRange.lastOrderFrom) return false;
+        if (filters.dateRange.lastOrderTo && orderDate > filters.dateRange.lastOrderTo) return false;
+        return true;
+      });
+      console.log('After last order date filter:', filtered.length);
+    }
+
+    // Stock range filter
+    if (filters.stockRange.min !== null || filters.stockRange.max !== null) {
+      filtered = filtered.filter(item => {
+        if (filters.stockRange.min !== null && item.quantity < filters.stockRange.min) return false;
+        if (filters.stockRange.max !== null && item.quantity > filters.stockRange.max) return false;
+        return true;
+      });
+      console.log('After stock range filter:', filtered.length);
+    }
+
+    // Days since order range filter
+    if (filters.daysSinceOrderRange.min !== null || filters.daysSinceOrderRange.max !== null) {
+      filtered = filtered.filter(item => {
+        if (item.days_since_ordered === null) return false;
+        if (filters.daysSinceOrderRange.min !== null && item.days_since_ordered < filters.daysSinceOrderRange.min) return false;
+        if (filters.daysSinceOrderRange.max !== null && item.days_since_ordered > filters.daysSinceOrderRange.max) return false;
+        return true;
+      });
+      console.log('After days since order range filter:', filtered.length);
+    }
+
+    // Apply sorting
+    if (sortConfig.key) {
+      filtered.sort((a, b) => {
+        const aValue = a[sortConfig.key!];
+        const bValue = b[sortConfig.key!];
+        
+        if (aValue === null && bValue === null) return 0;
+        if (aValue === null) return 1;
+        if (bValue === null) return -1;
+        
+        let comparison = 0;
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
+          comparison = aValue.localeCompare(bValue);
+        } else if (typeof aValue === 'number' && typeof bValue === 'number') {
+          comparison = aValue - bValue;
+        } else if (aValue && bValue && typeof aValue === 'string' && typeof bValue === 'string' && 
+                   (sortConfig.key === 'last_sold_date' || sortConfig.key === 'last_order_date' || sortConfig.key === 'date_added')) {
+          comparison = new Date(aValue).getTime() - new Date(bValue).getTime();
+        } else {
+          comparison = String(aValue).localeCompare(String(bValue));
+        }
+        
+        return sortConfig.direction === 'desc' ? -comparison : comparison;
+      });
+      console.log('After sorting:', filtered.length);
+    }
+
+    console.log('Final filtered items count:', filtered.length);
+    setFilteredItems(filtered);
+    setCurrentPage(1); // Reset to first page when filters change
+  }, [allInventoryItems, filters, sortConfig]);
+
+  // Sorting handler
+  const handleSort = (key: keyof AllInventoryItem) => {
+    setSortConfig(prev => ({
+      key,
+      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
+    }));
+  };
+
+  // Filter handlers
+  const updateFilter = (filterType: string, value: any) => {
+    setFilters(prev => ({
+      ...prev,
+      [filterType]: value
+    }));
+  };
+
+  const updateDateRangeFilter = (type: 'lastSoldFrom' | 'lastSoldTo' | 'lastOrderFrom' | 'lastOrderTo', date: Date | null) => {
+    setFilters(prev => ({
+      ...prev,
+      dateRange: {
+        ...prev.dateRange,
+        [type]: date
+      }
+    }));
+  };
+
+  const updateRangeFilter = (type: 'stockRange' | 'daysSinceOrderRange', field: 'min' | 'max', value: number | null) => {
+    setFilters(prev => ({
+      ...prev,
+      [type]: {
+        ...prev[type],
+        [field]: value
+      }
+    }));
+  };
+
+  const clearAllFilters = () => {
+    setFilters({
+      search: '',
+      itemType: 'all',
+      stockStatus: 'all',
+      orderStatus: 'all',
+      dateRange: {
+        lastSoldFrom: null,
+        lastSoldTo: null,
+        lastOrderFrom: null,
+        lastOrderTo: null,
+      },
+      stockRange: {
+        min: null,
+        max: null,
+      },
+      daysSinceOrderRange: {
+        min: null,
+        max: null,
+      }
+    });
+    setSortConfig({ key: null, direction: 'asc' });
+  };
+
+  const getActiveFiltersCount = () => {
+    let count = 0;
+    if (filters.search) count++;
+    if (filters.itemType !== 'all') count++;
+    if (filters.stockStatus !== 'all') count++;
+    if (filters.orderStatus !== 'all') count++;
+    if (filters.dateRange.lastSoldFrom || filters.dateRange.lastSoldTo) count++;
+    if (filters.dateRange.lastOrderFrom || filters.dateRange.lastOrderTo) count++;
+    if (filters.stockRange.min !== null || filters.stockRange.max !== null) count++;
+    if (filters.daysSinceOrderRange.min !== null || filters.daysSinceOrderRange.max !== null) count++;
+    return count;
+  };
+
+  const exportFilteredData = () => {
+    const dataToExport = filteredItems.map(item => ({
+      'Item Type': item.item_type,
+      'ASIN': item.asin || 'N/A',
+      'SKU': item.sku || 'N/A',
+      'Serial Number': item.serial_number || 'N/A',
+      'Quantity': item.quantity,
+      'Status': item.status,
+      'Last Sold Date': item.last_sold_date ? format(new Date(item.last_sold_date), 'yyyy-MM-dd') : 'Never',
+      'Last Order Date': item.last_order_date ? format(new Date(item.last_order_date), 'yyyy-MM-dd') : 'Never',
+      'Days Since Order': item.days_since_ordered ?? 'N/A',
+      'Date Added': format(new Date(item.date_added), 'yyyy-MM-dd'),
+      'Notes': item.notes || ''
+    }));
+
+    const csv = Papa.unparse(dataToExport);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    
+    const activeFilters = getActiveFiltersCount();
+    const filename = `inventory-${activeFilters > 0 ? 'filtered-' : ''}${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    link.download = filename;
+    link.click();
+    
+    toast({
+      title: "Export Complete",
+      description: `Exported ${dataToExport.length} items ${activeFilters > 0 ? '(filtered)' : ''}`,
+    });
+  };
+
+  // Pagination
+  const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentItems = filteredItems.slice(startIndex, endIndex);
+
+  // Load ordered items separately for analytics and display
+  const loadOrderedItems = async () => {
     try {
-      const asinOrdered = await supabase.from('asin_inventory')
-        .select('id, asin, serial_number, quantity, status, sku, last_restock_date, date_sold, date_added')
-        .eq('country', selectedCountry)
-        .eq('status', 'ordered')
-        .eq('quantity', 0);
-      
+      const [asinOrdered, skuOrdered] = await Promise.all([
+        supabase.from('asin_inventory')
+          .select('id, asin, serial_number, quantity, status, sku, last_restock_date, date_sold, date_added')
+          .eq('country', selectedCountry)
+          .eq('status', 'ordered')
+          .eq('quantity', 0), 
+        supabase.from('sku_inventory')
+          .select('id, sku_number, bin_serial_number, quantity, status, last_restock_date, date_sold, date_added')
+          .eq('country', selectedCountry)
+          .eq('status', 'ordered')
+          .eq('quantity', 0)
+      ]);
       if (asinOrdered.error) throw asinOrdered.error;
-      
-      const orderedItemsData = (asinOrdered.data || []).map(item => ({
+      if (skuOrdered.error) throw skuOrdered.error;
+      const orderedItemsData = [...(asinOrdered.data || []).map(item => ({
         id: item.id,
         identifier: `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}`,
         current_quantity: item.quantity,
@@ -235,802 +735,1750 @@ const Replenishment = () => {
         date_sold: item.date_sold,
         last_restock_date: item.last_restock_date,
         days_since_last_restock: item.last_restock_date ? Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null
-      }));
+      })), ...(skuOrdered.data || []).map(item => ({
+        id: item.id,
+        identifier: `${item.sku_number} (${item.bin_serial_number})`,
+        current_quantity: item.quantity,
+        table_name: 'sku_inventory',
+        status: item.status,
+        date_sold: item.date_sold,
+        last_restock_date: item.last_restock_date,
+        days_since_last_restock: item.last_restock_date ? Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null
+      }))];
       return orderedItemsData;
     } catch (error: any) {
       console.error('Error loading ordered items:', error);
       return [];
     }
-  }, [selectedCountry]);
+  };
 
-  // Auto-update restocked items that are now in stock
-  const updateRestockedItems = useCallback(async () => {
-    if (!selectedCountry) return;
-    
+  // Function to automatically remove ordered items that are back in stock
+  const removeRestockedOrderedItems = async () => {
     try {
-      const asinRestocked = await supabase.from('asin_inventory')
-        .select('id, asin, serial_number, quantity, status')
-        .eq('country', selectedCountry)
-        .eq('status', 'ordered')
-        .gt('quantity', 0);
-      
-      if (asinRestocked.error) throw asinRestocked.error;
-      
-      const asinUpdates = asinRestocked.data?.map(item => 
+      // Get all ordered items that now have quantity > 0
+      const [asinRestocked, skuRestocked] = await Promise.all([
         supabase.from('asin_inventory')
-          .update({ status: 'in-stock' })
-          .eq('id', item.id)
-      ) || [];
+          .select('id, asin, serial_number, quantity, status')
+          .eq('country', selectedCountry)
+          .eq('status', 'ordered')
+          .gt('quantity', 0),
+        supabase.from('sku_inventory')
+          .select('id, sku_number, bin_serial_number, quantity, status')
+          .eq('country', selectedCountry)
+          .eq('status', 'ordered')
+          .gt('quantity', 0)
+      ]);
 
-      const allUpdates = [...asinUpdates];
-      
-      if (allUpdates.length > 0) {
-        await Promise.all(allUpdates);
-        console.log('Updated', allUpdates.length, 'items from ordered to in-stock');
-        
-        toast({
-          title: "Items Updated",
-          description: `${allUpdates.length} items automatically updated to in-stock`,
-        });
-        
-        // Reload data
-        loadRestockItems();
-        loadAllInventory();
+      if (asinRestocked.error) throw asinRestocked.error;
+      if (skuRestocked.error) throw skuRestocked.error;
+
+      const restockedItems = [
+        ...(asinRestocked.data || []),
+        ...(skuRestocked.data || [])
+      ];
+
+      if (restockedItems.length > 0) {
+        // Update status to 'in-stock' for these items
+        const asinUpdates = asinRestocked.data?.map(item => 
+          supabase.from('asin_inventory')
+            .update({ status: 'in-stock' })
+            .eq('id', item.id)
+        ) || [];
+
+        const skuUpdates = skuRestocked.data?.map(item => 
+          supabase.from('sku_inventory')
+            .update({ status: 'in-stock' })
+            .eq('id', item.id)
+        ) || [];
+
+        // Execute all updates
+        await Promise.all([...asinUpdates, ...skuUpdates]);
+
+        // Remove from local ordered items state
+        const restockedIds = restockedItems.map(item => item.id);
+        setOrderedItems(prev => prev.filter(item => !restockedIds.includes(item.id)));
+
+        if (restockedItems.length > 0) {
+          toast({
+            title: "Items Restocked",
+            description: `${restockedItems.length} ordered items are now back in stock and removed from restock management`,
+          });
+        }
       }
     } catch (error: any) {
-      console.error('Error updating restocked items:', error);
+      console.error('Error removing restocked ordered items:', error);
     }
-  }, [selectedCountry, loadRestockItems, loadAllInventory, toast]);
+  };
 
-  // Load sales data for velocity analysis
-  const loadSalesData = useCallback(async () => {
-    if (!selectedCountry) return;
-    
+  // Calculate sales data for different periods
+  const calculateSalesData = async () => {
     try {
-      const endDate = new Date();
-      const startDate = new Date();
-      startDate.setDate(startDate.getDate() - salesPeriod);
+      const periods = [1, 3, 7, 15, 30, 45, 60, 90];
+      const salesAnalytics: SalesData[] = [];
+      for (const days of periods) {
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - days);
 
-      let asinSalesQuery = supabase.from('asin_inventory').select('*').eq('status', 'sold').eq('country', selectedCountry)
+        // Query ASIN inventory for sales data
+        let asinSalesQuery = supabase.from('asin_inventory').select('*').eq('status', 'sold').eq('country', selectedCountry) // Filter by selected country
         .gte('date_sold', startDate.toISOString());
-      let asinRestockQuery = supabase.from('asin_inventory').select('restock_quantity').eq('country', selectedCountry)
+        let asinRestockQuery = supabase.from('asin_inventory').select('restock_quantity').eq('country', selectedCountry) // Filter by selected country
         .not('last_restock_date', 'is', null).gte('last_restock_date', startDate.toISOString());
-      
-      const [asinSalesData, asinRestockData] = await Promise.all([asinSalesQuery, asinRestockQuery]);
-
-      if (asinSalesData.error) throw asinSalesData.error;
-      if (asinRestockData.error) throw asinRestockData.error;
-
-      // Calculate sales velocity for ASIN items only
-      const salesAnalysis: ItemSales[] = [];
-      
-      // Process ASIN sales
-      const asinSales = asinSalesData.data || [];
-      const asinRestock = asinRestockData.data || [];
-      const totalAsinRestock = asinRestock.reduce((sum, item) => sum + (item.restock_quantity || 0), 0);
-
-      asinSales.forEach(item => {
-        const daysSinceLastSale = item.date_sold ? 
-          Math.floor((Date.now() - new Date(item.date_sold).getTime()) / (1000 * 60 * 60 * 24)) : null;
-        
-        const velocity = salesPeriod > 0 ? (item.quantity || 0) / salesPeriod : 0;
-        
-        salesAnalysis.push({
-          id: item.id,
-          identifier: `${item.asin} (${item.serial_number})`,
-          table_name: 'asin_inventory',
-          current_quantity: 0, // Since it's sold
-          sold_quantity: item.quantity || 0,
-          days_since_last_sale: daysSinceLastSale,
-          last_sale_date: item.date_sold,
-          velocity,
-          trend: velocity > 0.5 ? 'up' : velocity > 0.2 ? 'stable' : 'down'
+        let skuSalesQuery = supabase.from('sku_inventory').select('*').eq('status', 'sold').eq('country', selectedCountry) // Filter by selected country
+        .gte('date_sold', startDate.toISOString());
+        let skuRestockQuery = supabase.from('sku_inventory').select('restock_quantity').eq('country', selectedCountry) // Filter by selected country
+        .not('last_restock_date', 'is', null).gte('last_restock_date', startDate.toISOString());
+        const [asinSalesData, asinRestockData, skuSalesData, skuRestockData] = await Promise.all([asinSalesQuery, asinRestockQuery, skuSalesQuery, skuRestockQuery]);
+        if (asinSalesData.error) throw asinSalesData.error;
+        if (asinRestockData.error) throw asinRestockData.error;
+        if (skuSalesData.error) throw skuSalesData.error;
+        if (skuRestockData.error) throw skuRestockData.error;
+        const asinSoldCount = asinSalesData.data?.length || 0;
+        const skuSoldCount = skuSalesData.data?.length || 0;
+        const totalSold = asinSoldCount + skuSoldCount;
+        const asinRestockedQty = asinRestockData.data?.reduce((sum, item) => sum + (item.restock_quantity || 0), 0) || 0;
+        const skuRestockedQty = skuRestockData.data?.reduce((sum, item) => sum + (item.restock_quantity || 0), 0) || 0;
+        const totalRestocked = asinRestockedQty + skuRestockedQty;
+        salesAnalytics.push({
+          period: `${days}d`,
+          asin_sold: asinSoldCount,
+          sku_sold: skuSoldCount,
+          total_sold: totalSold,
+          asin_restocked: asinRestockedQty,
+          sku_restocked: skuRestockedQty,
+          total_restocked: totalRestocked,
+          sell_rate: totalSold / days
         });
-      });
-
-      setSalesData(salesAnalysis);
+      }
+      setSalesData(salesAnalytics);
     } catch (error: any) {
-      console.error('Error loading sales data:', error);
       toast({
-        title: "Error",
-        description: `Failed to load sales data: ${error.message}`,
+        title: "Error calculating sales data",
+        description: error.message,
         variant: "destructive"
       });
     }
-  }, [selectedCountry, salesPeriod, toast]);
+  };
 
-  // Mark items as ordered
-  const markAsOrdered = async (items: RestockItem[]) => {
+  // Load all data with optimized parallel loading
+  const loadAllData = async () => {
+    setLoading(true);
     try {
-      setUpdating('bulk');
-      
-      const updatePromises = items.map(item => {
-        const itemId = item.id;
+      // Load all inventory data comprehensively
+      await loadAllInventoryItems();
+
+      // Load analytics data in parallel without blocking the UI
+      Promise.all([calculateSalesData(), loadAnalytics(selectedCountry)]).catch(error => {
+        console.error('Error loading analytics data:', error);
+        toast({
+          title: "Analytics Error",
+          description: "Some analytics data may not be available",
+          variant: "destructive"
+        });
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Filter restock items - show all critical stock items (qty=0) regardless of status
+  const filteredRestockItems = restockItems.filter(item => {
+    if (!searchTerm.trim()) return true;
+
+    // Support bulk search - split by space and search for any match
+    const searchTerms = searchTerm.toLowerCase().split(' ').map(term => term.trim()).filter(Boolean);
+    return searchTerms.some(term => item.identifier.toLowerCase().includes(term));
+  });
+
+  // Since database function now excludes ordered items, all filtered items are pending
+  const pendingItems = filteredRestockItems;
+
+  // Bulk selection handlers - only allow selection of pending items
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      const allItemIds = pendingItems.map(item => item.id);
+      setSelectedItems(new Set(allItemIds));
+    } else {
+      setSelectedItems(new Set());
+    }
+  };
+  const handleSelectItem = (itemId: string, checked: boolean) => {
+    console.log('handleSelectItem called with:', {
+      itemId,
+      checked,
+      currentSelected: Array.from(selectedItems)
+    });
+    setSelectedItems(prev => {
+      const newSelected = new Set(prev);
+      if (checked) {
+        newSelected.add(itemId);
+      } else {
+        newSelected.delete(itemId);
+      }
+      console.log('New selected items:', Array.from(newSelected));
+      return newSelected;
+    });
+  };
+  const handleBulkMarkAsOrdered = async () => {
+    if (selectedItems.size === 0) return;
+    try {
+      // Update each item in database
+      const updatePromises = Array.from(selectedItems).map(async itemId => {
+        const item = restockItems.find(i => i.id === itemId);
+        if (!item) return;
         if (item.table_name === 'asin_inventory') {
           return supabase.from('asin_inventory').update({
             status: 'ordered'
           }).eq('id', itemId);
+        } else if (item.table_name === 'sku_inventory') {
+          return supabase.from('sku_inventory').update({
+            status: 'ordered'
+          }).eq('id', itemId);
         }
-        // SKU functionality removed
-        return Promise.resolve({ error: null });
       });
-
       const results = await Promise.all(updatePromises);
-      const errors = results.filter(result => result.error);
-      
+      const errors = results.filter(result => result?.error);
       if (errors.length > 0) {
         throw new Error(`Failed to update ${errors.length} items`);
       }
 
+      // Remove items from restock list and add to ordered items
+      const updatedItems = Array.from(selectedItems).map(itemId => {
+        const item = restockItems.find(i => i.id === itemId);
+        return item ? {
+          ...item,
+          status: 'ordered'
+        } : null;
+      }).filter(Boolean) as RestockItem[];
+      setRestockItems(prev => prev.filter(item => !selectedItems.has(item.id)));
+      setOrderedItems(prev => [...prev, ...updatedItems]);
+      setSelectedItems(new Set());
       toast({
-        title: "Success",
-        description: `Marked ${items.length} items as ordered`,
+        title: "Bulk Order Status Updated",
+        description: `${selectedItems.size} items marked as ordered from supplier`
       });
-
-      setSelectedItems([]);
-      loadRestockItems();
-      
-    } catch (error: any) {
-      console.error('Error marking items as ordered:', error);
+    } catch (error) {
+      console.error('Error bulk updating order status:', error);
       toast({
         title: "Error",
-        description: error.message,
+        description: "Failed to update some items",
         variant: "destructive"
       });
-    } finally {
-      setUpdating(null);
     }
   };
 
-  // Restock individual item
-  const restockItem = async (item: RestockItem, quantity: number) => {
+  // Mark item as ordered from supplier
+  const markAsOrdered = async (itemId: string) => {
+    const item = restockItems.find(i => i.id === itemId);
+    if (!item) {
+      console.error('Item not found:', itemId);
+      toast({
+        title: "Error",
+        description: "Item not found",
+        variant: "destructive"
+      });
+      return;
+    }
+    console.log('Marking item as ordered:', {
+      itemId,
+      tableType: item.table_name,
+      item
+    });
     try {
-      setUpdating(item.id);
-      const itemId = item.id;
       let updateResult;
 
+      // Update status in database using the correct ID
       if (item.table_name === 'asin_inventory') {
         updateResult = await supabase.from('asin_inventory').update({
-          quantity: quantity,
-          status: quantity > 0 ? 'in-stock' : 'sold',
-          last_restock_date: new Date().toISOString(),
-          restock_quantity: quantity
+          status: 'ordered'
         }).eq('id', itemId);
         console.log('ASIN update result:', updateResult);
+      } else if (item.table_name === 'sku_inventory') {
+        updateResult = await supabase.from('sku_inventory').update({
+          status: 'ordered'
+        }).eq('id', itemId);
+        console.log('SKU update result:', updateResult);
+      } else {
+        throw new Error(`Unknown table type: ${item.table_name}`);
       }
-      // SKU functionality removed
-
-      if (updateResult?.error) {
+      if (updateResult.error) {
+        console.error('Database update error:', updateResult.error);
         throw updateResult.error;
       }
+      console.log('Database update successful, updating local state...');
 
+      // Remove item from restock list and add to ordered items
+      const updatedItem = restockItems.find(i => i.id === itemId);
+      if (updatedItem) {
+        setRestockItems(prev => prev.filter(item => item.id !== itemId));
+        setOrderedItems(prev => [...prev, {
+          ...updatedItem,
+          status: 'ordered'
+        }]);
+      }
       toast({
-        title: "Success",
-        description: `Restocked ${item.identifier} with ${quantity} units`,
+        title: "Order Status Updated",
+        description: "Item marked as ordered from supplier"
       });
-
-      loadRestockItems();
-      
     } catch (error: any) {
-      console.error('Error restocking item:', error);
+      console.error('Error marking item as ordered:', error);
       toast({
         title: "Error",
+        description: `Failed to update order status: ${error.message}`,
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Export data functions
+  const exportSalesData = () => {
+    const csvContent = [['Period', 'ASIN Sold', 'SKU Sold', 'Total Sold', 'ASIN Restocked', 'SKU Restocked', 'Total Restocked', 'Daily Sell Rate'], ...salesData.map(item => [item.period, item.asin_sold, item.sku_sold, item.total_sold, item.asin_restocked, item.sku_restocked, item.total_restocked, item.sell_rate.toFixed(2)])].map(row => row.join(',')).join('\n');
+    downloadCSV(csvContent, `sales-data-${selectedCountry}-${new Date().toISOString().split('T')[0]}.csv`);
+  };
+  
+  const exportRestockData = () => {
+    // Filter items based on search term - use filteredRestockItems to get proper filtered data
+    const itemsToExport = filteredRestockItems.filter(item => item.current_quantity === 0 && item.status !== 'ordered');
+    
+    const csvContent = [
+      ['Type', 'ASIN', 'SKU', 'Serial/Bin', 'Current Quantity', 'Days Since Restock', 'Status'], 
+      ...itemsToExport.map(item => {
+        let asin = '';
+        let sku = '';
+        let serialBin = '';
+        
+        if (item.table_name === 'asin_inventory') {
+          // Parse ASIN format: "ASIN123 (Serial456) | SKU: SKU789" or "ASIN123 (Serial456)"
+          const asinMatch = item.identifier.match(/^([A-Z0-9]+)\s*\(([^)]+)\)/);
+          if (asinMatch) {
+            asin = asinMatch[1];
+            serialBin = asinMatch[2];
+          }
+          
+          // Extract SKU if present
+          const skuMatch = item.identifier.match(/\|\s*SKU:\s*([^\s]+)/);
+          if (skuMatch) {
+            sku = skuMatch[1];
+          }
+        } else {
+          // Parse SKU format: "SKU: SKU123 (Bin456)"
+          const skuMatch = item.identifier.match(/SKU:\s*([^\s]+)\s*\(([^)]+)\)/);
+          if (skuMatch) {
+            sku = skuMatch[1];
+            serialBin = skuMatch[2];
+          }
+        }
+        
+        return [
+          item.table_name === 'asin_inventory' ? 'ASIN' : 'SKU', 
+          asin, 
+          sku,
+          `="${serialBin}"`, // Preserve leading zeros with formula format
+          item.current_quantity, 
+          item.days_since_last_restock || 'Never', 
+          item.status || 'Critical'
+        ];
+      })
+    ].map(row => row.join(',')).join('\n');
+    
+    downloadCSV(csvContent, `restock-items-${selectedCountry}-${new Date().toISOString().split('T')[0]}.csv`);
+  };
+  
+  const exportOrderedData = () => {
+    const itemsToExport = orderedItems.filter(item => item.status === 'ordered');
+    
+    const csvContent = [
+      ['Type', 'ASIN', 'SKU', 'Serial/Bin', 'Current Quantity', 'Days Since Restock', 'Order Status', 'Date Marked'], 
+      ...itemsToExport.map(item => {
+        let asin = '';
+        let sku = '';
+        let serialBin = '';
+        
+        if (item.table_name === 'asin_inventory') {
+          // Parse ASIN format: "ASIN123 (Serial456) | SKU: SKU789" or "ASIN123 (Serial456)"
+          const asinMatch = item.identifier.match(/^([A-Z0-9]+)\s*\(([^)]+)\)/);
+          if (asinMatch) {
+            asin = asinMatch[1];
+            serialBin = asinMatch[2];
+          }
+          
+          // Extract SKU if present
+          const skuMatch = item.identifier.match(/\|\s*SKU:\s*([^\s]+)/);
+          if (skuMatch) {
+            sku = skuMatch[1];
+          }
+        } else {
+          // Parse SKU format: "SKU: SKU123 (Bin456)"
+          const skuMatch = item.identifier.match(/SKU:\s*([^\s]+)\s*\(([^)]+)\)/);
+          if (skuMatch) {
+            sku = skuMatch[1];
+            serialBin = skuMatch[2];
+          }
+        }
+        
+        return [
+          item.table_name === 'asin_inventory' ? 'ASIN' : 'SKU', 
+          asin, 
+          sku,
+          `="${serialBin}"`, // Preserve leading zeros with formula format
+          item.current_quantity, 
+          item.days_since_last_restock || 'Never', 
+          item.status, 
+          new Date().toLocaleDateString()
+        ];
+      })
+    ].map(row => row.join(',')).join('\n');
+    
+    downloadCSV(csvContent, `ordered-items-${selectedCountry}-${new Date().toISOString().split('T')[0]}.csv`);
+  };
+  const downloadCSV = (content: string, filename: string) => {
+    const blob = new Blob([content], {
+      type: 'text/csv'
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast({
+      title: "Export Complete",
+      description: `Data exported as ${filename}`
+    });
+  };
+
+  // Load trends data
+  const loadTrendsData = async () => {
+    setTrendsLoading(true);
+    try {
+      const daysNum = parseInt(trendsDateRange.replace('d', ''));
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - daysNum);
+
+      // Get ASIN data
+      const asinQuery = supabase.from('asin_inventory').select('*').eq('user_id', (await supabase.auth.getUser()).data.user?.id).eq('country', selectedCountry);
+
+      // Get SKU data
+      const skuQuery = supabase.from('sku_inventory').select('*').eq('user_id', (await supabase.auth.getUser()).data.user?.id).eq('country', selectedCountry);
+      const [asinResult, skuResult] = await Promise.all([asinQuery, skuQuery]);
+      if (asinResult.error) throw asinResult.error;
+      if (skuResult.error) throw skuResult.error;
+
+      // Process ASIN items
+      const asinItems: TrendsItem[] = (asinResult.data || []).map(item => {
+        const soldInPeriod = item.date_sold && new Date(item.date_sold) >= startDate ? 1 : 0;
+        const sellRate = soldInPeriod / daysNum;
+        return {
+          id: item.id,
+          identifier: `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}`,
+          table_name: 'asin_inventory',
+          current_quantity: item.quantity || 0,
+          sold_quantity: soldInPeriod,
+          last_sold_date: item.date_sold,
+          days_since_last_restock: item.last_restock_date ? Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null,
+          sell_rate: sellRate
+        };
+      });
+
+      // Process SKU items  
+      const skuItems: TrendsItem[] = (skuResult.data || []).map(item => {
+        const soldInPeriod = item.date_sold && new Date(item.date_sold) >= startDate ? 1 : 0;
+        const sellRate = soldInPeriod / daysNum;
+        return {
+          id: item.id,
+        identifier: `SKU: ${item.sku_number} (${item.bin_serial_number})`,
+          table_name: 'sku_inventory',
+          current_quantity: item.quantity || 0,
+          sold_quantity: soldInPeriod,
+          last_sold_date: item.date_sold,
+          days_since_last_restock: item.last_restock_date ? Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null,
+          sell_rate: sellRate
+        };
+      });
+
+      // Combine and filter by type
+      let combinedItems = [...asinItems, ...skuItems];
+      if (trendsItemType === 'asin') {
+        combinedItems = asinItems;
+      } else if (trendsItemType === 'sku') {
+        combinedItems = skuItems;
+      }
+      setTrendsItems(combinedItems);
+    } catch (error: any) {
+      console.error('Error loading trends data:', error);
+      toast({
+        title: "Error loading trends data",
         description: error.message,
         variant: "destructive"
       });
     } finally {
-      setUpdating(null);
+      setTrendsLoading(false);
     }
   };
 
-  // Load active inventory
-  const loadActiveInventory = useCallback(async () => {
-    if (!selectedCountry) return;
+  // Filter and sort trends items
+  const filteredTrendsItems = trendsItems.filter(item => {
+    if (!trendsSearchTerm.trim()) return true;
+    const searchLower = trendsSearchTerm.toLowerCase();
+    return item.identifier.toLowerCase().includes(searchLower);
+  }).sort((a, b) => {
+    switch (trendsSortBy) {
+      case 'sold_desc':
+        return b.sold_quantity - a.sold_quantity;
+      case 'sold_asc':
+        return a.sold_quantity - b.sold_quantity;
+      case 'recent':
+        if (!a.last_sold_date && !b.last_sold_date) return 0;
+        if (!a.last_sold_date) return 1;
+        if (!b.last_sold_date) return -1;
+        return new Date(b.last_sold_date).getTime() - new Date(a.last_sold_date).getTime();
+      case 'quantity_low':
+        return a.current_quantity - b.current_quantity;
+      default:
+        return 0;
+    }
+  });
+
+  // Export trends data
+  const exportTrendsData = () => {
+    const csvContent = [
+      ['Type', 'ASIN', 'SKU', 'Serial/Bin', 'Current Stock', 'Sold Quantity', 'Sell Rate/Day', 'Last Sold', 'Days Since Restock', 'Stock Status'], 
+      ...filteredTrendsItems.map(item => {
+        let asin = '';
+        let sku = '';
+        let serialBin = '';
+        
+        if (item.table_name === 'asin_inventory') {
+          // Parse ASIN format: "ASIN123 (Serial456) | SKU: SKU789" or "ASIN123 (Serial456)"
+          const asinMatch = item.identifier.match(/^([A-Z0-9]+)\s*\(([^)]+)\)/);
+          if (asinMatch) {
+            asin = asinMatch[1];
+            serialBin = asinMatch[2];
+          }
+          
+          // Extract SKU if present
+          const skuMatch = item.identifier.match(/\|\s*SKU:\s*([^\s]+)/);
+          if (skuMatch) {
+            sku = skuMatch[1];
+          }
+        } else {
+          // Parse SKU format: "SKU: SKU123 (Bin456)"
+          const skuMatch = item.identifier.match(/SKU:\s*([^\s]+)\s*\(([^)]+)\)/);
+          if (skuMatch) {
+            sku = skuMatch[1];
+            serialBin = skuMatch[2];
+          }
+        }
+        
+        return [
+          item.table_name === 'asin_inventory' ? 'ASIN' : 'SKU', 
+          asin, 
+          sku,
+          `="${serialBin}"`, // Preserve leading zeros with formula format
+          item.current_quantity, 
+          item.sold_quantity, 
+          item.sell_rate.toFixed(2), 
+          item.last_sold_date ? new Date(item.last_sold_date).toLocaleDateString() : 'Never', 
+          item.days_since_last_restock || 'Never', 
+          item.current_quantity <= 5 ? 'Critical' : item.current_quantity <= 10 ? 'Low' : 'Good'
+        ];
+      })
+    ].map(row => row.join(',')).join('\n');
     
+    downloadCSV(csvContent, `trends-analysis-${selectedCountry}-${trendsDateRange}-${new Date().toISOString().split('T')[0]}.csv`);
+  };
+
+  // AI Forecasting functions
+  const generateForecast = async () => {
+    setForecastLoading(true);
+    setForecastError(null);
     try {
-      // Get all active items from ASIN table only (SKU tables removed)
-      const asinData = await supabase.from('asin_inventory').select('*').eq('country', selectedCountry).eq('status', 'in-stock');
-      if (asinData.error) throw asinData.error;
-
-      const activeItems: ActiveInventoryItem[] = [
-        ...(asinData.data || []).map(item => ({
-          id: item.id,
-          identifier: `${item.asin} (${item.serial_number})`,
-          current_quantity: item.quantity,
-          table_name: 'asin_inventory',
-          status: item.status,
-          days_since_last_restock: item.last_restock_date ? Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null
-        }))
-      ];
-
-      setActiveInventory(activeItems);
-    } catch (error: any) {
-      console.error('Error loading active inventory:', error);
+      const {
+        data,
+        error
+      } = await supabase.functions.invoke('ai-inventory-forecast', {
+        body: {
+          country: selectedCountry,
+          itemType: 'all',
+          analysisDepth: 'standard'
+        }
+      });
+      if (error) throw error;
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+      setForecastData(data);
       toast({
-        title: "Error",
-        description: `Failed to load active inventory: ${error.message}`,
+        title: "AI Forecast Generated",
+        description: `Analysis completed for ${data?.items_analyzed || 0} items`
+      });
+    } catch (error: any) {
+      console.error('Error generating forecast:', error);
+      setForecastError(error.message);
+      toast({
+        title: "Forecast Error",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setForecastLoading(false);
+    }
+  };
+  const exportForecastData = () => {
+    if (!forecastData?.forecasts) return;
+    const csvContent = [['Item', 'Current Stock', 'Days Until Stockout', 'Reorder Point', 'Risk Level', 'Confidence', 'Trend', 'Key Insights'], ...forecastData.forecasts.map((item: any) => [item.identifier, item.current_stock, item.predicted_days_until_stockout, item.recommended_reorder_point, item.risk_level, `${item.confidence_score}%`, item.seasonal_trend, (item.insights || []).join('; ')])].map(row => row.join(',')).join('\n');
+    downloadCSV(csvContent, `ai-forecast-${selectedCountry}-${new Date().toISOString().split('T')[0]}.csv`);
+  };
+
+  // Dialog handlers for metric cards
+  const openCriticalStockDialog = () => {
+    setDialogData({
+      isOpen: true,
+      title: 'Critical Stock Items (0 Units)',
+      items: filteredRestockItems,
+      // Show all critical items regardless of status
+      type: 'critical'
+    });
+  };
+  const openOrderedItemsDialog = async () => {
+    const orderedItemsData = await loadOrderedItems();
+    setDialogData({
+      isOpen: true,
+      title: 'Items Ordered from Supplier',
+      items: orderedItemsData,
+      type: 'ordered'
+    });
+  };
+  const openActiveItemsDialog = async () => {
+    try {
+      // Get all active items from both tables
+      const [asinData, skuData] = await Promise.all([supabase.from('asin_inventory').select('*').eq('country', selectedCountry).eq('status', 'in-stock'), supabase.from('sku_inventory').select('*').eq('country', selectedCountry).eq('status', 'in-stock')]);
+      if (asinData.error) throw asinData.error;
+      if (skuData.error) throw skuData.error;
+      const activeItemsData = [...(asinData.data || []).map(item => ({
+        id: item.id,
+        identifier: `${item.asin} (${item.serial_number})`,
+        current_quantity: item.quantity,
+        table_name: 'asin_inventory',
+        status: item.status,
+        days_since_last_restock: item.last_restock_date ? Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null
+      })), ...(skuData.data || []).map(item => ({
+        id: item.id,
+        identifier: `${item.sku_number} (${item.bin_serial_number})`,
+        current_quantity: item.quantity,
+        table_name: 'sku_inventory',
+        status: item.status,
+        days_since_last_restock: item.last_restock_date ? Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null
+      }))];
+      setDialogData({
+        isOpen: true,
+        title: 'Active Inventory Items',
+        items: activeItemsData,
+        type: 'active'
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error loading active items",
+        description: error.message,
         variant: "destructive"
       });
     }
-  }, [selectedCountry, toast]);
+  };
 
-  // Effects
-  useEffect(() => {
-    if (selectedCountry) {
-      loadRestockItems();
-      loadAllInventory();
-      updateRestockedItems();
-      loadSalesData();
-      loadActiveInventory();
-    }
-  }, [selectedCountry, loadRestockItems, loadAllInventory, updateRestockedItems, loadSalesData, loadActiveInventory]);
-
-  // Set up real-time subscriptions for inventory changes
+  // Optimized real-time subscriptions - only reload specific data that changed
   useEffect(() => {
     if (!selectedCountry) return;
-
-    const asinSubscription = supabase
-      .channel('asin_inventory_changes')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'asin_inventory',
-        filter: `country=eq.${selectedCountry}`
-      }, () => {
-        loadRestockItems();
-        loadAllInventory();
-        loadActiveInventory();
-      })
-      .subscribe();
-
+    const channels = [supabase.channel('asin-inventory-realtime').on('postgres_changes', {
+      event: 'UPDATE',
+      schema: 'public',
+      table: 'asin_inventory',
+      filter: `country=eq.${selectedCountry}`
+    }, async () => {
+      // Reload all inventory data on changes
+      loadAllInventoryItems();
+      // Check if any ordered items are now back in stock and remove them
+      await removeRestockedOrderedItems();
+    }), supabase.channel('sku-inventory-realtime').on('postgres_changes', {
+      event: 'UPDATE',
+      schema: 'public',
+      table: 'sku_inventory',
+      filter: `country=eq.${selectedCountry}`
+    }, async () => {
+      // Reload all inventory data on changes
+      loadAllInventoryItems();
+      // Check if any ordered items are now back in stock and remove them
+      await removeRestockedOrderedItems();
+    })];
+    channels.forEach(channel => channel.subscribe());
     return () => {
-      supabase.removeChannel(asinSubscription);
+      channels.forEach(channel => supabase.removeChannel(channel));
     };
-  }, [selectedCountry, loadRestockItems, loadAllInventory, loadActiveInventory]);
+  }, [selectedCountry]);
 
-  // Utility functions
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return 'Never';
-    return new Date(dateString).toLocaleDateString();
-  };
-
-  const getDaysAgo = (days: number | null) => {
-    if (days === null) return 'Never';
-    if (days === 0) return 'Today';
-    if (days === 1) return 'Yesterday';
-    return `${days} days ago`;
-  };
-
-  const getStatusBadge = (status: string) => {
-    const variants: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
-      'in-stock': 'default',
-      'sold': 'secondary',
-      'ordered': 'outline',
-      'reserved': 'destructive',
-      'damaged': 'destructive'
+  // Load data on country change
+  useEffect(() => {
+    const loadData = async () => {
+      await loadAllData();
+      const orderedItemsData = await loadOrderedItems();
+      setOrderedItems(orderedItemsData);
+      // Check for restocked ordered items and clean them up
+      await removeRestockedOrderedItems();
     };
-    return <Badge variant={variants[status] || 'outline'}>{status}</Badge>;
-  };
+    loadData();
+  }, [selectedCountry]);
 
-  const getTrendIcon = (trend: string) => {
-    switch (trend) {
-      case 'up': return <TrendingUp className="h-4 w-4 text-green-500" />;
-      case 'down': return <TrendingUp className="h-4 w-4 text-red-500 rotate-180" />;
-      default: return <TrendingUp className="h-4 w-4 text-gray-500" />;
+  // Load trends data when filters change
+  useEffect(() => {
+    loadTrendsData();
+  }, [selectedCountry, trendsDateRange, trendsItemType]);
+  if (loading) {
+    return <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center space-y-4">
+          <RefreshCw className="w-8 h-8 animate-spin mx-auto text-primary" />
+          <p className="text-muted-foreground">Loading sales & replenishment data...</p>
+        </div>
+      </div>;
+  }
+
+  // Chart configurations with updated SKU color scheme
+  const chartConfig = {
+    total_sold: {
+      label: "Total Sold",
+      color: "hsl(var(--primary))"
+    },
+    total_restocked: {
+      label: "Total Restocked",
+      color: "hsl(var(--secondary))"
+    },
+    asin_sold: {
+      label: "ASIN Sold",
+      color: "hsl(var(--chart-1))"
+    },
+    sku_sold: {
+      label: "SKU Sold",
+      color: "hsl(220, 70%, 50%)"
+    },
+    // Changed to blue scheme
+    sell_rate: {
+      label: "Daily Rate",
+      color: "hsl(var(--accent))"
     }
   };
-
-  // Filter and sort functions
-  const getFilteredItems = (items: RestockItem[]) => {
-    let filtered = items;
-    
-    if (filterStatus !== 'all') {
-      filtered = filtered.filter(item => item.status === filterStatus);
-    }
-    
-    return filtered.sort((a, b) => {
-      switch (sortBy) {
-        case 'date':
-          if (!a.date_sold && !b.date_sold) return 0;
-          if (!a.date_sold) return 1;
-          if (!b.date_sold) return -1;
-          return new Date(b.date_sold).getTime() - new Date(a.date_sold).getTime();
-        case 'quantity':
-          return a.current_quantity - b.current_quantity;
-        case 'days':
-          return (b.days_since_last_restock || 0) - (a.days_since_last_restock || 0);
-        default:
-          return 0;
-      }
-    });
-  };
-
-  const getFilteredInventory = (items: AllInventoryItem[]) => {
-    let filtered = items;
-    
-    if (filterStatus !== 'all') {
-      filtered = filtered.filter(item => item.status === filterStatus);
-    }
-    
-    return filtered.sort((a, b) => {
-      switch (sortBy) {
-        case 'date':
-          return new Date(b.date_added).getTime() - new Date(a.date_added).getTime();
-        case 'quantity':
-          return b.quantity - a.quantity;
-        case 'days':
-          return (b.days_since_ordered || 0) - (a.days_since_ordered || 0);
-        default:
-          return 0;
-      }
-    });
-  };
-
-  // Stats calculations
-  const stats = {
-    totalNeedingRestock: restockItems.length,
-    totalOrdered: orderedItems.length,
-    averageDaysToRestock: restockItems.length > 0 
-      ? Math.round(restockItems.reduce((sum, item) => sum + (item.days_since_last_restock || 0), 0) / restockItems.length)
-      : 0,
-    fastMovingItems: salesData.filter(item => item.trend === 'up').length,
-    slowMovingItems: salesData.filter(item => item.trend === 'down').length
-  };
-
-  return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex justify-between items-center">
+  const selectedPeriodData = salesData.find(d => d.period === selectedPeriod);
+  const totalSales30d = salesData.find(d => d.period === '30d')?.total_sold || 0;
+  const totalRestocks30d = salesData.find(d => d.period === '30d')?.total_restocked || 0;
+  return <div className="space-y-6 animate-fade-in w-full max-w-none">
+      {/* Header with refresh button */}
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Inventory Replenishment</h1>
-          <p className="text-muted-foreground">Manage restocking and inventory analysis for {selectedCountry}</p>
+          <h2 className="text-2xl font-bold text-foreground">Sales & Replenishment Dashboard</h2>
+          <p className="text-muted-foreground">Real-time analytics for {selectedCountry}</p>
         </div>
-        <div className="flex gap-2">
-          <Button 
-            onClick={loadRestockItems} 
-            variant="outline"
-            disabled={loading}
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-          <Button 
-            onClick={updateRestockedItems}
-            disabled={loading}
-          >
-            <CheckCircle className="h-4 w-4 mr-2" />
-            Update Restocked
-          </Button>
-        </div>
+        <Button onClick={loadAllData} variant="outline" size="sm" className="gap-2">
+          <RefreshCw className="w-4 h-4" />
+          Refresh Data
+        </Button>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <Card>
+      {/* Advanced Metrics Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        {/* Critical Stock Items */}
+        <Card className="glass-container hover-scale cursor-pointer transition-all duration-300 hover:shadow-glow border-l-4 border-l-destructive" onClick={openCriticalStockDialog}>
           <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <Package className="h-4 w-4 text-red-500" />
-              <div>
-                <p className="text-sm font-medium">Need Restock</p>
-                <p className="text-2xl font-bold">{stats.totalNeedingRestock}</p>
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <AlertTriangle className="w-4 h-4 text-destructive" />
+                  <p className="text-xs font-medium text-muted-foreground">Critical Stock</p>
+                </div>
+                <p className="text-2xl font-bold text-foreground">{pendingItems.length}</p>
+                <p className="text-xs text-destructive">Out of stock</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        
-        <Card>
+
+        {/* Items Ordered */}
+        <Card className="glass-container hover-scale cursor-pointer transition-all duration-300 hover:shadow-glow border-l-4" style={{
+        borderLeftColor: 'hsl(220, 70%, 50%)'
+      }} onClick={openOrderedItemsDialog}>
           <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <ShoppingCart className="h-4 w-4 text-blue-500" />
-              <div>
-                <p className="text-sm font-medium">Ordered</p>
-                <p className="text-2xl font-bold">{stats.totalOrdered}</p>
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <Truck className="w-4 h-4" style={{
+                  color: 'hsl(220, 70%, 50%)'
+                }} />
+                  <p className="text-xs font-medium text-muted-foreground">Ordered</p>
+                </div>
+                <p className="text-2xl font-bold text-foreground">{orderedItems.length}</p>
+                <p className="text-xs" style={{
+                color: 'hsl(220, 70%, 50%)'
+              }}>From supplier</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        
-        <Card>
+
+        {/* Total Sales (30 days) */}
+        <Card className="glass-container hover-scale cursor-pointer transition-all duration-300 hover:shadow-glow border-l-4 border-l-primary" onClick={openActiveItemsDialog}>
           <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <Clock className="h-4 w-4 text-yellow-500" />
-              <div>
-                <p className="text-sm font-medium">Avg Days</p>
-                <p className="text-2xl font-bold">{stats.averageDaysToRestock}</p>
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <TrendingUp className="w-4 h-4 text-primary" />
+                  <p className="text-xs font-medium text-muted-foreground">Sales (30d)</p>
+                </div>
+                <p className="text-2xl font-bold text-foreground">{totalSales30d}</p>
+                <p className="text-xs text-primary">Units sold</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        
-        <Card>
+
+        {/* Total Restocks (30 days) */}
+        <Card className="glass-container hover-scale cursor-pointer transition-all duration-300 hover:shadow-glow border-l-4 border-l-secondary">
           <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <TrendingUp className="h-4 w-4 text-green-500" />
-              <div>
-                <p className="text-sm font-medium">Fast Moving</p>
-                <p className="text-2xl font-bold">{stats.fastMovingItems}</p>
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <Package className="w-4 h-4 text-secondary" />
+                  <p className="text-xs font-medium text-muted-foreground">Restocks (30d)</p>
+                </div>
+                <p className="text-2xl font-bold text-foreground">{totalRestocks30d}</p>
+                <p className="text-xs text-secondary">Units restocked</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        
-        <Card>
+
+        {/* Daily Sell Rate */}
+        <Card className="glass-container hover-scale transition-all duration-300 hover:shadow-glow border-l-4 border-l-accent">
           <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <TrendingUp className="h-4 w-4 text-red-500 rotate-180" />
-              <div>
-                <p className="text-sm font-medium">Slow Moving</p>
-                <p className="text-2xl font-bold">{stats.slowMovingItems}</p>
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <Zap className="w-4 h-4 text-accent" />
+                  <p className="text-xs font-medium text-muted-foreground">Daily Rate</p>
+                </div>
+                <p className="text-2xl font-bold text-foreground">
+                  {salesData.find(d => d.period === '30d')?.sell_rate?.toFixed(1) || '0'}
+                </p>
+                <p className="text-xs text-accent">Units/day</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Stock Ratio */}
+        <Card className="glass-container hover-scale transition-all duration-300 hover:shadow-glow border-l-4 border-l-chart-1">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <Target className="w-4 h-4 text-chart-1" />
+                  <p className="text-xs font-medium text-muted-foreground">Stock Ratio</p>
+                </div>
+                <p className="text-2xl font-bold text-foreground">
+                  {totalRestocks30d > 0 ? (totalSales30d / totalRestocks30d * 100).toFixed(0) : '0'}%
+                </p>
+                <p className="text-xs text-chart-1">Efficiency</p>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Main Content */}
-      <Tabs defaultValue="restock" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="restock">Need Restock</TabsTrigger>
-          <TabsTrigger value="ordered">Ordered Items</TabsTrigger>
-          <TabsTrigger value="all">All Inventory</TabsTrigger>
-          <TabsTrigger value="sales">Sales Analysis</TabsTrigger>
-          <TabsTrigger value="active">Active Inventory</TabsTrigger>
+      {/* Main Content Tabs */}
+      <Tabs defaultValue="sales" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 h-14 p-2 bg-gradient-subtle rounded-xl shadow-elegant">
+          <TabsTrigger value="sales" className="text-sm font-semibold px-6 py-3 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all duration-300 hover:bg-white/10">📊 Sales Analytics</TabsTrigger>
+          <TabsTrigger value="restock" className="text-sm font-semibold px-6 py-3 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all duration-300 hover:bg-white/10">📦 Restock Management</TabsTrigger>
         </TabsList>
 
-        {/* Filters */}
-        <div className="flex gap-4 items-center">
-          <div className="flex items-center space-x-2">
-            <Label htmlFor="sort">Sort by:</Label>
-            <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
-              <SelectTrigger id="sort" className="w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="date">Date</SelectItem>
-                <SelectItem value="quantity">Quantity</SelectItem>
-                <SelectItem value="days">Days Since Restock</SelectItem>
-              </SelectContent>
-            </Select>
+        {/* Sales Analytics Tab */}
+        <TabsContent value="sales" className="space-y-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-semibold">Comprehensive Inventory Tracking</h3>
+              <p className="text-muted-foreground">Track all ASIN and SKU inventory with detailed analytics and status</p>
+            </div>
+            <div className="flex items-center gap-4">
+              <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1d">1 Day</SelectItem>
+                  <SelectItem value="3d">3 Days</SelectItem>
+                  <SelectItem value="7d">7 Days</SelectItem>
+                  <SelectItem value="15d">15 Days</SelectItem>
+                  <SelectItem value="30d">30 Days</SelectItem>
+                  <SelectItem value="45d">45 Days</SelectItem>
+                  <SelectItem value="60d">60 Days</SelectItem>
+                  <SelectItem value="90d">90 Days</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button onClick={exportSalesData} variant="outline" size="sm" className="gap-2">
+                <Download className="w-4 h-4" />
+                Export Data
+              </Button>
+            </div>
           </div>
-          
-          <div className="flex items-center space-x-2">
-            <Label htmlFor="filter">Filter:</Label>
-            <Select value={filterStatus} onValueChange={(value: any) => setFilterStatus(value)}>
-              <SelectTrigger id="filter" className="w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="sold">Sold</SelectItem>
-                <SelectItem value="in-stock">In Stock</SelectItem>
-                <SelectItem value="ordered">Ordered</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
 
-        <TabsContent value="restock" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <AlertTriangle className="h-5 w-5 mr-2 text-red-500" />
-                Items Needing Restock
-              </CardTitle>
-              <CardDescription>
-                Items with 0 quantity that need to be restocked
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {selectedItems.length > 0 && (
-                <div className="mb-4">
-                  <Button 
-                    onClick={() => markAsOrdered(restockItems.filter(item => selectedItems.includes(item.id)))}
-                    disabled={updating === 'bulk'}
-                  >
-                    {updating === 'bulk' ? 'Updating...' : `Mark ${selectedItems.length} items as ordered`}
+          {/* Comprehensive Inventory Tracking */}
+          <div className="space-y-6">
+            {/* Filters and Controls */}
+            <Card className="glass-container">
+              <CardContent className="p-4">
+                <div className="flex flex-wrap items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <Search className="w-4 h-4 text-muted-foreground" />
+                    <Input 
+                      placeholder="Search ASINs, SKUs, or serial numbers..." 
+                      value={searchTerm} 
+                      onChange={(e) => setSearchTerm(e.target.value)} 
+                      className="w-80" 
+                    />
+                  </div>
+                  <Select value={trendsItemType || 'all'} onValueChange={setTrendsItemType}>
+                    <SelectTrigger className="w-32">
+                      <SelectValue placeholder="Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Items</SelectItem>
+                      <SelectItem value="asin">ASIN Only</SelectItem>
+                      <SelectItem value="sku">SKU Only</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={trendsSortBy || 'sold_desc'} onValueChange={setTrendsSortBy}>
+                    <SelectTrigger className="w-48">
+                      <SelectValue placeholder="Sort By" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="sold_desc">Most Sold</SelectItem>
+                      <SelectItem value="sold_asc">Least Sold</SelectItem>
+                      <SelectItem value="recent_sold">Recently Sold</SelectItem>
+                      <SelectItem value="recent_ordered">Recently Ordered</SelectItem>
+                      <SelectItem value="quantity_low">Low Stock</SelectItem>
+                      <SelectItem value="needs_restock">Needs Restock</SelectItem>
+                      <SelectItem value="slow_restock">Slow Restock</SelectItem>
+                      <SelectItem value="in_transit">In Transit</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button onClick={() => loadAnalytics()} variant="outline" size="sm" disabled={loading} className="gap-2">
+                    <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                    Refresh
                   </Button>
                 </div>
-              )}
-              
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-12">
-                        <input
-                          type="checkbox"
-                          checked={selectedItems.length === restockItems.length && restockItems.length > 0}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedItems(restockItems.map(item => item.id));
-                            } else {
-                              setSelectedItems([]);
-                            }
-                          }}
-                        />
-                      </TableHead>
-                      <TableHead>Identifier</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Date Sold</TableHead>
-                      <TableHead>Days Since Restock</TableHead>
-                      <TableHead>Restock Quantity</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {getFilteredItems(restockItems).map((item) => (
-                      <TableRow key={item.id}>
-                        <TableCell>
-                          <input
-                            type="checkbox"
-                            checked={selectedItems.includes(item.id)}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setSelectedItems([...selectedItems, item.id]);
-                              } else {
-                                setSelectedItems(selectedItems.filter(id => id !== item.id));
-                              }
-                            }}
-                          />
-                        </TableCell>
-                        <TableCell className="font-mono text-sm">{item.identifier}</TableCell>
-                        <TableCell>{getStatusBadge(item.status)}</TableCell>
-                        <TableCell>{formatDate(item.date_sold)}</TableCell>
-                        <TableCell>{getDaysAgo(item.days_since_last_restock)}</TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            placeholder="Qty"
-                            className="w-20"
-                            value={bulkQuantities[item.id] || ''}
-                            onChange={(e) => setBulkQuantities(prev => ({
-                              ...prev,
-                              [item.id]: parseInt(e.target.value) || 0
-                            }))}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-2">
+              </CardContent>
+            </Card>
+
+            {/* Inventory Tracking Table */}
+            <Card className="glass-container">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Database className="w-5 h-5" />
+                  Complete Inventory Tracking
+                </CardTitle>
+                <p className="text-muted-foreground">Comprehensive view of all ASIN and SKU inventory with sales and restock analytics</p>
+              </CardHeader>
+              <CardContent>
+                {loading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" />
+                    <span className="ml-2 text-muted-foreground">Loading inventory data...</span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="space-y-4 mb-6">
+                      {/* Search and Quick Actions */}
+                      <div className="flex flex-col lg:flex-row gap-4">
+                        <div className="flex-1">
+                          <div className="relative">
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                            <Input
+                              placeholder="Search by ASIN, SKU, or Serial Number..."
+                              value={filters.search}
+                              onChange={(e) => updateFilter('search', e.target.value)}
+                              className="pl-10"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={exportFilteredData}
+                            className="whitespace-nowrap"
+                          >
+                            <Download className="h-4 w-4 mr-2" />
+                            Export {getActiveFiltersCount() > 0 ? 'Filtered' : 'All'}
+                          </Button>
+                          {getActiveFiltersCount() > 0 && (
                             <Button
+                              variant="outline"
                               size="sm"
-                              onClick={() => restockItem(item, bulkQuantities[item.id] || 1)}
-                              disabled={updating === item.id || !bulkQuantities[item.id]}
+                              onClick={clearAllFilters}
+                              className="whitespace-nowrap"
                             >
-                              {updating === item.id ? 'Restocking...' : 'Restock'}
+                              <X className="h-4 w-4 mr-2" />
+                              Clear ({getActiveFiltersCount()})
                             </Button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Advanced Filters */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                        <Select value={filters.itemType} onValueChange={(value) => updateFilter('itemType', value)}>
+                          <SelectTrigger className="h-8">
+                            <SelectValue placeholder="Type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Types</SelectItem>
+                            <SelectItem value="ASIN">ASIN</SelectItem>
+                            <SelectItem value="SKU">SKU</SelectItem>
+                          </SelectContent>
+                        </Select>
+
+                        <Select value={filters.stockStatus} onValueChange={(value) => updateFilter('stockStatus', value)}>
+                          <SelectTrigger className="h-8">
+                            <SelectValue placeholder="Stock" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Stock</SelectItem>
+                            <SelectItem value="in-stock">In Stock (&gt;5)</SelectItem>
+                            <SelectItem value="low-stock">Low Stock (1-5)</SelectItem>
+                            <SelectItem value="critical">Critical (≤2)</SelectItem>
+                            <SelectItem value="out-of-stock">Out of Stock</SelectItem>
+                          </SelectContent>
+                        </Select>
+
+                        <Select value={filters.orderStatus} onValueChange={(value) => updateFilter('orderStatus', value)}>
+                          <SelectTrigger className="h-8">
+                            <SelectValue placeholder="Orders" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Orders</SelectItem>
+                            <SelectItem value="ordered">Ordered</SelectItem>
+                            <SelectItem value="not-ordered">Not Ordered</SelectItem>
+                            <SelectItem value="overdue">Overdue (&gt;30d)</SelectItem>
+                          </SelectContent>
+                        </Select>
+
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" size="sm" className="h-8 justify-start text-left font-normal">
+                              <CalendarIcon className="h-4 w-4 mr-2" />
+                              Last Sold
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-4" align="start">
+                            <div className="space-y-2">
+                              <Label>From:</Label>
+                              <Calendar
+                                mode="single"
+                                selected={filters.dateRange.lastSoldFrom}
+                                onSelect={(date) => updateDateRangeFilter('lastSoldFrom', date)}
+                                className={cn("p-3 pointer-events-auto")}
+                              />
+                              <Label>To:</Label>
+                              <Calendar
+                                mode="single"
+                                selected={filters.dateRange.lastSoldTo}
+                                onSelect={(date) => updateDateRangeFilter('lastSoldTo', date)}
+                                className={cn("p-3 pointer-events-auto")}
+                              />
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" size="sm" className="h-8 justify-start text-left font-normal">
+                              <CalendarIcon className="h-4 w-4 mr-2" />
+                              Last Order
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-4" align="start">
+                            <div className="space-y-2">
+                              <Label>From:</Label>
+                              <Calendar
+                                mode="single"
+                                selected={filters.dateRange.lastOrderFrom}
+                                onSelect={(date) => updateDateRangeFilter('lastOrderFrom', date)}
+                                className={cn("p-3 pointer-events-auto")}
+                              />
+                              <Label>To:</Label>
+                              <Calendar
+                                mode="single"
+                                selected={filters.dateRange.lastOrderTo}
+                                onSelect={(date) => updateDateRangeFilter('lastOrderTo', date)}
+                                className={cn("p-3 pointer-events-auto")}
+                              />
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" size="sm" className="h-8 justify-start text-left font-normal">
+                              <Filter className="h-4 w-4 mr-2" />
+                              More
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-80 p-4" align="start">
+                            <div className="space-y-4">
+                              <div>
+                                <Label>Stock Range:</Label>
+                                <div className="flex gap-2 mt-1">
+                                  <Input
+                                    type="number"
+                                    placeholder="Min"
+                                    value={filters.stockRange.min ?? ''}
+                                    onChange={(e) => updateRangeFilter('stockRange', 'min', e.target.value ? Number(e.target.value) : null)}
+                                    className="h-8"
+                                  />
+                                  <Input
+                                    type="number"
+                                    placeholder="Max"
+                                    value={filters.stockRange.max ?? ''}
+                                    onChange={(e) => updateRangeFilter('stockRange', 'max', e.target.value ? Number(e.target.value) : null)}
+                                    className="h-8"
+                                  />
+                                </div>
+                              </div>
+                              <div>
+                                <Label>Days Since Order:</Label>
+                                <div className="flex gap-2 mt-1">
+                                  <Input
+                                    type="number"
+                                    placeholder="Min"
+                                    value={filters.daysSinceOrderRange.min ?? ''}
+                                    onChange={(e) => updateRangeFilter('daysSinceOrderRange', 'min', e.target.value ? Number(e.target.value) : null)}
+                                    className="h-8"
+                                  />
+                                  <Input
+                                    type="number"
+                                    placeholder="Max"
+                                    value={filters.daysSinceOrderRange.max ?? ''}
+                                    onChange={(e) => updateRangeFilter('daysSinceOrderRange', 'max', e.target.value ? Number(e.target.value) : null)}
+                                    className="h-8"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+
+                      {/* Results Info */}
+                      <div className="flex justify-between items-center text-sm text-muted-foreground">
+                        <span>
+                          Showing {currentItems.length} of {filteredItems.length} items
+                          {getActiveFiltersCount() > 0 && ` (${getActiveFiltersCount()} filters active)`}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Enhanced Advanced Data Table with Header Filters */}
+                    <div className="rounded-xl border border-border/50 bg-gradient-to-br from-card via-card/95 to-muted/30 overflow-hidden shadow-lg">
+                      <Table>
+                        <TableHeader>
+                          {/* Sort Headers Row */}
+                          <TableRow className="bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 border-b-2 border-primary/20">
+                            <TableHead 
+                              className="cursor-pointer select-none hover:bg-primary/15 transition-all duration-200 font-semibold"
+                              onClick={() => handleSort('item_type')}
+                            >
+                              <div className="flex items-center gap-2">
+                                <Database className="h-4 w-4 text-primary" />
+                                Type
+                                <ArrowUpDown className="h-4 w-4 opacity-50" />
+                                {sortConfig.key === 'item_type' && (
+                                  sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3 text-primary" /> : <ArrowDown className="h-3 w-3 text-primary" />
+                                )}
+                              </div>
+                            </TableHead>
+                            <TableHead 
+                              className="cursor-pointer select-none hover:bg-primary/15 transition-all duration-200 font-semibold"
+                              onClick={() => handleSort('asin')}
+                            >
+                              <div className="flex items-center gap-2">
+                                <Package className="h-4 w-4 text-primary" />
+                                ASIN
+                                <ArrowUpDown className="h-4 w-4 opacity-50" />
+                                {sortConfig.key === 'asin' && (
+                                  sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3 text-primary" /> : <ArrowDown className="h-3 w-3 text-primary" />
+                                )}
+                              </div>
+                            </TableHead>
+                            <TableHead 
+                              className="cursor-pointer select-none hover:bg-primary/15 transition-all duration-200 font-semibold"
+                              onClick={() => handleSort('sku')}
+                            >
+                              <div className="flex items-center gap-2">
+                                <ShoppingCart className="h-4 w-4 text-primary" />
+                                SKU
+                                <ArrowUpDown className="h-4 w-4 opacity-50" />
+                                {sortConfig.key === 'sku' && (
+                                  sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3 text-primary" /> : <ArrowDown className="h-3 w-3 text-primary" />
+                                )}
+                              </div>
+                            </TableHead>
+                            <TableHead 
+                              className="cursor-pointer select-none hover:bg-primary/15 transition-all duration-200 font-semibold"
+                              onClick={() => handleSort('serial_number')}
+                            >
+                              <div className="flex items-center gap-2">
+                                <Target className="h-4 w-4 text-primary" />
+                                Serial Number
+                                <ArrowUpDown className="h-4 w-4 opacity-50" />
+                                {sortConfig.key === 'serial_number' && (
+                                  sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3 text-primary" /> : <ArrowDown className="h-3 w-3 text-primary" />
+                                )}
+                              </div>
+                            </TableHead>
+                            <TableHead 
+                              className="cursor-pointer select-none hover:bg-primary/15 transition-all duration-200 font-semibold"
+                              onClick={() => handleSort('status')}
+                            >
+                              <div className="flex items-center gap-2">
+                                <Activity className="h-4 w-4 text-primary" />
+                                Status
+                                <ArrowUpDown className="h-4 w-4 opacity-50" />
+                                {sortConfig.key === 'status' && (
+                                  sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3 text-primary" /> : <ArrowDown className="h-3 w-3 text-primary" />
+                                )}
+                              </div>
+                            </TableHead>
+                            <TableHead 
+                              className="cursor-pointer select-none hover:bg-primary/15 transition-all duration-200 font-semibold"
+                              onClick={() => handleSort('last_sold_date')}
+                            >
+                              <div className="flex items-center gap-2">
+                                <Clock className="h-4 w-4 text-primary" />
+                                Last Sold
+                                <ArrowUpDown className="h-4 w-4 opacity-50" />
+                                {sortConfig.key === 'last_sold_date' && (
+                                  sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3 text-primary" /> : <ArrowDown className="h-3 w-3 text-primary" />
+                                )}
+                              </div>
+                            </TableHead>
+                            <TableHead 
+                              className="cursor-pointer select-none hover:bg-primary/15 transition-all duration-200 font-semibold"
+                              onClick={() => handleSort('last_order_date')}
+                            >
+                              <div className="flex items-center gap-2">
+                                <Truck className="h-4 w-4 text-primary" />
+                                Last Order
+                                <ArrowUpDown className="h-4 w-4 opacity-50" />
+                                {sortConfig.key === 'last_order_date' && (
+                                  sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3 text-primary" /> : <ArrowDown className="h-3 w-3 text-primary" />
+                                )}
+                              </div>
+                            </TableHead>
+                            <TableHead 
+                              className="cursor-pointer select-none hover:bg-primary/15 transition-all duration-200 font-semibold"
+                              onClick={() => handleSort('days_since_ordered')}
+                            >
+                              <div className="flex items-center gap-2">
+                                <CalendarIcon className="h-4 w-4 text-primary" />
+                                Days Since Order
+                                <ArrowUpDown className="h-4 w-4 opacity-50" />
+                                {sortConfig.key === 'days_since_ordered' && (
+                                  sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3 text-primary" /> : <ArrowDown className="h-3 w-3 text-primary" />
+                                )}
+                              </div>
+                            </TableHead>
+                            <TableHead className="font-semibold">
+                              <div className="flex items-center gap-2">
+                                <Timer className="h-4 w-4 text-primary" />
+                                Order Frequency
+                              </div>
+                            </TableHead>
+                          </TableRow>
+                          
+                          {/* Filter Headers Row */}
+                          <TableRow className="bg-muted/30 border-b border-border/50">
+                            <TableHead className="p-2">
+                              <Select value={headerFilters.type} onValueChange={(value) => updateHeaderFilter('type', value === 'all' ? '' : value)}>
+                                <SelectTrigger className="h-8 text-xs border-border/50 bg-background/80">
+                                  <SelectValue placeholder="All Types" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="all">All Types</SelectItem>
+                                  <SelectItem value="ASIN">ASIN</SelectItem>
+                                  <SelectItem value="SKU">SKU</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </TableHead>
+                            <TableHead className="p-2">
+                              <Input
+                                placeholder="Filter ASIN..."
+                                value={headerFilters.asin}
+                                onChange={(e) => updateHeaderFilter('asin', e.target.value)}
+                                className="h-8 text-xs border-border/50 bg-background/80"
+                              />
+                            </TableHead>
+                            <TableHead className="p-2">
+                              <Input
+                                placeholder="Filter SKU..."
+                                value={headerFilters.sku}
+                                onChange={(e) => updateHeaderFilter('sku', e.target.value)}
+                                className="h-8 text-xs border-border/50 bg-background/80"
+                              />
+                            </TableHead>
+                            <TableHead className="p-2">
+                              <Input
+                                placeholder="Filter Serial..."
+                                value={headerFilters.serial}
+                                onChange={(e) => updateHeaderFilter('serial', e.target.value)}
+                                className="h-8 text-xs border-border/50 bg-background/80"
+                              />
+                            </TableHead>
+                            <TableHead className="p-2">
+                              <Select value={headerFilters.status} onValueChange={(value) => updateHeaderFilter('status', value === 'all' ? '' : value)}>
+                                <SelectTrigger className="h-8 text-xs border-border/50 bg-background/80">
+                                  <SelectValue placeholder="All Status" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="all">All Status</SelectItem>
+                                  <SelectItem value="in-stock">In Stock</SelectItem>
+                                  <SelectItem value="ordered">Ordered</SelectItem>
+                                  <SelectItem value="sold">Sold</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </TableHead>
+                            <TableHead className="p-2">
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                className="h-8 text-xs opacity-60 hover:opacity-100"
+                                disabled
+                              >
+                                Date Filter
+                              </Button>
+                            </TableHead>
+                            <TableHead className="p-2">
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                className="h-8 text-xs opacity-60 hover:opacity-100"
+                                disabled
+                              >
+                                Date Filter
+                              </Button>
+                            </TableHead>
+                            <TableHead className="p-2">
+                              <div className="flex gap-1">
+                                <Input
+                                  placeholder="Min"
+                                  value={headerFilters.daysSince.min}
+                                  onChange={(e) => updateHeaderRangeFilter('daysSince', 'min', e.target.value)}
+                                  className="h-8 text-xs w-12 border-border/50 bg-background/80"
+                                  type="number"
+                                />
+                                <Input
+                                  placeholder="Max"
+                                  value={headerFilters.daysSince.max}
+                                  onChange={(e) => updateHeaderRangeFilter('daysSince', 'max', e.target.value)}
+                                  className="h-8 text-xs w-12 border-border/50 bg-background/80"
+                                  type="number"
+                                />
+                              </div>
+                            </TableHead>
+                            <TableHead className="p-2">
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={clearHeaderFilters}
+                                className="h-8 text-xs border-border/50"
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {currentItems.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={8} className="text-center p-12 text-muted-foreground">
+                                <div className="flex flex-col items-center gap-3">
+                                  <Database className="h-12 w-12 opacity-30" />
+                                  <div>
+                                    <p className="text-lg font-medium">No inventory items found</p>
+                                    <p className="text-sm">Try adjusting your filters or search criteria</p>
+                                  </div>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ) : (
+                            currentItems.map((item) => {
+                              // Calculate days since last order
+                              const daysSinceLastOrder = item.last_order_date 
+                                ? Math.floor((new Date().getTime() - new Date(item.last_order_date).getTime()) / (1000 * 60 * 60 * 24))
+                                : null;
+
+                              // Calculate order frequency (placeholder logic - could be enhanced with order history)
+                              const orderFrequency = item.last_order_date 
+                                ? `${daysSinceLastOrder} days ago`
+                                : 'Never ordered';
+
+                              return (
+                                <TableRow 
+                                  key={`${item.item_type}-${item.id}`} 
+                                  className="hover:bg-gradient-to-r hover:from-primary/5 hover:to-transparent transition-all duration-200 border-b border-border/50"
+                                >
+                                  <TableCell>
+                                    <Badge 
+                                      variant={item.item_type === 'ASIN' ? 'default' : 'secondary'}
+                                      className="font-medium"
+                                    >
+                                      {item.item_type}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className="font-mono text-sm font-medium">{item.asin || 'N/A'}</TableCell>
+                                  <TableCell className="font-mono text-sm font-medium">{item.sku || 'N/A'}</TableCell>
+                                  <TableCell className="font-mono text-sm">{item.serial_number || 'N/A'}</TableCell>
+                                  <TableCell>
+                                    <Badge 
+                                      variant={item.status === 'in-stock' ? 'default' : 'secondary'}
+                                      className={cn(
+                                        "capitalize",
+                                        item.status === 'in-stock' ? 'bg-success/20 text-success border-success/50' : 
+                                        item.status === 'ordered' ? 'bg-primary/20 text-primary border-primary/50' :
+                                        'bg-muted/50 text-muted-foreground'
+                                      )}
+                                    >
+                                      {item.status.replace('-', ' ')}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className="text-sm">
+                                    <div className="flex items-center gap-2">
+                                      {item.last_sold_date ? (
+                                        <>
+                                          <Clock className="h-3 w-3 text-muted-foreground" />
+                                          {format(new Date(item.last_sold_date), 'MMM dd, yyyy')}
+                                        </>
+                                      ) : (
+                                        <span className="text-muted-foreground flex items-center gap-1">
+                                          <XCircle className="h-3 w-3" />
+                                          Never
+                                        </span>
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="text-sm">
+                                    <div className="flex items-center gap-2">
+                                      {item.last_order_date ? (
+                                        <>
+                                          <Truck className="h-3 w-3 text-muted-foreground" />
+                                          {format(new Date(item.last_order_date), 'MMM dd, yyyy')}
+                                        </>
+                                      ) : (
+                                        <span className="text-muted-foreground flex items-center gap-1">
+                                          <XCircle className="h-3 w-3" />
+                                          Never
+                                        </span>
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    {daysSinceLastOrder !== null ? (
+                                      <Badge 
+                                        variant={daysSinceLastOrder > 30 ? 'destructive' : daysSinceLastOrder > 14 ? 'secondary' : 'default'}
+                                        className={cn(
+                                          "font-medium",
+                                          daysSinceLastOrder > 30 ? 'bg-destructive/20 text-destructive border-destructive/50' : 
+                                          daysSinceLastOrder > 14 ? 'bg-warning/20 text-warning border-warning/50' : 
+                                          'bg-primary/20 text-primary border-primary/50'
+                                        )}
+                                      >
+                                        {daysSinceLastOrder} days
+                                      </Badge>
+                                    ) : (
+                                      <span className="text-muted-foreground text-sm flex items-center gap-1">
+                                        <XCircle className="h-3 w-3" />
+                                        N/A
+                                      </span>
+                                    )}
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="flex items-center gap-2">
+                                      <Timer className="h-3 w-3 text-muted-foreground" />
+                                      <span className="text-sm">
+                                        {orderFrequency}
+                                      </span>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+
+                    {/* Pagination */}
+                    {filteredItems.length > itemsPerPage && (
+                      <div className="flex justify-center items-center gap-2 mt-6">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                          disabled={currentPage === 1}
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                          Previous
+                        </Button>
+                        
+                        <span className="text-sm text-muted-foreground px-4">
+                          Page {currentPage} of {totalPages}
+                        </span>
+                        
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                          disabled={currentPage === totalPages}
+                        >
+                          Next
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* Restock Management Tab with Separate Tabs */}
+        <TabsContent value="restock" className="space-y-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-semibold">Restock Management Dashboard</h3>
+              <p className="text-muted-foreground">Manage items that need restocking and track order status</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button onClick={exportRestockData} variant="outline" size="sm" className="gap-2">
+                <Download className="w-4 h-4" />
+                Export Restock Data
+              </Button>
+              <Button onClick={exportOrderedData} variant="outline" size="sm" className="gap-2">
+                <Download className="w-4 h-4" />
+                Export Ordered Items
+              </Button>
+            </div>
+          </div>
+          <Card className="glass-container">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Package className="w-5 h-5" />
+                Restock Management
+              </CardTitle>
+              <p className="text-muted-foreground">Manage critical stock items and track orders</p>
+            </CardHeader>
+            <CardContent>
+              <Tabs defaultValue="critical" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="critical" className="flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4" />
+                    Critical Stock ({pendingItems.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="ordered" className="flex items-center gap-2">
+                    <Truck className="w-4 h-4" />
+                    Ordered Items ({orderedItems.length})
+                  </TabsTrigger>
+                </TabsList>
+
+                {/* Critical Stock Tab */}
+                <TabsContent value="critical" className="space-y-4 mt-6">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                      <Input placeholder="Search ASINs, SKUs, or serials... (use spaces for multiple)" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10" />
+                    </div>
+                    <Badge variant="outline" className="text-sm whitespace-nowrap">
+                      {pendingItems.length} items need attention
+                    </Badge>
+                  </div>
+
+                  {/* Bulk Actions for Critical Items */}
+                  {pendingItems.length > 0 && <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                      <div className="flex items-center gap-4">
+                         <div className="flex items-center space-x-2">
+                           <Checkbox id="select-all" checked={selectedItems.size === pendingItems.length && pendingItems.length > 0} onCheckedChange={handleSelectAll} />
+                           <label htmlFor="select-all" className="text-sm font-medium cursor-pointer">
+                             Select All ({pendingItems.length})
+                           </label>
+                         </div>
+                         {selectedItems.size > 0 && <Badge variant="secondary" className="text-xs">
+                             {selectedItems.size} selected
+                           </Badge>}
+                      </div>
+                      <Button onClick={handleBulkMarkAsOrdered} disabled={selectedItems.size === 0} size="sm" className="gap-2">
+                        <ShoppingCart className="w-4 h-4" />
+                        Mark {selectedItems.size || 'Selected'} as Ordered
+                      </Button>
+                    </div>}
+
+                  {searchTerm.trim() && <div className="text-xs text-muted-foreground p-2 bg-muted/30 rounded-lg">
+                      <strong>Search Active:</strong> {searchTerm.split(' ').map(term => term.trim()).filter(Boolean).join(', ')}
+                    </div>}
+
+                  <div className="space-y-2 max-h-96 overflow-y-auto">
+                    {pendingItems.length > 0 ? pendingItems.map(item => <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg bg-destructive/5 hover:bg-destructive/10 transition-colors">
+                          <div className="flex items-center gap-4">
+                            <Checkbox id={`item-${item.id}`} checked={selectedItems.has(item.id)} onCheckedChange={checked => handleSelectItem(item.id, checked as boolean)} />
+                            <div className="p-2 rounded-lg bg-destructive/20">
+                              {item.table_name === 'asin_inventory' ? <Package className="w-4 h-4 text-destructive" /> : <Database className="w-4 h-4 text-destructive" />}
+                            </div>
+                            <div>
+                              <p className="font-medium text-foreground">{item.identifier}</p>
+                              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                                <span>Qty: {item.current_quantity}</span>
+                                <span>Last Restock: {item.days_since_last_restock ? `${item.days_since_last_restock}d ago` : 'Never'}</span>
+                                <Badge variant="destructive" className="text-xs">
+                                  Out of Stock
+                                </Badge>
+                              </div>
+                            </div>
                           </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-              
-              {restockItems.length === 0 && !loading && (
-                <div className="text-center py-8">
-                  <CheckCircle className="h-12 w-12 mx-auto text-green-500 mb-4" />
-                  <p className="text-lg font-medium">All items are in stock!</p>
-                  <p className="text-muted-foreground">No items need restocking at this time.</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+                          <Button onClick={() => markAsOrdered(item.id)} size="sm" variant="outline" className="gap-2">
+                            <ShoppingCart className="w-4 h-4" />
+                            Mark as Ordered
+                          </Button>
+                        </div>) : <div className="text-center py-8 text-muted-foreground">
+                        <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                        <p className="text-lg font-medium">No critical stock items</p>
+                        <p className="text-sm">All items are well stocked!</p>
+                      </div>}
+                  </div>
 
-        <TabsContent value="ordered" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <ShoppingCart className="h-5 w-5 mr-2 text-blue-500" />
-                Ordered Items
-              </CardTitle>
-              <CardDescription>
-                Items that have been ordered and are awaiting delivery
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Identifier</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Date Sold</TableHead>
-                      <TableHead>Days Since Order</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {orderedItems.map((item) => (
-                      <TableRow key={item.id}>
-                        <TableCell className="font-mono text-sm">{item.identifier}</TableCell>
-                        <TableCell>{getStatusBadge(item.status)}</TableCell>
-                        <TableCell>{formatDate(item.date_sold)}</TableCell>
-                        <TableCell>{getDaysAgo(item.days_since_last_restock)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-              
-              {orderedItems.length === 0 && !loading && (
-                <div className="text-center py-8">
-                  <Package className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                  <p className="text-lg font-medium">No ordered items</p>
-                  <p className="text-muted-foreground">No items are currently on order.</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+                  {/* Export button for critical items */}
+                  {pendingItems.length > 0 && <div className="pt-4 border-t">
+                      <Button onClick={exportRestockData} variant="outline" size="sm" className="gap-2">
+                        <Download className="w-4 h-4" />
+                        Export Critical Items
+                      </Button>
+                    </div>}
+                </TabsContent>
 
-        <TabsContent value="all" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Package className="h-5 w-5 mr-2" />
-                All Inventory Items
-              </CardTitle>
-              <CardDescription>
-                Complete inventory overview for {selectedCountry}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Identifier</TableHead>
-                      <TableHead>Quantity</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Date Added</TableHead>
-                      <TableHead>Days Since Last Order</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {getFilteredInventory(allInventoryItems).map((item) => (
-                      <TableRow key={item.id}>
-                        <TableCell>
-                          <Badge variant="outline">{item.item_type}</Badge>
-                        </TableCell>
-                        <TableCell className="font-mono text-sm">
-                          {item.item_type === 'ASIN' 
-                            ? `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}` 
-                            : `SKU: ${item.sku} (${item.serial_number})`
-                          }
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={item.quantity > 0 ? 'default' : 'destructive'}>
-                            {item.quantity}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{getStatusBadge(item.status)}</TableCell>
-                        <TableCell>{formatDate(item.date_added)}</TableCell>
-                        <TableCell>{getDaysAgo(item.days_since_ordered)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+                {/* Ordered Items Tab */}
+                <TabsContent value="ordered" className="space-y-4 mt-6">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm text-muted-foreground">
+                      Items that have been ordered from suppliers
+                    </div>
+                    {orderedItems.length > 0 && <Button onClick={() => exportOrderedData()} size="sm" variant="outline" className="gap-2">
+                        <Download className="w-4 h-4" />
+                        Export Ordered Items
+                      </Button>}
+                  </div>
 
-        <TabsContent value="sales" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <BarChart className="h-5 w-5 mr-2" />
-                Sales Velocity Analysis
-              </CardTitle>
-              <CardDescription>
-                Analyze sales patterns to optimize restocking decisions
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="mb-4">
-                <Label htmlFor="salesPeriod">Analysis Period (days):</Label>
-                <Input
-                  id="salesPeriod"
-                  type="number"
-                  value={salesPeriod}
-                  onChange={(e) => setSalesPeriod(parseInt(e.target.value) || 30)}
-                  className="w-32 mt-1"
-                />
-              </div>
-              
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Identifier</TableHead>
-                      <TableHead>Sold Quantity</TableHead>
-                      <TableHead>Velocity (units/day)</TableHead>
-                      <TableHead>Trend</TableHead>
-                      <TableHead>Last Sale</TableHead>
-                      <TableHead>Days Since Sale</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {salesData.map((item) => (
-                      <TableRow key={item.id}>
-                        <TableCell className="font-mono text-sm">{item.identifier}</TableCell>
-                        <TableCell>{item.sold_quantity}</TableCell>
-                        <TableCell>{item.velocity.toFixed(3)}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center space-x-2">
-                            {getTrendIcon(item.trend)}
-                            <span className="capitalize">{item.trend}</span>
+                  <div className="space-y-2 max-h-96 overflow-y-auto">
+                    {orderedItems.length > 0 ? orderedItems.map(item => <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg bg-blue-50/50 opacity-80">
+                          <div className="flex items-center gap-4">
+                            <div className="p-2 rounded-lg bg-blue-500/20">
+                              {item.table_name === 'asin_inventory' ? <Package className="w-4 h-4 text-blue-600" /> : <Database className="w-4 h-4 text-blue-600" />}
+                            </div>
+                            <div>
+                              <p className="font-medium text-foreground">{item.identifier}</p>
+                              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                                <span>Qty: {item.current_quantity}</span>
+                                <span>Last Restock: {item.days_since_last_restock ? `${item.days_since_last_restock}d ago` : 'Never'}</span>
+                                <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700">
+                                  Order Placed
+                                </Badge>
+                              </div>
+                            </div>
                           </div>
-                        </TableCell>
-                        <TableCell>{formatDate(item.last_sale_date)}</TableCell>
-                        <TableCell>{getDaysAgo(item.days_since_last_sale)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-              
-              {salesData.length === 0 && !loading && (
-                <div className="text-center py-8">
-                  <BarChart className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                  <p className="text-lg font-medium">No sales data</p>
-                  <p className="text-muted-foreground">No sales found for the selected period.</p>
-                </div>
-              )}
+                          <Button size="sm" variant="outline" disabled className="gap-2 opacity-60">
+                            <CheckCircle className="w-4 h-4" />
+                            Ordered
+                          </Button>
+                        </div>) : <div className="text-center py-8 text-muted-foreground">
+                        <Truck className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                        <p className="text-lg font-medium">No ordered items</p>
+                        <p className="text-sm">Items you mark as ordered will appear here</p>
+                      </div>}
+                  </div>
+                </TabsContent>
+              </Tabs>
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="active" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Package className="h-5 w-5 mr-2 text-green-500" />
-                Active Inventory
-              </CardTitle>
-              <CardDescription>
-                Items currently in stock and available
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Identifier</TableHead>
-                      <TableHead>Current Quantity</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Days Since Restock</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {activeInventory.map((item) => (
-                      <TableRow key={item.id}>
-                        <TableCell className="font-mono text-sm">{item.identifier}</TableCell>
-                        <TableCell>
-                          <Badge variant="default">{item.current_quantity}</Badge>
-                        </TableCell>
-                        <TableCell>{getStatusBadge(item.status)}</TableCell>
-                        <TableCell>{getDaysAgo(item.days_since_last_restock)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-              
-              {activeInventory.length === 0 && !loading && (
-                <div className="text-center py-8">
-                  <Package className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                  <p className="text-lg font-medium">No active inventory</p>
-                  <p className="text-muted-foreground">No items are currently in stock.</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
       </Tabs>
-    </div>
-  );
-};
 
-export default Replenishment;
+      {/* Dialog for displaying filtered items */}
+      <Dialog open={dialogData.isOpen} onOpenChange={open => setDialogData(prev => ({
+      ...prev,
+      isOpen: open
+    }))}>
+        <DialogContent className="max-w-5xl max-h-[85vh] flex flex-col bg-background border border-border">
+          <DialogHeader className="flex-shrink-0 pb-4 border-b">
+            <DialogTitle className="flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                {dialogData.type === 'critical' && <AlertTriangle className="w-5 h-5 text-destructive" />}
+                {dialogData.type === 'ordered' && <Truck className="w-5 h-5" style={{
+                color: 'hsl(220, 70%, 50%)'
+              }} />}
+                {dialogData.type === 'active' && <Activity className="w-5 h-5 text-primary" />}
+                {dialogData.title}
+              </span>
+              <Badge variant="outline" className="text-sm">
+                {dialogData.items.length} items
+              </Badge>
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="flex-1 overflow-y-auto space-y-2 pt-4">
+            {dialogData.items.length > 0 ? dialogData.items.map(item => <div key={item.id} className={`p-4 border rounded-lg transition-colors ${dialogData.type === 'critical' ? 'bg-destructive/5 hover:bg-destructive/10 border-destructive/20' : dialogData.type === 'ordered' ? 'bg-blue-50/50 border-blue-200/50' : 'bg-primary/5 hover:bg-primary/10 border-primary/20'}`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className={`p-2 rounded-lg ${dialogData.type === 'critical' ? 'bg-destructive/20' : dialogData.type === 'ordered' ? 'bg-blue-500/20' : 'bg-primary/20'}`}>
+                        {item.table_name === 'asin_inventory' ? <Package className={`w-4 h-4 ${dialogData.type === 'critical' ? 'text-destructive' : dialogData.type === 'ordered' ? 'text-blue-600' : 'text-primary'}`} /> : <Database className={`w-4 h-4 ${dialogData.type === 'critical' ? 'text-destructive' : dialogData.type === 'ordered' ? 'text-blue-600' : 'text-primary'}`} />}
+                      </div>
+                      <div>
+                        <p className="font-medium text-foreground">{item.identifier}</p>
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                          <span>Quantity: {item.current_quantity}</span>
+                          <span>Last Restock: {item.days_since_last_restock ? `${item.days_since_last_restock}d ago` : 'Never'}</span>
+                          <Badge variant="outline" className="text-xs">
+                            {item.table_name === 'asin_inventory' ? 'ASIN' : 'SKU'}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {dialogData.type === 'critical' && <>
+                          <Badge variant="destructive" className="text-xs">Critical</Badge>
+                          <Button size="sm" onClick={() => markAsOrdered(item.id)}>
+                            Mark as Ordered
+                          </Button>
+                        </>}
+                      {dialogData.type === 'ordered' && <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700">
+                          Order Placed
+                        </Badge>}
+                      {dialogData.type === 'active' && <Badge variant={item.current_quantity <= 5 ? "destructive" : "default"} className="text-xs">
+                          {item.current_quantity <= 5 ? "Low Stock" : "In Stock"}
+                        </Badge>}
+                    </div>
+                  </div>
+                </div>) : <div className="text-center py-8 text-muted-foreground">
+                <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p className="text-lg font-medium">No items found</p>
+                <p className="text-sm">No items match the current criteria</p>
+              </div>}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>;
+}

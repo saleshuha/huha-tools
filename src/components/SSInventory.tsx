@@ -12,41 +12,44 @@ import { Calendar } from './ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { useToast } from '@/hooks/use-toast';
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from './ui/pagination';
-import { Package, Plus, Search, Edit, Download, Upload, Check, X, RefreshCw, AlertTriangle, Printer, Hash, Mail, BarChart3, Filter, Grid3X3, List, SortAsc, SortDesc, Calendar as CalendarIcon, TrendingUp, TrendingDown, Eye, Archive, Zap, Clock, ShoppingCart, Trash2, Settings, FileText, Copy, Star, Edit3, Activity } from 'lucide-react';
+import { Package, Plus, Search, Edit, Download, Upload, Check, X, RefreshCw, AlertTriangle, Printer, Hash, Mail, BarChart3, Filter, Grid3X3, List, SortAsc, SortDesc, Calendar as CalendarIcon, TrendingUp, TrendingDown, Eye, Archive, Zap, Clock, ShoppingCart, Trash2, Settings, FileText, Copy, Star, Edit3, Activity, Database } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from './ui/dialog';
 import { Textarea } from './ui/textarea';
-import { useAsinInventory, AsinInventoryItem } from '@/hooks/useAsinInventory';
+import { useSkuInventory, SkuInventoryItem } from '@/hooks/useSkuInventory';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { supabase } from '@/integrations/supabase/client';
 import { DualQuantityEditor } from './DualQuantityEditor';
 import { StockHistoryDialog } from './StockHistoryDialog';
+import { MultiBinEditor } from './MultiBinEditor';
 import { SkuEditor } from './SkuEditor';
-import { InventoryMetrics } from './InventoryMetrics';
+import { SkuInventoryMetrics } from './SkuInventoryMetrics';
+import { BulkSkuUploadSku } from './BulkSkuUploadSku';
 import { InventoryDashboard } from './InventoryDashboard';
-import { BulkSkuUpload } from './BulkSkuUpload';
+import { WarehouseManager } from './WarehouseManager';
 import { SimpleWarehouseManager } from './SimpleWarehouseManager';
 import { useWarehouseManager } from '@/hooks/useWarehouseManager';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-export function AsinInventory() {
+
+export function SSInventory() {
   const {
     inventory,
     loading,
     addItem,
     updateItemStatus,
     bulkAdd,
-    restockItem,
     updateQuantity,
+    updateBinLocation,
     updateSku,
     bulkUpdateSkus,
     refetch
-  } = useAsinInventory();
+  } = useSkuInventory();
   const {
     user
   } = useUserProfile();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<'dateAdded' | 'asin' | 'quantity' | 'status'>('dateAdded');
+  const [sortBy, setSortBy] = useState<'dateAdded' | 'skuNumber' | 'quantity' | 'status'>('dateAdded');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -54,7 +57,7 @@ export function AsinInventory() {
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [isBulkStatusDialogOpen, setIsBulkStatusDialogOpen] = useState(false);
   const [isBulkQuantityDialogOpen, setIsBulkQuantityDialogOpen] = useState(false);
-  const [bulkStatusValue, setBulkStatusValue] = useState<AsinInventoryItem['status']>('in-stock');
+  const [bulkStatusValue, setBulkStatusValue] = useState<SkuInventoryItem['status']>('in-stock');
   const [bulkQuantityValue, setBulkQuantityValue] = useState(1);
   const [bulkQuantityReason, setBulkQuantityReason] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -71,19 +74,15 @@ export function AsinInventory() {
 
   // Form states
   const [newItem, setNewItem] = useState<{
-    asin: string;
-    serialNumber: string;
-    sku: string;
-    status: AsinInventoryItem['status'];
+    skuNumber: string;
+    binSerialNumber: string;
+    status: SkuInventoryItem['status'];
     quantity: number;
-    notes: string;
   }>({
-    asin: '',
-    serialNumber: '',
-    sku: '',
+    skuNumber: '',
+    binSerialNumber: '',
     status: 'in-stock',
-    quantity: 1,
-    notes: ''
+    quantity: 1
   });
   const [bulkText, setBulkText] = useState('');
   const filteredInventory = useMemo(() => {
@@ -97,10 +96,8 @@ export function AsinInventory() {
       
       filtered = filtered.filter(item => {
         const matches = searchTerms.every(term => 
-          item.asin.toLowerCase().includes(term) || 
-          item.serialNumber.toLowerCase().includes(term) || 
-          (item.sku && item.sku.toLowerCase().includes(term)) ||
-          (item.notes && item.notes.toLowerCase().includes(term))
+          item.skuNumber.toLowerCase().includes(term) || 
+          item.binSerialNumber.toLowerCase().includes(term)
         );
         return matches;
       });
@@ -162,25 +159,11 @@ export function AsinInventory() {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedInventory = filteredInventory.slice(startIndex, startIndex + itemsPerPage);
   const handleAddItem = async () => {
-    if (!newItem.asin.trim() || !newItem.serialNumber.trim()) {
+    if (!newItem.skuNumber.trim() || !newItem.binSerialNumber.trim()) {
       toast({
         title: "Validation Error",
-        description: "ASIN and Serial Number are required",
+        description: "SKU Number and Bin/Serial Number are required",
         variant: "destructive"
-      });
-      return;
-    }
-
-    // Check for duplicate serial number in current inventory
-    const duplicateSerial = inventory.find(item => 
-      item.serialNumber.toLowerCase() === newItem.serialNumber.toLowerCase().trim()
-    );
-
-    if (duplicateSerial) {
-      toast({
-        title: "Duplicate Serial Number",
-        description: `Serial number "${newItem.serialNumber}" is already used by ASIN "${duplicateSerial.asin}". Each serial number must be unique across all ASINs.`,
-        variant: "destructive",
       });
       return;
     }
@@ -190,12 +173,10 @@ export function AsinInventory() {
     });
     setIsAddDialogOpen(false);
     setNewItem({
-      asin: '',
-      serialNumber: '',
-      sku: '',
+      skuNumber: '',
+      binSerialNumber: '',
       status: 'in-stock',
-      quantity: 1,
-      notes: ''
+      quantity: 1
     });
   };
   const handleBulkAdd = async () => {
@@ -211,14 +192,12 @@ export function AsinInventory() {
     const items = [];
     for (const line of lines) {
       const parts = line.split('\t');
-      if (parts.length >= 4) {
+      if (parts.length >= 3) {
         items.push({
-          asin: parts[0].trim(),
-          serialNumber: parts[1].trim(),
-          sku: parts[2]?.trim() || '',
-          status: parts[3].trim() as AsinInventoryItem['status'],
-          quantity: parseInt(parts[4]) || 1,
-          notes: parts[5]?.trim() || '',
+          skuNumber: parts[0].trim(),
+          binSerialNumber: parts[1].trim(),
+          status: parts[2].trim() as SkuInventoryItem['status'],
+          quantity: parseInt(parts[3]) || 1,
           dateAdded: new Date().toISOString()
         });
       }
@@ -243,9 +222,9 @@ export function AsinInventory() {
     const csvData = [
       ['SKU', 'UPC', 'ASIN', 'Title', 'Warehouse', 'Warehouse name', 'Available units', 'Status'],
       ...filteredInventory.map(item => [
-        item.sku || '',  // SKU
+        item.skuNumber,  // SKU
         '',  // UPC (blank)
-        item.asin,  // ASIN
+        '',  // ASIN (blank for SKU inventory)
         '',  // Title (blank)
         selectedWarehouse?.code || '',  // Warehouse
         selectedWarehouse?.name || '',  // Warehouse name
@@ -260,7 +239,7 @@ export function AsinInventory() {
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
-    link.setAttribute('download', `asin-inventory-${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `sku-inventory-${new Date().toISOString().split('T')[0]}.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
@@ -313,7 +292,7 @@ export function AsinInventory() {
   return <div className="space-y-6 max-w-[95vw] mx-auto p-6">
       {/* Header with Stats */}
       <div className="space-y-6">
-        <InventoryMetrics showOnlyAsin={true} />
+        <SkuInventoryMetrics />
       </div>
 
       {/* Prominent Search Bar */}
@@ -323,7 +302,7 @@ export function AsinInventory() {
             {/* Enhanced Search Bar */}
             <div className="relative">
               <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground w-6 h-6" />
-              <Input placeholder="🔍 Advanced search: ASIN, Serial Number, SKU, Notes (use spaces for multiple terms)..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-14 h-16 text-xl font-medium shadow-lg border-2 border-primary/60 focus:border-primary ring-2 ring-primary/10 focus:ring-primary/20 bg-background/50" />
+              <Input placeholder="🔍 Advanced search: SKU Number, Bin/Serial Number (use spaces for multiple terms)..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-14 h-16 text-xl font-medium shadow-lg border-2 border-primary/60 focus:border-primary ring-2 ring-primary/10 focus:ring-primary/20 bg-background/50" />
             </div>
 
             {/* Action Buttons Row */}
@@ -345,41 +324,34 @@ export function AsinInventory() {
                     <DialogHeader>
                       <DialogTitle className="flex items-center gap-2">
                         <Plus className="w-5 h-5" />
-                        Add New ASIN Item
+                        Add New SKU Item
                       </DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4">
                       <div>
-                        <Label htmlFor="asin">ASIN</Label>
-                        <Input id="asin" value={newItem.asin} onChange={e => setNewItem({
+                        <Label htmlFor="skuNumber">SKU Number</Label>
+                        <Input id="skuNumber" value={newItem.skuNumber} onChange={e => setNewItem({
                         ...newItem,
-                        asin: e.target.value
-                      })} placeholder="Enter ASIN..." />
+                        skuNumber: e.target.value
+                      })} placeholder="Enter SKU Number..." />
                       </div>
                       <div>
-                        <Label htmlFor="serialNumber">Serial Number</Label>
-                        <Input id="serialNumber" value={newItem.serialNumber} onChange={e => setNewItem({
+                        <Label htmlFor="binSerialNumber">Bin/Serial Number</Label>
+                        <Input id="binSerialNumber" value={newItem.binSerialNumber} onChange={e => setNewItem({
                         ...newItem,
-                        serialNumber: e.target.value
-                      })} placeholder="Enter Serial Number..." />
+                        binSerialNumber: e.target.value
+                      })} placeholder="Enter Bin/Serial Number..." />
                       </div>
-                       <div>
-                         <Label htmlFor="sku">SKU (Optional)</Label>
-                         <Input id="sku" value={newItem.sku} onChange={e => setNewItem({
-                         ...newItem,
-                         sku: e.target.value
-                       })} placeholder="Enter SKU (optional)" />
-                       </div>
-                       <div>
-                         <Label htmlFor="quantity">Quantity</Label>
-                         <Input id="quantity" type="number" min="1" value={newItem.quantity} onChange={e => setNewItem({
-                         ...newItem,
-                         quantity: parseInt(e.target.value) || 1
-                       })} />
-                       </div>
+                      <div>
+                        <Label htmlFor="quantity">Quantity</Label>
+                        <Input id="quantity" type="number" min="1" value={newItem.quantity} onChange={e => setNewItem({
+                        ...newItem,
+                        quantity: parseInt(e.target.value) || 1
+                      })} />
+                      </div>
                       <div>
                         <Label htmlFor="status">Status</Label>
-                        <Select value={newItem.status} onValueChange={(value: AsinInventoryItem['status']) => setNewItem({
+                        <Select value={newItem.status} onValueChange={(value: SkuInventoryItem['status']) => setNewItem({
                         ...newItem,
                         status: value
                       })}>
@@ -393,13 +365,6 @@ export function AsinInventory() {
                             <SelectItem value="damaged">Damaged</SelectItem>
                           </SelectContent>
                         </Select>
-                      </div>
-                      <div>
-                        <Label htmlFor="notes">Notes (Optional)</Label>
-                        <Textarea id="notes" value={newItem.notes} onChange={e => setNewItem({
-                        ...newItem,
-                        notes: e.target.value
-                      })} placeholder="Add any notes..." rows={2} />
                       </div>
                     </div>
                     <DialogFooter>
@@ -421,20 +386,20 @@ export function AsinInventory() {
                   </DialogTrigger>
                   <DialogContent className="max-w-2xl">
                     <DialogHeader>
-                      <DialogTitle>Bulk Add ASIN Items</DialogTitle>
+                      <DialogTitle>Bulk Add SKU Items</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4">
-                       <div>
-                         <Label htmlFor="bulkText">
-                           Paste tab-separated data (ASIN, Serial Number, SKU, Status, Quantity, Notes)
-                         </Label>
-                         <Textarea id="bulkText" value={bulkText} onChange={e => setBulkText(e.target.value)} placeholder="B123456789	SN001	SKU123	in-stock	5	Optional notes&#10;B987654321	SN002	SKU456	sold	1	Another item" rows={8} className="font-mono text-sm" />
-                       </div>
-                       <div className="text-sm text-muted-foreground">
-                         <p><strong>Format:</strong> Each line should contain tab-separated values</p>
-                         <p><strong>Order:</strong> ASIN → Serial Number → SKU → Status → Quantity → Notes</p>
-                         <p><strong>Status options:</strong> in-stock, sold, reserved, damaged</p>
-                       </div>
+                      <div>
+                        <Label htmlFor="bulkText">
+                          Paste tab-separated data (SKU Number, Bin/Serial Number, Status, Quantity)
+                        </Label>
+                        <Textarea id="bulkText" value={bulkText} onChange={e => setBulkText(e.target.value)} placeholder="SKU001	BIN001	in-stock	5&#10;SKU002	BIN002	sold	1" rows={8} className="font-mono text-sm" />
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        <p><strong>Format:</strong> Each line should contain tab-separated values</p>
+                        <p><strong>Order:</strong> SKU Number → Bin/Serial Number → Status → Quantity</p>
+                        <p><strong>Status options:</strong> in-stock, sold, reserved, damaged</p>
+                      </div>
                     </div>
                     <DialogFooter>
                       <Button variant="outline" onClick={() => setIsBulkDialogOpen(false)}>
@@ -446,7 +411,7 @@ export function AsinInventory() {
                 </Dialog>
 
                 {/* 3. Bulk SKU Update */}
-                <BulkSkuUpload 
+                <BulkSkuUploadSku 
                   inventory={inventory}
                   onSkuUpdate={bulkUpdateSkus}
                 />
@@ -666,10 +631,10 @@ export function AsinInventory() {
                     }
                   }} />
                     </th>
-                     <th className="p-4 text-left font-medium">ASIN</th>
-                     <th className="p-4 text-left font-medium">Serial Number</th>
-                     <th className="p-4 text-left font-medium">SKU</th>
-                     <th className="p-4 text-left font-medium">Status</th>
+                    <th className="p-4 text-left font-medium">ASIN Number</th>
+                    <th className="p-4 text-left font-medium">Bin/Serial Number</th>
+                    <th className="p-4 text-left font-medium">SKU Number</th>
+                    <th className="p-4 text-left font-medium">Status</th>
                     <th className="p-4 text-left font-medium">Quantity</th>
                     <th className="p-4 text-left font-medium">Date Added</th>
                     <th className="p-4 text-left font-medium">Actions</th>
@@ -688,15 +653,20 @@ export function AsinInventory() {
                     setSelectedItems(newSelected);
                   }} />
                       </td>
-                       <td className="p-4 font-mono text-sm">{item.asin}</td>
-                       <td className="p-4 font-mono text-sm">{item.serialNumber}</td>
-                       <td className="p-4">
-                         <SkuEditor 
-                           currentSku={item.sku} 
-                           onUpdate={(newSku) => updateSku(item.id, newSku)} 
-                         />
-                       </td>
-                       <td className="p-4">
+                      <td className="p-4 font-mono text-sm">{item.skuNumber}</td>
+                      <td className="p-4 font-mono text-sm">
+                        <MultiBinEditor 
+                          currentBinSerial={item.binSerialNumber}
+                          onUpdate={(newBinSerial, reason) => updateBinLocation(item.id, newBinSerial)}
+                        />
+                      </td>
+                      <td className="p-4">
+                        <SkuEditor 
+                          currentSku={item.skuNumber} 
+                          onUpdate={(newSku) => updateSku(item.id, newSku)} 
+                        />
+                      </td>
+                      <td className="p-4">
                         <Badge variant={item.status === 'in-stock' ? 'default' : item.status === 'sold' ? 'secondary' : item.status === 'reserved' ? 'outline' : 'destructive'}>
                           {item.status.replace('-', ' ').toUpperCase()}
                         </Badge>
@@ -715,7 +685,7 @@ export function AsinInventory() {
                        <td className="p-4">
                          <div className="flex items-center gap-2">
                             <DualQuantityEditor currentQuantity={item.quantity} onUpdate={(newQuantity, reason) => updateQuantity(item.id, newQuantity, reason)} />
-                           <StockHistoryDialog inventoryId={item.id} itemIdentifier={`${item.asin} (${item.serialNumber})`} inventoryType="asin" />
+                           <StockHistoryDialog inventoryId={item.id} itemIdentifier={`${item.skuNumber} (${item.binSerialNumber})`} inventoryType="sku" />
                          </div>
                        </td>
                     </tr>)}
@@ -745,20 +715,13 @@ export function AsinInventory() {
                   </div>
                   <div className="space-y-2">
                     <div>
-                      <Label className="text-xs text-muted-foreground">ASIN</Label>
-                      <p className="font-mono text-sm">{item.asin}</p>
+                      <Label className="text-xs text-muted-foreground">SKU Number</Label>
+                      <p className="font-mono text-sm">{item.skuNumber}</p>
                     </div>
-                     <div>
-                       <Label className="text-xs text-muted-foreground">Serial Number</Label>
-                       <p className="font-mono text-sm">{item.serialNumber}</p>
-                     </div>
-                     <div>
-                       <Label className="text-xs text-muted-foreground">SKU</Label>
-                       <SkuEditor 
-                         currentSku={item.sku} 
-                         onUpdate={(newSku) => updateSku(item.id, newSku)} 
-                       />
-                     </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Bin/Serial Number</Label>
+                      <p className="font-mono text-sm">{item.binSerialNumber}</p>
+                    </div>
                     <div>
                       <Label className="text-xs text-muted-foreground">Quantity</Label>
                       <div className="flex items-center gap-2">
@@ -775,7 +738,7 @@ export function AsinInventory() {
                   </div>
                    <div className="flex items-center gap-2">
                      <DualQuantityEditor currentQuantity={item.quantity} onUpdate={(newQuantity, reason) => updateQuantity(item.id, newQuantity, reason)} />
-                     <StockHistoryDialog inventoryId={item.id} itemIdentifier={`${item.asin} (${item.serialNumber})`} inventoryType="asin" />
+                     <StockHistoryDialog inventoryId={item.id} itemIdentifier={`${item.skuNumber} (${item.binSerialNumber})`} inventoryType="sku" />
                    </div>
                 </div>
               </CardContent>

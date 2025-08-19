@@ -1,12 +1,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { NoonOrderFeesData } from "@/types/noon-fees";
-// SKUCostManager removed
+import { SKUCost } from "@/components/noon/SKUCostManager";
 import { DollarSign, Package, TrendingDown, TrendingUp, Target, AlertTriangle } from "lucide-react";
 
 interface NoonProfitAnalyticsProps {
   feesData: NoonOrderFeesData[];
-  skuCosts: any[];
+  skuCosts: SKUCost[];
 }
 
 export function NoonProfitAnalytics({ feesData, skuCosts }: NoonProfitAnalyticsProps) {

@@ -123,43 +123,86 @@ export function InventoryMetrics({
           missingSku
         });
       } else if (showOnlySku) {
-        // SKU functionality removed - show empty stats
+        // Load only SKU data
+        const {
+          data: skuData
+        } = await supabase.from('sku_inventory').select('*').eq('country', selectedCountry);
+        const skuItems = skuData || [];
+        const activeItems = skuItems.length;
+        const inStockItems = skuItems.filter(item => item.quantity > 0).length;
+        const outOfStockItems = skuItems.filter(item => item.quantity === 0).length;
+        const skuTotalUnits = skuItems.reduce((sum, item) => sum + item.quantity, 0);
+
+        // Calculate recently added items (last 7 days)
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        const recentlyAdded = skuItems.filter(item => 
+          new Date(item.date_added) >= sevenDaysAgo
+        ).length;
+
+        // Filter sold units based on date filters
+        let soldItems = skuItems.filter(item => item.status === 'sold');
+        if (soldDateFrom || soldDateTo) {
+          soldItems = soldItems.filter(item => {
+            if (!item.date_sold) return false;
+            const soldDate = new Date(item.date_sold);
+            if (soldDateFrom && soldDate < soldDateFrom) return false;
+            if (soldDateTo) {
+              const endDate = new Date(soldDateTo);
+              endDate.setHours(23, 59, 59, 999);
+              if (soldDate > endDate) return false;
+            }
+            return true;
+          });
+        }
+        const skuSoldUnits = soldItems.reduce((sum, item) => sum + item.quantity, 0);
         setStats({
-          activeItems: 0,
-          inStockItems: 0,
-          outOfStockItems: 0,
-          recentlyAdded: 0,
+          activeItems,
+          inStockItems,
+          outOfStockItems,
+          recentlyAdded,
           asinTotalUnits: 0,
           asinSoldUnits: 0,
-          skuTotalUnits: 0,
-          skuSoldUnits: 0,
+          skuTotalUnits,
+          skuSoldUnits,
           missingSku: 0
         });
       } else {
-        // Load only ASIN data (SKU tables removed)
-        const [asinData] = await Promise.all([supabase.from('asin_inventory').select('*').eq('country', selectedCountry)]);
+        // Load both ASIN and SKU data
+        const [asinData, skuData] = await Promise.all([supabase.from('asin_inventory').select('*').eq('country', selectedCountry), supabase.from('sku_inventory').select('*').eq('country', selectedCountry)]);
 
-        // Calculate metrics - only ASIN data since SKU functionality removed
-        const asinItems = asinData.data || [];
-        const allItems = asinItems.map(item => ({
+        // Calculate metrics
+        const allItems = [...(asinData.data || []).map(item => ({
           ...item,
           type: 'asin' as const,
           identifier: `${item.asin} (${item.serial_number})`
-        }));
+        })), ...(skuData.data || []).map(item => ({
+          ...item,
+          type: 'sku' as const,
+          identifier: `${item.sku_number} (${item.bin_serial_number})`
+        }))];
         const activeItems = allItems.length;
         const inStockItems = allItems.filter(item => item.quantity > 0).length;
         const outOfStockItems = allItems.filter(item => item.quantity === 0).length;
 
-        // Calculate totals for ASIN only
+        // Calculate separate totals for ASIN and SKU
+        const asinItems = asinData.data || [];
+        const skuItems = skuData.data || [];
         const asinTotalUnits = asinItems.reduce((sum, item) => sum + item.quantity, 0);
         const asinSoldUnits = asinItems.filter(item => item.status === 'sold').reduce((sum, item) => sum + item.quantity, 0);
+        const skuTotalUnits = skuItems.reduce((sum, item) => sum + item.quantity, 0);
+        const skuSoldUnits = skuItems.filter(item => item.status === 'sold').reduce((sum, item) => sum + item.quantity, 0);
         
         // Calculate recently added items (last 7 days)
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-        const recentlyAdded = asinItems.filter(item => 
+        const recentlyAddedAsin = asinItems.filter(item => 
           new Date(item.date_added) >= sevenDaysAgo
         ).length;
+        const recentlyAddedSku = skuItems.filter(item => 
+          new Date(item.date_added) >= sevenDaysAgo
+        ).length;
+        const recentlyAdded = recentlyAddedAsin + recentlyAddedSku;
         
         // Calculate items with missing SKU (only for ASIN)
         const missingSku = asinItems.filter(item => !item.sku || item.sku.trim() === '').length;
@@ -171,8 +214,8 @@ export function InventoryMetrics({
           recentlyAdded,
           asinTotalUnits,
           asinSoldUnits,
-          skuTotalUnits: 0,
-          skuSoldUnits: 0,
+          skuTotalUnits,
+          skuSoldUnits,
           missingSku
         });
       }
@@ -240,16 +283,39 @@ export function InventoryMetrics({
         }
         setInventoryItems(allItems);
       } else if (showOnlySku) {
-        // SKU functionality removed - show empty
-        setInventoryItems([]);
+        // Load only SKU data
+        const {
+          data: skuData
+        } = await supabase.from('sku_inventory').select('*').eq('country', selectedCountry);
+        let allItems = (skuData || []).map(item => ({
+          ...item,
+          type: 'sku' as const,
+          identifier: `${item.sku_number} (${item.bin_serial_number})`
+        }));
+
+        // Filter based on metric
+        if (metric === 'instock') {
+          allItems = allItems.filter(item => item.quantity > 0);
+        } else if (metric === 'outofstock') {
+          allItems = allItems.filter(item => item.quantity === 0);
+        } else if (metric === 'recently-added') {
+          const sevenDaysAgo = new Date();
+          sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+          allItems = allItems.filter(item => new Date(item.date_added) >= sevenDaysAgo);
+        }
+        setInventoryItems(allItems);
       } else {
-        // Load only ASIN data (SKU tables removed)
-        const { data: asinData } = await supabase.from('asin_inventory').select('*').eq('country', selectedCountry);
-        let allItems = (asinData || []).map(item => ({
+        // Load both ASIN and SKU data
+        const [asinData, skuData] = await Promise.all([supabase.from('asin_inventory').select('*').eq('country', selectedCountry), supabase.from('sku_inventory').select('*').eq('country', selectedCountry)]);
+        let allItems = [...(asinData.data || []).map(item => ({
           ...item,
           type: 'asin' as const,
           identifier: `${item.asin} (${item.serial_number})`
-        }));
+        })), ...(skuData.data || []).map(item => ({
+          ...item,
+          type: 'sku' as const,
+          identifier: `${item.sku_number} (${item.bin_serial_number})`
+        }))];
 
         // Filter based on metric
         if (metric === 'instock') {
@@ -296,27 +362,53 @@ export function InventoryMetrics({
         }));
         setInventoryItems(allItems);
       } else if (showOnlySku) {
-        // SKU functionality removed - show empty
-        setInventoryItems([]);
+        // Load only SKU data
+        let query = supabase.from('sku_inventory').select('*').eq('country', selectedCountry).eq('status', 'sold');
+
+        // Apply date filters if set
+        if (soldDateFrom) {
+          query = query.gte('date_sold', soldDateFrom.toISOString());
+        }
+        if (soldDateTo) {
+          const endDate = new Date(soldDateTo);
+          endDate.setHours(23, 59, 59, 999);
+          query = query.lte('date_sold', endDate.toISOString());
+        }
+        const {
+          data: skuData
+        } = await query;
+        const allItems = (skuData || []).map(item => ({
+          ...item,
+          type: 'sku' as const,
+          identifier: `${item.sku_number} (${item.bin_serial_number})`
+        }));
+        setInventoryItems(allItems);
       } else {
-        // Load only ASIN data (SKU tables removed)
+        // Load both ASIN and SKU data
         let asinQuery = supabase.from('asin_inventory').select('*').eq('country', selectedCountry).eq('status', 'sold');
+        let skuQuery = supabase.from('sku_inventory').select('*').eq('country', selectedCountry).eq('status', 'sold');
 
         // Apply date filters if set
         if (soldDateFrom) {
           asinQuery = asinQuery.gte('date_sold', soldDateFrom.toISOString());
+          skuQuery = skuQuery.gte('date_sold', soldDateFrom.toISOString());
         }
         if (soldDateTo) {
           const endDate = new Date(soldDateTo);
           endDate.setHours(23, 59, 59, 999);
           asinQuery = asinQuery.lte('date_sold', endDate.toISOString());
+          skuQuery = skuQuery.lte('date_sold', endDate.toISOString());
         }
-        const { data: asinData } = await asinQuery;
-        const allItems = (asinData || []).map(item => ({
+        const [asinData, skuData] = await Promise.all([asinQuery, skuQuery]);
+        const allItems = [...(asinData.data || []).map(item => ({
           ...item,
           type: 'asin' as const,
           identifier: `${item.asin} (${item.serial_number})`
-        }));
+        })), ...(skuData.data || []).map(item => ({
+          ...item,
+          type: 'sku' as const,
+          identifier: `${item.sku_number} (${item.bin_serial_number})`
+        }))];
         setInventoryItems(allItems);
       }
     } catch (error: any) {

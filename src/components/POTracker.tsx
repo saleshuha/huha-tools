@@ -7,10 +7,15 @@ import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Upload, Search, Clock, CheckCircle, AlertCircle, BarChart3, RefreshCw, Eye, MousePointer, Truck, ExternalLink, PackageCheck, Archive, Copy, Package } from 'lucide-react';
+import { Upload, Search, Package, Clock, CheckCircle, AlertCircle, BarChart3, RefreshCw, Eye, MousePointer, Truck, ExternalLink, PackageCheck, Archive, Copy } from 'lucide-react';
 import { POFileUpload } from './po/POFileUpload';
+import { SKUList } from './po/SKUList';
+import { AddSKUDialog } from './po/AddSKUDialog';
 import { POProfitAnalytics } from './po/POProfitAnalytics';
+import { ShippingRateDialog } from './po/ShippingRateDialog';
+import { SunskySKUImporter } from './po/SunskySKUImporter';
 import { BulkPOProcessor } from './po/BulkPOProcessor';
+import { useSKUManager } from '@/hooks/useSKUManager';
 import { usePOOrders } from '@/hooks/usePOOrders';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { supabase } from '@/integrations/supabase/client';
@@ -21,11 +26,91 @@ export function POTracker() {
   const [activeTab, setActiveTab] = useState('upload');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [inventoryData, setInventoryData] = useState<{asinInventory: any[]}>({
-    asinInventory: []
+  const [shippingRate, setShippingRate] = useState(0.005);
+  const [isUpdatingRate, setIsUpdatingRate] = useState(false);
+  const [inventoryData, setInventoryData] = useState<{asinInventory: any[], skuInventory: any[]}>({
+    asinInventory: [],
+    skuInventory: []
   });
   const { profile } = useUserProfile();
   const { toast } = useToast();
+
+  // Load shipping rate from localStorage or profile on component mount
+  useEffect(() => {
+    const loadShippingRate = () => {
+      try {
+        // First try to load from localStorage for immediate availability
+        const savedRate = localStorage.getItem(`shipping_rate_${profile?.id || 'default'}`);
+        if (savedRate) {
+          setShippingRate(parseFloat(savedRate));
+        }
+      } catch (error) {
+        console.error('Failed to load shipping rate from localStorage:', error);
+      }
+    };
+
+    loadShippingRate();
+  }, [profile?.id]);
+
+  // Function to save shipping rate permanently
+  const handleUpdateShippingRate = async (newRate: number) => {
+    setIsUpdatingRate(true);
+    try {
+      // Save to localStorage for immediate persistence
+      localStorage.setItem(`shipping_rate_${profile?.id || 'default'}`, newRate.toString());
+      
+      // Also save to user profile for cross-device persistence
+      if (profile?.id) {
+        const { error } = await supabase
+          .from('profiles')
+          .update({ 
+            shipping_rate: newRate,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', profile.id);
+
+        if (error) {
+          console.error('Failed to save shipping rate to profile:', error);
+          toast({
+            title: "Warning",
+            description: "Shipping rate saved locally but failed to sync to your profile",
+            variant: "destructive"
+          });
+        }
+      }
+
+      setShippingRate(newRate);
+      
+      toast({
+        title: "Success",
+        description: `Shipping rate permanently saved: ${newRate.toFixed(3)} per gram`,
+      });
+    } catch (error) {
+      console.error('Failed to save shipping rate:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save shipping rate. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsUpdatingRate(false);
+    }
+  };
+  
+  // Separate hooks for different functionalities
+  const {
+    sunskySKUs,
+    isLoading: skuLoading,
+    loadingProgress: skuProgress,
+    loadingStatus: skuStatus,
+    totalCount,
+    hasMoreSKUs,
+    fetchSKUs,
+    fetchSKUCount,
+    loadMoreSKUs,
+    addSKUs,
+    refreshSKUs
+  } = useSKUManager();
 
   const {
     poOrders,
@@ -49,26 +134,32 @@ export function POTracker() {
   // Fetch inventory data to match with PO ASINs
   const fetchInventoryData = async () => {
     try {
-      const [asinResult] = await Promise.all([
+      const [asinResult, skuResult] = await Promise.all([
         supabase
           .from('asin_inventory')
           .select('asin, quantity, status, sku')
+          .eq('user_id', (await supabase.auth.getUser()).data.user?.id),
+        supabase
+          .from('sku_inventory')
+          .select('sku_number, quantity, status')
           .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
       ]);
 
       if (asinResult.error) throw asinResult.error;
+      if (skuResult.error) throw skuResult.error;
 
       setInventoryData({
-        asinInventory: asinResult.data || []
+        asinInventory: asinResult.data || [],
+        skuInventory: skuResult.data || []
       });
     } catch (error) {
       console.error('Error fetching inventory data:', error);
     }
   };
 
-  // Enhanced inventory matching function with ASIN checking
-  const findInventoryMatch = (asin: string) => {
-    console.log(`🔍 POTracker - Finding inventory match for:`, { asin });
+  // Enhanced inventory matching function with ASIN checking in SKU inventory
+  const findInventoryMatch = (asin: string, sunskySku?: string, poSku?: string) => {
+    console.log(`🔍 POTracker - Finding inventory match for:`, { asin, sunskySku, poSku });
     
     // Try ASIN first in ASIN inventory
     if (asin) {
@@ -84,11 +175,43 @@ export function POTracker() {
       }
     }
 
+    // Try SKU matches (sunsky SKU, then PO SKU)
+    const skusToCheck = [sunskySku, poSku].filter(Boolean);
+    for (const sku of skusToCheck) {
+      const skuMatch = inventoryData.skuInventory.find(item => item.sku_number === sku);
+      if (skuMatch) {
+        console.log(`✅ Found SKU match for ${sku}:`, skuMatch);
+        return {
+          type: 'SKU',
+          status: skuMatch.status,
+          quantity: skuMatch.quantity,
+          identifier: skuMatch.sku_number
+        };
+      }
+    }
+
+    // Also check SKU inventory for ASIN matches (since SKU inventory can contain ASIN-like identifiers)
+    if (asin) {
+      console.log(`🎯 POTracker - Checking SKU inventory for ASIN: ${asin}`);
+      const skuAsinMatch = inventoryData.skuInventory.find(item => item.sku_number === asin);
+      if (skuAsinMatch) {
+        console.log(`✅ Found SKU-ASIN match for ${asin}:`, skuAsinMatch);
+        return {
+          type: 'SKU-ASIN',
+          status: skuAsinMatch.status,
+          quantity: skuAsinMatch.quantity,
+          identifier: skuAsinMatch.sku_number
+        };
+      } else {
+        console.log(`❌ No SKU-ASIN match found for: ${asin}`);
+      }
+    }
+
     console.log(`❌ No inventory match found for any identifier`);
     return null;
   };
 
-  // Simple function to check if item is truly in stock
+  // REWRITTEN: Simple function to check if item is truly in stock
   const isItemInStock = (inventoryMatch: any) => {
     if (!inventoryMatch) return false;
     return inventoryMatch.status === 'in-stock' && inventoryMatch.quantity > 0;
@@ -96,57 +219,83 @@ export function POTracker() {
 
   // Load data based on active tab
   useEffect(() => {
+    fetchSKUCount();
     fetchInventoryData(); // Always fetch inventory data for proper metrics
     
-    if (poOrders.length === 0) {
+    if (activeTab === 'skus' && sunskySKUs.length === 0) {
+      fetchSKUs();
+    } else if ((activeTab === 'upload' || activeTab === 'tracking' || activeTab === 'analytics') && poOrders.length === 0) {
       fetchPOOrders();
     }
-  }, [activeTab, poOrders.length, fetchPOOrders]);
+  }, [activeTab, sunskySKUs.length, poOrders.length, fetchSKUs, fetchSKUCount, fetchPOOrders]);
 
   const handleFileUpload = async (mappedData: any[]) => {
     try {
-      await processPOFiles(mappedData, []);
+      await processPOFiles(mappedData, sunskySKUs);
     } catch (error) {
       console.error('Error processing PO files:', error);
     }
   };
 
+
   const refreshData = () => {
-    forceRefreshData();
+    if (activeTab === 'skus') {
+      refreshSKUs();
+    } else {
+      forceRefreshData();
+    }
   };
+
+  const filteredSKUs = sunskySKUs.filter(sku => 
+    sku.sku_code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    sku.title?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   // Filter out closed POs for active metrics
   const activePOOrders = poOrders.filter(order => order.status !== 'closed');
 
   // Calculate accurate metrics based on database matching (active POs only)
+  const totalSKUs = totalCount;
   const totalOrderRecords = activePOOrders.length;
   const totalItemsQuantity = activePOOrders.reduce((sum, order) => sum + (order.quantity || 0), 0);
   const uniquePONumbers = new Set(activePOOrders.map(order => order.po_number)).size;
   
-  // Pending orders - all orders with status 'pending' (from active POs only)
-  const pendingOrders = activePOOrders.filter(order => order.status === 'pending').length;
+  // Matched items - use database-level matching (items with sunsky_sku populated) from active POs only
+  const matchedItems = activePOOrders.filter(order => order.sunsky_sku !== null).length;
+  const matchedItemsQuantity = activePOOrders
+    .filter(order => order.sunsky_sku !== null)
+    .reduce((sum, order) => sum + (order.quantity || 0), 0);
   
-  // Pending quantity - total quantity of items that are still pending (from active POs only)
-  const pendingQuantity = activePOOrders
-    .filter(order => order.status === 'pending')
+  // Pending matched orders - matched items that are still pending (from active POs only)
+  const pendingMatchedOrders = activePOOrders.filter(order => 
+    order.status === 'pending' && order.sunsky_sku !== null
+  ).length;
+  
+  // Pending matched quantity - total quantity of matched items that are still pending (from active POs only)
+  const pendingMatchedQuantity = activePOOrders
+    .filter(order => order.status === 'pending' && order.sunsky_sku !== null)
     .reduce((sum, order) => sum + (order.quantity || 0), 0);
   
   // Placed orders - all orders with status 'ordered' (from active POs only)
   const placedOrders = activePOOrders.filter(order => order.status === 'ordered').length;
 
-  // Only count items that have stock > 0 from active POs only
-  const getItemsWithStock = () => {
+  // REWRITTEN: Only count MATCHED items (with sunsky_sku) that have stock > 0 from active POs only
+  const getMatchedItemsWithStock = () => {
     if (!activePOOrders || activePOOrders.length === 0) return { count: 0, totalQty: 0 };
     
     let count = 0;
     let totalQty = 0;
     
-    console.log('Total Active PO Orders:', activePOOrders.length);
+    // ONLY process matched items (items with sunsky_sku populated) from active POs
+    const matchedItems = activePOOrders.filter(order => order.sunsky_sku !== null);
     
-    for (const order of activePOOrders) {
+    console.log('Total Active PO Orders:', activePOOrders.length);
+    console.log('Matched Items from Active POs (with sunsky_sku):', matchedItems.length);
+    
+    for (const order of matchedItems) {
       let foundStock = false;
       
-      // Check ASIN inventory
+      // Check ASIN inventory first
       if (order.asin && inventoryData.asinInventory) {
         for (const asinItem of inventoryData.asinInventory) {
           if (asinItem.asin === order.asin && asinItem.quantity > 0) {
@@ -157,21 +306,46 @@ export function POTracker() {
           }
         }
       }
+      
+      // If no ASIN stock found, check SKU inventory for both SKU codes and ASIN
+      if (!foundStock && inventoryData.skuInventory) {
+        const skusToCheck = [order.sunsky_sku?.sku_code, order.sku_code].filter(Boolean);
+        
+        // Add ASIN to the list of SKUs to check in SKU inventory
+        if (order.asin) {
+          skusToCheck.push(order.asin);
+        }
+        
+        for (const sku of skusToCheck) {
+          for (const skuItem of inventoryData.skuInventory) {
+            if (skuItem.sku_number === sku && skuItem.quantity > 0) {
+              count++;
+              totalQty += skuItem.quantity;
+              foundStock = true;
+              break;
+            }
+          }
+          if (foundStock) break;
+        }
+      }
     }
     
-    console.log('Items with stock > 0:', count);
+    console.log('Matched items with stock > 0:', count);
     console.log('Total stock quantity:', totalQty);
     
     return { count, totalQty };
   };
 
-  // Count items with any inventory data (for percentage calculation)
-  const getItemsWithInventory = () => {
+  // REWRITTEN: Count matched items with any inventory data (for percentage calculation)
+  const getMatchedItemsWithInventory = () => {
     if (!poOrders || poOrders.length === 0) return 0;
     
     let count = 0;
     
-    for (const order of poOrders) {
+    // ONLY process matched items (items with sunsky_sku populated)
+    const matchedItems = poOrders.filter(order => order.sunsky_sku !== null);
+    
+    for (const order of matchedItems) {
       let hasInventory = false;
       
       // Check ASIN inventory
@@ -184,19 +358,43 @@ export function POTracker() {
           }
         }
       }
+      
+      // If no ASIN inventory found, check SKU inventory for both SKU codes and ASIN
+      if (!hasInventory && inventoryData.skuInventory) {
+        const skusToCheck = [order.sunsky_sku?.sku_code, order.sku_code].filter(Boolean);
+        
+        // Add ASIN to the list of SKUs to check in SKU inventory
+        if (order.asin) {
+          skusToCheck.push(order.asin);
+        }
+        
+        for (const sku of skusToCheck) {
+          for (const skuItem of inventoryData.skuInventory) {
+            if (skuItem.sku_number === sku) {
+              count++;
+              hasInventory = true;
+              break;
+            }
+          }
+          if (hasInventory) break;
+        }
+      }
     }
     
     return count;
   };
 
-  // Get counts for items
-  const stockResults = getItemsWithStock();
-  const inventoryResults = getItemsWithInventory();
+  // Get counts for MATCHED items only
+  const stockResults = getMatchedItemsWithStock();
+  const inventoryResults = getMatchedItemsWithInventory();
   
   // Assign results to variables used throughout the component
   const totalItemsWithInventory = inventoryResults;
   const inStockItems = stockResults.count;
   const totalInStockQuantity = stockResults.totalQty;
+  
+  // For compatibility
+  const poItemsWithInventoryData: any[] = [];
 
   // Group orders by PO number for the tracking table
   const groupedPOOrders = poOrders.reduce((groups, order) => {
@@ -234,8 +432,18 @@ export function POTracker() {
         
         return matchesSearch && matchesStatus;
       })
-      // Sort groups by PO number
-      .sort(([poA], [poB]) => poA.localeCompare(poB));
+      // Sort groups - ALWAYS put matched POs first
+      .sort(([poA, ordersA], [poB, ordersB]) => {
+        // Primary sort: matched POs first
+        const matchedA = ordersA.filter(order => order.sunsky_sku !== null).length > 0;
+        const matchedB = ordersB.filter(order => order.sunsky_sku !== null).length > 0;
+        
+        if (matchedA && !matchedB) return -1; // A has matches, B doesn't - A comes first
+        if (!matchedA && matchedB) return 1;  // B has matches, A doesn't - B comes first
+        
+        // Secondary sort: for items with same match status, sort by PO number
+        return poA.localeCompare(poB);
+      });
   };
 
   const filteredPOGroups = filterPOGroups(activePOGroups);
@@ -274,52 +482,87 @@ export function POTracker() {
   };
 
   return (
-    <div className="max-width-screen-xl mx-auto space-y-6">
+    <div className="max-w-screen-xl mx-auto space-y-6">{/* Add max-width constraint to match other pages */}
       {/* Header with Refresh Button */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">PO Tracker</h1>
           <p className="text-muted-foreground">
-            Manage purchase orders and track inventory status
+            Manage purchase orders and track SKUs from Sunsky supplier
           </p>
         </div>
         <Button
           onClick={refreshData}
-          disabled={ordersLoading}
+          disabled={skuLoading || ordersLoading}
           variant="outline"
           size="sm"
           className="gap-2"
         >
-          <RefreshCw className={`h-4 w-4 ${ordersLoading ? 'animate-spin' : ''}`} />
-          Refresh Orders
+          <RefreshCw className={`h-4 w-4 ${(skuLoading || ordersLoading) ? 'animate-spin' : ''}`} />
+          Refresh {activeTab === 'skus' ? 'SKUs' : 'Orders'}
         </Button>
       </div>
 
       {/* Progress Bars */}
-      {ordersLoading && (
+      {(skuLoading || ordersLoading) && (
         <Card className="animate-fade-in">
           <CardContent className="pt-6">
             <div className="space-y-4">
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium flex items-center gap-2">
-                    <AlertCircle className="h-4 w-4" />
-                    Loading Orders
-                  </span>
-                  <span className="text-sm text-muted-foreground">{ordersProgress}%</span>
+              {skuLoading && (
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium flex items-center gap-2">
+                      <Package className="h-4 w-4" />
+                      Loading SKUs
+                    </span>
+                    <span className="text-sm text-muted-foreground">{skuProgress}%</span>
+                  </div>
+                  <Progress value={skuProgress} className="h-2" />
+                  {skuStatus && (
+                    <p className="text-xs text-muted-foreground">{skuStatus}</p>
+                  )}
                 </div>
-                <Progress value={ordersProgress} className="h-2" />
-                {ordersStatus && (
-                  <p className="text-xs text-muted-foreground">{ordersStatus}</p>
-                )}
-              </div>
+              )}
+              {ordersLoading && (
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4" />
+                      Loading Orders
+                    </span>
+                    <span className="text-sm text-muted-foreground">{ordersProgress}%</span>
+                  </div>
+                  <Progress value={ordersProgress} className="h-2" />
+                  {ordersStatus && (
+                    <p className="text-xs text-muted-foreground">{ordersStatus}</p>
+                  )}
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
       )}
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
+        <Card className="border-l-4 border-l-blue-500 bg-blue-50/50">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total SKUs</CardTitle>
+            <Package className="h-4 w-4 text-blue-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">{totalSKUs.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground">
+              Sunsky supplier SKUs in database
+            </p>
+            {sunskySKUs.length > 0 && (
+              <Badge variant="secondary" className="mt-1 text-xs">
+                {sunskySKUs.length.toLocaleString()} loaded
+              </Badge>
+            )}
+          </CardContent>
+        </Card>
+
         <Card className="border-l-4 border-l-purple-500 bg-purple-50/50">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Active PO Numbers</CardTitle>
@@ -349,18 +592,36 @@ export function POTracker() {
           </CardContent>
         </Card>
 
+        <Card className="border-l-4 border-l-green-500 bg-green-50/50">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Matched Items</CardTitle>
+            <CheckCircle className="h-4 w-4 text-green-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">{matchedItemsQuantity.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground">
+              Quantity of matched active items
+            </p>
+            <div className="flex gap-2 mt-1">
+              <Badge variant="secondary" className="text-xs">
+                {matchedItems.toLocaleString()} active records matched
+              </Badge>
+            </div>
+          </CardContent>
+        </Card>
+
         <Card className="border-l-4 border-l-yellow-500 bg-yellow-50/50">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pending Items</CardTitle>
             <Clock className="h-4 w-4 text-yellow-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">{pendingQuantity.toLocaleString()}</div>
+            <div className="text-2xl font-bold text-yellow-600">{pendingMatchedQuantity.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">
               Quantity pending placement (active POs)
             </p>
             <Badge variant="secondary" className="mt-1 text-xs">
-              {pendingOrders.toLocaleString()} pending active items
+              {pendingMatchedOrders.toLocaleString()} pending active items
             </Badge>
           </CardContent>
         </Card>
@@ -375,7 +636,7 @@ export function POTracker() {
               {inStockItems.toLocaleString()}
             </div>
             <p className="text-xs text-muted-foreground">
-              Active items with available stock
+              Active matched items with available stock
             </p>
             <div className="flex gap-2 mt-1">
               <Badge variant="secondary" className="text-xs">
@@ -406,7 +667,7 @@ export function POTracker() {
 
       {/* Main Content */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4 h-14 p-2 bg-gradient-to-r from-primary/5 to-primary/10 border-2 border-primary/20 rounded-xl shadow-lg">
+        <TabsList className="grid w-full grid-cols-5 h-14 p-2 bg-gradient-to-r from-primary/5 to-primary/10 border-2 border-primary/20 rounded-xl shadow-lg">
           <TabsTrigger 
             value="upload" 
             className="relative h-10 px-6 text-sm font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:scale-105 hover:bg-primary/10 rounded-lg flex items-center gap-2"
@@ -435,6 +696,13 @@ export function POTracker() {
             <BarChart3 className="h-4 w-4" />
             Profit Analytics
           </TabsTrigger>
+          <TabsTrigger 
+            value="skus" 
+            className="relative h-10 px-6 text-sm font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:scale-105 hover:bg-primary/10 rounded-lg flex items-center gap-2"
+          >
+            <Package className="h-4 w-4" />
+            SKU Management
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="upload" className="space-y-4">
@@ -442,7 +710,7 @@ export function POTracker() {
             <CardHeader>
               <CardTitle>Purchase Order Upload</CardTitle>
               <CardDescription>
-                Upload PO files (Excel/CSV) to track orders. Supports single or multiple files.
+                Upload PO files (Excel/CSV) to match SKUs and track orders. Supports single or multiple files.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -517,7 +785,8 @@ export function POTracker() {
                     </TableHeader>
                     <TableBody>
                       {filteredPOGroups.map(([poNumber, orders]) => {
-                        const pendingCount = orders.filter(order => order.status === 'pending').length;
+                        const matchedCount = orders.filter(order => order.sunsky_sku !== null).length;
+                        const pendingCount = orders.filter(order => order.status === 'pending' && order.sunsky_sku !== null).length;
                         const placedCount = orders.filter(order => order.status === 'ordered').length;
                         const shippedCount = orders.filter(order => order.status === 'shipped').length;
                         const deliveredCount = orders.filter(order => order.status === 'delivered').length;
@@ -539,8 +808,12 @@ export function POTracker() {
                         return (
                           <TableRow 
                             key={poNumber}
-                            className="transition-colors border-b-2 border-primary/20 cursor-pointer hover:bg-muted/50 hover:border-primary/40"
-                            onClick={() => handlePORowClick(poNumber)}
+                            className={`transition-colors border-b-2 border-primary/20 ${
+                              matchedCount > 0 
+                                ? 'cursor-pointer hover:bg-muted/50 hover:border-primary/40' 
+                                : 'opacity-60 cursor-not-allowed bg-muted/20'
+                            }`}
+                            onClick={matchedCount > 0 ? () => handlePORowClick(poNumber) : undefined}
                           >
                             <TableCell>
                               <div className="space-y-1">
@@ -572,121 +845,174 @@ export function POTracker() {
                             </TableCell>
                             
                             <TableCell className="min-w-[300px]">
-                              <div className="space-y-3">
-                                {/* Placement Progress */}
-                                <div className="space-y-1">
-                                  <div className="flex justify-between items-center">
-                                    <span className="text-xs font-medium text-green-600">Placed/Shipped</span>
-                                    <span className="text-xs text-green-600">{placedCount + shippedCount + deliveredCount}/{orders.length}</span>
-                                  </div>
-                                  <Progress 
-                                    value={orders.length > 0 ? ((placedCount + shippedCount + deliveredCount) / orders.length) * 100 : 0} 
-                                    className="h-2 [&>div]:bg-green-500"
-                                  />
-                                </div>
-                                
-                                {/* Inventory Stock Progress */}
-                                {(() => {
-                                  let poItemsWithStock = 0;
-                                  let poTotalStockQty = 0;
-                                  let poItemsWithInventory = 0;
+                              {matchedCount > 0 ? (
+                                <div className="space-y-3">
+                                  {/* Matched Items Progress */}
+                                   <div className="space-y-1">
+                                     <div className="flex justify-between items-center">
+                                       <span className="text-xs font-medium text-blue-600">Matched Items</span>
+                                       <span className="text-xs text-blue-600">{matchedCount}/{orders.length}</span>
+                                     </div>
+                                     <Progress 
+                                       value={orders.length > 0 ? (matchedCount / orders.length) * 100 : 0} 
+                                       className="h-2 [&>div]:bg-blue-500"
+                                     />
+                                   </div>
                                   
-                                  for (const order of orders) {
-                                    let foundInventory = false;
-                                    let foundStock = false;
-                                    
-                                    // Check ASIN inventory
-                                    if (order.asin && inventoryData.asinInventory) {
-                                      for (const asinItem of inventoryData.asinInventory) {
-                                        if (asinItem.asin === order.asin) {
-                                          foundInventory = true;
-                                          if (asinItem.quantity > 0) {
-                                            foundStock = true;
-                                            poTotalStockQty += asinItem.quantity;
-                                          }
-                                          break;
-                                        }
-                                      }
-                                    }
-                                    
-                                    if (foundInventory) poItemsWithInventory++;
-                                    if (foundStock) poItemsWithStock++;
-                                  }
-                                   
-                                   return (
+                                  {/* Placement Progress */}
+                                  {matchedCount > 0 && (
                                      <div className="space-y-1">
                                        <div className="flex justify-between items-center">
-                                         <span className="text-xs font-medium text-orange-600">In Stock</span>
-                                         <span className="text-xs text-orange-600">{poItemsWithStock}/{poItemsWithInventory}</span>
+                                         <span className="text-xs font-medium text-green-600">Placed/Shipped</span>
+                                         <span className="text-xs text-green-600">{placedCount + shippedCount + deliveredCount}/{matchedCount}</span>
                                        </div>
                                        <Progress 
-                                         value={poItemsWithInventory > 0 ? (poItemsWithStock / poItemsWithInventory) * 100 : 0} 
-                                         className="h-2 [&>div]:bg-orange-500"
+                                         value={matchedCount > 0 ? ((placedCount + shippedCount + deliveredCount) / matchedCount) * 100 : 0} 
+                                         className="h-2 [&>div]:bg-green-500"
                                        />
-                                       <div className="text-xs text-muted-foreground">
-                                         Stock qty: {poTotalStockQty.toLocaleString()}
-                                       </div>
                                      </div>
-                                   );
-                                 })()}
-                                
-                                {/* Status Summary */}
-                               <div className="flex flex-wrap gap-1">
-                                 {pendingCount > 0 && (
-                                   <Badge variant="secondary" className="text-xs bg-yellow-100 text-yellow-800">
-                                     {pendingCount} pending
-                                   </Badge>
-                                 )}
-                                 {placedCount > 0 && (
-                                   <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">
-                                     {placedCount} placed
-                                   </Badge>
-                                 )}
-                                 {shippedCount > 0 && (
-                                   <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-800">
-                                     {shippedCount} shipped
-                                   </Badge>
-                                 )}
-                                 {deliveredCount > 0 && (
-                                   <Badge variant="secondary" className="text-xs bg-green-100 text-green-800">
-                                     {deliveredCount} delivered
-                                   </Badge>
-                                 )}
-                               </div>
-                             </div>
+                                   )}
+                                   
+                                   {/* Inventory Stock Progress */}
+                                   {matchedCount > 0 && (() => {
+                                     // REWRITTEN: Only process MATCHED items (same logic as metrics card)
+                                     let poItemsWithStock = 0;
+                                     let poTotalStockQty = 0;
+                                     let poItemsWithInventory = 0;
+                                     
+                                     // ONLY process matched items (items with sunsky_sku populated)
+                                     const matchedOrders = orders.filter(order => order.sunsky_sku !== null);
+                                     
+                                     for (const order of matchedOrders) {
+                                       let foundInventory = false;
+                                       let foundStock = false;
+                                       
+                                       // Check ASIN inventory first
+                                       if (order.asin && inventoryData.asinInventory) {
+                                         for (const asinItem of inventoryData.asinInventory) {
+                                           if (asinItem.asin === order.asin) {
+                                             foundInventory = true;
+                                             if (asinItem.quantity > 0) {
+                                               foundStock = true;
+                                               poTotalStockQty += asinItem.quantity;
+                                             }
+                                             break;
+                                           }
+                                         }
+                                       }
+                                       
+                                       // If no ASIN inventory, check SKU inventory
+                                       if (!foundInventory && inventoryData.skuInventory) {
+                                         const skusToCheck = [order.sunsky_sku?.sku_code, order.sku_code].filter(Boolean);
+                                         for (const sku of skusToCheck) {
+                                           for (const skuItem of inventoryData.skuInventory) {
+                                             if (skuItem.sku_number === sku) {
+                                               foundInventory = true;
+                                               if (skuItem.quantity > 0) {
+                                                 foundStock = true;
+                                                 poTotalStockQty += skuItem.quantity;
+                                               }
+                                               break;
+                                             }
+                                           }
+                                           if (foundInventory) break;
+                                         }
+                                       }
+                                       
+                                       if (foundInventory) poItemsWithInventory++;
+                                       if (foundStock) poItemsWithStock++;
+                                     }
+                                      
+                                      return (
+                                        <div className="space-y-1">
+                                          <div className="flex justify-between items-center">
+                                            <span className="text-xs font-medium text-orange-600">In Stock</span>
+                                            <span className="text-xs text-orange-600">{poItemsWithStock}/{poItemsWithInventory}</span>
+                                          </div>
+                                          <Progress 
+                                            value={poItemsWithInventory > 0 ? (poItemsWithStock / poItemsWithInventory) * 100 : 0} 
+                                            className="h-2 [&>div]:bg-orange-500"
+                                          />
+                                          <div className="text-xs text-muted-foreground">
+                                            Stock qty: {poTotalStockQty.toLocaleString()}
+                                          </div>
+                                        </div>
+                                      );
+                                    })()}
+                                   
+                                   {/* Status Summary */}
+                                  <div className="flex flex-wrap gap-1">
+                                    {pendingCount > 0 && (
+                                      <Badge variant="secondary" className="text-xs bg-yellow-100 text-yellow-800">
+                                        {pendingCount} pending
+                                      </Badge>
+                                    )}
+                                    {placedCount > 0 && (
+                                      <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">
+                                        {placedCount} placed
+                                      </Badge>
+                                    )}
+                                    {shippedCount > 0 && (
+                                      <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-800">
+                                        {shippedCount} shipped
+                                      </Badge>
+                                    )}
+                                    {deliveredCount > 0 && (
+                                      <Badge variant="secondary" className="text-xs bg-green-100 text-green-800">
+                                        {deliveredCount} delivered
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="text-center py-4">
+                                  <div className="text-muted-foreground text-sm">
+                                    No items found in SKU catalog
+                                  </div>
+                                  <div className="text-xs text-muted-foreground mt-1">
+                                    Upload matching SKUs to enable tracking
+                                  </div>
+                                </div>
+                              )}
                             </TableCell>
                             
                             <TableCell className="min-w-[200px]">
-                              <div className="space-y-2">
-                                {trackingNumbers.length > 0 ? (
-                                  <div className="flex flex-wrap gap-1">
-                                    {trackingNumbers.map((tracking, index) => (
-                                      tracking.url ? (
-                                        <a
-                                          key={index}
-                                          href={tracking.url}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          onClick={(e) => e.stopPropagation()}
-                                          className="inline-flex items-center gap-1 px-2 py-1 bg-primary/10 hover:bg-primary/20 text-primary rounded text-xs font-medium transition-colors border border-primary/20 hover:border-primary/40"
-                                        >
-                                          📦 {tracking.number}
-                                          <ExternalLink className="h-3 w-3" />
-                                        </a>
-                                      ) : (
-                                        <span
-                                          key={index}
-                                          className="inline-flex items-center gap-1 px-2 py-1 bg-muted text-muted-foreground rounded text-xs font-medium border"
-                                        >
-                                          📦 {tracking.number}
-                                        </span>
-                                      )
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <span className="text-xs text-muted-foreground">No tracking info</span>
-                                )}
-                              </div>
+                              {matchedCount > 0 ? (
+                                <div className="space-y-2">
+                                  {trackingNumbers.length > 0 ? (
+                                    <div className="flex flex-wrap gap-1">
+                                      {trackingNumbers.map((tracking, index) => (
+                                        tracking.url ? (
+                                          <a
+                                            key={index}
+                                            href={tracking.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="inline-flex items-center gap-1 px-2 py-1 bg-primary/10 hover:bg-primary/20 text-primary rounded text-xs font-medium transition-colors border border-primary/20 hover:border-primary/40"
+                                          >
+                                            📦 {tracking.number}
+                                            <ExternalLink className="h-3 w-3" />
+                                          </a>
+                                        ) : (
+                                          <span
+                                            key={index}
+                                            className="inline-flex items-center gap-1 px-2 py-1 bg-muted text-muted-foreground rounded text-xs font-medium border"
+                                          >
+                                            📦 {tracking.number}
+                                          </span>
+                                        )
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground">No tracking info</span>
+                                  )}
+                                </div>
+                              ) : (
+                                <div className="text-center py-4">
+                                  <span className="text-xs text-muted-foreground">Tracking unavailable</span>
+                                </div>
+                              )}
                             </TableCell>
                             
                             <TableCell>
@@ -712,7 +1038,11 @@ export function POTracker() {
                             </TableCell>
                             
                             <TableCell className="text-center">
-                              <Eye className="h-4 w-4 text-muted-foreground mx-auto" />
+                              {matchedCount > 0 ? (
+                                <Eye className="h-4 w-4 text-muted-foreground mx-auto" />
+                              ) : (
+                                <AlertCircle className="h-4 w-4 text-muted-foreground mx-auto" />
+                              )}
                             </TableCell>
                           </TableRow>
                         );
@@ -869,7 +1199,54 @@ export function POTracker() {
         </TabsContent>
 
         <TabsContent value="analytics" className="space-y-4">
-          <POProfitAnalytics poOrders={poOrders} sunskySKUs={[]} />
+          <POProfitAnalytics poOrders={poOrders} sunskySKUs={sunskySKUs} />
+        </TabsContent>
+
+        <TabsContent value="skus" className="space-y-4">
+          {/* Sunsky SKU Importer */}
+          <SunskySKUImporter />
+          
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span>Sunsky SKU Database</span>
+                <Badge variant="outline">
+                  {sunskySKUs.length} / {totalCount} loaded
+                </Badge>
+              </CardTitle>
+              <CardDescription>
+                Manage SKUs for Sunsky supplier. Add new SKUs or search existing ones.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search SKUs..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-8"
+                  />
+                </div>
+                <ShippingRateDialog 
+                  currentRate={shippingRate} 
+                  onUpdateRate={handleUpdateShippingRate} 
+                  isLoading={isUpdatingRate} 
+                />
+                <AddSKUDialog onAddSKUs={addSKUs} isLoading={skuLoading} />
+              </div>
+              
+              <SKUList 
+                skus={filteredSKUs} 
+                shippingRate={shippingRate} 
+                isLoading={skuLoading}
+                hasMore={hasMoreSKUs}
+                onLoadMore={loadMoreSKUs}
+                onSkuUpdated={refreshSKUs}
+              />
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
