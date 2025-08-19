@@ -1231,6 +1231,39 @@ export type Database = {
         }
         Relationships: []
       }
+      sku_costs: {
+        Row: {
+          cost: number
+          country: string
+          created_at: string
+          id: string
+          notes: string | null
+          sku: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cost: number
+          country?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          sku: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cost?: number
+          country?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          sku?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       sku_inventory: {
         Row: {
           bin_serial_number: string
