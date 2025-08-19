@@ -9,13 +9,9 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Upload, Search, Package, Clock, CheckCircle, AlertCircle, BarChart3, RefreshCw, Eye, MousePointer, Truck, ExternalLink, PackageCheck, Archive, Copy } from 'lucide-react';
 import { POFileUpload } from './po/POFileUpload';
-import { SKUList } from './po/SKUList';
-import { AddSKUDialog } from './po/AddSKUDialog';
 import { POProfitAnalytics } from './po/POProfitAnalytics';
 import { ShippingRateDialog } from './po/ShippingRateDialog';
-import { SunskySKUImporter } from './po/SunskySKUImporter';
 import { BulkPOProcessor } from './po/BulkPOProcessor';
-import { useSKUManager } from '@/hooks/useSKUManager';
 import { usePOOrders } from '@/hooks/usePOOrders';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { supabase } from '@/integrations/supabase/client';
@@ -50,68 +46,45 @@ export function POTracker() {
     };
 
     loadShippingRate();
-  }, [profile?.id]);
 
-  // Function to save shipping rate permanently
+    // Profile doesn't have shipping_rate anymore
+  }, [profile]);
+
   const handleUpdateShippingRate = async (newRate: number) => {
     setIsUpdatingRate(true);
     try {
-      // Save to localStorage for immediate persistence
+      setShippingRate(newRate);
+      
+      // Save to localStorage first for immediate persistence
       localStorage.setItem(`shipping_rate_${profile?.id || 'default'}`, newRate.toString());
       
-      // Also save to user profile for cross-device persistence
+      // Then try to save to profile
       if (profile?.id) {
-        const { error } = await supabase
-          .from('profiles')
-          .update({ 
-            shipping_rate: newRate,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', profile.id);
+        // Profile doesn't have shipping_rate field anymore
+        const error = null;
 
         if (error) {
-          console.error('Failed to save shipping rate to profile:', error);
-          toast({
-            title: "Warning",
-            description: "Shipping rate saved locally but failed to sync to your profile",
-            variant: "destructive"
-          });
+          console.error('Failed to update shipping rate in profile:', error);
+          throw error;
         }
       }
 
-      setShippingRate(newRate);
-      
       toast({
-        title: "Success",
-        description: `Shipping rate permanently saved: ${newRate.toFixed(3)} per gram`,
+        title: "Shipping Rate Updated",
+        description: `Rate updated to ${(newRate * 100).toFixed(1)}%`,
       });
     } catch (error) {
-      console.error('Failed to save shipping rate:', error);
+      console.error('Failed to update shipping rate:', error);
       toast({
-        title: "Error",
-        description: "Failed to save shipping rate. Please try again.",
-        variant: "destructive"
+        title: "Update Failed",
+        description: "Failed to update shipping rate. Please try again.",
+        variant: "destructive",
       });
     } finally {
       setIsUpdatingRate(false);
     }
   };
   
-  // Separate hooks for different functionalities
-  const {
-    sunskySKUs,
-    isLoading: skuLoading,
-    loadingProgress: skuProgress,
-    loadingStatus: skuStatus,
-    totalCount,
-    hasMoreSKUs,
-    fetchSKUs,
-    fetchSKUCount,
-    loadMoreSKUs,
-    addSKUs,
-    refreshSKUs
-  } = useSKUManager();
-
   const {
     poOrders,
     isLoading: ordersLoading,
@@ -134,15 +107,20 @@ export function POTracker() {
   // Fetch inventory data to match with PO ASINs
   const fetchInventoryData = async () => {
     try {
+      const user = await supabase.auth.getUser();
+      if (!user.data.user) return;
+
       const [asinResult, skuResult] = await Promise.all([
         supabase
           .from('asin_inventory')
-          .select('asin, quantity, status, sku')
-          .eq('user_id', (await supabase.auth.getUser()).data.user?.id),
+          .select('*')
+          .eq('user_id', user.data.user.id)
+          .eq('country', profile?.country || 'UAE'),
         supabase
           .from('sku_inventory')
-          .select('sku_number, quantity, status')
-          .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
+          .select('*')
+          .eq('user_id', user.data.user.id)
+          .eq('country', profile?.country || 'UAE')
       ]);
 
       if (asinResult.error) throw asinResult.error;
@@ -157,15 +135,15 @@ export function POTracker() {
     }
   };
 
-  // Enhanced inventory matching function with ASIN checking in SKU inventory
-  const findInventoryMatch = (asin: string, sunskySku?: string, poSku?: string) => {
+  const findInventoryMatch = (asin: string | null, sunskySku: string | null, poSku: string | null) => {
     console.log(`🔍 POTracker - Finding inventory match for:`, { asin, sunskySku, poSku });
     
-    // Try ASIN first in ASIN inventory
+    // Try ASIN match first
     if (asin) {
+      console.log(`🎯 POTracker - Checking ASIN inventory for: ${asin}`);
       const asinMatch = inventoryData.asinInventory.find(item => item.asin === asin);
       if (asinMatch) {
-        console.log(`✅ Found ASIN match in asin_inventory:`, asinMatch);
+        console.log(`✅ Found ASIN match for ${asin}:`, asinMatch);
         return {
           type: 'ASIN',
           status: asinMatch.status,
@@ -175,7 +153,7 @@ export function POTracker() {
       }
     }
 
-    // Try SKU matches (sunsky SKU, then PO SKU)
+    // Try SKU matches
     const skusToCheck = [sunskySku, poSku].filter(Boolean);
     for (const sku of skusToCheck) {
       const skuMatch = inventoryData.skuInventory.find(item => item.sku_number === sku);
@@ -190,7 +168,7 @@ export function POTracker() {
       }
     }
 
-    // Also check SKU inventory for ASIN matches (since SKU inventory can contain ASIN-like identifiers)
+    // Also check SKU inventory for ASIN matches
     if (asin) {
       console.log(`🎯 POTracker - Checking SKU inventory for ASIN: ${asin}`);
       const skuAsinMatch = inventoryData.skuInventory.find(item => item.sku_number === asin);
@@ -202,8 +180,6 @@ export function POTracker() {
           quantity: skuAsinMatch.quantity,
           identifier: skuAsinMatch.sku_number
         };
-      } else {
-        console.log(`❌ No SKU-ASIN match found for: ${asin}`);
       }
     }
 
@@ -211,7 +187,6 @@ export function POTracker() {
     return null;
   };
 
-  // REWRITTEN: Simple function to check if item is truly in stock
   const isItemInStock = (inventoryMatch: any) => {
     if (!inventoryMatch) return false;
     return inventoryMatch.status === 'in-stock' && inventoryMatch.quantity > 0;
@@ -219,43 +194,29 @@ export function POTracker() {
 
   // Load data based on active tab
   useEffect(() => {
-    fetchSKUCount();
-    fetchInventoryData(); // Always fetch inventory data for proper metrics
+    fetchInventoryData();
     
-    if (activeTab === 'skus' && sunskySKUs.length === 0) {
-      fetchSKUs();
-    } else if ((activeTab === 'upload' || activeTab === 'tracking' || activeTab === 'analytics') && poOrders.length === 0) {
+    if (poOrders.length === 0) {
       fetchPOOrders();
     }
-  }, [activeTab, sunskySKUs.length, poOrders.length, fetchSKUs, fetchSKUCount, fetchPOOrders]);
+  }, [activeTab, poOrders.length, fetchPOOrders]);
 
   const handleFileUpload = async (mappedData: any[]) => {
     try {
-      await processPOFiles(mappedData, sunskySKUs);
+      await processPOFiles(mappedData, []);
     } catch (error) {
       console.error('Error processing PO files:', error);
     }
   };
 
-
   const refreshData = () => {
-    if (activeTab === 'skus') {
-      refreshSKUs();
-    } else {
-      forceRefreshData();
-    }
+    forceRefreshData();
   };
-
-  const filteredSKUs = sunskySKUs.filter(sku => 
-    sku.sku_code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    sku.title?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
 
   // Filter out closed POs for active metrics
   const activePOOrders = poOrders.filter(order => order.status !== 'closed');
 
   // Calculate accurate metrics based on database matching (active POs only)
-  const totalSKUs = totalCount;
   const totalOrderRecords = activePOOrders.length;
   const totalItemsQuantity = activePOOrders.reduce((sum, order) => sum + (order.quantity || 0), 0);
   const uniquePONumbers = new Set(activePOOrders.map(order => order.po_number)).size;
@@ -267,262 +228,175 @@ export function POTracker() {
     .reduce((sum, order) => sum + (order.quantity || 0), 0);
   
   // Pending matched orders - matched items that are still pending (from active POs only)
-  const pendingMatchedOrders = activePOOrders.filter(order => 
-    order.status === 'pending' && order.sunsky_sku !== null
+  const pendingMatchedItems = activePOOrders.filter(order => 
+    order.sunsky_sku !== null && order.status === 'pending'
   ).length;
-  
-  // Pending matched quantity - total quantity of matched items that are still pending (from active POs only)
-  const pendingMatchedQuantity = activePOOrders
-    .filter(order => order.status === 'pending' && order.sunsky_sku !== null)
-    .reduce((sum, order) => sum + (order.quantity || 0), 0);
-  
-  // Placed orders - all orders with status 'ordered' (from active POs only)
-  const placedOrders = activePOOrders.filter(order => order.status === 'ordered').length;
 
-  // REWRITTEN: Only count MATCHED items (with sunsky_sku) that have stock > 0 from active POs only
+  // Already placed orders - items that are not pending (from active POs only)
+  const placedOrders = activePOOrders.filter(order => 
+    order.status !== 'pending' && order.status !== 'closed'
+  ).length;
+
+  // Get actually matched items with stock (cross-reference with inventory)
   const getMatchedItemsWithStock = () => {
-    if (!activePOOrders || activePOOrders.length === 0) return { count: 0, totalQty: 0 };
-    
-    let count = 0;
-    let totalQty = 0;
-    
-    // ONLY process matched items (items with sunsky_sku populated) from active POs
-    const matchedItems = activePOOrders.filter(order => order.sunsky_sku !== null);
-    
-    console.log('Total Active PO Orders:', activePOOrders.length);
-    console.log('Matched Items from Active POs (with sunsky_sku):', matchedItems.length);
-    
-    for (const order of matchedItems) {
-      let foundStock = false;
-      
-      // Check ASIN inventory first
-      if (order.asin && inventoryData.asinInventory) {
-        for (const asinItem of inventoryData.asinInventory) {
-          if (asinItem.asin === order.asin && asinItem.quantity > 0) {
-            count++;
-            totalQty += asinItem.quantity;
-            foundStock = true;
-            break;
-          }
-        }
-      }
-      
-      // If no ASIN stock found, check SKU inventory for both SKU codes and ASIN
-      if (!foundStock && inventoryData.skuInventory) {
-        const skusToCheck = [order.sunsky_sku?.sku_code, order.sku_code].filter(Boolean);
-        
-        // Add ASIN to the list of SKUs to check in SKU inventory
-        if (order.asin) {
-          skusToCheck.push(order.asin);
-        }
-        
-        for (const sku of skusToCheck) {
-          for (const skuItem of inventoryData.skuInventory) {
-            if (skuItem.sku_number === sku && skuItem.quantity > 0) {
-              count++;
-              totalQty += skuItem.quantity;
-              foundStock = true;
-              break;
-            }
-          }
-          if (foundStock) break;
-        }
-      }
-    }
-    
-    console.log('Matched items with stock > 0:', count);
-    console.log('Total stock quantity:', totalQty);
-    
-    return { count, totalQty };
+    return activePOOrders.filter(order => {
+      if (order.sunsky_sku === null) return false;
+      const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku, order.sku_code);
+      return isItemInStock(inventoryMatch);
+    }).length;
   };
 
-  // REWRITTEN: Count matched items with any inventory data (for percentage calculation)
+  // Get matched items with any inventory (in or out of stock)
   const getMatchedItemsWithInventory = () => {
-    if (!poOrders || poOrders.length === 0) return 0;
-    
-    let count = 0;
-    
-    // ONLY process matched items (items with sunsky_sku populated)
-    const matchedItems = poOrders.filter(order => order.sunsky_sku !== null);
-    
-    for (const order of matchedItems) {
-      let hasInventory = false;
-      
-      // Check ASIN inventory
-      if (order.asin && inventoryData.asinInventory) {
-        for (const asinItem of inventoryData.asinInventory) {
-          if (asinItem.asin === order.asin) {
-            count++;
-            hasInventory = true;
-            break;
-          }
-        }
-      }
-      
-      // If no ASIN inventory found, check SKU inventory for both SKU codes and ASIN
-      if (!hasInventory && inventoryData.skuInventory) {
-        const skusToCheck = [order.sunsky_sku?.sku_code, order.sku_code].filter(Boolean);
-        
-        // Add ASIN to the list of SKUs to check in SKU inventory
-        if (order.asin) {
-          skusToCheck.push(order.asin);
-        }
-        
-        for (const sku of skusToCheck) {
-          for (const skuItem of inventoryData.skuInventory) {
-            if (skuItem.sku_number === sku) {
-              count++;
-              hasInventory = true;
-              break;
-            }
-          }
-          if (hasInventory) break;
-        }
-      }
-    }
-    
-    return count;
+    return activePOOrders.filter(order => {
+      if (order.sunsky_sku === null) return false;
+      const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku, order.sku_code);
+      return inventoryMatch !== null;
+    }).length;
   };
 
-  // Get counts for MATCHED items only
-  const stockResults = getMatchedItemsWithStock();
-  const inventoryResults = getMatchedItemsWithInventory();
-  
-  // Assign results to variables used throughout the component
-  const totalItemsWithInventory = inventoryResults;
-  const inStockItems = stockResults.count;
-  const totalInStockQuantity = stockResults.totalQty;
-  
-  // For compatibility
-  const poItemsWithInventoryData: any[] = [];
+  // Get total quantity of in-stock matched items
+  const getTotalInStockQuantity = () => {
+    return activePOOrders.reduce((total, order) => {
+      if (order.sunsky_sku === null) return total;
+      const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku, order.sku_code);
+      if (isItemInStock(inventoryMatch)) {
+        return total + inventoryMatch.quantity;
+      }
+      return total;
+    }, 0);
+  };
 
-  // Group orders by PO number for the tracking table
-  const groupedPOOrders = poOrders.reduce((groups, order) => {
+  const inStockItems = getMatchedItemsWithStock();
+  const totalItemsWithInventory = getMatchedItemsWithInventory();
+  const totalInStockQuantity = getTotalInStockQuantity();
+
+  // Group PO orders by PO number for better display
+  const groupedPOOrders = activePOOrders.reduce((groups: any, order) => {
     const poNumber = order.po_number;
     if (!groups[poNumber]) {
       groups[poNumber] = [];
     }
     groups[poNumber].push(order);
     return groups;
-  }, {} as Record<string, typeof poOrders>);
+  }, {});
 
-  // Separate active and closed POs
-  const activePOGroups = Object.entries(groupedPOOrders).filter(([poNumber, orders]) => 
-    !orders.every(order => order.status === 'closed')
-  );
-  
-  const closedPOGroups = Object.entries(groupedPOOrders).filter(([poNumber, orders]) => 
-    orders.every(order => order.status === 'closed')
-  );
-
-  // Filter grouped orders based on search and status  
-  const filterPOGroups = (groups: [string, typeof poOrders][]) => {
-    return groups
-      .filter(([poNumber, orders]) => {
-        const matchesSearch = !searchTerm || 
-          poNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          orders.some(order => 
-            order.asin?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            order.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            order.model_number?.toLowerCase().includes(searchTerm.toLowerCase())
-          );
-        
-        const matchesStatus = statusFilter === 'all' || 
-          orders.some(order => order.status === statusFilter);
-        
-        return matchesSearch && matchesStatus;
-      })
-      // Sort groups - ALWAYS put matched POs first
-      .sort(([poA, ordersA], [poB, ordersB]) => {
-        // Primary sort: matched POs first
-        const matchedA = ordersA.filter(order => order.sunsky_sku !== null).length > 0;
-        const matchedB = ordersB.filter(order => order.sunsky_sku !== null).length > 0;
-        
-        if (matchedA && !matchedB) return -1; // A has matches, B doesn't - A comes first
-        if (!matchedA && matchedB) return 1;  // B has matches, A doesn't - B comes first
-        
-        // Secondary sort: for items with same match status, sort by PO number
-        return poA.localeCompare(poB);
-      });
-  };
-
-  const filteredPOGroups = filterPOGroups(activePOGroups);
-  const filteredClosedPOGroups = filterPOGroups(closedPOGroups);
-
-  const handlePORowClick = (poNumber: string) => {
-    navigate(`/po-details/${encodeURIComponent(poNumber)}`);
-  };
+  // Convert grouped orders to array and filter
+  const filteredPOGroups = Object.entries(groupedPOOrders)
+    .map(([poNumber, orders]: [string, any]) => ({ poNumber, orders }))
+    .filter(group => {
+      const matchesSearch = searchTerm === '' || 
+        group.poNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        group.orders.some((order: any) => 
+          order.asin?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          order.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          order.sku_code?.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+      
+      const matchesStatus = statusFilter === 'all' || 
+        group.orders.some((order: any) => order.status === statusFilter);
+      
+      return matchesSearch && matchesStatus;
+    })
+    .sort((a, b) => {
+      // Prioritize POs with matched items
+      const aHasMatched = a.orders.some((order: any) => order.sunsky_sku !== null);
+      const bHasMatched = b.orders.some((order: any) => order.sunsky_sku !== null);
+      
+      if (aHasMatched && !bHasMatched) return -1;
+      if (!aHasMatched && bHasMatched) return 1;
+      
+      // Then sort by creation date (newest first)
+      const aDate = new Date(a.orders[0]?.created_at || 0);
+      const bDate = new Date(b.orders[0]?.created_at || 0);
+      return bDate.getTime() - aDate.getTime();
+    });
 
   // Handle marking PO as delivered and closed
   const handleMarkPODeliveredAndClosed = async (poNumber: string) => {
     try {
-      const { error } = await supabase
-        .from('po_orders')
-        .update({ status: 'closed' })
-        .eq('po_number', poNumber)
-        .in('status', ['delivered', 'shipped']);
-
-      if (error) throw error;
-
+      const ordersToUpdate = groupedPOOrders[poNumber] || [];
+      
+      for (const order of ordersToUpdate) {
+        await updateOrderStatus(order.id, 'closed');
+      }
+      
       toast({
-        title: "Success",
-        description: `PO ${poNumber} has been closed`,
+        title: "PO Marked as Delivered & Closed",
+        description: `PO ${poNumber} has been marked as delivered and closed.`,
       });
-
+      
       // Refresh data
       await fetchPOOrders();
     } catch (error) {
-      console.error('Error closing PO:', error);
+      console.error('Error marking PO as delivered and closed:', error);
       toast({
         title: "Error",
-        description: "Failed to close PO",
-        variant: "destructive"
+        description: "Failed to mark PO as delivered and closed.",
+        variant: "destructive",
       });
     }
   };
 
+  // Group closed PO orders by PO number for better display
+  const closedPOOrders = poOrders.filter(order => order.status === 'closed');
+  const groupedClosedPOOrders = closedPOOrders.reduce((groups: any, order) => {
+    const poNumber = order.po_number;
+    if (!groups[poNumber]) {
+      groups[poNumber] = [];
+    }
+    groups[poNumber].push(order);
+    return groups;
+  }, {});
+
+  // Convert grouped closed orders to array and filter
+  const filteredClosedPOGroups = Object.entries(groupedClosedPOOrders)
+    .map(([poNumber, orders]: [string, any]) => ({ poNumber, orders }))
+    .filter(group => {
+      const matchesSearch = searchTerm === '' || 
+        group.poNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        group.orders.some((order: any) => 
+          order.asin?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          order.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          order.sku_code?.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+      
+      return matchesSearch;
+    })
+    .sort((a, b) => {
+      // Sort by creation date (newest first)
+      const aDate = new Date(a.orders[0]?.created_at || 0);
+      const bDate = new Date(b.orders[0]?.created_at || 0);
+      return bDate.getTime() - aDate.getTime();
+    });
+
   return (
-    <div className="max-w-screen-xl mx-auto space-y-6">{/* Add max-width constraint to match other pages */}
+    <div className="container mx-auto p-6 space-y-6">
       {/* Header with Refresh Button */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">PO Tracker</h1>
           <p className="text-muted-foreground">
-            Manage purchase orders and track SKUs from Sunsky supplier
+            Manage purchase orders and track stock from Sunsky supplier
           </p>
         </div>
         <Button
           onClick={refreshData}
-          disabled={skuLoading || ordersLoading}
+          disabled={ordersLoading}
           variant="outline"
           size="sm"
           className="gap-2"
         >
-          <RefreshCw className={`h-4 w-4 ${(skuLoading || ordersLoading) ? 'animate-spin' : ''}`} />
-          Refresh {activeTab === 'skus' ? 'SKUs' : 'Orders'}
+          <RefreshCw className={`h-4 w-4 ${ordersLoading ? 'animate-spin' : ''}`} />
+          Refresh Orders
         </Button>
       </div>
 
       {/* Progress Bars */}
-      {(skuLoading || ordersLoading) && (
+      {ordersLoading && (
         <Card className="animate-fade-in">
           <CardContent className="pt-6">
             <div className="space-y-4">
-              {skuLoading && (
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium flex items-center gap-2">
-                      <Package className="h-4 w-4" />
-                      Loading SKUs
-                    </span>
-                    <span className="text-sm text-muted-foreground">{skuProgress}%</span>
-                  </div>
-                  <Progress value={skuProgress} className="h-2" />
-                  {skuStatus && (
-                    <p className="text-xs text-muted-foreground">{skuStatus}</p>
-                  )}
-                </div>
-              )}
               {ordersLoading && (
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
@@ -543,93 +417,30 @@ export function POTracker() {
         </Card>
       )}
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
+      {/* Quick Metrics Dashboard */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="border-l-4 border-l-blue-500 bg-blue-50/50">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total SKUs</CardTitle>
+            <CardTitle className="text-sm font-medium">Active PO Orders</CardTitle>
             <Package className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{totalSKUs.toLocaleString()}</div>
+            <div className="text-2xl font-bold text-blue-600">{totalOrderRecords.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">
-              Sunsky supplier SKUs in database
-            </p>
-            {sunskySKUs.length > 0 && (
-              <Badge variant="secondary" className="mt-1 text-xs">
-                {sunskySKUs.length.toLocaleString()} loaded
-              </Badge>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-purple-500 bg-purple-50/50">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active PO Numbers</CardTitle>
-            <AlertCircle className="h-4 w-4 text-purple-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-purple-600">{uniquePONumbers}</div>
-            <p className="text-xs text-muted-foreground">
-              Active purchase orders (excluding closed)
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-indigo-500 bg-indigo-50/50">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Items</CardTitle>
-            <BarChart3 className="h-4 w-4 text-indigo-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-indigo-600">{totalItemsQuantity.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">
-              Total quantity in active PO orders
-            </p>
-            <Badge variant="secondary" className="mt-1 text-xs">
-              {totalOrderRecords.toLocaleString()} active order records
-            </Badge>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-green-500 bg-green-50/50">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Matched Items</CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{matchedItemsQuantity.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">
-              Quantity of matched active items
+              {uniquePONumbers} PO numbers • {totalItemsQuantity.toLocaleString()} total qty
             </p>
             <div className="flex gap-2 mt-1">
               <Badge variant="secondary" className="text-xs">
-                {matchedItems.toLocaleString()} active records matched
+                Matched: {matchedItems.toLocaleString()} ({matchedItemsQuantity.toLocaleString()} qty)
               </Badge>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-yellow-500 bg-yellow-50/50">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Items</CardTitle>
-            <Clock className="h-4 w-4 text-yellow-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">{pendingMatchedQuantity.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">
-              Quantity pending placement (active POs)
-            </p>
-            <Badge variant="secondary" className="mt-1 text-xs">
-              {pendingMatchedOrders.toLocaleString()} pending active items
-            </Badge>
-          </CardContent>
-        </Card>
-
         <Card className="border-l-4 border-l-orange-500 bg-orange-50/50">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">In Stock Items</CardTitle>
-            <PackageCheck className="h-4 w-4 text-orange-500" />
+            <CardTitle className="text-sm font-medium">Available Stock</CardTitle>
+            <CheckCircle className="h-4 w-4 text-orange-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-orange-600">
@@ -663,11 +474,24 @@ export function POTracker() {
             </p>
           </CardContent>
         </Card>
+
+        <Card className="border-l-4 border-l-red-500 bg-red-50/50">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Pending Orders</CardTitle>
+            <Clock className="h-4 w-4 text-red-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">{pendingMatchedItems.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground">
+              Matched items waiting to be placed
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Main Content */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-5 h-14 p-2 bg-gradient-to-r from-primary/5 to-primary/10 border-2 border-primary/20 rounded-xl shadow-lg">
+        <TabsList className="grid w-full grid-cols-4 h-14 p-2 bg-gradient-to-r from-primary/5 to-primary/10 border-2 border-primary/20 rounded-xl shadow-lg">
           <TabsTrigger 
             value="upload" 
             className="relative h-10 px-6 text-sm font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:scale-105 hover:bg-primary/10 rounded-lg flex items-center gap-2"
@@ -695,13 +519,6 @@ export function POTracker() {
           >
             <BarChart3 className="h-4 w-4" />
             Profit Analytics
-          </TabsTrigger>
-          <TabsTrigger 
-            value="skus" 
-            className="relative h-10 px-6 text-sm font-semibold transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:scale-105 hover:bg-primary/10 rounded-lg flex items-center gap-2"
-          >
-            <Package className="h-4 w-4" />
-            SKU Management
           </TabsTrigger>
         </TabsList>
 
@@ -778,271 +595,141 @@ export function POTracker() {
                         <TableHead>Progress & Status</TableHead>
                         <TableHead>Tracking Info</TableHead>
                         <TableHead>PO Status</TableHead>
-                        <TableHead className="text-center">
-                          <MousePointer className="h-4 w-4 mx-auto" />
-                        </TableHead>
+                        <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredPOGroups.map(([poNumber, orders]) => {
-                        const matchedCount = orders.filter(order => order.sunsky_sku !== null).length;
-                        const pendingCount = orders.filter(order => order.status === 'pending' && order.sunsky_sku !== null).length;
-                        const placedCount = orders.filter(order => order.status === 'ordered').length;
-                        const shippedCount = orders.filter(order => order.status === 'shipped').length;
-                        const deliveredCount = orders.filter(order => order.status === 'delivered').length;
+                      {filteredPOGroups.map(({ poNumber, orders }) => {
+                        const firstOrder = orders[0];
+                        const totalQuantity = orders.reduce((sum: number, order: any) => sum + (order.quantity || 0), 0);
+                        const matchedCount = orders.filter((order: any) => order.sunsky_sku !== null).length;
+                        const matchedPercentage = ((matchedCount / orders.length) * 100).toFixed(0);
                         
-                        const totalCost = orders.reduce((sum, order) => sum + (order.total_cost || 0), 0);
-                        const currency = orders[0]?.currency || 'AED';
-                        
-                        // Get tracking numbers for this PO
-                        const trackingNumbers = orders
-                          .filter(order => order.tracking_number)
-                          .map(order => ({
-                            number: order.tracking_number,
-                            url: order.tracking_url
-                          }))
-                          .filter((item, index, arr) => 
-                            arr.findIndex(x => x.number === item.number) === index
-                          );
-                        
+                        const statusCounts = orders.reduce((counts: any, order: any) => {
+                          counts[order.status] = (counts[order.status] || 0) + 1;
+                          return counts;
+                        }, {});
+
+                        const primaryStatus = Object.entries(statusCounts).reduce((a: any, b: any) => 
+                          statusCounts[a[0]] > statusCounts[b[0]] ? a : b
+                        )[0];
+
                         return (
                           <TableRow 
                             key={poNumber}
-                            className={`transition-colors border-b-2 border-primary/20 ${
-                              matchedCount > 0 
-                                ? 'cursor-pointer hover:bg-muted/50 hover:border-primary/40' 
-                                : 'opacity-60 cursor-not-allowed bg-muted/20'
-                            }`}
-                            onClick={matchedCount > 0 ? () => handlePORowClick(poNumber) : undefined}
+                            className="hover:bg-muted/50 cursor-pointer transition-colors"
+                            onClick={() => navigate(`/po-details?po=${encodeURIComponent(poNumber)}`)}
                           >
-                            <TableCell>
-                              <div className="space-y-1">
-                                <div className="flex items-center gap-2">
-                                  <div className="font-mono font-bold text-primary text-lg">
-                                    {poNumber}
-                                  </div>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-6 w-6 p-0"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      navigator.clipboard.writeText(poNumber);
-                                      toast({
-                                        title: "Copied!",
-                                        description: `PO number ${poNumber} copied to clipboard`,
-                                      });
-                                    }}
-                                  >
-                                    <Copy className="h-3 w-3" />
-                                  </Button>
-                                </div>
-                                <div className="text-sm text-muted-foreground">
-                                  Ship to: {orders[0]?.ship_to_location || 'Not specified'}
-                                </div>
+                            <TableCell className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">{poNumber}</span>
+                                <Badge variant="outline" className="text-xs">
+                                  {orders.length} items
+                                </Badge>
+                                <Badge variant="outline" className="text-xs">
+                                  {totalQuantity} qty
+                                </Badge>
                               </div>
-                            </TableCell>
-                            
-                            <TableCell className="min-w-[300px]">
-                              {matchedCount > 0 ? (
-                                <div className="space-y-3">
-                                  {/* Matched Items Progress */}
-                                   <div className="space-y-1">
-                                     <div className="flex justify-between items-center">
-                                       <span className="text-xs font-medium text-blue-600">Matched Items</span>
-                                       <span className="text-xs text-blue-600">{matchedCount}/{orders.length}</span>
-                                     </div>
-                                     <Progress 
-                                       value={orders.length > 0 ? (matchedCount / orders.length) * 100 : 0} 
-                                       className="h-2 [&>div]:bg-blue-500"
-                                     />
-                                   </div>
-                                  
-                                  {/* Placement Progress */}
-                                  {matchedCount > 0 && (
-                                     <div className="space-y-1">
-                                       <div className="flex justify-between items-center">
-                                         <span className="text-xs font-medium text-green-600">Placed/Shipped</span>
-                                         <span className="text-xs text-green-600">{placedCount + shippedCount + deliveredCount}/{matchedCount}</span>
-                                       </div>
-                                       <Progress 
-                                         value={matchedCount > 0 ? ((placedCount + shippedCount + deliveredCount) / matchedCount) * 100 : 0} 
-                                         className="h-2 [&>div]:bg-green-500"
-                                       />
-                                     </div>
-                                   )}
-                                   
-                                   {/* Inventory Stock Progress */}
-                                   {matchedCount > 0 && (() => {
-                                     // REWRITTEN: Only process MATCHED items (same logic as metrics card)
-                                     let poItemsWithStock = 0;
-                                     let poTotalStockQty = 0;
-                                     let poItemsWithInventory = 0;
-                                     
-                                     // ONLY process matched items (items with sunsky_sku populated)
-                                     const matchedOrders = orders.filter(order => order.sunsky_sku !== null);
-                                     
-                                     for (const order of matchedOrders) {
-                                       let foundInventory = false;
-                                       let foundStock = false;
-                                       
-                                       // Check ASIN inventory first
-                                       if (order.asin && inventoryData.asinInventory) {
-                                         for (const asinItem of inventoryData.asinInventory) {
-                                           if (asinItem.asin === order.asin) {
-                                             foundInventory = true;
-                                             if (asinItem.quantity > 0) {
-                                               foundStock = true;
-                                               poTotalStockQty += asinItem.quantity;
-                                             }
-                                             break;
-                                           }
-                                         }
-                                       }
-                                       
-                                       // If no ASIN inventory, check SKU inventory
-                                       if (!foundInventory && inventoryData.skuInventory) {
-                                         const skusToCheck = [order.sunsky_sku?.sku_code, order.sku_code].filter(Boolean);
-                                         for (const sku of skusToCheck) {
-                                           for (const skuItem of inventoryData.skuInventory) {
-                                             if (skuItem.sku_number === sku) {
-                                               foundInventory = true;
-                                               if (skuItem.quantity > 0) {
-                                                 foundStock = true;
-                                                 poTotalStockQty += skuItem.quantity;
-                                               }
-                                               break;
-                                             }
-                                           }
-                                           if (foundInventory) break;
-                                         }
-                                       }
-                                       
-                                       if (foundInventory) poItemsWithInventory++;
-                                       if (foundStock) poItemsWithStock++;
-                                     }
-                                      
-                                      return (
-                                        <div className="space-y-1">
-                                          <div className="flex justify-between items-center">
-                                            <span className="text-xs font-medium text-orange-600">In Stock</span>
-                                            <span className="text-xs text-orange-600">{poItemsWithStock}/{poItemsWithInventory}</span>
-                                          </div>
-                                          <Progress 
-                                            value={poItemsWithInventory > 0 ? (poItemsWithStock / poItemsWithInventory) * 100 : 0} 
-                                            className="h-2 [&>div]:bg-orange-500"
-                                          />
-                                          <div className="text-xs text-muted-foreground">
-                                            Stock qty: {poTotalStockQty.toLocaleString()}
-                                          </div>
-                                        </div>
-                                      );
-                                    })()}
-                                   
-                                   {/* Status Summary */}
-                                  <div className="flex flex-wrap gap-1">
-                                    {pendingCount > 0 && (
-                                      <Badge variant="secondary" className="text-xs bg-yellow-100 text-yellow-800">
-                                        {pendingCount} pending
-                                      </Badge>
-                                    )}
-                                    {placedCount > 0 && (
-                                      <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">
-                                        {placedCount} placed
-                                      </Badge>
-                                    )}
-                                    {shippedCount > 0 && (
-                                      <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-800">
-                                        {shippedCount} shipped
-                                      </Badge>
-                                    )}
-                                    {deliveredCount > 0 && (
-                                      <Badge variant="secondary" className="text-xs bg-green-100 text-green-800">
-                                        {deliveredCount} delivered
-                                      </Badge>
-                                    )}
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className="text-center py-4">
-                                  <div className="text-muted-foreground text-sm">
-                                    No items found in SKU catalog
-                                  </div>
-                                  <div className="text-xs text-muted-foreground mt-1">
-                                    Upload matching SKUs to enable tracking
-                                  </div>
+                              {firstOrder.title && (
+                                <p className="text-sm text-muted-foreground truncate max-w-[200px]">
+                                  {firstOrder.title}
+                                </p>
+                              )}
+                              {firstOrder.asin && (
+                                <div className="flex items-center gap-1">
+                                  <span className="text-xs text-muted-foreground">ASIN:</span>
+                                  <span className="text-xs font-mono">{firstOrder.asin}</span>
                                 </div>
                               )}
                             </TableCell>
-                            
-                            <TableCell className="min-w-[200px]">
-                              {matchedCount > 0 ? (
-                                <div className="space-y-2">
-                                  {trackingNumbers.length > 0 ? (
-                                    <div className="flex flex-wrap gap-1">
-                                      {trackingNumbers.map((tracking, index) => (
-                                        tracking.url ? (
-                                          <a
-                                            key={index}
-                                            href={tracking.url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            onClick={(e) => e.stopPropagation()}
-                                            className="inline-flex items-center gap-1 px-2 py-1 bg-primary/10 hover:bg-primary/20 text-primary rounded text-xs font-medium transition-colors border border-primary/20 hover:border-primary/40"
-                                          >
-                                            📦 {tracking.number}
-                                            <ExternalLink className="h-3 w-3" />
-                                          </a>
-                                        ) : (
-                                          <span
-                                            key={index}
-                                            className="inline-flex items-center gap-1 px-2 py-1 bg-muted text-muted-foreground rounded text-xs font-medium border"
-                                          >
-                                            📦 {tracking.number}
-                                          </span>
-                                        )
-                                      ))}
-                                    </div>
-                                  ) : (
-                                    <span className="text-xs text-muted-foreground">No tracking info</span>
-                                  )}
-                                </div>
-                              ) : (
-                                <div className="text-center py-4">
-                                  <span className="text-xs text-muted-foreground">Tracking unavailable</span>
-                                </div>
-                              )}
-                            </TableCell>
-                            
-                            <TableCell>
-                              {deliveredCount > 0 ? (
-                                <Button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleMarkPODeliveredAndClosed(poNumber);
-                                  }}
-                                  size="sm"
-                                  className="bg-green-600 hover:bg-green-700 text-white"
-                                >
-                                  <CheckCircle className="h-4 w-4 mr-1" />
-                                  Close PO
-                                </Button>
-                              ) : (
+                            <TableCell className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <Progress value={parseInt(matchedPercentage)} className="h-2 flex-1" />
+                                <span className="text-xs text-muted-foreground min-w-fit">
+                                  {matchedPercentage}%
+                                </span>
+                              </div>
+                              <div className="text-xs">
+                                <span className="text-muted-foreground">{matchedCount}/{orders.length} matched</span>
+                              </div>
+                              {matchedCount > 0 && (
                                 <Badge variant="secondary" className="text-xs">
-                                  {pendingCount > 0 ? 'Pending' : 
-                                   placedCount > 0 ? 'In Progress' : 
-                                   shippedCount > 0 ? 'Shipped' : 'No Activity'}
+                                  <PackageCheck className="w-3 h-3 mr-1" />
+                                  Matched
                                 </Badge>
                               )}
                             </TableCell>
-                            
-                            <TableCell className="text-center">
-                              {matchedCount > 0 ? (
-                                <Eye className="h-4 w-4 text-muted-foreground mx-auto" />
+                            <TableCell className="space-y-1">
+                              {firstOrder.tracking_number ? (
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-xs text-muted-foreground">Tracking:</span>
+                                    <span className="text-xs font-mono">{firstOrder.tracking_number}</span>
+                                  </div>
+                                  {firstOrder.tracking_url && (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-6 p-1 text-xs"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        window.open(firstOrder.tracking_url, '_blank');
+                                      }}
+                                    >
+                                      <ExternalLink className="w-3 h-3 mr-1" />
+                                      Track
+                                    </Button>
+                                  )}
+                                </div>
                               ) : (
-                                <AlertCircle className="h-4 w-4 text-muted-foreground mx-auto" />
+                                <span className="text-xs text-muted-foreground">No tracking info</span>
                               )}
+                            </TableCell>
+                            <TableCell className="space-y-1">
+                              <Badge 
+                                variant={
+                                  primaryStatus === 'delivered' ? 'default' :
+                                  primaryStatus === 'shipped' ? 'secondary' :
+                                  primaryStatus === 'ordered' ? 'secondary' :
+                                  'outline'
+                                }
+                                className="text-xs"
+                              >
+                                {primaryStatus}
+                              </Badge>
+                              {Object.keys(statusCounts).length > 1 && (
+                                <p className="text-xs text-muted-foreground">
+                                  Mixed status
+                                </p>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-8 w-8 p-0"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigate(`/po-details?po=${encodeURIComponent(poNumber)}`);
+                                  }}
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </Button>
+                                {primaryStatus !== 'delivered' && (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-8 w-8 p-0"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleMarkPODeliveredAndClosed(poNumber);
+                                    }}
+                                  >
+                                    <PackageCheck className="w-4 h-4" />
+                                  </Button>
+                                )}
+                              </div>
                             </TableCell>
                           </TableRow>
                         );
@@ -1060,16 +747,16 @@ export function POTracker() {
             <CardHeader>
               <CardTitle>Closed PO Orders</CardTitle>
               <CardDescription>
-                View completed and closed purchase orders. These POs are no longer available for matching.
+                View closed purchase orders that have been delivered and completed.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Search Controls for Closed POs */}
+              {/* Search Controls */}
               <div className="flex gap-4">
                 <div className="relative flex-1">
                   <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="Search closed PO numbers..."
+                    placeholder="Search closed POs..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-8"
@@ -1078,16 +765,11 @@ export function POTracker() {
               </div>
 
               {/* Closed PO Orders Table */}
-              {ordersLoading ? (
-                <div className="flex items-center justify-center py-16">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                  <span className="ml-2">Loading closed orders...</span>
-                </div>
-              ) : filteredClosedPOGroups.length === 0 ? (
+              {filteredClosedPOGroups.length === 0 ? (
                 <div className="text-center py-16">
                   <Archive className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                   <h3 className="text-lg font-semibold mb-2">No Closed PO Orders</h3>
-                  <p className="text-muted-foreground">Closed POs will appear here once you mark them as completed.</p>
+                  <p className="text-muted-foreground">Closed PO orders will appear here once delivered.</p>
                 </div>
               ) : (
                 <div className="border-2 border-primary/20 rounded-md">
@@ -1095,97 +777,63 @@ export function POTracker() {
                     <TableHeader>
                       <TableRow className="border-b-2 border-primary/30">
                         <TableHead>PO Details</TableHead>
-                        <TableHead>Items Summary</TableHead>
-                        <TableHead>Tracking Info</TableHead>
-                        <TableHead>Status</TableHead>
+                        <TableHead>Items & Quantities</TableHead>
+                        <TableHead>Closed Date</TableHead>
+                        <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredClosedPOGroups.map(([poNumber, orders]) => {
-                        const totalItems = orders.length;
-                        const closedItems = orders.filter(order => order.status === 'closed').length;
-                        
-                        // Get tracking numbers for this PO
-                        const trackingNumbers = orders
-                          .filter(order => order.tracking_number)
-                          .map(order => ({
-                            number: order.tracking_number,
-                            url: order.tracking_url
-                          }))
-                          .filter((item, index, arr) => 
-                            arr.findIndex(x => x.number === item.number) === index
-                          );
-                        
+                      {filteredClosedPOGroups.map(({ poNumber, orders }) => {
+                        const firstOrder = orders[0];
+                        const totalQuantity = orders.reduce((sum: number, order: any) => sum + (order.quantity || 0), 0);
+                        const closedDate = new Date(firstOrder.updated_at).toLocaleDateString();
+
                         return (
                           <TableRow 
                             key={poNumber}
-                            className="transition-colors border-b-2 border-primary/20 bg-muted/10"
+                            className="hover:bg-muted/50 cursor-pointer transition-colors"
+                            onClick={() => navigate(`/po-details?po=${encodeURIComponent(poNumber)}`)}
                           >
-                            <TableCell>
-                              <div className="space-y-1">
-                                <div className="font-mono font-bold text-primary text-lg">
-                                  {poNumber}
-                                </div>
-                                <div className="text-sm text-muted-foreground">
-                                  Ship to: {orders[0]?.ship_to_location || 'Not specified'}
-                                </div>
-                                <Badge variant="secondary" className="bg-green-100 text-green-800 text-xs">
-                                  <Archive className="h-3 w-3 mr-1" />
+                            <TableCell className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">{poNumber}</span>
+                                <Badge variant="secondary" className="text-xs">
                                   Closed
                                 </Badge>
                               </div>
-                            </TableCell>
-                            
-                            <TableCell>
-                              <div className="space-y-2">
-                                <div className="text-sm">
-                                  <span className="font-medium">{totalItems}</span> total items
-                                </div>
-                                <div className="text-sm">
-                                  <span className="font-medium text-green-600">{closedItems}</span> closed items
-                                </div>
-                                <Progress 
-                                  value={totalItems > 0 ? (closedItems / totalItems) * 100 : 0} 
-                                  className="h-2 [&>div]:bg-green-500"
-                                />
-                              </div>
-                            </TableCell>
-                            
-                            <TableCell>
-                              {trackingNumbers.length > 0 ? (
-                                <div className="flex flex-wrap gap-1">
-                                  {trackingNumbers.map((tracking, index) => (
-                                    tracking.url ? (
-                                      <a
-                                        key={index}
-                                        href={tracking.url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="inline-flex items-center gap-1 px-2 py-1 bg-primary/10 hover:bg-primary/20 text-primary rounded text-xs font-medium transition-colors border border-primary/20 hover:border-primary/40"
-                                      >
-                                        📦 {tracking.number}
-                                        <ExternalLink className="h-3 w-3" />
-                                      </a>
-                                    ) : (
-                                      <span
-                                        key={index}
-                                        className="inline-flex items-center gap-1 px-2 py-1 bg-muted text-muted-foreground rounded text-xs font-medium border"
-                                      >
-                                        📦 {tracking.number}
-                                      </span>
-                                    )
-                                  ))}
-                                </div>
-                              ) : (
-                                <span className="text-xs text-muted-foreground">No tracking info</span>
+                              {firstOrder.title && (
+                                <p className="text-sm text-muted-foreground truncate max-w-[200px]">
+                                  {firstOrder.title}
+                                </p>
                               )}
                             </TableCell>
-                            
                             <TableCell>
-                              <Badge variant="secondary" className="bg-green-100 text-green-800">
-                                <CheckCircle className="h-3 w-3 mr-1" />
-                                Completed
-                              </Badge>
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="outline" className="text-xs">
+                                    {orders.length} items
+                                  </Badge>
+                                  <Badge variant="outline" className="text-xs">
+                                    {totalQuantity} total qty
+                                  </Badge>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <span className="text-sm">{closedDate}</span>
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 w-8 p-0"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(`/po-details?po=${encodeURIComponent(poNumber)}`);
+                                }}
+                              >
+                                <Eye className="w-4 h-4" />
+                              </Button>
                             </TableCell>
                           </TableRow>
                         );
@@ -1199,54 +847,7 @@ export function POTracker() {
         </TabsContent>
 
         <TabsContent value="analytics" className="space-y-4">
-          <POProfitAnalytics poOrders={poOrders} sunskySKUs={sunskySKUs} />
-        </TabsContent>
-
-        <TabsContent value="skus" className="space-y-4">
-          {/* Sunsky SKU Importer */}
-          <SunskySKUImporter />
-          
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>Sunsky SKU Database</span>
-                <Badge variant="outline">
-                  {sunskySKUs.length} / {totalCount} loaded
-                </Badge>
-              </CardTitle>
-              <CardDescription>
-                Manage SKUs for Sunsky supplier. Add new SKUs or search existing ones.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search SKUs..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-8"
-                  />
-                </div>
-                <ShippingRateDialog 
-                  currentRate={shippingRate} 
-                  onUpdateRate={handleUpdateShippingRate} 
-                  isLoading={isUpdatingRate} 
-                />
-                <AddSKUDialog onAddSKUs={addSKUs} isLoading={skuLoading} />
-              </div>
-              
-              <SKUList 
-                skus={filteredSKUs} 
-                shippingRate={shippingRate} 
-                isLoading={skuLoading}
-                hasMore={hasMoreSKUs}
-                onLoadMore={loadMoreSKUs}
-                onSkuUpdated={refreshSKUs}
-              />
-            </CardContent>
-          </Card>
+          <POProfitAnalytics poOrders={poOrders} sunskySKUs={[]} />
         </TabsContent>
       </Tabs>
     </div>
