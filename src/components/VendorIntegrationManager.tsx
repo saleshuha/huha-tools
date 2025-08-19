@@ -12,7 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useVendorIntegration } from '@/hooks/useVendorIntegration';
 import { useCountry } from '@/contexts/CountryContext';
-import { Plus, Settings, Download, Trash2, Send, CheckCircle, XCircle, Clock, Inbox, TestTube } from 'lucide-react';
+import { Plus, Settings, Download, Trash2, Send, CheckCircle, XCircle, Clock, Inbox, TestTube, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
 
 export function VendorIntegrationManager() {
@@ -681,7 +681,7 @@ export function VendorIntegrationManager() {
               onClick={() => loadFeedLogs()}
               disabled={loading}
             >
-              <Download className="w-4 h-4 mr-2" />
+              <RefreshCw className="w-4 h-4 mr-2" />
               Refresh
             </Button>
           </div>
