@@ -20,7 +20,7 @@ import { useUserProfile } from '@/hooks/useUserProfile';
 import { supabase } from '@/integrations/supabase/client';
 import { DualQuantityEditor } from './DualQuantityEditor';
 import { StockHistoryDialog } from './StockHistoryDialog';
-import { SkuEditor } from './SkuEditor';
+// Removed SkuEditor import as SKU functionality has been removed
 import { InventoryMetrics } from './InventoryMetrics';
 import { InventoryDashboard } from './InventoryDashboard';
 import { BulkSkuUpload } from './BulkSkuUpload';
