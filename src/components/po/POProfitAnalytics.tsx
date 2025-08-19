@@ -34,10 +34,10 @@ interface ProfitAnalyticsData {
 
 interface POProfitAnalyticsProps {
   poOrders: any[];
-  sunskySKUs: any[];
+  sunskySKUs?: any[];
 }
 
-export function POProfitAnalytics({ poOrders, sunskySKUs }: POProfitAnalyticsProps) {
+export function POProfitAnalytics({ poOrders, sunskySKUs = [] }: POProfitAnalyticsProps) {
   const [analyticsData, setAnalyticsData] = useState<ProfitAnalyticsData[]>([]);
   const [filteredData, setFilteredData] = useState<ProfitAnalyticsData[]>([]);
   const [searchTerm, setSearchTerm] = useState('');

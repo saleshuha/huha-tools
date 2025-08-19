@@ -847,7 +847,7 @@ export function POTracker() {
         </TabsContent>
 
         <TabsContent value="analytics" className="space-y-4">
-          <POProfitAnalytics poOrders={poOrders} sunskySKUs={[]} />
+          <POProfitAnalytics poOrders={poOrders} />
         </TabsContent>
       </Tabs>
     </div>
