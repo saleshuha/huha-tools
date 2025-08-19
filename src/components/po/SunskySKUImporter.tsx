@@ -373,12 +373,18 @@ export const SunskySKUImporter: React.FC = () => {
 
   const createCategoryImportJob = async () => {
     try {
+      console.log('Creating import job with selectedCategory:', selectedCategory);
+      
       const criteria: any = {};
       
       if (selectedSubCategory && selectedSubCategory !== 'all') {
         criteria.categoryId = selectedSubCategory;
+        console.log('Using subcategory:', selectedSubCategory);
       } else if (selectedCategory && selectedCategory !== 'all') {
         criteria.categoryId = selectedCategory;
+        console.log('Using category:', selectedCategory);
+      } else {
+        throw new Error('Please select a category');
       }
       
       if (dateRange?.from) {
@@ -389,6 +395,8 @@ export const SunskySKUImporter: React.FC = () => {
         criteria.dateTo = dateRange.to.toISOString();
       }
 
+      console.log('Import job criteria:', criteria);
+      
       await createImportJob('category', criteria);
       
     } catch (error) {
@@ -1218,7 +1226,7 @@ export const SunskySKUImporter: React.FC = () => {
                   disabled={!selectedCategory || selectedCategory === 'all' || jobsLoading}
                   className="w-full"
                 >
-                  Create Import Task
+                  {jobsLoading ? 'Creating...' : 'Create Import Task'}
                 </Button>
               </CardContent>
             </Card>
