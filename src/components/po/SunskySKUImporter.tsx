@@ -497,7 +497,7 @@ export const SunskySKUImporter: React.FC = () => {
                           <SelectValue placeholder="Select lead time" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">All Lead Times</SelectItem>
+                          <SelectItem value="all">All Lead Times</SelectItem>
                           <SelectItem value="1">1-3 days</SelectItem>
                           <SelectItem value="2">4-7 days</SelectItem>
                           <SelectItem value="3">1-2 weeks</SelectItem>
