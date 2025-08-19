@@ -157,10 +157,13 @@ Deno.serve(async (req) => {
             username: username,
             privateKey: privateKey,
             readyTimeout: 30000,
-            strictVendor: false,
-            retries: 2,
-            retry_factor: 2,
-            retry_minTimeout: 2000
+            algorithms: {
+              serverHostKey: ['ssh-rsa', 'ssh-ed25519'],
+              cipher: ['aes128-ctr', 'aes192-ctr', 'aes256-ctr'],
+              hmac: ['hmac-sha2-256', 'hmac-sha2-512', 'hmac-sha1'],
+              kex: ['diffie-hellman-group14-sha256', 'diffie-hellman-group14-sha1', 'ecdh-sha2-nistp256']
+            },
+            debug: (info) => console.log('SFTP Debug:', info)
           };
           
           console.log('Connecting to SFTP server...');
@@ -169,9 +172,17 @@ Deno.serve(async (req) => {
           console.log('SFTP connection established');
           console.log(`Uploading file to remote path: ${remotePath}/${defaultFileName}`);
           
-          // Upload file content 
+          // Upload file content using Buffer.from for proper encoding
           const remoteFilePath = `${remotePath}/${defaultFileName}`;
-          const buffer = new TextEncoder().encode(xml_content);
+          const buffer = Buffer.from(xml_content, 'utf8');
+          
+          // Ensure remote directory exists
+          try {
+            await sftp.mkdir(remotePath, true);
+            console.log(`Created/verified remote directory: ${remotePath}`);
+          } catch (mkdirError) {
+            console.log(`Directory already exists or creation failed: ${mkdirError.message}`);
+          }
           
           await sftp.put(buffer, remoteFilePath);
           
@@ -183,6 +194,11 @@ Deno.serve(async (req) => {
           
         } catch (sftpError) {
           console.error('SFTP upload failed:', sftpError);
+          console.error('Error details:', {
+            message: sftpError.message,
+            code: sftpError.code,
+            stack: sftpError.stack
+          });
           uploadStatus = 'failed';
           errorMessage = `SFTP upload failed: ${sftpError.message}`;
         }
