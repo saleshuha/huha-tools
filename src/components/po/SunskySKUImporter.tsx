@@ -663,23 +663,23 @@ export const SunskySKUImporter: React.FC = () => {
             Search, view, and import products from Sunsky marketplace
           </p>
         </div>
-        <SunskyCredentialsManager onCredentialsChanged={checkCredentialsStatus} />
       </div>
 
       {!hasCredentials && (
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            Please configure your Sunsky API credentials to start importing SKUs.
+            Please configure your Sunsky API credentials in the Settings tab to start importing SKUs.
           </AlertDescription>
         </Alert>
       )}
 
       <Tabs defaultValue="search" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="search">Search & Import</TabsTrigger>
           <TabsTrigger value="jobs">Import Jobs</TabsTrigger>
           <TabsTrigger value="skus">Imported SKUs</TabsTrigger>
+          <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
         
         <TabsContent value="search" className="space-y-6">
@@ -1362,6 +1362,55 @@ export const SunskySKUImporter: React.FC = () => {
                     </Table>
                   </div>
                 )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+        
+        <TabsContent value="settings" className="space-y-6">
+          <div className="grid grid-cols-1 gap-6">
+            {/* API Connection Settings */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Settings className="h-5 w-5" />
+                  API Connection
+                </CardTitle>
+                <CardDescription>
+                  Configure your Sunsky API credentials to enable product searching and importing
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <SunskyCredentialsManager onCredentialsChanged={checkCredentialsStatus} />
+              </CardContent>
+            </Card>
+            
+            {/* Connection Status */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Globe className="h-5 w-5" />
+                  Connection Status
+                </CardTitle>
+                <CardDescription>
+                  Current status of your Sunsky API connection
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-3">
+                  <div className={`w-3 h-3 rounded-full ${hasCredentials ? 'bg-green-500' : 'bg-red-500'}`} />
+                  <span className="font-medium">
+                    {hasCredentials ? 'Connected' : 'Not Connected'}
+                  </span>
+                  <Badge variant={hasCredentials ? 'default' : 'destructive'}>
+                    {hasCredentials ? 'Active' : 'Inactive'}
+                  </Badge>
+                </div>
+                <p className="text-sm text-muted-foreground mt-2">
+                  {hasCredentials 
+                    ? 'Your API credentials are configured and ready to use.' 
+                    : 'Please configure your API credentials above to enable importing.'}
+                </p>
               </CardContent>
             </Card>
           </div>
