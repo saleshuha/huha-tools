@@ -19,6 +19,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { DateRange } from "react-day-picker";
 import { SunskyCredentialsManager } from "./SunskyCredentialsManager";
+import { useSKUManager } from "@/hooks/useSKUManager";
+import { useImportJobs } from "@/hooks/useImportJobs";
 
 interface SunskyProduct {
   // Core product fields
@@ -133,6 +135,8 @@ interface SearchFilters {
 export const SunskySKUImporter: React.FC = () => {
   const { toast } = useToast();
   const { profile } = useUserProfile();
+  const { sunskySKUs, isLoading: skusLoading, fetchSKUs, totalCount } = useSKUManager();
+  const { jobs, isLoading: jobsLoading, createImportJob, fetchJobs } = useImportJobs();
   
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -171,6 +175,8 @@ export const SunskySKUImporter: React.FC = () => {
   useEffect(() => {
     if (hasCredentials) {
       loadCategories();
+      fetchSKUs();
+      fetchJobs();
     }
   }, [hasCredentials]);
 
@@ -362,6 +368,31 @@ export const SunskySKUImporter: React.FC = () => {
     } catch (error) {
       console.error('Error getting product details:', error);
       return null;
+    }
+  };
+
+  const createCategoryImportJob = async () => {
+    try {
+      const criteria: any = {};
+      
+      if (selectedSubCategory && selectedSubCategory !== 'all') {
+        criteria.categoryId = selectedSubCategory;
+      } else if (selectedCategory && selectedCategory !== 'all') {
+        criteria.categoryId = selectedCategory;
+      }
+      
+      if (dateRange?.from) {
+        criteria.dateFrom = dateRange.from.toISOString();
+      }
+      
+      if (dateRange?.to) {
+        criteria.dateTo = dateRange.to.toISOString();
+      }
+
+      await createImportJob('category', criteria);
+      
+    } catch (error) {
+      console.error('Error creating import job:', error);
     }
   };
 
@@ -609,7 +640,7 @@ export const SunskySKUImporter: React.FC = () => {
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="credentials">API Connection</TabsTrigger>
           <TabsTrigger value="search" disabled={!hasCredentials}>Search Products</TabsTrigger>
-          <TabsTrigger value="imported">Imported SKUs</TabsTrigger>
+          <TabsTrigger value="imported">Imported SKUs & Tasks</TabsTrigger>
         </TabsList>
 
         <TabsContent value="credentials" className="space-y-6">
@@ -1138,25 +1169,203 @@ export const SunskySKUImporter: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="imported">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CheckCircle2 className="h-5 w-5" />
-                Imported SKUs
-              </CardTitle>
-              <CardDescription>
-                View and manage your imported Sunsky SKUs
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  Imported SKUs feature coming soon. You can view imported SKUs in the main inventory section.
-                </AlertDescription>
-              </Alert>
-            </CardContent>
-          </Card>
+          <div className="space-y-6">
+            {/* Import Tasks */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5" />
+                  Create Import Task
+                </CardTitle>
+                <CardDescription>
+                  Create background import jobs to process large product catalogs
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Task Type</Label>
+                    <Select value="category">
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select task type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="category">Import by Category</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label>Category</Label>
+                    <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Categories</SelectItem>
+                        {categories.map((category) => (
+                          <SelectItem key={category.id} value={category.id.toString()}>
+                            {category.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <Button 
+                  onClick={createCategoryImportJob} 
+                  disabled={!selectedCategory || selectedCategory === 'all' || jobsLoading}
+                  className="w-full"
+                >
+                  Create Import Task
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Import Jobs List */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <RefreshCw className="h-5 w-5" />
+                  Import Jobs
+                </CardTitle>
+                <CardDescription>
+                  Monitor the status of your import tasks
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {jobsLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+                  </div>
+                ) : jobs.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Calendar className="h-12 w-12 mx-auto mb-4" />
+                    <p>No import jobs created yet</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {jobs.map((job) => (
+                      <div key={job.id} className="border rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <Badge 
+                              variant={
+                                job.status === 'completed' ? 'default' :
+                                job.status === 'processing' ? 'secondary' :
+                                job.status === 'failed' ? 'destructive' : 'outline'
+                              }
+                            >
+                              {job.status}
+                            </Badge>
+                            <span className="font-medium capitalize">{job.type}</span>
+                          </div>
+                          <span className="text-sm text-muted-foreground">
+                            {new Date(job.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
+                        
+                        {job.total_items && (
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-sm">
+                              <span>Progress</span>
+                              <span>{job.processed_items}/{job.total_items}</span>
+                            </div>
+                            <Progress 
+                              value={(job.processed_items / job.total_items) * 100} 
+                              className="h-2" 
+                            />
+                            <div className="flex justify-between text-xs text-muted-foreground">
+                              <span>Success: {job.success_count}</span>
+                              <span>Errors: {job.error_count}</span>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {job.last_error && (
+                          <div className="mt-2 text-sm text-destructive">
+                            Error: {job.last_error}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Imported SKUs */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <CheckCircle2 className="h-5 w-5" />
+                      Imported SKUs ({totalCount})
+                    </CardTitle>
+                    <CardDescription>
+                      View and manage your imported Sunsky SKUs
+                    </CardDescription>
+                  </div>
+                  <Button 
+                    onClick={() => fetchSKUs()}
+                    variant="outline"
+                    size="sm"
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Refresh
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {skusLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+                  </div>
+                ) : sunskySKUs.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Package className="h-12 w-12 mx-auto mb-4" />
+                    <p>No SKUs imported yet</p>
+                    <p className="text-sm">Use the search tab to import SKUs from Sunsky</p>
+                  </div>
+                ) : (
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>SKU Code</TableHead>
+                          <TableHead>Title</TableHead>
+                          <TableHead>Cost</TableHead>
+                          <TableHead>Currency</TableHead>
+                          <TableHead>Country</TableHead>
+                          <TableHead>Imported</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {sunskySKUs.map((sku) => (
+                          <TableRow key={sku.id}>
+                            <TableCell className="font-mono">{sku.sku_code}</TableCell>
+                            <TableCell className="max-w-xs truncate" title={sku.title}>
+                              {sku.title || '-'}
+                            </TableCell>
+                            <TableCell>
+                              {sku.cost ? `${sku.cost.toFixed(2)}` : '-'}
+                            </TableCell>
+                            <TableCell>{sku.currency || '-'}</TableCell>
+                            <TableCell>{sku.country || '-'}</TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {new Date(sku.created_at).toLocaleDateString()}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>

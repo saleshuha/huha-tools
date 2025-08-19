@@ -371,6 +371,273 @@ async function convertCurrency(priceUSD: number, userCountry: string): Promise<n
   return priceUSD * (exchangeRate || 1);
 }
 
+// Background job processor
+async function processImportJob(job: any, userId: string, userCountry: string) {
+  try {
+    const credentials = await getApiCredentials(userId);
+    
+    // Update job status to processing
+    await supabase
+      .from('sunsky_import_jobs')
+      .update({ 
+        status: 'processing', 
+        started_at: new Date().toISOString() 
+      })
+      .eq('id', job.id);
+
+    let products: any[] = [];
+    const { type, criteria } = job;
+
+    // Log job start
+    await supabase
+      .from('sunsky_import_logs')
+      .insert({
+        job_id: job.id,
+        user_id: userId,
+        level: 'info',
+        message: `Starting import job: ${type}`,
+        context: criteria
+      });
+
+    if (type === 'category') {
+      const searchParams: any = {
+        lang: 'en',
+        pageSize: 100,
+        page: 1,
+        status: 1
+      };
+      
+      if (criteria.categoryId) searchParams.categoryId = criteria.categoryId;
+      if (criteria.dateFrom) searchParams.dateFrom = criteria.dateFrom;
+      if (criteria.dateTo) searchParams.dateTo = criteria.dateTo;
+      if (criteria.gmtModifiedStart) searchParams.gmtModifiedStart = criteria.gmtModifiedStart;
+
+      let currentPage = 1;
+      let hasMorePages = true;
+
+      while (hasMorePages) {
+        searchParams.page = currentPage;
+        
+        try {
+          const result = await makeSunskyRequest('/openapi/product!search.do', searchParams, credentials.key, credentials.secret, userId);
+          
+          if (result.result === 'success' && result.data?.result) {
+            products.push(...result.data.result);
+            
+            // Check if there are more pages
+            hasMorePages = result.data.result.length === searchParams.pageSize;
+            currentPage++;
+            
+            // Update progress
+            await supabase
+              .from('sunsky_import_jobs')
+              .update({ 
+                total_items: products.length,
+                processed_items: 0
+              })
+              .eq('id', job.id);
+          } else {
+            hasMorePages = false;
+          }
+        } catch (error) {
+          if (error instanceof Response && error.status === 429) {
+            // Rate limit hit, stop for now
+            await supabase
+              .from('sunsky_import_logs')
+              .insert({
+                job_id: job.id,
+                user_id: userId,
+                level: 'warning',
+                message: 'Rate limit hit during product search',
+                context: { page: currentPage }
+              });
+            break;
+          }
+          throw error;
+        }
+      }
+    }
+
+    // Update total items count
+    await supabase
+      .from('sunsky_import_jobs')
+      .update({ 
+        total_items: products.length 
+      })
+      .eq('id', job.id);
+
+    // Process each product
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (let i = 0; i < products.length; i++) {
+      const product = products[i];
+      
+      try {
+        // Create job item record
+        await supabase
+          .from('sunsky_import_job_items')
+          .insert({
+            job_id: job.id,
+            user_id: userId,
+            item_no: product.itemNo,
+            status: 'processing'
+          });
+
+        // Get detailed product info
+        const detailResult = await makeSunskyRequest(
+          '/openapi/product!detail.do',
+          { lang: 'en', itemNo: product.itemNo },
+          credentials.key,
+          credentials.secret,
+          userId
+        );
+
+        if (detailResult.result === 'success' && detailResult.data) {
+          const productDetail = detailResult.data;
+          
+          // Convert price to user's currency
+          const convertedCost = await convertCurrency(
+            parseFloat(productDetail.price || 0),
+            userCountry
+          );
+
+          // Insert/update SKU
+          const { data: skuData, error: skuError } = await supabase
+            .from('sunsky_skus')
+            .upsert({
+              user_id: userId,
+              sku_code: productDetail.itemNo,
+              title: productDetail.name,
+              description: productDetail.description,
+              cost: convertedCost,
+              weight: productDetail.unitWeight ? parseFloat(productDetail.unitWeight) : null,
+              notes: `Imported from Sunsky - Lead Time: ${productDetail.leadTime || 'N/A'}`,
+              currency: userCountry === 'KSA' ? 'SAR' : 'AED',
+              country: userCountry
+            }, { 
+              onConflict: 'user_id,sku_code',
+              ignoreDuplicates: false 
+            })
+            .select()
+            .single();
+
+          if (skuError) {
+            throw skuError;
+          }
+
+          // Update job item as success
+          await supabase
+            .from('sunsky_import_job_items')
+            .update({
+              status: 'success',
+              sku_id: skuData.id
+            })
+            .eq('job_id', job.id)
+            .eq('item_no', product.itemNo);
+
+          successCount++;
+        }
+      } catch (error) {
+        errorCount++;
+        
+        // Update job item as failed
+        await supabase
+          .from('sunsky_import_job_items')
+          .update({
+            status: 'failed',
+            error_message: error.message
+          })
+          .eq('job_id', job.id)
+          .eq('item_no', product.itemNo);
+
+        // Log error
+        await supabase
+          .from('sunsky_import_logs')
+          .insert({
+            job_id: job.id,
+            user_id: userId,
+            level: 'error',
+            message: `Failed to process item ${product.itemNo}`,
+            context: { error: error.message }
+          });
+
+        // Handle rate limits
+        if (error instanceof Response && error.status === 429) {
+          // Update job as paused due to rate limit
+          await supabase
+            .from('sunsky_import_jobs')
+            .update({ 
+              status: 'paused',
+              processed_items: i + 1,
+              success_count: successCount,
+              error_count: errorCount,
+              last_error: 'Rate limit reached'
+            })
+            .eq('id', job.id);
+          
+          return;
+        }
+      }
+
+      // Update progress every 10 items
+      if (i % 10 === 0) {
+        await supabase
+          .from('sunsky_import_jobs')
+          .update({ 
+            processed_items: i + 1,
+            success_count: successCount,
+            error_count: errorCount
+          })
+          .eq('id', job.id);
+      }
+    }
+
+    // Mark job as completed
+    await supabase
+      .from('sunsky_import_jobs')
+      .update({ 
+        status: 'completed',
+        processed_items: products.length,
+        success_count: successCount,
+        error_count: errorCount,
+        completed_at: new Date().toISOString()
+      })
+      .eq('id', job.id);
+
+    // Log completion
+    await supabase
+      .from('sunsky_import_logs')
+      .insert({
+        job_id: job.id,
+        user_id: userId,
+        level: 'info',
+        message: `Import job completed: ${successCount} success, ${errorCount} errors`
+      });
+
+  } catch (error) {
+    // Mark job as failed
+    await supabase
+      .from('sunsky_import_jobs')
+      .update({ 
+        status: 'failed',
+        last_error: error.message,
+        completed_at: new Date().toISOString()
+      })
+      .eq('id', job.id);
+
+    // Log error
+    await supabase
+      .from('sunsky_import_logs')
+      .insert({
+        job_id: job.id,
+        user_id: userId,
+        level: 'error',
+        message: `Import job failed: ${error.message}`
+      });
+  }
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -701,10 +968,13 @@ serve(async (req) => {
               
               // Return partial results with rate limit info
               if (processedSKUs.length > 0) {
-                const { data: insertedSKUs, error: insertError } = await supabase
-                  .from('sunsky_skus')
-                  .insert(processedSKUs)
-                  .select();
+                  const { data: insertedSKUs, error: insertError } = await supabase
+                    .from('sunsky_skus')
+                    .upsert(processedSKUs, { 
+                      onConflict: 'user_id,sku_code',
+                      ignoreDuplicates: false 
+                    })
+                    .select();
 
                 if (!insertError) {
                   const errorBody = await error.json();
@@ -734,10 +1004,13 @@ serve(async (req) => {
           throw new Error('No valid SKUs could be processed');
         }
 
-        // Insert SKUs into database
+        // Insert SKUs into database using upsert to handle duplicates
         const { data: insertedSKUs, error: insertError } = await supabase
           .from('sunsky_skus')
-          .insert(processedSKUs)
+          .upsert(processedSKUs, { 
+            onConflict: 'user_id,sku_code',
+            ignoreDuplicates: false 
+          })
           .select();
 
         if (insertError) {
@@ -795,6 +1068,139 @@ serve(async (req) => {
           }
           throw error;
         }
+      }
+
+      case 'createImportJob': {
+        const { type, criteria } = requestData;
+        
+        if (!type || !criteria) {
+          throw new Error('type and criteria are required');
+        }
+
+        // Create new import job
+        const { data: job, error: jobError } = await supabase
+          .from('sunsky_import_jobs')
+          .insert({
+            user_id: user.id,
+            type,
+            criteria,
+            country: userCountry
+          })
+          .select()
+          .single();
+
+        if (jobError) {
+          throw new Error('Failed to create import job');
+        }
+
+        return new Response(JSON.stringify({
+          result: 'success',
+          data: job
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      case 'startImportJob': {
+        const { jobId } = requestData;
+        
+        if (!jobId) {
+          throw new Error('jobId is required');
+        }
+
+        // Get job details
+        const { data: job, error: jobError } = await supabase
+          .from('sunsky_import_jobs')
+          .select('*')
+          .eq('id', jobId)
+          .eq('user_id', user.id)
+          .single();
+
+        if (jobError || !job) {
+          throw new Error('Job not found');
+        }
+
+        // Start background processing
+        EdgeRuntime.waitUntil(processImportJob(job, user.id, userCountry));
+
+        return new Response(JSON.stringify({
+          result: 'success',
+          message: 'Import job started'
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      case 'listImportJobs': {
+        const { data: jobs, error: jobsError } = await supabase
+          .from('sunsky_import_jobs')
+          .select(`
+            id,
+            type,
+            criteria,
+            status,
+            total_items,
+            processed_items,
+            success_count,
+            error_count,
+            created_at,
+            started_at,
+            completed_at,
+            last_error
+          `)
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(50);
+
+        if (jobsError) {
+          throw new Error('Failed to fetch import jobs');
+        }
+
+        return new Response(JSON.stringify({
+          result: 'success',
+          data: jobs || []
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      case 'getJobStatus': {
+        const { jobId } = requestData;
+        
+        if (!jobId) {
+          throw new Error('jobId is required');
+        }
+
+        const { data: job, error: jobError } = await supabase
+          .from('sunsky_import_jobs')
+          .select(`
+            id,
+            type,
+            criteria,
+            status,
+            total_items,
+            processed_items,
+            success_count,
+            error_count,
+            created_at,
+            started_at,
+            completed_at,
+            last_error
+          `)
+          .eq('id', jobId)
+          .eq('user_id', user.id)
+          .single();
+
+        if (jobError) {
+          throw new Error('Job not found');
+        }
+
+        return new Response(JSON.stringify({
+          result: 'success',
+          data: job
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
       }
 
       default:
