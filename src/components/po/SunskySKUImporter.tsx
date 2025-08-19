@@ -337,10 +337,16 @@ export const SunskySKUImporter: React.FC = () => {
       
       // Set default selected API to first active one
       const defaultAPI = apis.find(api => api.is_active)?.id || apis[0]?.id || '';
-      if (defaultAPI && !selectedAPI) {
-        setSelectedAPI(defaultAPI);
-        setSelectedSearchAPI(defaultAPI);
-        setSelectedJobAPI(defaultAPI);
+      if (defaultAPI) {
+        if (!selectedAPI) {
+          setSelectedAPI(defaultAPI);
+        }
+        if (!selectedSearchAPI) {
+          setSelectedSearchAPI(defaultAPI);
+        }
+        if (!selectedJobAPI) {
+          setSelectedJobAPI(defaultAPI);
+        }
       }
     } catch (error) {
       console.error('Error loading APIs:', error);
@@ -679,6 +685,7 @@ export const SunskySKUImporter: React.FC = () => {
       fetchSKUs(1);
       fetchJobs();
       loadColumnPreferences();
+      loadAvailableAPIs();
     }
   }, [profile?.id, fetchSKUs, fetchJobs]);
 
@@ -688,6 +695,14 @@ export const SunskySKUImporter: React.FC = () => {
       loadBrands(selectedAPI);
     }
   }, [hasCredentials, selectedAPI]);
+
+  // Load categories and brands when search API is selected
+  useEffect(() => {
+    if (hasCredentials && selectedSearchAPI) {
+      loadCategories(selectedSearchAPI);
+      loadBrands(selectedSearchAPI);
+    }
+  }, [hasCredentials, selectedSearchAPI]);
 
   useEffect(() => {
     if (selectedCategory !== 'all' && selectedSearchAPI) {

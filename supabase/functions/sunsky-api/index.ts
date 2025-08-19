@@ -230,12 +230,31 @@ async function generateSignature(params: Record<string, any>, key: string, secre
 }
 
 // Get API credentials for user (user-specific first, then fallback to env)
-async function getApiCredentials(userId: string): Promise<{ key: string; secret: string }> {
-  // Try to get user-specific credentials first
+async function getApiCredentials(userId: string, apiId?: string): Promise<{ key: string; secret: string }> {
+  // If specific API ID is provided, use those credentials
+  if (apiId) {
+    const { data: specificCredentials } = await supabase
+      .from('sunsky_credentials')
+      .select('api_key, api_secret')
+      .eq('id', apiId)
+      .eq('user_id', userId)
+      .single();
+
+    if (specificCredentials?.api_key && specificCredentials?.api_secret) {
+      console.log('Using specific Sunsky credentials for API ID:', apiId);
+      return {
+        key: specificCredentials.api_key,
+        secret: specificCredentials.api_secret
+      };
+    }
+  }
+
+  // Try to get user-specific credentials (active ones)
   const { data: userCredentials } = await supabase
     .from('sunsky_credentials')
     .select('api_key, api_secret')
     .eq('user_id', userId)
+    .eq('is_active', true)
     .single();
 
   if (userCredentials?.api_key && userCredentials?.api_secret) {
@@ -1048,7 +1067,8 @@ serve(async (req) => {
       }
 
       case 'searchProducts': {
-        const credentials = await getApiCredentials(user.id);
+        const { apiId } = requestData;
+        const credentials = await getApiCredentials(user.id, apiId);
         
         const { 
           categoryId, 
@@ -1271,7 +1291,8 @@ serve(async (req) => {
       }
 
       case 'getCategories': {
-        const credentials = await getApiCredentials(user.id);
+        const { apiId } = requestData;
+        const credentials = await getApiCredentials(user.id, apiId);
         const { parentId, lang = 'en', gmtModifiedStart } = requestData;
 
         const params: Record<string, any> = {
@@ -1310,7 +1331,8 @@ serve(async (req) => {
       }
 
       case 'getBrands': {
-        const credentials = await getApiCredentials(user.id);
+        const { apiId } = requestData;
+        const credentials = await getApiCredentials(user.id, apiId);
         const { lang = 'en' } = requestData;
 
         const params = { lang };
@@ -1337,6 +1359,7 @@ serve(async (req) => {
       }
 
       case 'createImportJob': {
+        const { type, criteria } = requestData;
         
         if (!type || !criteria) {
           throw new Error('type and criteria are required');
