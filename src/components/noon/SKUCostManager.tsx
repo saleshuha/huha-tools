@@ -50,13 +50,13 @@ export function SKUCostManager({ feesData, onCostsUpdated }: SKUCostManagerProps
     try {
       setLoading(true);
       const { data, error } = await supabase
-        .from('sku_costs')
+        .from('sku_costs' as any)
         .select('*')
         .eq('country', selectedCountry);
 
       if (error) throw error;
 
-      const formattedCosts: SKUCost[] = data.map(item => ({
+      const formattedCosts: SKUCost[] = (data as any[])?.map((item: any) => ({
         id: item.id,
         sku: item.sku,
         cost: Number(item.cost),
@@ -64,7 +64,7 @@ export function SKUCostManager({ feesData, onCostsUpdated }: SKUCostManagerProps
         notes: item.notes,
         created_at: item.created_at,
         updated_at: item.updated_at
-      }));
+      })) || [];
 
       setCosts(formattedCosts);
       onCostsUpdated(formattedCosts);
@@ -156,7 +156,7 @@ export function SKUCostManager({ feesData, onCostsUpdated }: SKUCostManagerProps
       if (existingCost?.id) {
         // Update existing cost
         const { error } = await supabase
-          .from('sku_costs')
+          .from('sku_costs' as any)
           .update({
             cost,
             notes: editingNotes.trim() || null,
@@ -171,7 +171,7 @@ export function SKUCostManager({ feesData, onCostsUpdated }: SKUCostManagerProps
         if (!user) throw new Error('User not authenticated');
         
         const { error } = await supabase
-          .from('sku_costs')
+          .from('sku_costs' as any)
           .insert({
             sku: editingSku,
             cost,
@@ -264,7 +264,7 @@ export function SKUCostManager({ feesData, onCostsUpdated }: SKUCostManagerProps
             // Perform batch operations
             if (insertData.length > 0) {
               const { error: insertError } = await supabase
-                .from('sku_costs')
+                .from('sku_costs' as any)
                 .insert(insertData);
               if (insertError) throw insertError;
             }
@@ -272,7 +272,7 @@ export function SKUCostManager({ feesData, onCostsUpdated }: SKUCostManagerProps
             if (updateData.length > 0) {
               for (const update of updateData) {
                 const { error: updateError } = await supabase
-                  .from('sku_costs')
+                  .from('sku_costs' as any)
                   .update({
                     cost: update.cost,
                     notes: update.notes,
