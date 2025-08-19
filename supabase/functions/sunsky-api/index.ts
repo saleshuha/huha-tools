@@ -22,6 +22,169 @@ async function md5(text: string): Promise<string> {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+// Generate SHA-256 hash for API key
+async function sha256(text: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(text);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Default rate limits for Level 9 (conservative estimates - adjust based on actual Sunsky docs)
+const DEFAULT_RATE_LIMITS = {
+  "category.getChildren": { minute: 100, day: 5000 },
+  "product.search": { minute: 60, day: 3000 },
+  "product.detail": { minute: 120, day: 10000 }
+};
+
+// Get rate limits from environment or use defaults
+function getRateLimits(): Record<string, { minute: number; day: number }> {
+  const rateLimitsEnv = Deno.env.get('SUNSKY_RATE_LIMITS');
+  if (rateLimitsEnv) {
+    try {
+      return JSON.parse(rateLimitsEnv);
+    } catch (error) {
+      console.error('Failed to parse SUNSKY_RATE_LIMITS, using defaults:', error);
+    }
+  }
+  return DEFAULT_RATE_LIMITS;
+}
+
+// Get endpoint key from URL path
+function getEndpointKey(url: string): string {
+  if (url.includes('category!getChildren.do')) return 'category.getChildren';
+  if (url.includes('product!search.do')) return 'product.search';
+  if (url.includes('product!detail.do')) return 'product.detail';
+  return 'unknown';
+}
+
+// Rate limiting check
+async function rateLimitCheck(
+  keyHash: string,
+  endpoint: string,
+  minuteLimit: number,
+  dayLimit: number,
+  userId?: string
+): Promise<void> {
+  const now = new Date();
+  
+  // Round down to minute and day windows
+  const minuteWindow = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), 0);
+  const dayWindow = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+  
+  // Check and increment minute counter
+  const { data: minuteUsage, error: minuteError } = await supabase
+    .from('sunsky_api_usage')
+    .select('count')
+    .eq('key_hash', keyHash)
+    .eq('endpoint', endpoint)
+    .eq('period', 'minute')
+    .eq('window_start', minuteWindow.toISOString())
+    .single();
+
+  let currentMinuteCount = 0;
+  
+  if (minuteError && minuteError.code !== 'PGRST116') { // PGRST116 = no rows found
+    console.error('Rate limit minute check error:', minuteError);
+  } else if (minuteUsage) {
+    currentMinuteCount = minuteUsage.count;
+  }
+
+  // Check if we're already at the limit
+  if (currentMinuteCount >= minuteLimit) {
+    const resetSeconds = 60 - now.getSeconds();
+    throw new Error(JSON.stringify({
+      error: 'Rate limit exceeded',
+      message: `Minute limit of ${minuteLimit} requests exceeded. Try again in ${resetSeconds} seconds.`,
+      retryAfter: resetSeconds,
+      headers: {
+        'Retry-After': resetSeconds.toString(),
+        'X-RateLimit-Endpoint': endpoint,
+        'X-RateLimit-Limit-Minute': minuteLimit.toString(),
+        'X-RateLimit-Remaining-Minute': '0',
+        'X-RateLimit-Reset-Seconds': resetSeconds.toString()
+      }
+    }));
+  }
+
+  // Increment minute counter
+  const { error: minuteUpsertError } = await supabase
+    .from('sunsky_api_usage')
+    .upsert({
+      key_hash: keyHash,
+      endpoint,
+      period: 'minute',
+      window_start: minuteWindow.toISOString(),
+      count: currentMinuteCount + 1,
+      user_id: userId,
+      last_request: now.toISOString()
+    }, {
+      onConflict: 'key_hash,endpoint,period,window_start'
+    });
+
+  if (minuteUpsertError) {
+    console.error('Rate limit minute upsert error:', minuteUpsertError);
+  }
+
+  // Check and increment day counter
+  const { data: dayUsage, error: dayError } = await supabase
+    .from('sunsky_api_usage')
+    .select('count')
+    .eq('key_hash', keyHash)
+    .eq('endpoint', endpoint)
+    .eq('period', 'day')
+    .eq('window_start', dayWindow.toISOString())
+    .single();
+
+  let currentDayCount = 0;
+  
+  if (dayError && dayError.code !== 'PGRST116') { // PGRST116 = no rows found
+    console.error('Rate limit day check error:', dayError);
+  } else if (dayUsage) {
+    currentDayCount = dayUsage.count;
+  }
+
+  // Check if we're already at the daily limit
+  if (currentDayCount >= dayLimit) {
+    const midnight = new Date(dayWindow);
+    midnight.setDate(midnight.getDate() + 1);
+    const resetSeconds = Math.floor((midnight.getTime() - now.getTime()) / 1000);
+    
+    throw new Error(JSON.stringify({
+      error: 'Rate limit exceeded',
+      message: `Daily limit of ${dayLimit} requests exceeded. Try again in ${Math.floor(resetSeconds / 3600)} hours.`,
+      retryAfter: resetSeconds,
+      headers: {
+        'Retry-After': resetSeconds.toString(),
+        'X-RateLimit-Endpoint': endpoint,
+        'X-RateLimit-Limit-Day': dayLimit.toString(),
+        'X-RateLimit-Remaining-Day': '0',
+        'X-RateLimit-Reset-Seconds': resetSeconds.toString()
+      }
+    }));
+  }
+
+  // Increment day counter
+  const { error: dayUpsertError } = await supabase
+    .from('sunsky_api_usage')
+    .upsert({
+      key_hash: keyHash,
+      endpoint,
+      period: 'day',
+      window_start: dayWindow.toISOString(),
+      count: currentDayCount + 1,
+      user_id: userId,
+      last_request: now.toISOString()
+    }, {
+      onConflict: 'key_hash,endpoint,period,window_start'
+    });
+
+  if (dayUpsertError) {
+    console.error('Rate limit day upsert error:', dayUpsertError);
+  }
+}
+
 // Generate both lowercase and uppercase MD5 for testing
 async function md5Both(text: string): Promise<{ lower: string; upper: string }> {
   const lower = await md5(text);
@@ -99,8 +262,44 @@ async function getApiCredentials(userId: string): Promise<{ key: string; secret:
   };
 }
 
-// Make authenticated request to Sunsky API with retry logic for different signature formats
-async function makeSunskyRequest(endpoint: string, params: Record<string, any>, key: string, secret: string) {
+// Make authenticated request to Sunsky API with retry logic for different signature formats and rate limiting
+async function makeSunskyRequest(endpoint: string, params: Record<string, any>, key: string, secret: string, userId?: string) {
+  // Get rate limits configuration
+  const rateLimits = getRateLimits();
+  const endpointKey = getEndpointKey(endpoint);
+  const limits = rateLimits[endpointKey];
+  
+  if (limits && endpointKey !== 'unknown') {
+    // Generate API key hash for rate limiting
+    const keyHash = await sha256(key);
+    
+    // Check rate limits before making the request
+    try {
+      await rateLimitCheck(keyHash, endpointKey, limits.minute, limits.day, userId);
+    } catch (error) {
+      // Parse rate limit error and re-throw with proper formatting
+      try {
+        const rateLimitError = JSON.parse(error.message);
+        const rateLimitResponse = new Response(JSON.stringify({
+          result: 'error',
+          message: rateLimitError.message,
+          retryAfter: rateLimitError.retryAfter
+        }), {
+          status: 429,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+            ...rateLimitError.headers
+          }
+        });
+        throw rateLimitResponse;
+      } catch (parseError) {
+        // If not a rate limit error, re-throw original
+        throw error;
+      }
+    }
+  }
+
   // Generate signature using the official Sunsky format
   const signature = await generateSignature(params, key, secret);
   
@@ -245,7 +444,7 @@ serve(async (req) => {
         };
 
         try {
-          const result = await makeSunskyRequest('/openapi/category!getChildren.do', params, credentials.key, credentials.secret);
+          const result = await makeSunskyRequest('/openapi/category!getChildren.do', params, credentials.key, credentials.secret, user.id);
           
           if (result.result === 'success') {
             return new Response(JSON.stringify({
@@ -258,6 +457,11 @@ serve(async (req) => {
             throw new Error(result.messages?.[0] || 'Invalid API credentials');
           }
         } catch (error) {
+          // Handle rate limit responses properly
+          if (error instanceof Response && error.status === 429) {
+            return error;
+          }
+          
           return new Response(JSON.stringify({
             result: 'error',
             message: 'Invalid API credentials: ' + error.message
@@ -372,12 +576,13 @@ serve(async (req) => {
 
         console.log('Search params:', params);
 
-        const result = await makeSunskyRequest('/openapi/product!search.do', params, credentials.key, credentials.secret);
+        try {
+          const result = await makeSunskyRequest('/openapi/product!search.do', params, credentials.key, credentials.secret, user.id);
         
-        if (result.result === 'error') {
-          console.error('Sunsky search error:', result);
-          throw new Error(result.messages?.[0] || 'Sunsky API error');
-        }
+          if (result.result === 'error') {
+            console.error('Sunsky search error:', result);
+            throw new Error(result.messages?.[0] || 'Sunsky API error');
+          }
 
         // Convert prices for products if they exist
         if (result.result === 'success' && result.data?.result) {
@@ -396,9 +601,16 @@ serve(async (req) => {
           }
         }
 
-        return new Response(JSON.stringify(result), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+          return new Response(JSON.stringify(result), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        } catch (error) {
+          // Handle rate limit responses properly
+          if (error instanceof Response && error.status === 429) {
+            return error;
+          }
+          throw error;
+        }
       }
 
       case 'getProductDetails': {
@@ -414,7 +626,8 @@ serve(async (req) => {
           itemNo
         };
 
-        const result = await makeSunskyRequest('/openapi/product!detail.do', params, credentials.key, credentials.secret);
+        try {
+          const result = await makeSunskyRequest('/openapi/product!detail.do', params, credentials.key, credentials.secret, user.id);
         
         if (result.result === 'error') {
           throw new Error(result.messages?.[0] || 'Sunsky API error');
@@ -426,9 +639,16 @@ serve(async (req) => {
           result.data.convertedCurrency = userCountry === 'KSA' ? 'SAR' : 'AED';
         }
 
-        return new Response(JSON.stringify(result), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+          return new Response(JSON.stringify(result), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        } catch (error) {
+          // Handle rate limit responses properly
+          if (error instanceof Response && error.status === 429) {
+            return error;
+          }
+          throw error;
+        }
       }
 
       case 'importSKUs': {
@@ -443,13 +663,15 @@ serve(async (req) => {
         const processedSKUs = [];
         
         for (const sku of skus) {
-          // Get detailed product information
-          const productResult = await makeSunskyRequest(
-            '/openapi/product!detail.do',
-            { lang: 'en', itemNo: sku.itemNo },
-            credentials.key,
-            credentials.secret
-          );
+          try {
+            // Get detailed product information with rate limiting
+            const productResult = await makeSunskyRequest(
+              '/openapi/product!detail.do',
+              { lang: 'en', itemNo: sku.itemNo },
+              credentials.key,
+              credentials.secret,
+              user.id
+            );
 
           if (productResult.result === 'success' && productResult.data) {
             const product = productResult.data;
@@ -471,6 +693,40 @@ serve(async (req) => {
               currency: userCountry === 'KSA' ? 'SAR' : 'AED',
               country: userCountry
             });
+          }
+          } catch (error) {
+            // Handle rate limit responses - if we hit rate limits during import, return partial results
+            if (error instanceof Response && error.status === 429) {
+              console.log(`Rate limit hit during import. Processed ${processedSKUs.length} SKUs so far.`);
+              
+              // Return partial results with rate limit info
+              if (processedSKUs.length > 0) {
+                const { data: insertedSKUs, error: insertError } = await supabase
+                  .from('sunsky_skus')
+                  .insert(processedSKUs)
+                  .select();
+
+                if (!insertError) {
+                  const errorBody = await error.json();
+                  return new Response(JSON.stringify({
+                    result: 'partial_success',
+                    message: `Rate limit reached. Successfully imported ${insertedSKUs.length} SKUs. ${errorBody.message}`,
+                    data: {
+                      imported: insertedSKUs.length,
+                      skus: insertedSKUs,
+                      rateLimitHit: true,
+                      retryAfter: errorBody.retryAfter
+                    }
+                  }), {
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                  });
+                }
+              }
+              return error;
+            }
+            
+            console.error(`Error processing SKU ${sku.itemNo}:`, error);
+            // Continue with other SKUs
           }
         }
 
@@ -522,15 +778,23 @@ serve(async (req) => {
 
         console.log('Getting categories with params:', params);
 
-        const result = await makeSunskyRequest('/openapi/category!getChildren.do', params, credentials.key, credentials.secret);
+        try {
+          const result = await makeSunskyRequest('/openapi/category!getChildren.do', params, credentials.key, credentials.secret, user.id);
         
         if (result.result === 'error') {
           throw new Error(result.messages?.[0] || 'Sunsky API error');
         }
 
-        return new Response(JSON.stringify(result), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+          return new Response(JSON.stringify(result), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        } catch (error) {
+          // Handle rate limit responses properly
+          if (error instanceof Response && error.status === 429) {
+            return error;
+          }
+          throw error;
+        }
       }
 
       default:
