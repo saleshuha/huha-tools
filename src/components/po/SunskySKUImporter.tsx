@@ -1306,13 +1306,25 @@ export const SunskySKUImporter: React.FC = () => {
             {/* Import Jobs List */}
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <RefreshCw className="h-5 w-5" />
-                  Import Jobs
-                </CardTitle>
-                <CardDescription>
-                  Monitor the status of your import tasks
-                </CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <RefreshCw className="h-5 w-5" />
+                      Import Jobs
+                    </CardTitle>
+                    <CardDescription>
+                      Monitor the status of your import tasks
+                    </CardDescription>
+                  </div>
+                  <Button 
+                    onClick={() => fetchJobs()}
+                    variant="outline"
+                    size="sm"
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Refresh
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 {jobsLoading ? (
