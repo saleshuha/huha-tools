@@ -66,10 +66,11 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Check SSH private key availability
-    const privateKey = Deno.env.get('AMAZON_SFTP_PRIVATE_KEY');
+    // Check SSH private key availability - try sending-specific key first
+    let privateKey = Deno.env.get('AMAZON_SFTP_SENDING_PRIVATE_KEY') || Deno.env.get('AMAZON_SFTP_PRIVATE_KEY');
     console.log('SSH private key check:', privateKey ? 'Found' : 'Not found');
     console.log('Available env vars:', Object.keys(Deno.env.toObject()).filter(k => k.includes('AMAZON')));
+    console.log('Checking for sending-specific key: AMAZON_SFTP_SENDING_PRIVATE_KEY');
     
     if (!privateKey) {
       console.error('SSH private key not configured');
@@ -97,7 +98,7 @@ Deno.serve(async (req) => {
       
       return new Response(
         JSON.stringify({ 
-          error: 'SSH private key not configured. Please add the private key to AMAZON_SFTP_PRIVATE_KEY secret.',
+          error: 'SSH private key not configured. Please add the sending private key to AMAZON_SFTP_SENDING_PRIVATE_KEY secret (or AMAZON_SFTP_PRIVATE_KEY as fallback). Amazon typically requires different keys for sending vs receiving.',
           logged: true,
           message: 'Attempt logged in Feed History'
         }),
