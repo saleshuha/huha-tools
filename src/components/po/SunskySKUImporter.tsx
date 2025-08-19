@@ -141,8 +141,8 @@ export const SunskySKUImporter: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedSubCategory, setSelectedSubCategory] = useState<string>('all');
-  const [selectedBrand, setSelectedBrand] = useState<string>('');
-  const [leadTimeLevel, setLeadTimeLevel] = useState<string>('');
+  const [selectedBrand, setSelectedBrand] = useState<string>('all');
+  const [leadTimeLevel, setLeadTimeLevel] = useState<string>('any');
   const [priceMin, setPriceMin] = useState<string>('');
   const [priceMax, setPriceMax] = useState<string>('');
   const [stockMin, setStockMin] = useState<string>('');
@@ -425,11 +425,11 @@ export const SunskySKUImporter: React.FC = () => {
       const filters: SearchFilters = {
         keyword: searchTerm || undefined,
         categoryId: selectedCategory !== 'all' ? parseInt(selectedCategory) : undefined,
-        brandId: selectedBrand ? parseInt(selectedBrand) : undefined,
+        brandId: selectedBrand && selectedBrand !== 'all' ? parseInt(selectedBrand) : undefined,
         priceMin: priceMin ? parseFloat(priceMin) : undefined,
         priceMax: priceMax ? parseFloat(priceMax) : undefined,
         stockMin: stockMin ? parseInt(stockMin) : undefined,
-        leadTimeLevel: leadTimeLevel ? parseInt(leadTimeLevel) : undefined,
+        leadTimeLevel: leadTimeLevel && leadTimeLevel !== 'any' ? parseInt(leadTimeLevel) : undefined,
         dateFrom: dateRange?.from?.toISOString().split('T')[0],
         dateTo: dateRange?.to?.toISOString().split('T')[0]
       };
@@ -749,7 +749,7 @@ export const SunskySKUImporter: React.FC = () => {
                       <SelectValue placeholder="Select brand" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All Brands</SelectItem>
+                      <SelectItem value="all">All Brands</SelectItem>
                       {brands.map((brand) => (
                         <SelectItem key={brand.id} value={brand.id.toString()}>
                           {brand.name}
@@ -799,7 +799,7 @@ export const SunskySKUImporter: React.FC = () => {
                       <SelectValue placeholder="Any lead time" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Any</SelectItem>
+                      <SelectItem value="any">Any</SelectItem>
                       <SelectItem value="1">1-3 days</SelectItem>
                       <SelectItem value="2">4-7 days</SelectItem>
                       <SelectItem value="3">8-15 days</SelectItem>
@@ -837,11 +837,11 @@ export const SunskySKUImporter: React.FC = () => {
                     setSearchTerm('');
                     setSelectedCategory('all');
                     setSelectedSubCategory('all');
-                    setSelectedBrand('');
+                    setSelectedBrand('all');
                     setPriceMin('');
                     setPriceMax('');
                     setStockMin('');
-                    setLeadTimeLevel('');
+                    setLeadTimeLevel('any');
                     setDateRange(undefined);
                   }}
                 >
