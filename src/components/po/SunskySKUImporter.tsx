@@ -99,6 +99,9 @@ export const SunskySKUImporter: React.FC = () => {
   const [hasCredentials, setHasCredentials] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [selectedProduct, setSelectedProduct] = useState<SunskyProduct | null>(null);
+  const [categoryFetchMode, setCategoryFetchMode] = useState<'top' | 'all' | 'modified'>('top');
+  const [modifiedSinceDate, setModifiedSinceDate] = useState<string>('');
+  const [fetchingCategories, setFetchingCategories] = useState(false);
 
   // Load categories on mount and when credentials change
   useEffect(() => {
@@ -138,16 +141,31 @@ export const SunskySKUImporter: React.FC = () => {
     checkCredentialsStatus();
   }, []);
 
-  const loadCategories = async () => {
+  const loadCategories = async (mode: 'top' | 'all' | 'modified' = 'top', modifiedSince?: string) => {
+    setFetchingCategories(true);
     try {
+      const requestBody: any = { action: 'getCategories' };
+      
+      if (mode === 'top') {
+        requestBody.parentId = 0;
+      } else if (mode === 'all') {
+        // Don't set parentId to get all categories
+      } else if (mode === 'modified' && modifiedSince) {
+        requestBody.gmtModifiedStart = modifiedSince;
+      }
+
       const { data, error } = await supabase.functions.invoke('sunsky-api', {
-        body: { action: 'getCategories', parentId: 0 }
+        body: requestBody
       });
 
       if (error) throw error;
 
       if (data.result === 'success') {
         setCategories(data.data || []);
+        toast({
+          title: "Categories Loaded",
+          description: `Successfully loaded ${data.data?.length || 0} categories`,
+        });
       } else {
         console.warn('Categories API returned:', data);
         setCategories([]);
@@ -159,6 +177,8 @@ export const SunskySKUImporter: React.FC = () => {
         description: "Failed to load Sunsky categories. Please check your API credentials.",
         variant: "destructive",
       });
+    } finally {
+      setFetchingCategories(false);
     }
   };
 
@@ -221,11 +241,14 @@ export const SunskySKUImporter: React.FC = () => {
       }
 
       if (dateRange?.from) {
-        searchParams.dateFrom = dateRange.from.toISOString().split('T')[0];
+        // Format date for Sunsky API: MM/dd/yyyy HH:mm:ss
+        const fromDate = new Date(dateRange.from);
+        searchParams.gmtModifiedStart = `${(fromDate.getMonth() + 1).toString().padStart(2, '0')}/${fromDate.getDate().toString().padStart(2, '0')}/${fromDate.getFullYear()} 00:00:00`;
       }
 
       if (dateRange?.to) {
-        searchParams.dateTo = dateRange.to.toISOString().split('T')[0];
+        const toDate = new Date(dateRange.to);
+        searchParams.dateTo = `${(toDate.getMonth() + 1).toString().padStart(2, '0')}/${toDate.getDate().toString().padStart(2, '0')}/${toDate.getFullYear()} 23:59:59`;
       }
 
       console.log('Search parameters:', searchParams);
@@ -416,6 +439,99 @@ export const SunskySKUImporter: React.FC = () => {
             </Card>
           ) : (
             <>
+              {/* Category Browser */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Grid className="h-5 w-5" />
+                    Category Browser
+                  </CardTitle>
+                  <CardDescription>
+                    Fetch and browse Sunsky product categories
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="fetch-mode">Fetch Mode</Label>
+                      <Select value={categoryFetchMode} onValueChange={(value: 'top' | 'all' | 'modified') => setCategoryFetchMode(value)}>
+                        <SelectTrigger id="fetch-mode">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="top">Top Level Categories</SelectItem>
+                          <SelectItem value="all">All Categories</SelectItem>
+                          <SelectItem value="modified">Modified Since Date</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {categoryFetchMode === 'modified' && (
+                      <div className="space-y-2">
+                        <Label htmlFor="modified-since">Modified Since</Label>
+                        <Input
+                          id="modified-since"
+                          type="datetime-local"
+                          value={modifiedSinceDate}
+                          onChange={(e) => setModifiedSinceDate(e.target.value)}
+                          placeholder="Select date and time"
+                        />
+                      </div>
+                    )}
+
+                    <div className="flex items-end">
+                      <Button 
+                        onClick={() => {
+                          if (categoryFetchMode === 'modified' && !modifiedSinceDate) {
+                            toast({
+                              title: "Date Required",
+                              description: "Please select a modified since date",
+                              variant: "destructive",
+                            });
+                            return;
+                          }
+                          const formattedDate = categoryFetchMode === 'modified' 
+                            ? new Date(modifiedSinceDate).toLocaleString('en-US', {
+                                month: '2-digit',
+                                day: '2-digit',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                second: '2-digit',
+                                hour12: false
+                              })
+                            : undefined;
+                          loadCategories(categoryFetchMode, formattedDate);
+                        }}
+                        disabled={fetchingCategories}
+                        className="w-full"
+                      >
+                        {fetchingCategories ? (
+                          <>
+                            <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                            Fetching...
+                          </>
+                        ) : (
+                          <>
+                            <Download className="mr-2 h-4 w-4" />
+                            Fetch Categories
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {categories.length > 0 && (
+                    <Alert>
+                      <CheckCircle2 className="h-4 w-4" />
+                      <AlertDescription>
+                        Loaded {categories.length} categories successfully. Use the search filters below to find products.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                </CardContent>
+              </Card>
+
               {/* Filters */}
               <Card>
                 <CardHeader>

@@ -350,7 +350,8 @@ serve(async (req) => {
           brandName,
           searchTerm,
           leadTimeLevel,
-          status = 1 // Default to valid products only
+          status = 1, // Default to valid products only
+          gmtModifiedStart
         } = requestData;
 
         const params: Record<string, any> = {
@@ -367,6 +368,7 @@ serve(async (req) => {
         if (dateTo) params.dateTo = dateTo;
         if (brandName) params.brandName = brandName;
         if (leadTimeLevel) params.leadTimeLevel = leadTimeLevel;
+        if (gmtModifiedStart) params.gmtModifiedStart = gmtModifiedStart;
 
         console.log('Search params:', params);
 
@@ -502,12 +504,23 @@ serve(async (req) => {
 
       case 'getCategories': {
         const credentials = await getApiCredentials(user.id);
-        const { parentId = 0 } = requestData;
+        const { parentId, lang = 'en', gmtModifiedStart } = requestData;
 
-        const params = {
-          lang: 'en',
-          parentId: parentId.toString()
+        const params: Record<string, any> = {
+          lang
         };
+
+        // Add parentId only if specified (null means all categories)
+        if (parentId !== null && parentId !== undefined) {
+          params.parentId = parentId.toString();
+        }
+
+        // Add date filter if specified
+        if (gmtModifiedStart) {
+          params.gmtModifiedStart = gmtModifiedStart;
+        }
+
+        console.log('Getting categories with params:', params);
 
         const result = await makeSunskyRequest('/openapi/category!getChildren.do', params, credentials.key, credentials.secret);
         
