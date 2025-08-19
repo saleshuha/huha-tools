@@ -546,7 +546,7 @@ async function processImportJob(job: any, userId: string, userCountry: string) {
               title: productDetail.name,
               cost: convertedCost,
               weight: productDetail.unitWeight ? parseFloat(productDetail.unitWeight) : null,
-              notes: `Imported from Sunsky - Lead Time: ${productDetail.leadTime || 'N/A'}`,
+              description: `Imported from Sunsky - Lead Time: ${productDetail.leadTime || 'N/A'}`,
               currency: userCountry === 'KSA' ? 'SAR' : 'AED',
               country: userCountry
             }, { 
@@ -997,7 +997,7 @@ serve(async (req) => {
               title: product.name,
               cost: convertedCost,
               weight: product.unitWeight ? parseFloat(product.unitWeight) : null,
-              notes: `Imported from Sunsky - Lead Time: ${product.leadTime || 'N/A'}`,
+              description: `Imported from Sunsky - Lead Time: ${product.leadTime || 'N/A'}`,
               currency: userCountry === 'KSA' ? 'SAR' : 'AED',
               country: userCountry
             });
