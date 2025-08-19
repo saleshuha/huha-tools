@@ -26,7 +26,7 @@ export const useImportJobs = () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) throw new Error('Not authenticated');
 
-    const response = await fetch('/supabase/functions/v1/sunsky-api', {
+    const response = await fetch('https://vfqqlifvhooefxvvyebm.supabase.co/functions/v1/sunsky-api', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
