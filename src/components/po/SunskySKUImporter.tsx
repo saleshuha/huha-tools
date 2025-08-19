@@ -1248,7 +1248,7 @@ export const SunskySKUImporter: React.FC = () => {
                   <div className="space-y-3">
                     {jobs.map((job) => (
                       <div key={job.id} className="border rounded-lg p-4">
-                        <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center gap-2">
                             <Badge 
                               variant={
@@ -1261,31 +1261,121 @@ export const SunskySKUImporter: React.FC = () => {
                             </Badge>
                             <span className="font-medium capitalize">{job.type}</span>
                           </div>
-                          <span className="text-sm text-muted-foreground">
-                            {new Date(job.created_at).toLocaleDateString()}
-                          </span>
+                          <div className="text-sm text-muted-foreground text-right">
+                            <div>Created: {new Date(job.created_at).toLocaleDateString()}</div>
+                            {job.started_at && (
+                              <div>Started: {new Date(job.started_at).toLocaleTimeString()}</div>
+                            )}
+                            {job.completed_at && (
+                              <div>Completed: {new Date(job.completed_at).toLocaleTimeString()}</div>
+                            )}
+                          </div>
                         </div>
                         
-                        {job.total_items && (
-                          <div className="space-y-2">
-                            <div className="flex justify-between text-sm">
-                              <span>Progress</span>
-                              <span>{job.processed_items}/{job.total_items}</span>
+                        {/* Job Timing */}
+                        {(job.started_at || job.completed_at) && (
+                          <div className="mb-3 p-3 bg-muted/50 rounded-md">
+                            <div className="text-sm font-medium mb-2">Job Timing</div>
+                            <div className="grid grid-cols-2 gap-4 text-xs">
+                              {job.started_at && (
+                                <div>
+                                  <span className="text-muted-foreground">Duration: </span>
+                                  <span className="font-medium">
+                                    {job.completed_at 
+                                      ? `${Math.round((new Date(job.completed_at).getTime() - new Date(job.started_at).getTime()) / 1000)}s`
+                                      : `${Math.round((Date.now() - new Date(job.started_at).getTime()) / 1000)}s (running)`
+                                    }
+                                  </span>
+                                </div>
+                              )}
+                              {job.total_items && (
+                                <div>
+                                  <span className="text-muted-foreground">Avg Speed: </span>
+                                  <span className="font-medium">
+                                    {job.started_at && job.processed_items > 0
+                                      ? `${Math.round(job.processed_items / Math.max(1, (Date.now() - new Date(job.started_at).getTime()) / 1000))} items/s`
+                                      : 'N/A'
+                                    }
+                                  </span>
+                                </div>
+                              )}
                             </div>
+                          </div>
+                        )}
+                        
+                        {/* Enhanced Progress Section */}
+                        {job.total_items && (
+                          <div className="space-y-3">
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm font-medium">Progress</span>
+                              <span className="text-sm font-bold">
+                                {Math.round((job.processed_items / job.total_items) * 100)}%
+                              </span>
+                            </div>
+                            
                             <Progress 
                               value={(job.processed_items / job.total_items) * 100} 
-                              className="h-2" 
+                              className="h-3" 
                             />
-                            <div className="flex justify-between text-xs text-muted-foreground">
-                              <span>Success: {job.success_count}</span>
-                              <span>Errors: {job.error_count}</span>
+                            
+                            {/* Detailed Stats Grid */}
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
+                              <div className="bg-blue-50 dark:bg-blue-950/20 rounded-md p-2 text-center">
+                                <div className="text-xs text-muted-foreground">Total Items</div>
+                                <div className="font-bold text-blue-600 dark:text-blue-400">
+                                  {job.total_items.toLocaleString()}
+                                </div>
+                              </div>
+                              
+                              <div className="bg-green-50 dark:bg-green-950/20 rounded-md p-2 text-center">
+                                <div className="text-xs text-muted-foreground">Processed</div>
+                                <div className="font-bold text-green-600 dark:text-green-400">
+                                  {job.processed_items.toLocaleString()}
+                                </div>
+                              </div>
+                              
+                              <div className="bg-yellow-50 dark:bg-yellow-950/20 rounded-md p-2 text-center">
+                                <div className="text-xs text-muted-foreground">Pending</div>
+                                <div className="font-bold text-yellow-600 dark:text-yellow-400">
+                                  {(job.total_items - job.processed_items).toLocaleString()}
+                                </div>
+                              </div>
+                              
+                              <div className="bg-purple-50 dark:bg-purple-950/20 rounded-md p-2 text-center">
+                                <div className="text-xs text-muted-foreground">Success Rate</div>
+                                <div className="font-bold text-purple-600 dark:text-purple-400">
+                                  {job.processed_items > 0 
+                                    ? Math.round((job.success_count / job.processed_items) * 100)
+                                    : 0
+                                  }%
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* Success/Error Summary */}
+                            <div className="flex justify-between text-xs text-muted-foreground border-t pt-2">
+                              <span className="flex items-center gap-1">
+                                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                Success: {job.success_count}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                                Errors: {job.error_count}
+                              </span>
+                              {job.status === 'processing' && (
+                                <span className="flex items-center gap-1">
+                                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                                  Running...
+                                </span>
+                              )}
                             </div>
                           </div>
                         )}
                         
                         {job.last_error && (
-                          <div className="mt-2 text-sm text-destructive">
-                            Error: {job.last_error}
+                          <div className="mt-3 p-2 bg-destructive/10 border border-destructive/20 rounded-md">
+                            <div className="text-sm text-destructive font-medium">Latest Error:</div>
+                            <div className="text-xs text-destructive/80 mt-1">{job.last_error}</div>
                           </div>
                         )}
                       </div>
