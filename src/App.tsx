@@ -35,6 +35,8 @@ import NoonOrderAnalysis from "./pages/NoonOrderAnalysis";
 import PaymentReports from "./pages/PaymentReports";
 import CarrefourSalesTracker from "./pages/CarrefourPayments";
 import StoreSelection from "./pages/StoreSelection";
+import NoonFileCleaner from "./pages/NoonFileCleaner";
+import AmazonVendorCentral from "./pages/AmazonVendorCentral";
 
 // SKU management functionality removed
 
