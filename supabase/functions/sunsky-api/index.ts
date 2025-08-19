@@ -673,6 +673,8 @@ serve(async (req) => {
       case 'saveCredentials': {
         const { apiKey, apiSecret } = requestData;
 
+        console.log('Saving credentials for user:', user.id);
+
         if (!apiKey || !apiSecret) {
           throw new Error('API key and secret are required');
         }
@@ -689,7 +691,8 @@ serve(async (req) => {
           });
 
         if (error) {
-          throw new Error('Failed to save credentials');
+          console.error('Database error saving credentials:', error);
+          throw new Error(`Failed to save credentials: ${error.message}`);
         }
 
         return new Response(JSON.stringify({
