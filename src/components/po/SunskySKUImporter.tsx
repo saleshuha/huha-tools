@@ -374,6 +374,7 @@ export const SunskySKUImporter: React.FC = () => {
   };
 
   const callSunskyAPI = async (action: string, data: any, apiId?: string) => {
+    console.log('Calling Sunsky API:', { action, data, apiId, selectedAPI });
     try {
       const { data: result, error } = await supabase.functions.invoke('sunsky-api', {
         body: { 
@@ -382,6 +383,8 @@ export const SunskySKUImporter: React.FC = () => {
           apiId: apiId || selectedAPI // Use specified API or default
         }
       });
+
+      console.log('Sunsky API response:', { result, error });
 
       if (error) throw error;
       return result;
@@ -392,14 +395,20 @@ export const SunskySKUImporter: React.FC = () => {
   };
 
   const loadCategories = async (apiId?: string) => {
-    if (!hasCredentials) return;
+    if (!hasCredentials) {
+      console.log('Skipping loadCategories - no credentials');
+      return;
+    }
     
+    console.log('Loading categories with API ID:', apiId);
     setFetchingCategories(true);
     try {
       const result = await callSunskyAPI('getCategories', {
         mode: categoryFetchMode,
         modifiedSince: modifiedSinceDate
       }, apiId);
+      
+      console.log('Categories result:', result);
       
       if (result.success) {
         setCategories(result.data || []);
@@ -408,6 +417,7 @@ export const SunskySKUImporter: React.FC = () => {
           description: `Loaded ${result.data?.length || 0} categories`
         });
       } else {
+        console.error('Categories API error:', result.error);
         throw new Error(result.error);
       }
     } catch (error) {
@@ -447,14 +457,22 @@ export const SunskySKUImporter: React.FC = () => {
   };
 
   const loadBrands = async (apiId?: string) => {
-    if (!hasCredentials) return;
+    if (!hasCredentials) {
+      console.log('Skipping loadBrands - no credentials');
+      return;
+    }
     
+    console.log('Loading brands with API ID:', apiId);
     try {
       const result = await callSunskyAPI('getBrands', {}, apiId);
       
+      console.log('Brands result:', result);
+      
       if (result.success) {
         setBrands(result.data || []);
+        console.log('Set brands:', result.data?.length || 0);
       } else {
+        console.error('Brands API error:', result.error);
         throw new Error(result.error);
       }
     } catch (error) {

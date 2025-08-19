@@ -1291,6 +1291,7 @@ serve(async (req) => {
       }
 
       case 'getCategories': {
+        console.log('getCategories action called with data:', requestData);
         const { apiId } = requestData;
         const credentials = await getApiCredentials(user.id, apiId);
         const { parentId, lang = 'en', gmtModifiedStart } = requestData;
@@ -1331,6 +1332,7 @@ serve(async (req) => {
       }
 
       case 'getBrands': {
+        console.log('getBrands action called with data:', requestData);
         const { apiId } = requestData;
         const credentials = await getApiCredentials(user.id, apiId);
         const { lang = 'en' } = requestData;
