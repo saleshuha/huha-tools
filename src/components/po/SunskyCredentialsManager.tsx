@@ -202,6 +202,9 @@ export const SunskyCredentialsManager: React.FC<SunskyCredentialsManagerProps> =
   };
 
   const deleteApiKey = async (apiKeyId: string) => {
+    console.log('Delete API key called for ID:', apiKeyId);
+    console.log('Current API keys:', apiKeys);
+    
     try {
       const { data, error } = await supabase.functions.invoke('sunsky-api', {
         body: { 
@@ -209,6 +212,8 @@ export const SunskyCredentialsManager: React.FC<SunskyCredentialsManagerProps> =
           apiId: apiKeyId
         }
       });
+
+      console.log('Delete API response:', { data, error });
 
       if (error) throw error;
 
@@ -364,10 +369,15 @@ export const SunskyCredentialsManager: React.FC<SunskyCredentialsManagerProps> =
                   <Button
                     size="sm"
                     variant="destructive"
-                    onClick={() => deleteApiKey(apiKey.id)}
-                    disabled={apiKeys.length === 1}
+                    onClick={() => {
+                      console.log('Delete button clicked for API key:', apiKey.id);
+                      deleteApiKey(apiKey.id);
+                    }}
+                    disabled={apiKeys.length <= 1}
+                    title={apiKeys.length <= 1 ? "Cannot delete the last API key" : "Delete this API key"}
                   >
-                    <Trash2 className="h-3 w-3" />
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    {apiKeys.length <= 1 ? 'Delete' : 'Delete'}
                   </Button>
                 </div>
               </div>
