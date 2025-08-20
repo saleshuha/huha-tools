@@ -210,6 +210,14 @@ export const SunskySKUImporter: React.FC = () => {
     'oem', 'with_logo', 'contains_battery', 'status', 'video_url', 'gmt_listed', 'gmt_modified'
   ]);
 
+  // SKU Pagination
+  const [skuCurrentPage, setSkuCurrentPage] = useState(1);
+  const [skuItemsPerPage, setSkuItemsPerPage] = useState(25);
+  const skuTotalPages = Math.ceil(totalCount / skuItemsPerPage);
+  const skuStartIndex = (skuCurrentPage - 1) * skuItemsPerPage;
+  const skuEndIndex = skuStartIndex + skuItemsPerPage;
+  const paginatedSKUs = sunskySKUs.slice(skuStartIndex, skuEndIndex);
+
   // Save column preferences
   const saveColumnPreferences = async () => {
     try {
@@ -1877,7 +1885,31 @@ export const SunskySKUImporter: React.FC = () => {
                       View and manage your imported Sunsky SKUs
                     </CardDescription>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 items-center">
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="items-per-page" className="text-sm">
+                        Items per page:
+                      </Label>
+                      <Select 
+                        value={skuItemsPerPage.toString()} 
+                        onValueChange={(value) => {
+                          setSkuItemsPerPage(parseInt(value));
+                          setSkuCurrentPage(1); // Reset to first page
+                        }}
+                      >
+                        <SelectTrigger className="w-20">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="10">10</SelectItem>
+                          <SelectItem value="25">25</SelectItem>
+                          <SelectItem value="50">50</SelectItem>
+                          <SelectItem value="100">100</SelectItem>
+                          <SelectItem value="200">200</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
                     <Dialog open={showColumnDialog} onOpenChange={setShowColumnDialog}>
                       <DialogTrigger asChild>
                         <Button variant="outline" size="sm">
@@ -1985,7 +2017,7 @@ export const SunskySKUImporter: React.FC = () => {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {sunskySKUs.map((sku) => (
+                        {paginatedSKUs.map((sku) => (
                           <TableRow key={sku.id}>
                             {skuTableHeaders.map((header) => (
                               <TableCell key={header} className={header === 'sku_code' ? 'font-mono' : header === 'title' ? 'max-w-xs truncate' : header === 'created_at' ? 'text-sm text-muted-foreground' : ''}>
@@ -2051,11 +2083,116 @@ export const SunskySKUImporter: React.FC = () => {
                             ))}
                           </TableRow>
                         ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </CardContent>
+                       </TableBody>
+                     </Table>
+                   </div>
+                   
+                   {/* SKU Pagination */}
+                   {skuTotalPages > 1 && (
+                     <div className="mt-6 flex items-center justify-between">
+                       <div className="text-sm text-muted-foreground">
+                         Showing {skuStartIndex + 1} to {Math.min(skuEndIndex, totalCount)} of {totalCount} results
+                       </div>
+                       
+                       <Pagination>
+                         <PaginationContent>
+                           <PaginationItem>
+                             <PaginationPrevious 
+                               href="#"
+                               onClick={(e) => {
+                                 e.preventDefault();
+                                 if (skuCurrentPage > 1) setSkuCurrentPage(skuCurrentPage - 1);
+                               }}
+                               className={skuCurrentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                             />
+                           </PaginationItem>
+                           
+                           {/* Show first page */}
+                           {skuCurrentPage > 3 && (
+                             <>
+                               <PaginationItem>
+                                 <PaginationLink
+                                   href="#"
+                                   onClick={(e) => {
+                                     e.preventDefault();
+                                     setSkuCurrentPage(1);
+                                   }}
+                                   className="cursor-pointer"
+                                 >
+                                   1
+                                 </PaginationLink>
+                               </PaginationItem>
+                               {skuCurrentPage > 4 && (
+                                 <PaginationItem>
+                                   <span className="px-3 py-2">...</span>
+                                 </PaginationItem>
+                               )}
+                             </>
+                           )}
+                           
+                           {/* Show current page and neighbors */}
+                           {Array.from({ length: skuTotalPages }, (_, i) => i + 1)
+                             .filter(page => 
+                               page >= Math.max(1, skuCurrentPage - 2) && 
+                               page <= Math.min(skuTotalPages, skuCurrentPage + 2)
+                             )
+                             .map((page) => (
+                               <PaginationItem key={page}>
+                                 <PaginationLink
+                                   href="#"
+                                   onClick={(e) => {
+                                     e.preventDefault();
+                                     setSkuCurrentPage(page);
+                                   }}
+                                   isActive={page === skuCurrentPage}
+                                   className="cursor-pointer"
+                                 >
+                                   {page}
+                                 </PaginationLink>
+                               </PaginationItem>
+                             ))}
+                           
+                           {/* Show last page */}
+                           {skuCurrentPage < skuTotalPages - 2 && (
+                             <>
+                               {skuCurrentPage < skuTotalPages - 3 && (
+                                 <PaginationItem>
+                                   <span className="px-3 py-2">...</span>
+                                 </PaginationItem>
+                               )}
+                               <PaginationItem>
+                                 <PaginationLink
+                                   href="#"
+                                   onClick={(e) => {
+                                     e.preventDefault();
+                                     setSkuCurrentPage(skuTotalPages);
+                                   }}
+                                   className="cursor-pointer"
+                                 >
+                                   {skuTotalPages}
+                                 </PaginationLink>
+                               </PaginationItem>
+                             </>
+                           )}
+                           
+                           <PaginationItem>
+                             <PaginationNext 
+                               href="#"
+                               onClick={(e) => {
+                                 e.preventDefault();
+                                 if (skuCurrentPage < skuTotalPages) {
+                                   setSkuCurrentPage(skuCurrentPage + 1);
+                                 }
+                               }}
+                               className={skuCurrentPage === skuTotalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                             />
+                           </PaginationItem>
+                         </PaginationContent>
+                       </Pagination>
+                     </div>
+                    )}
+                }
+               </CardContent>
             </Card>
           </div>
         </TabsContent>
