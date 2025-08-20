@@ -359,6 +359,102 @@ export default function PODetailsPage() {
     }
   };
 
+  // Export from stock details functionality
+  const handleExportFromStockDetails = () => {
+    try {
+      // Get items that were marked from stock
+      const fromStockItems = matchedOrders.filter(order => itemsMarkedFromStock.has(order.id));
+      
+      if (fromStockItems.length === 0) {
+        toast({
+          title: "No From Stock Items",
+          description: "No items have been marked as ordered from stock yet",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Prepare export data with stock deduction details
+      const exportData = fromStockItems.map((order) => {
+        const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number);
+        
+        return {
+          // Basic Order Information
+          'PO Number': order.po_number,
+          'Order ID': order.id,
+          'ASIN': order.asin || '',
+          'SKU Code': order.sku_code || '',
+          'Model Number': order.model_number || '',
+          'Title': order.title || '',
+          
+          // Stock Deduction Details
+          'Order Quantity': order.quantity,
+          'Previous Stock': inventoryMatch ? inventoryMatch.quantity + order.quantity : 'Unknown',
+          'Quantity Deducted': order.quantity,
+          'Current Stock': inventoryMatch?.quantity || 0,
+          'Inventory Type': inventoryMatch?.type || 'Not Found',
+          'Inventory Identifier': inventoryMatch?.identifier || '',
+          'Serial/Bin Number': inventoryMatch?.serialNumber || '',
+          
+          // Order Details
+          'Unit Cost': order.unit_cost || '',
+          'Total Cost': order.total_cost || '',
+          'Currency': order.currency || '',
+          'Status': order.status,
+          'Order Date': order.order_date ? new Date(order.order_date).toLocaleDateString() : '',
+          'Expected Delivery': order.expected_delivery ? new Date(order.expected_delivery).toLocaleDateString() : '',
+          'Updated At': new Date(order.updated_at).toLocaleDateString(),
+          
+          // Sunsky Information
+          'Sunsky SKU': order.sunsky_sku?.sku_code || '',
+          'Sunsky Title': order.sunsky_sku?.title || '',
+          'Sunsky Cost': order.sunsky_sku?.cost || '',
+          
+          // Additional Information
+          'Notes': order.notes || '',
+          'Ship To Location': order.ship_to_location || '',
+          'File Name': order.file_name || ''
+        };
+      });
+
+      // Convert to CSV
+      const headers = Object.keys(exportData[0]);
+      const csvContent = [
+        headers.join(','),
+        ...exportData.map(row => 
+          headers.map(header => {
+            const value = row[header as keyof typeof row];
+            const stringValue = String(value);
+            if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+              return `"${stringValue.replace(/"/g, '""')}"`;
+            }
+            return stringValue;
+          }).join(',')
+        )
+      ].join('\n');
+
+      // Create and download file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `PO_${poNumber}_FromStock_Details_${new Date().toISOString().split('T')[0]}.csv`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+
+      toast({
+        title: "Export Successful",
+        description: `Exported ${exportData.length} from-stock items with stock deduction details`
+      });
+    } catch (error) {
+      console.error('Export error:', error);
+      toast({
+        title: "Export Failed",
+        description: "Failed to export from stock details",
+        variant: "destructive"
+      });
+    }
+  };
+
   // Handle bulk mark as ordered from inventory
   const handleBulkMarkFromInventory = async () => {
     if (selectedItems.size === 0) return;
@@ -805,13 +901,82 @@ export default function PODetailsPage() {
               PO {poNumber} Details
             </h1>
           </div>
-          <Button 
-            onClick={handleExportPO} 
-            className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2"
-          >
-            <Download className="h-4 w-4" />
-            Export PO Details
-          </Button>
+          <div className="flex gap-2">
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button 
+                  variant="outline"
+                  className="gap-2"
+                  disabled={itemsMarkedFromStock.size === 0}
+                >
+                  <Package className="h-4 w-4" />
+                  Preview From Stock ({itemsMarkedFromStock.size})
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>From Stock Items - Stock Deduction Details</DialogTitle>
+                  <DialogDescription>
+                    Items marked as ordered from stock with quantity deductions
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  {matchedOrders.filter(order => itemsMarkedFromStock.has(order.id)).map((order) => {
+                    const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number);
+                    return (
+                      <Card key={order.id}>
+                        <CardContent className="p-4">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <h4 className="font-semibold text-sm">Product Details</h4>
+                              <div className="text-xs space-y-1 mt-2">
+                                <div><strong>ASIN:</strong> {order.asin}</div>
+                                <div><strong>Title:</strong> {order.title}</div>
+                                <div><strong>SKU:</strong> {order.sku_code}</div>
+                                {order.model_number && <div><strong>Model:</strong> {order.model_number}</div>}
+                              </div>
+                            </div>
+                            <div>
+                              <h4 className="font-semibold text-sm">Stock Deduction</h4>
+                              <div className="text-xs space-y-1 mt-2">
+                                <div><strong>Order Qty:</strong> {order.quantity}</div>
+                                <div><strong>Previous Stock:</strong> {inventoryMatch ? inventoryMatch.quantity + order.quantity : 'Unknown'}</div>
+                                <div><strong>Deducted:</strong> -{order.quantity}</div>
+                                <div><strong>Current Stock:</strong> {inventoryMatch?.quantity || 0}</div>
+                                <div><strong>Inventory Type:</strong> {inventoryMatch?.type || 'Not Found'}</div>
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+                <DialogFooter>
+                  <Button onClick={handleExportFromStockDetails} className="gap-2">
+                    <Download className="h-4 w-4" />
+                    Export CSV
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+            <Button 
+              onClick={handleExportFromStockDetails} 
+              variant="outline"
+              className="gap-2"
+              disabled={itemsMarkedFromStock.size === 0}
+            >
+              <Download className="h-4 w-4" />
+              Export From Stock Details
+            </Button>
+            <Button 
+              onClick={handleExportPO} 
+              className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2"
+            >
+              <Download className="h-4 w-4" />
+              Export PO Details
+            </Button>
+          </div>
         </div>
 
         {/* Action Buttons */}
