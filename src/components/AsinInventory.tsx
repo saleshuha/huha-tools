@@ -358,6 +358,89 @@ export function AsinInventory() {
       });
     };
 
+  // Merge duplicate ASINs function
+  const mergeDuplicates = async () => {
+    if (duplicateData.duplicates.size === 0) {
+      toast({
+        title: "No Duplicates Found",
+        description: "There are no duplicate ASINs to merge",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      let mergedCount = 0;
+      let deletedCount = 0;
+
+      for (const [asin, items] of duplicateData.duplicates.entries()) {
+        if (items.length <= 1) continue;
+
+        // Sort by date added to keep the earliest one
+        const sortedItems = [...items].sort((a, b) => new Date(a.dateAdded).getTime() - new Date(b.dateAdded).getTime());
+        const primaryItem = sortedItems[0];
+        const itemsToDelete = sortedItems.slice(1);
+
+        // Calculate merged data
+        const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
+        const combinedSerialNumbers = items.map(item => item.serialNumber).join(', ');
+        const combinedNotes = items
+          .map(item => item.notes)
+          .filter(note => note && note.trim())
+          .join('; ') || null;
+
+        // Update the primary item with merged data
+        const { error: updateError } = await supabase
+          .from('asin_inventory')
+          .update({
+            quantity: totalQuantity,
+            serialNumber: combinedSerialNumbers,
+            notes: combinedNotes,
+            status: items.some(item => item.status === 'in-stock') ? 'in-stock' : primaryItem.status
+          })
+          .eq('id', primaryItem.id);
+
+        if (updateError) {
+          console.error('Error updating primary item:', updateError);
+          continue;
+        }
+
+        // Delete the duplicate items
+        const { error: deleteError } = await supabase
+          .from('asin_inventory')
+          .delete()
+          .in('id', itemsToDelete.map(item => item.id));
+
+        if (deleteError) {
+          console.error('Error deleting duplicate items:', deleteError);
+          continue;
+        }
+
+        mergedCount++;
+        deletedCount += itemsToDelete.length;
+      }
+
+      // Refresh the inventory data
+      refetch();
+
+      toast({
+        title: "Duplicates Merged Successfully",
+        description: `Merged ${mergedCount} duplicate ASINs and removed ${deletedCount} duplicate entries`,
+      });
+
+      // Close the dialog
+      setIsDuplicateDialogOpen(false);
+
+    } catch (error) {
+      console.error('Error merging duplicates:', error);
+      toast({
+        title: "Merge Failed",
+        description: "Could not merge duplicate ASINs",
+        variant: "destructive"
+      });
+    }
+  };
+
   // Export duplicate ASINs data
   const exportDuplicates = () => {
     if (duplicateData.duplicates.size === 0) {
@@ -1001,6 +1084,15 @@ export function AsinInventory() {
                 >
                   <Download className="w-4 h-4" />
                   Export CSV
+                </Button>
+                <Button 
+                  variant="default" 
+                  size="sm" 
+                  onClick={mergeDuplicates}
+                  className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Merge Duplicates
                 </Button>
               </div>
             </DialogHeader>
