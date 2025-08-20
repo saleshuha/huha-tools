@@ -1159,8 +1159,8 @@ serve(async (req) => {
       }
 
       case 'getProductDetails': {
-        const credentials = await getApiCredentials(user.id);
-        const { itemNo } = requestData;
+        const { apiId, itemNo } = requestData;
+        const credentials = await getApiCredentials(user.id, apiId);
 
         if (!itemNo) {
           throw new Error('itemNo is required');

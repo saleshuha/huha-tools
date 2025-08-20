@@ -24,6 +24,7 @@ import { SunskyCredentialsManager } from "./SunskyCredentialsManager";
 import { useSKUManager } from "@/hooks/useSKUManager";
 import { useImportJobs } from "@/hooks/useImportJobs";
 import { usePOOrders } from "@/hooks/usePOOrders";
+import { useParallelPOProcessor } from "./ParallelPOProcessor";
 
 interface SunskyProduct {
   // Core product fields
@@ -138,6 +139,14 @@ export const SunskySKUImporter: React.FC = () => {
   const { sunskySKUs, isLoading: skusLoading, fetchSKUs, totalCount, refreshSKUs, addSKUs } = useSKUManager();
   const { jobs, isLoading: jobsLoading, createImportJob, fetchJobs } = useImportJobs();
   const { getPOModelNumbers } = usePOOrders();
+  const { processModelNumbersInParallel } = useParallelPOProcessor({
+    profile,
+    callSunskyAPI,
+    setPOSearchStats,
+    setPOSearchProgress,
+    fetchSKUs,
+    fetchJobs
+  });
   
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -798,7 +807,7 @@ export const SunskySKUImporter: React.FC = () => {
     }
   };
 
-  // Search PO model numbers in Sunsky and import matching items
+  // Search PO model numbers in Sunsky and import matching items with parallel processing
   const handleSearchPOModelNumbers = async () => {
     if (!hasCredentials) {
       toast({
@@ -825,7 +834,7 @@ export const SunskySKUImporter: React.FC = () => {
         return;
       }
 
-      const uniqueModelNumbers = modelData.uniqueModels;
+      await processModelNumbersInParallel(modelData);
 
       // Create an import job for this PO search
       const { data: importJob, error: jobError } = await supabase
@@ -1115,7 +1124,9 @@ export const SunskySKUImporter: React.FC = () => {
           .from('sunsky_import_jobs')
           .update({
             status: 'completed',
-            completed_at: new Date().toISOString()
+            completed_at: new Date().toISOString(),
+            success_count: finalSuccess,
+            error_count: finalErrors
           })
           .eq('id', importJob.id);
       }
@@ -1123,13 +1134,11 @@ export const SunskySKUImporter: React.FC = () => {
       // Force refresh the SKU list and jobs list to show new imports
       console.log('Force refreshing SKU list after PO import...');
       try {
-        // Clear cache and force refresh
-        await fetchSKUs(1, false); // Force refresh without cache
+        await fetchSKUs(1, false);
         await fetchJobs();
         console.log('SKU list and jobs refreshed successfully');
       } catch (refreshError) {
         console.error('Error refreshing data:', refreshError);
-        // Fallback: try the refresh function
         try {
           await refreshSKUs();
         } catch (fallbackError) {
@@ -1138,13 +1147,11 @@ export const SunskySKUImporter: React.FC = () => {
       }
       
       setPOSearchProgress(100);
-      setPOSearchStats(prev => ({ ...prev, currentItem: 'Complete!' }));
 
-      const finalStats = poSearchStats;
       toast({
         title: "PO Model Number Search Complete",
-        description: `Found and imported ${finalStats.matchedItems} items from ${finalStats.totalItems} unique model numbers (${finalStats.totalPOItems} total PO items). ${finalStats.skippedItems} items not found, ${finalStats.errorItems} errors.`,
-        variant: finalStats.matchedItems > 0 ? "default" : "default"
+        description: `Parallel processing with ${activeKeys.length} API keys completed! Found and imported ${finalSuccess} items from ${uniqueModelNumbers.length} unique model numbers (${modelData.totalCount} total PO items). ${finalSkipped} items not found, ${finalErrors} errors.`,
+        variant: finalSuccess > 0 ? "default" : "default"
       });
 
     } catch (error) {
