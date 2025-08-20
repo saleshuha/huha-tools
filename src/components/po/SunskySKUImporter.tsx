@@ -187,6 +187,7 @@ export const SunskySKUImporter: React.FC = () => {
     'itemNo', 'name', 'brandName', 'stock', 'leadTime', 'warehouse', 'price', 'convertedPrice'
   ]);
   const [showHeaderSelector, setShowHeaderSelector] = useState(false);
+  const [showColumnDialog, setShowColumnDialog] = useState(false);
   
   // Pagination for import jobs
   const [jobsCurrentPage, setJobsCurrentPage] = useState(1);
@@ -1877,42 +1878,67 @@ export const SunskySKUImporter: React.FC = () => {
                     </CardDescription>
                   </div>
                   <div className="flex gap-2">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
+                    <Dialog open={showColumnDialog} onOpenChange={setShowColumnDialog}>
+                      <DialogTrigger asChild>
                         <Button variant="outline" size="sm">
                           <Settings className="h-4 w-4 mr-2" />
                           Columns
                         </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-56">
-                        {availableSkuHeaders.map((header) => (
-                          <DropdownMenuCheckboxItem
-                            key={header}
-                            checked={skuTableHeaders.includes(header)}
-                            onCheckedChange={(checked) => {
-                              if (checked) {
-                                setSkuTableHeaders([...skuTableHeaders, header]);
-                              } else {
-                                setSkuTableHeaders(skuTableHeaders.filter(h => h !== header));
-                              }
-                            }}
-                          >
-                            {header.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                          </DropdownMenuCheckboxItem>
-                        ))}
-                        <div className="border-t pt-2 mt-2">
-                          <Button 
-                            onClick={saveColumnPreferences}
-                            variant="ghost" 
-                            size="sm" 
-                            className="w-full justify-start"
-                          >
-                            <Save className="h-4 w-4 mr-2" />
-                            Save Preferences
-                          </Button>
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-md">
+                        <DialogHeader>
+                          <DialogTitle>Select Columns to Display</DialogTitle>
+                          <DialogDescription>
+                            Choose which columns you want to see in the SKU table
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                          <div className="max-h-96 overflow-y-auto space-y-3 pr-2">
+                            {availableSkuHeaders.map((header) => (
+                              <div key={header} className="flex items-center space-x-3">
+                                <Checkbox
+                                  id={header}
+                                  checked={skuTableHeaders.includes(header)}
+                                  onCheckedChange={(checked) => {
+                                    if (checked) {
+                                      setSkuTableHeaders([...skuTableHeaders, header]);
+                                    } else {
+                                      setSkuTableHeaders(skuTableHeaders.filter(h => h !== header));
+                                    }
+                                  }}
+                                />
+                                <Label 
+                                  htmlFor={header}
+                                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                >
+                                  {header.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                </Label>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="flex justify-between pt-4 border-t">
+                            <Button 
+                              onClick={() => {
+                                saveColumnPreferences();
+                                setShowColumnDialog(false);
+                              }}
+                              variant="default"
+                              size="sm"
+                            >
+                              <Save className="h-4 w-4 mr-2" />
+                              Save & Close
+                            </Button>
+                            <Button 
+                              onClick={() => setShowColumnDialog(false)}
+                              variant="outline"
+                              size="sm"
+                            >
+                              Cancel
+                            </Button>
+                          </div>
                         </div>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                      </DialogContent>
+                    </Dialog>
                     
                     <Button 
                       onClick={() => fetchSKUs(1, false)}
