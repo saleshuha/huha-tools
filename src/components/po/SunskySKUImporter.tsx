@@ -23,6 +23,7 @@ import { DateRange } from "react-day-picker";
 import { SunskyCredentialsManager } from "./SunskyCredentialsManager";
 import { useSKUManager } from "@/hooks/useSKUManager";
 import { useImportJobs } from "@/hooks/useImportJobs";
+import type { ImportJob } from "@/hooks/useImportJobs";
 import { usePOOrders } from "@/hooks/usePOOrders";
 import { useParallelPOProcessor } from "./ParallelPOProcessor";
 
@@ -188,6 +189,10 @@ export const SunskySKUImporter: React.FC = () => {
   ]);
   const [showHeaderSelector, setShowHeaderSelector] = useState(false);
   const [showColumnDialog, setShowColumnDialog] = useState(false);
+  
+  // Job details dialog
+  const [selectedJob, setSelectedJob] = useState<ImportJob | null>(null);
+  const [showJobDetailsDialog, setShowJobDetailsDialog] = useState(false);
   
   // Pagination for import jobs
   const [jobsCurrentPage, setJobsCurrentPage] = useState(1);
@@ -1737,7 +1742,14 @@ export const SunskySKUImporter: React.FC = () => {
                       {jobs
                         .slice((jobsCurrentPage - 1) * jobsPerPage, jobsCurrentPage * jobsPerPage)
                         .map((job) => (
-                        <div key={job.id} className="border rounded-lg p-4">
+                        <div 
+                          key={job.id} 
+                          className="border rounded-lg p-4 cursor-pointer hover:bg-muted/50 transition-colors"
+                          onClick={() => {
+                            setSelectedJob(job);
+                            setShowJobDetailsDialog(true);
+                          }}
+                        >
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
                               <Badge 
@@ -1764,7 +1776,10 @@ export const SunskySKUImporter: React.FC = () => {
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  onClick={() => pauseJob(job.id)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    pauseJob(job.id);
+                                  }}
                                   className="text-orange-600 hover:bg-orange-50"
                                 >
                                   <PauseCircle className="h-4 w-4" />
@@ -1775,7 +1790,10 @@ export const SunskySKUImporter: React.FC = () => {
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  onClick={() => resumeJob(job.id)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    resumeJob(job.id);
+                                  }}
                                   className="text-green-600 hover:bg-green-50"
                                 >
                                   <PlayCircle className="h-4 w-4" />
@@ -1786,7 +1804,10 @@ export const SunskySKUImporter: React.FC = () => {
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  onClick={() => cancelJob(job.id)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    cancelJob(job.id);
+                                  }}
                                   className="text-red-600 hover:bg-red-50"
                                 >
                                   <XCircle className="h-4 w-4" />
@@ -2274,6 +2295,169 @@ export const SunskySKUImporter: React.FC = () => {
           </div>
         </TabsContent>
       </Tabs>
+      
+      {/* Job Details Dialog */}
+      <Dialog open={showJobDetailsDialog} onOpenChange={setShowJobDetailsDialog}>
+        <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              Job Details - {selectedJob?.type && selectedJob.type.charAt(0).toUpperCase() + selectedJob.type.slice(1)} Import
+            </DialogTitle>
+            <DialogDescription>
+              View detailed information about this import job
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedJob && (
+            <div className="space-y-6">
+              {/* Status Overview */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-muted-foreground">Status</Label>
+                  <Badge 
+                    variant={
+                      selectedJob.status === 'completed' ? 'default' :
+                      selectedJob.status === 'processing' ? 'secondary' :
+                      selectedJob.status === 'failed' ? 'destructive' : 'outline'
+                    }
+                    className="w-fit"
+                  >
+                    {selectedJob.status}
+                  </Badge>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-muted-foreground">Job Type</Label>
+                  <div className="font-medium capitalize">{selectedJob.type}</div>
+                </div>
+              </div>
+
+              {/* Progress Information */}
+              <div className="space-y-4">
+                <Label className="text-sm font-medium text-muted-foreground">Progress</Label>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="text-center p-3 bg-muted/50 rounded-lg">
+                    <div className="text-2xl font-bold text-blue-600">{selectedJob.total_items || 0}</div>
+                    <div className="text-xs text-muted-foreground">Total Items</div>
+                  </div>
+                  <div className="text-center p-3 bg-muted/50 rounded-lg">
+                    <div className="text-2xl font-bold text-green-600">{selectedJob.processed_items}</div>
+                    <div className="text-xs text-muted-foreground">Processed</div>
+                  </div>
+                  <div className="text-center p-3 bg-muted/50 rounded-lg">
+                    <div className="text-2xl font-bold text-orange-600">{selectedJob.success_count}</div>
+                    <div className="text-xs text-muted-foreground">Success</div>
+                  </div>
+                </div>
+                
+                {selectedJob.total_items && selectedJob.total_items > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Progress</span>
+                      <span>{Math.round((selectedJob.processed_items / selectedJob.total_items) * 100)}%</span>
+                    </div>
+                    <Progress 
+                      value={(selectedJob.processed_items / selectedJob.total_items) * 100} 
+                      className="h-2" 
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Results Summary */}
+              <div className="space-y-4">
+                <Label className="text-sm font-medium text-muted-foreground">Results</Label>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="text-center p-3 border rounded-lg">
+                    <div className="text-2xl font-bold text-green-600">{selectedJob.success_count}</div>
+                    <div className="text-xs text-muted-foreground">Successful</div>
+                  </div>
+                  <div className="text-center p-3 border rounded-lg">
+                    <div className="text-2xl font-bold text-red-600">{selectedJob.error_count}</div>
+                    <div className="text-xs text-muted-foreground">Errors</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Timestamps */}
+              <div className="space-y-4">
+                <Label className="text-sm font-medium text-muted-foreground">Timeline</Label>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-sm">Created:</span>
+                    <span className="text-sm font-medium">
+                      {new Date(selectedJob.created_at).toLocaleString()}
+                    </span>
+                  </div>
+                  {selectedJob.started_at && (
+                    <div className="flex justify-between">
+                      <span className="text-sm">Started:</span>
+                      <span className="text-sm font-medium">
+                        {new Date(selectedJob.started_at).toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+                  {selectedJob.completed_at && (
+                    <div className="flex justify-between">
+                      <span className="text-sm">Completed:</span>
+                      <span className="text-sm font-medium">
+                        {new Date(selectedJob.completed_at).toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Search Criteria */}
+              <div className="space-y-4">
+                <Label className="text-sm font-medium text-muted-foreground">Search Criteria</Label>
+                <div className="bg-muted/50 p-4 rounded-lg">
+                  <pre className="text-xs overflow-x-auto whitespace-pre-wrap">
+                    {JSON.stringify(selectedJob.criteria, null, 2)}
+                  </pre>
+                </div>
+              </div>
+
+              {/* Error Details */}
+              {selectedJob.last_error && (
+                <div className="space-y-4">
+                  <Label className="text-sm font-medium text-muted-foreground">Error Details</Label>
+                  <div className="bg-red-50 border border-red-200 p-4 rounded-lg">
+                    <div className="text-sm text-red-800 font-medium mb-2">Last Error:</div>
+                    <div className="text-xs text-red-700 whitespace-pre-wrap">
+                      {selectedJob.last_error}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Additional Flags */}
+              {(selectedJob.paused || selectedJob.cancelled) && (
+                <div className="space-y-4">
+                  <Label className="text-sm font-medium text-muted-foreground">Flags</Label>
+                  <div className="flex gap-2">
+                    {selectedJob.paused && (
+                      <Badge variant="secondary">Paused</Badge>
+                    )}
+                    {selectedJob.cancelled && (
+                      <Badge variant="destructive">Cancelled</Badge>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          
+          <div className="flex justify-end pt-4 border-t">
+            <Button 
+              onClick={() => setShowJobDetailsDialog(false)}
+              variant="outline"
+            >
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
