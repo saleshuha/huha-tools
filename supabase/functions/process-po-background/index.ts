@@ -76,6 +76,21 @@ async function processModelNumbersBackground(supabaseClient: any, userId: string
   try {
     console.log(`Background processing started for job ${jobId}`)
 
+    // Get user's country from profile
+    const { data: userProfile, error: profileError } = await supabaseClient
+      .from('profiles')
+      .select('country')
+      .eq('id', userId)
+      .single()
+
+    if (profileError || !userProfile) {
+      console.error('Failed to get user profile:', profileError)
+      throw new Error("Failed to get user profile")
+    }
+
+    const userCountry = userProfile.country || 'UAE' // fallback to UAE if no country set
+    console.log(`Using user country: ${userCountry}`)
+
     // Get all active API keys
     const { data: activeKeys, error: keysError } = await supabaseClient
       .from('sunsky_credentials')
@@ -196,7 +211,7 @@ async function processModelNumbersBackground(supabaseClient: any, userId: string
                 cost: productToImport.convertedPrice || parseFloat(productToImport.price || '0') || 0,
                 weight: productToImport.unitWeight ? parseFloat(productToImport.unitWeight) : 0,
                 currency: productToImport.convertedCurrency || 'USD',
-                country: 'UAE', // Default country
+                country: userCountry, // Use user's actual country
                 product_data: productToImport
               }, {
                 onConflict: 'user_id,sku_code',
@@ -220,10 +235,12 @@ async function processModelNumbersBackground(supabaseClient: any, userId: string
                 .eq('model_number', modelNumber)
             } else {
               chunkErrors++
+              console.error(`Failed to upsert SKU ${productToImport.itemNo}:`, error)
             }
           } else {
             // No product found
             chunkErrors++
+            console.log(`No product found for model: ${modelNumber}`)
           }
 
           totalProcessed++
@@ -244,7 +261,15 @@ async function processModelNumbersBackground(supabaseClient: any, userId: string
           await new Promise(resolve => setTimeout(resolve, 100))
 
         } catch (error) {
-          console.error(`Error processing ${modelNumber}:`, error)
+          console.error(`Error processing ${modelNumber}:`, error.message || error)
+          // Log the specific error to help with debugging
+          if (error.message?.includes('NO_PERMISSION_DUE_TO_SIGNATURE')) {
+            console.error(`Signature error for ${modelNumber} - API authentication failed`)
+          } else if (error.message?.includes('HTTP error')) {
+            console.error(`HTTP error for ${modelNumber} - API request failed`)
+          } else {
+            console.error(`Unknown error for ${modelNumber}:`, error)
+          }
           chunkErrors++
           totalProcessed++
         }
