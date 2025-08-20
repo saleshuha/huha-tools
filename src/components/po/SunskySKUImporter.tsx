@@ -2005,6 +2005,7 @@ export const SunskySKUImporter: React.FC = () => {
                     <p className="text-sm">Use the search tab to import SKUs from Sunsky</p>
                   </div>
                 ) : (
+                  <>
                   <div className="rounded-md border">
                     <Table>
                       <TableHeader>
@@ -2187,11 +2188,12 @@ export const SunskySKUImporter: React.FC = () => {
                                className={skuCurrentPage === skuTotalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
                              />
                            </PaginationItem>
-                         </PaginationContent>
-                       </Pagination>
-                     </div>
+                          </PaginationContent>
+                        </Pagination>
+                      </div>
                     )}
-                }
+                  </>
+                )}
                </CardContent>
             </Card>
           </div>
