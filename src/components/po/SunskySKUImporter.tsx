@@ -73,7 +73,7 @@ export function SunskySKUImporter() {
       <Tabs defaultValue="search" className="w-full">
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="search">Search & Import</TabsTrigger>
-          <TabsTrigger value="jobs">Import Jobs ({jobs.filter(j => j.status === 'processing').length})</TabsTrigger>
+          <TabsTrigger value="jobs">Import Jobs ({jobs?.filter(j => j.status === 'processing').length || 0})</TabsTrigger>
           <TabsTrigger value="imported">Imported SKUs ({sunskySKUs?.length || 0})</TabsTrigger> 
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
@@ -130,7 +130,7 @@ export function SunskySKUImporter() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {jobs.length === 0 ? (
+                {!jobs || jobs.length === 0 ? (
                   <p className="text-muted-foreground text-center py-8">No import jobs found</p>
                 ) : (
                   jobs.map((job) => (
