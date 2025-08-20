@@ -22,13 +22,21 @@ interface Country {
   id: string;
   name: string;
   code: string;
+  shipToState: boolean;
+  stateList?: Array<{
+    code: string;
+    name: string;
+  }>;
 }
 
 interface ShippingMethod {
   id: string;
   name: string;
-  cost: number;
-  estimatedDays: string;
+  logo?: string;
+  description?: string;
+  website?: string;
+  transitTime: string;
+  shippingCost: number;
 }
 
 interface OrderItem {
@@ -148,12 +156,21 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
       
       const data = response.data;
       if (data.result === 'success' && data.data?.freightList) {
-        setShippingMethods(data.data.freightList.map((method: any) => ({
+        const methods = data.data.freightList.map((method: any) => ({
           id: method.id,
           name: method.name,
-          cost: method.freight || 0,
-          estimatedDays: method.estimatedDays || 'N/A'
-        })));
+          logo: method.logo,
+          description: method.description,
+          website: method.website,
+          transitTime: method.transitTime || 'N/A',
+          shippingCost: method.shippingCost || 0
+        }));
+        setShippingMethods(methods);
+        
+        // Auto-select the first shipping method
+        if (methods.length > 0 && !deliveryAddress.shippingWayId) {
+          setDeliveryAddress(prev => ({ ...prev, shippingWayId: methods[0].id }));
+        }
       } else {
         throw new Error(data.message || 'Failed to load shipping methods');
       }
@@ -243,6 +260,7 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
 
   const canProceedToAddress = checkedItems.size > 0;
   const canProceedToShipping = deliveryAddress.countryId && deliveryAddress.receiver && deliveryAddress.address && deliveryAddress.city && deliveryAddress.postcode;
+  const canLoadShipping = canProceedToShipping && checkedItems.size > 0;
   const canProceedToReview = deliveryAddress.shippingWayId;
 
   return (
@@ -380,13 +398,40 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
                   />
                 </div>
                 <div>
-                  <Label htmlFor="state">State/Province</Label>
-                  <Input
-                    id="state"
-                    value={deliveryAddress.state}
-                    onChange={(e) => setDeliveryAddress({...deliveryAddress, state: e.target.value})}
-                    placeholder="State or province"
-                  />
+                  <Label htmlFor="state">
+                    State/Province {countries.find(c => c.id === deliveryAddress.countryId)?.shipToState ? '*' : ''}
+                  </Label>
+                  {(() => {
+                    const selectedCountry = countries.find(c => c.id === deliveryAddress.countryId);
+                    if (selectedCountry?.stateList && selectedCountry.stateList.length > 0) {
+                      return (
+                        <Select 
+                          value={deliveryAddress.state} 
+                          onValueChange={(value) => setDeliveryAddress({...deliveryAddress, state: value})}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select state/province" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {selectedCountry.stateList.map((state) => (
+                              <SelectItem key={state.code} value={state.code}>
+                                {state.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      );
+                    } else {
+                      return (
+                        <Input
+                          id="state"
+                          value={deliveryAddress.state}
+                          onChange={(e) => setDeliveryAddress({...deliveryAddress, state: e.target.value})}
+                          placeholder="State or province"
+                        />
+                      );
+                    }
+                  })()}
                 </div>
                 <div>
                   <Label htmlFor="postcode">Postal Code *</Label>
@@ -425,12 +470,18 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
               <h3 className="text-lg font-semibold mb-4">Select Shipping Method</h3>
               <Button 
                 onClick={loadShippingMethods} 
-                disabled={loadingShipping || !canProceedToAddress}
+                disabled={loadingShipping || !canLoadShipping}
                 className="mb-4"
               >
                 {loadingShipping ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Truck className="h-4 w-4 mr-2" />}
                 Load Shipping Options
               </Button>
+              
+              {!canLoadShipping && (
+                <p className="text-sm text-muted-foreground mb-4">
+                  Please fill in all required address fields and select items to load shipping options.
+                </p>
+              )}
               
               {shippingMethods.length > 0 && (
                 <div className="space-y-3">
@@ -447,12 +498,32 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
                           <div>
                             <div className="font-medium">{method.name}</div>
                             <div className="text-sm text-muted-foreground">
-                              Estimated: {method.estimatedDays}
+                              Transit Time: {method.transitTime}
                             </div>
+                            {method.description && (
+                              <div className="text-xs text-muted-foreground mt-1">
+                                {method.description}
+                              </div>
+                            )}
                           </div>
-                          <Badge variant="secondary">
-                            ${method.cost.toFixed(2)}
-                          </Badge>
+                          <div className="text-right">
+                            <Badge variant="secondary">
+                              ${method.shippingCost.toFixed(2)}
+                            </Badge>
+                            {method.website && (
+                              <div className="mt-1">
+                                <a 
+                                  href={method.website} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-primary hover:underline flex items-center gap-1"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  Website <ExternalLink className="h-3 w-3" />
+                                </a>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </CardContent>
                     </Card>
