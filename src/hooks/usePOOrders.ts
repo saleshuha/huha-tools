@@ -292,21 +292,24 @@ export const usePOOrders = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      // Fetch all PO orders with model numbers (no filtering yet)
-      const { data, error } = await supabase
-        .from('po_orders')
-        .select('model_number, sku_code, title')
-        .eq('user_id', user.id)
-        .not('model_number', 'is', null)
-        .not('model_number', 'eq', '');
+      // Use the unlimited function to fetch ALL PO orders
+      const { data, error } = await supabase.rpc('get_all_po_orders_unlimited', {
+        user_id_param: user.id
+      });
 
       if (error) throw error;
 
-      // Get all model numbers and unique ones across ALL POs
-      const allModelNumbers = data.map(item => item.model_number).filter(Boolean);
+      console.log(`Fetched ${data.length} total PO orders from database`);
+
+      // Extract model numbers from all PO orders
+      const itemsWithModelNumbers = data.filter(item => 
+        item.model_number && 
+        item.model_number.trim() !== ''
+      );
+      
+      const allModelNumbers = itemsWithModelNumbers.map(item => item.model_number);
       const uniqueModelNumbers = [...new Set(allModelNumbers)];
       
-      console.log(`Fetched ${data.length} PO items total`);
       console.log(`Found ${allModelNumbers.length} PO items with model numbers`);
       console.log(`Found ${uniqueModelNumbers.length} unique model numbers across all POs`);
       
