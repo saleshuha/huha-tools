@@ -579,7 +579,9 @@ export const SunskySKUImporter: React.FC = () => {
         pageSize: 20
       }, apiId || selectedSearchAPI);
       
-      if (result.success) {
+      console.log('Search products API response:', result);
+      
+      if (result.result === 'success') {
         setProducts(result.data?.products || []);
         setCurrentPage(page);
         setTotalPages(Math.ceil((result.data?.total || 0) / 20));
@@ -597,7 +599,8 @@ export const SunskySKUImporter: React.FC = () => {
           description: `Found ${result.data?.total || 0} products`
         });
       } else {
-        throw new Error(result.error);
+        console.error('Search products failed:', result);
+        throw new Error(result.error || 'Search failed');
       }
     } catch (error) {
       console.error('Error searching products:', error);
@@ -617,10 +620,13 @@ export const SunskySKUImporter: React.FC = () => {
     try {
       const result = await callSunskyAPI('getProductDetails', { itemNo });
       
-      if (result.success) {
+      console.log('Get product details API response:', result);
+      
+      if (result.result === 'success') {
         return result.data;
       } else {
-        throw new Error(result.error);
+        console.error('Product details API error:', result.error);
+        throw new Error(result.error || 'Product details API failed');
       }
     } catch (error) {
       console.error('Error getting product details:', error);
@@ -660,7 +666,6 @@ export const SunskySKUImporter: React.FC = () => {
                 user_id: profile?.id,
                 sku_code: productDetails.itemNo,
                 title: productDetails.name || '',
-                description: productDetails.description || '',
                 cost: productDetails.convertedPrice || parseFloat(productDetails.price || '0') || 0,
                 weight: productDetails.unitWeight ? parseFloat(productDetails.unitWeight) : 0,
                 currency: productDetails.convertedCurrency || 'USD',
@@ -827,12 +832,12 @@ export const SunskySKUImporter: React.FC = () => {
                 
                 console.log(`Direct lookup response for ${modelNumber}:`, detailResults);
                 
-                if (detailResults?.result?.result === 'success' && detailResults.result.data) {
-                  productToImport = detailResults.result.data;
+                if (detailResults?.result === 'success' && detailResults.data) {
+                  productToImport = detailResults.data;
                   matchFound = true;
-                  console.log(`Direct match found for ${modelNumber}`, productToImport);
+                  console.log(`✅ Direct match found for ${modelNumber}`, productToImport.itemNo);
                 } else {
-                  console.log(`Direct lookup failed for ${modelNumber} - result structure:`, detailResults);
+                  console.log(`❌ Direct lookup failed for ${modelNumber} - result:`, detailResults?.result, 'data:', !!detailResults?.data);
                 }
               } catch (error) {
                 console.log(`Direct lookup error for ${modelNumber}:`, error);
@@ -860,13 +865,13 @@ export const SunskySKUImporter: React.FC = () => {
 
                 console.log(`Search response for ${modelNumber}:`, searchResults);
 
-                if (searchResults?.result?.result === 'success' && searchResults.result.data?.products?.length > 0) {
-                  console.log(`Found ${searchResults.result.data.products.length} products in search for ${modelNumber}`);
+                if (searchResults?.result === 'success' && searchResults.data?.products?.length > 0) {
+                  console.log(`🔍 Found ${searchResults.data.products.length} products in search for ${modelNumber}`);
                   // Look for exact or close matches
                   const normalizedSearch = normalizeModelNumber(modelNumber);
                   let bestMatch = null;
 
-                  for (const product of searchResults.result.data.products) {
+                  for (const product of searchResults.data.products) {
                     const normalizedItem = normalizeModelNumber(product.itemNo || '');
                     const normalizedName = normalizeModelNumber(product.name || '');
                     
@@ -891,10 +896,10 @@ export const SunskySKUImporter: React.FC = () => {
 
                       console.log(`Detail results for best match ${bestMatch.itemNo}:`, detailResults);
 
-                      if (detailResults?.result?.result === 'success' && detailResults.result.data) {
-                        productToImport = detailResults.result.data;
+                      if (detailResults?.result === 'success' && detailResults.data) {
+                        productToImport = detailResults.data;
                         matchFound = true;
-                        console.log(`Search match found for ${modelNumber}: ${bestMatch.itemNo}`);
+                        console.log(`✅ Search match found for ${modelNumber}: ${bestMatch.itemNo}`);
                       }
                     } catch (error) {
                       console.log(`Error getting details for matched product ${bestMatch.itemNo}:`, error);
@@ -927,7 +932,6 @@ export const SunskySKUImporter: React.FC = () => {
                     weight: productToImport.unitWeight ? parseFloat(productToImport.unitWeight) : 0,
                     currency: productToImport.convertedCurrency || 'USD',
                     country: profile?.country || 'UAE',
-                    description: productToImport.description || '',
                     product_data: productToImport
                   }, {
                     onConflict: 'user_id,sku_code',

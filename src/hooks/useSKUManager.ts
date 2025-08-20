@@ -130,7 +130,6 @@ export const useSKUManager = () => {
           weight,
           currency,
           country,
-          description,
           product_data,
           created_at,
           updated_at
