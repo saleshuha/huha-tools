@@ -292,62 +292,155 @@ async function processModelNumbersBackground(supabaseClient: any, userId: string
 async function callSunskyAPI(action: string, data: any, credentials: SunskyCredential) {
   const crypto = await import('node:crypto')
   
-  const timestamp = Math.floor(Date.now() / 1000)
+  // Remove apiId from data as it's not needed for the actual API call
+  const { apiId, ...apiData } = data
   
   let params: Record<string, any> = {
-    key: credentials.api_key,
-    lang: 'en',
-    ...data
+    ...apiData,
+    lang: 'en'
   }
 
-  // Remove apiId from params as it's not needed for the actual API call
-  delete params.apiId
-
-  const sortedParams = Object.keys(params)
-    .sort()
-    .reduce((result: Record<string, any>, key) => {
-      result[key] = params[key]
-      return result
-    }, {})
-
-  const valueString = Object.values(sortedParams).join('')
-  const stringToHash = `${valueString}@${credentials.api_secret}`
-  
-  const signature = crypto.createHash('md5').update(stringToHash).digest('hex')
+  // Generate signature using the exact same logic as the working sunsky-api function
+  const generateSignature = async (params: Record<string, any>, key: string, secret: string): Promise<string> => {
+    // Filter out empty values and signature/sign fields
+    const filteredParams: Record<string, string> = {};
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== null && v !== undefined && v !== '' && k !== 'signature' && k !== 'sign') {
+        filteredParams[k] = String(v);
+      }
+    });
+    
+    // Add key to parameters
+    filteredParams.key = key;
+    
+    // Sort by parameter names using ASCII comparison
+    const sortedEntries = Object.entries(filteredParams).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0);
+    
+    // Create value string by concatenating sorted values
+    const valueString = sortedEntries.map(([_, value]) => value).join('');
+    
+    // Append '@' and secret
+    const stringToHash = valueString + '@' + secret;
+    
+    console.log('Parameters for signature (sorted):', Object.fromEntries(sortedEntries.map(([k, v]) => [k, k === 'key' ? key.substring(0, 4) + '***' : v])));
+    console.log('Value string (masked):', valueString.replace(key, key.substring(0, 4) + '***'));
+    console.log('String to hash (masked):', valueString.replace(key, key.substring(0, 4) + '***') + '@***');
+    
+    // Generate signature using lowercase MD5
+    const signature = crypto.createHash('md5').update(stringToHash).digest('hex');
+    console.log('Generated signature:', signature);
+    
+    return signature;
+  }
 
   let url = ''
-  let body = new URLSearchParams()
+  let requestBody = new URLSearchParams()
 
   if (action === 'searchProducts') {
     url = 'https://open.sunsky-online.com/openapi/product!search.do'
-    body.append('key', credentials.api_key)
-    body.append('lang', 'en')
-    body.append('keyword', data.keyword)
-    body.append('page', data.page.toString())
-    body.append('pageSize', data.pageSize.toString())
-    body.append('status', '1')
-    body.append('sign', signature)
+    const searchParams = {
+      keyword: params.keyword,
+      page: params.page.toString(),
+      pageSize: params.pageSize.toString(),
+      status: '1',
+      lang: 'en'
+    }
+    
+    const signature = await generateSignature(searchParams, credentials.api_key, credentials.api_secret)
+    
+    requestBody.append('key', credentials.api_key)
+    requestBody.append('lang', 'en')
+    requestBody.append('keyword', searchParams.keyword)
+    requestBody.append('page', searchParams.page)
+    requestBody.append('pageSize', searchParams.pageSize)
+    requestBody.append('status', searchParams.status)
+    requestBody.append('signature', signature)
+    
   } else if (action === 'getProductDetails') {
     url = 'https://open.sunsky-online.com/openapi/product!detail.do'
-    body.append('key', credentials.api_key)
-    body.append('lang', 'en')
-    body.append('itemNo', data.itemNo)
-    body.append('sign', signature)
+    const detailParams = {
+      itemNo: params.itemNo,
+      lang: 'en'
+    }
+    
+    const signature = await generateSignature(detailParams, credentials.api_key, credentials.api_secret)
+    
+    requestBody.append('key', credentials.api_key)
+    requestBody.append('lang', 'en')
+    requestBody.append('itemNo', detailParams.itemNo)
+    requestBody.append('signature', signature)
   }
 
-  const response = await fetch(url, {
+  console.log(`Making request to: ${url}`)
+
+  let response = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
     },
-    body: body
+    body: requestBody
   })
 
   if (!response.ok) {
     throw new Error(`HTTP error! status: ${response.status}`)
   }
 
-  const result = await response.json()
+  let result = await response.json()
+  
+  // If we get signature error, retry with uppercase MD5 and 'sign' parameter (same retry logic as main function)
+  if (result.result === 'error' && result.messages?.[0] === 'NO_PERMISSION_DUE_TO_SIGNATURE') {
+    console.log('Retrying with uppercase MD5 and "sign" parameter...')
+    
+    let retryParams: Record<string, any>
+    let retryBody = new URLSearchParams()
+    
+    if (action === 'searchProducts') {
+      retryParams = {
+        keyword: params.keyword,
+        page: params.page.toString(),
+        pageSize: params.pageSize.toString(),
+        status: '1',
+        lang: 'en'
+      }
+      
+      const upperSignature = (await generateSignature(retryParams, credentials.api_key, credentials.api_secret)).toUpperCase()
+      
+      retryBody.append('key', credentials.api_key)
+      retryBody.append('lang', 'en')
+      retryBody.append('keyword', retryParams.keyword)
+      retryBody.append('page', retryParams.page)
+      retryBody.append('pageSize', retryParams.pageSize)
+      retryBody.append('status', retryParams.status)
+      retryBody.append('sign', upperSignature)
+      
+    } else if (action === 'getProductDetails') {
+      retryParams = {
+        itemNo: params.itemNo,
+        lang: 'en'
+      }
+      
+      const upperSignature = (await generateSignature(retryParams, credentials.api_key, credentials.api_secret)).toUpperCase()
+      
+      retryBody.append('key', credentials.api_key)
+      retryBody.append('lang', 'en')
+      retryBody.append('itemNo', retryParams.itemNo)
+      retryBody.append('sign', upperSignature)
+    }
+
+    response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: retryBody
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+
+    result = await response.json()
+  }
   
   if (result.result === 'error') {
     throw new Error(result.messages?.[0] || 'Sunsky API error')
