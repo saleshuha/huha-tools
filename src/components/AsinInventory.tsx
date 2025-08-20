@@ -170,30 +170,33 @@ export function AsinInventory() {
       filtered = filtered.filter(item => new Date(item.dateAdded) >= sevenDaysAgo);
     }
 
-    // Merge duplicate ASINs - combine quantities and serial numbers
-    const asinGroups = new Map();
-    filtered.forEach(item => {
-      const key = item.asin;
-      if (asinGroups.has(key)) {
-        const existing = asinGroups.get(key);
-        existing.quantity += item.quantity;
-        existing.serialNumber = existing.serialNumber + ', ' + item.serialNumber;
-        // Keep the most recent status (prioritize in-stock over sold)
-        if (item.status === 'in-stock' && existing.status !== 'in-stock') {
-          existing.status = item.status;
-        }
-        // Use the earliest date added
-        if (new Date(item.dateAdded) < new Date(existing.dateAdded)) {
-          existing.dateAdded = item.dateAdded;
-        }
-        // Combine notes if they exist
-        if (item.notes && !existing.notes?.includes(item.notes)) {
-          existing.notes = existing.notes ? existing.notes + '; ' + item.notes : item.notes;
-        }
-      } else {
-        asinGroups.set(key, { ...item });
+  // Merge duplicate ASINs - combine quantities and serial numbers
+  const asinGroups = new Map();
+  filtered.forEach(item => {
+    const key = item.asin;
+    if (asinGroups.has(key)) {
+      const existing = asinGroups.get(key);
+      existing.quantity += item.quantity;
+      existing.serialNumber = existing.serialNumber + ', ' + item.serialNumber;
+      // Store all individual items for quantity operations
+      existing.individualItems = existing.individualItems || [existing];
+      existing.individualItems.push(item);
+      // Keep the most recent status (prioritize in-stock over sold)
+      if (item.status === 'in-stock' && existing.status !== 'in-stock') {
+        existing.status = item.status;
       }
-    });
+      // Use the earliest date added
+      if (new Date(item.dateAdded) < new Date(existing.dateAdded)) {
+        existing.dateAdded = item.dateAdded;
+      }
+      // Combine notes if they exist
+      if (item.notes && !existing.notes?.includes(item.notes)) {
+        existing.notes = existing.notes ? existing.notes + '; ' + item.notes : item.notes;
+      }
+    } else {
+      asinGroups.set(key, { ...item, individualItems: [item] });
+    }
+  });
     
     // Convert back to array
     filtered = Array.from(asinGroups.values());
@@ -350,6 +353,42 @@ export function AsinInventory() {
       });
     }
   };
+  // Enhanced updateQuantity that handles merged ASINs
+  const handleQuantityUpdate = async (mergedItem: any, newTotalQuantity: number, reason?: string) => {
+    if (!mergedItem.individualItems || mergedItem.individualItems.length === 1) {
+      // Single item, use normal update
+      await updateQuantity(mergedItem.id, newTotalQuantity, reason);
+    } else {
+      // Multiple items merged, distribute the quantity change
+      const currentTotalQuantity = mergedItem.quantity;
+      const quantityChange = newTotalQuantity - currentTotalQuantity;
+      
+      // Sort individual items by quantity (descending) to handle reductions better
+      const sortedItems = [...mergedItem.individualItems].sort((a, b) => b.quantity - a.quantity);
+      
+      let remainingChange = quantityChange;
+      
+      for (const item of sortedItems) {
+        if (remainingChange === 0) break;
+        
+        if (remainingChange > 0) {
+          // Adding stock - add to the first item
+          if (item === sortedItems[0]) {
+            await updateQuantity(item.id, item.quantity + remainingChange, reason);
+            remainingChange = 0;
+          }
+        } else {
+          // Reducing stock - reduce from items with stock
+          const canReduce = Math.min(item.quantity, Math.abs(remainingChange));
+          if (canReduce > 0) {
+            await updateQuantity(item.id, item.quantity - canReduce, reason);
+            remainingChange += canReduce;
+          }
+        }
+      }
+    }
+  };
+
   const handleRefresh = () => {
     refetch();
       toast({
@@ -928,7 +967,7 @@ export function AsinInventory() {
                       </td>
                        <td className="p-4">
                          <div className="flex items-center gap-2">
-                            <DualQuantityEditor currentQuantity={item.quantity} onUpdate={(newQuantity, reason) => updateQuantity(item.id, newQuantity, reason)} />
+                             <DualQuantityEditor currentQuantity={item.quantity} onUpdate={(newQuantity, reason) => handleQuantityUpdate(item, newQuantity, reason)} />
                            <StockHistoryDialog inventoryId={item.id} itemIdentifier={`${item.asin} (${item.serialNumber})`} inventoryType="asin" />
                          </div>
                        </td>
@@ -988,7 +1027,7 @@ export function AsinInventory() {
                     </div>
                   </div>
                    <div className="flex items-center gap-2">
-                     <DualQuantityEditor currentQuantity={item.quantity} onUpdate={(newQuantity, reason) => updateQuantity(item.id, newQuantity, reason)} />
+                     <DualQuantityEditor currentQuantity={item.quantity} onUpdate={(newQuantity, reason) => handleQuantityUpdate(item, newQuantity, reason)} />
                      <StockHistoryDialog inventoryId={item.id} itemIdentifier={`${item.asin} (${item.serialNumber})`} inventoryType="asin" />
                    </div>
                 </div>
