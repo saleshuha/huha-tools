@@ -492,14 +492,15 @@ export const SunskySKUImporter: React.FC = () => {
   };
 
   // Initialize parallel processor after all required functions are defined
-  const { processModelNumbersInParallel } = useParallelPOProcessor({
-    profile,
-    callSunskyAPI,
-    setPOSearchStats,
-    setPOSearchProgress,
-    fetchSKUs,
-    fetchJobs
-  });
+  // Remove the parallel processor hook since we're using background processing
+  // const { processModelNumbersInParallel } = useParallelPOProcessor({
+  //   profile,
+  //   callSunskyAPI,
+  //   setPOSearchStats,
+  //   setPOSearchProgress,
+  //   fetchSKUs,
+  //   fetchJobs
+  // });
 
   const loadCategories = async (apiId?: string) => {
     if (!hasCredentials) {
@@ -811,7 +812,7 @@ export const SunskySKUImporter: React.FC = () => {
     }
   };
 
-  // Search PO model numbers in Sunsky and import matching items with parallel processing
+  // Search PO model numbers in Sunsky and import matching items with background processing
   const handleSearchPOModelNumbers = async () => {
     if (!hasCredentials) {
       toast({
@@ -838,31 +839,143 @@ export const SunskySKUImporter: React.FC = () => {
         return;
       }
 
-      // Use parallel processor to handle the search
-      await processModelNumbersInParallel(modelData);
+      // Create import job first
+      const { data: importJob } = await supabase
+        .from('sunsky_import_jobs')
+        .insert({
+          user_id: profile?.id,
+          type: 'po_search',
+          criteria: { 
+            source: 'po_model_numbers', 
+            total_models: modelData.totalCount,
+            unique_models: modelData.uniqueCount,
+            api_keys_used: 3 // Will be updated by background function
+          },
+          status: 'pending',
+          total_items: modelData.uniqueCount,
+          processed_items: 0,
+          success_count: 0,
+          error_count: 0,
+          started_at: new Date().toISOString()
+        })
+        .select()
+        .single();
 
-    } catch (error) {
-      console.error('Error searching PO model numbers:', error);
-      toast({
-        title: "Search Failed",
-        description: error instanceof Error ? error.message : "Failed to search PO model numbers",
-        variant: "destructive"
+      if (!importJob) {
+        throw new Error('Failed to create import job');
+      }
+
+      // Start background processing
+      const response = await supabase.functions.invoke('process-po-background', {
+        body: { 
+          action: 'start',
+          jobId: importJob.id,
+          modelData: modelData
+        }
       });
-    } finally {
-      setIsSearchingPO(false);
-      setPOSearchProgress(0);
+
+      if (response.error) {
+        throw new Error('Failed to start background processing');
+      }
+
+      // Initialize stats for UI
       setPOSearchStats({
-        totalItems: 0,
-        totalPOItems: 0,
-        totalUniqueItems: 0,
-        alreadyImportedCount: 0,
+        totalItems: modelData.uniqueCount,
+        totalPOItems: modelData.totalCount,
+        totalUniqueItems: modelData.totalUniqueCount,
+        alreadyImportedCount: modelData.alreadyImportedCount,
         searchedItems: 0,
         skippedItems: 0,
         matchedItems: 0,
         errorItems: 0,
-        currentItem: ''
+        currentItem: 'Started background processing...'
       });
+
+      // Start polling for job progress
+      pollJobProgress(importJob.id);
+
+      toast({
+        title: "Background Processing Started",
+        description: `Processing ${modelData.uniqueCount} unique model numbers in the background. You can continue working on other features.`,
+      });
+
+    } catch (error) {
+      console.error('Error starting background processing:', error);
+      toast({
+        title: "Processing Failed",
+        description: error instanceof Error ? error.message : "Failed to start background processing",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSearchingPO(false);
     }
+  };
+
+  // Poll job progress
+  const pollJobProgress = async (jobId: string) => {
+    const pollInterval = setInterval(async () => {
+      try {
+        const { data: job, error } = await supabase
+          .from('sunsky_import_jobs')
+          .select('*')
+          .eq('id', jobId)
+          .single();
+
+        if (error || !job) {
+          clearInterval(pollInterval);
+          return;
+        }
+
+        // Update progress
+        const progress = job.total_items > 0 ? Math.floor((job.processed_items / job.total_items) * 100) : 0;
+        setPOSearchProgress(progress);
+
+        // Update stats
+        setPOSearchStats(prev => ({
+          ...prev,
+          searchedItems: job.processed_items,
+          matchedItems: job.success_count,
+          errorItems: job.error_count,
+          currentItem: job.status === 'completed' ? 'Completed!' : 
+                      job.status === 'error' ? 'Failed!' : 
+                      `Processing... (${job.processed_items}/${job.total_items})`
+        }));
+
+        // Check if job is complete
+        if (job.status === 'completed' || job.status === 'error' || job.status === 'cancelled') {
+          clearInterval(pollInterval);
+          
+          if (job.status === 'completed') {
+            // Refresh data
+            await fetchSKUs(1, false);
+            await fetchJobs();
+            
+            toast({
+              title: "Background Processing Complete",
+              description: `Successfully processed ${job.success_count} items. ${job.error_count} errors.`,
+            });
+          } else if (job.status === 'error') {
+            toast({
+              title: "Background Processing Failed",
+              description: job.last_error || "Processing failed with unknown error",
+              variant: "destructive"
+            });
+          }
+
+          setIsSearchingPO(false);
+          setPOSearchProgress(100);
+        }
+
+      } catch (error) {
+        console.error('Error polling job progress:', error);
+        clearInterval(pollInterval);
+      }
+    }, 2000); // Poll every 2 seconds
+
+    // Clear interval after 30 minutes to prevent infinite polling
+    setTimeout(() => {
+      clearInterval(pollInterval);
+    }, 30 * 60 * 1000);
   };
 
   const createCategoryImportJob = async (categoryId: string, categoryName: string) => {
