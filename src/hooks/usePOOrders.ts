@@ -303,8 +303,9 @@ export const usePOOrders = () => {
       while (hasMore) {
         const { data: batch, error } = await supabase
           .from('po_orders')
-          .select('id, model_number, sku_code, title, po_number')
+          .select('id, model_number, sku_code, title, po_number, status')
           .eq('user_id', user.id)
+          .not('status', 'in', '("completed", "cancelled", "delivered")')  // Only active POs
           .range(page * pageSize, (page + 1) * pageSize - 1)
           .order('created_at', { ascending: false });
 
@@ -312,7 +313,7 @@ export const usePOOrders = () => {
 
         if (batch && batch.length > 0) {
           allPOOrders = [...allPOOrders, ...batch];
-          console.log(`Fetched batch ${page + 1}: ${batch.length} records (total so far: ${allPOOrders.length})`);
+          console.log(`Fetched batch ${page + 1}: ${batch.length} active PO records (total so far: ${allPOOrders.length})`);
           
           if (batch.length < pageSize) {
             hasMore = false;
@@ -324,7 +325,7 @@ export const usePOOrders = () => {
         }
       }
 
-      console.log(`✅ Fetched ${allPOOrders.length} total PO orders from database`);
+      console.log(`✅ Fetched ${allPOOrders.length} total ACTIVE PO orders from database`);
 
       // Extract model numbers from all PO orders
       const itemsWithModelNumbers = allPOOrders.filter(item => 
