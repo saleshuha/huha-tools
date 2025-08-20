@@ -292,20 +292,25 @@ export const usePOOrders = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
+      // Fetch all PO orders with model numbers (no filtering yet)
       const { data, error } = await supabase
         .from('po_orders')
-        .select('model_number')
+        .select('model_number, sku_code, title')
         .eq('user_id', user.id)
         .not('model_number', 'is', null)
         .not('model_number', 'eq', '');
 
       if (error) throw error;
 
-      // Get all model numbers and unique ones
+      // Get all model numbers and unique ones across ALL POs
       const allModelNumbers = data.map(item => item.model_number).filter(Boolean);
       const uniqueModelNumbers = [...new Set(allModelNumbers)];
       
-      // Filter out already imported products
+      console.log(`Fetched ${data.length} PO items total`);
+      console.log(`Found ${allModelNumbers.length} PO items with model numbers`);
+      console.log(`Found ${uniqueModelNumbers.length} unique model numbers across all POs`);
+      
+      // Now filter out already imported products for processing
       const { data: existingSKUs, error: skusError } = await supabase
         .from('sunsky_skus')
         .select('sku_code')
@@ -319,15 +324,16 @@ export const usePOOrders = () => {
       const existingSKUCodes = new Set(existingSKUs?.map(sku => sku.sku_code) || []);
       const uniqueModelNumbersToProcess = uniqueModelNumbers.filter(modelNumber => !existingSKUCodes.has(modelNumber));
       
-      console.log(`Found total ${allModelNumbers.length} PO items with model numbers, ${uniqueModelNumbers.length} unique, ${uniqueModelNumbersToProcess.length} need processing (${existingSKUCodes.size} already imported)`);
+      console.log(`${existingSKUCodes.size} items already imported`);
+      console.log(`${uniqueModelNumbersToProcess.length} unique items need processing`);
       
       return {
-        totalCount: allModelNumbers.length,
-        uniqueCount: uniqueModelNumbersToProcess.length,
-        uniqueModels: uniqueModelNumbersToProcess,
-        allModels: allModelNumbers,
-        totalUniqueCount: uniqueModelNumbers.length,
-        alreadyImportedCount: existingSKUCodes.size
+        totalCount: allModelNumbers.length,            // Total PO items with model numbers
+        uniqueCount: uniqueModelNumbersToProcess.length, // Items that need processing
+        uniqueModels: uniqueModelNumbersToProcess,       // Model numbers to process
+        allModels: allModelNumbers,                      // All model numbers
+        totalUniqueCount: uniqueModelNumbers.length,     // Total unique across all POs
+        alreadyImportedCount: existingSKUCodes.size      // Already imported count
       };
     } catch (error) {
       console.error('Error fetching PO model numbers:', error);
