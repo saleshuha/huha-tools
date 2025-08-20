@@ -810,6 +810,14 @@ export default function PODetailsPage() {
 
         {/* Action Buttons */}
         <div className="flex flex-wrap gap-4 mb-6">
+          {/* Instructions */}
+          {selectedItems.size === 0 && (
+            <div className="w-full p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+              <p className="text-sm text-blue-700 dark:text-blue-300">
+                💡 Select items using the checkboxes to access bulk operations including "Order at Sunsky"
+              </p>
+            </div>
+          )}
           {/* Bulk Operations */}
           {selectedItems.size > 0 && (
             <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
