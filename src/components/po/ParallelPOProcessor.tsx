@@ -64,6 +64,8 @@ export const useParallelPOProcessor = ({
     setPOSearchStats({
       totalItems: modelData.uniqueCount,
       totalPOItems: modelData.totalCount,
+      totalUniqueItems: modelData.totalUniqueCount,
+      alreadyImportedCount: modelData.alreadyImportedCount,
       searchedItems: 0,
       skippedItems: 0,
       matchedItems: 0,
@@ -230,6 +232,8 @@ export const useParallelPOProcessor = ({
     setPOSearchStats({
       totalItems: modelData.uniqueCount,
       totalPOItems: modelData.totalCount,
+      totalUniqueItems: modelData.totalUniqueCount,
+      alreadyImportedCount: modelData.alreadyImportedCount,
       searchedItems: uniqueModelNumbers.length,
       matchedItems: finalSuccess,
       errorItems: finalErrors,

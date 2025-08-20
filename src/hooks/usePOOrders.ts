@@ -305,13 +305,29 @@ export const usePOOrders = () => {
       const allModelNumbers = data.map(item => item.model_number).filter(Boolean);
       const uniqueModelNumbers = [...new Set(allModelNumbers)];
       
-      console.log(`Found total ${allModelNumbers.length} PO items with model numbers, ${uniqueModelNumbers.length} unique`);
+      // Filter out already imported products
+      const { data: existingSKUs, error: skusError } = await supabase
+        .from('sunsky_skus')
+        .select('sku_code')
+        .eq('user_id', user.id)
+        .in('sku_code', uniqueModelNumbers);
+
+      if (skusError) {
+        console.warn('Error checking existing SKUs:', skusError);
+      }
+
+      const existingSKUCodes = new Set(existingSKUs?.map(sku => sku.sku_code) || []);
+      const uniqueModelNumbersToProcess = uniqueModelNumbers.filter(modelNumber => !existingSKUCodes.has(modelNumber));
+      
+      console.log(`Found total ${allModelNumbers.length} PO items with model numbers, ${uniqueModelNumbers.length} unique, ${uniqueModelNumbersToProcess.length} need processing (${existingSKUCodes.size} already imported)`);
       
       return {
         totalCount: allModelNumbers.length,
-        uniqueCount: uniqueModelNumbers.length,
-        uniqueModels: uniqueModelNumbers,
-        allModels: allModelNumbers
+        uniqueCount: uniqueModelNumbersToProcess.length,
+        uniqueModels: uniqueModelNumbersToProcess,
+        allModels: allModelNumbers,
+        totalUniqueCount: uniqueModelNumbers.length,
+        alreadyImportedCount: existingSKUCodes.size
       };
     } catch (error) {
       console.error('Error fetching PO model numbers:', error);
@@ -324,7 +340,9 @@ export const usePOOrders = () => {
         totalCount: 0,
         uniqueCount: 0,
         uniqueModels: [],
-        allModels: []
+        allModels: [],
+        totalUniqueCount: 0,
+        alreadyImportedCount: 0
       };
     }
   }, [toast]);

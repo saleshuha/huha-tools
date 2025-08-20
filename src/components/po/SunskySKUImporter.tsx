@@ -165,6 +165,8 @@ export const SunskySKUImporter: React.FC = () => {
   const [poSearchStats, setPOSearchStats] = useState({
     totalItems: 0,
     totalPOItems: 0,
+    totalUniqueItems: 0,
+    alreadyImportedCount: 0,
     searchedItems: 0,
     skippedItems: 0,
     matchedItems: 0,
@@ -852,6 +854,8 @@ export const SunskySKUImporter: React.FC = () => {
       setPOSearchStats({
         totalItems: 0,
         totalPOItems: 0,
+        totalUniqueItems: 0,
+        alreadyImportedCount: 0,
         searchedItems: 0,
         skippedItems: 0,
         matchedItems: 0,
@@ -1074,35 +1078,35 @@ export const SunskySKUImporter: React.FC = () => {
                         <div className="text-2xl font-bold text-foreground">
                           {poSearchStats.totalItems}
                         </div>
-                        <div className="text-xs text-muted-foreground">Total</div>
+                        <div className="text-xs text-muted-foreground">Need Processing</div>
+                      </div>
+                      
+                      <div className="bg-card p-3 rounded-lg border">
+                        <div className="text-2xl font-bold text-primary">
+                          {poSearchStats.totalPOItems}
+                        </div>
+                        <div className="text-xs text-muted-foreground">Total in POs</div>
                       </div>
                       
                       <div className="bg-card p-3 rounded-lg border">
                         <div className="text-2xl font-bold text-blue-600">
-                          {poSearchStats.searchedItems}
+                          {poSearchStats.totalUniqueItems || 0}
                         </div>
-                        <div className="text-xs text-muted-foreground">Searched</div>
+                        <div className="text-xs text-muted-foreground">Total Unique</div>
+                      </div>
+                      
+                      <div className="bg-card p-3 rounded-lg border">
+                        <div className="text-2xl font-bold text-orange-600">
+                          {poSearchStats.alreadyImportedCount || 0}
+                        </div>
+                        <div className="text-xs text-muted-foreground">Already Imported</div>
                       </div>
                       
                       <div className="bg-card p-3 rounded-lg border">
                         <div className="text-2xl font-bold text-green-600">
                           {poSearchStats.matchedItems}
                         </div>
-                        <div className="text-xs text-muted-foreground">Matched</div>
-                      </div>
-                      
-                      <div className="bg-card p-3 rounded-lg border">
-                        <div className="text-2xl font-bold text-yellow-600">
-                          {poSearchStats.skippedItems}
-                        </div>
-                        <div className="text-xs text-muted-foreground">Skipped</div>
-                      </div>
-                      
-                      <div className="bg-card p-3 rounded-lg border">
-                        <div className="text-2xl font-bold text-red-600">
-                          {poSearchStats.errorItems}
-                        </div>
-                        <div className="text-xs text-muted-foreground">Errors</div>
+                        <div className="text-xs text-muted-foreground">Found</div>
                       </div>
                     </div>
 
