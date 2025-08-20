@@ -163,6 +163,7 @@ export const SunskySKUImporter: React.FC = () => {
   const [poSearchProgress, setPOSearchProgress] = useState(0);
   const [poSearchStats, setPOSearchStats] = useState({
     totalItems: 0,
+    totalPOItems: 0,
     searchedItems: 0,
     skippedItems: 0,
     matchedItems: 0,
@@ -468,18 +469,23 @@ export const SunskySKUImporter: React.FC = () => {
       
       console.log('Main categories result:', result);
       
-      if (result.success) {
-        setCategories(result.data || []);
+      // Handle both response structures
+      const isSuccess = result.result === 'success' || result.success === true;
+      const data = result.data || [];
+      const error = result.error || result.message;
+      
+      if (isSuccess && data.length > 0) {
+        setCategories(data);
         // Reset subcategories when main categories change
         setSubCategories([]);
         setSelectedSubCategory('all');
         toast({
           title: "Success",
-          description: `Loaded ${result.data?.length || 0} main categories`
+          description: `Loaded ${data.length} main categories`
         });
       } else {
-        console.error('Categories API error:', result.error);
-        throw new Error(result.error);
+        console.error('Categories API error:', error);
+        throw new Error(error || 'Failed to load categories');
       }
     } catch (error) {
       console.error('Error loading categories:', error);
@@ -508,11 +514,15 @@ export const SunskySKUImporter: React.FC = () => {
         modifiedSince: modifiedSinceDate
       }, apiId || selectedSearchAPI);
       
-      if (result.success) {
-        setSubCategories(result.data || []);
-        console.log(`Loaded ${result.data?.length || 0} subcategories for category ${categoryId}`);
+      // Handle both response structures
+      const isSuccess = result.result === 'success' || result.success === true;
+      const data = result.data || [];
+      
+      if (isSuccess) {
+        setSubCategories(data);
+        console.log(`Loaded ${data.length} subcategories for category ${categoryId}`);
       } else {
-        throw new Error(result.error);
+        throw new Error(result.error || result.message || 'Failed to load subcategories');
       }
     } catch (error) {
       console.error('Error loading sub-categories:', error);
@@ -544,17 +554,21 @@ export const SunskySKUImporter: React.FC = () => {
       
       console.log('Brands result:', result);
       
-      if (result.success) {
-        setBrands(result.data || []);
-        console.log('Set brands:', result.data?.length || 0);
-        if (result.data?.length === 0) {
+      // Handle both response structures
+      const isSuccess = result.result === 'success' || result.success === true;
+      const data = result.data || [];
+      
+      if (isSuccess) {
+        setBrands(data);
+        console.log('Set brands:', data.length || 0);
+        if (data.length === 0) {
           toast({
             title: "Info",
             description: "No brands found for this category",
           });
         }
       } else {
-        console.error('Brands API error:', result.error);
+        console.error('Brands API error:', result.error || result.message);
         setBrands([]); // Clear brands on error
         toast({
           title: "Warning",
@@ -789,7 +803,7 @@ export const SunskySKUImporter: React.FC = () => {
             unique_models: modelData.uniqueCount 
           },
           status: 'processing',
-          total_items: modelData.totalCount,
+          total_items: modelData.uniqueCount, // Use unique count for processing
           processed_items: 0,
           success_count: 0,
           error_count: 0,
@@ -802,9 +816,10 @@ export const SunskySKUImporter: React.FC = () => {
         console.error('Error creating import job:', jobError);
       }
 
-      // Initialize stats - show total items correctly
+      // Initialize stats - show correct totals (unique items being processed vs total PO items)
       const initialStats = {
-        totalItems: modelData.totalCount,
+        totalItems: modelData.uniqueCount, // Show unique items being processed
+        totalPOItems: modelData.totalCount, // Show total PO items for reference
         searchedItems: 0,
         skippedItems: 0,
         matchedItems: 0,
@@ -971,6 +986,8 @@ export const SunskySKUImporter: React.FC = () => {
                         sku_code: productToImport.itemNo,
                         title: productToImport.name || '',
                         unit_cost: productToImport.convertedPrice || parseFloat(productToImport.price || '0') || 0,
+                        external_id: productToImport.itemNo,
+                        external_id_type: 'sunsky',
                         // Keep the existing quantity, po_number, etc.
                         // Just update the matched product info
                       })
@@ -1090,7 +1107,7 @@ export const SunskySKUImporter: React.FC = () => {
       const finalStats = poSearchStats;
       toast({
         title: "PO Model Number Search Complete",
-        description: `Found and imported ${finalStats.matchedItems} items from ${finalStats.totalItems} model numbers. ${finalStats.skippedItems} items not found, ${finalStats.errorItems} errors.`,
+        description: `Found and imported ${finalStats.matchedItems} items from ${finalStats.totalItems} unique model numbers (${finalStats.totalPOItems} total PO items). ${finalStats.skippedItems} items not found, ${finalStats.errorItems} errors.`,
         variant: finalStats.matchedItems > 0 ? "default" : "default"
       });
 
@@ -1106,6 +1123,7 @@ export const SunskySKUImporter: React.FC = () => {
       setPOSearchProgress(0);
       setPOSearchStats({
         totalItems: 0,
+        totalPOItems: 0,
         searchedItems: 0,
         skippedItems: 0,
         matchedItems: 0,
@@ -2097,12 +2115,32 @@ export const SunskySKUImporter: React.FC = () => {
                           <TableRow key={sku.id}>
                             {skuTableHeaders.map((header) => (
                               <TableCell key={header} className={header === 'sku_code' ? 'font-mono' : header === 'title' ? 'max-w-xs truncate' : header === 'created_at' ? 'text-sm text-muted-foreground' : ''}>
-                                {header === 'created_at' 
-                                  ? new Date(sku[header as keyof typeof sku] as string).toLocaleDateString()
-                                  : header === 'cost' && sku.cost
-                                  ? sku.cost.toFixed(2)
-                                  : (sku[header as keyof typeof sku] as string) || '-'
-                                }
+                                {(() => {
+                                  const productData = sku?.product_data || {};
+                                  
+                                  // Handle specific fields
+                                  if (header === 'created_at') {
+                                    return new Date(sku[header as keyof typeof sku] as string).toLocaleDateString();
+                                  } else if (header === 'cost' && sku.cost) {
+                                    return sku.cost.toFixed(2);
+                                  } else if (header === 'weight' && sku.weight) {
+                                    return `${sku.weight}kg`;
+                                  } else if (header === 'brand' && productData.brandName) {
+                                    return productData.brandName;
+                                  } else if (header === 'category' && productData.categoryName) {
+                                    return productData.categoryName;
+                                  } else if (header === 'stock' && productData.stock !== undefined) {
+                                    return productData.stock.toString();
+                                  } else if (header === 'moq' && productData.moq !== undefined) {
+                                    return productData.moq.toString();
+                                  } else if (header === 'lead_time' && productData.leadTime) {
+                                    return `${productData.leadTime} days`;
+                                  } else if (header === 'price' && productData.price) {
+                                    return `$${parseFloat(productData.price).toFixed(2)}`;
+                                  } else {
+                                    return (sku[header as keyof typeof sku] as string) || '-';
+                                  }
+                                })()}
                               </TableCell>
                             ))}
                           </TableRow>
