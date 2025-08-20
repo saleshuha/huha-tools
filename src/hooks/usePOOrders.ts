@@ -286,6 +286,37 @@ export const usePOOrders = () => {
     }
   }, [fetchPOOrders, toast]);
 
+  // Get unique model numbers from PO orders for Sunsky search
+  const getPOModelNumbers = useCallback(async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { data, error } = await supabase
+        .from('po_orders')
+        .select('model_number')
+        .eq('user_id', user.id)
+        .not('model_number', 'is', null)
+        .not('model_number', 'eq', '');
+
+      if (error) throw error;
+
+      // Get unique model numbers
+      const uniqueModelNumbers = [...new Set(data.map(item => item.model_number).filter(Boolean))];
+      
+      console.log(`Found ${uniqueModelNumbers.length} unique model numbers in PO orders`);
+      return uniqueModelNumbers;
+    } catch (error) {
+      console.error('Error fetching PO model numbers:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch PO model numbers",
+        variant: "destructive"
+      });
+      return [];
+    }
+  }, [toast]);
+
   return {
     poOrders,
     isLoading,
@@ -294,6 +325,7 @@ export const usePOOrders = () => {
     fetchPOOrders,
     processPOFiles,
     updateOrderStatus,
-    updateTrackingInfo
+    updateTrackingInfo,
+    getPOModelNumbers
   };
 };

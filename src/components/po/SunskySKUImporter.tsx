@@ -23,6 +23,7 @@ import { DateRange } from "react-day-picker";
 import { SunskyCredentialsManager } from "./SunskyCredentialsManager";
 import { useSKUManager } from "@/hooks/useSKUManager";
 import { useImportJobs } from "@/hooks/useImportJobs";
+import { usePOOrders } from "@/hooks/usePOOrders";
 
 interface SunskyProduct {
   // Core product fields
@@ -134,8 +135,9 @@ interface SearchFilters {
 export const SunskySKUImporter: React.FC = () => {
   const { toast } = useToast();
   const { profile } = useUserProfile();
-  const { sunskySKUs, isLoading: skusLoading, fetchSKUs, totalCount } = useSKUManager();
+  const { sunskySKUs, isLoading: skusLoading, fetchSKUs, totalCount, refreshSKUs, addSKUs } = useSKUManager();
   const { jobs, isLoading: jobsLoading, createImportJob, fetchJobs } = useImportJobs();
+  const { getPOModelNumbers } = usePOOrders();
   
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -157,6 +159,8 @@ export const SunskySKUImporter: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [hasCredentials, setHasCredentials] = useState(false);
+  const [isSearchingPO, setIsSearchingPO] = useState(false);
+  const [poSearchProgress, setPOSearchProgress] = useState(0);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [selectedProduct, setSelectedProduct] = useState<SunskyProduct | null>(null);
   const [categoryFetchMode, setCategoryFetchMode] = useState<'top' | 'all' | 'modified'>('top');
@@ -684,6 +688,129 @@ export const SunskySKUImporter: React.FC = () => {
     }
   };
 
+  // Search PO model numbers in Sunsky and import matching items
+  const handleSearchPOModelNumbers = async () => {
+    if (!hasCredentials) {
+      toast({
+        title: "API Credentials Required",
+        description: "Please configure your Sunsky API credentials first",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsSearchingPO(true);
+    setPOSearchProgress(0);
+
+    try {
+      // Get unique model numbers from PO orders
+      const modelNumbers = await getPOModelNumbers();
+      
+      if (modelNumbers.length === 0) {
+        toast({
+          title: "No Model Numbers Found",
+          description: "No model numbers found in your PO orders to search",
+          variant: "default"
+        });
+        return;
+      }
+
+      setPOSearchProgress(10);
+      
+      let foundItems = 0;
+      let skippedItems = 0;
+      const batchSize = 10; // Process in batches to avoid overwhelming the API
+      
+      for (let i = 0; i < modelNumbers.length; i += batchSize) {
+        const batch = modelNumbers.slice(i, i + batchSize);
+        
+        for (const modelNumber of batch) {
+          try {
+            // Search for the product by model number
+            const searchResults = await callSunskyAPI('searchProducts', {
+              keyword: modelNumber,
+              page: 1,
+              pageSize: 1
+            });
+
+            if (searchResults.success && searchResults.data?.items?.length > 0) {
+              const product = searchResults.data.items[0];
+              
+              // Get detailed product information
+              const detailResults = await callSunskyAPI('getProductDetails', {
+                itemNo: product.itemNo
+              });
+
+              if (detailResults.success && detailResults.data) {
+                const detailedProduct = detailResults.data;
+                
+                // Prepare SKU data for import using upsert to handle duplicates
+                const { error } = await supabase
+                  .from('sunsky_skus')
+                  .upsert(
+                    {
+                      user_id: profile?.id,
+                      sku_code: detailedProduct.itemNo,
+                      title: detailedProduct.name,
+                      cost: detailedProduct.convertedPrice || parseFloat(detailedProduct.price) || 0,
+                      weight: detailedProduct.unitWeight ? parseFloat(detailedProduct.unitWeight) : 0,
+                      currency: detailedProduct.convertedCurrency || 'USD',
+                      country: profile?.country || 'UAE',
+                      description: detailedProduct.description || '',
+                      product_data: detailedProduct
+                    },
+                    { 
+                      onConflict: 'user_id,sku_code',
+                      ignoreDuplicates: true 
+                    }
+                  );
+
+                if (!error) {
+                  foundItems++;
+                } else {
+                  console.error('Error inserting SKU:', error);
+                }
+              }
+            } else {
+              skippedItems++;
+            }
+          } catch (error) {
+            console.error(`Error searching for model number ${modelNumber}:`, error);
+            skippedItems++;
+          }
+        }
+        
+        // Update progress
+        const progress = Math.min(90, ((i + batchSize) / modelNumbers.length) * 80 + 10);
+        setPOSearchProgress(progress);
+      }
+
+      setPOSearchProgress(95);
+      
+      // Refresh the SKU list to show new imports
+      await refreshSKUs();
+      
+      setPOSearchProgress(100);
+
+      toast({
+        title: "PO Model Number Search Complete",
+        description: `Found and imported ${foundItems} items from ${modelNumbers.length} model numbers. ${skippedItems} items not found in Sunsky.`,
+        variant: foundItems > 0 ? "default" : "default"
+      });
+
+    } catch (error) {
+      console.error('Error searching PO model numbers:', error);
+      toast({
+        title: "Search Failed",
+        description: error instanceof Error ? error.message : "Failed to search PO model numbers",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSearchingPO(false);
+      setPOSearchProgress(0);
+    }
+  };
+
   const createCategoryImportJob = async (categoryId: string, categoryName: string) => {
     try {
       const result = await createImportJob('category', {
@@ -1002,6 +1129,16 @@ export const SunskySKUImporter: React.FC = () => {
                 </Button>
 
                 <Button
+                  disabled={!hasCredentials || isSearchingPO}
+                  onClick={handleSearchPOModelNumbers}
+                  variant="outline"
+                  className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+                >
+                  <Package className="h-4 w-4 mr-2" />
+                  {isSearchingPO ? 'Searching PO Items...' : 'Search PO Model Numbers'}
+                </Button>
+
+                <Button
                   variant="outline"
                   onClick={() => {
                     setSearchTerm('');
@@ -1114,6 +1251,16 @@ export const SunskySKUImporter: React.FC = () => {
                       <span>{Math.round(importProgress)}%</span>
                     </div>
                     <Progress value={importProgress} className="h-2" />
+                  </div>
+                )}
+
+                {isSearchingPO && poSearchProgress > 0 && (
+                  <div className="mb-4">
+                    <div className="flex items-center justify-between text-sm mb-2">
+                      <span>Searching PO Model Numbers...</span>
+                      <span>{Math.round(poSearchProgress)}%</span>
+                    </div>
+                    <Progress value={poSearchProgress} className="h-2" />
                   </div>
                 )}
 
