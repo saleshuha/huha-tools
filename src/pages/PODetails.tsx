@@ -22,13 +22,13 @@ import { SunskyOrderDialog } from '@/components/SunskyOrderDialog';
 
 interface StatusProgress {
   pending: number;
-  ordered: number;
+  closed: number;
   total: number;
 }
 
 const statusColors = {
   pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300',
-  ordered: 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300',
+  closed: 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300',
   shipped: 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-300',
   delivered: 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300',
   cancelled: 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300',
@@ -100,7 +100,8 @@ export default function PODetailsPage() {
     if (poOrders.length > 0) {
       const orderedItems = poOrders.filter(order => 
         order.po_number === poNumber && 
-        order.status === 'ordered' &&
+        order.status === 'closed' &&
+        order.quantity === 0 &&
         order.sunsky_sku !== null
       );
       
@@ -258,16 +259,16 @@ export default function PODetailsPage() {
 
   // Calculate status progress
   const statusProgress: StatusProgress = matchedOrders.reduce((acc, order) => {
-    if (order.status === 'pending' || order.status === 'ordered') {
+    if (order.status === 'pending' || order.status === 'closed') {
       acc[order.status as keyof Omit<StatusProgress, 'total'>]++;
     }
     acc.total++;
     return acc;
-  }, { pending: 0, ordered: 0, total: 0 });
+  }, { pending: 0, closed: 0, total: 0 });
 
   // Calculate progress percentage
   const progressPercentage = statusProgress.total > 0 
-    ? (statusProgress.ordered / statusProgress.total) * 100 
+    ? (statusProgress.closed / statusProgress.total) * 100 
     : 0;
 
   // Get PO summary data
@@ -520,7 +521,7 @@ export default function PODetailsPage() {
     setIsUpdating(true);
     try {
       const updatePromises = Array.from(selectedItems).map(orderId => 
-        updateOrderStatus(orderId, 'ordered')
+        updateOrderStatus(orderId, 'closed')
       );
       
       await Promise.all(updatePromises);
@@ -748,12 +749,12 @@ export default function PODetailsPage() {
         throw new Error(`Failed to update inventory: ${inventoryError.message}`);
       }
 
-      // Update PO order quantity to 0 and status to 'ordered'
+      // Update PO order quantity to 0 and status to 'closed' (fulfilled from stock)
       const { error: poError } = await supabase
         .from('po_orders')
         .update({ 
           quantity: 0,
-          status: 'ordered'
+          status: 'closed'
         })
         .eq('id', order.id)
         .eq('user_id', (await supabase.auth.getUser()).data.user?.id);
@@ -818,9 +819,9 @@ export default function PODetailsPage() {
         })
       );
 
-      // Also update the status to 'ordered' and set order_date
+      // Also update the status to 'closed' and set order_date
       const statusUpdatePromises = selectedOrderIds.map(orderId => 
-        updateOrderStatus(orderId, 'ordered')
+        updateOrderStatus(orderId, 'closed')
       );
 
       await Promise.all([
@@ -1339,7 +1340,7 @@ export default function PODetailsPage() {
                               const orderQuantity = order.quantity;
                               
                               if (order.status !== 'shipped' && order.status !== 'delivered') {
-                                if (orderQuantity === 0 && order.status === 'ordered') {
+                                if (orderQuantity === 0 && order.status === 'closed') {
                                   // Show disabled button for items that were fulfilled from stock (quantity = 0)
                                   return (
                                     <div className="flex flex-col gap-1">
