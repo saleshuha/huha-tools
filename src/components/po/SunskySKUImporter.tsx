@@ -766,11 +766,26 @@ export const SunskySKUImporter: React.FC = () => {
               if (detailResults.success && detailResults.data) {
                 const detailedProduct = detailResults.data;
                 
-                // Prepare SKU data for import using upsert to handle duplicates
-                const { error } = await supabase
+                // Check if SKU already exists first
+                const { data: existingSKU } = await supabase
                   .from('sunsky_skus')
-                  .upsert(
-                    {
+                  .select('id')
+                  .eq('user_id', profile?.id)
+                  .eq('sku_code', detailedProduct.itemNo)
+                  .maybeSingle();
+
+                if (existingSKU) {
+                  // SKU already exists, count as skipped
+                  setPOSearchStats(prev => ({
+                    ...prev,
+                    skippedItems: prev.skippedItems + 1,
+                    searchedItems: prev.searchedItems + 1
+                  }));
+                } else {
+                  // Insert new SKU
+                  const { error } = await supabase
+                    .from('sunsky_skus')
+                    .insert({
                       user_id: profile?.id,
                       sku_code: detailedProduct.itemNo,
                       title: detailedProduct.name,
@@ -780,26 +795,22 @@ export const SunskySKUImporter: React.FC = () => {
                       country: profile?.country || 'UAE',
                       description: detailedProduct.description || '',
                       product_data: detailedProduct
-                    },
-                    { 
-                      onConflict: 'user_id,sku_code',
-                      ignoreDuplicates: true 
-                    }
-                  );
+                    });
 
-                if (!error) {
-                  setPOSearchStats(prev => ({
-                    ...prev,
-                    matchedItems: prev.matchedItems + 1,
-                    searchedItems: prev.searchedItems + 1
-                  }));
-                } else {
-                  console.error('Error inserting SKU:', error);
-                  setPOSearchStats(prev => ({
-                    ...prev,
-                    errorItems: prev.errorItems + 1,
-                    searchedItems: prev.searchedItems + 1
-                  }));
+                  if (!error) {
+                    setPOSearchStats(prev => ({
+                      ...prev,
+                      matchedItems: prev.matchedItems + 1,
+                      searchedItems: prev.searchedItems + 1
+                    }));
+                  } else {
+                    console.error('Error inserting SKU:', error);
+                    setPOSearchStats(prev => ({
+                      ...prev,
+                      errorItems: prev.errorItems + 1,
+                      searchedItems: prev.searchedItems + 1
+                    }));
+                  }
                 }
               } else {
                 setPOSearchStats(prev => ({
