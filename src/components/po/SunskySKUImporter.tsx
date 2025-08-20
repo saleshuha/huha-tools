@@ -394,17 +394,18 @@ export const SunskySKUImporter: React.FC = () => {
     }
   };
 
-  const checkCredentialsStatus = async () => {
+  // Update credentials check to use any active API key
+  const checkStatus = async () => {
     try {
       const { data, error } = await supabase
         .from('sunsky_credentials')
         .select('is_active')
         .eq('user_id', profile?.id)
         .eq('is_active', true)
-        .maybeSingle();
+        .limit(1);
       
       if (error) throw error;
-      setHasCredentials(!!data);
+      setHasCredentials(!!data && data.length > 0);
       
       // Load available APIs when checking credentials
       await loadAvailableAPIs();
@@ -413,6 +414,41 @@ export const SunskySKUImporter: React.FC = () => {
       setHasCredentials(false);
     }
   };
+  const toggleApiKeyActive = async (apiKeyId: string, makeActive: boolean) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('sunsky-api', {
+        body: { 
+          action: 'toggleApiKeyActive',
+          apiId: apiKeyId,
+          isActive: makeActive
+        }
+      });
+
+      if (error) throw error;
+
+      if (data.result === 'success') {
+        toast({
+          title: "Success",
+          description: makeActive ? "API key activated" : "API key deactivated",
+        });
+        
+        // Refresh the available APIs list
+        await loadAvailableAPIs();
+        await checkCredentialsStatus();
+      } else {
+        throw new Error(data.message || 'Failed to update API key status');
+      }
+    } catch (error) {
+      console.error('Error updating API key status:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update API key status",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const checkCredentialsStatus = checkStatus;
 
   const callSunskyAPI = async (action: string, data: any, apiId?: string) => {
     console.log('Calling Sunsky API:', { action, data, apiId, selectedAPI });
@@ -2209,19 +2245,15 @@ export const SunskySKUImporter: React.FC = () => {
                                 {api.is_active ? 'Active' : 'Inactive'}
                               </Badge>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedAPI(api.id);
-                                  setSelectedSearchAPI(api.id);
-                                  setSelectedJobAPI(api.id);
-                                }}
-                              >
-                                Set as Default
-                              </Button>
-                            </div>
+                             <div className="flex items-center gap-2">
+                               <Button 
+                                 variant="outline" 
+                                 size="sm"
+                                 onClick={() => toggleApiKeyActive(api.id, !api.is_active)}
+                               >
+                                 {api.is_active ? 'Deactivate' : 'Activate'}
+                               </Button>
+                             </div>
                           </div>
                         ))}
                       </div>

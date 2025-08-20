@@ -1803,6 +1803,58 @@ serve(async (req) => {
         });
       }
 
+      case 'toggleApiKeyActive': {
+        const { apiId, isActive } = requestData;
+
+        if (!apiId) {
+          throw new Error('API ID is required');
+        }
+
+        // Update the API key's active status
+        const { error } = await supabase
+          .from('sunsky_credentials')
+          .update({ is_active: isActive })
+          .eq('id', apiId)
+          .eq('user_id', user.id);
+
+        if (error) {
+          throw new Error(`Failed to update API key: ${error.message}`);
+        }
+
+        return new Response(JSON.stringify({
+          result: 'success',
+          message: isActive ? 'API key activated successfully' : 'API key deactivated successfully'
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      case 'toggleApiKeyActive': {
+        const { apiId, isActive } = requestData;
+
+        if (!apiId) {
+          throw new Error('API ID is required');
+        }
+
+        // Update the API key's active status
+        const { error } = await supabase
+          .from('sunsky_credentials')
+          .update({ is_active: isActive })
+          .eq('id', apiId)
+          .eq('user_id', user.id);
+
+        if (error) {
+          throw new Error(`Failed to update API key: ${error.message}`);
+        }
+
+        return new Response(JSON.stringify({
+          result: 'success',
+          message: isActive ? 'API key activated successfully' : 'API key deactivated successfully'
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
       case 'setActiveApiKey': {
         const { apiId } = requestData;
 

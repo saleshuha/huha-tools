@@ -167,12 +167,13 @@ export const SunskyCredentialsManager: React.FC<SunskyCredentialsManagerProps> =
     }
   };
 
-  const setActiveApiKey = async (apiKeyId: string) => {
+  const toggleApiKeyActive = async (apiKeyId: string, makeActive: boolean) => {
     try {
       const { data, error } = await supabase.functions.invoke('sunsky-api', {
         body: { 
-          action: 'setActiveApiKey',
-          apiId: apiKeyId
+          action: 'toggleApiKeyActive',
+          apiId: apiKeyId,
+          isActive: makeActive
         }
       });
 
@@ -181,21 +182,21 @@ export const SunskyCredentialsManager: React.FC<SunskyCredentialsManagerProps> =
       if (data.result === 'success') {
         toast({
           title: "Success",
-          description: "Active API key updated",
+          description: makeActive ? "API key activated" : "API key deactivated",
         });
         setApiKeys(prev => prev.map(key => ({
           ...key,
-          isActive: key.id === apiKeyId
+          isActive: key.id === apiKeyId ? makeActive : key.isActive
         })));
         onCredentialsChanged?.();
       } else {
-        throw new Error(data.message || 'Failed to set active API key');
+        throw new Error(data.message || 'Failed to update API key status');
       }
     } catch (error) {
-      console.error('Error setting active API key:', error);
+      console.error('Error updating API key status:', error);
       toast({
         title: "Error",
-        description: error.message || "Failed to set active API key",
+        description: error.message || "Failed to update API key status",
         variant: "destructive",
       });
     }
@@ -342,15 +343,13 @@ export const SunskyCredentialsManager: React.FC<SunskyCredentialsManagerProps> =
                 </div>
                 
                 <div className="flex gap-2">
-                  {!apiKey.isActive && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setActiveApiKey(apiKey.id)}
-                    >
-                      Set as Active
-                    </Button>
-                  )}
+                  <Button
+                    size="sm"
+                    variant={apiKey.isActive ? "default" : "outline"}
+                    onClick={() => toggleApiKeyActive(apiKey.id, !apiKey.isActive)}
+                  >
+                    {apiKey.isActive ? 'Deactivate' : 'Activate'}
+                  </Button>
                   <Button
                     size="sm"
                     variant="outline"
@@ -377,7 +376,7 @@ export const SunskyCredentialsManager: React.FC<SunskyCredentialsManagerProps> =
                     title={apiKeys.length <= 1 ? "Cannot delete the last API key" : "Delete this API key"}
                   >
                     <Trash2 className="h-4 w-4 mr-1" />
-                    {apiKeys.length <= 1 ? 'Delete' : 'Delete'}
+                    Delete
                   </Button>
                 </div>
               </div>
