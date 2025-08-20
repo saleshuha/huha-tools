@@ -286,7 +286,7 @@ export const usePOOrders = () => {
     }
   }, [fetchPOOrders, toast]);
 
-  // Get unique model numbers from PO orders for Sunsky search
+  // Get model numbers from PO orders for Sunsky search - returns total count and unique models
   const getPOModelNumbers = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -301,11 +301,18 @@ export const usePOOrders = () => {
 
       if (error) throw error;
 
-      // Get unique model numbers
-      const uniqueModelNumbers = [...new Set(data.map(item => item.model_number).filter(Boolean))];
+      // Get all model numbers and unique ones
+      const allModelNumbers = data.map(item => item.model_number).filter(Boolean);
+      const uniqueModelNumbers = [...new Set(allModelNumbers)];
       
-      console.log(`Found ${uniqueModelNumbers.length} unique model numbers in PO orders`);
-      return uniqueModelNumbers;
+      console.log(`Found total ${allModelNumbers.length} PO items with model numbers, ${uniqueModelNumbers.length} unique`);
+      
+      return {
+        totalCount: allModelNumbers.length,
+        uniqueCount: uniqueModelNumbers.length,
+        uniqueModels: uniqueModelNumbers,
+        allModels: allModelNumbers
+      };
     } catch (error) {
       console.error('Error fetching PO model numbers:', error);
       toast({
@@ -313,7 +320,12 @@ export const usePOOrders = () => {
         description: "Failed to fetch PO model numbers",
         variant: "destructive"
       });
-      return [];
+      return {
+        totalCount: 0,
+        uniqueCount: 0,
+        uniqueModels: [],
+        allModels: []
+      };
     }
   }, [toast]);
 

@@ -711,10 +711,10 @@ export const SunskySKUImporter: React.FC = () => {
     setPOSearchProgress(0);
 
     try {
-      // Get unique model numbers from PO orders
-      const modelNumbers = await getPOModelNumbers();
+      // Get model numbers data from PO orders
+      const modelData = await getPOModelNumbers();
       
-      if (modelNumbers.length === 0) {
+      if (modelData.uniqueCount === 0) {
         toast({
           title: "No Model Numbers Found",
           description: "No model numbers found in your PO orders to search",
@@ -723,15 +723,21 @@ export const SunskySKUImporter: React.FC = () => {
         return;
       }
 
+      const uniqueModelNumbers = modelData.uniqueModels;
+
       // Create an import job for this PO search
       const { data: importJob, error: jobError } = await supabase
         .from('sunsky_import_jobs')
         .insert({
           user_id: profile?.id,
           type: 'po_search',
-          criteria: { source: 'po_model_numbers', total_models: modelNumbers.length },
+          criteria: { 
+            source: 'po_model_numbers', 
+            total_models: modelData.totalCount,
+            unique_models: modelData.uniqueCount 
+          },
           status: 'processing',
-          total_items: modelNumbers.length,
+          total_items: modelData.totalCount,
           processed_items: 0,
           success_count: 0,
           error_count: 0,
@@ -744,9 +750,9 @@ export const SunskySKUImporter: React.FC = () => {
         console.error('Error creating import job:', jobError);
       }
 
-      // Initialize stats
+      // Initialize stats - show total items correctly
       const initialStats = {
-        totalItems: modelNumbers.length,
+        totalItems: modelData.totalCount,
         searchedItems: 0,
         skippedItems: 0,
         matchedItems: 0,
@@ -757,9 +763,18 @@ export const SunskySKUImporter: React.FC = () => {
       setPOSearchProgress(5);
       
       const batchSize = 10; // Process in batches to avoid overwhelming the API
+      let processedCount = 0;
+      let successCount = 0;
+      let errorCount = 0;
+      let skippedCount = 0;
       
-      for (let i = 0; i < modelNumbers.length; i += batchSize) {
-        const batch = modelNumbers.slice(i, i + batchSize);
+      // Normalize function to improve matching
+      const normalizeModelNumber = (model: string) => {
+        return model.trim().toLowerCase().replace(/[-_\s]/g, '');
+      };
+
+      for (let i = 0; i < uniqueModelNumbers.length; i += batchSize) {
+        const batch = uniqueModelNumbers.slice(i, i + batchSize);
         
         for (const modelNumber of batch) {
           // Update current item being searched
@@ -769,128 +784,146 @@ export const SunskySKUImporter: React.FC = () => {
           }));
 
           try {
-            // Search for the product by model number
-            const searchResults = await callSunskyAPI('searchProducts', {
-              keyword: modelNumber,
-              page: 1,
-              pageSize: 1
-            });
+            let matchFound = false;
+            let productToImport = null;
 
-            if (searchResults.success && searchResults.data?.products?.length > 0) {
-              const product = searchResults.data.products[0];
-              
-              // Get detailed product information
-              const detailResults = await callSunskyAPI('getProductDetails', {
-                itemNo: product.itemNo
+            // Strategy 1: Try exact match with getProductDetails if it looks like a Sunsky item number
+            if (modelNumber.match(/^[A-Z0-9]{6,}$/i)) {
+              try {
+                const detailResults = await callSunskyAPI('getProductDetails', {
+                  itemNo: modelNumber
+                });
+                
+                if (detailResults.success && detailResults.data) {
+                  productToImport = detailResults.data;
+                  matchFound = true;
+                  console.log(`Direct match found for ${modelNumber}`);
+                }
+              } catch (error) {
+                console.log(`Direct lookup failed for ${modelNumber}, trying search`);
+              }
+            }
+
+            // Strategy 2: Search with broader parameters if no direct match
+            if (!matchFound) {
+              const searchResults = await callSunskyAPI('searchProducts', {
+                keyword: modelNumber,
+                page: 1,
+                pageSize: 10 // Get more results to find better matches
               });
 
-              if (detailResults.success && detailResults.data) {
-                const detailedProduct = detailResults.data;
-                
-                // Check if SKU already exists first
-                const { data: existingSKU } = await supabase
-                  .from('sunsky_skus')
-                  .select('id')
-                  .eq('user_id', profile?.id)
-                  .eq('sku_code', detailedProduct.itemNo)
-                  .maybeSingle();
+              if (searchResults.success && searchResults.data?.products?.length > 0) {
+                // Look for exact or close matches
+                const normalizedSearch = normalizeModelNumber(modelNumber);
+                let bestMatch = null;
 
-                if (existingSKU) {
-                  // SKU already exists, count as skipped
-                  setPOSearchStats(prev => ({
-                    ...prev,
-                    skippedItems: prev.skippedItems + 1,
-                    searchedItems: prev.searchedItems + 1
-                  }));
-                } else {
-                  // Insert new SKU
-                  const { error } = await supabase
-                    .from('sunsky_skus')
-                    .insert({
-                      user_id: profile?.id,
-                      sku_code: detailedProduct.itemNo,
-                      title: detailedProduct.name,
-                      cost: detailedProduct.convertedPrice || parseFloat(detailedProduct.price) || 0,
-                      weight: detailedProduct.unitWeight ? parseFloat(detailedProduct.unitWeight) : 0,
-                      currency: detailedProduct.convertedCurrency || 'USD',
-                      country: profile?.country || 'UAE',
-                      description: detailedProduct.description || '',
-                      product_data: detailedProduct
-                    });
-
-                  if (!error) {
-                    const newStats = {
-                      matchedItems: poSearchStats.matchedItems + 1,
-                      searchedItems: poSearchStats.searchedItems + 1
-                    };
-                    
-                    setPOSearchStats(prev => ({
-                      ...prev,
-                      matchedItems: newStats.matchedItems,
-                      searchedItems: newStats.searchedItems
-                    }));
-
-                    // Update the import job progress
-                    if (importJob) {
-                      await supabase
-                        .from('sunsky_import_jobs')
-                        .update({
-                          processed_items: newStats.searchedItems,
-                          success_count: newStats.matchedItems
-                        })
-                        .eq('id', importJob.id);
-                    }
-                  } else {
-                    console.error('Error inserting SKU:', error);
-                    const newStats = {
-                      errorItems: poSearchStats.errorItems + 1,
-                      searchedItems: poSearchStats.searchedItems + 1
-                    };
-                    
-                    setPOSearchStats(prev => ({
-                      ...prev,
-                      errorItems: newStats.errorItems,
-                      searchedItems: newStats.searchedItems
-                    }));
-
-                    // Update the import job error count
-                    if (importJob) {
-                      await supabase
-                        .from('sunsky_import_jobs')
-                        .update({
-                          processed_items: newStats.searchedItems,
-                          error_count: newStats.errorItems
-                        })
-                        .eq('id', importJob.id);
-                    }
+                for (const product of searchResults.data.products) {
+                  const normalizedItem = normalizeModelNumber(product.itemNo || '');
+                  const normalizedName = normalizeModelNumber(product.name || '');
+                  
+                  // Check for exact matches first
+                  if (normalizedItem === normalizedSearch || 
+                      normalizedName.includes(normalizedSearch) ||
+                      normalizedSearch.includes(normalizedItem)) {
+                    bestMatch = product;
+                    break;
                   }
                 }
+
+                if (bestMatch) {
+                  // Get detailed information for the best match
+                  const detailResults = await callSunskyAPI('getProductDetails', {
+                    itemNo: bestMatch.itemNo
+                  });
+
+                  if (detailResults.success && detailResults.data) {
+                    productToImport = detailResults.data;
+                    matchFound = true;
+                    console.log(`Search match found for ${modelNumber}: ${bestMatch.itemNo}`);
+                  }
+                }
+              }
+            }
+
+            if (matchFound && productToImport) {
+              // Use upsert to handle duplicates gracefully
+              const { error } = await supabase
+                .from('sunsky_skus')
+                .upsert({
+                  user_id: profile?.id,
+                  sku_code: productToImport.itemNo,
+                  title: productToImport.name,
+                  cost: productToImport.convertedPrice || parseFloat(productToImport.price) || 0,
+                  weight: productToImport.unitWeight ? parseFloat(productToImport.unitWeight) : 0,
+                  currency: productToImport.convertedCurrency || 'USD',
+                  country: profile?.country || 'UAE',
+                  description: productToImport.description || '',
+                  product_data: productToImport
+                }, {
+                  onConflict: 'user_id,sku_code',
+                  ignoreDuplicates: false
+                });
+
+              if (!error) {
+                successCount++;
+                console.log(`Successfully imported/updated SKU: ${productToImport.itemNo}`);
               } else {
-                setPOSearchStats(prev => ({
-                  ...prev,
-                  errorItems: prev.errorItems + 1,
-                  searchedItems: prev.searchedItems + 1
-                }));
+                console.error('Error upserting SKU:', error);
+                errorCount++;
               }
             } else {
-              setPOSearchStats(prev => ({
-                ...prev,
-                skippedItems: prev.skippedItems + 1,
-                searchedItems: prev.searchedItems + 1
-              }));
+              skippedCount++;
+              console.log(`No match found for model number: ${modelNumber}`);
             }
-          } catch (error) {
-            console.error(`Error searching for model number ${modelNumber}:`, error);
+
+            processedCount++;
+            
+            // Update stats with local counters
             setPOSearchStats(prev => ({
               ...prev,
-              errorItems: prev.errorItems + 1,
-              searchedItems: prev.searchedItems + 1
+              searchedItems: processedCount,
+              matchedItems: successCount,
+              errorItems: errorCount,
+              skippedItems: skippedCount
             }));
+
+            // Update the import job progress
+            if (importJob) {
+              await supabase
+                .from('sunsky_import_jobs')
+                .update({
+                  processed_items: processedCount,
+                  success_count: successCount,
+                  error_count: errorCount
+                })
+                .eq('id', importJob.id);
+            }
+
+          } catch (error) {
+            console.error(`Error processing model number ${modelNumber}:`, error);
+            errorCount++;
+            processedCount++;
+            
+            setPOSearchStats(prev => ({
+              ...prev,
+              searchedItems: processedCount,
+              errorItems: errorCount
+            }));
+            
+            if (importJob) {
+              await supabase
+                .from('sunsky_import_jobs')
+                .update({
+                  processed_items: processedCount,
+                  error_count: errorCount
+                })
+                .eq('id', importJob.id);
+            }
           }
         }
         
-        // Update progress based on searched items
-        const progressPercentage = Math.min(90, (i + batchSize) / modelNumbers.length * 85 + 5);
+        // Update progress based on processed unique models
+        const progressPercentage = Math.min(90, (processedCount / uniqueModelNumbers.length) * 85 + 5);
         setPOSearchProgress(progressPercentage);
       }
 
