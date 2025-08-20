@@ -394,6 +394,8 @@ export default function PODetailsPage() {
       // Prepare export data with stock deduction details
       const exportData = fromStockItems.map((order) => {
         const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number);
+        // Calculate what the original quantity was before fulfillment
+        const originalQuantity = order.quantity === 0 ? 'Fulfilled from Stock' : order.quantity;
         
         return {
           // Basic Order Information
@@ -405,10 +407,10 @@ export default function PODetailsPage() {
           'Title': order.title || '',
           
           // Stock Deduction Details
-          'Order Quantity': order.quantity,
-          'Previous Stock': inventoryMatch ? inventoryMatch.quantity + order.quantity : 'Unknown',
-          'Quantity Deducted': order.quantity,
-          'Current Stock': inventoryMatch?.quantity || 0,
+          'Original Order Quantity': originalQuantity,
+          'Current PO Quantity': order.quantity,
+          'Fulfillment Status': order.quantity === 0 ? 'Completely Fulfilled' : 'Partially Fulfilled',
+          'Previous Inventory Stock': inventoryMatch ? `${inventoryMatch.quantity} (current)` : 'Unknown',
           'Inventory Type': inventoryMatch?.type || 'Not Found',
           'Inventory Identifier': inventoryMatch?.identifier || '',
           'Serial/Bin Number': inventoryMatch?.serialNumber || '',
@@ -715,21 +717,21 @@ export default function PODetailsPage() {
       }
 
       // Update inventory quantity
-      const newQuantity = inventoryMatch.quantity - order.quantity;
+      const newInventoryQuantity = inventoryMatch.quantity - order.quantity;
       
       let inventoryError: any = null;
       
       if (inventoryMatch.type === 'ASIN') {
         const { error } = await supabase
           .from('asin_inventory')
-          .update({ quantity: newQuantity })
+          .update({ quantity: newInventoryQuantity })
           .eq('asin', inventoryMatch.identifier)
           .eq('user_id', (await supabase.auth.getUser()).data.user?.id);
         inventoryError = error;
       } else {
         const { error } = await supabase
           .from('sku_inventory')
-          .update({ quantity: newQuantity })
+          .update({ quantity: newInventoryQuantity })
           .eq('sku_number', inventoryMatch.identifier)
           .eq('user_id', (await supabase.auth.getUser()).data.user?.id);
         inventoryError = error;
@@ -739,8 +741,19 @@ export default function PODetailsPage() {
         throw new Error(`Failed to update inventory: ${inventoryError.message}`);
       }
 
-      // Update order status to 'ordered'
-      await updateOrderStatus(order.id, 'ordered');
+      // Update PO order quantity to 0 and status to 'ordered'
+      const { error: poError } = await supabase
+        .from('po_orders')
+        .update({ 
+          quantity: 0,
+          status: 'ordered'
+        })
+        .eq('id', order.id)
+        .eq('user_id', (await supabase.auth.getUser()).data.user?.id);
+
+      if (poError) {
+        throw new Error(`Failed to update PO order: ${poError.message}`);
+      }
 
       // Add to items marked from stock - IMPORTANT: Add this before any async operations
       console.log('Adding item to itemsMarkedFromStock:', order.id, order.sku_code);
@@ -751,12 +764,12 @@ export default function PODetailsPage() {
         return newSet;
       });
 
-      // Refresh inventory data
-      await fetchInventoryData();
+      // Refresh data
+      await Promise.all([fetchInventoryData(), fetchPOOrders()]);
 
       toast({
         title: "Item Marked as Ordered",
-        description: `Order marked as placed and ${order.quantity} units deducted from inventory (${inventoryMatch.quantity} → ${newQuantity}). Item can now be selected for Sunsky ordering.`
+        description: `Order fulfilled from stock: ${order.quantity} units deducted from inventory (${inventoryMatch.quantity} → ${newInventoryQuantity}). PO quantity set to 0.`
       });
 
     } catch (error) {
@@ -946,6 +959,7 @@ export default function PODetailsPage() {
                 <div className="space-y-4">
                   {matchedOrders.filter(order => itemsMarkedFromStock.has(order.id)).map((order) => {
                     const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number);
+                    const originalQuantity = order.quantity === 0 ? 'Completely Fulfilled' : order.quantity;
                     return (
                       <Card key={order.id}>
                         <CardContent className="p-4">
@@ -960,13 +974,13 @@ export default function PODetailsPage() {
                               </div>
                             </div>
                             <div>
-                              <h4 className="font-semibold text-sm">Stock Deduction</h4>
+                              <h4 className="font-semibold text-sm">Stock Fulfillment</h4>
                               <div className="text-xs space-y-1 mt-2">
-                                <div><strong>Order Qty:</strong> {order.quantity}</div>
-                                <div><strong>Previous Stock:</strong> {inventoryMatch ? inventoryMatch.quantity + order.quantity : 'Unknown'}</div>
-                                <div><strong>Deducted:</strong> -{order.quantity}</div>
-                                <div><strong>Current Stock:</strong> {inventoryMatch?.quantity || 0}</div>
+                                <div><strong>Fulfillment Status:</strong> {originalQuantity}</div>
+                                <div><strong>Current PO Qty:</strong> {order.quantity}</div>
+                                <div><strong>Current Inventory:</strong> {inventoryMatch?.quantity || 0}</div>
                                 <div><strong>Inventory Type:</strong> {inventoryMatch?.type || 'Not Found'}</div>
+                                <div><strong>Status:</strong> {order.status}</div>
                               </div>
                             </div>
                           </div>
@@ -1315,22 +1329,11 @@ export default function PODetailsPage() {
                               const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number);
                               const hasStock = inventoryMatch && inventoryMatch.quantity > 0;
                               const isMarkedFromStock = itemsMarkedFromStock.has(order.id);
+                              const orderQuantity = order.quantity;
                               
-                              if (order.status !== 'ordered' && order.status !== 'shipped' && order.status !== 'delivered') {
-                                if (hasStock && !isMarkedFromStock) {
-                                  // Show From Stock button for in-stock items that haven't been marked yet
-                                  return (
-                                    <Button
-                                      size="sm"
-                                      variant="default"
-                                      onClick={() => markAsOrderedFromInventory(order)}
-                                      className="text-xs bg-green-600 hover:bg-green-700"
-                                    >
-                                      From Stock
-                                    </Button>
-                                  );
-                                } else if (isMarkedFromStock) {
-                                  // Show disabled button and selection indicator for items marked from stock
+                              if (order.status !== 'shipped' && order.status !== 'delivered') {
+                                if (orderQuantity === 0 && order.status === 'ordered') {
+                                  // Show disabled button for items that were fulfilled from stock (quantity = 0)
                                   return (
                                     <div className="flex flex-col gap-1">
                                       <Button
@@ -1339,18 +1342,30 @@ export default function PODetailsPage() {
                                         disabled
                                         className="text-xs bg-green-600/50 text-white"
                                       >
-                                        ✓ From Stock
+                                        ✓ Fulfilled from Stock
                                       </Button>
                                       <span className="text-xs text-blue-600 font-medium">
-                                        Can select for Sunsky
+                                        Quantity fulfilled: {orderQuantity === 0 ? 'Complete' : orderQuantity}
                                       </span>
                                     </div>
                                   );
+                                } else if (hasStock && orderQuantity > 0) {
+                                  // Show From Stock button for in-stock items with remaining quantity
+                                  return (
+                                    <Button
+                                      size="sm"
+                                      variant="default"
+                                      onClick={() => markAsOrderedFromInventory(order)}
+                                      className="text-xs bg-green-600 hover:bg-green-700"
+                                    >
+                                      From Stock ({orderQuantity})
+                                    </Button>
+                                  );
                                 } else {
-                                  // No button for out-of-stock items
+                                  // No button for out-of-stock items or completed orders
                                   return (
                                     <span className="text-xs text-muted-foreground">
-                                      No stock available
+                                      {orderQuantity === 0 ? 'Complete' : 'No stock available'}
                                     </span>
                                   );
                                 }
