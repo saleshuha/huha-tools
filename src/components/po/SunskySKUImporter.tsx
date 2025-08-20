@@ -26,6 +26,7 @@ import { useImportJobs } from "@/hooks/useImportJobs";
 import type { ImportJob } from "@/hooks/useImportJobs";
 import { usePOOrders } from "@/hooks/usePOOrders";
 import { useParallelPOProcessor } from "./ParallelPOProcessor";
+import { ReAuthDialog } from "@/components/amazon/ReAuthDialog";
 
 interface SunskyProduct {
   // Core product fields
@@ -193,6 +194,7 @@ export const SunskySKUImporter: React.FC = () => {
   // Job details dialog
   const [selectedJob, setSelectedJob] = useState<ImportJob | null>(null);
   const [showJobDetailsDialog, setShowJobDetailsDialog] = useState(false);
+  const [showClearAuthDialog, setShowClearAuthDialog] = useState(false);
   
   // Pagination for import jobs
   const [jobsCurrentPage, setJobsCurrentPage] = useState(1);
@@ -2003,7 +2005,7 @@ export const SunskySKUImporter: React.FC = () => {
                     </Button>
                     
                     <Button 
-                      onClick={clearAllSKUs}
+                      onClick={() => setShowClearAuthDialog(true)}
                       variant="destructive"
                       size="sm"
                       disabled={sunskySKUs.length === 0}
@@ -2458,6 +2460,14 @@ export const SunskySKUImporter: React.FC = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <ReAuthDialog
+        open={showClearAuthDialog}
+        onOpenChange={setShowClearAuthDialog}
+        onSuccess={clearAllSKUs}
+        title="Clear All SKUs - Authentication Required"
+        description="This action will permanently delete all imported SKUs. Please confirm your identity to proceed."
+      />
     </div>
   );
 };
