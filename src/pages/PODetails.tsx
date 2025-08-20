@@ -1132,16 +1132,14 @@ export default function PODetailsPage() {
                                 if (hasStock && !isMarkedFromStock) {
                                   // Show From Stock button for in-stock items that haven't been marked yet
                                   return (
-                                    <div className="flex flex-col gap-1">
-                                      <Button
-                                        size="sm"
-                                        variant="default"
-                                        onClick={() => markAsOrderedFromInventory(order)}
-                                        className="text-xs bg-green-600 hover:bg-green-700"
-                                      >
-                                        From Stock
-                                      </Button>
-                                    </div>
+                                    <Button
+                                      size="sm"
+                                      variant="default"
+                                      onClick={() => markAsOrderedFromInventory(order)}
+                                      className="text-xs bg-green-600 hover:bg-green-700"
+                                    >
+                                      From Stock
+                                    </Button>
                                   );
                                 } else if (isMarkedFromStock) {
                                   // Show disabled button and selection indicator for items marked from stock
@@ -1161,16 +1159,11 @@ export default function PODetailsPage() {
                                     </div>
                                   );
                                 } else {
-                                  // Show supplier button for out-of-stock items
+                                  // No button for out-of-stock items
                                   return (
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => updateOrderStatus(order.id, 'ordered')}
-                                      className="text-xs"
-                                    >
-                                      From Supplier
-                                    </Button>
+                                    <span className="text-xs text-muted-foreground">
+                                      No stock available
+                                    </span>
                                   );
                                 }
                               }
