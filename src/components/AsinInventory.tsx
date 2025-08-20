@@ -142,6 +142,34 @@ export function AsinInventory() {
       filtered = filtered.filter(item => new Date(item.dateAdded) >= sevenDaysAgo);
     }
 
+    // Merge duplicate ASINs - combine quantities and serial numbers
+    const asinGroups = new Map();
+    filtered.forEach(item => {
+      const key = item.asin;
+      if (asinGroups.has(key)) {
+        const existing = asinGroups.get(key);
+        existing.quantity += item.quantity;
+        existing.serialNumber = existing.serialNumber + ', ' + item.serialNumber;
+        // Keep the most recent status (prioritize in-stock over sold)
+        if (item.status === 'in-stock' && existing.status !== 'in-stock') {
+          existing.status = item.status;
+        }
+        // Use the earliest date added
+        if (new Date(item.dateAdded) < new Date(existing.dateAdded)) {
+          existing.dateAdded = item.dateAdded;
+        }
+        // Combine notes if they exist
+        if (item.notes && !existing.notes?.includes(item.notes)) {
+          existing.notes = existing.notes ? existing.notes + '; ' + item.notes : item.notes;
+        }
+      } else {
+        asinGroups.set(key, { ...item });
+      }
+    });
+    
+    // Convert back to array
+    filtered = Array.from(asinGroups.values());
+
     // Apply sorting
     filtered.sort((a, b) => {
       let aValue: any = a[sortBy];
