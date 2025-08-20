@@ -818,30 +818,39 @@ export const SunskySKUImporter: React.FC = () => {
             let productToImport = null;
 
             // Strategy 1: Try exact match with getProductDetails if it looks like a Sunsky item number
+            console.log(`Attempting direct lookup for model: ${modelNumber}`);
             if (modelNumber.match(/^[A-Z0-9]{6,}$/i)) {
               try {
                 const detailResults = await callSunskyAPI('getProductDetails', {
                   itemNo: modelNumber
                 });
                 
+                console.log(`Direct lookup response for ${modelNumber}:`, detailResults);
+                
                 if (detailResults?.result?.result === 'success' && detailResults.result.data) {
                   productToImport = detailResults.result.data;
                   matchFound = true;
-                  console.log(`Direct match found for ${modelNumber}`);
+                  console.log(`Direct match found for ${modelNumber}`, productToImport);
+                } else {
+                  console.log(`Direct lookup failed for ${modelNumber} - result structure:`, detailResults);
                 }
               } catch (error) {
+                console.log(`Direct lookup error for ${modelNumber}:`, error);
                 // Check if it's a "record not found" error
                 const errorMsg = error?.message || '';
                 if (errorMsg.includes('这查看这条记录不存在') || errorMsg.includes('record') || errorMsg.includes('not') || errorMsg.includes('exist')) {
                   console.log(`Product ${modelNumber} not found in Sunsky, trying search`);
                 } else {
-                  console.error(`Direct lookup error for ${modelNumber}:`, error);
+                  console.error(`Unexpected direct lookup error for ${modelNumber}:`, error);
                 }
               }
+            } else {
+              console.log(`Model ${modelNumber} doesn't match Sunsky pattern, skipping direct lookup`);
             }
 
             // Strategy 2: Search with broader parameters if no direct match
             if (!matchFound) {
+              console.log(`Trying search for ${modelNumber}`);
               try {
                 const searchResults = await callSunskyAPI('searchProducts', {
                   keyword: modelNumber,
@@ -849,7 +858,10 @@ export const SunskySKUImporter: React.FC = () => {
                   pageSize: 10 // Get more results to find better matches
                 });
 
+                console.log(`Search response for ${modelNumber}:`, searchResults);
+
                 if (searchResults?.result?.result === 'success' && searchResults.result.data?.products?.length > 0) {
+                  console.log(`Found ${searchResults.result.data.products.length} products in search for ${modelNumber}`);
                   // Look for exact or close matches
                   const normalizedSearch = normalizeModelNumber(modelNumber);
                   let bestMatch = null;
@@ -858,11 +870,14 @@ export const SunskySKUImporter: React.FC = () => {
                     const normalizedItem = normalizeModelNumber(product.itemNo || '');
                     const normalizedName = normalizeModelNumber(product.name || '');
                     
+                    console.log(`Comparing ${normalizedSearch} with item: ${normalizedItem}, name: ${normalizedName}`);
+                    
                     // Check for exact matches first
                     if (normalizedItem === normalizedSearch || 
                         normalizedName.includes(normalizedSearch) ||
                         normalizedSearch.includes(normalizedItem)) {
                       bestMatch = product;
+                      console.log(`Found best match:`, product);
                       break;
                     }
                   }
@@ -874,6 +889,8 @@ export const SunskySKUImporter: React.FC = () => {
                         itemNo: bestMatch.itemNo
                       });
 
+                      console.log(`Detail results for best match ${bestMatch.itemNo}:`, detailResults);
+
                       if (detailResults?.result?.result === 'success' && detailResults.result.data) {
                         productToImport = detailResults.result.data;
                         matchFound = true;
@@ -882,13 +899,19 @@ export const SunskySKUImporter: React.FC = () => {
                     } catch (error) {
                       console.log(`Error getting details for matched product ${bestMatch.itemNo}:`, error);
                     }
+                  } else {
+                    console.log(`No suitable match found in search results for ${modelNumber}`);
                   }
+                } else {
+                  console.log(`Search returned no products for ${modelNumber}:`, searchResults);
                 }
               } catch (error) {
                 console.log(`Search failed for ${modelNumber}:`, error);
               }
             }
 
+            console.log(`Final check for ${modelNumber}: matchFound=${matchFound}, productToImport=`, productToImport);
+            
             if (matchFound && productToImport) {
               // Use upsert to handle duplicates gracefully
               try {
@@ -925,7 +948,11 @@ export const SunskySKUImporter: React.FC = () => {
               }
             } else {
               skippedCount++;
-              console.log(`No match found for model number: ${modelNumber}`);
+              console.log(`No match found for model number: ${modelNumber}`, { 
+                matchFound, 
+                hasProductToImport: !!productToImport,
+                productToImport: productToImport ? { itemNo: productToImport.itemNo, name: productToImport.name } : null
+              });
             }
 
             processedCount++;
