@@ -203,7 +203,10 @@ export const SunskySKUImporter: React.FC = () => {
     'sku_code', 'title', 'cost', 'currency', 'weight', 'country', 'created_at'
   ]);
   const [availableSkuHeaders] = useState<string[]>([
-    'sku_code', 'title', 'cost', 'currency', 'weight', 'country', 'created_at', 'description'
+    'sku_code', 'title', 'description', 'cost', 'currency', 'weight', 'country', 'created_at',
+    'brand', 'category', 'stock', 'moq', 'lead_time', 'price', 'warehouse', 'barcode',
+    'unit_weight', 'pack_qty', 'dimensions', 'pack_weight', 'pack_dimensions', 'clearance',
+    'oem', 'with_logo', 'contains_battery', 'status', 'video_url', 'gmt_listed', 'gmt_modified'
   ]);
 
   // Save column preferences
@@ -1960,32 +1963,64 @@ export const SunskySKUImporter: React.FC = () => {
                           <TableRow key={sku.id}>
                             {skuTableHeaders.map((header) => (
                               <TableCell key={header} className={header === 'sku_code' ? 'font-mono' : header === 'title' ? 'max-w-xs truncate' : header === 'created_at' ? 'text-sm text-muted-foreground' : ''}>
-                                {(() => {
-                                  const productData = sku?.product_data || {};
-                                  
-                                  // Handle specific fields
-                                  if (header === 'created_at') {
-                                    return new Date(sku[header as keyof typeof sku] as string).toLocaleDateString();
-                                  } else if (header === 'cost' && sku.cost) {
-                                    return sku.cost.toFixed(2);
-                                  } else if (header === 'weight' && sku.weight) {
-                                    return `${sku.weight}kg`;
-                                  } else if (header === 'brand' && productData.brandName) {
-                                    return productData.brandName;
-                                  } else if (header === 'category' && productData.categoryName) {
-                                    return productData.categoryName;
-                                  } else if (header === 'stock' && productData.stock !== undefined) {
-                                    return productData.stock.toString();
-                                  } else if (header === 'moq' && productData.moq !== undefined) {
-                                    return productData.moq.toString();
-                                  } else if (header === 'lead_time' && productData.leadTime) {
-                                    return `${productData.leadTime} days`;
-                                  } else if (header === 'price' && productData.price) {
-                                    return `$${parseFloat(productData.price).toFixed(2)}`;
-                                  } else {
-                                    return (sku[header as keyof typeof sku] as string) || '-';
-                                  }
-                                })()}
+                                 {(() => {
+                                   const productData = sku?.product_data || {};
+                                   
+                                   // Handle specific fields
+                                   if (header === 'created_at') {
+                                     return new Date(sku[header as keyof typeof sku] as string).toLocaleDateString();
+                                   } else if (header === 'cost' && sku.cost) {
+                                     return sku.cost.toFixed(2);
+                                   } else if (header === 'weight' && sku.weight) {
+                                     return `${sku.weight}kg`;
+                                   } else if (header === 'brand' && productData.brandName) {
+                                     return productData.brandName;
+                                   } else if (header === 'category' && productData.categoryName) {
+                                     return productData.categoryName;
+                                   } else if (header === 'stock' && productData.stock !== undefined) {
+                                     return productData.stock.toString();
+                                   } else if (header === 'moq' && productData.moq !== undefined) {
+                                     return productData.moq.toString();
+                                   } else if (header === 'lead_time' && productData.leadTime) {
+                                     return `${productData.leadTime} days`;
+                                   } else if (header === 'price' && productData.price) {
+                                     return `$${parseFloat(productData.price).toFixed(2)}`;
+                                   } else if (header === 'warehouse' && productData.warehouse) {
+                                     return productData.warehouse;
+                                   } else if (header === 'barcode' && productData.barcode) {
+                                     return productData.barcode;
+                                   } else if (header === 'unit_weight' && productData.unitWeight) {
+                                     return `${productData.unitWeight}kg`;
+                                   } else if (header === 'pack_qty' && productData.packQty) {
+                                     return productData.packQty.toString();
+                                   } else if (header === 'dimensions' && (productData.unitLength || productData.unitWidth || productData.unitHeight)) {
+                                     return `${productData.unitLength || 0}×${productData.unitWidth || 0}×${productData.unitHeight || 0}cm`;
+                                   } else if (header === 'pack_weight' && productData.packWeight) {
+                                     return `${productData.packWeight}kg`;
+                                   } else if (header === 'pack_dimensions' && (productData.packLength || productData.packWidth || productData.packHeight)) {
+                                     return `${productData.packLength || 0}×${productData.packWidth || 0}×${productData.packHeight || 0}cm`;
+                                   } else if (header === 'clearance' && productData.clearance !== undefined) {
+                                     return productData.clearance ? 'Yes' : 'No';
+                                   } else if (header === 'oem' && productData.oem !== undefined) {
+                                     return productData.oem ? 'Yes' : 'No';
+                                   } else if (header === 'with_logo' && productData.withLogo !== undefined) {
+                                     return productData.withLogo ? 'Yes' : 'No';
+                                   } else if (header === 'contains_battery' && productData.containsBattery !== undefined) {
+                                     return productData.containsBattery ? 'Yes' : 'No';
+                                   } else if (header === 'status' && productData.status !== undefined) {
+                                     return productData.status.toString();
+                                   } else if (header === 'video_url' && productData.videoUrl) {
+                                     return productData.videoUrl;
+                                   } else if (header === 'gmt_listed' && productData.gmtListed) {
+                                     return new Date(productData.gmtListed).toLocaleDateString();
+                                   } else if (header === 'gmt_modified' && productData.gmtModified) {
+                                     return new Date(productData.gmtModified).toLocaleDateString();
+                                   } else if (header === 'description' && productData.description) {
+                                     return productData.description;
+                                   } else {
+                                     return (sku[header as keyof typeof sku] as string) || '-';
+                                   }
+                                 })()}
                               </TableCell>
                             ))}
                           </TableRow>
