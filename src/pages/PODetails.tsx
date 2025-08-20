@@ -73,6 +73,9 @@ export default function PODetailsPage() {
   // Sunsky order dialog state
   const [sunskyOrderDialogOpen, setSunskyOrderDialogOpen] = useState(false);
   const [hasSunskyCredentials, setHasSunskyCredentials] = useState(false);
+  
+  // Track items marked from stock
+  const [itemsMarkedFromStock, setItemsMarkedFromStock] = useState<Set<string>>(new Set());
 
   console.log('PODetailsPage: Rendering with poNumber:', poNumber);
   console.log('PODetailsPage: poOrders:', poOrders);
@@ -626,12 +629,15 @@ export default function PODetailsPage() {
       // Update order status to 'ordered'
       await updateOrderStatus(order.id, 'ordered');
 
+      // Add to items marked from stock
+      setItemsMarkedFromStock(prev => new Set(prev).add(order.id));
+
       // Refresh inventory data
       await fetchInventoryData();
 
       toast({
         title: "Item Marked as Ordered",
-        description: `Order marked as placed and ${order.quantity} units deducted from inventory (${inventoryMatch.quantity} → ${newQuantity})`
+        description: `Order marked as placed and ${order.quantity} units deducted from inventory (${inventoryMatch.quantity} → ${newQuantity}). Item can now be selected for Sunsky ordering.`
       });
 
     } catch (error) {
@@ -1114,64 +1120,65 @@ export default function PODetailsPage() {
                         {order.status}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-center">
-                      <div className="flex flex-col gap-1">
-                        <div className="flex gap-1 justify-center">
-                           {(() => {
-                             const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number);
-                             const hasStock = inventoryMatch && inventoryMatch.quantity > 0;
-                             
-                             if (order.status !== 'ordered' && order.status !== 'shipped' && order.status !== 'delivered') {
-                               if (hasStock) {
-                                 // Show both buttons for in-stock items
-                                 return (
-                                   <div className="flex flex-col gap-1">
-                                     <Button
-                                       size="sm"
-                                       variant="default"
-                                       onClick={() => markAsOrderedFromInventory(order)}
-                                       className="text-xs bg-green-600 hover:bg-green-700"
-                                     >
-                                       From Stock
-                                     </Button>
-                                     <Button
-                                       size="sm"
-                                       variant="outline"
-                                       onClick={() => updateOrderStatus(order.id, 'ordered')}
-                                       className="text-xs"
-                                     >
-                                       From Supplier
-                                     </Button>
-                                   </div>
-                                 );
-                               } else {
-                                 // Show only supplier button for out-of-stock items
-                                 return (
-                                   <Button
-                                     size="sm"
-                                     variant="outline"
-                                     onClick={() => updateOrderStatus(order.id, 'ordered')}
-                                     className="text-xs"
-                                   >
-                                     Mark Ordered (From Supplier)
-                                   </Button>
-                                 );
-                               }
-                             }
-                             return null;
-                           })()}
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => openIndividualTrackingDialog(order)}
-                          className="text-xs gap-1"
-                        >
-                          <Edit className="h-3 w-3" />
-                          Edit Tracking
-                        </Button>
-                      </div>
-                    </TableCell>
+                     <TableCell className="text-center">
+                       <div className="flex flex-col gap-1">
+                         <div className="flex gap-1 justify-center">
+                            {(() => {
+                              const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number);
+                              const hasStock = inventoryMatch && inventoryMatch.quantity > 0;
+                              const isMarkedFromStock = itemsMarkedFromStock.has(order.id);
+                              
+                              if (order.status !== 'ordered' && order.status !== 'shipped' && order.status !== 'delivered') {
+                                if (hasStock && !isMarkedFromStock) {
+                                  // Show From Stock button for in-stock items that haven't been marked yet
+                                  return (
+                                    <div className="flex flex-col gap-1">
+                                      <Button
+                                        size="sm"
+                                        variant="default"
+                                        onClick={() => markAsOrderedFromInventory(order)}
+                                        className="text-xs bg-green-600 hover:bg-green-700"
+                                      >
+                                        From Stock
+                                      </Button>
+                                    </div>
+                                  );
+                                } else if (isMarkedFromStock) {
+                                  // Show disabled button and selection indicator for items marked from stock
+                                  return (
+                                    <div className="flex flex-col gap-1">
+                                      <Button
+                                        size="sm"
+                                        variant="default"
+                                        disabled
+                                        className="text-xs bg-green-600/50 text-white"
+                                      >
+                                        ✓ From Stock
+                                      </Button>
+                                      <span className="text-xs text-blue-600 font-medium">
+                                        Can select for Sunsky
+                                      </span>
+                                    </div>
+                                  );
+                                } else {
+                                  // Show supplier button for out-of-stock items
+                                  return (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => updateOrderStatus(order.id, 'ordered')}
+                                      className="text-xs"
+                                    >
+                                      From Supplier
+                                    </Button>
+                                  );
+                                }
+                              }
+                              return null;
+                            })()}
+                         </div>
+                       </div>
+                     </TableCell>
                    </TableRow>
                    );
                  })}
