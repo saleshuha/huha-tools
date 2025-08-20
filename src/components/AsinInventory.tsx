@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
@@ -359,7 +359,10 @@ export function AsinInventory() {
     };
 
   // Merge duplicate ASINs function
-  const mergeDuplicates = async () => {
+  const mergeDuplicates = useCallback(async () => {
+    console.log('mergeDuplicates function called');
+    console.log('duplicateData:', duplicateData);
+    
     if (duplicateData.duplicates.size === 0) {
       toast({
         title: "No Duplicates Found",
@@ -439,7 +442,7 @@ export function AsinInventory() {
         variant: "destructive"
       });
     }
-  };
+  }, [duplicateData, refetch, toast, setIsDuplicateDialogOpen]);
 
   // Export duplicate ASINs data
   const exportDuplicates = () => {
