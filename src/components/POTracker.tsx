@@ -618,7 +618,7 @@ export function POTracker() {
                           <TableRow 
                             key={poNumber}
                             className="hover:bg-muted/50 cursor-pointer transition-colors"
-                            onClick={() => navigate(`/po-details?po=${encodeURIComponent(poNumber)}`)}
+                            onClick={() => navigate(`/po-details/${encodeURIComponent(poNumber)}`)}
                           >
                             <TableCell className="space-y-2">
                               <div className="flex items-center gap-2">
@@ -711,7 +711,7 @@ export function POTracker() {
                                   className="h-8 w-8 p-0"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    navigate(`/po-details?po=${encodeURIComponent(poNumber)}`);
+                                    navigate(`/po-details/${encodeURIComponent(poNumber)}`);
                                   }}
                                 >
                                   <Eye className="w-4 h-4" />
@@ -792,7 +792,7 @@ export function POTracker() {
                           <TableRow 
                             key={poNumber}
                             className="hover:bg-muted/50 cursor-pointer transition-colors"
-                            onClick={() => navigate(`/po-details?po=${encodeURIComponent(poNumber)}`)}
+                            onClick={() => navigate(`/po-details/${encodeURIComponent(poNumber)}`)}
                           >
                             <TableCell className="space-y-2">
                               <div className="flex items-center gap-2">
@@ -829,7 +829,7 @@ export function POTracker() {
                                 className="h-8 w-8 p-0"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  navigate(`/po-details?po=${encodeURIComponent(poNumber)}`);
+                                  navigate(`/po-details/${encodeURIComponent(poNumber)}`);
                                 }}
                               >
                                 <Eye className="w-4 h-4" />
