@@ -190,13 +190,16 @@ export default function PODetailsPage() {
         const firstMatch = asinMatches[0];
         
         console.log(`📊 Total aggregated quantity for ${asin}: ${totalQuantity}`);
+        console.log(`🔍 Breakdown for ${asin}:`, asinMatches.map(item => 
+          `${item.serial_number}: ${item.quantity} units`
+        ).join(', '));
         
         return {
           type: 'ASIN',
           status: totalQuantity > 0 ? 'in-stock' : firstMatch.status,
           quantity: totalQuantity,
           identifier: firstMatch.asin,
-          serialNumber: asinMatches.map(item => item.serial_number).join(', ')
+          serialNumber: asinMatches.map(item => `${item.serial_number}(${item.quantity})`).join(', ')
         };
       } else {
         console.log(`❌ No ASIN match found in asin_inventory`);
