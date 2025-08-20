@@ -755,8 +755,8 @@ export const SunskySKUImporter: React.FC = () => {
               pageSize: 1
             });
 
-            if (searchResults.success && searchResults.data?.items?.length > 0) {
-              const product = searchResults.data.items[0];
+            if (searchResults.success && searchResults.data?.products?.length > 0) {
+              const product = searchResults.data.products[0];
               
               // Get detailed product information
               const detailResults = await callSunskyAPI('getProductDetails', {
