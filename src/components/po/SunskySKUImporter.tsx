@@ -723,6 +723,27 @@ export const SunskySKUImporter: React.FC = () => {
         return;
       }
 
+      // Create an import job for this PO search
+      const { data: importJob, error: jobError } = await supabase
+        .from('sunsky_import_jobs')
+        .insert({
+          user_id: profile?.id,
+          type: 'po_search',
+          criteria: { source: 'po_model_numbers', total_models: modelNumbers.length },
+          status: 'processing',
+          total_items: modelNumbers.length,
+          processed_items: 0,
+          success_count: 0,
+          error_count: 0,
+          started_at: new Date().toISOString()
+        })
+        .select()
+        .maybeSingle();
+
+      if (jobError) {
+        console.error('Error creating import job:', jobError);
+      }
+
       // Initialize stats
       const initialStats = {
         totalItems: modelNumbers.length,
@@ -798,18 +819,50 @@ export const SunskySKUImporter: React.FC = () => {
                     });
 
                   if (!error) {
+                    const newStats = {
+                      matchedItems: poSearchStats.matchedItems + 1,
+                      searchedItems: poSearchStats.searchedItems + 1
+                    };
+                    
                     setPOSearchStats(prev => ({
                       ...prev,
-                      matchedItems: prev.matchedItems + 1,
-                      searchedItems: prev.searchedItems + 1
+                      matchedItems: newStats.matchedItems,
+                      searchedItems: newStats.searchedItems
                     }));
+
+                    // Update the import job progress
+                    if (importJob) {
+                      await supabase
+                        .from('sunsky_import_jobs')
+                        .update({
+                          processed_items: newStats.searchedItems,
+                          success_count: newStats.matchedItems
+                        })
+                        .eq('id', importJob.id);
+                    }
                   } else {
                     console.error('Error inserting SKU:', error);
+                    const newStats = {
+                      errorItems: poSearchStats.errorItems + 1,
+                      searchedItems: poSearchStats.searchedItems + 1
+                    };
+                    
                     setPOSearchStats(prev => ({
                       ...prev,
-                      errorItems: prev.errorItems + 1,
-                      searchedItems: prev.searchedItems + 1
+                      errorItems: newStats.errorItems,
+                      searchedItems: newStats.searchedItems
                     }));
+
+                    // Update the import job error count
+                    if (importJob) {
+                      await supabase
+                        .from('sunsky_import_jobs')
+                        .update({
+                          processed_items: newStats.searchedItems,
+                          error_count: newStats.errorItems
+                        })
+                        .eq('id', importJob.id);
+                    }
                   }
                 }
               } else {
@@ -843,8 +896,19 @@ export const SunskySKUImporter: React.FC = () => {
 
       setPOSearchProgress(95);
       
-      // Refresh the SKU list to show new imports
-      await refreshSKUs();
+      // Complete the import job
+      if (importJob) {
+        await supabase
+          .from('sunsky_import_jobs')
+          .update({
+            status: 'completed',
+            completed_at: new Date().toISOString()
+          })
+          .eq('id', importJob.id);
+      }
+      
+      // Refresh the SKU list and jobs list to show new imports
+      await Promise.all([refreshSKUs(), fetchJobs()]);
       
       setPOSearchProgress(100);
       setPOSearchStats(prev => ({ ...prev, currentItem: 'Complete!' }));
