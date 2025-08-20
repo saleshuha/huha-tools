@@ -1626,13 +1626,13 @@ serve(async (req) => {
 
         const params: Record<string, any> = {
           lang: 'en',
-          'deliveryAddress.countryId': deliveryAddress.countryId
+          countryId: deliveryAddress.countryId
         };
 
-        // Add optional delivery address fields
-        if (deliveryAddress.state) params['deliveryAddress.state'] = deliveryAddress.state;
-        if (deliveryAddress.city) params['deliveryAddress.city'] = deliveryAddress.city;
-        if (deliveryAddress.postcode) params['deliveryAddress.postcode'] = deliveryAddress.postcode;
+        // Add state if provided (required for some countries)
+        if (deliveryAddress.state) {
+          params.state = deliveryAddress.state;
+        }
 
         // Add items
         items.forEach((item: any, index: number) => {
@@ -1641,11 +1641,26 @@ serve(async (req) => {
           params[`items.${itemIndex}.qty`] = item.qty;
         });
 
-        const result = await makeSunskyRequest('/openapi/order!getPricesAndFreights.do', params, credentials.key, credentials.secret, user.id);
-        
-        return new Response(JSON.stringify(result), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        try {
+          const result = await makeSunskyRequest('/openapi/order!getPricesAndFreights.do', params, credentials.key, credentials.secret, user.id);
+          
+          return new Response(JSON.stringify(result), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        } catch (error) {
+          // Handle Sunsky API errors gracefully - return 200 with error structure
+          if (error instanceof Response) {
+            const errorData = await error.json();
+            return new Response(JSON.stringify({
+              result: 'error',
+              message: errorData.message || 'Failed to get prices and shipping costs',
+              data: null
+            }), {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+          }
+          throw error;
+        }
       }
 
       case 'createOrder': {

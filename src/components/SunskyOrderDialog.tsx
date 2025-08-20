@@ -171,6 +171,12 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
         if (methods.length > 0 && !deliveryAddress.shippingWayId) {
           setDeliveryAddress(prev => ({ ...prev, shippingWayId: methods[0].id }));
         }
+      } else if (data.result === 'error') {
+        toast({
+          title: "Failed to Load Shipping Methods",
+          description: data.message || 'Unable to get shipping options for this location',
+          variant: "destructive"
+        });
       } else {
         throw new Error(data.message || 'Failed to load shipping methods');
       }
@@ -260,7 +266,12 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
 
   const canProceedToAddress = checkedItems.size > 0;
   const canProceedToShipping = deliveryAddress.countryId && deliveryAddress.receiver && deliveryAddress.address && deliveryAddress.city && deliveryAddress.postcode;
-  const canLoadShipping = canProceedToShipping && checkedItems.size > 0;
+  
+  // For loading shipping, only require selected items, country, and state (if country requires it)
+  const selectedCountry = countries.find(c => c.id === deliveryAddress.countryId);
+  const requiresState = selectedCountry?.shipToState === true;
+  const canLoadShipping = checkedItems.size > 0 && deliveryAddress.countryId && (!requiresState || deliveryAddress.state);
+  
   const canProceedToReview = deliveryAddress.shippingWayId;
 
   return (
@@ -479,7 +490,7 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
               
               {!canLoadShipping && (
                 <p className="text-sm text-muted-foreground mb-4">
-                  Please fill in all required address fields and select items to load shipping options.
+                  Please select items and choose a country{requiresState ? ' and state' : ''} to load shipping options.
                 </p>
               )}
               
