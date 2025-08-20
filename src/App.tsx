@@ -11,7 +11,6 @@ import type { User, Session } from "@supabase/supabase-js";
 import { CountryProvider } from "@/contexts/CountryContext";
 import { BackgroundTasksProvider } from "@/contexts/BackgroundTasksContext";
 import { FloatingProgressIndicator } from "@/components/FloatingProgressIndicator";
-import { GlobalJobIndicator } from "@/components/GlobalJobIndicator";
 import { AppSidebar } from "@/components/AppSidebar";
 import { CountrySwitcher } from "@/components/CountrySwitcher";
 import Index from "./pages/Index";
@@ -248,7 +247,6 @@ const App = () => {
               </div>
             </div>
             <FloatingProgressIndicator />
-            <GlobalJobIndicator />
             </SidebarProvider>
           </BrowserRouter>
           </BackgroundTasksProvider>
