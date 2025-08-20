@@ -645,6 +645,7 @@ export const SunskySKUImporter: React.FC = () => {
       const productList = Array.from(selectedProducts);
       const total = productList.length;
       let imported = 0;
+      let errors = 0;
 
       for (const itemNo of productList) {
         try {
@@ -656,32 +657,45 @@ export const SunskySKUImporter: React.FC = () => {
               .upsert({
                 user_id: profile?.id,
                 sku_code: productDetails.itemNo,
-                title: productDetails.name,
-                description: productDetails.description,
-                cost: parseFloat(productDetails.price || '0'),
-                weight: productDetails.unitWeight ? parseFloat(productDetails.unitWeight) : null,
-                currency: 'USD',
-                country: profile?.country || 'UAE'
+                title: productDetails.name || '',
+                description: productDetails.description || '',
+                cost: productDetails.convertedPrice || parseFloat(productDetails.price || '0') || 0,
+                weight: productDetails.unitWeight ? parseFloat(productDetails.unitWeight) : 0,
+                currency: productDetails.convertedCurrency || 'USD',
+                country: profile?.country || 'UAE',
+                product_data: productDetails
+              }, {
+                onConflict: 'user_id,sku_code',
+                ignoreDuplicates: false
               });
 
             if (!error) {
               imported++;
+              console.log(`Successfully imported ${itemNo}`);
+            } else {
+              console.error(`Error importing ${itemNo}:`, error);
+              errors++;
             }
+          } else {
+            console.log(`No details found for ${itemNo}`);
+            errors++;
           }
         } catch (error) {
           console.error(`Error importing ${itemNo}:`, error);
+          errors++;
         }
         
-        setImportProgress((imported / total) * 100);
+        setImportProgress(((imported + errors) / total) * 100);
       }
+
+      // Refresh the SKU list
+      await refreshSKUs();
 
       toast({
         title: "Import Complete",
-        description: `Successfully imported ${imported} out of ${total} SKUs`
+        description: `Successfully imported ${imported} out of ${total} SKUs${errors > 0 ? ` (${errors} errors)` : ''}`
       });
       
-      // Refresh SKUs list
-      fetchSKUs(1);
       setSelectedProducts(new Set());
     } catch (error) {
       console.error('Error during import:', error);
@@ -800,75 +814,94 @@ export const SunskySKUImporter: React.FC = () => {
                   console.log(`Direct match found for ${modelNumber}`);
                 }
               } catch (error) {
-                console.log(`Direct lookup failed for ${modelNumber}, trying search`);
+                // Check if it's a "record not found" error
+                const errorMsg = error?.message || '';
+                if (errorMsg.includes('这查看这条记录不存在') || errorMsg.includes('record') || errorMsg.includes('not') || errorMsg.includes('exist')) {
+                  console.log(`Product ${modelNumber} not found in Sunsky, trying search`);
+                } else {
+                  console.error(`Direct lookup error for ${modelNumber}:`, error);
+                }
               }
             }
 
             // Strategy 2: Search with broader parameters if no direct match
             if (!matchFound) {
-              const searchResults = await callSunskyAPI('searchProducts', {
-                keyword: modelNumber,
-                page: 1,
-                pageSize: 10 // Get more results to find better matches
-              });
+              try {
+                const searchResults = await callSunskyAPI('searchProducts', {
+                  keyword: modelNumber,
+                  page: 1,
+                  pageSize: 10 // Get more results to find better matches
+                });
 
-              if (searchResults.success && searchResults.data?.products?.length > 0) {
-                // Look for exact or close matches
-                const normalizedSearch = normalizeModelNumber(modelNumber);
-                let bestMatch = null;
+                if (searchResults.success && searchResults.data?.products?.length > 0) {
+                  // Look for exact or close matches
+                  const normalizedSearch = normalizeModelNumber(modelNumber);
+                  let bestMatch = null;
 
-                for (const product of searchResults.data.products) {
-                  const normalizedItem = normalizeModelNumber(product.itemNo || '');
-                  const normalizedName = normalizeModelNumber(product.name || '');
-                  
-                  // Check for exact matches first
-                  if (normalizedItem === normalizedSearch || 
-                      normalizedName.includes(normalizedSearch) ||
-                      normalizedSearch.includes(normalizedItem)) {
-                    bestMatch = product;
-                    break;
+                  for (const product of searchResults.data.products) {
+                    const normalizedItem = normalizeModelNumber(product.itemNo || '');
+                    const normalizedName = normalizeModelNumber(product.name || '');
+                    
+                    // Check for exact matches first
+                    if (normalizedItem === normalizedSearch || 
+                        normalizedName.includes(normalizedSearch) ||
+                        normalizedSearch.includes(normalizedItem)) {
+                      bestMatch = product;
+                      break;
+                    }
+                  }
+
+                  if (bestMatch) {
+                    // Get detailed information for the best match
+                    try {
+                      const detailResults = await callSunskyAPI('getProductDetails', {
+                        itemNo: bestMatch.itemNo
+                      });
+
+                      if (detailResults.success && detailResults.data) {
+                        productToImport = detailResults.data;
+                        matchFound = true;
+                        console.log(`Search match found for ${modelNumber}: ${bestMatch.itemNo}`);
+                      }
+                    } catch (error) {
+                      console.log(`Error getting details for matched product ${bestMatch.itemNo}:`, error);
+                    }
                   }
                 }
-
-                if (bestMatch) {
-                  // Get detailed information for the best match
-                  const detailResults = await callSunskyAPI('getProductDetails', {
-                    itemNo: bestMatch.itemNo
-                  });
-
-                  if (detailResults.success && detailResults.data) {
-                    productToImport = detailResults.data;
-                    matchFound = true;
-                    console.log(`Search match found for ${modelNumber}: ${bestMatch.itemNo}`);
-                  }
-                }
+              } catch (error) {
+                console.log(`Search failed for ${modelNumber}:`, error);
               }
             }
 
             if (matchFound && productToImport) {
               // Use upsert to handle duplicates gracefully
-              const { error } = await supabase
-                .from('sunsky_skus')
-                .upsert({
-                  user_id: profile?.id,
-                  sku_code: productToImport.itemNo,
-                  title: productToImport.name,
-                  cost: productToImport.convertedPrice || parseFloat(productToImport.price) || 0,
-                  weight: productToImport.unitWeight ? parseFloat(productToImport.unitWeight) : 0,
-                  currency: productToImport.convertedCurrency || 'USD',
-                  country: profile?.country || 'UAE',
-                  description: productToImport.description || '',
-                  product_data: productToImport
-                }, {
-                  onConflict: 'user_id,sku_code',
-                  ignoreDuplicates: false
-                });
+              try {
+                const { error } = await supabase
+                  .from('sunsky_skus')
+                  .upsert({
+                    user_id: profile?.id,
+                    sku_code: productToImport.itemNo,
+                    title: productToImport.name || '',
+                    cost: productToImport.convertedPrice || parseFloat(productToImport.price || '0') || 0,
+                    weight: productToImport.unitWeight ? parseFloat(productToImport.unitWeight) : 0,
+                    currency: productToImport.convertedCurrency || 'USD',
+                    country: profile?.country || 'UAE',
+                    description: productToImport.description || '',
+                    product_data: productToImport
+                  }, {
+                    onConflict: 'user_id,sku_code',
+                    ignoreDuplicates: false
+                  });
 
-              if (!error) {
-                successCount++;
-                console.log(`Successfully imported/updated SKU: ${productToImport.itemNo}`);
-              } else {
-                console.error('Error upserting SKU:', error);
+                if (!error) {
+                  successCount++;
+                  console.log(`Successfully imported/updated SKU: ${productToImport.itemNo}`);
+                } else {
+                  console.error('Error upserting SKU:', error);
+                  errorCount++;
+                }
+              } catch (dbError) {
+                console.error('Database error upserting SKU:', dbError);
                 errorCount++;
               }
             } else {
