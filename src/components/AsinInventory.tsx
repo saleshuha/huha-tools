@@ -54,6 +54,7 @@ export function AsinInventory() {
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [isBulkStatusDialogOpen, setIsBulkStatusDialogOpen] = useState(false);
   const [isBulkQuantityDialogOpen, setIsBulkQuantityDialogOpen] = useState(false);
+  const [isDuplicateDialogOpen, setIsDuplicateDialogOpen] = useState(false);
   const [bulkStatusValue, setBulkStatusValue] = useState<AsinInventoryItem['status']>('in-stock');
   const [bulkQuantityValue, setBulkQuantityValue] = useState(1);
   const [bulkQuantityReason, setBulkQuantityReason] = useState('');
@@ -86,6 +87,33 @@ export function AsinInventory() {
     notes: ''
   });
   const [bulkText, setBulkText] = useState('');
+
+  // Calculate duplicate ASINs from original inventory data
+  const duplicateData = useMemo(() => {
+    const asinCounts = new Map<string, AsinInventoryItem[]>();
+    
+    // Group original inventory by ASIN
+    inventory.forEach(item => {
+      if (!asinCounts.has(item.asin)) {
+        asinCounts.set(item.asin, []);
+      }
+      asinCounts.get(item.asin)!.push(item);
+    });
+    
+    // Filter to only duplicates (more than 1 item per ASIN)
+    const duplicates = new Map<string, AsinInventoryItem[]>();
+    asinCounts.forEach((items, asin) => {
+      if (items.length > 1) {
+        duplicates.set(asin, items);
+      }
+    });
+    
+    return {
+      duplicates,
+      totalDuplicateASINs: duplicates.size,
+      totalDuplicateItems: Array.from(duplicates.values()).reduce((sum, items) => sum + items.length, 0)
+    };
+  }, [inventory]);
   const filteredInventory = useMemo(() => {
     let filtered = inventory;
 
@@ -330,6 +358,52 @@ export function AsinInventory() {
       });
     };
 
+  // Export duplicate ASINs data
+  const exportDuplicates = () => {
+    if (duplicateData.duplicates.size === 0) {
+      toast({
+        title: "No Duplicates Found",
+        description: "There are no duplicate ASINs to export",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const csvData = [];
+    csvData.push(['ASIN', 'Serial Number', 'SKU', 'Status', 'Quantity', 'Date Added', 'Notes', 'Duplicate Count']);
+    
+    duplicateData.duplicates.forEach((items, asin) => {
+      items.forEach(item => {
+        csvData.push([
+          item.asin,
+          item.serialNumber,
+          item.sku || '',
+          item.status,
+          item.quantity.toString(),
+          new Date(item.dateAdded).toLocaleDateString(),
+          item.notes || '',
+          items.length.toString()
+        ]);
+      });
+    });
+
+    const csvContent = csvData.map(row => row.map(field => `"${field}"`).join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `duplicate-asins-${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    toast({
+      title: "Export Complete",
+      description: `Exported ${duplicateData.totalDuplicateItems} duplicate items across ${duplicateData.totalDuplicateASINs} ASINs`,
+    });
+  };
+
   if (loading) {
     return <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex flex-col items-center gap-4">
@@ -342,6 +416,32 @@ export function AsinInventory() {
       {/* Header with Stats */}
       <div className="space-y-6">
         <InventoryMetrics showOnlyAsin={true} />
+        
+        {/* Duplicate ASIN Metrics Card */}
+        {duplicateData.totalDuplicateASINs > 0 && (
+          <Card 
+            className="border-2 border-orange-200 bg-gradient-to-r from-orange-50 to-yellow-50 hover:shadow-lg transition-all duration-200 cursor-pointer hover:border-orange-300"
+            onClick={() => setIsDuplicateDialogOpen(true)}
+          >
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-orange-100">
+                    <AlertTriangle className="w-6 h-6 text-orange-600" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg text-orange-800">Duplicate ASINs Found</CardTitle>
+                    <p className="text-sm text-orange-600">Click to view details and export</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-2xl font-bold text-orange-700">{duplicateData.totalDuplicateASINs}</div>
+                  <div className="text-sm text-orange-600">{duplicateData.totalDuplicateItems} total items</div>
+                </div>
+              </div>
+            </CardHeader>
+          </Card>
+        )}
       </div>
 
       {/* Prominent Search Bar */}
@@ -880,5 +980,101 @@ export function AsinInventory() {
             </Select>
           </div>
         )}
+        
+        {/* Duplicate ASIN Details Dialog */}
+        <Dialog open={isDuplicateDialogOpen} onOpenChange={setIsDuplicateDialogOpen}>
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-orange-600" />
+                Duplicate ASINs Details ({duplicateData.totalDuplicateASINs} ASINs)
+              </DialogTitle>
+              <div className="flex items-center gap-4 mt-2">
+                <Badge variant="outline" className="text-orange-600">
+                  {duplicateData.totalDuplicateItems} Total Items
+                </Badge>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={exportDuplicates}
+                  className="flex items-center gap-2"
+                >
+                  <Download className="w-4 h-4" />
+                  Export CSV
+                </Button>
+              </div>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              {Array.from(duplicateData.duplicates.entries()).map(([asin, items]) => (
+                <Card key={asin} className="border-l-4 border-l-orange-400">
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Badge className="bg-orange-100 text-orange-800 font-mono">
+                          {asin}
+                        </Badge>
+                        <span className="text-sm text-muted-foreground">
+                          {items.length} duplicates
+                        </span>
+                      </div>
+                      <div className="text-sm font-medium">
+                        Total Qty: {items.reduce((sum, item) => sum + item.quantity, 0)}
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <div className="space-y-2">
+                      {items.map((item, index) => (
+                        <div key={item.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                          <div className="flex items-center gap-4">
+                            <Badge variant="outline" className="font-mono">
+                              #{index + 1}
+                            </Badge>
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">Serial:</span>
+                                <code className="bg-background px-2 py-1 rounded text-sm">
+                                  {item.serialNumber}
+                                </code>
+                              </div>
+                              {item.sku && (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm text-muted-foreground">SKU:</span>
+                                  <code className="bg-background px-2 py-1 rounded text-xs">
+                                    {item.sku}
+                                  </code>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <Badge 
+                              variant={item.status === 'in-stock' ? 'default' : 'secondary'}
+                            >
+                              {item.status}
+                            </Badge>
+                            <div className="text-right">
+                              <div className="font-medium">Qty: {item.quantity}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {new Date(item.dateAdded).toLocaleDateString()}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+            
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsDuplicateDialogOpen(false)}>
+                Close
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
     </div>;
 }
