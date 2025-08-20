@@ -73,9 +73,12 @@ const toolsItems = [
     title: "Noon File Cleaner",
     url: "/noon-file-cleaner",
     icon: Trash2
-  },
+  }
+]
+
+const poTrackerItems = [
   {
-    title: "Sunsky Importer",
+    title: "Source Product Importer",
     url: "/sunsky-importer",
     icon: Globe
   }
@@ -160,8 +163,13 @@ export function AppSidebar() {
     return paymentReportsItems.some(item => isActive(item.url))
   }
 
+  const isPOTrackerSectionActive = () => {
+    return isActive("/po-tracker") || poTrackerItems.some(item => isActive(item.url))
+  }
+
   const [isToolsOpen, setIsToolsOpen] = useState(() => isToolsSectionActive())
   const [isPaymentReportsOpen, setIsPaymentReportsOpen] = useState(() => isPaymentReportsSectionActive())
+  const [isPOTrackerOpen, setIsPOTrackerOpen] = useState(() => isPOTrackerSectionActive())
 
   const handleLogout = async () => {
     try {
@@ -271,27 +279,82 @@ export function AppSidebar() {
 
               {/* PO - SS Stock Tracker */}
               <SidebarMenuItem>
-                <SidebarMenuButton 
-                  asChild
-                  className={`group relative w-full rounded-xl transition-all duration-200 hover:scale-[1.02] ${
-                    isActive("/po-tracker")
-                      ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
-                      : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
-                  }`}
-                >
-                  <NavLink 
-                    to="/po-tracker" 
-                    end
-                    className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
-                  >
-                    <ShoppingCart className="h-5 w-5 flex-shrink-0" />
-                    {!isCollapsed && (
-                      <span className="font-semibold text-sm">
-                        PO - SS Stock Tracker
-                      </span>
-                    )}
-                  </NavLink>
-                </SidebarMenuButton>
+                <Collapsible open={isPOTrackerOpen} onOpenChange={setIsPOTrackerOpen}>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton
+                      asChild
+                      className={`group relative w-full rounded-xl transition-all duration-200 hover:scale-[1.02] ${
+                        isPOTrackerSectionActive()
+                          ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
+                          : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl cursor-pointer">
+                        <ShoppingCart className="h-5 w-5 flex-shrink-0" />
+                        {!isCollapsed && (
+                          <span className="font-semibold text-sm">
+                            PO - SS Stock Tracker
+                          </span>
+                        )}
+                        {!isCollapsed && (
+                          <ChevronDown className={`h-4 w-4 ml-auto transition-transform ${
+                            isPOTrackerOpen ? "rotate-180" : ""
+                          }`} />
+                        )}
+                      </div>
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="mt-2 space-y-1 pl-3">
+                    {/* Main PO Tracker Link */}
+                    <SidebarMenuButton 
+                      asChild
+                      className={`group relative w-full rounded-lg transition-all duration-200 hover:scale-[1.01] ml-2 ${
+                        isActive("/po-tracker")
+                          ? "bg-gradient-to-r from-primary/80 to-primary/70 text-primary-foreground shadow-md shadow-primary/20" 
+                          : "hover:bg-gradient-to-r hover:from-sidebar-accent/60 hover:to-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+                      }`}
+                    >
+                      <NavLink 
+                        to="/po-tracker" 
+                        end
+                        className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-lg"
+                      >
+                        <ShoppingCart className="h-4 w-4 flex-shrink-0 opacity-75" />
+                        {!isCollapsed && (
+                          <span className="font-medium text-xs">
+                            PO Tracker
+                          </span>
+                        )}
+                      </NavLink>
+                    </SidebarMenuButton>
+                    
+                    {/* Sub-items under PO Tracker */}
+                    {poTrackerItems.map((item) => (
+                      <SidebarMenuButton 
+                        key={item.title}
+                        asChild
+                        className={`group relative w-full rounded-lg transition-all duration-200 hover:scale-[1.01] ml-2 ${
+                          isActive(item.url)
+                            ? "bg-gradient-to-r from-primary/80 to-primary/70 text-primary-foreground shadow-md shadow-primary/20" 
+                            : "hover:bg-gradient-to-r hover:from-sidebar-accent/60 hover:to-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+                        }`}
+                      >
+                        <NavLink 
+                          to={item.url} 
+                          end
+                          className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-lg"
+                        >
+                          <item.icon className="h-4 w-4 flex-shrink-0 opacity-75" />
+                          {!isCollapsed && (
+                            <span className="font-medium text-xs">
+                              {item.title}
+                            </span>
+                          )}
+                        </NavLink>
+                      </SidebarMenuButton>
+                    ))}
+                  </CollapsibleContent>
+                </Collapsible>
               </SidebarMenuItem>
 
               {/* Amazon Fulfillment Tracker */}
