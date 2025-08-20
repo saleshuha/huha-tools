@@ -90,9 +90,12 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
 
   // Load countries on mount
   useEffect(() => {
-    if (open) {
+    if (open && selectedOrders.length > 0) {
       loadCountries();
       initializeOrderItems();
+      // Auto-populate site number with PO number
+      const poNumber = selectedOrders[0]?.po_number || '';
+      setOrderOptions(prev => ({ ...prev, siteNumber: poNumber }));
     }
   }, [open, selectedOrders]);
 
@@ -591,8 +594,9 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
                         <Input
                           id="siteNumber"
                           value={orderOptions.siteNumber}
-                          onChange={(e) => setOrderOptions({...orderOptions, siteNumber: e.target.value})}
-                          placeholder="Your reference number"
+                          readOnly
+                          placeholder="PO Number (Auto-filled)"
+                          className="bg-muted"
                         />
                       </div>
                       <div className="flex items-center space-x-2 pt-6">
