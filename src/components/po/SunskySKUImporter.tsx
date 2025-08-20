@@ -161,6 +161,14 @@ export const SunskySKUImporter: React.FC = () => {
   const [hasCredentials, setHasCredentials] = useState(false);
   const [isSearchingPO, setIsSearchingPO] = useState(false);
   const [poSearchProgress, setPOSearchProgress] = useState(0);
+  const [poSearchStats, setPOSearchStats] = useState({
+    totalItems: 0,
+    searchedItems: 0,
+    skippedItems: 0,
+    matchedItems: 0,
+    errorItems: 0,
+    currentItem: ''
+  });
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [selectedProduct, setSelectedProduct] = useState<SunskyProduct | null>(null);
   const [categoryFetchMode, setCategoryFetchMode] = useState<'top' | 'all' | 'modified'>('top');
@@ -715,16 +723,30 @@ export const SunskySKUImporter: React.FC = () => {
         return;
       }
 
-      setPOSearchProgress(10);
+      // Initialize stats
+      const initialStats = {
+        totalItems: modelNumbers.length,
+        searchedItems: 0,
+        skippedItems: 0,
+        matchedItems: 0,
+        errorItems: 0,
+        currentItem: ''
+      };
+      setPOSearchStats(initialStats);
+      setPOSearchProgress(5);
       
-      let foundItems = 0;
-      let skippedItems = 0;
       const batchSize = 10; // Process in batches to avoid overwhelming the API
       
       for (let i = 0; i < modelNumbers.length; i += batchSize) {
         const batch = modelNumbers.slice(i, i + batchSize);
         
         for (const modelNumber of batch) {
+          // Update current item being searched
+          setPOSearchStats(prev => ({
+            ...prev,
+            currentItem: modelNumber
+          }));
+
           try {
             // Search for the product by model number
             const searchResults = await callSunskyAPI('searchProducts', {
@@ -766,23 +788,46 @@ export const SunskySKUImporter: React.FC = () => {
                   );
 
                 if (!error) {
-                  foundItems++;
+                  setPOSearchStats(prev => ({
+                    ...prev,
+                    matchedItems: prev.matchedItems + 1,
+                    searchedItems: prev.searchedItems + 1
+                  }));
                 } else {
                   console.error('Error inserting SKU:', error);
+                  setPOSearchStats(prev => ({
+                    ...prev,
+                    errorItems: prev.errorItems + 1,
+                    searchedItems: prev.searchedItems + 1
+                  }));
                 }
+              } else {
+                setPOSearchStats(prev => ({
+                  ...prev,
+                  errorItems: prev.errorItems + 1,
+                  searchedItems: prev.searchedItems + 1
+                }));
               }
             } else {
-              skippedItems++;
+              setPOSearchStats(prev => ({
+                ...prev,
+                skippedItems: prev.skippedItems + 1,
+                searchedItems: prev.searchedItems + 1
+              }));
             }
           } catch (error) {
             console.error(`Error searching for model number ${modelNumber}:`, error);
-            skippedItems++;
+            setPOSearchStats(prev => ({
+              ...prev,
+              errorItems: prev.errorItems + 1,
+              searchedItems: prev.searchedItems + 1
+            }));
           }
         }
         
-        // Update progress
-        const progress = Math.min(90, ((i + batchSize) / modelNumbers.length) * 80 + 10);
-        setPOSearchProgress(progress);
+        // Update progress based on searched items
+        const progressPercentage = Math.min(90, (i + batchSize) / modelNumbers.length * 85 + 5);
+        setPOSearchProgress(progressPercentage);
       }
 
       setPOSearchProgress(95);
@@ -791,11 +836,13 @@ export const SunskySKUImporter: React.FC = () => {
       await refreshSKUs();
       
       setPOSearchProgress(100);
+      setPOSearchStats(prev => ({ ...prev, currentItem: 'Complete!' }));
 
+      const finalStats = poSearchStats;
       toast({
         title: "PO Model Number Search Complete",
-        description: `Found and imported ${foundItems} items from ${modelNumbers.length} model numbers. ${skippedItems} items not found in Sunsky.`,
-        variant: foundItems > 0 ? "default" : "default"
+        description: `Found and imported ${finalStats.matchedItems} items from ${finalStats.totalItems} model numbers. ${finalStats.skippedItems} items not found, ${finalStats.errorItems} errors.`,
+        variant: finalStats.matchedItems > 0 ? "default" : "default"
       });
 
     } catch (error) {
@@ -808,6 +855,14 @@ export const SunskySKUImporter: React.FC = () => {
     } finally {
       setIsSearchingPO(false);
       setPOSearchProgress(0);
+      setPOSearchStats({
+        totalItems: 0,
+        searchedItems: 0,
+        skippedItems: 0,
+        matchedItems: 0,
+        errorItems: 0,
+        currentItem: ''
+      });
     }
   };
 
@@ -985,6 +1040,102 @@ export const SunskySKUImporter: React.FC = () => {
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* PO Model Numbers Search Progress */}
+              {isSearchingPO && (
+                <Card className="border-primary/20 bg-primary/5">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Package className="h-5 w-5 animate-pulse" />
+                      Searching PO Model Numbers
+                    </CardTitle>
+                    <CardDescription>
+                      Searching your PO model numbers in Sunsky marketplace
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* Main Progress Bar */}
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm text-muted-foreground">
+                        <span>Overall Progress</span>
+                        <span>{Math.round(poSearchProgress)}%</span>
+                      </div>
+                      <Progress value={poSearchProgress} className="h-3" />
+                    </div>
+
+                    {/* Current Item */}
+                    {poSearchStats.currentItem && (
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Currently Searching:</Label>
+                        <div className="text-sm font-mono bg-muted/50 p-2 rounded border">
+                          {poSearchStats.currentItem}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Statistics Grid */}
+                    <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 text-center">
+                      <div className="bg-card p-3 rounded-lg border">
+                        <div className="text-2xl font-bold text-foreground">
+                          {poSearchStats.totalItems}
+                        </div>
+                        <div className="text-xs text-muted-foreground">Total</div>
+                      </div>
+                      
+                      <div className="bg-card p-3 rounded-lg border">
+                        <div className="text-2xl font-bold text-blue-600">
+                          {poSearchStats.searchedItems}
+                        </div>
+                        <div className="text-xs text-muted-foreground">Searched</div>
+                      </div>
+                      
+                      <div className="bg-card p-3 rounded-lg border">
+                        <div className="text-2xl font-bold text-green-600">
+                          {poSearchStats.matchedItems}
+                        </div>
+                        <div className="text-xs text-muted-foreground">Matched</div>
+                      </div>
+                      
+                      <div className="bg-card p-3 rounded-lg border">
+                        <div className="text-2xl font-bold text-yellow-600">
+                          {poSearchStats.skippedItems}
+                        </div>
+                        <div className="text-xs text-muted-foreground">Skipped</div>
+                      </div>
+                      
+                      <div className="bg-card p-3 rounded-lg border">
+                        <div className="text-2xl font-bold text-red-600">
+                          {poSearchStats.errorItems}
+                        </div>
+                        <div className="text-xs text-muted-foreground">Errors</div>
+                      </div>
+                    </div>
+
+                    {/* Progress Breakdown */}
+                    {poSearchStats.totalItems > 0 && (
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">Progress Breakdown:</Label>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div className="flex justify-between">
+                            <span>Completion:</span>
+                            <span className="font-medium">
+                              {((poSearchStats.searchedItems / poSearchStats.totalItems) * 100).toFixed(1)}%
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Success Rate:</span>
+                            <span className="font-medium text-green-600">
+                              {poSearchStats.searchedItems > 0 
+                                ? ((poSearchStats.matchedItems / poSearchStats.searchedItems) * 100).toFixed(1) 
+                                : 0}%
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div className="space-y-2">
