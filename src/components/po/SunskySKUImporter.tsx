@@ -416,18 +416,35 @@ export const SunskySKUImporter: React.FC = () => {
   const callSunskyAPI = async (action: string, data: any, apiId?: string) => {
     console.log('Calling Sunsky API:', { action, data, apiId, selectedAPI });
     try {
-      const { data: result, error } = await supabase.functions.invoke('sunsky-api', {
+      const { data: response, error } = await supabase.functions.invoke('sunsky-api', {
         body: { 
           action, 
           ...data,
-          apiId: apiId || selectedAPI // Use specified API or default
+          apiId: apiId || selectedSearchAPI || selectedAPI // Use specified API or default search API
         }
       });
 
-      console.log('Sunsky API response:', { result, error });
+      console.log('Sunsky API response:', { response, error });
 
       if (error) throw error;
-      return result;
+      
+      // Handle different response structures
+      if (response && typeof response === 'object') {
+        // If response has result field, return the full response for proper parsing
+        if ('result' in response) {
+          return response;
+        }
+        // If response has success field, transform to expected structure
+        if ('success' in response) {
+          return {
+            result: response.success ? 'success' : 'error',
+            data: response.data || response,
+            message: response.message
+          };
+        }
+      }
+      
+      return response;
     } catch (error) {
       console.error('Sunsky API error:', error);
       throw error;
@@ -942,6 +959,33 @@ export const SunskySKUImporter: React.FC = () => {
                 if (!error) {
                   successCount++;
                   console.log(`Successfully imported/updated SKU: ${productToImport.itemNo}`, insertedData);
+                  
+                  // SAVE MATCHED ITEMS TO PO ORDERS TABLE
+                  try {
+                    console.log(`Updating PO orders with matched SKU: ${modelNumber} -> ${productToImport.itemNo}`);
+                    
+                    // Update all PO orders that have this model number
+                    const poUpdateResult = await supabase
+                      .from('po_orders')
+                      .update({
+                        sku_code: productToImport.itemNo,
+                        title: productToImport.name || '',
+                        unit_cost: productToImport.convertedPrice || parseFloat(productToImport.price || '0') || 0,
+                        // Keep the existing quantity, po_number, etc.
+                        // Just update the matched product info
+                      })
+                      .eq('user_id', profile?.id)
+                      .eq('model_number', modelNumber)
+                      .select();
+                      
+                    if (poUpdateResult.error) {
+                      console.error('Error updating PO orders with matched SKU:', poUpdateResult.error);
+                    } else {
+                      console.log(`Successfully updated ${poUpdateResult.data?.length || 0} PO orders with matched SKU`);
+                    }
+                  } catch (poError) {
+                    console.error('Error updating PO orders:', poError);
+                  }
                 } else {
                   console.error('Error upserting SKU:', error);
                   errorCount++;
