@@ -519,7 +519,7 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
                           </div>
                           <div className="text-right">
                             <Badge variant="secondary">
-                              ${method.shippingCost.toFixed(2)}
+                              ${typeof method.shippingCost === 'number' ? method.shippingCost.toFixed(2) : parseFloat(method.shippingCost || '0').toFixed(2)}
                             </Badge>
                             {method.website && (
                               <div className="mt-1">
