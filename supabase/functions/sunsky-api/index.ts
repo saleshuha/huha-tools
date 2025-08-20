@@ -966,7 +966,8 @@ serve(async (req) => {
       }
 
       case 'testCredentials': {
-        const credentials = await getApiCredentials(user.id);
+        const { apiId } = requestData;
+        const credentials = await getApiCredentials(user.id, apiId);
         
         // Test with a simple categories request
         const params = {
@@ -1724,6 +1725,178 @@ serve(async (req) => {
         console.log('Sunsky order creation result:', JSON.stringify(result, null, 2));
         
         return new Response(JSON.stringify(result), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      case 'listApiKeys': {
+        const { data: apiKeys, error } = await supabase
+          .from('sunsky_credentials')
+          .select('id, name, api_key, is_active, created_at, last_tested')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          throw new Error(`Failed to load API keys: ${error.message}`);
+        }
+
+        const formattedKeys = apiKeys?.map(key => ({
+          id: key.id,
+          name: key.name || 'Unnamed API Key',
+          maskedKey: key.api_key ? key.api_key.substring(0, 4) + '***' + key.api_key.slice(-3) : '',
+          isActive: key.is_active || false,
+          status: 'unknown', // Will be updated when tested
+          lastTested: key.last_tested ? new Date(key.last_tested) : undefined
+        })) || [];
+
+        return new Response(JSON.stringify({
+          result: 'success',
+          apiKeys: formattedKeys
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      case 'addApiKey': {
+        const { apiKey, apiSecret, name } = requestData;
+
+        if (!apiKey || !apiSecret || !name) {
+          throw new Error('API key, secret, and name are required');
+        }
+
+        // Check if this is the first API key for the user
+        const { count } = await supabase
+          .from('sunsky_credentials')
+          .select('id', { count: 'exact' })
+          .eq('user_id', user.id);
+
+        const isFirst = count === 0;
+
+        // Insert new API key
+        const { data, error } = await supabase
+          .from('sunsky_credentials')
+          .insert({
+            user_id: user.id,
+            api_key: apiKey,
+            api_secret: apiSecret,
+            name: name,
+            is_active: isFirst // First API key becomes active by default
+          })
+          .select()
+          .single();
+
+        if (error) {
+          throw new Error(`Failed to add API key: ${error.message}`);
+        }
+
+        return new Response(JSON.stringify({
+          result: 'success',
+          message: 'API key added successfully',
+          apiKey: {
+            id: data.id,
+            name: data.name,
+            maskedKey: apiKey.substring(0, 4) + '***' + apiKey.slice(-3),
+            isActive: data.is_active
+          }
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      case 'setActiveApiKey': {
+        const { apiId } = requestData;
+
+        if (!apiId) {
+          throw new Error('API ID is required');
+        }
+
+        // First, set all API keys to inactive
+        const { error: deactivateError } = await supabase
+          .from('sunsky_credentials')
+          .update({ is_active: false })
+          .eq('user_id', user.id);
+
+        if (deactivateError) {
+          throw new Error(`Failed to deactivate API keys: ${deactivateError.message}`);
+        }
+
+        // Then, set the specified API key to active
+        const { error: activateError } = await supabase
+          .from('sunsky_credentials')
+          .update({ is_active: true })
+          .eq('id', apiId)
+          .eq('user_id', user.id);
+
+        if (activateError) {
+          throw new Error(`Failed to activate API key: ${activateError.message}`);
+        }
+
+        return new Response(JSON.stringify({
+          result: 'success',
+          message: 'Active API key updated successfully'
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      case 'deleteApiKey': {
+        const { apiId } = requestData;
+
+        if (!apiId) {
+          throw new Error('API ID is required');
+        }
+
+        // Check if this is the only API key
+        const { count } = await supabase
+          .from('sunsky_credentials')
+          .select('id', { count: 'exact' })
+          .eq('user_id', user.id);
+
+        if (count <= 1) {
+          throw new Error('Cannot delete the last API key');
+        }
+
+        // Check if we're deleting the active API key
+        const { data: deletingKey } = await supabase
+          .from('sunsky_credentials')
+          .select('is_active')
+          .eq('id', apiId)
+          .eq('user_id', user.id)
+          .single();
+
+        // Delete the API key
+        const { error } = await supabase
+          .from('sunsky_credentials')
+          .delete()
+          .eq('id', apiId)
+          .eq('user_id', user.id);
+
+        if (error) {
+          throw new Error(`Failed to delete API key: ${error.message}`);
+        }
+
+        // If we deleted the active API key, make the first remaining one active
+        if (deletingKey?.is_active) {
+          const { data: firstKey } = await supabase
+            .from('sunsky_credentials')
+            .select('id')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: true })
+            .limit(1)
+            .single();
+
+          if (firstKey) {
+            await supabase
+              .from('sunsky_credentials')
+              .update({ is_active: true })
+              .eq('id', firstKey.id);
+          }
+        }
+
+        return new Response(JSON.stringify({
+          result: 'success',
+          message: 'API key deleted successfully'
+        }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
