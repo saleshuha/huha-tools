@@ -824,8 +824,8 @@ export const SunskySKUImporter: React.FC = () => {
                   itemNo: modelNumber
                 });
                 
-                if (detailResults.success && detailResults.data) {
-                  productToImport = detailResults.data;
+                if (detailResults?.result?.result === 'success' && detailResults.result.data) {
+                  productToImport = detailResults.result.data;
                   matchFound = true;
                   console.log(`Direct match found for ${modelNumber}`);
                 }
@@ -849,12 +849,12 @@ export const SunskySKUImporter: React.FC = () => {
                   pageSize: 10 // Get more results to find better matches
                 });
 
-                if (searchResults.success && searchResults.data?.products?.length > 0) {
+                if (searchResults?.result?.result === 'success' && searchResults.result.data?.products?.length > 0) {
                   // Look for exact or close matches
                   const normalizedSearch = normalizeModelNumber(modelNumber);
                   let bestMatch = null;
 
-                  for (const product of searchResults.data.products) {
+                  for (const product of searchResults.result.data.products) {
                     const normalizedItem = normalizeModelNumber(product.itemNo || '');
                     const normalizedName = normalizeModelNumber(product.name || '');
                     
@@ -874,8 +874,8 @@ export const SunskySKUImporter: React.FC = () => {
                         itemNo: bestMatch.itemNo
                       });
 
-                      if (detailResults.success && detailResults.data) {
-                        productToImport = detailResults.data;
+                      if (detailResults?.result?.result === 'success' && detailResults.result.data) {
+                        productToImport = detailResults.result.data;
                         matchFound = true;
                         console.log(`Search match found for ${modelNumber}: ${bestMatch.itemNo}`);
                       }
