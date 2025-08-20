@@ -15,7 +15,7 @@ import { supabase } from '@/integrations/supabase/client';
 export function SunskySKUImporter() {
   const { profile } = useUserProfile();
   const { createImportJob, createItemNosJob, createPoSearchJob, jobs, fetchJobs, isLoading: jobsLoading } = useImportJobs();
-  const { skus, fetchSKUs, isLoading: skusLoading, refreshSKUs } = useSKUManager();
+  const { sunskySKUs, fetchSKUs, isLoading: skusLoading, refreshSKUs } = useSKUManager();
 
   const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
   const [hasCredentials, setHasCredentials] = useState(false);
@@ -74,7 +74,7 @@ export function SunskySKUImporter() {
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="search">Search & Import</TabsTrigger>
           <TabsTrigger value="jobs">Import Jobs ({jobs.filter(j => j.status === 'processing').length})</TabsTrigger>
-          <TabsTrigger value="imported">Imported SKUs ({skus.length})</TabsTrigger> 
+          <TabsTrigger value="imported">Imported SKUs ({sunskySKUs?.length || 0})</TabsTrigger> 
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
@@ -185,7 +185,7 @@ export function SunskySKUImporter() {
             </CardHeader>
             <CardContent>
               <p className="text-center text-muted-foreground py-8">
-                {skusLoading ? 'Loading SKUs...' : `${skus.length} SKUs imported`}
+                {skusLoading ? 'Loading SKUs...' : `${sunskySKUs?.length || 0} SKUs imported`}
               </p>
             </CardContent>
           </Card>
