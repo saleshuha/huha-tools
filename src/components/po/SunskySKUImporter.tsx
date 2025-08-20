@@ -177,7 +177,7 @@ export const SunskySKUImporter: React.FC = () => {
   const [fetchingSubCategories, setFetchingSubCategories] = useState(false);
   const [fetchingBrands, setFetchingBrands] = useState(false);
   
-  // Header management
+  // Header management  
   const [availableHeaders, setAvailableHeaders] = useState<string[]>([]);
   const [selectedHeaders, setSelectedHeaders] = useState<string[]>([
     'itemNo', 'name', 'brandName', 'stock', 'leadTime', 'warehouse', 'price', 'convertedPrice'
@@ -194,12 +194,12 @@ export const SunskySKUImporter: React.FC = () => {
   const [selectedSearchAPI, setSelectedSearchAPI] = useState<string>('');
   const [selectedJobAPI, setSelectedJobAPI] = useState<string>('');
   
-  // SKU table column management
+  // SKU table column management - match search results headers
   const [skuTableHeaders, setSkuTableHeaders] = useState<string[]>([
-    'sku_code', 'title', 'cost', 'currency', 'country', 'created_at'
+    'sku_code', 'title', 'cost', 'currency', 'weight', 'country', 'created_at'
   ]);
   const [availableSkuHeaders] = useState<string[]>([
-    'sku_code', 'title', 'cost', 'currency', 'country', 'created_at', 'weight', 'description'
+    'sku_code', 'title', 'cost', 'currency', 'weight', 'country', 'created_at', 'description'
   ]);
 
   // Save column preferences
@@ -649,10 +649,12 @@ export const SunskySKUImporter: React.FC = () => {
 
       for (const itemNo of productList) {
         try {
+          console.log(`Getting details for ${itemNo}...`);
           const productDetails = await getProductDetails(itemNo);
           
           if (productDetails) {
-            const { error } = await supabase
+            console.log(`Importing ${itemNo} to database...`);
+            const { data: insertedData, error } = await supabase
               .from('sunsky_skus')
               .upsert({
                 user_id: profile?.id,
@@ -667,11 +669,12 @@ export const SunskySKUImporter: React.FC = () => {
               }, {
                 onConflict: 'user_id,sku_code',
                 ignoreDuplicates: false
-              });
+              })
+              .select();
 
             if (!error) {
               imported++;
-              console.log(`Successfully imported ${itemNo}`);
+              console.log(`Successfully imported ${itemNo}`, insertedData);
             } else {
               console.error(`Error importing ${itemNo}:`, error);
               errors++;
@@ -688,8 +691,21 @@ export const SunskySKUImporter: React.FC = () => {
         setImportProgress(((imported + errors) / total) * 100);
       }
 
-      // Refresh the SKU list
-      await refreshSKUs();
+      // Force refresh the SKU list
+      console.log('Forcing SKU list refresh after manual import...');
+      try {
+        // Clear cache and force refresh
+        await fetchSKUs(1, false); // Force refresh without cache
+        console.log('SKU list refreshed successfully');
+      } catch (refreshError) {
+        console.error('Error refreshing SKU list:', refreshError);
+        // Fallback: try the refresh function
+        try {
+          await refreshSKUs();
+        } catch (fallbackError) {
+          console.error('Fallback refresh also failed:', fallbackError);
+        }
+      }
 
       toast({
         title: "Import Complete",
@@ -876,7 +892,9 @@ export const SunskySKUImporter: React.FC = () => {
             if (matchFound && productToImport) {
               // Use upsert to handle duplicates gracefully
               try {
-                const { error } = await supabase
+                console.log(`Attempting to import SKU: ${productToImport.itemNo}`);
+                
+                const { data: insertedData, error } = await supabase
                   .from('sunsky_skus')
                   .upsert({
                     user_id: profile?.id,
@@ -891,11 +909,12 @@ export const SunskySKUImporter: React.FC = () => {
                   }, {
                     onConflict: 'user_id,sku_code',
                     ignoreDuplicates: false
-                  });
+                  })
+                  .select();
 
                 if (!error) {
                   successCount++;
-                  console.log(`Successfully imported/updated SKU: ${productToImport.itemNo}`);
+                  console.log(`Successfully imported/updated SKU: ${productToImport.itemNo}`, insertedData);
                 } else {
                   console.error('Error upserting SKU:', error);
                   errorCount++;
@@ -973,8 +992,22 @@ export const SunskySKUImporter: React.FC = () => {
           .eq('id', importJob.id);
       }
       
-      // Refresh the SKU list and jobs list to show new imports
-      await Promise.all([refreshSKUs(), fetchJobs()]);
+      // Force refresh the SKU list and jobs list to show new imports
+      console.log('Force refreshing SKU list after PO import...');
+      try {
+        // Clear cache and force refresh
+        await fetchSKUs(1, false); // Force refresh without cache
+        await fetchJobs();
+        console.log('SKU list and jobs refreshed successfully');
+      } catch (refreshError) {
+        console.error('Error refreshing data:', refreshError);
+        // Fallback: try the refresh function
+        try {
+          await refreshSKUs();
+        } catch (fallbackError) {
+          console.error('Fallback refresh also failed:', fallbackError);
+        }
+      }
       
       setPOSearchProgress(100);
       setPOSearchStats(prev => ({ ...prev, currentItem: 'Complete!' }));
