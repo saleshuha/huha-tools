@@ -95,6 +95,23 @@ export default function PODetailsPage() {
     loadData();
   }, [fetchPOOrders]);
 
+  // Initialize itemsMarkedFromStock based on existing ordered items
+  useEffect(() => {
+    if (poOrders.length > 0) {
+      const orderedItems = poOrders.filter(order => 
+        order.po_number === poNumber && 
+        order.status === 'ordered' &&
+        order.sunsky_sku !== null
+      );
+      
+      if (orderedItems.length > 0) {
+        const orderedItemIds = new Set(orderedItems.map(item => item.id));
+        console.log('Initializing itemsMarkedFromStock with existing ordered items:', orderedItemIds);
+        setItemsMarkedFromStock(orderedItemIds);
+      }
+    }
+  }, [poOrders, poNumber]);
+
   // Fetch inventory data to match with PO ASINs
   const fetchInventoryData = async () => {
     try {
@@ -725,8 +742,14 @@ export default function PODetailsPage() {
       // Update order status to 'ordered'
       await updateOrderStatus(order.id, 'ordered');
 
-      // Add to items marked from stock
-      setItemsMarkedFromStock(prev => new Set(prev).add(order.id));
+      // Add to items marked from stock - IMPORTANT: Add this before any async operations
+      console.log('Adding item to itemsMarkedFromStock:', order.id, order.sku_code);
+      setItemsMarkedFromStock(prev => {
+        const newSet = new Set(prev);
+        newSet.add(order.id);
+        console.log('Updated itemsMarkedFromStock size:', newSet.size);
+        return newSet;
+      });
 
       // Refresh inventory data
       await fetchInventoryData();
