@@ -272,7 +272,7 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
   const requiresState = selectedCountry?.shipToState === true;
   const canLoadShipping = checkedItems.size > 0 && deliveryAddress.countryId && (!requiresState || deliveryAddress.state);
   
-  const canProceedToReview = deliveryAddress.shippingWayId;
+  const canProceedToReview = typeof deliveryAddress.shippingWayId !== 'undefined' && deliveryAddress.shippingWayId !== null && deliveryAddress.shippingWayId !== '';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
