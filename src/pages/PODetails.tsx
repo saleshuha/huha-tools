@@ -177,18 +177,25 @@ export default function PODetailsPage() {
       skuInventoryCount: inventoryData.skuInventory.length 
     });
     
-    // First check ASIN inventory
+    // First check ASIN inventory - aggregate all matching records
     if (asin) {
       console.log(`🎯 Checking ASIN inventory for: ${asin}`);
-      const asinMatch = inventoryData.asinInventory.find(item => item.asin === asin);
-      if (asinMatch) {
-        console.log(`✅ Found ASIN match:`, asinMatch);
+      const asinMatches = inventoryData.asinInventory.filter(item => item.asin === asin);
+      if (asinMatches.length > 0) {
+        console.log(`✅ Found ${asinMatches.length} ASIN match(es):`, asinMatches);
+        
+        // Aggregate quantities from all matching records
+        const totalQuantity = asinMatches.reduce((sum, item) => sum + item.quantity, 0);
+        const firstMatch = asinMatches[0];
+        
+        console.log(`📊 Total aggregated quantity for ${asin}: ${totalQuantity}`);
+        
         return {
           type: 'ASIN',
-          status: asinMatch.status,
-          quantity: asinMatch.quantity,
-          identifier: asinMatch.asin,
-          serialNumber: asinMatch.serial_number
+          status: totalQuantity > 0 ? 'in-stock' : firstMatch.status,
+          quantity: totalQuantity,
+          identifier: firstMatch.asin,
+          serialNumber: asinMatches.map(item => item.serial_number).join(', ')
         };
       } else {
         console.log(`❌ No ASIN match found in asin_inventory`);
