@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { usePOOrders } from '@/hooks/usePOOrders';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { SunskyOrderDialog } from '@/components/SunskyOrderDialog';
 
 // Cache busting comment - Fixed poDetails issue - v2
 
@@ -69,6 +70,10 @@ export default function PODetailsPage() {
     tracking_url: ''
   });
 
+  // Sunsky order dialog state
+  const [sunskyOrderDialogOpen, setSunskyOrderDialogOpen] = useState(false);
+  const [hasSunskyCredentials, setHasSunskyCredentials] = useState(false);
+
   console.log('PODetailsPage: Rendering with poNumber:', poNumber);
   console.log('PODetailsPage: poOrders:', poOrders);
 
@@ -78,7 +83,8 @@ export default function PODetailsPage() {
       setLoading(true);
       await Promise.all([
         fetchPOOrders(),
-        fetchInventoryData()
+        fetchInventoryData(),
+        checkSunskyCredentials()
       ]);
       setLoading(false);
       console.log('PODetailsPage: Data loaded');
@@ -640,6 +646,105 @@ export default function PODetailsPage() {
     }
   };
 
+  // Check if user has Sunsky credentials
+  const checkSunskyCredentials = async () => {
+    try {
+      const response = await supabase.functions.invoke('sunsky-api', {
+        body: { action: 'getCredentialsStatus' }
+      });
+
+      if (response.data?.result === 'success') {
+        setHasSunskyCredentials(response.data.hasCredentials);
+      }
+    } catch (error) {
+      console.error('Error checking Sunsky credentials:', error);
+    }
+  };
+
+  // Handle Sunsky order success
+  const handleSunskyOrderSuccess = async (orderNumber: string, selectedOrderIds: string[]) => {
+    try {
+      // Update the selected PO orders with the Sunsky order number
+      const updatePromises = selectedOrderIds.map(orderId => 
+        updateTrackingInfo(orderId, {
+          supplier_order_number: orderNumber,
+          tracking_number: '',
+          tracking_url: `https://sunsky-online.com/order/view/${orderNumber}`
+        })
+      );
+
+      // Also update the status to 'ordered' and set order_date
+      const statusUpdatePromises = selectedOrderIds.map(orderId => 
+        updateOrderStatus(orderId, 'ordered')
+      );
+
+      await Promise.all([
+        ...updatePromises,
+        ...statusUpdatePromises
+      ]);
+
+      toast({
+        title: "Order Placed Successfully",
+        description: `Sunsky order #${orderNumber} created and PO items updated`,
+      });
+
+      // Clear selection
+      setSelectedItems(new Set());
+      setSelectionType(null);
+    } catch (error) {
+      toast({
+        title: "Failed to Update PO Items",
+        description: "Sunsky order was created but failed to update PO items",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Handle opening Sunsky order dialog
+  const handleOpenSunskyOrder = () => {
+    if (!hasSunskyCredentials) {
+      toast({
+        title: "Sunsky Credentials Required",
+        description: "Please configure your Sunsky API credentials in the SKU Importer first",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (selectedItems.size === 0) {
+      toast({
+        title: "No Items Selected",
+        description: "Please select items to order from Sunsky",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Check if selected items have Sunsky SKUs
+    const selectedOrdersData = matchedOrders.filter(order => selectedItems.has(order.id));
+    const itemsWithSunskyData = selectedOrdersData.filter(order => 
+      order.sunsky_sku?.sku_code || order.sku_code
+    );
+
+    if (itemsWithSunskyData.length === 0) {
+      toast({
+        title: "No Sunsky Data",
+        description: "Selected items don't have Sunsky SKU information",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (itemsWithSunskyData.length < selectedOrdersData.length) {
+      toast({
+        title: "Some Items Missing Sunsky Data",
+        description: `Only ${itemsWithSunskyData.length} of ${selectedOrdersData.length} selected items have Sunsky data`,
+      });
+    }
+
+    setSunskyOrderDialogOpen(true);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-surface">
@@ -728,6 +833,15 @@ export default function PODetailsPage() {
                 disabled={isUpdating}
               >
                 Mark From Supplier
+              </Button>
+              
+              <Button 
+                size="sm" 
+                className="bg-orange-600 hover:bg-orange-700 text-white"
+                onClick={handleOpenSunskyOrder}
+                disabled={isUpdating}
+              >
+                Order at Sunsky
               </Button>
               
               <Dialog>
@@ -1106,6 +1220,14 @@ export default function PODetailsPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Sunsky Order Dialog */}
+        <SunskyOrderDialog
+          open={sunskyOrderDialogOpen}
+          onOpenChange={setSunskyOrderDialogOpen}
+          selectedOrders={matchedOrders.filter(order => selectedItems.has(order.id))}
+          onOrderSuccess={handleSunskyOrderSuccess}
+        />
       </div>
     </div>
   );

@@ -34,7 +34,10 @@ async function sha256(text: string): Promise<string> {
 const DEFAULT_RATE_LIMITS = {
   "category.getChildren": { minute: 480, day: 1000000 },
   "product.search": { minute: 480, day: 1000000 },
-  "product.detail": { minute: 480, day: 1000000 }
+  "product.detail": { minute: 480, day: 1000000 },
+  "order.getCountries": { minute: 480, day: 1000000 },
+  "order.getPricesAndFreights": { minute: 480, day: 1000000 },
+  "order.createOrder": { minute: 100, day: 10000 }
 };
 
 // Get rate limits from environment or use defaults
@@ -55,6 +58,9 @@ function getEndpointKey(url: string): string {
   if (url.includes('category!getChildren.do')) return 'category.getChildren';
   if (url.includes('product!search.do')) return 'product.search';
   if (url.includes('product!detail.do')) return 'product.detail';
+  if (url.includes('order!getCountries.do')) return 'order.getCountries';
+  if (url.includes('order!getPricesAndFreights.do')) return 'order.getPricesAndFreights';
+  if (url.includes('order!createOrder.do')) return 'order.createOrder';
   return 'unknown';
 }
 
@@ -1589,6 +1595,121 @@ serve(async (req) => {
           result: 'success',
           data: job
         }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      case 'getCountries': {
+        const credentials = await getApiCredentials(user.id);
+        
+        const params = {
+          lang: 'en'
+        };
+
+        const result = await makeSunskyRequest('/openapi/order!getCountries.do', params, credentials.key, credentials.secret, user.id);
+        
+        return new Response(JSON.stringify(result), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      case 'getPricesAndFreights': {
+        const { items, deliveryAddress } = requestData;
+        const credentials = await getApiCredentials(user.id);
+        
+        if (!items || !Array.isArray(items) || items.length === 0) {
+          throw new Error('Items array is required');
+        }
+        
+        if (!deliveryAddress || !deliveryAddress.countryId) {
+          throw new Error('Delivery address with countryId is required');
+        }
+
+        const params: Record<string, any> = {
+          lang: 'en',
+          'deliveryAddress.countryId': deliveryAddress.countryId
+        };
+
+        // Add optional delivery address fields
+        if (deliveryAddress.state) params['deliveryAddress.state'] = deliveryAddress.state;
+        if (deliveryAddress.city) params['deliveryAddress.city'] = deliveryAddress.city;
+        if (deliveryAddress.postcode) params['deliveryAddress.postcode'] = deliveryAddress.postcode;
+
+        // Add items
+        items.forEach((item: any, index: number) => {
+          const itemIndex = index + 1;
+          params[`items.${itemIndex}.itemNo`] = item.itemNo;
+          params[`items.${itemIndex}.qty`] = item.qty;
+        });
+
+        const result = await makeSunskyRequest('/openapi/order!getPricesAndFreights.do', params, credentials.key, credentials.secret, user.id);
+        
+        return new Response(JSON.stringify(result), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      case 'createOrder': {
+        const { orderData } = requestData;
+        const credentials = await getApiCredentials(user.id);
+        
+        if (!orderData) {
+          throw new Error('Order data is required');
+        }
+
+        // Validate required fields
+        if (!orderData.items || !Array.isArray(orderData.items) || orderData.items.length === 0) {
+          throw new Error('Items array is required');
+        }
+        
+        if (!orderData.deliveryAddress) {
+          throw new Error('Delivery address is required');
+        }
+
+        const params: Record<string, any> = {
+          lang: 'en'
+        };
+
+        // Add optional order fields
+        if (orderData.siteNumber) params.siteNumber = orderData.siteNumber;
+        if (orderData.useBalanceOnly !== undefined) params.useBalanceOnly = orderData.useBalanceOnly;
+        if (orderData.vatNumber) params.vatNumber = orderData.vatNumber;
+        if (orderData.eoriNumber) params.eoriNumber = orderData.eoriNumber;
+        if (orderData.iossNumber) params.iossNumber = orderData.iossNumber;
+        if (orderData.coupon) params.coupon = orderData.coupon;
+
+        // Add required delivery address fields
+        const addr = orderData.deliveryAddress;
+        params['deliveryAddress.countryId'] = addr.countryId;
+        params['deliveryAddress.receiver'] = addr.receiver;
+        params['deliveryAddress.address'] = addr.address;
+        params['deliveryAddress.city'] = addr.city;
+        params['deliveryAddress.postcode'] = addr.postcode;
+        params['deliveryAddress.shippingWayId'] = addr.shippingWayId;
+
+        // Add optional delivery address fields
+        if (addr.state) params['deliveryAddress.state'] = addr.state;
+        if (addr.company) params['deliveryAddress.company'] = addr.company;
+        if (addr.address2) params['deliveryAddress.address2'] = addr.address2;
+        if (addr.telephone) params['deliveryAddress.telephone'] = addr.telephone;
+        if (addr.email) params['deliveryAddress.email'] = addr.email;
+        if (addr.shipment) params['deliveryAddress.shipment'] = addr.shipment;
+
+        // Add items
+        orderData.items.forEach((item: any, index: number) => {
+          const itemIndex = index + 1;
+          params[`items.${itemIndex}.itemNo`] = item.itemNo;
+          params[`items.${itemIndex}.qty`] = item.qty;
+          if (item.remark) params[`items.${itemIndex}.remark`] = item.remark;
+        });
+
+        console.log('Creating Sunsky order with params:', JSON.stringify(params, null, 2));
+
+        const result = await makeSunskyRequest('/openapi/order!createOrder.do', params, credentials.key, credentials.secret, user.id);
+        
+        console.log('Sunsky order creation result:', JSON.stringify(result, null, 2));
+        
+        return new Response(JSON.stringify(result), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
