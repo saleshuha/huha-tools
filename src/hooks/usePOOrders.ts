@@ -39,7 +39,7 @@ export const usePOOrders = () => {
   const [loadingStatus, setLoadingStatus] = useState('');
   const { toast } = useToast();
 
-  // Fetch PO orders efficiently using the database function
+  // Fetch PO orders efficiently using direct table queries (bypassing RPC limits)
   const fetchPOOrders = useCallback(async () => {
     setIsLoading(true);
     setLoadingProgress(0);
@@ -52,34 +52,45 @@ export const usePOOrders = () => {
       setLoadingProgress(30);
       setLoadingStatus('Fetching orders from database...');
 
-      // Use the database function that includes sunsky_sku data
-      // Need to bypass PostgREST 1000 row limit for RPC calls
-      const { data: allData, error } = await supabase
-        .rpc('get_all_po_orders', { user_id_param: user.id })
-        .limit(10000); // Explicitly set higher limit to bypass default 1000 limit
+      // Fetch PO orders directly with higher limit to bypass 1000 row limit
+      const { data: poOrdersData, error: poError } = await supabase
+        .from('po_orders')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(5000); // Explicit high limit
 
-      if (error) throw error;
+      if (poError) throw poError;
 
-      console.log(`🔍 DEBUG: Total records fetched from RPC: ${allData?.length || 0}`);
-      console.log(`🔍 DEBUG: Expected count should be 1941 for active orders`);
-      console.log('🔍 DEBUG: Sample order with SKU:', allData?.[0]);
+      console.log(`🔍 DIRECT QUERY: Total PO records fetched: ${poOrdersData?.length || 0}`);
 
-      // Check if we're hitting PostgREST row limit
-      if (allData && allData.length === 1000) {
-        console.warn('⚠️ WARNING: Exactly 1000 records returned - this suggests a PostgREST limit!');
-      }
-      
-      if (allData && allData.length >= 1941) {
-        console.log('✅ SUCCESS: Got expected number of records or more!');
-      }
+      setLoadingProgress(60);
+      setLoadingStatus('Fetching SKU data...');
+
+      // Fetch SKU data separately  
+      const { data: skuData, error: skuError } = await supabase
+        .from('sunsky_skus')
+        .select('*')
+        .eq('user_id', user.id)
+        .limit(5000);
+
+      if (skuError) throw skuError;
 
       setLoadingProgress(80);
-      setLoadingStatus('Processing order data...');
+      setLoadingStatus('Processing and matching data...');
 
-      const allOrders = (allData || []).map(order => ({
+      // Create SKU lookup map
+      const skuMap = new Map();
+      (skuData || []).forEach(sku => {
+        skuMap.set(sku.sku_code, sku);
+      });
+
+      // Join PO orders with SKU data
+      const allOrders = (poOrdersData || []).map(order => ({
         ...order,
         status: order.status as POOrder['status'],
-        // sunsky_sku is already included from the database function
+        sunsky_sku: skuMap.get(order.sku_code) || 
+                   (order.model_number ? skuMap.get(order.model_number) : null)
       }));
 
       setPOOrders(allOrders);
@@ -87,13 +98,17 @@ export const usePOOrders = () => {
       setLoadingProgress(100);
       setLoadingStatus(`Loaded ${allOrders.length} PO orders`);
 
-      console.log(`Successfully loaded ${allOrders.length} PO orders (should match database count)`);
+      console.log(`✅ SUCCESS: Loaded ${allOrders.length} PO orders directly from table`);
+      
+      if (allOrders.length === 1000) {
+        console.warn('⚠️ Still getting exactly 1000 - there may be another limit');
+      }
 
     } catch (error) {
       console.error('Error fetching PO orders:', error);
       setLoadingStatus('Failed to load PO orders');
       toast({
-        title: "Error",
+        title: "Error", 
         description: error instanceof Error ? error.message : "Failed to fetch PO orders",
         variant: "destructive"
       });
