@@ -214,22 +214,32 @@ export function POTracker() {
   };
 
   // ============================================================================
-  // CLEAN PO METRICS CALCULATION - COMPLETE REWRITE
+  // ACCURATE METRICS CALCULATION - USE RAW DATA FROM DATABASE
   // ============================================================================
   
   console.log(`🎯 RAW DATA FROM DATABASE:`);
   console.log(`📦 Total raw orders: ${poOrders.length}`);
   console.log(`📋 Total raw quantity: ${poOrders.reduce((sum, order) => sum + (order.quantity || 0), 0)}`);
   
-  // Step 1: Define "Active" statuses precisely
+  // MAIN METRICS: Use RAW data without any filtering or deduplication
+  const totalOrderRecords = poOrders.length;
+  const totalItemsQuantity = poOrders.reduce((sum, order) => sum + (order.quantity || 0), 0);
+  const uniquePONumbers = new Set(poOrders.map(order => order.po_number)).size;
+  
+  console.log(`📊 MAIN DASHBOARD METRICS (RAW DATA):`);
+  console.log(`🎯 Total PO Orders: ${totalOrderRecords}`);
+  console.log(`📋 Total Quantity: ${totalItemsQuantity}`);
+  console.log(`📄 Unique PO Numbers: ${uniquePONumbers}`);
+  
+  // FOR TABLE DISPLAY ONLY: Apply filtering and deduplication
   const ACTIVE_STATUSES = ['pending', 'ordered', 'shipped'];
   const rawActiveOrders = poOrders.filter(order => ACTIVE_STATUSES.includes(order.status));
   
-  console.log(`🔍 ACTIVE FILTERING:`);
+  console.log(`🔍 ACTIVE FILTERING (for table display only):`);
   console.log(`✅ Active orders (${ACTIVE_STATUSES.join(', ')}): ${rawActiveOrders.length}`);
   console.log(`❌ Non-active orders: ${poOrders.length - rawActiveOrders.length}`);
   
-  // Step 2: Clean deduplication - canonical key WITHOUT quantity
+  // Clean deduplication for table display only
   const dedupMap = new Map<string, typeof rawActiveOrders[0]>();
   
   rawActiveOrders.forEach(order => {
@@ -245,37 +255,29 @@ export function POTracker() {
   
   const cleanActiveOrders = Array.from(dedupMap.values());
   
-  console.log(`🧹 DEDUPLICATION RESULTS:`);
+  console.log(`🧹 DEDUPLICATION (for table display only):`);
   console.log(`📦 Before dedup: ${rawActiveOrders.length} active orders`);
   console.log(`✨ After dedup: ${cleanActiveOrders.length} unique active orders`);
   console.log(`🗑️ Duplicates removed: ${rawActiveOrders.length - cleanActiveOrders.length}`);
   
-  // Step 3: Calculate all metrics from deduplicated data
-  const totalOrderRecords = cleanActiveOrders.length;
-  const totalItemsQuantity = cleanActiveOrders.reduce((sum, order) => sum + (order.quantity || 0), 0);
-  const uniquePONumbers = new Set(cleanActiveOrders.map(order => order.po_number)).size;
+  // Matched items (with sunsky_sku) - calculated from RAW data for accuracy
+  const allMatchedOrdersList = poOrders.filter(order => order.sunsky_sku !== null);
+  const matchedItems = allMatchedOrdersList.length;
+  const matchedItemsQuantity = allMatchedOrdersList.reduce((sum, order) => sum + (order.quantity || 0), 0);
   
-  // Matched items (with sunsky_sku)
-  const matchedOrdersList = cleanActiveOrders.filter(order => order.sunsky_sku !== null);
-  const matchedItems = matchedOrdersList.length;
-  const matchedItemsQuantity = matchedOrdersList.reduce((sum, order) => sum + (order.quantity || 0), 0);
+  // Status-based counts from RAW data
+  const pendingMatchedItems = allMatchedOrdersList.filter(order => order.status === 'pending').length;
+  const placedOrders = poOrders.filter(order => order.status === 'ordered' || order.status === 'shipped').length;
   
-  // Status-based counts
-  const pendingMatchedItems = matchedOrdersList.filter(order => order.status === 'pending').length;
-  const placedOrders = cleanActiveOrders.filter(order => order.status === 'ordered' || order.status === 'shipped').length;
-  
-  console.log(`📊 FINAL METRICS:`);
-  console.log(`🎯 Active PO Orders: ${totalOrderRecords}`);
-  console.log(`📋 Total Quantity: ${totalItemsQuantity}`);
-  console.log(`📄 Unique PO Numbers: ${uniquePONumbers}`);
-  console.log(`🔗 Matched Items: ${matchedItems} (qty: ${matchedItemsQuantity})`);
+  console.log(`📊 MATCHED ITEMS METRICS (RAW DATA):`);
+  console.log(`🔗 Total Matched Items: ${matchedItems} (qty: ${matchedItemsQuantity})`);
   console.log(`⏳ Pending Matched: ${pendingMatchedItems}`);
   console.log(`🚀 Placed Orders: ${placedOrders}`);
 
   // Get actually matched items with stock (cross-reference with inventory)
   const getMatchedItemsWithStock = () => {
-    console.log(`🔍 Getting matched items with stock from ${cleanActiveOrders.length} clean active orders`);
-    return cleanActiveOrders.filter(order => {
+    console.log(`🔍 Getting matched items with stock from ${allMatchedOrdersList.length} matched orders`);
+    return allMatchedOrdersList.filter(order => {
       if (order.sunsky_sku === null) return false;
       const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku, order.sku_code);
       return isItemInStock(inventoryMatch);
@@ -284,8 +286,8 @@ export function POTracker() {
 
   // Get matched items with any inventory (in or out of stock)
   const getMatchedItemsWithInventory = () => {
-    console.log(`🔍 Getting matched items with inventory from ${cleanActiveOrders.length} clean active orders`);
-    return cleanActiveOrders.filter(order => {
+    console.log(`🔍 Getting matched items with inventory from ${allMatchedOrdersList.length} matched orders`);
+    return allMatchedOrdersList.filter(order => {
       if (order.sunsky_sku === null) return false;
       const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku, order.sku_code);
       return inventoryMatch !== null;
@@ -294,8 +296,8 @@ export function POTracker() {
 
   // Get total quantity of in-stock matched items
   const getTotalInStockQuantity = () => {
-    console.log(`🔍 Getting total in-stock quantity from ${cleanActiveOrders.length} clean active orders`);
-    return cleanActiveOrders.reduce((total, order) => {
+    console.log(`🔍 Getting total in-stock quantity from ${allMatchedOrdersList.length} matched orders`);
+    return allMatchedOrdersList.reduce((total, order) => {
       if (order.sunsky_sku === null) return total;
       const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku, order.sku_code);
       if (isItemInStock(inventoryMatch)) {
