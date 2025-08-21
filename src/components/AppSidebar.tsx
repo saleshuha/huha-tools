@@ -192,20 +192,20 @@ export function AppSidebar() {
 
 
   return (
-    <Sidebar collapsible="icon" className="border-r border-sidebar-border w-64 bg-sidebar">
+    <Sidebar collapsible="icon" className={`border-r border-sidebar-border bg-sidebar transition-all duration-300 ${isCollapsed ? 'w-16' : 'w-64'}`}>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/80 font-semibold px-4 py-3 text-sm">
-            HuHa Dashboard
+          <SidebarGroupLabel className={`text-sidebar-foreground/80 font-semibold py-3 text-sm transition-all duration-200 ${isCollapsed ? 'px-2 text-center' : 'px-4'}`}>
+            {isCollapsed ? 'HH' : 'HuHa Dashboard'}
           </SidebarGroupLabel>
-          <SidebarGroupContent className="px-3">
+          <SidebarGroupContent className={`transition-all duration-200 ${isCollapsed ? 'px-1' : 'px-3'}`}>
             <SidebarMenu className="space-y-1">
               {/* Navigation items */}
               {navigationItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton 
                     asChild
-                    className={`group relative w-full rounded-xl transition-all duration-200 hover:scale-[1.02] ${
+                    className={`group relative w-full rounded-xl transition-all duration-200 ${!isCollapsed && 'hover:scale-[1.02]'} ${
                       isActive(item.url)
                         ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
                         : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
@@ -214,9 +214,13 @@ export function AppSidebar() {
                     <NavLink 
                       to={item.url} 
                       end
-                      className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
+                      className={`flex items-center no-underline w-full rounded-xl transition-all duration-200 ${
+                        isCollapsed 
+                          ? 'justify-center px-2 py-3 gap-0' 
+                          : 'gap-3 px-4 py-3'
+                      }`}
                     >
-                      <item.icon className="h-5 w-5 flex-shrink-0" />
+                      <item.icon className={`flex-shrink-0 ${isCollapsed ? 'h-5 w-5' : 'h-5 w-5'}`} />
                       {!isCollapsed && (
                         <span className="font-semibold text-sm">
                           {item.title}
@@ -231,7 +235,7 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   asChild
-                  className={`group relative w-full rounded-xl transition-all duration-200 hover:scale-[1.02] ${
+                  className={`group relative w-full rounded-xl transition-all duration-200 ${!isCollapsed && 'hover:scale-[1.02]'} ${
                     isActive("/inventory")
                       ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
                       : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
@@ -240,7 +244,11 @@ export function AppSidebar() {
                   <NavLink 
                     to="/inventory" 
                     end
-                    className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
+                    className={`flex items-center no-underline w-full rounded-xl transition-all duration-200 ${
+                      isCollapsed 
+                        ? 'justify-center px-2 py-3 gap-0' 
+                        : 'gap-3 px-4 py-3'
+                    }`}
                   >
                     <Database className="h-5 w-5 flex-shrink-0" />
                     {!isCollapsed && (
@@ -256,7 +264,7 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   asChild
-                  className={`group relative w-full rounded-xl transition-all duration-200 hover:scale-[1.02] ${
+                  className={`group relative w-full rounded-xl transition-all duration-200 ${!isCollapsed && 'hover:scale-[1.02]'} ${
                     isActive("/replenishment")
                       ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
                       : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
@@ -265,7 +273,11 @@ export function AppSidebar() {
                   <NavLink 
                     to="/replenishment" 
                     end
-                    className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
+                    className={`flex items-center no-underline w-full rounded-xl transition-all duration-200 ${
+                      isCollapsed 
+                        ? 'justify-center px-2 py-3 gap-0' 
+                        : 'gap-3 px-4 py-3'
+                    }`}
                   >
                     <TrendingUp className="h-5 w-5 flex-shrink-0" />
                     {!isCollapsed && (
@@ -281,7 +293,7 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   asChild
-                  className={`group relative w-full rounded-xl transition-all duration-200 hover:scale-[1.02] ${
+                  className={`group relative w-full rounded-xl transition-all duration-200 ${!isCollapsed && 'hover:scale-[1.02]'} ${
                     isActive("/po-tracker")
                       ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
                       : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
@@ -290,7 +302,11 @@ export function AppSidebar() {
                   <NavLink 
                     to="/po-tracker" 
                     end
-                    className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
+                    className={`flex items-center no-underline w-full rounded-xl transition-all duration-200 ${
+                      isCollapsed 
+                        ? 'justify-center px-2 py-3 gap-0' 
+                        : 'gap-3 px-4 py-3'
+                    }`}
                   >
                     <ShoppingCart className="h-5 w-5 flex-shrink-0" />
                     {!isCollapsed && (
@@ -306,7 +322,7 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   asChild
-                  className={`group relative w-full rounded-xl transition-all duration-200 hover:scale-[1.02] ${
+                  className={`group relative w-full rounded-xl transition-all duration-200 ${!isCollapsed && 'hover:scale-[1.02]'} ${
                     isActive("/sunsky-importer")
                       ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
                       : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
@@ -315,7 +331,11 @@ export function AppSidebar() {
                   <NavLink 
                     to="/sunsky-importer" 
                     end
-                    className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
+                    className={`flex items-center no-underline w-full rounded-xl transition-all duration-200 ${
+                      isCollapsed 
+                        ? 'justify-center px-2 py-3 gap-0' 
+                        : 'gap-3 px-4 py-3'
+                    }`}
                   >
                     <Globe className="h-5 w-5 flex-shrink-0" />
                     {!isCollapsed && (
@@ -331,7 +351,7 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   asChild
-                  className={`group relative w-full rounded-xl transition-all duration-200 hover:scale-[1.02] ${
+                  className={`group relative w-full rounded-xl transition-all duration-200 ${!isCollapsed && 'hover:scale-[1.02]'} ${
                     isActive("/amazon-fulfillment")
                       ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
                       : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
@@ -340,7 +360,11 @@ export function AppSidebar() {
                   <NavLink 
                     to="/amazon-fulfillment" 
                     end
-                    className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
+                    className={`flex items-center no-underline w-full rounded-xl transition-all duration-200 ${
+                      isCollapsed 
+                        ? 'justify-center px-2 py-3 gap-0' 
+                        : 'gap-3 px-4 py-3'
+                    }`}
                   >
                     <Package className="h-5 w-5 flex-shrink-0" />
                     {!isCollapsed && (
@@ -356,7 +380,7 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   asChild
-                  className={`group relative w-full rounded-xl transition-all duration-200 hover:scale-[1.02] ${
+                  className={`group relative w-full rounded-xl transition-all duration-200 ${!isCollapsed && 'hover:scale-[1.02]'} ${
                     isActive("/amazon-vendor-central")
                       ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
                       : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
@@ -365,7 +389,11 @@ export function AppSidebar() {
                   <NavLink 
                     to="/amazon-vendor-central" 
                     end
-                    className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
+                    className={`flex items-center no-underline w-full rounded-xl transition-all duration-200 ${
+                      isCollapsed 
+                        ? 'justify-center px-2 py-3 gap-0' 
+                        : 'gap-3 px-4 py-3'
+                    }`}
                   >
                     <Settings className="h-5 w-5 flex-shrink-0" />
                     {!isCollapsed && (
@@ -381,7 +409,7 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   asChild
-                  className={`group relative w-full rounded-xl transition-all duration-200 hover:scale-[1.02] ${
+                  className={`group relative w-full rounded-xl transition-all duration-200 ${!isCollapsed && 'hover:scale-[1.02]'} ${
                     isActive("/carrefour-payments")
                       ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
                       : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
@@ -390,7 +418,11 @@ export function AppSidebar() {
                   <NavLink 
                     to="/carrefour-payments" 
                     end
-                    className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
+                    className={`flex items-center no-underline w-full rounded-xl transition-all duration-200 ${
+                      isCollapsed 
+                        ? 'justify-center px-2 py-3 gap-0' 
+                        : 'gap-3 px-4 py-3'
+                    }`}
                   >
                     <BarChart3 className="h-5 w-5 flex-shrink-0" />
                     {!isCollapsed && (
@@ -404,17 +436,21 @@ export function AppSidebar() {
 
               {/* Tools dropdown */}
               <SidebarMenuItem>
-                <Collapsible open={isToolsOpen} onOpenChange={setIsToolsOpen}>
+                <Collapsible open={isCollapsed ? false : isToolsOpen} onOpenChange={setIsToolsOpen}>
                   <CollapsibleTrigger asChild>
                     <SidebarMenuButton
                       asChild
-                      className={`group relative w-full rounded-xl transition-all duration-200 hover:scale-[1.02] ${
+                      className={`group relative w-full rounded-xl transition-all duration-200 ${!isCollapsed && 'hover:scale-[1.02]'} ${
                         isToolsSectionActive()
                           ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
                           : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
                       }`}
                     >
-                      <div className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl cursor-pointer">
+                      <div className={`flex items-center no-underline w-full rounded-xl cursor-pointer transition-all duration-200 ${
+                        isCollapsed 
+                          ? 'justify-center px-2 py-3 gap-0' 
+                          : 'gap-3 px-4 py-3'
+                      }`}>
                         <Wrench className="h-5 w-5 flex-shrink-0" />
                         {!isCollapsed && (
                           <span className="font-semibold text-sm">
@@ -446,11 +482,9 @@ export function AppSidebar() {
                           className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-lg"
                         >
                           <item.icon className="h-4 w-4 flex-shrink-0 opacity-75" />
-                          {!isCollapsed && (
-                            <span className="font-medium text-xs">
-                              {item.title}
-                            </span>
-                          )}
+                          <span className="font-medium text-xs">
+                            {item.title}
+                          </span>
                         </NavLink>
                       </SidebarMenuButton>
                     ))}
@@ -462,7 +496,7 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   asChild
-                  className={`group relative w-full rounded-xl transition-all duration-200 hover:scale-[1.02] ${
+                  className={`group relative w-full rounded-xl transition-all duration-200 ${!isCollapsed && 'hover:scale-[1.02]'} ${
                     isActive("/data-viewer")
                       ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
                       : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
@@ -472,7 +506,11 @@ export function AppSidebar() {
                     href="https://huha-data-viewer.lovable.app/"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
+                    className={`flex items-center no-underline w-full rounded-xl transition-all duration-200 ${
+                      isCollapsed 
+                        ? 'justify-center px-2 py-3 gap-0' 
+                        : 'gap-3 px-4 py-3'
+                    }`}
                   >
                     <Eye className="h-5 w-5 flex-shrink-0" />
                     {!isCollapsed && (
@@ -487,7 +525,7 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="px-3 pb-3 pt-1 border-t border-sidebar-border">
+      <SidebarFooter className={`pb-3 pt-1 border-t border-sidebar-border transition-all duration-200 ${isCollapsed ? 'px-1' : 'px-3'}`}>
         {/* Progress Indicator */}
         <SidebarProgressIndicator />
         
@@ -498,7 +536,7 @@ export function AppSidebar() {
         
         <SidebarMenuButton 
           asChild
-          className={`group relative w-full rounded-xl transition-all duration-200 hover:scale-[1.02] ${
+          className={`group relative w-full rounded-xl transition-all duration-200 ${!isCollapsed && 'hover:scale-[1.02]'} ${
             isActive("/users")
               ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
               : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
@@ -507,7 +545,11 @@ export function AppSidebar() {
           <NavLink 
             to="/users" 
             end
-            className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
+            className={`flex items-center no-underline w-full rounded-xl transition-all duration-200 ${
+              isCollapsed 
+                ? 'justify-center px-2 py-3 gap-0' 
+                : 'gap-3 px-4 py-3'
+            }`}
           >
             <Users className="h-5 w-5 flex-shrink-0" />
             {!isCollapsed && (
@@ -521,10 +563,14 @@ export function AppSidebar() {
         <Button 
           onClick={handleLogout}
           variant="outline"
-          className="w-full flex items-center gap-2 text-sm"
+          className={`w-full flex items-center text-sm transition-all duration-200 ${
+            isCollapsed 
+              ? 'justify-center px-2 gap-0' 
+              : 'gap-2'
+          }`}
           size="sm"
         >
-          <LogOut className="h-3 w-3" />
+          <LogOut className="h-3 w-3 flex-shrink-0" />
           {!isCollapsed && "Sign Out"}
         </Button>
       </SidebarFooter>
