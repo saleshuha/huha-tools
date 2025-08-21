@@ -438,17 +438,41 @@ export function POTracker() {
         </Card>
       )}
 
+      {/* Data Explanation Alert */}
+      <Card className="border-blue-200 bg-blue-50/50">
+        <CardContent className="pt-4">
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0">
+              <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5" />
+            </div>
+            <div className="flex-1">
+              <h4 className="text-sm font-semibold text-blue-900 mb-1">
+                PO Data Explanation
+              </h4>
+              <p className="text-sm text-blue-800 mb-2">
+                <strong>Line Items</strong> = Number of different SKUs in each PO (e.g., 89 different products).
+                <br />
+                <strong>ASN Quantity</strong> = Total units to receive across all SKUs (e.g., 186 total pieces).
+              </p>
+              <p className="text-xs text-blue-700">
+                Example: PO 88GRL5EC has 89 different products with varying quantities (some 1 pc, some 2 pcs, etc.) totaling 186 units.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Quick Metrics Dashboard */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="border-l-4 border-l-blue-500 bg-blue-50/50">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active PO Orders</CardTitle>
+            <CardTitle className="text-sm font-medium">Active Line Items</CardTitle>
             <Package className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-blue-600">{metricsLoading ? "..." : metrics.totalActiveOrders.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">
-              {metricsLoading ? "Loading..." : `${metrics.uniquePONumbers} PO numbers • ${metrics.totalActiveQuantity.toLocaleString()} total qty`}
+              {metricsLoading ? "Loading..." : `${metrics.uniquePONumbers} PO numbers`}
             </p>
             <div className="flex gap-2 mt-1">
               <Badge variant="secondary" className="text-xs">
@@ -687,12 +711,12 @@ export function POTracker() {
                             <TableCell className="space-y-2">
                               <div className="flex items-center gap-2">
                                 <span className="font-medium">{poNumber}</span>
-                                <Badge variant="outline" className="text-xs">
-                                  {orders.length} items
-                                </Badge>
-                                <Badge variant="outline" className="text-xs">
-                                  {totalQuantity} qty
-                                </Badge>
+                                 <Badge variant="outline" className="text-xs">
+                                   {orders.length} line items
+                                 </Badge>
+                                 <Badge variant="outline" className="text-xs">
+                                   {totalQuantity} ASN units
+                                 </Badge>
                               </div>
                               {firstOrder.title && (
                                 <p className="text-sm text-muted-foreground truncate max-w-[200px]">
