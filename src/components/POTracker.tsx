@@ -349,8 +349,8 @@ export function POTracker() {
   const totalItemsWithInventory = getMatchedItemsWithInventory();
   const totalInStockQuantity = getTotalInStockQuantity();
 
-  // Group PO orders by PO number for better display
-  const groupedPOOrders = activePOOrders.reduce((groups: any, order) => {
+  // Group deduplicated PO orders by PO number for accurate display
+  const groupedPOOrders = uniqueActivePOOrders.reduce((groups: any, order) => {
     const poNumber = order.po_number;
     if (!groups[poNumber]) {
       groups[poNumber] = [];
