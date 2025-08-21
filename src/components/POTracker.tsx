@@ -216,30 +216,44 @@ export function POTracker() {
   // Filter out closed POs for active metrics
   const activePOOrders = poOrders.filter(order => order.status !== 'closed');
 
-  // Calculate accurate metrics based on database matching (active POs only)
-  const totalOrderRecords = activePOOrders.length;
-  const totalItemsQuantity = activePOOrders.reduce((sum, order) => sum + (order.quantity || 0), 0);
-  const uniquePONumbers = new Set(activePOOrders.map(order => order.po_number)).size;
+  // Deduplicate orders for accurate quantity calculations while preserving original data
+  const deduplicatedActivePOOrders = activePOOrders.reduce((acc, order) => {
+    const uniqueKey = `${order.po_number}_${order.asin}_${order.model_number}_${order.quantity}_${order.ship_to_location}`;
+    
+    // Keep the most recent order for each unique key
+    if (!acc.has(uniqueKey) || new Date(order.created_at) > new Date(acc.get(uniqueKey).created_at)) {
+      acc.set(uniqueKey, order);
+    }
+    
+    return acc;
+  }, new Map());
+
+  const uniqueActivePOOrders = Array.from(deduplicatedActivePOOrders.values());
+
+  // Calculate accurate metrics based on deduplicated active POs
+  const totalOrderRecords = uniqueActivePOOrders.length;
+  const totalItemsQuantity = uniqueActivePOOrders.reduce((sum, order) => sum + (order.quantity || 0), 0);
+  const uniquePONumbers = new Set(uniqueActivePOOrders.map(order => order.po_number)).size;
   
-  // Matched items - use database-level matching (items with sunsky_sku populated) from active POs only
-  const matchedItems = activePOOrders.filter(order => order.sunsky_sku !== null).length;
-  const matchedItemsQuantity = activePOOrders
+  // Matched items - use database-level matching (items with sunsky_sku populated) from deduplicated active POs only
+  const matchedItems = uniqueActivePOOrders.filter(order => order.sunsky_sku !== null).length;
+  const matchedItemsQuantity = uniqueActivePOOrders
     .filter(order => order.sunsky_sku !== null)
     .reduce((sum, order) => sum + (order.quantity || 0), 0);
   
-  // Pending matched orders - matched items that are still pending (from active POs only)
-  const pendingMatchedItems = activePOOrders.filter(order => 
+  // Pending matched orders - matched items that are still pending (from deduplicated active POs only)
+  const pendingMatchedItems = uniqueActivePOOrders.filter(order => 
     order.sunsky_sku !== null && order.status === 'pending'
   ).length;
 
-  // Already placed orders - items that are not pending (from active POs only)
-  const placedOrders = activePOOrders.filter(order => 
+  // Already placed orders - items that are not pending (from deduplicated active POs only)
+  const placedOrders = uniqueActivePOOrders.filter(order => 
     order.status !== 'pending' && order.status !== 'closed'
   ).length;
 
   // Get actually matched items with stock (cross-reference with inventory)
   const getMatchedItemsWithStock = () => {
-    return activePOOrders.filter(order => {
+    return uniqueActivePOOrders.filter(order => {
       if (order.sunsky_sku === null) return false;
       const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku, order.sku_code);
       return isItemInStock(inventoryMatch);
@@ -248,7 +262,7 @@ export function POTracker() {
 
   // Get matched items with any inventory (in or out of stock)
   const getMatchedItemsWithInventory = () => {
-    return activePOOrders.filter(order => {
+    return uniqueActivePOOrders.filter(order => {
       if (order.sunsky_sku === null) return false;
       const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku, order.sku_code);
       return inventoryMatch !== null;
@@ -257,7 +271,7 @@ export function POTracker() {
 
   // Get total quantity of in-stock matched items
   const getTotalInStockQuantity = () => {
-    return activePOOrders.reduce((total, order) => {
+    return uniqueActivePOOrders.reduce((total, order) => {
       if (order.sunsky_sku === null) return total;
       const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku, order.sku_code);
       if (isItemInStock(inventoryMatch)) {
@@ -271,8 +285,8 @@ export function POTracker() {
   const totalItemsWithInventory = getMatchedItemsWithInventory();
   const totalInStockQuantity = getTotalInStockQuantity();
 
-  // Group PO orders by PO number for better display
-  const groupedPOOrders = activePOOrders.reduce((groups: any, order) => {
+  // Group PO orders by PO number for better display (using deduplicated data)
+  const groupedPOOrders = uniqueActivePOOrders.reduce((groups: any, order) => {
     const poNumber = order.po_number;
     if (!groups[poNumber]) {
       groups[poNumber] = [];
