@@ -39,7 +39,7 @@ export const usePOOrders = () => {
   const [loadingStatus, setLoadingStatus] = useState('');
   const { toast } = useToast();
 
-  // Fetch PO orders using pagination to get all records
+  // Fetch PO orders using the unlimited RPC function
   const fetchPOOrders = useCallback(async () => {
     setIsLoading(true);
     setLoadingProgress(0);
@@ -52,24 +52,15 @@ export const usePOOrders = () => {
       setLoadingProgress(10);
       setLoadingStatus('Fetching all PO orders...');
 
-      // Simple approach: fetch all records in one go with a high limit
-      // Most Supabase projects can handle 10,000+ records easily
+      // Use the unlimited RPC function to get ALL records
       const { data: allPOOrders, error } = await supabase
-        .from('po_orders')
-        .select(`
-          id, user_id, po_number, sku_code, quantity, status, order_date, 
-          expected_delivery, notes, file_name, country, currency, unit_cost, 
-          total_cost, sku_user_id, supplier_order_number, tracking_number, 
-          tracking_url, created_at, updated_at, ship_to_location, asin, 
-          model_number, title, external_id, external_id_type
-        `)
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(10000); // High limit to get all records
+        .rpc('get_all_po_orders_unlimited', { 
+          user_id_param: user.id 
+        });
 
       if (error) throw error;
 
-      console.log(`✅ Fetched ${allPOOrders?.length || 0} PO orders directly from database`);
+      console.log(`✅ Fetched ${allPOOrders?.length || 0} PO orders from RPC function`);
       
       // Verify no duplicates by checking unique IDs
       const uniqueIds = new Set();
