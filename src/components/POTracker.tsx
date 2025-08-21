@@ -213,67 +213,60 @@ export function POTracker() {
     forceRefreshData();
   };
 
-  // Define truly active statuses (exclude delivered, closed, cancelled, completed)
-  const ACTIVE_STATUSES = new Set(['pending', 'ordered', 'shipped']);
-  const activePOOrders = poOrders.filter(order => ACTIVE_STATUSES.has(order.status));
-  
-  console.log(`🔍 Active Status Filter:`, {
-    totalOrders: poOrders.length,
-    activeOrders: activePOOrders.length,
-    excludedStatuses: poOrders.filter(order => !ACTIVE_STATUSES.has(order.status)).length
+  // Step 1: Filter by user's country first
+  const userCountryOrders = poOrders.filter(order => order.country === profile?.country);
+  console.log(`📊 ALL Orders in user country (${profile?.country}):`, {
+    totalCount: userCountryOrders.length,
+    totalQuantity: userCountryOrders.reduce((sum, o) => sum + (o.quantity || 0), 0)
   });
 
-  // Create robust business key for deduplication including ship_to_location
-  const createBusinessKey = (order: any) => {
-    // Build primary identifier using available identifiers in priority order
-    let primaryIdentifier = '';
-    
-    if (order.sunsky_sku?.sku_code) {
-      primaryIdentifier = order.sunsky_sku.sku_code.toLowerCase().trim();
-    } else if (order.model_number) {
-      primaryIdentifier = order.model_number.toLowerCase().trim();
-    } else if (order.sku_code) {
-      primaryIdentifier = order.sku_code.toLowerCase().trim();
-    } else if (order.asin) {
-      primaryIdentifier = order.asin.toLowerCase().trim();
-    } else if (order.title) {
-      primaryIdentifier = order.title.toLowerCase().trim();
-    }
-    
-    // Include ship_to_location to avoid incorrectly merging same items to different locations
-    const shipToLocation = (order.ship_to_location || '').toLowerCase().trim();
-    const externalId = (order.external_id || '').toLowerCase().trim();
-    const externalIdType = (order.external_id_type || '').toLowerCase().trim();
-    
-    return [
-      order.po_number.toLowerCase().trim(),
-      shipToLocation,
-      primaryIdentifier,
-      externalId,
-      externalIdType
-    ].join('|');
-  };
-
-  // Deduplicate PO lines - latest/best wins (NO quantity summing)
-  const deduplicationMap = new Map();
-  const rawActiveQty = activePOOrders.reduce((sum, order) => sum + (order.quantity || 0), 0);
+  // Step 2: Filter by active status (pending, ordered, shipped only)
+  const ACTIVE_STATUSES = new Set(['pending', 'ordered', 'shipped']);
+  const activeOrdersBeforeDedup = userCountryOrders.filter(order => 
+    ACTIVE_STATUSES.has(order.status as string)
+  );
   
-  activePOOrders.forEach(order => {
-    const businessKey = createBusinessKey(order);
+  console.log(`📊 Active orders (before dedup) - Status in [pending, ordered, shipped]:`, {
+    activeCount: activeOrdersBeforeDedup.length,
+    activeQuantity: activeOrdersBeforeDedup.reduce((sum, o) => sum + (o.quantity || 0), 0),
+    statusBreakdown: activeOrdersBeforeDedup.reduce((acc, o) => {
+      acc[o.status] = (acc[o.status] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>)
+  });
+
+  // Step 3: Deduplication with refined key (exclude title) and latest-wins approach
+  const deduplicationMap = new Map<string, any>();
+  
+  activeOrdersBeforeDedup.forEach(order => {
+    // Build refined business key (exclude title to reduce fragmentation)
+    const primaryIdentifier = (
+      order.sunsky_sku?.sku_code || 
+      order.model_number || 
+      order.sku_code || 
+      order.asin || 
+      ''
+    ).toLowerCase().trim();
     
+    const businessKey = [
+      (order.po_number || '').toLowerCase().trim(),
+      (order.ship_to_location || '').toLowerCase().trim(), 
+      primaryIdentifier,
+      (order.external_id || '').toLowerCase().trim(),
+      (order.external_id_type || '').toLowerCase().trim()
+    ].join('|');
+
     if (!deduplicationMap.has(businessKey)) {
       deduplicationMap.set(businessKey, { ...order });
     } else {
-      const existing = deduplicationMap.get(businessKey);
+      const existing = deduplicationMap.get(businessKey)!;
+      
+      // Latest-wins criteria - choose the "best" record, don't sum quantities
       const shouldReplace = 
-        // Prefer records with tracking info
-        (order.tracking_number && !existing.tracking_number) ||
-        (order.supplier_order_number && !existing.supplier_order_number) ||
-        // Prefer records with sunsky_sku data
-        (order.sunsky_sku && !existing.sunsky_sku) ||
-        // Prefer records with ASIN
-        (order.asin && !existing.asin) ||
-        // Prefer more recent records if all else equal
+        (!!order.tracking_number && !existing.tracking_number) ||
+        (!!order.supplier_order_number && !existing.supplier_order_number) ||
+        (!!order.sunsky_sku && !existing.sunsky_sku) ||
+        (!!order.asin && !existing.asin) ||
         (new Date(order.updated_at) > new Date(existing.updated_at));
       
       if (shouldReplace) {
@@ -281,48 +274,31 @@ export function POTracker() {
           keeping: order.id,
           replacing: existing.id,
           reason: order.tracking_number ? 'has_tracking' : 
-                 order.sunsky_sku ? 'has_sunsky_sku' :
-                 order.asin ? 'has_asin' : 'newer',
+                  order.supplier_order_number ? 'has_supplier_order' :
+                  order.sunsky_sku ? 'has_sunsky_sku' :
+                  order.asin ? 'has_asin' : 'newer_date',
           keptQty: order.quantity,
           discardedQty: existing.quantity
         });
         deduplicationMap.set(businessKey, { ...order });
-      } else {
-        console.log(`🔄 Keeping existing for key ${businessKey}:`, {
-          keeping: existing.id,
-          duplicate: order.id,
-          keptQty: existing.quantity,
-          discardedQty: order.quantity
-        });
-        // Keep existing record as-is (no change needed)
       }
     }
   });
 
+  // Step 4: Final deduplicated active orders
   const uniqueActivePOOrders = Array.from(deduplicationMap.values());
-  const dedupedActiveQty = uniqueActivePOOrders.reduce((sum, order) => sum + (order.quantity || 0), 0);
-
-  console.log(`🔍 Deduplication Results:`, {
-    rawActive: { count: activePOOrders.length, qty: rawActiveQty },
-    dedupedActive: { count: uniqueActivePOOrders.length, qty: dedupedActiveQty },
-    duplicatesRemoved: activePOOrders.length - uniqueActivePOOrders.length,
-    qtyReduction: rawActiveQty - dedupedActiveQty
+  
+  console.log(`📊 FINAL Active orders after deduplication:`, {
+    dedupedCount: uniqueActivePOOrders.length,
+    dedupedQuantity: uniqueActivePOOrders.reduce((sum, o) => sum + (o.quantity || 0), 0),
+    removedDuplicates: activeOrdersBeforeDedup.length - uniqueActivePOOrders.length,
+    compressionRatio: `${((activeOrdersBeforeDedup.length - uniqueActivePOOrders.length) / activeOrdersBeforeDedup.length * 100).toFixed(1)}%`
   });
 
-  // Calculate accurate metrics based on deduplicated data (active POs only)
+  // Calculate accurate metrics based on properly filtered & deduplicated data
   const totalOrderRecords = uniqueActivePOOrders.length;
   const totalItemsQuantity = uniqueActivePOOrders.reduce((sum, order) => sum + (order.quantity || 0), 0);
   const uniquePONumbers = new Set(uniqueActivePOOrders.map(order => order.po_number)).size;
-  
-  // Clear debug logging for quantity verification
-  console.log(`🔢 POTracker Metrics (After Deduplication):`, {
-    totalPOOrders: poOrders.length,
-    activePOOrders: activePOOrders.length,
-    uniqueActivePOOrders: uniqueActivePOOrders.length,
-    totalItemsQuantity,
-    totalOrderRecords,
-    uniquePONumbers
-  });
   
   // Matched items - use database-level matching (items with sunsky_sku populated) from deduplicated active POs only
   const matchedItems = uniqueActivePOOrders.filter(order => order.sunsky_sku !== null).length;
