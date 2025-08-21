@@ -415,26 +415,24 @@ export function POTracker() {
         </Button>
       </div>
 
-      {/* Progress Bars */}
-      {ordersLoading && (
+      {/* Progress Bars - Always visible during any processing */}
+      {(ordersLoading || ordersProgress > 0) && (
         <Card className="animate-fade-in">
           <CardContent className="pt-6">
             <div className="space-y-4">
-              {ordersLoading && (
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium flex items-center gap-2">
-                      <AlertCircle className="h-4 w-4" />
-                      Loading Orders
-                    </span>
-                    <span className="text-sm text-muted-foreground">{ordersProgress}%</span>
-                  </div>
-                  <Progress value={ordersProgress} className="h-2" />
-                  {ordersStatus && (
-                    <p className="text-xs text-muted-foreground">{ordersStatus}</p>
-                  )}
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4" />
+                    {ordersLoading ? 'Processing Orders' : 'PO Processing'}
+                  </span>
+                  <span className="text-sm text-muted-foreground">{ordersProgress}%</span>
                 </div>
-              )}
+                <Progress value={ordersProgress} className="h-2" />
+                {ordersStatus && (
+                  <p className="text-xs text-muted-foreground">{ordersStatus}</p>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>
