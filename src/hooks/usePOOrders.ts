@@ -93,15 +93,28 @@ export const usePOOrders = () => {
         }
       }
 
-      console.log(`✅ Fetched ${allPOOrders.length} total PO orders`);
+      // Remove any potential duplicates based on unique ID
+      const uniquePOOrders = allPOOrders.filter((order, index, arr) => 
+        arr.findIndex(o => o.id === order.id) === index
+      );
+
+      if (uniquePOOrders.length !== allPOOrders.length) {
+        console.warn(`🚨 Found ${allPOOrders.length - uniquePOOrders.length} duplicate records, removed them`);
+      }
+
+      console.log(`✅ Fetched ${uniquePOOrders.length} unique PO orders`);
+      
+      // Debug quantity calculation
+      const totalQuantityDebug = uniquePOOrders.reduce((sum, order) => sum + (order.quantity || 0), 0);
+      console.log(`🔢 Total quantity from raw data: ${totalQuantityDebug}`);
 
       setLoadingProgress(60);
       setLoadingStatus('Fetching Sunsky SKU data...');
 
       // Now fetch Sunsky SKU data for matching
       const sunskySKUs = new Map();
-      if (allPOOrders.length > 0) {
-        const allSkuCodes = [...new Set(allPOOrders.map(order => order.sku_code || order.model_number).filter(Boolean))];
+      if (uniquePOOrders.length > 0) {
+        const allSkuCodes = [...new Set(uniquePOOrders.map(order => order.sku_code || order.model_number).filter(Boolean))];
         
         // Fetch SKUs in batches to avoid URL length limits
         const skuBatchSize = 100;
@@ -128,7 +141,7 @@ export const usePOOrders = () => {
       setLoadingStatus('Processing order data...');
 
       // Map orders with their corresponding SKU data
-      const allOrders = allPOOrders.map(order => ({
+      const allOrders = uniquePOOrders.map(order => ({
         ...order,
         status: order.status as POOrder['status'],
         sunsky_sku: sunskySKUs.get(order.sku_code) || sunskySKUs.get(order.model_number) || null
