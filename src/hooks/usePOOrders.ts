@@ -39,7 +39,7 @@ export const usePOOrders = () => {
   const [loadingStatus, setLoadingStatus] = useState('');
   const { toast } = useToast();
 
-  // Fetch PO orders with batch processing to handle large datasets
+  // Fetch PO orders with simplified direct approach to get accurate totals
   const fetchPOOrders = useCallback(async () => {
     setIsLoading(true);
     setLoadingProgress(0);
@@ -58,90 +58,64 @@ export const usePOOrders = () => {
 
       const userCountry = profile?.country || 'UAE';
       
-      setLoadingProgress(10);
-      setLoadingStatus('Fetching orders with batch processing...');
+      setLoadingProgress(20);
+      setLoadingStatus('Fetching all PO orders...');
 
-      // Batch processing to handle large datasets
-      let allOrders: any[] = [];
-      const batchSize = 1000;
-      let page = 0;
-      let hasMore = true;
-      let totalFetched = 0;
+      // Direct simple query - get ALL orders for the user and country
+      const { data: allOrders, error } = await supabase
+        .from('po_orders')
+        .select(`
+          id,
+          user_id,
+          po_number,
+          ship_to_location,
+          asin,
+          model_number,
+          title,
+          quantity,
+          external_id,
+          external_id_type,
+          sku_code,
+          status,
+          order_date,
+          expected_delivery,
+          notes,
+          file_name,
+          currency,
+          country,
+          unit_cost,
+          total_cost,
+          sku_user_id,
+          supplier_order_number,
+          tracking_number,
+          tracking_url,
+          created_at,
+          updated_at
+        `)
+        .eq('user_id', user.id)
+        .eq('country', userCountry)
+        .order('created_at', { ascending: false });
 
-      while (hasMore) {
-        setLoadingProgress(10 + (page * 10)); // Increment progress with each batch
-        setLoadingStatus(`Fetching batch ${page + 1}... (${totalFetched} orders so far)`);
+      if (error) throw error;
 
-        // Fetch batch of po_orders
-        const { data: batch, error } = await supabase
-          .from('po_orders')
-          .select(`
-            id,
-            user_id,
-            po_number,
-            ship_to_location,
-            asin,
-            model_number,
-            title,
-            quantity,
-            external_id,
-            external_id_type,
-            sku_code,
-            status,
-            order_date,
-            expected_delivery,
-            notes,
-            file_name,
-            currency,
-            country,
-            unit_cost,
-            total_cost,
-            sku_user_id,
-            supplier_order_number,
-            tracking_number,
-            tracking_url,
-            created_at,
-            updated_at
-          `)
-          .eq('user_id', user.id)
-          .eq('country', userCountry)
-          .range(page * batchSize, (page + 1) * batchSize - 1)
-          .order('created_at', { ascending: false });
+      setLoadingProgress(50);
+      setLoadingStatus(`Processing ${allOrders?.length || 0} raw orders...`);
 
-        if (error) throw error;
-
-        if (batch && batch.length > 0) {
-          // Add each order with proper typing
-          const processedBatch = batch.map(order => ({
-            ...order,
-            status: order.status as POOrder['status'],
-            sunsky_sku: null // Will be populated later
-          }));
-          
-          allOrders = [...allOrders, ...processedBatch];
-          totalFetched += batch.length;
-          
-          console.log(`Fetched batch ${page + 1}: ${batch.length} orders (total: ${totalFetched})`);
-          
-          if (batch.length < batchSize) {
-            hasMore = false;
-          } else {
-            page++;
-          }
-        } else {
-          hasMore = false;
-        }
-      }
+      const processedOrders = (allOrders || []).map(order => ({
+        ...order,
+        status: order.status as POOrder['status'],
+        sunsky_sku: null // Will be populated later
+      }));
 
       setLoadingProgress(70);
-      setLoadingStatus('Fetching Sunsky SKU data and processing...');
+      setLoadingStatus('Fetching Sunsky SKU matches...');
 
       // Fetch sunsky_skus to match with po_orders
-      const modelNumbers = [...new Set(allOrders.map(order => order.model_number).filter(Boolean))];
+      const modelNumbers = [...new Set(processedOrders.map(order => order.model_number).filter(Boolean))];
       const sunskySKUMap = new Map();
 
       if (modelNumbers.length > 0) {
-        // Batch fetch sunsky_skus
+        // Batch fetch sunsky_skus in smaller chunks
         const batchSize = 100;
         for (let i = 0; i < modelNumbers.length; i += batchSize) {
           const batch = modelNumbers.slice(i, i + batchSize);
@@ -159,51 +133,31 @@ export const usePOOrders = () => {
         }
       }
 
+      setLoadingProgress(90);
+      setLoadingStatus('Adding Sunsky SKU matches...');
+
       // Add sunsky_sku data to orders
-      allOrders.forEach(order => {
+      processedOrders.forEach(order => {
         if (order.model_number && sunskySKUMap.has(order.model_number)) {
           order.sunsky_sku = order.model_number;
         }
       });
 
-      setLoadingProgress(80);
-      setLoadingStatus('Removing duplicates and processing data...');
-
-      // Deduplicate based on unique combination of key fields (latest wins approach)
-      const seenKeys = new Map();
-      const deduplicatedOrders: any[] = [];
-
-      // Process in reverse order to keep latest entries
-      allOrders.reverse().forEach(order => {
-        // Create unique key excluding title (as per user feedback)
-        const uniqueKey = `${order.po_number}_${order.asin}_${order.model_number}_${order.quantity}_${order.ship_to_location}`;
-        
-        if (!seenKeys.has(uniqueKey)) {
-          seenKeys.set(uniqueKey, true);
-          deduplicatedOrders.push(order);
-        }
-      });
-
-      // Reverse back to maintain chronological order (newest first)
-      const finalOrders = deduplicatedOrders.reverse();
-
-      setLoadingProgress(90);
-      setLoadingStatus('Calculating metrics...');
-
-      // Log final metrics
-      const totalQuantity = finalOrders.reduce((sum, order) => sum + (order.quantity || 0), 0);
-      const uniquePOs = new Set(finalOrders.map(o => o.po_number)).size;
+      // Final metrics calculation - NO DEDUPLICATION to preserve exact totals
+      const totalQuantity = processedOrders.reduce((sum, order) => sum + (order.quantity || 0), 0);
+      const uniquePOs = new Set(processedOrders.map(o => o.po_number)).size;
       
-      console.log(`🔍 Final Results:`);
-      console.log(`📦 Total Orders: ${finalOrders.length}`);
+      console.log(`🎯 FINAL PO ORDERS RESULTS:`);
+      console.log(`📦 Total Orders: ${processedOrders.length}`);
       console.log(`📋 Total Quantity: ${totalQuantity}`);
       console.log(`📄 Unique PO Numbers: ${uniquePOs}`);
       console.log(`🌍 Country Filter: ${userCountry}`);
+      console.log(`🔗 Sunsky Matched: ${processedOrders.filter(o => o.sunsky_sku).length}`);
 
-      setPOOrders(finalOrders);
+      setPOOrders(processedOrders);
 
       setLoadingProgress(100);
-      setLoadingStatus(`Loaded ${finalOrders.length} orders (${totalQuantity} total qty)`);
+      setLoadingStatus(`Loaded ${processedOrders.length} orders (${totalQuantity} total qty)`);
 
     } catch (error) {
       console.error('Error fetching PO orders:', error);
