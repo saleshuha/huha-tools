@@ -221,9 +221,14 @@ export function POTracker() {
   const totalItemsQuantity = activePOOrders.reduce((sum, order) => sum + (order.quantity || 0), 0);
   const uniquePONumbers = new Set(activePOOrders.map(order => order.po_number)).size;
   
-  // Debug quantity calculation in POTracker
-  console.log(`🔢 POTracker - Total quantity calculated: ${totalItemsQuantity} from ${totalOrderRecords} active records`);
-  console.log(`🔢 POTracker - All PO orders length: ${poOrders.length}, Active PO orders length: ${activePOOrders.length}`);
+  // Clear debug logging for quantity verification
+  console.log(`🔢 POTracker Metrics:`, {
+    totalPOOrders: poOrders.length,
+    activePOOrders: activePOOrders.length,
+    totalItemsQuantity,
+    totalOrderRecords,
+    uniquePONumbers
+  });
   
   // Matched items - use database-level matching (items with sunsky_sku populated) from active POs only
   const matchedItems = activePOOrders.filter(order => order.sunsky_sku !== null).length;
@@ -617,9 +622,6 @@ export function POTracker() {
                          const totalQuantity = orders.reduce((sum: number, order: any) => sum + (order.quantity || 0), 0);
                          const matchedCount = orders.filter((order: any) => order.sunsky_sku !== null).length;
                          const matchedPercentage = ((matchedCount / orders.length) * 100).toFixed(0);
-                         
-                         // Debug the quantity calculation for this specific PO
-                         console.log(`🔢 PO ${poNumber}: ${orders.length} orders, quantities:`, orders.map(o => ({ id: o.id, qty: o.quantity })), `Total: ${totalQuantity}`);
                         
                         const statusCounts = orders.reduce((counts: any, order: any) => {
                           counts[order.status] = (counts[order.status] || 0) + 1;

@@ -50,105 +50,77 @@ export const usePOOrders = () => {
       if (!user) throw new Error('User not authenticated');
 
       setLoadingProgress(10);
-      setLoadingStatus('Fetching PO orders in chunks...');
+      setLoadingStatus('Fetching all PO orders...');
 
-      // Fetch all PO orders in batches to bypass any limits
-      let allPOOrders = [];
-      let page = 0;
-      const pageSize = 1000;
-      let hasMore = true;
+      // Simple approach: fetch all records in one go with a high limit
+      // Most Supabase projects can handle 10,000+ records easily
+      const { data: allPOOrders, error } = await supabase
+        .from('po_orders')
+        .select(`
+          id, user_id, po_number, sku_code, quantity, status, order_date, 
+          expected_delivery, notes, file_name, country, currency, unit_cost, 
+          total_cost, sku_user_id, supplier_order_number, tracking_number, 
+          tracking_url, created_at, updated_at, ship_to_location, asin, 
+          model_number, title, external_id, external_id_type
+        `)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(10000); // High limit to get all records
 
-      console.log('🔄 Starting paginated fetch of all PO orders...');
+      if (error) throw error;
 
-      while (hasMore) {
-        setLoadingProgress(10 + (page * 30)); // Progress indication
-        setLoadingStatus(`Fetching batch ${page + 1}...`);
-
-        const { data: batch, error } = await supabase
-          .from('po_orders')
-          .select(`
-            id, user_id, po_number, sku_code, quantity, status, order_date, 
-            expected_delivery, notes, file_name, country, currency, unit_cost, 
-            total_cost, sku_user_id, supplier_order_number, tracking_number, 
-            tracking_url, created_at, updated_at, ship_to_location, asin, 
-            model_number, title, external_id, external_id_type
-          `)
-          .eq('user_id', user.id)
-          .range(page * pageSize, (page + 1) * pageSize - 1)
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-
-        if (batch && batch.length > 0) {
-          allPOOrders = [...allPOOrders, ...batch];
-          console.log(`📦 Batch ${page + 1}: ${batch.length} records (total: ${allPOOrders.length})`);
-          
-          if (batch.length < pageSize) {
-            hasMore = false;
-          } else {
-            page++;
-          }
+      console.log(`✅ Fetched ${allPOOrders?.length || 0} PO orders directly from database`);
+      
+      // Verify no duplicates by checking unique IDs
+      const uniqueIds = new Set();
+      const uniquePOOrders = [];
+      let duplicateCount = 0;
+      
+      for (const order of allPOOrders || []) {
+        if (uniqueIds.has(order.id)) {
+          duplicateCount++;
+          console.warn(`🚨 Duplicate ID found: ${order.id}`);
         } else {
-          hasMore = false;
+          uniqueIds.add(order.id);
+          uniquePOOrders.push(order);
         }
       }
-
-      // Remove any potential duplicates based on unique ID
-      const uniquePOOrders = allPOOrders.filter((order, index, arr) => 
-        arr.findIndex(o => o.id === order.id) === index
-      );
-
-      if (uniquePOOrders.length !== allPOOrders.length) {
-        console.warn(`🚨 Found ${allPOOrders.length - uniquePOOrders.length} duplicate records, removed them`);
+      
+      if (duplicateCount > 0) {
+        console.warn(`🚨 Removed ${duplicateCount} duplicate records`);
       }
 
-      console.log(`✅ Fetched ${uniquePOOrders.length} unique PO orders`);
-      
-      // Detailed debugging for quantity issues
+      // Debug quantity calculation
       const totalQuantityDebug = uniquePOOrders.reduce((sum, order) => sum + (order.quantity || 0), 0);
-      console.log(`🔢 Total quantity from raw data: ${totalQuantityDebug}`);
-      
-      // Check for any potential duplicate issues in the data itself
-      const quantityBreakdown = uniquePOOrders.reduce((acc, order) => {
-        acc.totalRecords++;
-        acc.totalQuantity += (order.quantity || 0);
-        acc.recordIds.push(order.id);
-        return acc;
-      }, { totalRecords: 0, totalQuantity: 0, recordIds: [] as string[] });
-      
-      console.log(`📊 Quantity breakdown:`, quantityBreakdown);
-      
-      // Check for duplicate IDs just to be extra sure
-      const uniqueIds = new Set(quantityBreakdown.recordIds);
-      if (uniqueIds.size !== quantityBreakdown.recordIds.length) {
-        console.error(`🚨 FOUND DUPLICATE IDs! Unique: ${uniqueIds.size}, Total: ${quantityBreakdown.recordIds.length}`);
-      }
+      console.log(`🔢 Total quantity from clean data: ${totalQuantityDebug} from ${uniquePOOrders.length} unique records`);
 
       setLoadingProgress(60);
       setLoadingStatus('Fetching Sunsky SKU data...');
 
-      // Now fetch Sunsky SKU data for matching
+      // Fetch Sunsky SKU data for matching
       const sunskySKUs = new Map();
       if (uniquePOOrders.length > 0) {
         const allSkuCodes = [...new Set(uniquePOOrders.map(order => order.sku_code || order.model_number).filter(Boolean))];
         
-        // Fetch SKUs in batches to avoid URL length limits
-        const skuBatchSize = 100;
-        for (let i = 0; i < allSkuCodes.length; i += skuBatchSize) {
-          const skuBatch = allSkuCodes.slice(i, i + skuBatchSize);
-          
-          const { data: skuData, error: skuError } = await supabase
-            .from('sunsky_skus')
-            .select('*')
-            .eq('user_id', user.id)
-            .in('sku_code', skuBatch);
+        if (allSkuCodes.length > 0) {
+          // Fetch SKUs in batches to avoid URL length limits
+          const skuBatchSize = 100;
+          for (let i = 0; i < allSkuCodes.length; i += skuBatchSize) {
+            const skuBatch = allSkuCodes.slice(i, i + skuBatchSize);
+            
+            const { data: skuData, error: skuError } = await supabase
+              .from('sunsky_skus')
+              .select('*')
+              .eq('user_id', user.id)
+              .in('sku_code', skuBatch);
 
-          if (skuError) {
-            console.warn('Error fetching SKU batch:', skuError);
-          } else if (skuData) {
-            skuData.forEach(sku => {
-              sunskySKUs.set(sku.sku_code, sku);
-            });
+            if (skuError) {
+              console.warn('Error fetching SKU batch:', skuError);
+            } else if (skuData) {
+              skuData.forEach(sku => {
+                sunskySKUs.set(sku.sku_code, sku);
+              });
+            }
           }
         }
       }
@@ -163,12 +135,14 @@ export const usePOOrders = () => {
         sunsky_sku: sunskySKUs.get(order.sku_code) || sunskySKUs.get(order.model_number) || null
       }));
 
+      // Final verification
+      const finalQuantity = allOrders.reduce((sum, order) => sum + (order.quantity || 0), 0);
+      console.log(`🎯 FINAL VERIFICATION: ${allOrders.length} orders, ${finalQuantity} total quantity`);
+
       setPOOrders(allOrders);
 
       setLoadingProgress(100);
       setLoadingStatus(`Loaded ${allOrders.length} PO orders`);
-
-      console.log(`🎉 Successfully loaded ${allOrders.length} PO orders with SKU data`);
 
     } catch (error) {
       console.error('❌ Error fetching PO orders:', error);
