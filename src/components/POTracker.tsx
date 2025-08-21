@@ -335,8 +335,8 @@ export function POTracker() {
   const totalItemsWithInventory = getMatchedItemsWithInventory();
   const totalInStockQuantity = getTotalInStockQuantity();
 
-  // Group PO orders by PO number for table display
-  const groupedPOOrders = activeOrders.reduce((groups: any, order) => {
+  // Group PO orders by PO number for table display (use all orders, not just active)
+  const groupedPOOrders = poOrders.reduce((groups: any, order) => {
     const poNumber = order.po_number;
     if (!groups[poNumber]) {
       groups[poNumber] = [];
@@ -345,10 +345,17 @@ export function POTracker() {
     return groups;
   }, {});
 
-  // Convert grouped orders to array and filter
+  // Filter to show only POs that have at least one active order
+  const activePONumbers = new Set(activeOrders.map(order => order.po_number));
+
+  // Convert grouped orders to array and filter to show only POs with active orders
   const filteredPOGroups = Object.entries(groupedPOOrders)
     .map(([poNumber, orders]: [string, any]) => ({ poNumber, orders }))
     .filter(group => {
+      // Only show POs that have at least one active order
+      const hasActiveOrder = activePONumbers.has(group.poNumber);
+      if (!hasActiveOrder) return false;
+
       const matchesSearch = searchTerm === '' || 
         group.poNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
         group.orders.some((order: any) => 
