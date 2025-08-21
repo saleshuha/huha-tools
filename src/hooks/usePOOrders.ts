@@ -96,146 +96,199 @@ export const usePOOrders = () => {
     }
   }, [toast]);
 
-  // Process PO files with mapped data - Process each order individually
-  const processPOFiles = useCallback(async (mappedData: any[], sunskySKUs: any[]) => {
+  // Process PO files with mapped data - Enhanced with job tracking
+  const processPOFiles = useCallback(async (mappedData: any[], sunskySKUs: any[] = [], jobId?: string) => {
+    console.log('Processing PO Files - Starting with', mappedData.length, 'items');
+    
+    if (mappedData.length === 0) {
+      toast({
+        title: "Error",
+        description: "No data to process",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
     setLoadingProgress(0);
-    setLoadingStatus('Processing PO files...');
+    setLoadingStatus("Initializing...");
+
+    let insertedCount = 0;
+    let skippedDuplicates = 0;
+    let errorCount = 0;
+    const errors: string[] = [];
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      setLoadingProgress(20);
-      setLoadingStatus('Validating order data...');
+      // Update job status to processing if jobId provided
+      if (jobId) {
+        await supabase
+          .from('po_upload_jobs')
+          .update({
+            status: 'processing',
+            started_at: new Date().toISOString(),
+            progress_percentage: 0
+          })
+          .eq('id', jobId);
+      }
 
-      // Process each order individually to ensure proper handling
-      const processedResults = {
-        inserted: 0,
-        duplicates: 0,
-        invalid: 0,
-        errors: [] as string[]
-      };
+      const totalItems = mappedData.length;
+      const batchSize = 10; // Process in smaller batches for better progress tracking
 
-      for (let i = 0; i < mappedData.length; i++) {
-        const item = mappedData[i];
-        setLoadingProgress(20 + (i / mappedData.length) * 60);
-        setLoadingStatus(`Processing order ${i + 1} of ${mappedData.length}...`);
-
-        // Validate required fields
-        if (!item.po_number?.trim()) {
-          processedResults.invalid++;
-          processedResults.errors.push(`Row ${i + 1}: Missing PO number`);
-          continue;
-        }
+      for (let i = 0; i < totalItems; i += batchSize) {
+        const batch = mappedData.slice(i, i + batchSize);
+        setLoadingStatus(`Processing items ${i + 1} to ${Math.min(i + batchSize, totalItems)} of ${totalItems}...`);
         
-        if (!item.quantity || isNaN(Number(item.quantity)) || Number(item.quantity) <= 0) {
-          processedResults.invalid++;
-          processedResults.errors.push(`Row ${i + 1}: Invalid quantity for PO ${item.po_number}`);
-          continue;
+        const batchResults = await Promise.allSettled(
+          batch.map(async (item, batchIndex) => {
+            try {
+              // Check for duplicates
+              const { data: existing, error: checkError } = await supabase
+                .from('po_orders')
+                .select('id')
+                .eq('user_id', user.id)
+                .eq('po_number', item.po_number)
+                .eq('sku_code', item.model_number)
+                .eq('quantity', item.quantity);
+
+              if (checkError) throw checkError;
+
+              if (existing && existing.length > 0) {
+                skippedDuplicates++;
+                return { status: 'skipped', message: `Duplicate: ${item.model_number}` };
+              }
+
+              // Insert new PO order
+              const { error: insertError } = await supabase
+                .from('po_orders')
+                .insert({
+                  user_id: user.id,
+                  po_number: item.po_number,
+                  sku_code: item.model_number,
+                  quantity: item.quantity,
+                  ship_to_location: item.ship_to_location,
+                  asin: item.asin,
+                  model_number: item.model_number,
+                  title: item.title,
+                  external_id: item.external_id,
+                  external_id_type: item.external_id_type,
+                  file_name: item.file_name,
+                  status: 'pending',
+                  job_id: jobId || null,
+                  sku_user_id: user.id
+                });
+
+              if (insertError) throw insertError;
+
+              insertedCount++;
+              return { status: 'success', message: `Inserted: ${item.model_number}` };
+            } catch (error) {
+              errorCount++;
+              const errorMsg = `Row ${i + batchIndex + 1}: ${error instanceof Error ? error.message : 'Unknown error'}`;
+              errors.push(errorMsg);
+              
+              // Log error to job errors table if jobId provided
+              if (jobId) {
+                try {
+                  await supabase
+                    .from('po_upload_job_errors')
+                    .insert({
+                      job_id: jobId,
+                      row_number: i + batchIndex + 1,
+                      error_type: 'processing_error',
+                      error_message: errorMsg,
+                      row_data: item
+                    });
+                } catch (logError) {
+                  console.error('Failed to log error:', logError);
+                }
+              }
+              
+              return { status: 'error', message: errorMsg };
+            }
+          })
+        );
+
+        // Update progress
+        const processedSoFar = Math.min(i + batchSize, totalItems);
+        const progressPercent = Math.round((processedSoFar / totalItems) * 100);
+        setLoadingProgress(progressPercent);
+
+        // Update job progress if jobId provided
+        if (jobId) {
+          await supabase
+            .from('po_upload_jobs')
+            .update({
+              processed_rows: processedSoFar,
+              success_rows: insertedCount,
+              error_rows: errorCount,
+              progress_percentage: progressPercent
+            })
+            .eq('id', jobId);
         }
 
-        if (!item.model_number?.trim() && !item.asin?.trim()) {
-          processedResults.invalid++;
-          processedResults.errors.push(`Row ${i + 1}: Missing both model_number and asin for PO ${item.po_number}`);
-          continue;
+        // Small delay to prevent overwhelming the database
+        if (i + batchSize < totalItems) {
+          await new Promise(resolve => setTimeout(resolve, 100));
         }
-
-        // Check for duplicates
-        const { data: existing, error: checkError } = await supabase
-          .from('po_orders')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('po_number', item.po_number)
-          .eq('sku_code', item.model_number || item.asin)
-          .eq('quantity', Number(item.quantity))
-          .maybeSingle();
-
-        if (checkError) {
-          processedResults.errors.push(`Row ${i + 1}: Database error checking duplicates`);
-          continue;
-        }
-
-        if (existing) {
-          processedResults.duplicates++;
-          continue;
-        }
-
-        // Insert individual order
-        const orderData = {
-          po_number: item.po_number.trim(),
-          ship_to_location: item.ship_to_location?.trim() || 'Not specified',
-          asin: item.asin?.trim() || null,
-          model_number: item.model_number?.trim() || null,
-          title: item.title?.trim() || 'Title not provided',
-          quantity: Number(item.quantity),
-          sku_code: (item.model_number?.trim() || item.asin?.trim()),
-          external_id: item.external_id?.trim() || null,
-          external_id_type: item.external_id_type?.trim() || null,
-          status: 'pending',
-          file_name: item.file_name,
-          unit_cost: item.unit_cost ? Number(item.unit_cost) : null,
-          sku_user_id: user.id,
-          user_id: user.id
-        };
-
-        const { error: insertError } = await supabase
-          .from('po_orders')
-          .insert([orderData]);
-
-        if (insertError) {
-          processedResults.errors.push(`Row ${i + 1}: ${insertError.message}`);
-          continue;
-        }
-
-        processedResults.inserted++;
       }
 
-      setLoadingProgress(90);
-      setLoadingStatus('Refreshing order list...');
+      // Final status update
+      setLoadingStatus("Finalizing...");
       
-      await fetchPOOrders();
+      // Update job completion status
+      if (jobId) {
+        await supabase
+          .from('po_upload_jobs')
+          .update({
+            status: errorCount === totalItems ? 'failed' : 'completed',
+            completed_at: new Date().toISOString(),
+            progress_percentage: 100,
+            error_message: errorCount > 0 ? `${errorCount} items failed processing` : null
+          })
+          .eq('id', jobId);
+      }
 
-      // Show results
-      const totalProcessed = mappedData.length;
-      let message = `Processed ${totalProcessed} rows: `;
-      let details = [];
-      
-      if (processedResults.inserted > 0) {
-        details.push(`${processedResults.inserted} inserted`);
-      }
-      if (processedResults.duplicates > 0) {
-        details.push(`${processedResults.duplicates} duplicates skipped`);
-      }
-      if (processedResults.invalid > 0) {
-        details.push(`${processedResults.invalid} invalid rows`);
-      }
-      
-      message += details.join(', ');
+      // Refresh data
+      await fetchPOOrders(true);
 
-      if (processedResults.errors.length > 0) {
-        console.log('Processing errors:', processedResults.errors.slice(0, 10));
-      }
+      // Show success message
+      const successMessage = errorCount > 0
+        ? `Processing completed with issues: ${insertedCount} inserted, ${skippedDuplicates} duplicates skipped, ${errorCount} errors`
+        : `Successfully processed ${insertedCount} PO orders${skippedDuplicates > 0 ? ` (${skippedDuplicates} duplicates skipped)` : ''}`;
 
       toast({
-        title: processedResults.inserted > 0 ? "PO Upload Complete" : "Upload Issues",
-        description: message,
-        variant: processedResults.inserted > 0 ? "default" : "destructive"
+        title: errorCount > 0 ? "Processing Completed with Issues" : "Success",
+        description: successMessage,
+        variant: errorCount > 0 ? "default" : "default",
       });
 
     } catch (error) {
-      console.error('Error processing PO files:', error);
+      console.error('Fatal error during PO processing:', error);
+      
+      // Update job to failed status
+      if (jobId) {
+        await supabase
+          .from('po_upload_jobs')
+          .update({
+            status: 'failed',
+            completed_at: new Date().toISOString(),
+            error_message: error instanceof Error ? error.message : 'Fatal processing error'
+          })
+          .eq('id', jobId);
+      }
+
       toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to process PO files",
-        variant: "destructive"
+        title: "Processing Failed",
+        description: error instanceof Error ? error.message : "Unknown error occurred during processing",
+        variant: "destructive",
       });
     } finally {
-      setTimeout(() => {
-        setIsLoading(false);
-        setLoadingProgress(0);
-        setLoadingStatus('');
-      }, 1000);
+      setIsLoading(false);
+      setLoadingProgress(0);
+      setLoadingStatus("");
     }
   }, [fetchPOOrders, toast]);
 

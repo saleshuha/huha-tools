@@ -18,6 +18,7 @@ import {
 import { POColumnMapping } from "@/components/po/POColumnMapping";
 import { usePOUploadJobs, type POUploadJob } from "@/hooks/usePOUploadJobs";
 import { usePOOrders } from "@/hooks/usePOOrders";
+import { supabase } from "@/integrations/supabase/client";
 import Papa from "papaparse";
 
 interface ParsedFile {
@@ -116,11 +117,26 @@ export const POUploadWizard = ({ onUploadComplete }: POUploadWizardProps) => {
       }
     });
 
-    // Process the files
+    // Process the files with background processing
     try {
-      await processPOFiles(mapped, []);
+      // Start background processing
+      const { error: functionError } = await supabase.functions.invoke('process-po-upload', {
+        body: {
+          jobId: job.id,
+          mappedData: mapped
+        }
+      });
+
+      if (functionError) {
+        console.error('Function invocation error:', functionError);
+        throw functionError;
+      }
+
+      console.log('Background processing started successfully');
     } catch (error) {
       console.error('Processing error:', error);
+      // Fallback to client-side processing if edge function fails
+      await processPOFiles(mapped, [], job.id);
     }
   }, [parsedFile, createJob, subscribeToJob, processPOFiles, onUploadComplete]);
 
