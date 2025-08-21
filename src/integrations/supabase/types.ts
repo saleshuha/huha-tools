@@ -1059,6 +1059,7 @@ export type Database = {
           external_id_type: string | null
           file_name: string
           id: string
+          job_id: string | null
           model_number: string | null
           notes: string | null
           order_date: string | null
@@ -1087,6 +1088,7 @@ export type Database = {
           external_id_type?: string | null
           file_name: string
           id?: string
+          job_id?: string | null
           model_number?: string | null
           notes?: string | null
           order_date?: string | null
@@ -1115,6 +1117,7 @@ export type Database = {
           external_id_type?: string | null
           file_name?: string
           id?: string
+          job_id?: string | null
           model_number?: string | null
           notes?: string | null
           order_date?: string | null
@@ -1130,6 +1133,109 @@ export type Database = {
           tracking_number?: string | null
           tracking_url?: string | null
           unit_cost?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "po_orders_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "po_upload_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      po_upload_job_errors: {
+        Row: {
+          created_at: string
+          error_message: string
+          error_type: string
+          id: string
+          job_id: string
+          row_data: Json | null
+          row_number: number
+        }
+        Insert: {
+          created_at?: string
+          error_message: string
+          error_type: string
+          id?: string
+          job_id: string
+          row_data?: Json | null
+          row_number: number
+        }
+        Update: {
+          created_at?: string
+          error_message?: string
+          error_type?: string
+          id?: string
+          job_id?: string
+          row_data?: Json | null
+          row_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "po_upload_job_errors_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "po_upload_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      po_upload_jobs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          error_rows: number | null
+          file_name: string
+          file_size: number | null
+          id: string
+          processed_rows: number | null
+          processing_details: Json | null
+          progress_percentage: number | null
+          started_at: string | null
+          status: string
+          success_rows: number | null
+          total_rows: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          error_rows?: number | null
+          file_name: string
+          file_size?: number | null
+          id?: string
+          processed_rows?: number | null
+          processing_details?: Json | null
+          progress_percentage?: number | null
+          started_at?: string | null
+          status?: string
+          success_rows?: number | null
+          total_rows?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          error_rows?: number | null
+          file_name?: string
+          file_size?: number | null
+          id?: string
+          processed_rows?: number | null
+          processing_details?: Json | null
+          progress_percentage?: number | null
+          started_at?: string | null
+          status?: string
+          success_rows?: number | null
+          total_rows?: number | null
           updated_at?: string
           user_id?: string
         }
@@ -2158,6 +2264,7 @@ export type Database = {
           external_id_type: string | null
           file_name: string
           id: string
+          job_id: string | null
           model_number: string | null
           notes: string | null
           order_date: string | null
@@ -2280,6 +2387,21 @@ export type Database = {
           sku: string
           store_name: string
           total_fees: number
+        }[]
+      }
+      get_po_dashboard_summary: {
+        Args: { user_id_param: string }
+        Returns: {
+          ordered_orders: number
+          pending_orders: number
+          recent_uploads: Json
+          shipped_orders: number
+          status_breakdown: Json
+          top_suppliers: Json
+          total_active_orders: number
+          total_active_quantity: number
+          total_active_value: number
+          unique_po_numbers: number
         }[]
       }
       get_po_reconciliation_summary: {
