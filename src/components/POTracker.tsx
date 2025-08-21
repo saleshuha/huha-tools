@@ -213,47 +213,68 @@ export function POTracker() {
     forceRefreshData();
   };
 
-  // Filter out closed POs for active metrics
-  const activePOOrders = poOrders.filter(order => order.status !== 'closed');
-
-  // Deduplicate orders for accurate quantity calculations while preserving original data
-  const deduplicatedActivePOOrders = activePOOrders.reduce((acc, order) => {
-    const uniqueKey = `${order.po_number}_${order.asin}_${order.model_number}_${order.quantity}_${order.ship_to_location}`;
+  // ============================================================================
+  // CLEAN PO METRICS CALCULATION - FIXED APPROACH
+  // ============================================================================
+  
+  console.log(`🎯 RAW DATA FROM DATABASE:`);
+  console.log(`📦 Total raw orders: ${poOrders.length}`);
+  console.log(`📋 Total raw quantity: ${poOrders.reduce((sum, order) => sum + (order.quantity || 0), 0)}`);
+  
+  // Step 1: Define "Active" statuses precisely
+  const ACTIVE_STATUSES = ['pending', 'ordered', 'shipped'];
+  const activePOOrders = poOrders.filter(order => ACTIVE_STATUSES.includes(order.status));
+  
+  console.log(`🔍 ACTIVE FILTERING:`);
+  console.log(`✅ Active orders (${ACTIVE_STATUSES.join(', ')}): ${activePOOrders.length}`);
+  console.log(`❌ Non-active orders: ${poOrders.length - activePOOrders.length}`);
+  
+  // Step 2: Clean deduplication - canonical key WITHOUT quantity (since quantity can change)
+  const dedupMap = new Map<string, typeof activePOOrders[0]>();
+  
+  activePOOrders.forEach(order => {
+    // Canonical key that uniquely identifies a PO line item (excluding mutable fields like quantity)
+    const canonicalKey = `${order.po_number}|${order.asin || 'NO_ASIN'}|${order.model_number || 'NO_MODEL'}|${order.ship_to_location || 'NO_LOCATION'}`;
     
-    // Keep the most recent order for each unique key
-    if (!acc.has(uniqueKey) || new Date(order.created_at) > new Date(acc.get(uniqueKey).created_at)) {
-      acc.set(uniqueKey, order);
+    // Latest-wins approach: keep the most recently created/updated record
+    const existing = dedupMap.get(canonicalKey);
+    if (!existing || new Date(order.updated_at || order.created_at) > new Date(existing.updated_at || existing.created_at)) {
+      dedupMap.set(canonicalKey, order);
     }
-    
-    return acc;
-  }, new Map());
-
-  const uniqueActivePOOrders = Array.from(deduplicatedActivePOOrders.values());
-
-  // Calculate accurate metrics based on deduplicated active POs
-  const totalOrderRecords = uniqueActivePOOrders.length;
-  const totalItemsQuantity = uniqueActivePOOrders.reduce((sum, order) => sum + (order.quantity || 0), 0);
-  const uniquePONumbers = new Set(uniqueActivePOOrders.map(order => order.po_number)).size;
+  });
   
-  // Matched items - use database-level matching (items with sunsky_sku populated) from deduplicated active POs only
-  const matchedItems = uniqueActivePOOrders.filter(order => order.sunsky_sku !== null).length;
-  const matchedItemsQuantity = uniqueActivePOOrders
-    .filter(order => order.sunsky_sku !== null)
-    .reduce((sum, order) => sum + (order.quantity || 0), 0);
+  const dedupedActiveOrders = Array.from(dedupMap.values());
   
-  // Pending matched orders - matched items that are still pending (from deduplicated active POs only)
-  const pendingMatchedItems = uniqueActivePOOrders.filter(order => 
-    order.sunsky_sku !== null && order.status === 'pending'
-  ).length;
-
-  // Already placed orders - items that are not pending (from deduplicated active POs only)
-  const placedOrders = uniqueActivePOOrders.filter(order => 
-    order.status !== 'pending' && order.status !== 'closed'
-  ).length;
+  console.log(`🧹 DEDUPLICATION RESULTS:`);
+  console.log(`📦 Before dedup: ${activePOOrders.length} active orders`);
+  console.log(`✨ After dedup: ${dedupedActiveOrders.length} unique active orders`);
+  console.log(`🗑️ Duplicates removed: ${activePOOrders.length - dedupedActiveOrders.length}`);
+  
+  // Step 3: Calculate all metrics from deduplicated data
+  const totalOrderRecords = dedupedActiveOrders.length;
+  const totalItemsQuantity = dedupedActiveOrders.reduce((sum, order) => sum + (order.quantity || 0), 0);
+  const uniquePONumbers = new Set(dedupedActiveOrders.map(order => order.po_number)).size;
+  
+  // Matched items (with sunsky_sku)
+  const matchedOrders = dedupedActiveOrders.filter(order => order.sunsky_sku !== null);
+  const matchedItems = matchedOrders.length;
+  const matchedItemsQuantity = matchedOrders.reduce((sum, order) => sum + (order.quantity || 0), 0);
+  
+  // Status-based counts
+  const pendingMatchedItems = matchedOrders.filter(order => order.status === 'pending').length;
+  const placedOrders = dedupedActiveOrders.filter(order => order.status === 'ordered' || order.status === 'shipped').length;
+  
+  console.log(`📊 FINAL METRICS:`);
+  console.log(`🎯 Active PO Orders: ${totalOrderRecords}`);
+  console.log(`📋 Total Quantity: ${totalItemsQuantity}`);
+  console.log(`📄 Unique PO Numbers: ${uniquePONumbers}`);
+  console.log(`🔗 Matched Items: ${matchedItems} (qty: ${matchedItemsQuantity})`);
+  console.log(`⏳ Pending Matched: ${pendingMatchedItems}`);
+  console.log(`🚀 Placed Orders: ${placedOrders}`);
 
   // Get actually matched items with stock (cross-reference with inventory)
   const getMatchedItemsWithStock = () => {
-    return uniqueActivePOOrders.filter(order => {
+    return dedupedActiveOrders.filter(order => {
       if (order.sunsky_sku === null) return false;
       const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku, order.sku_code);
       return isItemInStock(inventoryMatch);
@@ -262,7 +283,7 @@ export function POTracker() {
 
   // Get matched items with any inventory (in or out of stock)
   const getMatchedItemsWithInventory = () => {
-    return uniqueActivePOOrders.filter(order => {
+    return dedupedActiveOrders.filter(order => {
       if (order.sunsky_sku === null) return false;
       const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku, order.sku_code);
       return inventoryMatch !== null;
@@ -271,7 +292,7 @@ export function POTracker() {
 
   // Get total quantity of in-stock matched items
   const getTotalInStockQuantity = () => {
-    return uniqueActivePOOrders.reduce((total, order) => {
+    return dedupedActiveOrders.reduce((total, order) => {
       if (order.sunsky_sku === null) return total;
       const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku, order.sku_code);
       if (isItemInStock(inventoryMatch)) {
@@ -286,7 +307,7 @@ export function POTracker() {
   const totalInStockQuantity = getTotalInStockQuantity();
 
   // Group PO orders by PO number for better display (using deduplicated data)
-  const groupedPOOrders = uniqueActivePOOrders.reduce((groups: any, order) => {
+  const groupedPOOrders = dedupedActiveOrders.reduce((groups: any, order) => {
     const poNumber = order.po_number;
     if (!groups[poNumber]) {
       groups[poNumber] = [];
