@@ -33,12 +33,12 @@ const requiredFields = [
   { key: 'po_number', label: 'PO Number', required: true },
   { key: 'ship_to_location', label: 'Ship to Location', required: true },
   { key: 'asin', label: 'ASIN', required: true },
-  { key: 'model_number', label: 'Model Number', required: true },
-  { key: 'title', label: 'Title', required: true },
   { key: 'quantity', label: 'Outstanding Cases (Quantity)', required: true },
 ];
 
 const optionalFields = [
+  { key: 'model_number', label: 'Model Number', required: false },
+  { key: 'title', label: 'Title', required: false },
   { key: 'external_id', label: 'External Id', required: false },
   { key: 'external_id_type', label: 'External Id Type', required: false },
 ];
@@ -125,8 +125,6 @@ export function POColumnMapping({ files, onMappingComplete, onBack, isLoading }:
            (hasColumnPO || hasManualPO) && // Either column mapped PO or manual PO
            mapping.ship_to_location && 
            mapping.asin && 
-           mapping.model_number && 
-           mapping.title && 
            mapping.quantity;
   };
 
@@ -186,13 +184,11 @@ export function POColumnMapping({ files, onMappingComplete, onBack, isLoading }:
         // Get PO number first
         const poNumber = poIndex >= 0 ? row[poIndex]?.trim() : mapping.manual_po_number?.trim();
         
-        // Check each required field individually
+        // Check each required field individually (model_number and title are now optional)
         const missingFields = [];
         if (!poNumber) missingFields.push('po_number');
         if (!row[shipToLocationIndex] || !row[shipToLocationIndex].trim()) missingFields.push('ship_to_location');
         if (!row[asinIndex] || !row[asinIndex].trim()) missingFields.push('asin');
-        if (!row[modelNumberIndex] || !row[modelNumberIndex].trim()) missingFields.push('model_number');
-        if (!row[titleIndex] || !row[titleIndex].trim()) missingFields.push('title');
         if (!row[qtyIndex] || !row[qtyIndex].toString().trim()) missingFields.push('quantity');
         
         if (missingFields.length > 0) {
@@ -217,8 +213,8 @@ export function POColumnMapping({ files, onMappingComplete, onBack, isLoading }:
           po_number: poNumber,
           ship_to_location: row[shipToLocationIndex].trim(),
           asin: row[asinIndex].trim(),
-          model_number: row[modelNumberIndex].trim(),
-          title: row[titleIndex].trim(),
+          model_number: (row[modelNumberIndex] && row[modelNumberIndex].trim()) || null,
+          title: (row[titleIndex] && row[titleIndex].trim()) || null,
           quantity: parseInt(row[qtyIndex]) || 1,
           external_id: externalIdIndex >= 0 ? row[externalIdIndex]?.trim() : null,
           external_id_type: externalIdTypeIndex >= 0 ? row[externalIdTypeIndex]?.trim() : null,
