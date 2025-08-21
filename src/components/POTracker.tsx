@@ -145,6 +145,47 @@ export function POTracker() {
     console.log('✅ Force refresh completed');
   };
 
+  // Clear all PO data for fresh upload
+  const clearAllPOData = async () => {
+    if (!confirm('⚠️ ARE YOU SURE?\n\nThis will DELETE ALL your PO orders permanently!\n\nThis action cannot be undone. Click OK only if you want to start fresh.')) {
+      return;
+    }
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      console.log('🗑️ Starting to delete ALL PO orders for user:', user.id);
+
+      // Delete all PO orders for the current user
+      const { error: deleteError, count } = await supabase
+        .from('po_orders')
+        .delete({ count: 'exact' })
+        .eq('user_id', user.id);
+
+      if (deleteError) throw deleteError;
+
+      console.log(`✅ Successfully deleted ${count || 0} PO orders from database`);
+
+      // Refresh all data to reflect the changes
+      await forceRefreshData();
+
+      toast({
+        title: "🗑️ All PO Data Cleared",
+        description: `Successfully deleted ${count || 0} PO orders. Database is now clean for fresh uploads.`,
+      });
+
+      console.log('🎉 Database cleared successfully - ready for new uploads!');
+    } catch (error) {
+      console.error('❌ Error clearing PO data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to clear PO data: " + (error as Error).message,
+        variant: "destructive"
+      });
+    }
+  };
+
   const findInventoryMatch = (asin: string | null, sunskySku: string | null, poSku: string | null) => {
     console.log(`🔍 POTracker - Finding inventory match for:`, { asin, sunskySku, poSku });
     
@@ -403,16 +444,27 @@ export function POTracker() {
             Manage purchase orders and track stock from Sunsky supplier
           </p>
         </div>
-        <Button
-          onClick={refreshData}
-          disabled={ordersLoading}
-          variant="outline"
-          size="sm"
-          className="gap-2"
-        >
-          <RefreshCw className={`h-4 w-4 ${ordersLoading ? 'animate-spin' : ''}`} />
-          Refresh Orders
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            onClick={clearAllPOData}
+            variant="destructive"
+            size="sm"
+            className="gap-2"
+          >
+            <Database className="h-4 w-4" />
+            Clear All PO Data
+          </Button>
+          <Button
+            onClick={refreshData}
+            disabled={ordersLoading}
+            variant="outline"
+            size="sm"
+            className="gap-2"
+          >
+            <RefreshCw className={`h-4 w-4 ${ordersLoading ? 'animate-spin' : ''}`} />
+            Refresh Orders
+          </Button>
+        </div>
       </div>
 
       {/* Progress Bars - Always visible during any processing */}
