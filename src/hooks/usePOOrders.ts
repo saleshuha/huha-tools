@@ -104,9 +104,25 @@ export const usePOOrders = () => {
 
       console.log(`✅ Fetched ${uniquePOOrders.length} unique PO orders`);
       
-      // Debug quantity calculation
+      // Detailed debugging for quantity issues
       const totalQuantityDebug = uniquePOOrders.reduce((sum, order) => sum + (order.quantity || 0), 0);
       console.log(`🔢 Total quantity from raw data: ${totalQuantityDebug}`);
+      
+      // Check for any potential duplicate issues in the data itself
+      const quantityBreakdown = uniquePOOrders.reduce((acc, order) => {
+        acc.totalRecords++;
+        acc.totalQuantity += (order.quantity || 0);
+        acc.recordIds.push(order.id);
+        return acc;
+      }, { totalRecords: 0, totalQuantity: 0, recordIds: [] as string[] });
+      
+      console.log(`📊 Quantity breakdown:`, quantityBreakdown);
+      
+      // Check for duplicate IDs just to be extra sure
+      const uniqueIds = new Set(quantityBreakdown.recordIds);
+      if (uniqueIds.size !== quantityBreakdown.recordIds.length) {
+        console.error(`🚨 FOUND DUPLICATE IDs! Unique: ${uniqueIds.size}, Total: ${quantityBreakdown.recordIds.length}`);
+      }
 
       setLoadingProgress(60);
       setLoadingStatus('Fetching Sunsky SKU data...');

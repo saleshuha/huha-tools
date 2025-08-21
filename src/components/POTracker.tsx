@@ -221,6 +221,10 @@ export function POTracker() {
   const totalItemsQuantity = activePOOrders.reduce((sum, order) => sum + (order.quantity || 0), 0);
   const uniquePONumbers = new Set(activePOOrders.map(order => order.po_number)).size;
   
+  // Debug quantity calculation in POTracker
+  console.log(`🔢 POTracker - Total quantity calculated: ${totalItemsQuantity} from ${totalOrderRecords} active records`);
+  console.log(`🔢 POTracker - All PO orders length: ${poOrders.length}, Active PO orders length: ${activePOOrders.length}`);
+  
   // Matched items - use database-level matching (items with sunsky_sku populated) from active POs only
   const matchedItems = activePOOrders.filter(order => order.sunsky_sku !== null).length;
   const matchedItemsQuantity = activePOOrders
