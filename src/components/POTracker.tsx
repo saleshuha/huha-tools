@@ -425,9 +425,18 @@ export function POTracker() {
             <Package className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{totalOrderRecords.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">
-              {uniquePONumbers} PO numbers • {totalItemsQuantity.toLocaleString()} total qty
+            <div className="space-y-1">
+              <div className="flex items-baseline gap-2">
+                <span className="text-xl font-bold text-blue-600">{totalOrderRecords.toLocaleString()}</span>
+                <span className="text-sm text-muted-foreground">records</span>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-xl font-bold text-blue-600">{uniquePONumbers.toLocaleString()}</span>
+                <span className="text-sm text-muted-foreground">unique POs</span>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              {totalItemsQuantity.toLocaleString()} total quantity
             </p>
             <div className="flex gap-2 mt-1">
               <Badge variant="secondary" className="text-xs">
