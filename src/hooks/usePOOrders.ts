@@ -43,64 +43,41 @@ export const usePOOrders = () => {
   const fetchPOOrders = useCallback(async (useRawData = true) => {
     setIsLoading(true);
     setLoadingProgress(0);
-    setLoadingStatus('Initializing...');
+    setLoadingStatus('Fetching PO orders...');
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      setLoadingProgress(20);
-      setLoadingStatus(`Fetching all PO orders ${useRawData ? '(raw data)' : '(deduplicated)'}...`);
-
-      // Use raw or deduplicated function based on flag
-      const functionName = useRawData ? 'get_all_po_orders_raw' : 'get_all_po_orders_deduplicated';
+      setLoadingProgress(30);
+      
+      // Use raw data function to get all orders without batching
       const { data: ordersData, error } = await supabase.rpc(
-        functionName,
+        'get_all_po_orders_raw',
         { user_id_param: user.id }
       );
 
       if (error) throw error;
 
-      const allOrders = ordersData || [];
-      
       setLoadingProgress(70);
-      setLoadingStatus('Processing orders data...');
+      setLoadingStatus('Processing orders...');
 
       // Convert to POOrder format
-      const processedOrders: POOrder[] = allOrders.map(order => ({
+      const processedOrders: POOrder[] = (ordersData || []).map(order => ({
         ...order,
         status: order.status as POOrder['status'],
       }));
 
-      setLoadingProgress(90);
-      setLoadingStatus('Finalizing...');
-
-      // Log detailed debugging for specific PO
+      // Log PO 8RGH1C7S details for debugging
       const po8RGH1C7S = processedOrders.filter(o => o.po_number === '8RGH1C7S');
       if (po8RGH1C7S.length > 0) {
         const totalQty8RGH1C7S = po8RGH1C7S.reduce((sum, order) => sum + (order.quantity || 0), 0);
-        console.log(`🔍 DEBUGGING PO 8RGH1C7S:`);
-        console.log(`📦 Orders: ${po8RGH1C7S.length}`);
-        console.log(`📋 Total Quantity: ${totalQty8RGH1C7S}`);
-        console.log(`📊 Sample orders:`, po8RGH1C7S.slice(0, 3));
+        console.log(`🔍 PO 8RGH1C7S from DB: ${po8RGH1C7S.length} orders, ${totalQty8RGH1C7S} total qty`);
       }
-
-      // Log accurate metrics for verification
-      const totalQuantity = processedOrders.reduce((sum, order) => sum + (order.quantity || 0), 0);
-      const uniquePONumbers = new Set(processedOrders.map(o => o.po_number)).size;
-      const activeOrders = processedOrders.filter(o => ['pending', 'ordered', 'shipped'].includes(o.status));
-      const activeQuantity = activeOrders.reduce((sum, order) => sum + (order.quantity || 0), 0);
-
-      console.log(`✅ DATABASE FUNCTION RESULTS (CANONICAL):`);
-      console.log(`📦 Total Orders: ${processedOrders.length}`);
-      console.log(`📋 Total Quantity: ${totalQuantity}`);
-      console.log(`📄 Unique PO Numbers: ${uniquePONumbers}`);
-      console.log(`🔄 Active Orders: ${activeOrders.length}`);
-      console.log(`📊 Active Quantity: ${activeQuantity}`);
 
       setPOOrders(processedOrders);
       setLoadingProgress(100);
-      setLoadingStatus(`Loaded ${processedOrders.length} orders (${totalQuantity} total qty)`);
+      setLoadingStatus(`Loaded ${processedOrders.length} orders`);
 
     } catch (error) {
       console.error('Error fetching PO orders:', error);
@@ -119,172 +96,133 @@ export const usePOOrders = () => {
     }
   }, [toast]);
 
-  // Process PO files with mapped data - Updated to handle new mandatory fields and prevent duplicates
+  // Process PO files with mapped data - Process each order individually
   const processPOFiles = useCallback(async (mappedData: any[], sunskySKUs: any[]) => {
     setIsLoading(true);
     setLoadingProgress(0);
     setLoadingStatus('Processing PO files...');
 
     try {
-      // Get current user
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      setLoadingProgress(10);
-      setLoadingStatus('Fetching existing PO orders...');
+      setLoadingProgress(20);
+      setLoadingStatus('Validating order data...');
 
-      // Fetch existing PO orders to check for duplicates
-      const { data: existingPOs, error: fetchError } = await supabase
-        .from('po_orders')
-        .select('po_number, sku_code, asin, model_number, quantity, ship_to_location')
-        .eq('user_id', user.id);
+      // Process each order individually to ensure proper handling
+      const processedResults = {
+        inserted: 0,
+        duplicates: 0,
+        invalid: 0,
+        errors: [] as string[]
+      };
 
-      if (fetchError) throw fetchError;
+      for (let i = 0; i < mappedData.length; i++) {
+        const item = mappedData[i];
+        setLoadingProgress(20 + (i / mappedData.length) * 60);
+        setLoadingStatus(`Processing order ${i + 1} of ${mappedData.length}...`);
 
-      setLoadingProgress(30);
-      setLoadingStatus('Checking for duplicates...');
-
-      // Validate each item and collect errors
-      const validationErrors: string[] = [];
-      const validItems = mappedData.filter(item => {
-        // Required fields: po_number, quantity, file_name
+        // Validate required fields
         if (!item.po_number?.trim()) {
-          validationErrors.push(`Missing PO number for row`);
-          return false;
+          processedResults.invalid++;
+          processedResults.errors.push(`Row ${i + 1}: Missing PO number`);
+          continue;
         }
         
-        if (!item.quantity || isNaN(Number(item.quantity))) {
-          validationErrors.push(`Invalid quantity for PO ${item.po_number}`);
-          return false;
+        if (!item.quantity || isNaN(Number(item.quantity)) || Number(item.quantity) <= 0) {
+          processedResults.invalid++;
+          processedResults.errors.push(`Row ${i + 1}: Invalid quantity for PO ${item.po_number}`);
+          continue;
         }
 
-        // Must have either model_number or asin (relaxed validation)
         if (!item.model_number?.trim() && !item.asin?.trim()) {
-          validationErrors.push(`Missing both model_number and asin for PO ${item.po_number}`);
-          return false;
+          processedResults.invalid++;
+          processedResults.errors.push(`Row ${i + 1}: Missing both model_number and asin for PO ${item.po_number}`);
+          continue;
         }
 
-        return true;
-      });
-      
-      console.log(`🔍 Validation results: ${validItems.length}/${mappedData.length} items passed validation`);
-      
-      if (validationErrors.length > 0) {
-        console.log('❌ Validation errors:', validationErrors.slice(0, 5)); // Log first 5 errors
-      }
+        // Check for duplicates
+        const { data: existing, error: checkError } = await supabase
+          .from('po_orders')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('po_number', item.po_number)
+          .eq('sku_code', item.model_number || item.asin)
+          .eq('quantity', Number(item.quantity))
+          .maybeSingle();
 
-      setLoadingProgress(50);
-      setLoadingStatus('Processing valid items...');
-
-      const validOrders: any[] = [];
-      const duplicateCount = { count: 0 };
-
-      validItems.forEach(item => {
-        // Check for duplicates based on key identifying fields - only within same PO number
-        const isDuplicate = existingPOs?.some(existing => 
-          existing.po_number === item.po_number &&
-          existing.sku_code === (item.model_number || item.asin) &&
-          existing.asin === item.asin &&
-          existing.model_number === item.model_number &&
-          existing.quantity === item.quantity &&
-          existing.ship_to_location === item.ship_to_location
-        );
-
-        if (isDuplicate) {
-          duplicateCount.count++;
-          console.log(`Skipping duplicate PO: ${item.po_number} - ${item.model_number || item.asin}`);
-          return; // Skip this item
+        if (checkError) {
+          processedResults.errors.push(`Row ${i + 1}: Database error checking duplicates`);
+          continue;
         }
-        
-        validOrders.push({
-          po_number: item.po_number,
-          ship_to_location: item.ship_to_location || 'Not specified',
-          asin: item.asin || null,
-          model_number: item.model_number || null,
-          title: item.title || 'Title not provided',
-          quantity: item.quantity,
-          sku_code: item.model_number || item.asin, // Use model_number as sku_code, fallback to asin
-          external_id: item.external_id || null,
-          external_id_type: item.external_id_type || null,
+
+        if (existing) {
+          processedResults.duplicates++;
+          continue;
+        }
+
+        // Insert individual order
+        const orderData = {
+          po_number: item.po_number.trim(),
+          ship_to_location: item.ship_to_location?.trim() || 'Not specified',
+          asin: item.asin?.trim() || null,
+          model_number: item.model_number?.trim() || null,
+          title: item.title?.trim() || 'Title not provided',
+          quantity: Number(item.quantity),
+          sku_code: (item.model_number?.trim() || item.asin?.trim()),
+          external_id: item.external_id?.trim() || null,
+          external_id_type: item.external_id_type?.trim() || null,
           status: 'pending',
           file_name: item.file_name,
-          notes: undefined,
-          order_date: undefined,
-          expected_delivery: undefined,
-          unit_cost: item.unit_cost || null,
+          unit_cost: item.unit_cost ? Number(item.unit_cost) : null,
           sku_user_id: user.id,
-          user_id: user.id,
-          country: undefined, // Will be set by trigger
-          currency: undefined, // Will be set by trigger
-          total_cost: undefined // Will be calculated by trigger
-        });
+          user_id: user.id
+        };
+
+        const { error: insertError } = await supabase
+          .from('po_orders')
+          .insert([orderData]);
+
+        if (insertError) {
+          processedResults.errors.push(`Row ${i + 1}: ${insertError.message}`);
+          continue;
+        }
+
+        processedResults.inserted++;
+      }
+
+      setLoadingProgress(90);
+      setLoadingStatus('Refreshing order list...');
+      
+      await fetchPOOrders();
+
+      // Show results
+      const totalProcessed = mappedData.length;
+      let message = `Processed ${totalProcessed} rows: `;
+      let details = [];
+      
+      if (processedResults.inserted > 0) {
+        details.push(`${processedResults.inserted} inserted`);
+      }
+      if (processedResults.duplicates > 0) {
+        details.push(`${processedResults.duplicates} duplicates skipped`);
+      }
+      if (processedResults.invalid > 0) {
+        details.push(`${processedResults.invalid} invalid rows`);
+      }
+      
+      message += details.join(', ');
+
+      if (processedResults.errors.length > 0) {
+        console.log('Processing errors:', processedResults.errors.slice(0, 10));
+      }
+
+      toast({
+        title: processedResults.inserted > 0 ? "PO Upload Complete" : "Upload Issues",
+        description: message,
+        variant: processedResults.inserted > 0 ? "default" : "destructive"
       });
 
-      setLoadingProgress(60);
-      setLoadingStatus(`Inserting ${validOrders.length} new orders...`);
-
-      if (validOrders.length > 0) {
-        const { data, error } = await supabase
-          .from('po_orders')
-          .insert(validOrders)
-          .select();
-
-        if (error) {
-          console.error('Database error:', error);
-          throw error;
-        }
-
-        setLoadingProgress(90);
-        setLoadingStatus('Refreshing order list...');
-
-        await fetchPOOrders();
-
-        setLoadingProgress(100);
-        // Improved upload result message
-        const totalProcessed = mappedData.length;
-        const totalValid = validItems.length;
-        const totalInserted = validOrders.length;
-        const totalSkipped = totalProcessed - totalValid;
-        const totalDuplicates = duplicateCount.count;
-
-        let message = `Processed ${totalProcessed} rows: `;
-        let details = [];
-        
-        if (totalInserted > 0) {
-          details.push(`${totalInserted} inserted`);
-        }
-        if (totalDuplicates > 0) {
-          details.push(`${totalDuplicates} duplicates skipped`);
-        }
-        if (totalSkipped > 0) {
-          details.push(`${totalSkipped} invalid rows skipped`);
-        }
-        
-        message += details.join(', ');
-
-        if (validOrders.length > 0) {
-          toast({
-            title: "PO Upload Complete",
-            description: message,
-          });
-        } else {
-          toast({
-            title: "Upload Issues", 
-            description: `No valid orders could be processed. ${totalSkipped} rows had missing required fields, ${totalDuplicates} were duplicates.`,
-            variant: "destructive"
-          });
-        }
-      } else {
-        const message = duplicateCount.count > 0 
-          ? `All ${duplicateCount.count} items were duplicates and skipped`
-          : "No valid orders found - all items are missing required fields";
-        
-        toast({
-          title: duplicateCount.count > 0 ? "No new orders to process" : "No valid orders found",
-          description: message,
-          variant: duplicateCount.count > 0 ? "default" : "destructive"
-        });
-      }
     } catch (error) {
       console.error('Error processing PO files:', error);
       toast({
@@ -354,94 +292,54 @@ export const usePOOrders = () => {
     }
   }, [fetchPOOrders, toast]);
 
-  // Get model numbers from PO orders for Sunsky search - returns total count and unique models
+  // Get model numbers from PO orders for Sunsky search - simplified without batching
   const getPOModelNumbers = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      console.log('Fetching ALL PO orders from database...');
+      // Get all active PO orders directly without batching
+      const { data: allPOOrders, error } = await supabase
+        .from('po_orders')
+        .select('model_number, sku_code, title, po_number, status')
+        .eq('user_id', user.id)
+        .not('status', 'in', '("completed", "cancelled", "delivered")')
+        .order('created_at', { ascending: false });
 
-      // Fetch ALL PO orders in batches to avoid any limits
-      let allPOOrders = [];
-      let page = 0;
-      const pageSize = 1000;
-      let hasMore = true;
+      if (error) throw error;
 
-      while (hasMore) {
-        const { data: batch, error } = await supabase
-          .from('po_orders')
-          .select('id, model_number, sku_code, title, po_number, status')
-          .eq('user_id', user.id)
-          .not('status', 'in', '("completed", "cancelled", "delivered")')  // Only active POs
-          .range(page * pageSize, (page + 1) * pageSize - 1)
-          .order('created_at', { ascending: false });
+      console.log(`✅ Fetched ${allPOOrders?.length || 0} active PO orders`);
 
-        if (error) throw error;
-
-        if (batch && batch.length > 0) {
-          allPOOrders = [...allPOOrders, ...batch];
-          console.log(`Fetched batch ${page + 1}: ${batch.length} active PO records (total so far: ${allPOOrders.length})`);
-          
-          if (batch.length < pageSize) {
-            hasMore = false;
-          } else {
-            page++;
-          }
-        } else {
-          hasMore = false;
-        }
-      }
-
-      console.log(`✅ Fetched ${allPOOrders.length} total ACTIVE PO orders from database`);
-
-      // Extract model numbers from all PO orders
-      const itemsWithModelNumbers = allPOOrders.filter(item => 
-        item.model_number && 
-        item.model_number.trim() !== ''
+      // Extract model numbers
+      const itemsWithModelNumbers = (allPOOrders || []).filter(item => 
+        item.model_number && item.model_number.trim() !== ''
       );
       
       const allModelNumbers = itemsWithModelNumbers.map(item => item.model_number);
       const uniqueModelNumbers = [...new Set(allModelNumbers)];
       
+      // Get existing SKUs
+      const { data: existingSKUs, error: skusError } = await supabase
+        .from('sunsky_skus')
+        .select('sku_code')
+        .eq('user_id', user.id);
+
+      const existingSKUCodes = new Set((existingSKUs || []).map(sku => sku.sku_code));
+      const uniqueModelNumbersToProcess = uniqueModelNumbers.filter(modelNumber => 
+        !existingSKUCodes.has(modelNumber)
+      );
+      
       console.log(`📊 Found ${allModelNumbers.length} PO items with model numbers`);
-      console.log(`🔍 Found ${uniqueModelNumbers.length} unique model numbers across all POs`);
-      
-      // Now filter out already imported products for processing
-      let existingSKUCodes = new Set();
-      
-      if (uniqueModelNumbers.length > 0) {
-        // Batch the SKU lookup to avoid URL length limits
-        const batchSize = 100;
-        for (let i = 0; i < uniqueModelNumbers.length; i += batchSize) {
-          const batch = uniqueModelNumbers.slice(i, i + batchSize);
-          
-          const { data: existingSKUs, error: skusError } = await supabase
-            .from('sunsky_skus')
-            .select('sku_code')
-            .eq('user_id', user.id)
-            .in('sku_code', batch);
-
-          if (skusError) {
-            console.warn('Error checking existing SKUs:', skusError);
-          } else if (existingSKUs) {
-            existingSKUs.forEach(sku => existingSKUCodes.add(sku.sku_code));
-          }
-        }
-      }
-
-      const uniqueModelNumbersToProcess = uniqueModelNumbers.filter(modelNumber => !existingSKUCodes.has(modelNumber));
-      
-      console.log(`✅ ${existingSKUCodes.size} items already imported`);
-      console.log(`⚡ ${uniqueModelNumbersToProcess.length} unique items need processing`);
+      console.log(`🔍 ${uniqueModelNumbers.length} unique model numbers`);
+      console.log(`⚡ ${uniqueModelNumbersToProcess.length} need processing`);
       
       return {
-        totalCount: allModelNumbers.length,            // Total PO items with model numbers
-        uniqueCount: uniqueModelNumbersToProcess.length, // Items that need processing
-        uniqueModels: uniqueModelNumbersToProcess,       // Model numbers to process
-        allModels: allModelNumbers,                      // All model numbers
-        totalUniqueCount: uniqueModelNumbers.length,     // Total unique across all POs
-        alreadyImportedCount: existingSKUCodes.size      // Already imported count
+        totalCount: allModelNumbers.length,
+        uniqueCount: uniqueModelNumbersToProcess.length,
+        uniqueModels: uniqueModelNumbersToProcess,
+        allModels: allModelNumbers,
+        totalUniqueCount: uniqueModelNumbers.length,
+        alreadyImportedCount: existingSKUCodes.size
       };
     } catch (error) {
       console.error('Error fetching PO model numbers:', error);

@@ -238,9 +238,7 @@ export function POTracker() {
   const po8RGH1C7S_component = poOrders.filter(o => o.po_number === '8RGH1C7S');
   if (po8RGH1C7S_component.length > 0) {
     const totalQty8RGH1C7S_component = po8RGH1C7S_component.reduce((sum, order) => sum + (order.quantity || 0), 0);
-    console.log(`🔍 COMPONENT STATE PO 8RGH1C7S:`);
-    console.log(`📦 Orders in component state: ${po8RGH1C7S_component.length}`);
-    console.log(`📋 Total Quantity in component state: ${totalQty8RGH1C7S_component}`);
+    console.log(`🔍 COMPONENT STATE PO 8RGH1C7S: ${po8RGH1C7S_component.length} orders, ${totalQty8RGH1C7S_component} qty`);
   }
   
   // FOR TABLE DISPLAY: Apply filtering to the canonical data
