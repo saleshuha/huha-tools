@@ -213,31 +213,50 @@ export function POTracker() {
     forceRefreshData();
   };
 
-  // Filter out closed POs for active metrics
-  const activePOOrders = poOrders.filter(order => order.status !== 'closed');
+  // Define truly active statuses (exclude delivered, closed, cancelled, completed)
+  const ACTIVE_STATUSES = new Set(['pending', 'ordered', 'shipped']);
+  const activePOOrders = poOrders.filter(order => ACTIVE_STATUSES.has(order.status));
+  
+  console.log(`🔍 Active Status Filter:`, {
+    totalOrders: poOrders.length,
+    activeOrders: activePOOrders.length,
+    excludedStatuses: poOrders.filter(order => !ACTIVE_STATUSES.has(order.status)).length
+  });
 
-  // Create normalized business key for deduplication
+  // Create robust business key for deduplication including ship_to_location
   const createBusinessKey = (order: any) => {
-    // Build a normalized identifier using available identifiers in priority order
-    let identifier = '';
+    // Build primary identifier using available identifiers in priority order
+    let primaryIdentifier = '';
     
     if (order.sunsky_sku?.sku_code) {
-      identifier = order.sunsky_sku.sku_code.toLowerCase().trim();
+      primaryIdentifier = order.sunsky_sku.sku_code.toLowerCase().trim();
     } else if (order.model_number) {
-      identifier = order.model_number.toLowerCase().trim();
+      primaryIdentifier = order.model_number.toLowerCase().trim();
     } else if (order.sku_code) {
-      identifier = order.sku_code.toLowerCase().trim();
+      primaryIdentifier = order.sku_code.toLowerCase().trim();
     } else if (order.asin) {
-      identifier = order.asin.toLowerCase().trim();
+      primaryIdentifier = order.asin.toLowerCase().trim();
     } else if (order.title) {
-      identifier = order.title.toLowerCase().trim();
+      primaryIdentifier = order.title.toLowerCase().trim();
     }
     
-    return `${order.po_number.toLowerCase().trim()}-${identifier}`;
+    // Include ship_to_location to avoid incorrectly merging same items to different locations
+    const shipToLocation = (order.ship_to_location || '').toLowerCase().trim();
+    const externalId = (order.external_id || '').toLowerCase().trim();
+    const externalIdType = (order.external_id_type || '').toLowerCase().trim();
+    
+    return [
+      order.po_number.toLowerCase().trim(),
+      shipToLocation,
+      primaryIdentifier,
+      externalId,
+      externalIdType
+    ].join('|');
   };
 
-  // Deduplicate PO lines using Map for better performance and accuracy
+  // Deduplicate PO lines - latest/best wins (NO quantity summing)
   const deduplicationMap = new Map();
+  const rawActiveQty = activePOOrders.reduce((sum, order) => sum + (order.quantity || 0), 0);
   
   activePOOrders.forEach(order => {
     const businessKey = createBusinessKey(order);
@@ -245,49 +264,49 @@ export function POTracker() {
     if (!deduplicationMap.has(businessKey)) {
       deduplicationMap.set(businessKey, { ...order });
     } else {
-      // Merge records - keep the "best" record and sum quantities
       const existing = deduplicationMap.get(businessKey);
       const shouldReplace = 
         // Prefer records with tracking info
         (order.tracking_number && !existing.tracking_number) ||
         (order.supplier_order_number && !existing.supplier_order_number) ||
-        // Prefer records with ASIN
-        (order.asin && !existing.asin) ||
         // Prefer records with sunsky_sku data
         (order.sunsky_sku && !existing.sunsky_sku) ||
+        // Prefer records with ASIN
+        (order.asin && !existing.asin) ||
         // Prefer more recent records if all else equal
         (new Date(order.updated_at) > new Date(existing.updated_at));
-      
-      // Always sum the quantities regardless of which record we keep
-      const combinedQuantity = (existing.quantity || 0) + (order.quantity || 0);
       
       if (shouldReplace) {
         console.log(`🔄 Replacing duplicate for key ${businessKey}:`, {
           keeping: order.id,
           replacing: existing.id,
           reason: order.tracking_number ? 'has_tracking' : 
-                 order.asin ? 'has_asin' : 
-                 order.sunsky_sku ? 'has_sunsky_sku' : 'newer',
-          combinedQty: combinedQuantity
+                 order.sunsky_sku ? 'has_sunsky_sku' :
+                 order.asin ? 'has_asin' : 'newer',
+          keptQty: order.quantity,
+          discardedQty: existing.quantity
         });
-        deduplicationMap.set(businessKey, { ...order, quantity: combinedQuantity });
+        deduplicationMap.set(businessKey, { ...order });
       } else {
         console.log(`🔄 Keeping existing for key ${businessKey}:`, {
           keeping: existing.id,
           duplicate: order.id,
-          combinedQty: combinedQuantity
+          keptQty: existing.quantity,
+          discardedQty: order.quantity
         });
-        deduplicationMap.set(businessKey, { ...existing, quantity: combinedQuantity });
+        // Keep existing record as-is (no change needed)
       }
     }
   });
 
   const uniqueActivePOOrders = Array.from(deduplicationMap.values());
+  const dedupedActiveQty = uniqueActivePOOrders.reduce((sum, order) => sum + (order.quantity || 0), 0);
 
   console.log(`🔍 Deduplication Results:`, {
-    originalCount: activePOOrders.length,
-    deduplicatedCount: uniqueActivePOOrders.length,
-    duplicatesRemoved: activePOOrders.length - uniqueActivePOOrders.length
+    rawActive: { count: activePOOrders.length, qty: rawActiveQty },
+    dedupedActive: { count: uniqueActivePOOrders.length, qty: dedupedActiveQty },
+    duplicatesRemoved: activePOOrders.length - uniqueActivePOOrders.length,
+    qtyReduction: rawActiveQty - dedupedActiveQty
   });
 
   // Calculate accurate metrics based on deduplicated data (active POs only)
@@ -325,7 +344,7 @@ export function POTracker() {
   const getMatchedItemsWithStock = () => {
     return uniqueActivePOOrders.filter(order => {
       if (order.sunsky_sku === null) return false;
-      const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku, order.sku_code);
+      const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code);
       return isItemInStock(inventoryMatch);
     }).length;
   };
@@ -334,7 +353,7 @@ export function POTracker() {
   const getMatchedItemsWithInventory = () => {
     return uniqueActivePOOrders.filter(order => {
       if (order.sunsky_sku === null) return false;
-      const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku, order.sku_code);
+      const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code);
       return inventoryMatch !== null;
     }).length;
   };
@@ -343,7 +362,7 @@ export function POTracker() {
   const getTotalInStockQuantity = () => {
     return uniqueActivePOOrders.reduce((total, order) => {
       if (order.sunsky_sku === null) return total;
-      const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku, order.sku_code);
+      const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code);
       if (isItemInStock(inventoryMatch)) {
         return total + inventoryMatch.quantity;
       }
