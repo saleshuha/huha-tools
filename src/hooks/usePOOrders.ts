@@ -39,7 +39,7 @@ export const usePOOrders = () => {
   const [loadingStatus, setLoadingStatus] = useState('');
   const { toast } = useToast();
 
-  // Fetch PO orders using the unlimited RPC function
+  // Fetch PO orders using the comprehensive RPC function with SKU data
   const fetchPOOrders = useCallback(async () => {
     setIsLoading(true);
     setLoadingProgress(0);
@@ -50,17 +50,17 @@ export const usePOOrders = () => {
       if (!user) throw new Error('User not authenticated');
 
       setLoadingProgress(10);
-      setLoadingStatus('Fetching all PO orders...');
+      setLoadingStatus('Fetching all PO orders with SKU data...');
 
-      // Use the unlimited RPC function to get ALL records
+      // Use the comprehensive RPC function that returns ALL records with SKU data in one call
       const { data: allPOOrders, error } = await supabase
-        .rpc('get_all_po_orders_unlimited', { 
+        .rpc('get_all_po_orders_with_sku_data', { 
           user_id_param: user.id 
         });
 
       if (error) throw error;
 
-      console.log(`✅ Fetched ${allPOOrders?.length || 0} PO orders from RPC function`);
+      console.log(`✅ Fetched ${allPOOrders?.length || 0} PO orders from comprehensive RPC function`);
       
       // Verify no duplicates by checking unique IDs
       const uniqueIds = new Set();
@@ -83,47 +83,16 @@ export const usePOOrders = () => {
 
       // Debug quantity calculation
       const totalQuantityDebug = uniquePOOrders.reduce((sum, order) => sum + (order.quantity || 0), 0);
-      console.log(`🔢 Total quantity from clean data: ${totalQuantityDebug} from ${uniquePOOrders.length} unique records`);
-
-      setLoadingProgress(60);
-      setLoadingStatus('Fetching Sunsky SKU data...');
-
-      // Fetch Sunsky SKU data for matching
-      const sunskySKUs = new Map();
-      if (uniquePOOrders.length > 0) {
-        const allSkuCodes = [...new Set(uniquePOOrders.map(order => order.sku_code || order.model_number).filter(Boolean))];
-        
-        if (allSkuCodes.length > 0) {
-          // Fetch SKUs in batches to avoid URL length limits
-          const skuBatchSize = 100;
-          for (let i = 0; i < allSkuCodes.length; i += skuBatchSize) {
-            const skuBatch = allSkuCodes.slice(i, i + skuBatchSize);
-            
-            const { data: skuData, error: skuError } = await supabase
-              .from('sunsky_skus')
-              .select('*')
-              .eq('user_id', user.id)
-              .in('sku_code', skuBatch);
-
-            if (skuError) {
-              console.warn('Error fetching SKU batch:', skuError);
-            } else if (skuData) {
-              skuData.forEach(sku => {
-                sunskySKUs.set(sku.sku_code, sku);
-              });
-            }
-          }
-        }
-      }
+      console.log(`🔢 Total quantity from RPC data: ${totalQuantityDebug} from ${uniquePOOrders.length} unique records`);
 
       setLoadingProgress(80);
       setLoadingStatus('Processing order data...');
 
-      // Map orders with their corresponding SKU data
+      // Map orders with proper status casting (SKU data already included from RPC)
       const allOrders = uniquePOOrders.map(order => ({
         ...order,
         status: order.status as POOrder['status'],
-        sunsky_sku: sunskySKUs.get(order.sku_code) || sunskySKUs.get(order.model_number) || null
+        // sunsky_sku is already included from the RPC function
       }));
 
       // Final verification

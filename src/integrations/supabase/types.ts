@@ -2060,6 +2060,38 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_all_po_orders_with_sku_data: {
+        Args: { user_id_param: string }
+        Returns: {
+          asin: string
+          country: string
+          created_at: string
+          currency: string
+          expected_delivery: string
+          external_id: string
+          external_id_type: string
+          file_name: string
+          id: string
+          model_number: string
+          notes: string
+          order_date: string
+          po_number: string
+          quantity: number
+          ship_to_location: string
+          sku_code: string
+          sku_user_id: string
+          status: string
+          sunsky_sku: Json
+          supplier_order_number: string
+          title: string
+          total_cost: number
+          tracking_number: string
+          tracking_url: string
+          unit_cost: number
+          updated_at: string
+          user_id: string
+        }[]
+      }
       get_exchange_rate: {
         Args: { from_currency: string; to_currency: string }
         Returns: number
