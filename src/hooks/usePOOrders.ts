@@ -49,54 +49,76 @@ export const usePOOrders = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      // Get user profile to filter by country
+      // Get user profile to filter by country  
       const { data: profile } = await supabase
         .from('profiles')
         .select('country')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
 
       const userCountry = profile?.country || 'UAE';
       
       setLoadingProgress(20);
-      setLoadingStatus('Fetching all PO orders...');
+      setLoadingStatus('Fetching all PO orders without limits...');
 
-      // Direct simple query - get ALL orders for the user and country
-      const { data: allOrders, error } = await supabase
-        .from('po_orders')
-        .select(`
-          id,
-          user_id,
-          po_number,
-          ship_to_location,
-          asin,
-          model_number,
-          title,
-          quantity,
-          external_id,
-          external_id_type,
-          sku_code,
-          status,
-          order_date,
-          expected_delivery,
-          notes,
-          file_name,
-          currency,
-          country,
-          unit_cost,
-          total_cost,
-          sku_user_id,
-          supplier_order_number,
-          tracking_number,
-          tracking_url,
-          created_at,
-          updated_at
-        `)
-        .eq('user_id', user.id)
-        .eq('country', userCountry)
-        .order('created_at', { ascending: false });
+      // Fetch ALL orders using pagination to bypass Supabase default limits
+      let allOrders: any[] = [];
+      const pageSize = 1000;
+      let page = 0;
+      let hasMore = true;
 
-      if (error) throw error;
+      while (hasMore) {
+        const { data: batch, error } = await supabase
+          .from('po_orders')
+          .select(`
+            id,
+            user_id,
+            po_number,
+            ship_to_location,
+            asin,
+            model_number,
+            title,
+            quantity,
+            external_id,
+            external_id_type,
+            sku_code,
+            status,
+            order_date,
+            expected_delivery,
+            notes,
+            file_name,
+            currency,
+            country,
+            unit_cost,
+            total_cost,
+            sku_user_id,
+            supplier_order_number,
+            tracking_number,
+            tracking_url,
+            created_at,
+            updated_at
+          `)
+          .eq('user_id', user.id)
+          .eq('country', userCountry)
+          .range(page * pageSize, (page + 1) * pageSize - 1)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        if (batch && batch.length > 0) {
+          allOrders = [...allOrders, ...batch];
+          setLoadingProgress(20 + (page * 5));
+          setLoadingStatus(`Fetched ${allOrders.length} orders so far...`);
+          
+          if (batch.length < pageSize) {
+            hasMore = false;
+          } else {
+            page++;
+          }
+        } else {
+          hasMore = false;
+        }
+      }
 
       setLoadingProgress(50);
       setLoadingStatus(`Processing ${allOrders?.length || 0} raw orders...`);
