@@ -39,145 +39,55 @@ export const usePOOrders = () => {
   const [loadingStatus, setLoadingStatus] = useState('');
   const { toast } = useToast();
 
-  // Fetch PO orders with simplified direct approach to get accurate totals
+  // Fetch PO orders using the new database function for accurate deduplication
   const fetchPOOrders = useCallback(async () => {
     setIsLoading(true);
     setLoadingProgress(0);
-    setLoadingStatus('Loading PO orders...');
+    setLoadingStatus('Initializing...');
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      // Get user profile to filter by country  
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('country')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      const userCountry = profile?.country || 'UAE';
-      
       setLoadingProgress(20);
-      setLoadingStatus('Fetching all PO orders without limits...');
+      setLoadingStatus('Fetching all PO orders with canonical deduplication...');
 
-      // Fetch ALL orders using pagination to bypass Supabase default limits
-      let allOrders: any[] = [];
-      const pageSize = 1000;
-      let page = 0;
-      let hasMore = true;
+      // Use the new database function for accurate data
+      const { data: ordersData, error } = await supabase.rpc(
+        'get_all_po_orders_deduplicated',
+        { user_id_param: user.id }
+      );
 
-      while (hasMore) {
-        const { data: batch, error } = await supabase
-          .from('po_orders')
-          .select(`
-            id,
-            user_id,
-            po_number,
-            ship_to_location,
-            asin,
-            model_number,
-            title,
-            quantity,
-            external_id,
-            external_id_type,
-            sku_code,
-            status,
-            order_date,
-            expected_delivery,
-            notes,
-            file_name,
-            currency,
-            country,
-            unit_cost,
-            total_cost,
-            sku_user_id,
-            supplier_order_number,
-            tracking_number,
-            tracking_url,
-            created_at,
-            updated_at
-          `)
-          .eq('user_id', user.id)
-          .eq('country', userCountry)
-          .range(page * pageSize, (page + 1) * pageSize - 1)
-          .order('created_at', { ascending: false });
+      if (error) throw error;
 
-        if (error) throw error;
+      const allOrders = ordersData || [];
+      
+      setLoadingProgress(70);
+      setLoadingStatus('Processing orders data...');
 
-        if (batch && batch.length > 0) {
-          allOrders = [...allOrders, ...batch];
-          setLoadingProgress(20 + (page * 5));
-          setLoadingStatus(`Fetched ${allOrders.length} orders so far...`);
-          
-          if (batch.length < pageSize) {
-            hasMore = false;
-          } else {
-            page++;
-          }
-        } else {
-          hasMore = false;
-        }
-      }
-
-      setLoadingProgress(50);
-      setLoadingStatus(`Processing ${allOrders?.length || 0} raw orders...`);
-
-      const processedOrders = (allOrders || []).map(order => ({
+      // Convert to POOrder format
+      const processedOrders: POOrder[] = allOrders.map(order => ({
         ...order,
         status: order.status as POOrder['status'],
-        sunsky_sku: null // Will be populated later
       }));
 
-      setLoadingProgress(70);
-      setLoadingStatus('Fetching Sunsky SKU matches...');
-
-      // Fetch sunsky_skus to match with po_orders
-      const modelNumbers = [...new Set(processedOrders.map(order => order.model_number).filter(Boolean))];
-      const sunskySKUMap = new Map();
-
-      if (modelNumbers.length > 0) {
-        // Batch fetch sunsky_skus in smaller chunks
-        const batchSize = 100;
-        for (let i = 0; i < modelNumbers.length; i += batchSize) {
-          const batch = modelNumbers.slice(i, i + batchSize);
-          const { data: sunskySKUs } = await supabase
-            .from('sunsky_skus')
-            .select('sku_code')
-            .eq('user_id', user.id)
-            .in('sku_code', batch);
-
-          if (sunskySKUs) {
-            sunskySKUs.forEach(sku => {
-              sunskySKUMap.set(sku.sku_code, sku.sku_code);
-            });
-          }
-        }
-      }
-
       setLoadingProgress(90);
-      setLoadingStatus('Adding Sunsky SKU matches...');
+      setLoadingStatus('Finalizing...');
 
-      // Add sunsky_sku data to orders
-      processedOrders.forEach(order => {
-        if (order.model_number && sunskySKUMap.has(order.model_number)) {
-          order.sunsky_sku = order.model_number;
-        }
-      });
-
-      // Final metrics calculation - NO DEDUPLICATION to preserve exact totals
+      // Log accurate metrics for verification
       const totalQuantity = processedOrders.reduce((sum, order) => sum + (order.quantity || 0), 0);
-      const uniquePOs = new Set(processedOrders.map(o => o.po_number)).size;
-      
-      console.log(`🎯 FINAL PO ORDERS RESULTS:`);
+      const uniquePONumbers = new Set(processedOrders.map(o => o.po_number)).size;
+      const activeOrders = processedOrders.filter(o => ['pending', 'ordered', 'shipped'].includes(o.status));
+      const activeQuantity = activeOrders.reduce((sum, order) => sum + (order.quantity || 0), 0);
+
+      console.log(`✅ DATABASE FUNCTION RESULTS (CANONICAL):`);
       console.log(`📦 Total Orders: ${processedOrders.length}`);
       console.log(`📋 Total Quantity: ${totalQuantity}`);
-      console.log(`📄 Unique PO Numbers: ${uniquePOs}`);
-      console.log(`🌍 Country Filter: ${userCountry}`);
-      console.log(`🔗 Sunsky Matched: ${processedOrders.filter(o => o.sunsky_sku).length}`);
+      console.log(`📄 Unique PO Numbers: ${uniquePONumbers}`);
+      console.log(`🔄 Active Orders: ${activeOrders.length}`);
+      console.log(`📊 Active Quantity: ${activeQuantity}`);
 
       setPOOrders(processedOrders);
-
       setLoadingProgress(100);
       setLoadingStatus(`Loaded ${processedOrders.length} orders (${totalQuantity} total qty)`);
 

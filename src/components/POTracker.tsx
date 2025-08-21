@@ -15,6 +15,7 @@ import { BulkPOProcessor } from './po/BulkPOProcessor';
 import { usePOOrders } from '@/hooks/usePOOrders';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { supabase } from '@/integrations/supabase/client';
+import { usePOMetrics } from '@/hooks/usePOMetrics';
 import { useToast } from '@/hooks/use-toast';
 
 export function POTracker() {
@@ -30,6 +31,24 @@ export function POTracker() {
   });
   const { profile } = useUserProfile();
   const { toast } = useToast();
+
+  // Initialize hooks
+  const {
+    poOrders,
+    isLoading: ordersLoading,
+    loadingProgress: ordersProgress,
+    loadingStatus: ordersStatus,
+    fetchPOOrders,
+    processPOFiles,
+    updateOrderStatus,
+    updateTrackingInfo
+  } = usePOOrders();
+
+  const {
+    metrics: poMetrics,
+    isLoading: metricsLoading,
+    fetchMetrics
+  } = usePOMetrics();
 
   // Load shipping rate from localStorage or profile on component mount
   useEffect(() => {
@@ -84,25 +103,6 @@ export function POTracker() {
       setIsUpdatingRate(false);
     }
   };
-  
-  const {
-    poOrders,
-    isLoading: ordersLoading,
-    loadingProgress: ordersProgress,
-    loadingStatus: ordersStatus,
-    fetchPOOrders,
-    processPOFiles,
-    updateOrderStatus,
-    updateTrackingInfo
-  } = usePOOrders();
-
-  // Force refresh all data
-  const forceRefreshData = async () => {
-    await Promise.all([
-      fetchPOOrders(),
-      fetchInventoryData()
-    ]);
-  };
 
   // Fetch inventory data to match with PO ASINs
   const fetchInventoryData = async () => {
@@ -133,6 +133,15 @@ export function POTracker() {
     } catch (error) {
       console.error('Error fetching inventory data:', error);
     }
+  };
+
+  // Force refresh all data
+  const forceRefreshData = async () => {
+    await Promise.all([
+      fetchPOOrders(),
+      fetchInventoryData(),
+      fetchMetrics()
+    ]);
   };
 
   const findInventoryMatch = (asin: string | null, sunskySku: string | null, poSku: string | null) => {
@@ -195,11 +204,12 @@ export function POTracker() {
   // Load data based on active tab
   useEffect(() => {
     fetchInventoryData();
+    fetchMetrics();
     
     if (poOrders.length === 0) {
       fetchPOOrders();
     }
-  }, [activeTab, poOrders.length, fetchPOOrders]);
+  }, [activeTab, fetchPOOrders, fetchMetrics]);
 
   const handleFileUpload = async (mappedData: any[]) => {
     try {
@@ -214,65 +224,29 @@ export function POTracker() {
   };
 
   // ============================================================================
-  // ACCURATE METRICS CALCULATION - USE RAW DATA FROM DATABASE
+  // ACCURATE METRICS FROM NEW DATABASE FUNCTIONS
   // ============================================================================
   
-  console.log(`🎯 RAW DATA FROM DATABASE:`);
-  console.log(`📦 Total raw orders: ${poOrders.length}`);
-  console.log(`📋 Total raw quantity: ${poOrders.reduce((sum, order) => sum + (order.quantity || 0), 0)}`);
+  console.log(`🎯 USING ACCURATE DATABASE METRICS:`);
+  console.log(`📦 Active Orders: ${poMetrics.totalActiveOrders}`);
+  console.log(`📋 Active Quantity: ${poMetrics.totalActiveQuantity}`);
+  console.log(`📄 Unique PO Numbers: ${poMetrics.uniquePONumbers}`);
   
-  // MAIN METRICS: Use RAW data without any filtering or deduplication
-  const totalOrderRecords = poOrders.length;
-  const totalItemsQuantity = poOrders.reduce((sum, order) => sum + (order.quantity || 0), 0);
-  const uniquePONumbers = new Set(poOrders.map(order => order.po_number)).size;
-  
-  console.log(`📊 MAIN DASHBOARD METRICS (RAW DATA):`);
-  console.log(`🎯 Total PO Orders: ${totalOrderRecords}`);
-  console.log(`📋 Total Quantity: ${totalItemsQuantity}`);
-  console.log(`📄 Unique PO Numbers: ${uniquePONumbers}`);
-  
-  // FOR TABLE DISPLAY ONLY: Apply filtering and deduplication
+  // FOR TABLE DISPLAY: Apply filtering to the canonical data
   const ACTIVE_STATUSES = ['pending', 'ordered', 'shipped'];
-  const rawActiveOrders = poOrders.filter(order => ACTIVE_STATUSES.includes(order.status));
+  const activeOrders = poOrders.filter(order => ACTIVE_STATUSES.includes(order.status));
   
-  console.log(`🔍 ACTIVE FILTERING (for table display only):`);
-  console.log(`✅ Active orders (${ACTIVE_STATUSES.join(', ')}): ${rawActiveOrders.length}`);
-  console.log(`❌ Non-active orders: ${poOrders.length - rawActiveOrders.length}`);
+  console.log(`🔍 TABLE DISPLAY DATA:`);
+  console.log(`✅ Active orders for table: ${activeOrders.length}`);
   
-  // Clean deduplication for table display only
-  const dedupMap = new Map<string, typeof rawActiveOrders[0]>();
-  
-  rawActiveOrders.forEach(order => {
-    // Canonical key that uniquely identifies a PO line item
-    const canonicalKey = `${order.po_number}|${order.asin || 'NO_ASIN'}|${order.model_number || 'NO_MODEL'}|${order.ship_to_location || 'NO_LOCATION'}`;
-    
-    // Latest-wins approach: keep the most recently created/updated record
-    const existing = dedupMap.get(canonicalKey);
-    if (!existing || new Date(order.updated_at || order.created_at) > new Date(existing.updated_at || existing.created_at)) {
-      dedupMap.set(canonicalKey, order);
-    }
-  });
-  
-  const cleanActiveOrders = Array.from(dedupMap.values());
-  
-  console.log(`🧹 DEDUPLICATION (for table display only):`);
-  console.log(`📦 Before dedup: ${rawActiveOrders.length} active orders`);
-  console.log(`✨ After dedup: ${cleanActiveOrders.length} unique active orders`);
-  console.log(`🗑️ Duplicates removed: ${rawActiveOrders.length - cleanActiveOrders.length}`);
-  
-  // Matched items (with sunsky_sku) - calculated from RAW data for accuracy
+  // Matched items calculations (use all orders from database)
   const allMatchedOrdersList = poOrders.filter(order => order.sunsky_sku !== null);
   const matchedItems = allMatchedOrdersList.length;
   const matchedItemsQuantity = allMatchedOrdersList.reduce((sum, order) => sum + (order.quantity || 0), 0);
   
-  // Status-based counts from RAW data
+  // Status-based counts
   const pendingMatchedItems = allMatchedOrdersList.filter(order => order.status === 'pending').length;
   const placedOrders = poOrders.filter(order => order.status === 'ordered' || order.status === 'shipped').length;
-  
-  console.log(`📊 MATCHED ITEMS METRICS (RAW DATA):`);
-  console.log(`🔗 Total Matched Items: ${matchedItems} (qty: ${matchedItemsQuantity})`);
-  console.log(`⏳ Pending Matched: ${pendingMatchedItems}`);
-  console.log(`🚀 Placed Orders: ${placedOrders}`);
 
   // Get actually matched items with stock (cross-reference with inventory)
   const getMatchedItemsWithStock = () => {
@@ -311,8 +285,8 @@ export function POTracker() {
   const totalItemsWithInventory = getMatchedItemsWithInventory();
   const totalInStockQuantity = getTotalInStockQuantity();
 
-  // Group PO orders by PO number for better display (using clean deduplicated data)
-  const groupedPOOrders = cleanActiveOrders.reduce((groups: any, order) => {
+  // Group PO orders by PO number for table display
+  const groupedPOOrders = activeOrders.reduce((groups: any, order) => {
     const poNumber = order.po_number;
     if (!groups[poNumber]) {
       groups[poNumber] = [];
@@ -465,9 +439,9 @@ export function POTracker() {
             <Package className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{totalOrderRecords.toLocaleString()}</div>
+            <div className="text-2xl font-bold text-blue-600">{metricsLoading ? "..." : poMetrics.totalActiveOrders.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">
-              {uniquePONumbers} PO numbers • {totalItemsQuantity.toLocaleString()} total qty
+              {metricsLoading ? "Loading..." : `${poMetrics.uniquePONumbers} PO numbers • ${poMetrics.totalActiveQuantity.toLocaleString()} total qty`}
             </p>
             <div className="flex gap-2 mt-1">
               <Badge variant="secondary" className="text-xs">
@@ -508,9 +482,9 @@ export function POTracker() {
             <CheckCircle className="h-4 w-4 text-emerald-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-emerald-600">{placedOrders.toLocaleString()}</div>
+            <div className="text-2xl font-bold text-emerald-600">{metricsLoading ? "..." : (poMetrics.orderedOrders + poMetrics.shippedOrders).toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">
-              Active items successfully placed
+              Orders in progress
             </p>
           </CardContent>
         </Card>
@@ -521,15 +495,15 @@ export function POTracker() {
             <Clock className="h-4 w-4 text-red-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">{pendingMatchedItems.toLocaleString()}</div>
+            <div className="text-2xl font-bold text-red-600">{metricsLoading ? "..." : poMetrics.pendingOrders.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">
-              Matched items waiting to be placed
+              Items waiting to be placed
             </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Main Content */}
+      {/* Main Content - keeping existing tabs structure */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-4 h-14 p-2 bg-gradient-to-r from-primary/5 to-primary/10 border-2 border-primary/20 rounded-xl shadow-lg">
           <TabsTrigger 
