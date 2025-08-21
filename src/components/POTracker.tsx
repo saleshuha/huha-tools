@@ -216,25 +216,67 @@ export function POTracker() {
   // Filter out closed POs for active metrics
   const activePOOrders = poOrders.filter(order => order.status !== 'closed');
 
-  // Deduplicate PO lines based on unique business key for metrics calculations
-  const uniqueActivePOOrders = activePOOrders.reduce((unique: any[], order) => {
-    const businessKey = `${order.po_number}-${order.sku_code}-${order.asin || 'no-asin'}-${order.model_number || 'no-model'}`;
-    const existingIndex = unique.findIndex(item => 
-      `${item.po_number}-${item.sku_code}-${item.asin || 'no-asin'}-${item.model_number || 'no-model'}` === businessKey
-    );
+  // Create normalized business key for deduplication
+  const createBusinessKey = (order: any) => {
+    // Build a normalized identifier using available identifiers in priority order
+    let identifier = '';
     
-    if (existingIndex === -1) {
-      unique.push(order);
+    if (order.sunsky_sku?.sku_code) {
+      identifier = order.sunsky_sku.sku_code.toLowerCase().trim();
+    } else if (order.model_number) {
+      identifier = order.model_number.toLowerCase().trim();
+    } else if (order.sku_code) {
+      identifier = order.sku_code.toLowerCase().trim();
+    } else if (order.asin) {
+      identifier = order.asin.toLowerCase().trim();
+    } else if (order.title) {
+      identifier = order.title.toLowerCase().trim();
+    }
+    
+    return `${order.po_number.toLowerCase().trim()}-${identifier}`;
+  };
+
+  // Deduplicate PO lines using Map for better performance and accuracy
+  const deduplicationMap = new Map();
+  
+  activePOOrders.forEach(order => {
+    const businessKey = createBusinessKey(order);
+    
+    if (!deduplicationMap.has(businessKey)) {
+      deduplicationMap.set(businessKey, order);
     } else {
-      // Keep the record with more complete data (prefer ones with tracking info, newer dates, etc.)
-      const existing = unique[existingIndex];
-      if (order.tracking_number || order.supplier_order_number || 
-          new Date(order.updated_at) > new Date(existing.updated_at)) {
-        unique[existingIndex] = order;
+      // Keep the "best" record - prioritize more complete data
+      const existing = deduplicationMap.get(businessKey);
+      const shouldReplace = 
+        // Prefer records with tracking info
+        (order.tracking_number && !existing.tracking_number) ||
+        (order.supplier_order_number && !existing.supplier_order_number) ||
+        // Prefer records with ASIN
+        (order.asin && !existing.asin) ||
+        // Prefer records with sunsky_sku data
+        (order.sunsky_sku && !existing.sunsky_sku) ||
+        // Prefer more recent records if all else equal
+        (new Date(order.updated_at) > new Date(existing.updated_at));
+      
+      if (shouldReplace) {
+        console.log(`🔄 Replacing duplicate for key ${businessKey}:`, {
+          keeping: order.id,
+          replacing: existing.id,
+          reason: order.tracking_number ? 'has_tracking' : 
+                 order.asin ? 'has_asin' : 
+                 order.sunsky_sku ? 'has_sunsky_sku' : 'newer'
+        });
+        deduplicationMap.set(businessKey, order);
+      } else {
+        console.log(`🔄 Keeping existing for key ${businessKey}:`, {
+          keeping: existing.id,
+          duplicate: order.id
+        });
       }
     }
-    return unique;
-  }, []);
+  });
+
+  const uniqueActivePOOrders = Array.from(deduplicationMap.values());
 
   console.log(`🔍 Deduplication Results:`, {
     originalCount: activePOOrders.length,
