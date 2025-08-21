@@ -1,167 +1,222 @@
-import { serve } from 'https://deno.land/std@0.208.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.5'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.5';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+};
 
 interface Database {
   public: {
     Tables: {
       sunsky_skus: {
         Row: {
-          id: string
-          user_id: string
-          sku_code: string
-          title: string | null
-          cost: number | null
-          weight: number | null
-          currency: string | null
-          country: string
-          created_at: string
-          updated_at: string
-        }
-      }
+          id: string;
+          user_id: string;
+          sku_code: string;
+          title?: string;
+          cost?: number;
+          weight?: number;
+          currency?: string;
+          country?: string;
+          created_at: string;
+          updated_at: string;
+        };
+      };
       po_orders: {
         Row: {
-          id: string
-          user_id: string
-          po_number: string
-          sku_code: string
-          quantity: number
-          status: string
-          order_date: string | null
-          expected_delivery: string | null
-          notes: string | null
-          file_name: string
-          country: string | null
-          currency: string | null
-          unit_cost: number | null
-          total_cost: number | null
-          sku_user_id: string
-          supplier_order_number: string | null
-          tracking_number: string | null
-          tracking_url: string | null
-          created_at: string
-          updated_at: string
-          ship_to_location: string | null
-          asin: string | null
-          model_number: string | null
-          title: string | null
-          external_id: string | null
-          external_id_type: string | null
-        }
-      }
-    }
-  }
+          id: string;
+          user_id: string;
+          po_number: string;
+          sku_code: string;
+          quantity: number;
+          status: string;
+          order_date?: string;
+          expected_delivery?: string;
+          notes?: string;
+          file_name: string;
+          country?: string;
+          currency?: string;
+          unit_cost?: number;
+          total_cost?: number;
+          sku_user_id?: string;
+          supplier_order_number?: string;
+          tracking_number?: string;
+          tracking_url?: string;
+          created_at: string;
+          updated_at: string;
+        };
+      };
+    };
+  };
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Get the authorization header
+    console.log('Starting PO data fetch...');
+    
+    // Get authorization header
     const authHeader = req.headers.get('Authorization');
+    console.log('Auth header present:', !!authHeader);
+    
     if (!authHeader) {
-      throw new Error('No authorization header');
+      console.error('No authorization header provided');
+      return new Response(
+        JSON.stringify({ success: false, error: 'No authorization header provided' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
+      );
     }
 
-    // Extract the JWT token from the Bearer token
-    const token = authHeader.replace('Bearer ', '');
-
-    // Create Supabase client with service role
+    // Create Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     
+    console.log('Supabase URL:', supabaseUrl);
+    console.log('Service key present:', !!supabaseServiceKey);
+    
     if (!supabaseUrl || !supabaseServiceKey) {
-      throw new Error('Missing Supabase configuration');
+      console.error('Missing Supabase environment variables');
+      return new Response(
+        JSON.stringify({ success: false, error: 'Missing Supabase configuration' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      );
     }
+    const supabase = createClient<Database>(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    );
 
-    const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey);
-
-    // Verify the JWT and get user
+    // Extract user from JWT token
+    const token = authHeader.replace('Bearer ', '');
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    
     if (userError || !user) {
-      throw new Error('Invalid or expired token');
+      console.error('User authentication failed:', userError);
+      throw new Error('User authentication failed');
     }
 
-    console.log(`🔍 Fetching all data for user: ${user.id}`);
+    console.log(`Fetching data for user: ${user.id}`);
 
-    // Get counts first for progress tracking
-    const [{ count: skuCount }, { count: poCount }] = await Promise.all([
-      supabase.from('sunsky_skus').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
-      supabase.from('po_orders').select('*', { count: 'exact', head: true }).eq('user_id', user.id)
-    ]);
+    // First get counts for progress tracking
+    const { count: skuCount } = await supabase
+      .from('sunsky_skus')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id);
 
-    console.log(`📊 Total counts - SKUs: ${skuCount}, PO Orders: ${poCount}`);
+    const { count: orderCount } = await supabase
+      .from('po_orders')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id);
 
-    // Fetch all data in chunks to manage large datasets
-    const chunkSize = 1000;
-    const sunskySKUs = [];
-    const poOrders = [];
+    console.log(`Total records to fetch: ${skuCount || 0} SKUs, ${orderCount || 0} PO orders`);
 
-    // Fetch all SKUs in chunks
+    // Fetch ALL Sunsky SKUs using direct database access
+    console.log('Fetching ALL Sunsky SKUs...');
+    let allSkus: any[] = [];
     let skuOffset = 0;
-    while (true) {
-      const { data: skuBatch, error: skuError } = await supabase
+    const chunkSize = 1000;
+    let hasMoreSkus = true;
+    let skuProgress = 0;
+
+    while (hasMoreSkus && (skuCount === null || skuOffset < skuCount)) {
+      const { data: skuChunk, error: skuError } = await supabase
         .from('sunsky_skus')
         .select('*')
         .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
         .range(skuOffset, skuOffset + chunkSize - 1);
 
-      if (skuError) throw skuError;
-      if (!skuBatch || skuBatch.length === 0) break;
+      if (skuError) {
+        console.error('Error fetching SKUs:', skuError);
+        throw skuError;
+      }
 
-      sunskySKUs.push(...skuBatch);
-      skuOffset += chunkSize;
-      
-      console.log(`📦 Loaded ${sunskySKUs.length}/${skuCount} SKUs`);
-      
-      if (skuBatch.length < chunkSize) break;
+      if (skuChunk && skuChunk.length > 0) {
+        allSkus = allSkus.concat(skuChunk);
+        skuProgress = skuCount ? Math.round((allSkus.length / skuCount) * 100) : 100;
+        console.log(`Loaded ${allSkus.length}/${skuCount || allSkus.length} SKUs (${skuProgress}%)`);
+        
+        if (skuChunk.length < chunkSize) {
+          hasMoreSkus = false;
+        } else {
+          skuOffset += chunkSize;
+        }
+      } else {
+        hasMoreSkus = false;
+      }
     }
 
-    // Fetch all PO orders in chunks
-    let poOffset = 0;
-    while (true) {
-      const { data: poBatch, error: poError } = await supabase
+    console.log(`Total SKUs loaded: ${allSkus.length}`);
+
+    // Fetch ALL PO Orders using direct database access
+    console.log('Fetching ALL PO Orders...');
+    let allOrders: any[] = [];
+    let orderOffset = 0;
+    let hasMoreOrders = true;
+    let orderProgress = 0;
+
+    while (hasMoreOrders && (orderCount === null || orderOffset < orderCount)) {
+      const { data: orderChunk, error: orderError } = await supabase
         .from('po_orders')
         .select('*')
         .eq('user_id', user.id)
-        .range(poOffset, poOffset + chunkSize - 1);
+        .order('created_at', { ascending: false })
+        .range(orderOffset, orderOffset + chunkSize - 1);
 
-      if (poError) throw poError;
-      if (!poBatch || poBatch.length === 0) break;
+      if (orderError) {
+        console.error('Error fetching PO orders:', orderError);
+        throw orderError;
+      }
 
-      poOrders.push(...poBatch);
-      poOffset += chunkSize;
-      
-      console.log(`📋 Loaded ${poOrders.length}/${poCount} PO orders`);
-      
-      if (poBatch.length < chunkSize) break;
+      if (orderChunk && orderChunk.length > 0) {
+        allOrders = allOrders.concat(orderChunk);
+        orderProgress = orderCount ? Math.round((allOrders.length / orderCount) * 100) : 100;
+        console.log(`Loaded ${allOrders.length}/${orderCount || allOrders.length} PO orders (${orderProgress}%)`);
+        
+        if (orderChunk.length < chunkSize) {
+          hasMoreOrders = false;
+        } else {
+          orderOffset += chunkSize;
+        }
+      } else {
+        hasMoreOrders = false;
+      }
     }
 
-    // Create SKU lookup map for efficient joining
+    console.log(`Total PO orders loaded: ${allOrders.length}`);
+
+    // Create a SKU lookup map for efficient joining
     const skuMap = new Map();
-    for (const sku of sunskySKUs) {
+    allSkus.forEach(sku => {
       skuMap.set(sku.sku_code, sku);
-    }
+    });
 
-    // Join PO orders with SKU data
-    const poOrdersWithSKUs = poOrders.map(order => ({
+    // Add sunsky_sku to each order
+    const ordersWithSkus = allOrders.map(order => ({
       ...order,
-      sunsky_sku: skuMap.get(order.sku_code) || skuMap.get(order.model_number) || null
+      sunsky_sku: skuMap.get(order.sku_code) || null
     }));
 
-    console.log(`✅ Returning ${sunskySKUs.length} SKUs and ${poOrdersWithSKUs.length} PO orders with joined data`);
+    console.log('Successfully fetched and processed all data');
 
     return new Response(
       JSON.stringify({
-        sunskySKUs,
-        poOrders: poOrdersWithSKUs
+        success: true,
+        data: {
+          sunskySKUs: allSkus,
+          poOrders: ordersWithSkus
+        },
+        message: `Loaded ${allSkus.length} SKUs and ${allOrders.length} PO orders`
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -170,9 +225,10 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('❌ Error in get-all-po-data function:', error);
+    console.error('Error in get-all-po-data function:', error);
     return new Response(
       JSON.stringify({
+        success: false,
         error: error.message || 'Internal server error'
       }),
       {
@@ -181,4 +237,4 @@ serve(async (req) => {
       }
     );
   }
-})
+});

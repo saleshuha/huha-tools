@@ -39,7 +39,7 @@ export const usePOOrders = () => {
   const [loadingStatus, setLoadingStatus] = useState('');
   const { toast } = useToast();
 
-  // Fetch PO orders using edge function for unlimited data, with RPC fallback and batch fetching
+  // Fetch PO orders efficiently using the database function
   const fetchPOOrders = useCallback(async () => {
     setIsLoading(true);
     setLoadingProgress(0);
@@ -49,138 +49,36 @@ export const usePOOrders = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      setLoadingProgress(10);
-      setLoadingStatus('Fetching all PO orders with edge function...');
+      setLoadingProgress(30);
+      setLoadingStatus('Fetching orders from database...');
 
-      let allOrders = [];
+      // Use the database function that includes sunsky_sku data
+      const { data: allData, error } = await supabase
+        .rpc('get_all_po_orders', { user_id_param: user.id });
 
-      // Try edge function first for unlimited data
-      try {
-        const { data: edgeData, error: edgeError } = await supabase.functions.invoke('get-all-po-data');
-        
-        if (edgeError) throw edgeError;
-        
-        console.log(`✅ Edge function returned ${edgeData?.poOrders?.length || 0} PO orders`);
-        
-        if (edgeData?.poOrders && Array.isArray(edgeData.poOrders)) {
-          allOrders = edgeData.poOrders;
-          setLoadingProgress(60);
-          setLoadingStatus('Processing edge function data...');
-        } else {
-          throw new Error('Invalid edge function response');
-        }
-      } catch (edgeError) {
-        console.warn('❌ Edge function failed, trying RPC function:', edgeError);
-        setLoadingProgress(20);
-        setLoadingStatus('Edge function failed, trying RPC...');
-        
-        // Fallback to RPC function
-        try {
-          const { data: rpcData, error: rpcError } = await supabase
-            .rpc('get_all_po_orders_with_sku_data', { 
-              user_id_param: user.id 
-            });
+      if (error) throw error;
 
-          if (rpcError) throw rpcError;
-          
-          console.log(`⚠️ RPC function returned ${rpcData?.length || 0} PO orders (may be limited)`);
-          allOrders = rpcData || [];
-          setLoadingProgress(40);
-          setLoadingStatus('Processing RPC data...');
-        } catch (rpcError) {
-          console.warn('❌ RPC function also failed, using batch fetching:', rpcError);
-          setLoadingProgress(30);
-          setLoadingStatus('Both methods failed, using batch fetching...');
-          
-          // Final fallback: batch fetch manually
-          const batchSize = 1000;
-          let offset = 0;
-          let hasMore = true;
-          
-          while (hasMore) {
-            const { data: batch, error: batchError } = await supabase
-              .from('po_orders')
-              .select(`
-                *,
-                sunsky_sku:sunsky_skus!inner(*)
-              `)
-              .eq('user_id', user.id)
-              .range(offset, offset + batchSize - 1)
-              .order('created_at', { ascending: false });
-
-            if (batchError) {
-              console.warn('Batch error, trying without join:', batchError);
-              const { data: simpleBatch, error: simpleError } = await supabase
-                .from('po_orders')
-                .select('*')
-                .eq('user_id', user.id)
-                .range(offset, offset + batchSize - 1)
-                .order('created_at', { ascending: false });
-
-              if (simpleError) throw simpleError;
-              allOrders = [...allOrders, ...(simpleBatch || [])];
-            } else {
-              allOrders = [...allOrders, ...(batch || [])];
-            }
-
-            hasMore = batch && batch.length === batchSize;
-            offset += batchSize;
-            
-            setLoadingProgress(30 + (offset / 10000) * 30); // Progress up to 60%
-            setLoadingStatus(`Batch fetching: ${allOrders.length} records loaded...`);
-            
-            if (offset > 10000) break; // Safety limit
-          }
-          
-          console.log(`📦 Batch fetch completed: ${allOrders.length} orders`);
-        }
-      }
-      
-      // Verify no duplicates by checking unique IDs
-      const uniqueIds = new Set();
-      const uniquePOOrders = [];
-      let duplicateCount = 0;
-      
-      for (const order of allOrders || []) {
-        if (uniqueIds.has(order.id)) {
-          duplicateCount++;
-          console.warn(`🚨 Duplicate ID found: ${order.id}`);
-        } else {
-          uniqueIds.add(order.id);
-          uniquePOOrders.push(order);
-        }
-      }
-      
-      if (duplicateCount > 0) {
-        console.warn(`🚨 Removed ${duplicateCount} duplicate records`);
-      }
-
-      // Debug quantity and status calculation
-      const totalQuantityDebug = uniquePOOrders.reduce((sum, order) => sum + (order.quantity || 0), 0);
-      const activeOrders = uniquePOOrders.filter(order => 
-        !['completed', 'cancelled', 'delivered', 'closed'].includes(order.status)
-      );
-      const activeQuantity = activeOrders.reduce((sum, order) => sum + (order.quantity || 0), 0);
-      
-      console.log(`🔢 TOTAL: ${uniquePOOrders.length} orders, ${totalQuantityDebug} quantity`);
-      console.log(`🎯 ACTIVE: ${activeOrders.length} orders, ${activeQuantity} quantity`);
+      console.log(`Total records fetched: ${allData?.length || 0}`);
+      console.log('Sample order with SKU:', allData?.[0]);
 
       setLoadingProgress(80);
       setLoadingStatus('Processing order data...');
 
-      // Map orders with proper status casting
-      const finalOrders = uniquePOOrders.map(order => ({
+      const allOrders = (allData || []).map(order => ({
         ...order,
         status: order.status as POOrder['status'],
+        // sunsky_sku is already included from the database function
       }));
 
-      setPOOrders(finalOrders);
+      setPOOrders(allOrders);
 
       setLoadingProgress(100);
-      setLoadingStatus(`Loaded ${finalOrders.length} PO orders`);
+      setLoadingStatus(`Loaded ${allOrders.length} PO orders`);
+
+      console.log(`Successfully loaded ${allOrders.length} PO orders (should match database count)`);
 
     } catch (error) {
-      console.error('❌ Error fetching PO orders:', error);
+      console.error('Error fetching PO orders:', error);
       setLoadingStatus('Failed to load PO orders');
       toast({
         title: "Error",

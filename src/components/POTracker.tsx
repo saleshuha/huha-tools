@@ -213,132 +213,53 @@ export function POTracker() {
     forceRefreshData();
   };
 
-  // Step 1: Filter by user's country first
-  const userCountryOrders = poOrders.filter(order => order.country === profile?.country);
-  console.log(`📊 ALL Orders in user country (${profile?.country}):`, {
-    totalCount: userCountryOrders.length,
-    totalQuantity: userCountryOrders.reduce((sum, o) => sum + (o.quantity || 0), 0)
-  });
+  // Filter out closed POs for active metrics
+  const activePOOrders = poOrders.filter(order => order.status !== 'closed');
 
-  // Step 2: Filter by active status (pending, ordered, shipped only)
-  const ACTIVE_STATUSES = new Set(['pending', 'ordered', 'shipped']);
-  const activeOrdersBeforeDedup = userCountryOrders.filter(order => 
-    ACTIVE_STATUSES.has(order.status as string)
-  );
+  // Calculate accurate metrics based on database matching (active POs only)
+  const totalOrderRecords = activePOOrders.length;
+  const totalItemsQuantity = activePOOrders.reduce((sum, order) => sum + (order.quantity || 0), 0);
+  const uniquePONumbers = new Set(activePOOrders.map(order => order.po_number)).size;
   
-  console.log(`📊 Active orders (before dedup) - Status in [pending, ordered, shipped]:`, {
-    activeCount: activeOrdersBeforeDedup.length,
-    activeQuantity: activeOrdersBeforeDedup.reduce((sum, o) => sum + (o.quantity || 0), 0),
-    statusBreakdown: activeOrdersBeforeDedup.reduce((acc, o) => {
-      acc[o.status] = (acc[o.status] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>)
-  });
-
-  // Step 3: Deduplication with refined key (exclude title) and latest-wins approach
-  const deduplicationMap = new Map<string, any>();
-  
-  activeOrdersBeforeDedup.forEach(order => {
-    // Build refined business key (exclude title to reduce fragmentation)
-    const primaryIdentifier = (
-      order.sunsky_sku?.sku_code || 
-      order.model_number || 
-      order.sku_code || 
-      order.asin || 
-      ''
-    ).toLowerCase().trim();
-    
-    const businessKey = [
-      (order.po_number || '').toLowerCase().trim(),
-      (order.ship_to_location || '').toLowerCase().trim(), 
-      primaryIdentifier,
-      (order.external_id || '').toLowerCase().trim(),
-      (order.external_id_type || '').toLowerCase().trim()
-    ].join('|');
-
-    if (!deduplicationMap.has(businessKey)) {
-      deduplicationMap.set(businessKey, { ...order });
-    } else {
-      const existing = deduplicationMap.get(businessKey)!;
-      
-      // Latest-wins criteria - choose the "best" record, don't sum quantities
-      const shouldReplace = 
-        (!!order.tracking_number && !existing.tracking_number) ||
-        (!!order.supplier_order_number && !existing.supplier_order_number) ||
-        (!!order.sunsky_sku && !existing.sunsky_sku) ||
-        (!!order.asin && !existing.asin) ||
-        (new Date(order.updated_at) > new Date(existing.updated_at));
-      
-      if (shouldReplace) {
-        console.log(`🔄 Replacing duplicate for key ${businessKey}:`, {
-          keeping: order.id,
-          replacing: existing.id,
-          reason: order.tracking_number ? 'has_tracking' : 
-                  order.supplier_order_number ? 'has_supplier_order' :
-                  order.sunsky_sku ? 'has_sunsky_sku' :
-                  order.asin ? 'has_asin' : 'newer_date',
-          keptQty: order.quantity,
-          discardedQty: existing.quantity
-        });
-        deduplicationMap.set(businessKey, { ...order });
-      }
-    }
-  });
-
-  // Step 4: Final deduplicated active orders
-  const uniqueActivePOOrders = Array.from(deduplicationMap.values());
-  
-  console.log(`📊 FINAL Active orders after deduplication:`, {
-    dedupedCount: uniqueActivePOOrders.length,
-    dedupedQuantity: uniqueActivePOOrders.reduce((sum, o) => sum + (o.quantity || 0), 0),
-    removedDuplicates: activeOrdersBeforeDedup.length - uniqueActivePOOrders.length,
-    compressionRatio: `${((activeOrdersBeforeDedup.length - uniqueActivePOOrders.length) / activeOrdersBeforeDedup.length * 100).toFixed(1)}%`
-  });
-
-  // Calculate accurate metrics based on properly filtered & deduplicated data
-  const totalOrderRecords = uniqueActivePOOrders.length;
-  const totalItemsQuantity = uniqueActivePOOrders.reduce((sum, order) => sum + (order.quantity || 0), 0);
-  const uniquePONumbers = new Set(uniqueActivePOOrders.map(order => order.po_number)).size;
-  
-  // Matched items - use database-level matching (items with sunsky_sku populated) from deduplicated active POs only
-  const matchedItems = uniqueActivePOOrders.filter(order => order.sunsky_sku !== null).length;
-  const matchedItemsQuantity = uniqueActivePOOrders
+  // Matched items - use database-level matching (items with sunsky_sku populated) from active POs only
+  const matchedItems = activePOOrders.filter(order => order.sunsky_sku !== null).length;
+  const matchedItemsQuantity = activePOOrders
     .filter(order => order.sunsky_sku !== null)
     .reduce((sum, order) => sum + (order.quantity || 0), 0);
   
-  // Pending matched orders - matched items that are still pending (from deduplicated active POs only)
-  const pendingMatchedItems = uniqueActivePOOrders.filter(order => 
+  // Pending matched orders - matched items that are still pending (from active POs only)
+  const pendingMatchedItems = activePOOrders.filter(order => 
     order.sunsky_sku !== null && order.status === 'pending'
   ).length;
 
-  // Already placed orders - items that are not pending (from deduplicated active POs only)
-  const placedOrders = uniqueActivePOOrders.filter(order => 
+  // Already placed orders - items that are not pending (from active POs only)
+  const placedOrders = activePOOrders.filter(order => 
     order.status !== 'pending' && order.status !== 'closed'
   ).length;
 
-  // Get actually matched items with stock (cross-reference with inventory) - using deduplicated data
+  // Get actually matched items with stock (cross-reference with inventory)
   const getMatchedItemsWithStock = () => {
-    return uniqueActivePOOrders.filter(order => {
+    return activePOOrders.filter(order => {
       if (order.sunsky_sku === null) return false;
-      const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code);
+      const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku, order.sku_code);
       return isItemInStock(inventoryMatch);
     }).length;
   };
 
-  // Get matched items with any inventory (in or out of stock) - using deduplicated data
+  // Get matched items with any inventory (in or out of stock)
   const getMatchedItemsWithInventory = () => {
-    return uniqueActivePOOrders.filter(order => {
+    return activePOOrders.filter(order => {
       if (order.sunsky_sku === null) return false;
-      const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code);
+      const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku, order.sku_code);
       return inventoryMatch !== null;
     }).length;
   };
 
-  // Get total quantity of in-stock matched items - using deduplicated data
+  // Get total quantity of in-stock matched items
   const getTotalInStockQuantity = () => {
-    return uniqueActivePOOrders.reduce((total, order) => {
+    return activePOOrders.reduce((total, order) => {
       if (order.sunsky_sku === null) return total;
-      const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code);
+      const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku, order.sku_code);
       if (isItemInStock(inventoryMatch)) {
         return total + inventoryMatch.quantity;
       }
@@ -350,8 +271,8 @@ export function POTracker() {
   const totalItemsWithInventory = getMatchedItemsWithInventory();
   const totalInStockQuantity = getTotalInStockQuantity();
 
-  // Group deduplicated PO orders by PO number for accurate display
-  const groupedPOOrders = uniqueActivePOOrders.reduce((groups: any, order) => {
+  // Group PO orders by PO number for better display
+  const groupedPOOrders = activePOOrders.reduce((groups: any, order) => {
     const poNumber = order.po_number;
     if (!groups[poNumber]) {
       groups[poNumber] = [];
@@ -504,18 +425,9 @@ export function POTracker() {
             <Package className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="space-y-1">
-              <div className="flex items-baseline gap-2">
-                <span className="text-xl font-bold text-blue-600">{totalOrderRecords.toLocaleString()}</span>
-                <span className="text-sm text-muted-foreground">records</span>
-              </div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-xl font-bold text-blue-600">{uniquePONumbers.toLocaleString()}</span>
-                <span className="text-sm text-muted-foreground">unique POs</span>
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              {totalItemsQuantity.toLocaleString()} total quantity
+            <div className="text-2xl font-bold text-blue-600">{totalOrderRecords.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground">
+              {uniquePONumbers} PO numbers • {totalItemsQuantity.toLocaleString()} total qty
             </p>
             <div className="flex gap-2 mt-1">
               <Badge variant="secondary" className="text-xs">
@@ -689,9 +601,9 @@ export function POTracker() {
                     <TableBody>
                       {filteredPOGroups.map(({ poNumber, orders }) => {
                         const firstOrder = orders[0];
-                         const totalQuantity = orders.reduce((sum: number, order: any) => sum + (order.quantity || 0), 0);
-                         const matchedCount = orders.filter((order: any) => order.sunsky_sku !== null).length;
-                         const matchedPercentage = ((matchedCount / orders.length) * 100).toFixed(0);
+                        const totalQuantity = orders.reduce((sum: number, order: any) => sum + (order.quantity || 0), 0);
+                        const matchedCount = orders.filter((order: any) => order.sunsky_sku !== null).length;
+                        const matchedPercentage = ((matchedCount / orders.length) * 100).toFixed(0);
                         
                         const statusCounts = orders.reduce((counts: any, order: any) => {
                           counts[order.status] = (counts[order.status] || 0) + 1;
