@@ -27,3 +27,6 @@ verify_jwt = false
 
 [functions.process-po-background]
 verify_jwt = true
+
+[functions.get-all-po-data]
+verify_jwt = true

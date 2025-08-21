@@ -39,7 +39,7 @@ export const usePOOrders = () => {
   const [loadingStatus, setLoadingStatus] = useState('');
   const { toast } = useToast();
 
-  // Fetch PO orders using the comprehensive RPC function with SKU data
+  // Fetch PO orders using edge function for unlimited data, with RPC fallback and batch fetching
   const fetchPOOrders = useCallback(async () => {
     setIsLoading(true);
     setLoadingProgress(0);
@@ -50,24 +50,98 @@ export const usePOOrders = () => {
       if (!user) throw new Error('User not authenticated');
 
       setLoadingProgress(10);
-      setLoadingStatus('Fetching all PO orders with SKU data...');
+      setLoadingStatus('Fetching all PO orders with edge function...');
 
-      // Use the comprehensive RPC function that returns ALL records with SKU data in one call
-      const { data: allPOOrders, error } = await supabase
-        .rpc('get_all_po_orders_with_sku_data', { 
-          user_id_param: user.id 
-        });
+      let allOrders = [];
 
-      if (error) throw error;
+      // Try edge function first for unlimited data
+      try {
+        const { data: edgeData, error: edgeError } = await supabase.functions.invoke('get-all-po-data');
+        
+        if (edgeError) throw edgeError;
+        
+        console.log(`✅ Edge function returned ${edgeData?.poOrders?.length || 0} PO orders`);
+        
+        if (edgeData?.poOrders && Array.isArray(edgeData.poOrders)) {
+          allOrders = edgeData.poOrders;
+          setLoadingProgress(60);
+          setLoadingStatus('Processing edge function data...');
+        } else {
+          throw new Error('Invalid edge function response');
+        }
+      } catch (edgeError) {
+        console.warn('❌ Edge function failed, trying RPC function:', edgeError);
+        setLoadingProgress(20);
+        setLoadingStatus('Edge function failed, trying RPC...');
+        
+        // Fallback to RPC function
+        try {
+          const { data: rpcData, error: rpcError } = await supabase
+            .rpc('get_all_po_orders_with_sku_data', { 
+              user_id_param: user.id 
+            });
 
-      console.log(`✅ Fetched ${allPOOrders?.length || 0} PO orders from comprehensive RPC function`);
+          if (rpcError) throw rpcError;
+          
+          console.log(`⚠️ RPC function returned ${rpcData?.length || 0} PO orders (may be limited)`);
+          allOrders = rpcData || [];
+          setLoadingProgress(40);
+          setLoadingStatus('Processing RPC data...');
+        } catch (rpcError) {
+          console.warn('❌ RPC function also failed, using batch fetching:', rpcError);
+          setLoadingProgress(30);
+          setLoadingStatus('Both methods failed, using batch fetching...');
+          
+          // Final fallback: batch fetch manually
+          const batchSize = 1000;
+          let offset = 0;
+          let hasMore = true;
+          
+          while (hasMore) {
+            const { data: batch, error: batchError } = await supabase
+              .from('po_orders')
+              .select(`
+                *,
+                sunsky_sku:sunsky_skus!inner(*)
+              `)
+              .eq('user_id', user.id)
+              .range(offset, offset + batchSize - 1)
+              .order('created_at', { ascending: false });
+
+            if (batchError) {
+              console.warn('Batch error, trying without join:', batchError);
+              const { data: simpleBatch, error: simpleError } = await supabase
+                .from('po_orders')
+                .select('*')
+                .eq('user_id', user.id)
+                .range(offset, offset + batchSize - 1)
+                .order('created_at', { ascending: false });
+
+              if (simpleError) throw simpleError;
+              allOrders = [...allOrders, ...(simpleBatch || [])];
+            } else {
+              allOrders = [...allOrders, ...(batch || [])];
+            }
+
+            hasMore = batch && batch.length === batchSize;
+            offset += batchSize;
+            
+            setLoadingProgress(30 + (offset / 10000) * 30); // Progress up to 60%
+            setLoadingStatus(`Batch fetching: ${allOrders.length} records loaded...`);
+            
+            if (offset > 10000) break; // Safety limit
+          }
+          
+          console.log(`📦 Batch fetch completed: ${allOrders.length} orders`);
+        }
+      }
       
       // Verify no duplicates by checking unique IDs
       const uniqueIds = new Set();
       const uniquePOOrders = [];
       let duplicateCount = 0;
       
-      for (const order of allPOOrders || []) {
+      for (const order of allOrders || []) {
         if (uniqueIds.has(order.id)) {
           duplicateCount++;
           console.warn(`🚨 Duplicate ID found: ${order.id}`);
@@ -81,28 +155,29 @@ export const usePOOrders = () => {
         console.warn(`🚨 Removed ${duplicateCount} duplicate records`);
       }
 
-      // Debug quantity calculation
+      // Debug quantity and status calculation
       const totalQuantityDebug = uniquePOOrders.reduce((sum, order) => sum + (order.quantity || 0), 0);
-      console.log(`🔢 Total quantity from RPC data: ${totalQuantityDebug} from ${uniquePOOrders.length} unique records`);
+      const activeOrders = uniquePOOrders.filter(order => 
+        !['completed', 'cancelled', 'delivered', 'closed'].includes(order.status)
+      );
+      const activeQuantity = activeOrders.reduce((sum, order) => sum + (order.quantity || 0), 0);
+      
+      console.log(`🔢 TOTAL: ${uniquePOOrders.length} orders, ${totalQuantityDebug} quantity`);
+      console.log(`🎯 ACTIVE: ${activeOrders.length} orders, ${activeQuantity} quantity`);
 
       setLoadingProgress(80);
       setLoadingStatus('Processing order data...');
 
-      // Map orders with proper status casting (SKU data already included from RPC)
-      const allOrders = uniquePOOrders.map(order => ({
+      // Map orders with proper status casting
+      const finalOrders = uniquePOOrders.map(order => ({
         ...order,
         status: order.status as POOrder['status'],
-        // sunsky_sku is already included from the RPC function
       }));
 
-      // Final verification
-      const finalQuantity = allOrders.reduce((sum, order) => sum + (order.quantity || 0), 0);
-      console.log(`🎯 FINAL VERIFICATION: ${allOrders.length} orders, ${finalQuantity} total quantity`);
-
-      setPOOrders(allOrders);
+      setPOOrders(finalOrders);
 
       setLoadingProgress(100);
-      setLoadingStatus(`Loaded ${allOrders.length} PO orders`);
+      setLoadingStatus(`Loaded ${finalOrders.length} PO orders`);
 
     } catch (error) {
       console.error('❌ Error fetching PO orders:', error);
