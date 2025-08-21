@@ -614,9 +614,12 @@ export function POTracker() {
                     <TableBody>
                       {filteredPOGroups.map(({ poNumber, orders }) => {
                         const firstOrder = orders[0];
-                        const totalQuantity = orders.reduce((sum: number, order: any) => sum + (order.quantity || 0), 0);
-                        const matchedCount = orders.filter((order: any) => order.sunsky_sku !== null).length;
-                        const matchedPercentage = ((matchedCount / orders.length) * 100).toFixed(0);
+                         const totalQuantity = orders.reduce((sum: number, order: any) => sum + (order.quantity || 0), 0);
+                         const matchedCount = orders.filter((order: any) => order.sunsky_sku !== null).length;
+                         const matchedPercentage = ((matchedCount / orders.length) * 100).toFixed(0);
+                         
+                         // Debug the quantity calculation for this specific PO
+                         console.log(`🔢 PO ${poNumber}: ${orders.length} orders, quantities:`, orders.map(o => ({ id: o.id, qty: o.quantity })), `Total: ${totalQuantity}`);
                         
                         const statusCounts = orders.reduce((counts: any, order: any) => {
                           counts[order.status] = (counts[order.status] || 0) + 1;
