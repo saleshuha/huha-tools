@@ -770,15 +770,15 @@ export function POTracker() {
                             onClick={() => navigate(`/po-details/${encodeURIComponent(poNumber)}`)}
                           >
                             <TableCell className="space-y-2">
-                              <div className="flex items-center gap-2">
+                               <div className="flex items-center gap-2">
                                 <span className="font-medium">{poNumber}</span>
                                  <Badge variant="outline" className="text-xs">
-                                   {orders.length} line items
+                                   {activeOrdersInPO.length} line items
                                  </Badge>
                                  <Badge variant="outline" className="text-xs">
                                    {totalQuantity} ASN units
                                  </Badge>
-                              </div>
+                               </div>
                               {firstOrder.title && (
                                 <p className="text-sm text-muted-foreground truncate max-w-[200px]">
                                   {firstOrder.title}
@@ -798,9 +798,9 @@ export function POTracker() {
                                   {matchedPercentage}%
                                 </span>
                               </div>
-                              <div className="text-xs">
-                                <span className="text-muted-foreground">{matchedCount}/{orders.length} matched</span>
-                              </div>
+                               <div className="text-xs">
+                                 <span className="text-muted-foreground">{matchedCount}/{activeOrdersInPO.length} matched</span>
+                               </div>
                               {matchedCount > 0 && (
                                 <Badge variant="secondary" className="text-xs">
                                   <PackageCheck className="w-3 h-3 mr-1" />
