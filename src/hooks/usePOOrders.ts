@@ -75,6 +75,16 @@ export const usePOOrders = () => {
       setLoadingProgress(90);
       setLoadingStatus('Finalizing...');
 
+      // Log detailed debugging for specific PO
+      const po8RGH1C7S = processedOrders.filter(o => o.po_number === '8RGH1C7S');
+      if (po8RGH1C7S.length > 0) {
+        const totalQty8RGH1C7S = po8RGH1C7S.reduce((sum, order) => sum + (order.quantity || 0), 0);
+        console.log(`🔍 DEBUGGING PO 8RGH1C7S:`);
+        console.log(`📦 Orders: ${po8RGH1C7S.length}`);
+        console.log(`📋 Total Quantity: ${totalQty8RGH1C7S}`);
+        console.log(`📊 Sample orders:`, po8RGH1C7S.slice(0, 3));
+      }
+
       // Log accurate metrics for verification
       const totalQuantity = processedOrders.reduce((sum, order) => sum + (order.quantity || 0), 0);
       const uniquePONumbers = new Set(processedOrders.map(o => o.po_number)).size;
