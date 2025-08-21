@@ -39,7 +39,7 @@ export const usePOOrders = () => {
   const [loadingStatus, setLoadingStatus] = useState('');
   const { toast } = useToast();
 
-  // Fetch PO orders efficiently using the database function
+  // Fetch PO orders using pagination to get all records
   const fetchPOOrders = useCallback(async () => {
     setIsLoading(true);
     setLoadingProgress(0);
@@ -49,25 +49,89 @@ export const usePOOrders = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      setLoadingProgress(30);
-      setLoadingStatus('Fetching orders from database...');
+      setLoadingProgress(10);
+      setLoadingStatus('Fetching PO orders in chunks...');
 
-      // Use the database function that includes sunsky_sku data
-      const { data: allData, error } = await supabase
-        .rpc('get_all_po_orders', { user_id_param: user.id });
+      // Fetch all PO orders in batches to bypass any limits
+      let allPOOrders = [];
+      let page = 0;
+      const pageSize = 1000;
+      let hasMore = true;
 
-      if (error) throw error;
+      console.log('🔄 Starting paginated fetch of all PO orders...');
 
-      console.log(`Total records fetched: ${allData?.length || 0}`);
-      console.log('Sample order with SKU:', allData?.[0]);
+      while (hasMore) {
+        setLoadingProgress(10 + (page * 30)); // Progress indication
+        setLoadingStatus(`Fetching batch ${page + 1}...`);
+
+        const { data: batch, error } = await supabase
+          .from('po_orders')
+          .select(`
+            id, user_id, po_number, sku_code, quantity, status, order_date, 
+            expected_delivery, notes, file_name, country, currency, unit_cost, 
+            total_cost, sku_user_id, supplier_order_number, tracking_number, 
+            tracking_url, created_at, updated_at, ship_to_location, asin, 
+            model_number, title, external_id, external_id_type
+          `)
+          .eq('user_id', user.id)
+          .range(page * pageSize, (page + 1) * pageSize - 1)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        if (batch && batch.length > 0) {
+          allPOOrders = [...allPOOrders, ...batch];
+          console.log(`📦 Batch ${page + 1}: ${batch.length} records (total: ${allPOOrders.length})`);
+          
+          if (batch.length < pageSize) {
+            hasMore = false;
+          } else {
+            page++;
+          }
+        } else {
+          hasMore = false;
+        }
+      }
+
+      console.log(`✅ Fetched ${allPOOrders.length} total PO orders`);
+
+      setLoadingProgress(60);
+      setLoadingStatus('Fetching Sunsky SKU data...');
+
+      // Now fetch Sunsky SKU data for matching
+      const sunskySKUs = new Map();
+      if (allPOOrders.length > 0) {
+        const allSkuCodes = [...new Set(allPOOrders.map(order => order.sku_code || order.model_number).filter(Boolean))];
+        
+        // Fetch SKUs in batches to avoid URL length limits
+        const skuBatchSize = 100;
+        for (let i = 0; i < allSkuCodes.length; i += skuBatchSize) {
+          const skuBatch = allSkuCodes.slice(i, i + skuBatchSize);
+          
+          const { data: skuData, error: skuError } = await supabase
+            .from('sunsky_skus')
+            .select('*')
+            .eq('user_id', user.id)
+            .in('sku_code', skuBatch);
+
+          if (skuError) {
+            console.warn('Error fetching SKU batch:', skuError);
+          } else if (skuData) {
+            skuData.forEach(sku => {
+              sunskySKUs.set(sku.sku_code, sku);
+            });
+          }
+        }
+      }
 
       setLoadingProgress(80);
       setLoadingStatus('Processing order data...');
 
-      const allOrders = (allData || []).map(order => ({
+      // Map orders with their corresponding SKU data
+      const allOrders = allPOOrders.map(order => ({
         ...order,
         status: order.status as POOrder['status'],
-        // sunsky_sku is already included from the database function
+        sunsky_sku: sunskySKUs.get(order.sku_code) || sunskySKUs.get(order.model_number) || null
       }));
 
       setPOOrders(allOrders);
@@ -75,10 +139,10 @@ export const usePOOrders = () => {
       setLoadingProgress(100);
       setLoadingStatus(`Loaded ${allOrders.length} PO orders`);
 
-      console.log(`Successfully loaded ${allOrders.length} PO orders (should match database count)`);
+      console.log(`🎉 Successfully loaded ${allOrders.length} PO orders with SKU data`);
 
     } catch (error) {
-      console.error('Error fetching PO orders:', error);
+      console.error('❌ Error fetching PO orders:', error);
       setLoadingStatus('Failed to load PO orders');
       toast({
         title: "Error",
