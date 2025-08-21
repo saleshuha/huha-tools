@@ -134,10 +134,20 @@ export function POColumnMapping({ files, onMappingComplete, onBack, isLoading }:
 
   const handleProceed = () => {
     const processedData: any[] = [];
+    let totalRows = 0;
+    let skippedRows = 0;
+    const skippedReasons: string[] = [];
+
+    console.log('🚀 POColumnMapping - Starting data processing...');
 
     files.forEach(({ file, data }) => {
       const mapping = mappings[file.name];
-      if (!mapping) return;
+      if (!mapping) {
+        console.log(`❌ No mapping found for file: ${file.name}`);
+        return;
+      }
+
+      console.log(`📄 Processing file: ${file.name} with ${data.length - 1} data rows`);
 
       const headers = data[0];
       const poIndex = mapping.po_number && mapping.po_number !== 'none' ? headers.indexOf(mapping.po_number) : -1;
@@ -149,32 +159,75 @@ export function POColumnMapping({ files, onMappingComplete, onBack, isLoading }:
       const externalIdIndex = mapping.external_id ? headers.indexOf(mapping.external_id) : -1;
       const externalIdTypeIndex = mapping.external_id_type ? headers.indexOf(mapping.external_id_type) : -1;
 
+      console.log(`🔍 Column indices for ${file.name}:`, {
+        poIndex,
+        shipToLocationIndex,
+        asinIndex,
+        modelNumberIndex,
+        titleIndex,
+        qtyIndex
+      });
+
       // Process data rows (skip header)
       for (let i = 1; i < data.length; i++) {
         const row = data[i];
+        totalRows++;
         
-        // Check if all required fields have data
-        if (row[shipToLocationIndex] && row[asinIndex] && row[modelNumberIndex] && 
-            row[titleIndex] && row[qtyIndex]) {
-          
-          const poNumber = poIndex >= 0 ? row[poIndex]?.trim() : mapping.manual_po_number?.trim();
-          
-          if (poNumber) {
-            processedData.push({
-              po_number: poNumber,
-              ship_to_location: row[shipToLocationIndex].trim(),
-              asin: row[asinIndex].trim(),
-              model_number: row[modelNumberIndex].trim(),
-              title: row[titleIndex].trim(),
-              quantity: parseInt(row[qtyIndex]) || 1,
-              external_id: externalIdIndex >= 0 ? row[externalIdIndex]?.trim() : null,
-              external_id_type: externalIdTypeIndex >= 0 ? row[externalIdTypeIndex]?.trim() : null,
-              file_name: file.name
-            });
-          }
+        const rowNumber = i + 1; // +1 because we're counting from header
+        
+        // Get PO number first
+        const poNumber = poIndex >= 0 ? row[poIndex]?.trim() : mapping.manual_po_number?.trim();
+        
+        // Check each required field individually
+        const missingFields = [];
+        if (!poNumber) missingFields.push('po_number');
+        if (!row[shipToLocationIndex] || !row[shipToLocationIndex].trim()) missingFields.push('ship_to_location');
+        if (!row[asinIndex] || !row[asinIndex].trim()) missingFields.push('asin');
+        if (!row[modelNumberIndex] || !row[modelNumberIndex].trim()) missingFields.push('model_number');
+        if (!row[titleIndex] || !row[titleIndex].trim()) missingFields.push('title');
+        if (!row[qtyIndex] || !row[qtyIndex].toString().trim()) missingFields.push('quantity');
+        
+        if (missingFields.length > 0) {
+          skippedRows++;
+          const skipReason = `${file.name} Row ${rowNumber}: Missing fields: ${missingFields.join(', ')}`;
+          skippedReasons.push(skipReason);
+          console.log(`❌ SKIPPED: ${skipReason}`);
+          console.log(`   Row data:`, {
+            po_number: poNumber || 'MISSING',
+            ship_to_location: row[shipToLocationIndex] || 'MISSING',
+            asin: row[asinIndex] || 'MISSING',
+            model_number: row[modelNumberIndex] || 'MISSING',
+            title: row[titleIndex] || 'MISSING',
+            quantity: row[qtyIndex] || 'MISSING'
+          });
+          continue;
         }
+        
+        // All required fields are present
+        const processedRow = {
+          po_number: poNumber,
+          ship_to_location: row[shipToLocationIndex].trim(),
+          asin: row[asinIndex].trim(),
+          model_number: row[modelNumberIndex].trim(),
+          title: row[titleIndex].trim(),
+          quantity: parseInt(row[qtyIndex]) || 1,
+          external_id: externalIdIndex >= 0 ? row[externalIdIndex]?.trim() : null,
+          external_id_type: externalIdTypeIndex >= 0 ? row[externalIdTypeIndex]?.trim() : null,
+          file_name: file.name
+        };
+        
+        processedData.push(processedRow);
+        console.log(`✅ PROCESSED: ${file.name} Row ${rowNumber} - PO: ${processedRow.po_number}, SKU: ${processedRow.model_number}, Qty: ${processedRow.quantity}`);
       }
     });
+
+    console.log('📊 POColumnMapping PROCESSING SUMMARY:');
+    console.log(`Total rows processed: ${totalRows}`);
+    console.log(`Successfully processed: ${processedData.length}`);
+    console.log(`Skipped rows: ${skippedRows}`);
+    if (skippedReasons.length > 0) {
+      console.log('❌ Skipped reasons:', skippedReasons);
+    }
 
     onMappingComplete(processedData);
   };
