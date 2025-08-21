@@ -39,8 +39,8 @@ export const usePOOrders = () => {
   const [loadingStatus, setLoadingStatus] = useState('');
   const { toast } = useToast();
 
-  // Fetch PO orders using the new database function for accurate deduplication
-  const fetchPOOrders = useCallback(async () => {
+  // Fetch PO orders using raw data by default, with option for deduplicated view
+  const fetchPOOrders = useCallback(async (useRawData = true) => {
     setIsLoading(true);
     setLoadingProgress(0);
     setLoadingStatus('Initializing...');
@@ -50,11 +50,12 @@ export const usePOOrders = () => {
       if (!user) throw new Error('User not authenticated');
 
       setLoadingProgress(20);
-      setLoadingStatus('Fetching all PO orders with canonical deduplication...');
+      setLoadingStatus(`Fetching all PO orders ${useRawData ? '(raw data)' : '(deduplicated)'}...`);
 
-      // Use the new database function for accurate data
+      // Use raw or deduplicated function based on flag
+      const functionName = useRawData ? 'get_all_po_orders_raw' : 'get_all_po_orders_deduplicated';
       const { data: ordersData, error } = await supabase.rpc(
-        'get_all_po_orders_deduplicated',
+        functionName,
         { user_id_param: user.id }
       );
 

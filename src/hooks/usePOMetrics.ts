@@ -11,6 +11,15 @@ export interface POMetrics {
   shippedOrders: number;
 }
 
+export interface POReconciliation {
+  totalRawRecords: number;
+  totalRawQuantity: number;
+  totalDeduplicatedRecords: number;
+  totalDeduplicatedQuantity: number;
+  duplicateRecords: number;
+  quantityDifference: number;
+}
+
 export const usePOMetrics = () => {
   const [metrics, setMetrics] = useState<POMetrics>({
     totalActiveOrders: 0,
@@ -20,20 +29,29 @@ export const usePOMetrics = () => {
     orderedOrders: 0,
     shippedOrders: 0,
   });
+  const [reconciliation, setReconciliation] = useState<POReconciliation>({
+    totalRawRecords: 0,
+    totalRawQuantity: 0,
+    totalDeduplicatedRecords: 0,
+    totalDeduplicatedQuantity: 0,
+    duplicateRecords: 0,
+    quantityDifference: 0,
+  });
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  const fetchMetrics = useCallback(async () => {
+  const fetchMetrics = useCallback(async (useRawData = true) => {
     setIsLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      console.log('🔄 Fetching accurate PO metrics from database function...');
+      console.log('🔄 Fetching PO metrics from database function...');
 
-      // Use the new database function for accurate metrics
+      // Use raw or deduplicated metrics based on flag
+      const functionName = useRawData ? 'get_active_po_metrics_raw' : 'get_active_po_metrics';
       const { data: metricsData, error } = await supabase.rpc(
-        'get_active_po_metrics',
+        functionName,
         { user_id_param: user.id }
       );
 
@@ -50,7 +68,7 @@ export const usePOMetrics = () => {
           shippedOrders: Number(result.shipped_orders) || 0,
         };
 
-        console.log('✅ ACCURATE METRICS FROM DATABASE:');
+        console.log(`✅ ${useRawData ? 'RAW' : 'DEDUPLICATED'} METRICS FROM DATABASE:`);
         console.log(`📦 Active Orders: ${newMetrics.totalActiveOrders}`);
         console.log(`📋 Active Quantity: ${newMetrics.totalActiveQuantity}`);
         console.log(`📄 Unique PO Numbers: ${newMetrics.uniquePONumbers}`);
@@ -72,9 +90,53 @@ export const usePOMetrics = () => {
     }
   }, [toast]);
 
+  const fetchReconciliation = useCallback(async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      console.log('🔄 Fetching PO reconciliation data...');
+
+      const { data: reconciliationData, error } = await supabase.rpc(
+        'get_po_reconciliation_summary',
+        { user_id_param: user.id }
+      );
+
+      if (error) throw error;
+
+      if (reconciliationData && reconciliationData.length > 0) {
+        const result = reconciliationData[0];
+        const newReconciliation: POReconciliation = {
+          totalRawRecords: Number(result.total_raw_records) || 0,
+          totalRawQuantity: Number(result.total_raw_quantity) || 0,
+          totalDeduplicatedRecords: Number(result.total_deduplicated_records) || 0,
+          totalDeduplicatedQuantity: Number(result.total_deduplicated_quantity) || 0,
+          duplicateRecords: Number(result.duplicate_records) || 0,
+          quantityDifference: Number(result.quantity_difference) || 0,
+        };
+
+        console.log('📊 RECONCILIATION DATA:');
+        console.log(`Raw Records: ${newReconciliation.totalRawRecords}, Raw Quantity: ${newReconciliation.totalRawQuantity}`);
+        console.log(`Dedup Records: ${newReconciliation.totalDeduplicatedRecords}, Dedup Quantity: ${newReconciliation.totalDeduplicatedQuantity}`);
+        console.log(`Duplicates: ${newReconciliation.duplicateRecords}, Qty Difference: ${newReconciliation.quantityDifference}`);
+
+        setReconciliation(newReconciliation);
+      }
+    } catch (error) {
+      console.error('Error fetching reconciliation data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch reconciliation data",
+        variant: "destructive"
+      });
+    }
+  }, [toast]);
+
   return {
     metrics,
+    reconciliation,
     isLoading,
-    fetchMetrics
+    fetchMetrics,
+    fetchReconciliation
   };
 };

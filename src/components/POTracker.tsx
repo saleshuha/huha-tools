@@ -25,6 +25,8 @@ export function POTracker() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [shippingRate, setShippingRate] = useState(0.005);
   const [isUpdatingRate, setIsUpdatingRate] = useState(false);
+  const [mergeDuplicates, setMergeDuplicates] = useState(false);
+  const [showReconciliation, setShowReconciliation] = useState(false);
   const [inventoryData, setInventoryData] = useState<{asinInventory: any[], skuInventory: any[]}>({
     asinInventory: [],
     skuInventory: []
@@ -46,8 +48,10 @@ export function POTracker() {
 
   const {
     metrics: poMetrics,
+    reconciliation,
     isLoading: metricsLoading,
-    fetchMetrics
+    fetchMetrics,
+    fetchReconciliation
   } = usePOMetrics();
 
   // Load shipping rate from localStorage or profile on component mount
@@ -204,12 +208,13 @@ export function POTracker() {
   // Load data based on active tab
   useEffect(() => {
     fetchInventoryData();
-    fetchMetrics();
+    fetchMetrics(); // Uses raw data by default
+    fetchReconciliation(); // Get comparison data
     
     if (poOrders.length === 0) {
-      fetchPOOrders();
+      fetchPOOrders(); // Uses raw data by default
     }
-  }, [activeTab, fetchPOOrders, fetchMetrics]);
+  }, [activeTab, fetchPOOrders, fetchMetrics, fetchReconciliation]);
 
   const handleFileUpload = async (mappedData: any[]) => {
     try {
@@ -502,6 +507,58 @@ export function POTracker() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Data Transparency & Reconciliation Banner */}
+      {reconciliation.duplicateRecords > 0 && (
+        <Card className="border-amber-200 bg-amber-50/50">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5" />
+              <div className="flex-1 space-y-3">
+                <div>
+                  <h3 className="font-medium text-amber-800 mb-1">Data Transparency Notice</h3>
+                  <p className="text-sm text-amber-700">
+                    Your upload contained <strong>{reconciliation.totalRawRecords}</strong> order lines with <strong>{reconciliation.totalRawQuantity}</strong> total quantity. 
+                    The system detected <strong>{reconciliation.duplicateRecords}</strong> duplicate entries with <strong>{reconciliation.quantityDifference}</strong> quantity difference.
+                  </p>
+                </div>
+                <div className="flex items-center gap-4 text-xs">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="bg-white">
+                      Raw Data: {reconciliation.totalRawRecords} orders | {reconciliation.totalRawQuantity} qty
+                    </Badge>
+                    <Badge variant="secondary" className="bg-white">
+                      Unique Data: {reconciliation.totalDeduplicatedRecords} orders | {reconciliation.totalDeduplicatedQuantity} qty
+                    </Badge>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-xs"
+                    onClick={() => setShowReconciliation(!showReconciliation)}
+                  >
+                    {showReconciliation ? 'Hide' : 'Show'} Details
+                  </Button>
+                </div>
+                {showReconciliation && (
+                  <div className="grid grid-cols-2 gap-4 p-3 bg-white rounded border">
+                    <div className="text-xs space-y-1">
+                      <h4 className="font-medium text-gray-700">Raw Upload Data</h4>
+                      <p>Total Records: {reconciliation.totalRawRecords}</p>
+                      <p>Total Quantity: {reconciliation.totalRawQuantity}</p>
+                    </div>
+                    <div className="text-xs space-y-1">
+                      <h4 className="font-medium text-gray-700">After Deduplication</h4>
+                      <p>Unique Records: {reconciliation.totalDeduplicatedRecords}</p>
+                      <p>Unique Quantity: {reconciliation.totalDeduplicatedQuantity}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Main Content - keeping existing tabs structure */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>

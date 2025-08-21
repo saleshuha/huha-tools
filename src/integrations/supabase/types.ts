@@ -2282,6 +2282,17 @@ export type Database = {
           total_fees: number
         }[]
       }
+      get_po_reconciliation_summary: {
+        Args: { user_id_param: string }
+        Returns: {
+          duplicate_records: number
+          quantity_difference: number
+          total_deduplicated_quantity: number
+          total_deduplicated_records: number
+          total_raw_quantity: number
+          total_raw_records: number
+        }[]
+      }
       get_sales_analytics: {
         Args: { end_date?: string; start_date?: string }
         Returns: {
