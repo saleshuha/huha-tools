@@ -2293,6 +2293,17 @@ export type Database = {
           total_raw_records: number
         }[]
       }
+      get_po_totals_raw: {
+        Args: { user_id_param: string }
+        Returns: {
+          active_quantity: number
+          active_records: number
+          delivered_quantity: number
+          delivered_records: number
+          total_quantity: number
+          total_records: number
+        }[]
+      }
       get_sales_analytics: {
         Args: { end_date?: string; start_date?: string }
         Returns: {

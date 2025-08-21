@@ -11,13 +11,13 @@ export interface POMetrics {
   shippedOrders: number;
 }
 
-export interface POReconciliation {
-  totalRawRecords: number;
-  totalRawQuantity: number;
-  totalDeduplicatedRecords: number;
-  totalDeduplicatedQuantity: number;
-  duplicateRecords: number;
-  quantityDifference: number;
+export interface POTotals {
+  totalRecords: number;
+  totalQuantity: number;
+  activeRecords: number;
+  activeQuantity: number;
+  deliveredRecords: number;
+  deliveredQuantity: number;
 }
 
 export const usePOMetrics = () => {
@@ -29,13 +29,13 @@ export const usePOMetrics = () => {
     orderedOrders: 0,
     shippedOrders: 0,
   });
-  const [reconciliation, setReconciliation] = useState<POReconciliation>({
-    totalRawRecords: 0,
-    totalRawQuantity: 0,
-    totalDeduplicatedRecords: 0,
-    totalDeduplicatedQuantity: 0,
-    duplicateRecords: 0,
-    quantityDifference: 0,
+  const [totals, setTotals] = useState<POTotals>({
+    totalRecords: 0,
+    totalQuantity: 0,
+    activeRecords: 0,
+    activeQuantity: 0,
+    deliveredRecords: 0,
+    deliveredQuantity: 0,
   });
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
@@ -90,43 +90,43 @@ export const usePOMetrics = () => {
     }
   }, [toast]);
 
-  const fetchReconciliation = useCallback(async () => {
+  const fetchTotals = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      console.log('🔄 Fetching PO reconciliation data...');
+      console.log('🔄 Fetching PO totals...');
 
-      const { data: reconciliationData, error } = await supabase.rpc(
-        'get_po_reconciliation_summary',
+      const { data: totalsData, error } = await supabase.rpc(
+        'get_po_totals_raw',
         { user_id_param: user.id }
       );
 
       if (error) throw error;
 
-      if (reconciliationData && reconciliationData.length > 0) {
-        const result = reconciliationData[0];
-        const newReconciliation: POReconciliation = {
-          totalRawRecords: Number(result.total_raw_records) || 0,
-          totalRawQuantity: Number(result.total_raw_quantity) || 0,
-          totalDeduplicatedRecords: Number(result.total_deduplicated_records) || 0,
-          totalDeduplicatedQuantity: Number(result.total_deduplicated_quantity) || 0,
-          duplicateRecords: Number(result.duplicate_records) || 0,
-          quantityDifference: Number(result.quantity_difference) || 0,
+      if (totalsData && totalsData.length > 0) {
+        const result = totalsData[0];
+        const newTotals: POTotals = {
+          totalRecords: Number(result.total_records) || 0,
+          totalQuantity: Number(result.total_quantity) || 0,
+          activeRecords: Number(result.active_records) || 0,
+          activeQuantity: Number(result.active_quantity) || 0,
+          deliveredRecords: Number(result.delivered_records) || 0,
+          deliveredQuantity: Number(result.delivered_quantity) || 0,
         };
 
-        console.log('📊 RECONCILIATION DATA:');
-        console.log(`Raw Records: ${newReconciliation.totalRawRecords}, Raw Quantity: ${newReconciliation.totalRawQuantity}`);
-        console.log(`Dedup Records: ${newReconciliation.totalDeduplicatedRecords}, Dedup Quantity: ${newReconciliation.totalDeduplicatedQuantity}`);
-        console.log(`Duplicates: ${newReconciliation.duplicateRecords}, Qty Difference: ${newReconciliation.quantityDifference}`);
+        console.log('📊 PO DATABASE TOTALS:');
+        console.log(`Total Records: ${newTotals.totalRecords}, Total Quantity: ${newTotals.totalQuantity}`);
+        console.log(`Active: ${newTotals.activeRecords} records, ${newTotals.activeQuantity} quantity`);
+        console.log(`Delivered: ${newTotals.deliveredRecords} records, ${newTotals.deliveredQuantity} quantity`);
 
-        setReconciliation(newReconciliation);
+        setTotals(newTotals);
       }
     } catch (error) {
-      console.error('Error fetching reconciliation data:', error);
+      console.error('Error fetching PO totals:', error);
       toast({
         title: "Error",
-        description: "Failed to fetch reconciliation data",
+        description: "Failed to fetch PO totals",
         variant: "destructive"
       });
     }
@@ -134,9 +134,9 @@ export const usePOMetrics = () => {
 
   return {
     metrics,
-    reconciliation,
+    totals,
     isLoading,
     fetchMetrics,
-    fetchReconciliation
+    fetchTotals
   };
 };

@@ -134,53 +134,80 @@ export const usePOOrders = () => {
       setLoadingProgress(30);
       setLoadingStatus('Checking for duplicates...');
 
+      // Validate each item and collect errors
+      const validationErrors: string[] = [];
+      const validItems = mappedData.filter(item => {
+        // Required fields: po_number, quantity, file_name
+        if (!item.po_number?.trim()) {
+          validationErrors.push(`Missing PO number for row`);
+          return false;
+        }
+        
+        if (!item.quantity || isNaN(Number(item.quantity))) {
+          validationErrors.push(`Invalid quantity for PO ${item.po_number}`);
+          return false;
+        }
+
+        // Must have either model_number or asin (relaxed validation)
+        if (!item.model_number?.trim() && !item.asin?.trim()) {
+          validationErrors.push(`Missing both model_number and asin for PO ${item.po_number}`);
+          return false;
+        }
+
+        return true;
+      });
+      
+      console.log(`🔍 Validation results: ${validItems.length}/${mappedData.length} items passed validation`);
+      
+      if (validationErrors.length > 0) {
+        console.log('❌ Validation errors:', validationErrors.slice(0, 5)); // Log first 5 errors
+      }
+
+      setLoadingProgress(50);
+      setLoadingStatus('Processing valid items...');
+
       const validOrders: any[] = [];
       const duplicateCount = { count: 0 };
 
-      mappedData.forEach(item => {
-        // Validate that all mandatory fields are present
-        if (item.po_number && item.ship_to_location && item.asin && 
-            item.model_number && item.title && item.quantity) {
-          
-          // Check for duplicates based on key identifying fields
-          const isDuplicate = existingPOs?.some(existing => 
-            existing.po_number === item.po_number &&
-            existing.sku_code === (item.model_number || item.asin) &&
-            existing.asin === item.asin &&
-            existing.model_number === item.model_number &&
-            existing.quantity === item.quantity &&
-            existing.ship_to_location === item.ship_to_location
-          );
+      validItems.forEach(item => {
+        // Check for duplicates based on key identifying fields - only within same PO number
+        const isDuplicate = existingPOs?.some(existing => 
+          existing.po_number === item.po_number &&
+          existing.sku_code === (item.model_number || item.asin) &&
+          existing.asin === item.asin &&
+          existing.model_number === item.model_number &&
+          existing.quantity === item.quantity &&
+          existing.ship_to_location === item.ship_to_location
+        );
 
-          if (isDuplicate) {
-            duplicateCount.count++;
-            console.log(`Skipping duplicate PO: ${item.po_number} - ${item.model_number}`);
-            return; // Skip this item
-          }
-          
-          validOrders.push({
-            po_number: item.po_number,
-            ship_to_location: item.ship_to_location,
-            asin: item.asin,
-            model_number: item.model_number,
-            title: item.title,
-            quantity: item.quantity,
-            sku_code: item.model_number || item.asin, // Use model_number as sku_code, fallback to asin
-            external_id: item.external_id || null,
-            external_id_type: item.external_id_type || null,
-            status: 'pending',
-            file_name: item.file_name,
-            notes: undefined,
-            order_date: undefined,
-            expected_delivery: undefined,
-            unit_cost: item.unit_cost || null,
-            sku_user_id: user.id,
-            user_id: user.id,
-            country: undefined, // Will be set by trigger
-            currency: undefined, // Will be set by trigger
-            total_cost: undefined // Will be calculated by trigger
-          });
+        if (isDuplicate) {
+          duplicateCount.count++;
+          console.log(`Skipping duplicate PO: ${item.po_number} - ${item.model_number || item.asin}`);
+          return; // Skip this item
         }
+        
+        validOrders.push({
+          po_number: item.po_number,
+          ship_to_location: item.ship_to_location || 'Not specified',
+          asin: item.asin || null,
+          model_number: item.model_number || null,
+          title: item.title || 'Title not provided',
+          quantity: item.quantity,
+          sku_code: item.model_number || item.asin, // Use model_number as sku_code, fallback to asin
+          external_id: item.external_id || null,
+          external_id_type: item.external_id_type || null,
+          status: 'pending',
+          file_name: item.file_name,
+          notes: undefined,
+          order_date: undefined,
+          expected_delivery: undefined,
+          unit_cost: item.unit_cost || null,
+          sku_user_id: user.id,
+          user_id: user.id,
+          country: undefined, // Will be set by trigger
+          currency: undefined, // Will be set by trigger
+          total_cost: undefined // Will be calculated by trigger
+        });
       });
 
       setLoadingProgress(60);
@@ -203,24 +230,40 @@ export const usePOOrders = () => {
         await fetchPOOrders();
 
         setLoadingProgress(100);
-        
-        const skippedCount = mappedData.length - validOrders.length - duplicateCount.count;
-        const fileCount = new Set(mappedData.map(item => item.file_name)).size;
-        
-        let description = `Processed ${validOrders.length} new PO items from ${fileCount} file(s)`;
-        
-        if (duplicateCount.count > 0) {
-          description += `. ${duplicateCount.count} duplicates skipped`;
-        }
-        
-        if (skippedCount > 0) {
-          description += `. ${skippedCount} items skipped due to missing mandatory fields`;
-        }
+        // Improved upload result message
+        const totalProcessed = mappedData.length;
+        const totalValid = validItems.length;
+        const totalInserted = validOrders.length;
+        const totalSkipped = totalProcessed - totalValid;
+        const totalDuplicates = duplicateCount.count;
 
-        toast({
-          title: "Success",
-          description
-        });
+        let message = `Processed ${totalProcessed} rows: `;
+        let details = [];
+        
+        if (totalInserted > 0) {
+          details.push(`${totalInserted} inserted`);
+        }
+        if (totalDuplicates > 0) {
+          details.push(`${totalDuplicates} duplicates skipped`);
+        }
+        if (totalSkipped > 0) {
+          details.push(`${totalSkipped} invalid rows skipped`);
+        }
+        
+        message += details.join(', ');
+
+        if (validOrders.length > 0) {
+          toast({
+            title: "PO Upload Complete",
+            description: message,
+          });
+        } else {
+          toast({
+            title: "Upload Issues", 
+            description: `No valid orders could be processed. ${totalSkipped} rows had missing required fields, ${totalDuplicates} were duplicates.`,
+            variant: "destructive"
+          });
+        }
       } else {
         const message = duplicateCount.count > 0 
           ? `All ${duplicateCount.count} items were duplicates and skipped`
