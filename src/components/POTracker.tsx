@@ -243,9 +243,9 @@ export function POTracker() {
     const businessKey = createBusinessKey(order);
     
     if (!deduplicationMap.has(businessKey)) {
-      deduplicationMap.set(businessKey, order);
+      deduplicationMap.set(businessKey, { ...order });
     } else {
-      // Keep the "best" record - prioritize more complete data
+      // Merge records - keep the "best" record and sum quantities
       const existing = deduplicationMap.get(businessKey);
       const shouldReplace = 
         // Prefer records with tracking info
@@ -258,20 +258,26 @@ export function POTracker() {
         // Prefer more recent records if all else equal
         (new Date(order.updated_at) > new Date(existing.updated_at));
       
+      // Always sum the quantities regardless of which record we keep
+      const combinedQuantity = (existing.quantity || 0) + (order.quantity || 0);
+      
       if (shouldReplace) {
         console.log(`🔄 Replacing duplicate for key ${businessKey}:`, {
           keeping: order.id,
           replacing: existing.id,
           reason: order.tracking_number ? 'has_tracking' : 
                  order.asin ? 'has_asin' : 
-                 order.sunsky_sku ? 'has_sunsky_sku' : 'newer'
+                 order.sunsky_sku ? 'has_sunsky_sku' : 'newer',
+          combinedQty: combinedQuantity
         });
-        deduplicationMap.set(businessKey, order);
+        deduplicationMap.set(businessKey, { ...order, quantity: combinedQuantity });
       } else {
         console.log(`🔄 Keeping existing for key ${businessKey}:`, {
           keeping: existing.id,
-          duplicate: order.id
+          duplicate: order.id,
+          combinedQty: combinedQuantity
         });
+        deduplicationMap.set(businessKey, { ...existing, quantity: combinedQuantity });
       }
     }
   });
