@@ -2008,6 +2008,17 @@ export type Database = {
           unique_po_numbers: number
         }[]
       }
+      get_active_po_metrics_raw: {
+        Args: { user_id_param: string }
+        Returns: {
+          ordered_orders: number
+          pending_orders: number
+          shipped_orders: number
+          total_active_orders: number
+          total_active_quantity: number
+          unique_po_numbers: number
+        }[]
+      }
       get_active_po_orders_latest: {
         Args: { user_id_param: string }
         Returns: {
