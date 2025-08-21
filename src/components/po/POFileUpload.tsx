@@ -31,11 +31,18 @@ export function POFileUpload({ onFilesUpload, isLoading }: POFileUploadProps) {
           }
           
           const data = results.data as string[][];
+          console.log(`📁 ${file.name}: Raw CSV data has ${data.length} total rows`);
           
           // Filter out completely empty rows
           const filteredData = data.filter(row => 
             row.some(cell => cell && cell.trim() !== '')
           );
+          
+          const emptyRowsRemoved = data.length - filteredData.length;
+          if (emptyRowsRemoved > 0) {
+            console.log(`🗑️ ${file.name}: Removed ${emptyRowsRemoved} completely empty rows`);
+          }
+          console.log(`✅ ${file.name}: After filtering empty rows: ${filteredData.length} rows (${filteredData.length - 1} data rows + 1 header)`);
           
           if (filteredData.length === 0) {
             reject(new Error(`File ${file.name} is empty`));

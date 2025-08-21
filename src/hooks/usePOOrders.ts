@@ -126,7 +126,7 @@ export const usePOOrders = () => {
         setLoadingStatus(`Processing order ${i + 1} of ${mappedData.length}...`);
 
         // Log each row for debugging
-        console.log(`🔍 Processing row ${i + 1}:`, {
+        console.log(`🔍 STAGE 3 Processing row ${i + 1}/${mappedData.length}:`, {
           po_number: item.po_number,
           quantity: item.quantity,
           model_number: item.model_number,
@@ -139,7 +139,7 @@ export const usePOOrders = () => {
           const error = `Row ${i + 1}: Missing PO number`;
           processedResults.errors.push(error);
           processedResults.skippedReasons.push(error);
-          console.log(`❌ ${error}`);
+          console.log(`❌ STAGE 3 SKIP: ${error}`);
           continue;
         }
         
@@ -148,7 +148,7 @@ export const usePOOrders = () => {
           const error = `Row ${i + 1}: Invalid quantity for PO ${item.po_number} (value: ${item.quantity})`;
           processedResults.errors.push(error);
           processedResults.skippedReasons.push(error);
-          console.log(`❌ ${error}`);
+          console.log(`❌ STAGE 3 SKIP: ${error}`);
           continue;
         }
 
@@ -157,7 +157,7 @@ export const usePOOrders = () => {
           const error = `Row ${i + 1}: Missing both model_number and asin for PO ${item.po_number}`;
           processedResults.errors.push(error);
           processedResults.skippedReasons.push(error);
-          console.log(`❌ ${error}`);
+          console.log(`❌ STAGE 3 SKIP: ${error}`);
           continue;
         }
 
@@ -175,7 +175,7 @@ export const usePOOrders = () => {
           const error = `Row ${i + 1}: Database error checking duplicates`;
           processedResults.errors.push(error);
           processedResults.skippedReasons.push(error);
-          console.log(`❌ ${error}:`, checkError);
+          console.log(`❌ STAGE 3 SKIP: ${error}:`, checkError);
           continue;
         }
 
@@ -183,7 +183,7 @@ export const usePOOrders = () => {
           processedResults.duplicates++;
           const skip = `Row ${i + 1}: Duplicate found for PO ${item.po_number}, SKU ${item.model_number || item.asin}`;
           processedResults.skippedReasons.push(skip);
-          console.log(`⚠️ ${skip}`);
+          console.log(`⚠️ STAGE 3 SKIP (DUPLICATE): ${skip}`);
           continue;
         }
 
@@ -221,12 +221,22 @@ export const usePOOrders = () => {
         console.log(`✅ Row ${i + 1}: Successfully inserted`);
       }
 
-      console.log(`📊 PROCESSING SUMMARY:`);
-      console.log(`Total rows processed: ${mappedData.length}`);
-      console.log(`Successfully inserted: ${processedResults.inserted}`);
-      console.log(`Duplicates skipped: ${processedResults.duplicates}`);
-      console.log(`Invalid/errors: ${processedResults.invalid}`);
-      console.log(`Skipped reasons:`, processedResults.skippedReasons);
+      console.log(`📊 STAGE 3 (DATABASE) PROCESSING SUMMARY:`);
+      console.log(`🔢 Records received from Stage 2: ${mappedData.length}`);
+      console.log(`✅ Successfully inserted into database: ${processedResults.inserted}`);
+      console.log(`❌ Stage 3 validation failures: ${processedResults.invalid}`);
+      console.log(`⚠️ Duplicates skipped: ${processedResults.duplicates}`);
+      console.log(`🎯 FINAL RESULT: ${processedResults.inserted} records in database`);
+      
+      if (processedResults.skippedReasons.length > 0) {
+        console.log('❌ Stage 3 skip reasons:', processedResults.skippedReasons);
+      }
+
+      console.log('\n🏁 COMPLETE PROCESSING PIPELINE SUMMARY:');
+      console.log('Stage 1: File Parsing & Empty Row Removal (see above)');
+      console.log('Stage 2: Column Mapping & Field Validation (see above)');
+      console.log(`Stage 3: Database Validation & Insert = ${processedResults.inserted} final records`);
+      console.log('\n💡 If your final count is less than expected, check the Stage 1 and Stage 2 logs above for skipped rows.');
 
       setLoadingProgress(90);
       setLoadingStatus('Refreshing order list...');

@@ -134,11 +134,13 @@ export function POColumnMapping({ files, onMappingComplete, onBack, isLoading }:
 
   const handleProceed = () => {
     const processedData: any[] = [];
-    let totalRows = 0;
-    let skippedRows = 0;
-    const skippedReasons: string[] = [];
+    let totalFilesRows = 0;
+    let totalSkippedRows = 0;
+    const allSkippedReasons: string[] = [];
+    let grandTotalDataRows = 0;
 
     console.log('🚀 POColumnMapping - Starting data processing...');
+    console.log('🔍 STAGE 2: Column Mapping & Field Validation');
 
     files.forEach(({ file, data }) => {
       const mapping = mappings[file.name];
@@ -147,7 +149,9 @@ export function POColumnMapping({ files, onMappingComplete, onBack, isLoading }:
         return;
       }
 
-      console.log(`📄 Processing file: ${file.name} with ${data.length - 1} data rows`);
+      const fileDataRows = data.length - 1; // Exclude header
+      grandTotalDataRows += fileDataRows;
+      console.log(`📄 Processing file: ${file.name} with ${fileDataRows} data rows (${data.length} total rows including header)`);
 
       const headers = data[0];
       const poIndex = mapping.po_number && mapping.po_number !== 'none' ? headers.indexOf(mapping.po_number) : -1;
@@ -168,12 +172,16 @@ export function POColumnMapping({ files, onMappingComplete, onBack, isLoading }:
         qtyIndex
       });
 
+      let fileProcessedRows = 0;
+      let fileSkippedRows = 0;
+
       // Process data rows (skip header)
       for (let i = 1; i < data.length; i++) {
         const row = data[i];
-        totalRows++;
+        totalFilesRows++;
         
         const rowNumber = i + 1; // +1 because we're counting from header
+        const absoluteRowNumber = i; // For arrays (0-based for data rows)
         
         // Get PO number first
         const poNumber = poIndex >= 0 ? row[poIndex]?.trim() : mapping.manual_po_number?.trim();
@@ -188,10 +196,11 @@ export function POColumnMapping({ files, onMappingComplete, onBack, isLoading }:
         if (!row[qtyIndex] || !row[qtyIndex].toString().trim()) missingFields.push('quantity');
         
         if (missingFields.length > 0) {
-          skippedRows++;
+          fileSkippedRows++;
+          totalSkippedRows++;
           const skipReason = `${file.name} Row ${rowNumber}: Missing fields: ${missingFields.join(', ')}`;
-          skippedReasons.push(skipReason);
-          console.log(`❌ SKIPPED: ${skipReason}`);
+          allSkippedReasons.push(skipReason);
+          console.log(`❌ STAGE 2 SKIP: ${skipReason}`);
           console.log(`   Row data:`, {
             po_number: poNumber || 'MISSING',
             ship_to_location: row[shipToLocationIndex] || 'MISSING',
@@ -217,18 +226,24 @@ export function POColumnMapping({ files, onMappingComplete, onBack, isLoading }:
         };
         
         processedData.push(processedRow);
-        console.log(`✅ PROCESSED: ${file.name} Row ${rowNumber} - PO: ${processedRow.po_number}, SKU: ${processedRow.model_number}, Qty: ${processedRow.quantity}`);
+        fileProcessedRows++;
+        console.log(`✅ STAGE 2 PROCESSED: ${file.name} Row ${rowNumber} - PO: ${processedRow.po_number}, SKU: ${processedRow.model_number}, Qty: ${processedRow.quantity}`);
       }
+
+      console.log(`📊 ${file.name} SUMMARY: ${fileProcessedRows} processed, ${fileSkippedRows} skipped out of ${fileDataRows} data rows`);
     });
 
-    console.log('📊 POColumnMapping PROCESSING SUMMARY:');
-    console.log(`Total rows processed: ${totalRows}`);
-    console.log(`Successfully processed: ${processedData.length}`);
-    console.log(`Skipped rows: ${skippedRows}`);
-    if (skippedReasons.length > 0) {
-      console.log('❌ Skipped reasons:', skippedReasons);
+    console.log('📊 STAGE 2 PROCESSING SUMMARY:');
+    console.log(`📁 Total data rows across all files: ${grandTotalDataRows}`);
+    console.log(`✅ Successfully processed: ${processedData.length}`);
+    console.log(`❌ Skipped rows: ${totalSkippedRows}`);
+    console.log(`🔢 Records going to Stage 3 (Database Insert): ${processedData.length}`);
+    
+    if (allSkippedReasons.length > 0) {
+      console.log('❌ All skipped reasons:', allSkippedReasons);
     }
 
+    console.log('🔄 Proceeding to Stage 3 (Database Processing)...');
     onMappingComplete(processedData);
   };
 
