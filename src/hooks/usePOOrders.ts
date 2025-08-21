@@ -53,13 +53,25 @@ export const usePOOrders = () => {
       setLoadingStatus('Fetching orders from database...');
 
       // Use the database function that includes sunsky_sku data
+      // Need to bypass PostgREST 1000 row limit for RPC calls
       const { data: allData, error } = await supabase
-        .rpc('get_all_po_orders', { user_id_param: user.id });
+        .rpc('get_all_po_orders', { user_id_param: user.id })
+        .limit(10000); // Explicitly set higher limit to bypass default 1000 limit
 
       if (error) throw error;
 
-      console.log(`Total records fetched: ${allData?.length || 0}`);
-      console.log('Sample order with SKU:', allData?.[0]);
+      console.log(`🔍 DEBUG: Total records fetched from RPC: ${allData?.length || 0}`);
+      console.log(`🔍 DEBUG: Expected count should be 1941 for active orders`);
+      console.log('🔍 DEBUG: Sample order with SKU:', allData?.[0]);
+
+      // Check if we're hitting PostgREST row limit
+      if (allData && allData.length === 1000) {
+        console.warn('⚠️ WARNING: Exactly 1000 records returned - this suggests a PostgREST limit!');
+      }
+      
+      if (allData && allData.length >= 1941) {
+        console.log('✅ SUCCESS: Got expected number of records or more!');
+      }
 
       setLoadingProgress(80);
       setLoadingStatus('Processing order data...');
