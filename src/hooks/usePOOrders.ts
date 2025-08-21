@@ -114,30 +114,50 @@ export const usePOOrders = () => {
         inserted: 0,
         duplicates: 0,
         invalid: 0,
-        errors: [] as string[]
+        errors: [] as string[],
+        skippedReasons: [] as string[]  // Track why records were skipped
       };
+
+      console.log(`📊 Starting processing of ${mappedData.length} rows from file`);
 
       for (let i = 0; i < mappedData.length; i++) {
         const item = mappedData[i];
         setLoadingProgress(20 + (i / mappedData.length) * 60);
         setLoadingStatus(`Processing order ${i + 1} of ${mappedData.length}...`);
 
+        // Log each row for debugging
+        console.log(`🔍 Processing row ${i + 1}:`, {
+          po_number: item.po_number,
+          quantity: item.quantity,
+          model_number: item.model_number,
+          asin: item.asin
+        });
+
         // Validate required fields
         if (!item.po_number?.trim()) {
           processedResults.invalid++;
-          processedResults.errors.push(`Row ${i + 1}: Missing PO number`);
+          const error = `Row ${i + 1}: Missing PO number`;
+          processedResults.errors.push(error);
+          processedResults.skippedReasons.push(error);
+          console.log(`❌ ${error}`);
           continue;
         }
         
         if (!item.quantity || isNaN(Number(item.quantity)) || Number(item.quantity) <= 0) {
           processedResults.invalid++;
-          processedResults.errors.push(`Row ${i + 1}: Invalid quantity for PO ${item.po_number}`);
+          const error = `Row ${i + 1}: Invalid quantity for PO ${item.po_number} (value: ${item.quantity})`;
+          processedResults.errors.push(error);
+          processedResults.skippedReasons.push(error);
+          console.log(`❌ ${error}`);
           continue;
         }
 
         if (!item.model_number?.trim() && !item.asin?.trim()) {
           processedResults.invalid++;
-          processedResults.errors.push(`Row ${i + 1}: Missing both model_number and asin for PO ${item.po_number}`);
+          const error = `Row ${i + 1}: Missing both model_number and asin for PO ${item.po_number}`;
+          processedResults.errors.push(error);
+          processedResults.skippedReasons.push(error);
+          console.log(`❌ ${error}`);
           continue;
         }
 
@@ -152,12 +172,18 @@ export const usePOOrders = () => {
           .maybeSingle();
 
         if (checkError) {
-          processedResults.errors.push(`Row ${i + 1}: Database error checking duplicates`);
+          const error = `Row ${i + 1}: Database error checking duplicates`;
+          processedResults.errors.push(error);
+          processedResults.skippedReasons.push(error);
+          console.log(`❌ ${error}:`, checkError);
           continue;
         }
 
         if (existing) {
           processedResults.duplicates++;
+          const skip = `Row ${i + 1}: Duplicate found for PO ${item.po_number}, SKU ${item.model_number || item.asin}`;
+          processedResults.skippedReasons.push(skip);
+          console.log(`⚠️ ${skip}`);
           continue;
         }
 
@@ -184,12 +210,23 @@ export const usePOOrders = () => {
           .insert([orderData]);
 
         if (insertError) {
-          processedResults.errors.push(`Row ${i + 1}: ${insertError.message}`);
+          const error = `Row ${i + 1}: ${insertError.message}`;
+          processedResults.errors.push(error);
+          processedResults.skippedReasons.push(error);
+          console.log(`❌ Insert error: ${error}`);
           continue;
         }
 
         processedResults.inserted++;
+        console.log(`✅ Row ${i + 1}: Successfully inserted`);
       }
+
+      console.log(`📊 PROCESSING SUMMARY:`);
+      console.log(`Total rows processed: ${mappedData.length}`);
+      console.log(`Successfully inserted: ${processedResults.inserted}`);
+      console.log(`Duplicates skipped: ${processedResults.duplicates}`);
+      console.log(`Invalid/errors: ${processedResults.invalid}`);
+      console.log(`Skipped reasons:`, processedResults.skippedReasons);
 
       setLoadingProgress(90);
       setLoadingStatus('Refreshing order list...');
@@ -215,6 +252,7 @@ export const usePOOrders = () => {
 
       if (processedResults.errors.length > 0) {
         console.log('Processing errors:', processedResults.errors.slice(0, 10));
+        console.log('All skipped reasons:', processedResults.skippedReasons);
       }
 
       toast({
