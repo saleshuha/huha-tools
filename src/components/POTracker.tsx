@@ -91,7 +91,6 @@ export const POTracker = () => {
         throw error;
       }
 
-      console.log('🎯 DATABASE PO GROUP METRICS:', data);
       return data as Array<{
         po_number: string;
         distinct_skus: number;
@@ -388,12 +387,6 @@ export const POTracker = () => {
                         const matchedCount = activeOrdersInPO.filter((order: any) => order.sunsky_sku !== null).length;
                         const matchedPercentage = activeOrdersInPO.length > 0 ? ((matchedCount / activeOrdersInPO.length) * 100).toFixed(0) : '0';
                         
-                        console.log(`🎯 PO ${poNumber} DATABASE VALUES:`, {
-                          distinct_skus: dbMetrics?.distinct_skus,
-                          asn_quantity: dbMetrics?.asn_quantity,
-                          matched_percentage: matchedPercentage
-                        });
-                        
                         const statusCounts = orders.reduce((counts: any, order: any) => {
                           counts[order.status] = (counts[order.status] || 0) + 1;
                           return counts;
@@ -495,7 +488,7 @@ export const POTracker = () => {
               </CardContent>
             </CardHeader>
             <CardContent>
-              <POFileUpload onFileUploaded={handleFileUploaded} onDataLoaded={handleFileUpload} />
+              <POFileUpload onFilesUpload={handleFileUpload} isLoading={isLoading} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -538,7 +531,7 @@ export const POTracker = () => {
             <DialogTitle>Upload PO File</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <POFileUpload onDataLoaded={handleFileUpload} />
+            <POFileUpload onFilesUpload={handleFileUpload} isLoading={isLoading} />
           </div>
         </DialogContent>
       </Dialog>
@@ -549,13 +542,13 @@ export const POTracker = () => {
             <DialogTitle>Import Sunsky SKUs</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <SunskySKUImporter onSKUsImported={fetchPOOrders} />
+            <SunskySKUImporter />
           </div>
         </DialogContent>
       </Dialog>
 
-      <AddSKUDialog open={showAddSKUDialog} onClose={handleCloseAddSKUDialog} poNumber={selectedPO} />
-      <ShippingRateDialog open={showShippingRateDialog} onClose={handleCloseShippingRateDialog} poNumber={selectedPO} />
+      <AddSKUDialog />
+      <ShippingRateDialog currentRate={0.005} onUpdateRate={() => {}} isLoading={isLoading} />
     </div>
   );
 };
