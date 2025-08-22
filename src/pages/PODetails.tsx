@@ -1633,20 +1633,21 @@ export default function PODetailsPage() {
                       })));
                     }
                     
-                    if (fromStockItems.length === 0) {
-                      return (
-                        <div className="text-center py-8">
-                          <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                          <p className="text-muted-foreground">No partial fulfillments found</p>
-                          <p className="text-sm text-muted-foreground mt-2">
-                            Items that are completely fulfilled from stock won't appear here
-                          </p>
-                        </div>
-                      );
-                    }
-                    
+                     if (fromStockItems.length === 0) {
+                       return (
+                         <div className="text-center py-8">
+                           <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                           <p className="text-muted-foreground">No partial fulfillments found</p>
+                           <p className="text-sm text-muted-foreground mt-2">
+                             Items that are completely fulfilled from stock won't appear here
+                           </p>
+                         </div>
+                       );
+                     }
+                     
+                     // Return the mapped items as an array
                      return fromStockItems.map((order) => {
-                     const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number);
+                       const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number);
                     
                     // Parse fulfillment info from notes
                     const isPartialFulfillment = order.notes?.includes('Partial fulfillment from stock');
