@@ -1004,15 +1004,35 @@ serve(async (req) => {
       }
 
       case 'getCredentialsStatus': {
+        // Check user-specific credentials first
         const { data: userCredentials } = await supabase
           .from('sunsky_credentials')
-          .select('api_key')
+          .select('api_key, api_secret')
           .eq('user_id', user.id)
+          .eq('is_active', true)
           .single();
+
+        // If user has credentials, return true
+        if (userCredentials?.api_key && userCredentials?.api_secret) {
+          return new Response(JSON.stringify({
+            result: 'success',
+            hasCredentials: true,
+            source: 'user_specific'
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        // Check environment variables as fallback
+        const envKey = Deno.env.get('SUNSKY_API_KEY');
+        const envSecret = Deno.env.get('SUNSKY_API_SECRET');
+        
+        const hasEnvCredentials = !!(envKey && envSecret);
 
         return new Response(JSON.stringify({
           result: 'success',
-          hasCredentials: !!userCredentials?.api_key
+          hasCredentials: hasEnvCredentials,
+          source: hasEnvCredentials ? 'environment' : 'none'
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
