@@ -1004,16 +1004,21 @@ serve(async (req) => {
       }
 
       case 'getCredentialsStatus': {
+        console.log('Checking credentials for user:', user.id);
+        
         // Check user-specific credentials first
-        const { data: userCredentials } = await supabase
+        const { data: userCredentials, error: userError } = await supabase
           .from('sunsky_credentials')
           .select('api_key, api_secret')
           .eq('user_id', user.id)
           .eq('is_active', true)
           .single();
 
+        console.log('User credentials query result:', { userCredentials, userError });
+
         // If user has credentials, return true
         if (userCredentials?.api_key && userCredentials?.api_secret) {
+          console.log('Found user-specific credentials');
           return new Response(JSON.stringify({
             result: 'success',
             hasCredentials: true,
@@ -1027,7 +1032,16 @@ serve(async (req) => {
         const envKey = Deno.env.get('SUNSKY_API_KEY');
         const envSecret = Deno.env.get('SUNSKY_API_SECRET');
         
+        console.log('Environment variables check:', { 
+          hasEnvKey: !!envKey, 
+          hasEnvSecret: !!envSecret,
+          envKeyLength: envKey?.length || 0,
+          envSecretLength: envSecret?.length || 0
+        });
+        
         const hasEnvCredentials = !!(envKey && envSecret);
+        
+        console.log('Final result:', { hasEnvCredentials });
 
         return new Response(JSON.stringify({
           result: 'success',
