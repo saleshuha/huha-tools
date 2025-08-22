@@ -391,6 +391,153 @@ export default function PODetailsPage() {
     }
   };
 
+  // Print from stock details functionality
+  const handlePrintFromStockDetails = () => {
+    try {
+      // Get items that were marked from stock
+      const fromStockItems = matchedOrders.filter(order => itemsMarkedFromStock.has(order.id));
+      
+      if (fromStockItems.length === 0) {
+        toast({
+          title: "No From Stock Items",
+          description: "No items have been marked as ordered from stock yet",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Create print window content
+      const printContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>PO ${poNumber} - From Stock Items</title>
+          <style>
+            body { 
+              font-family: Arial, sans-serif; 
+              margin: 20px; 
+              color: #333;
+            }
+            .header { 
+              text-align: center; 
+              margin-bottom: 30px; 
+              border-bottom: 2px solid #ddd; 
+              padding-bottom: 20px;
+            }
+            .summary { 
+              background: #f8f9fa; 
+              padding: 15px; 
+              margin-bottom: 20px; 
+              border-radius: 5px;
+            }
+            .item { 
+              border: 1px solid #ddd; 
+              margin-bottom: 15px; 
+              border-radius: 5px; 
+              padding: 15px;
+              background: white;
+            }
+            .item-header { 
+              font-weight: bold; 
+              font-size: 16px; 
+              margin-bottom: 10px;
+              color: #2563eb;
+            }
+            .item-details { 
+              display: grid; 
+              grid-template-columns: 1fr 1fr; 
+              gap: 20px;
+            }
+            .detail-section h4 { 
+              margin: 0 0 8px 0; 
+              font-size: 14px; 
+              color: #666; 
+              border-bottom: 1px solid #eee; 
+              padding-bottom: 3px;
+            }
+            .detail-row { 
+              margin-bottom: 5px; 
+              font-size: 13px;
+            }
+            .detail-row strong { 
+              color: #333; 
+            }
+            @media print {
+              body { margin: 0; }
+              .header { page-break-after: avoid; }
+              .item { page-break-inside: avoid; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>PO ${poNumber} - From Stock Items Report</h1>
+            <p>Generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}</p>
+          </div>
+          
+          <div class="summary">
+            <h3>Summary</h3>
+            <p><strong>Total From Stock Items:</strong> ${fromStockItems.length}</p>
+            <p><strong>PO Number:</strong> ${poNumber}</p>
+            <p><strong>Total Cost:</strong> ${currency} ${fromStockItems.reduce((sum, order) => sum + (order.total_cost || 0), 0).toFixed(2)}</p>
+          </div>
+          
+          ${fromStockItems.map((order) => {
+            const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number);
+            const originalQuantity = order.quantity === 0 ? 'Completely Fulfilled' : order.quantity;
+            
+            return `
+              <div class="item">
+                <div class="item-header">${order.title || order.asin}</div>
+                <div class="item-details">
+                  <div class="detail-section">
+                    <h4>Product Information</h4>
+                    <div class="detail-row"><strong>ASIN:</strong> ${order.asin || 'N/A'}</div>
+                    <div class="detail-row"><strong>SKU Code:</strong> ${order.sku_code || 'N/A'}</div>
+                    <div class="detail-row"><strong>Model Number:</strong> ${order.model_number || 'N/A'}</div>
+                    <div class="detail-row"><strong>Unit Cost:</strong> ${order.currency || ''} ${order.unit_cost || 'N/A'}</div>
+                    <div class="detail-row"><strong>Total Cost:</strong> ${order.currency || ''} ${order.total_cost || 'N/A'}</div>
+                  </div>
+                  <div class="detail-section">
+                    <h4>Stock Fulfillment Details</h4>
+                    <div class="detail-row"><strong>Fulfillment Status:</strong> ${originalQuantity}</div>
+                    <div class="detail-row"><strong>Current PO Quantity:</strong> ${order.quantity}</div>
+                    <div class="detail-row"><strong>Current Inventory:</strong> ${inventoryMatch?.quantity || 0}</div>
+                    <div class="detail-row"><strong>Inventory Type:</strong> ${inventoryMatch?.type || 'Not Found'}</div>
+                    <div class="detail-row"><strong>Order Status:</strong> ${order.status}</div>
+                    <div class="detail-row"><strong>Serial/Bin Number:</strong> ${inventoryMatch?.serialNumber || 'N/A'}</div>
+                  </div>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </body>
+        </html>
+      `;
+
+      // Open print window
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(printContent);
+        printWindow.document.close();
+        printWindow.focus();
+        printWindow.print();
+      }
+
+      toast({
+        title: "Print Initiated",
+        description: `Print dialog opened for ${fromStockItems.length} from stock items`
+      });
+    } catch (error) {
+      console.error('Print error:', error);
+      toast({
+        title: "Print Failed",
+        description: "Failed to print from stock details",
+        variant: "destructive"
+      });
+    }
+  };
+
   // Export from stock details functionality
   const handleExportFromStockDetails = () => {
     try {
@@ -1223,7 +1370,11 @@ export default function PODetailsPage() {
                     );
                   })}
                 </div>
-                <DialogFooter>
+                <DialogFooter className="gap-2">
+                  <Button onClick={handlePrintFromStockDetails} variant="outline" className="gap-2">
+                    <Printer className="h-4 w-4" />
+                    Print
+                  </Button>
                   <Button onClick={handleExportFromStockDetails} className="gap-2">
                     <Download className="h-4 w-4" />
                     Export CSV
