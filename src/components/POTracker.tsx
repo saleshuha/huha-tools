@@ -9,12 +9,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { AlertCircle, CheckCircle, Clock, FileUp, Search, Filter, Package, TrendingUp, ShoppingCart, Truck, DollarSign, X, Plus, Edit2, ExternalLink, Loader2, BarChart3, Download, RefreshCw, Upload } from 'lucide-react';
+import { AlertCircle, CheckCircle, Clock, FileUp, Search, Filter, Package, TrendingUp, ShoppingCart, Truck, DollarSign, X, Plus, Edit2, ExternalLink, Loader2, BarChart3, Download, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { POFileUpload } from '@/components/po/POFileUpload';
-import { SunskySKUImporter } from '@/components/po/SunskySKUImporter';
-import { AddSKUDialog } from '@/components/po/AddSKUDialog';
-import { ShippingRateDialog } from '@/components/po/ShippingRateDialog';
 import { POProfitAnalytics } from '@/components/po/POProfitAnalytics';
 import { usePOOrders } from '@/hooks/usePOOrders';
 import { useUserProfile } from '@/hooks/useUserProfile';
@@ -63,10 +60,6 @@ export const POTracker = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<POOrder['status'] | 'all'>('all');
   const [showFileUploadDialog, setShowFileUploadDialog] = useState(false);
-  const [showSKUImporterDialog, setShowSKUImporterDialog] = useState(false);
-  const [showAddSKUDialog, setShowAddSKUDialog] = useState(false);
-  const [showShippingRateDialog, setShowShippingRateDialog] = useState(false);
-  const [selectedPO, setSelectedPO] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const { poOrders, isLoading, fetchPOOrders, processPOFiles } = usePOOrders();
@@ -146,26 +139,6 @@ export const POTracker = () => {
     fetchPOOrders();
   };
 
-  const handleOpenAddSKUDialog = (poNumber: string) => {
-    setSelectedPO(poNumber);
-    setShowAddSKUDialog(true);
-  };
-
-  const handleCloseAddSKUDialog = () => {
-    setSelectedPO(null);
-    setShowAddSKUDialog(false);
-  };
-
-  const handleOpenShippingRateDialog = (poNumber: string) => {
-    setSelectedPO(poNumber);
-    setShowShippingRateDialog(true);
-  };
-
-  const handleCloseShippingRateDialog = () => {
-    setSelectedPO(null);
-    setShowShippingRateDialog(false);
-  };
-
   // Refetch metrics when PO orders change
   useEffect(() => {
     if (!isLoading) {
@@ -231,15 +204,14 @@ export const POTracker = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-semibold">Purchase Order Tracker</h2>
+        <div>
+          <h2 className="text-2xl font-semibold mb-2">Purchase Order Dashboard</h2>
+          <p className="text-muted-foreground">Monitor and manage your purchase orders across all suppliers</p>
+        </div>
         <div className="flex items-center space-x-2">
           <Button variant="outline" size="sm" onClick={() => setShowFileUploadDialog(true)}>
             <FileUp className="h-4 w-4 mr-2" />
             Upload PO File
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => setShowSKUImporterDialog(true)}>
-            <Upload className="h-4 w-4 mr-2" />
-            Import Sunsky SKUs
           </Button>
           <Button variant="outline" size="sm" onClick={() => fetchPOOrders()}>
             <RefreshCw className="h-4 w-4 mr-2 animate-spin" style={{ animationPlayState: isLoading ? 'running' : 'paused' }} />
@@ -270,57 +242,73 @@ export const POTracker = () => {
 
         <TabsContent value="overview" className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card>
+            <Card className="relative overflow-hidden border-l-4 border-l-primary bg-gradient-to-br from-primary/5 to-background">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <ShoppingCart className="h-5 w-5" />
-                  Total Orders
+                <CardTitle className="flex items-center gap-2 text-primary">
+                  <Package className="h-5 w-5" />
+                  Total PO Line Items
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{poOrders.length}</div>
-                <p className="text-muted-foreground">Total number of purchase orders</p>
+                <div className="text-sm text-muted-foreground">
+                  Qty: {poOrders.reduce((sum, order) => sum + (order.quantity || 0), 0)}
+                </div>
+                <p className="text-muted-foreground mt-1">All line items across POs</p>
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="relative overflow-hidden border-l-4 border-l-green-500 bg-gradient-to-br from-green-500/5 to-background">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Clock className="h-5 w-5" />
-                  Pending Orders
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{poOrders.filter(order => order.status === 'pending').length}</div>
-                <p className="text-muted-foreground">Orders waiting for processing</p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Truck className="h-5 w-5" />
-                  Shipped Orders
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{poOrders.filter(order => order.status === 'shipped').length}</div>
-                <p className="text-muted-foreground">Orders that have been shipped</p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <DollarSign className="h-5 w-5" />
-                  Total Value
+                <CardTitle className="flex items-center gap-2 text-green-600">
+                  <CheckCircle className="h-5 w-5" />
+                  Total Matched Items
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {poOrders.reduce((sum, order) => sum + (order.total_cost || 0), 0).toFixed(2)}
+                  {poOrders.filter(order => order.sunsky_sku !== null).length}
                 </div>
-                <p className="text-muted-foreground">Total value of all purchase orders</p>
+                <div className="text-sm text-muted-foreground">
+                  Qty: {poOrders.filter(order => order.sunsky_sku !== null).reduce((sum, order) => sum + (order.quantity || 0), 0)}
+                </div>
+                <p className="text-muted-foreground mt-1">SKUs matched with supplier</p>
+              </CardContent>
+            </Card>
+
+            <Card className="relative overflow-hidden border-l-4 border-l-blue-500 bg-gradient-to-br from-blue-500/5 to-background">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-blue-600">
+                  <Truck className="h-5 w-5" />
+                  Total Placed Items
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {poOrders.filter(order => ['ordered', 'shipped', 'delivered'].includes(order.status)).length}
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  Qty: {poOrders.filter(order => ['ordered', 'shipped', 'delivered'].includes(order.status)).reduce((sum, order) => sum + (order.quantity || 0), 0)}
+                </div>
+                <p className="text-muted-foreground mt-1">Orders placed with supplier</p>
+              </CardContent>
+            </Card>
+
+            <Card className="relative overflow-hidden border-l-4 border-l-orange-500 bg-gradient-to-br from-orange-500/5 to-background">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-orange-600">
+                  <Clock className="h-5 w-5" />
+                  Total Pending Items
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {poOrders.filter(order => order.status === 'pending').length}
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  Qty: {poOrders.filter(order => order.status === 'pending').reduce((sum, order) => sum + (order.quantity || 0), 0)}
+                </div>
+                <p className="text-muted-foreground mt-1">Awaiting supplier placement</p>
               </CardContent>
             </Card>
           </div>
@@ -535,20 +523,6 @@ export const POTracker = () => {
           </div>
         </DialogContent>
       </Dialog>
-
-      <Dialog open={showSKUImporterDialog} onOpenChange={setShowSKUImporterDialog}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Import Sunsky SKUs</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <SunskySKUImporter />
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <AddSKUDialog />
-      <ShippingRateDialog currentRate={0.005} onUpdateRate={() => {}} isLoading={isLoading} />
     </div>
   );
 };
