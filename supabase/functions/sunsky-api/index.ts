@@ -1754,13 +1754,27 @@ serve(async (req) => {
 
         console.log('Creating Sunsky order with params:', JSON.stringify(params, null, 2));
 
-        const result = await makeSunskyRequest('/openapi/order!createOrder.do', params, credentials.key, credentials.secret, user.id);
-        
-        console.log('Sunsky order creation result:', JSON.stringify(result, null, 2));
-        
-        return new Response(JSON.stringify(result), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        try {
+          const result = await makeSunskyRequest('/openapi/order!createOrder.do', params, credentials.key, credentials.secret, user.id);
+          
+          console.log('Sunsky order creation result:', JSON.stringify(result, null, 2));
+          
+          return new Response(JSON.stringify(result), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        } catch (error) {
+          console.error('Sunsky order creation error:', error);
+          
+          // Return error as a proper response instead of throwing
+          return new Response(JSON.stringify({
+            result: 'error',
+            message: error.message,
+            messages: [error.message]
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200 // Return 200 status with error in the body
+          });
+        }
       }
 
       case 'listApiKeys': {
