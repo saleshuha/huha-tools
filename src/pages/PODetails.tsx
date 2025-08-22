@@ -102,17 +102,33 @@ export default function PODetailsPage() {
   // Initialize itemsMarkedFromStock based on existing ordered items
   useEffect(() => {
     if (poOrders.length > 0) {
-      const orderedItems = poOrders.filter(order => 
+      // Look for orders that have been fulfilled from stock (partial or complete)
+      const fulfilledFromStockItems = poOrders.filter(order => 
         order.po_number === poNumber && 
-        order.status === 'closed' &&
-        order.quantity === 0 &&
+        (
+          // Complete fulfillment: status closed and quantity 0
+          (order.status === 'closed' && order.quantity === 0) ||
+          // Partial fulfillment: has partial fulfillment notes
+          (order.notes?.includes('Partial fulfillment from stock'))
+        ) &&
         order.sunsky_sku !== null
       );
       
-      if (orderedItems.length > 0) {
-        const orderedItemIds = new Set(orderedItems.map(item => item.id));
-        console.log('Initializing itemsMarkedFromStock with existing ordered items:', orderedItemIds);
-        setItemsMarkedFromStock(orderedItemIds);
+      if (fulfilledFromStockItems.length > 0) {
+        const fulfilledItemIds = new Set(fulfilledFromStockItems.map(item => item.id));
+        console.log('🔄 Initializing itemsMarkedFromStock with existing fulfilled items:', {
+          count: fulfilledItemIds.size,
+          items: fulfilledFromStockItems.map(item => ({
+            id: item.id,
+            asin: item.asin,
+            sku: item.sku_code,
+            quantity: item.quantity,
+            status: item.status,
+            notes: item.notes?.substring(0, 100),
+            isPartial: item.notes?.includes('Partial fulfillment from stock')
+          }))
+        });
+        setItemsMarkedFromStock(fulfilledItemIds);
       }
     }
   }, [poOrders, poNumber]);
