@@ -2,12 +2,9 @@ import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AutomationSettings } from '@/components/automation/AutomationSettings';
-import { SingleUpload } from '@/components/automation/SingleUpload';
-import { BulkUploadQueue } from '@/components/automation/BulkUploadQueue';
-import { UploadProgress } from '@/components/automation/UploadProgress';
-import { UploadLogs } from '@/components/automation/UploadLogs';
 import { SelectorPicker } from '@/components/automation/SelectorPicker';
-import { Bot, Settings, Upload, FileStack, BarChart3, FileText, MousePointer } from 'lucide-react';
+import { AutomationActivity } from '@/components/automation/AutomationActivity';
+import { Bot, Settings, MousePointer, Activity } from 'lucide-react';
 
 export const DesktopAutomation = () => {
   const [activeTab, setActiveTab] = useState('settings');
@@ -25,7 +22,7 @@ export const DesktopAutomation = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="settings" className="flex items-center gap-2">
             <Settings className="h-4 w-4" />
             Settings
@@ -34,21 +31,9 @@ export const DesktopAutomation = () => {
             <MousePointer className="h-4 w-4" />
             Selector Picker
           </TabsTrigger>
-          <TabsTrigger value="single" className="flex items-center gap-2">
-            <Upload className="h-4 w-4" />
-            Single Upload
-          </TabsTrigger>
-          <TabsTrigger value="bulk" className="flex items-center gap-2">
-            <FileStack className="h-4 w-4" />
-            Bulk Queue
-          </TabsTrigger>
-          <TabsTrigger value="progress" className="flex items-center gap-2">
-            <BarChart3 className="h-4 w-4" />
-            Progress
-          </TabsTrigger>
-          <TabsTrigger value="logs" className="flex items-center gap-2">
-            <FileText className="h-4 w-4" />
-            Logs
+          <TabsTrigger value="activity" className="flex items-center gap-2">
+            <Activity className="h-4 w-4" />
+            Activity
           </TabsTrigger>
         </TabsList>
 
@@ -57,7 +42,7 @@ export const DesktopAutomation = () => {
             <CardHeader>
               <CardTitle>Automation Configuration</CardTitle>
               <CardDescription>
-                Configure login credentials, selectors, and automation settings
+                Configure site-specific selectors and automation settings using the companion browser extension
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -71,7 +56,7 @@ export const DesktopAutomation = () => {
             <CardHeader>
               <CardTitle>Element Selector Picker</CardTitle>
               <CardDescription>
-                Capture selectors from live webpages and map them to automation fields
+                Install the companion browser extension to capture accurate element selectors from live webpages
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -80,58 +65,16 @@ export const DesktopAutomation = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="single" className="space-y-6">
+        <TabsContent value="activity" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Single File Upload</CardTitle>
+              <CardTitle>Automation Activity</CardTitle>
               <CardDescription>
-                Upload one file at a time with immediate processing
+                Monitor real-time automation runs, captured elements, and system activity
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <SingleUpload />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="bulk" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Bulk Upload Queue</CardTitle>
-              <CardDescription>
-                Manage multiple files in a sequential upload queue
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <BulkUploadQueue />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="progress" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Upload Progress</CardTitle>
-              <CardDescription>
-                Real-time tracking of upload status and queue progress
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <UploadProgress />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="logs" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Upload Logs</CardTitle>
-              <CardDescription>
-                View detailed logs of all upload attempts and results
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <UploadLogs />
+              <AutomationActivity />
             </CardContent>
           </Card>
         </TabsContent>

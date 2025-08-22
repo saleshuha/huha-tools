@@ -71,6 +71,155 @@ export type Database = {
         }
         Relationships: []
       }
+      automation_capture_events: {
+        Row: {
+          attributes: Json | null
+          config_id: string | null
+          created_at: string
+          css: string | null
+          id: string
+          inner_text: string | null
+          site_origin: string | null
+          site_url: string | null
+          tag: string | null
+          user_id: string
+          xpath: string | null
+        }
+        Insert: {
+          attributes?: Json | null
+          config_id?: string | null
+          created_at?: string
+          css?: string | null
+          id?: string
+          inner_text?: string | null
+          site_origin?: string | null
+          site_url?: string | null
+          tag?: string | null
+          user_id: string
+          xpath?: string | null
+        }
+        Update: {
+          attributes?: Json | null
+          config_id?: string | null
+          created_at?: string
+          css?: string | null
+          id?: string
+          inner_text?: string | null
+          site_origin?: string | null
+          site_url?: string | null
+          tag?: string | null
+          user_id?: string
+          xpath?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automation_capture_events_config_id_fkey"
+            columns: ["config_id"]
+            isOneToOne: false
+            referencedRelation: "automation_configs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automation_capture_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      automation_configs: {
+        Row: {
+          active: boolean
+          created_at: string
+          fields: Json
+          id: string
+          name: string | null
+          site_origin: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          fields?: Json
+          id?: string
+          name?: string | null
+          site_origin: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          fields?: Json
+          id?: string
+          name?: string | null
+          site_origin?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automation_configs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      automation_runs: {
+        Row: {
+          config_id: string | null
+          error: string | null
+          finished_at: string | null
+          id: string
+          result: Json | null
+          site_origin: string | null
+          started_at: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          config_id?: string | null
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          result?: Json | null
+          site_origin?: string | null
+          started_at?: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          config_id?: string | null
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          result?: Json | null
+          site_origin?: string | null
+          started_at?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automation_runs_config_id_fkey"
+            columns: ["config_id"]
+            isOneToOne: false
+            referencedRelation: "automation_configs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automation_runs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       carrefour_payments: {
         Row: {
           cost: number
