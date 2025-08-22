@@ -59,7 +59,6 @@ export const POTracker = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<POOrder['status'] | 'all'>('all');
-  const [showFileUploadDialog, setShowFileUploadDialog] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [viewMode, setViewMode] = useState<'grouped' | 'detailed'>('detailed');
@@ -127,46 +126,6 @@ export const POTracker = () => {
       fetchPOOrders();
     }
   }, [profile?.id, selectedCountry, fetchPOOrders]);
-
-  const handleFileUpload = async (data: any[]) => {
-    if (!profile) {
-      toast({
-        title: "Error",
-        description: "User profile not loaded",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (!selectedCountry) {
-      toast({
-        title: "Error",
-        description: "Please select a country",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    const mappedData = data.map((item: any) => ({
-      po_number: item['PO Number'],
-      ship_to_location: item['Ship To Location'],
-      asin: item['ASIN'],
-      model_number: item['Model Number'],
-      title: item['Title'],
-      quantity: item['Quantity'],
-      external_id: item['External ID'],
-      external_id_type: item['External ID Type'],
-      file_name: item['File Name'],
-      country: selectedCountry
-    }));
-
-    await processPOFiles(mappedData, []);
-    setShowFileUploadDialog(false);
-  };
-
-  const handleFileUploaded = () => {
-    fetchPOOrders();
-  };
 
   // Refetch metrics when PO orders change
   useEffect(() => {
@@ -244,10 +203,6 @@ export const POTracker = () => {
           <p className="text-muted-foreground">Monitor and manage your purchase orders across all suppliers</p>
         </div>
         <div className="flex items-center space-x-2">
-          <Button variant="outline" size="sm" onClick={() => setShowFileUploadDialog(true)}>
-            <FileUp className="h-4 w-4 mr-2" />
-            Upload PO File
-          </Button>
           <Button variant="outline" size="sm" onClick={() => fetchPOOrders()}>
             <RefreshCw className="h-4 w-4 mr-2 animate-spin" style={{ animationPlayState: isLoading ? 'running' : 'paused' }} />
             Refresh
@@ -256,7 +211,7 @@ export const POTracker = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="overview" className="flex items-center gap-2">
             <Package className="h-4 w-4" />
             Overview
@@ -268,10 +223,6 @@ export const POTracker = () => {
           <TabsTrigger value="profit" className="flex items-center gap-2">
             <TrendingUp className="h-4 w-4" />
             Profit Analysis
-          </TabsTrigger>
-          <TabsTrigger value="settings" className="flex items-center gap-2">
-            <ShoppingCart className="h-4 w-4" />
-            Settings
           </TabsTrigger>
         </TabsList>
 
@@ -642,7 +593,43 @@ export const POTracker = () => {
               </CardContent>
             </CardHeader>
             <CardContent>
-              <POFileUpload onFilesUpload={handleFileUpload} isLoading={isLoading} />
+              <POFileUpload onFilesUpload={(data) => {
+                // Handle file upload in the uploads section
+                if (!profile) {
+                  toast({
+                    title: "Error",
+                    description: "User profile not loaded",
+                    variant: "destructive"
+                  });
+                  return;
+                }
+
+                if (!selectedCountry) {
+                  toast({
+                    title: "Error", 
+                    description: "Please select a country",
+                    variant: "destructive"
+                  });
+                  return;
+                }
+
+                const mappedData = data.map((item: any) => ({
+                  po_number: item['PO Number'],
+                  ship_to_location: item['Ship To Location'],
+                  asin: item['ASIN'],
+                  model_number: item['Model Number'],
+                  title: item['Title'],
+                  quantity: item['Quantity'],
+                  external_id: item['External ID'],
+                  external_id_type: item['External ID Type'],
+                  file_name: item['File Name'],
+                  country: selectedCountry
+                }));
+
+                processPOFiles(mappedData, []).then(() => {
+                  fetchPOOrders();
+                });
+              }} isLoading={isLoading} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -650,45 +637,7 @@ export const POTracker = () => {
         <TabsContent value="profit" className="space-y-6">
           <POProfitAnalytics poOrders={poOrders} />
         </TabsContent>
-
-        <TabsContent value="settings" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Settings</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="items-per-page">Items per page</Label>
-                  <Select value={String(itemsPerPage)} onValueChange={(value) => setItemsPerPage(Number(value))}>
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue placeholder="Items per page" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="10">10</SelectItem>
-                      <SelectItem value="20">20</SelectItem>
-                      <SelectItem value="30">30</SelectItem>
-                      <SelectItem value="50">50</SelectItem>
-                      <SelectItem value="100">100</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
       </Tabs>
-
-      <Dialog open={showFileUploadDialog} onOpenChange={setShowFileUploadDialog}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Upload PO File</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <POFileUpload onFilesUpload={handleFileUpload} isLoading={isLoading} />
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };
