@@ -98,12 +98,14 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
     });
 
     const calculateUpcomingValue = (endDate: Date) => {
+      const creditDays = selectedCountry === 'UAE' ? 60 : 45;
+      
       const upcomingOrders = pendingOrders.filter(o => {
-        if (!o.invoice_date) return false;
+        if (!o.shipment_date) return false;
         try {
-          const invoiceDate = new Date(o.invoice_date);
-          const dueDate = new Date(invoiceDate);
-          dueDate.setDate(dueDate.getDate() + 45);
+          const shipmentDate = new Date(o.shipment_date);
+          const dueDate = new Date(shipmentDate);
+          dueDate.setDate(dueDate.getDate() + creditDays);
           return dueDate <= endDate && dueDate >= now;
         } catch {
           return false;
@@ -133,7 +135,7 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
       next30Days: calculateUpcomingValue(next30Days),
       next90Days: calculateUpcomingValue(next90Days)
     };
-  }, [metrics, orders, convertCurrency, displayCurrency]);
+  }, [metrics, orders, convertCurrency, displayCurrency, selectedCountry]);
 
   console.log('MetricsDashboard render - Country:', selectedCountry, 'Display Currency:', displayCurrency, 'Total Value:', metrics?.totalValue, 'Converted:', convertedTotalValue);
 
@@ -219,7 +221,7 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
               {formatCurrency(convertedOverdueValue, displayCurrency)}
             </div>
             <p className="text-xs text-muted-foreground">
-              Past 45-day credit period
+              Past 60-day credit period (UAE)
             </p>
           </CardContent>
         </Card>
