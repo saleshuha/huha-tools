@@ -1486,6 +1486,63 @@ export type Database = {
         }
         Relationships: []
       }
+      saved_delivery_addresses: {
+        Row: {
+          address: string
+          address2: string | null
+          city: string
+          company: string | null
+          country_id: string
+          created_at: string
+          email: string | null
+          id: string
+          is_default: boolean
+          name: string
+          postcode: string
+          receiver: string
+          state: string | null
+          telephone: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          address: string
+          address2?: string | null
+          city: string
+          company?: string | null
+          country_id: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_default?: boolean
+          name: string
+          postcode: string
+          receiver: string
+          state?: string | null
+          telephone?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          address?: string
+          address2?: string | null
+          city?: string
+          company?: string | null
+          country_id?: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_default?: boolean
+          name?: string
+          postcode?: string
+          receiver?: string
+          state?: string | null
+          telephone?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       sku_costs: {
         Row: {
           cost: number

@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Package, Truck, ExternalLink } from 'lucide-react';
+import { Loader2, Package, Truck, ExternalLink, Save, BookOpen, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
@@ -48,6 +48,22 @@ interface OrderItem {
   remark?: string;
 }
 
+interface SavedAddress {
+  id: string;
+  name: string;
+  country_id: string;
+  state: string;
+  city: string;
+  company: string;
+  address: string;
+  address2: string;
+  postcode: string;
+  receiver: string;
+  telephone: string;
+  email: string;
+  is_default: boolean;
+}
+
 export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderSuccess }: SunskyOrderDialogProps) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -57,6 +73,12 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
   const [countries, setCountries] = useState<Country[]>([]);
   const [shippingMethods, setShippingMethods] = useState<ShippingMethod[]>([]);
   const [loadingShipping, setLoadingShipping] = useState(false);
+  
+  // Saved addresses state
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
+  const [loadingSavedAddresses, setLoadingSavedAddresses] = useState(false);
+  const [saveAddressName, setSaveAddressName] = useState('');
+  const [showSaveAddress, setShowSaveAddress] = useState(false);
   
   // Order items state
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
@@ -92,12 +114,143 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
   useEffect(() => {
     if (open && selectedOrders.length > 0) {
       loadCountries();
+      loadSavedAddresses();
       initializeOrderItems();
       // Auto-populate site number with PO number
       const poNumber = selectedOrders[0]?.po_number || '';
       setOrderOptions(prev => ({ ...prev, siteNumber: poNumber }));
     }
   }, [open, selectedOrders]);
+
+  // Load saved addresses
+  const loadSavedAddresses = async () => {
+    try {
+      setLoadingSavedAddresses(true);
+      const { data, error } = await supabase
+        .from('saved_delivery_addresses')
+        .select('*')
+        .order('is_default', { ascending: false })
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setSavedAddresses(data || []);
+    } catch (error) {
+      console.error('Failed to load saved addresses:', error);
+      toast({
+        title: "Failed to Load Saved Addresses",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setLoadingSavedAddresses(false);
+    }
+  };
+
+  // Save current address
+  const handleSaveAddress = async () => {
+    if (!saveAddressName.trim()) {
+      toast({
+        title: "Address Name Required",
+        description: "Please enter a name for this address",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      const { error } = await supabase
+        .from('saved_delivery_addresses')
+        .insert({
+          user_id: user.id,
+          name: saveAddressName.trim(),
+          country_id: deliveryAddress.countryId,
+          state: deliveryAddress.state,
+          city: deliveryAddress.city,
+          company: deliveryAddress.company,
+          address: deliveryAddress.address,
+          address2: deliveryAddress.address2,
+          postcode: deliveryAddress.postcode,
+          receiver: deliveryAddress.receiver,
+          telephone: deliveryAddress.telephone,
+          email: deliveryAddress.email,
+          is_default: savedAddresses.length === 0 // First address becomes default
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Address Saved",
+        description: `Address "${saveAddressName}" has been saved for future use`,
+      });
+
+      setSaveAddressName('');
+      setShowSaveAddress(false);
+      loadSavedAddresses(); // Refresh the list
+    } catch (error) {
+      toast({
+        title: "Failed to Save Address",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Load address from saved addresses
+  const handleLoadAddress = (address: SavedAddress) => {
+    setDeliveryAddress({
+      countryId: address.country_id,
+      state: address.state,
+      city: address.city,
+      company: address.company,
+      address: address.address,
+      address2: address.address2,
+      postcode: address.postcode,
+      receiver: address.receiver,
+      telephone: address.telephone,
+      email: address.email,
+      shippingWayId: '',
+      shipment: 'wholesale'
+    });
+
+    toast({
+      title: "Address Loaded",
+      description: `Loaded address "${address.name}"`,
+    });
+  };
+
+  // Delete saved address
+  const handleDeleteAddress = async (addressId: string, addressName: string) => {
+    const confirmed = window.confirm(`Are you sure you want to delete the address "${addressName}"?`);
+    if (!confirmed) return;
+
+    try {
+      const { error } = await supabase
+        .from('saved_delivery_addresses')
+        .delete()
+        .eq('id', addressId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Address Deleted",
+        description: `Address "${addressName}" has been deleted`,
+      });
+
+      loadSavedAddresses(); // Refresh the list
+    } catch (error) {
+      toast({
+        title: "Failed to Delete Address",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  };
 
   const initializeOrderItems = () => {
     const items = selectedOrders.map(order => ({
@@ -474,9 +627,116 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
                     onChange={(e) => setDeliveryAddress({...deliveryAddress, email: e.target.value})}
                     placeholder="Contact email"
                   />
-                </div>
-              </div>
-            </div>
+                 </div>
+               </div>
+               
+               {/* Saved Addresses Section */}
+               <div className="mt-8 space-y-4">
+                 <div className="flex items-center justify-between">
+                   <h4 className="text-md font-semibold flex items-center gap-2">
+                     <BookOpen className="h-4 w-4" />
+                     Saved Addresses
+                   </h4>
+                   {canProceedToShipping && (
+                     <Button
+                       variant="outline"
+                       size="sm"
+                       onClick={() => setShowSaveAddress(!showSaveAddress)}
+                       className="flex items-center gap-2"
+                     >
+                       <Save className="h-4 w-4" />
+                       Save Current Address
+                     </Button>
+                   )}
+                 </div>
+
+                 {/* Save Address Form */}
+                 {showSaveAddress && (
+                   <Card className="p-4 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+                     <div className="flex gap-3 items-end">
+                       <div className="flex-1">
+                         <Label htmlFor="addressName">Address Name *</Label>
+                         <Input
+                           id="addressName"
+                           value={saveAddressName}
+                           onChange={(e) => setSaveAddressName(e.target.value)}
+                           placeholder="e.g., Home, Office, Warehouse"
+                         />
+                       </div>
+                       <Button onClick={handleSaveAddress} disabled={!saveAddressName.trim()}>
+                         Save
+                       </Button>
+                       <Button
+                         variant="outline"
+                         onClick={() => {
+                           setShowSaveAddress(false);
+                           setSaveAddressName('');
+                         }}
+                       >
+                         Cancel
+                       </Button>
+                     </div>
+                   </Card>
+                 )}
+
+                 {/* Saved Addresses List */}
+                 {loadingSavedAddresses ? (
+                   <div className="flex items-center justify-center py-8">
+                     <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                     Loading saved addresses...
+                   </div>
+                 ) : savedAddresses.length > 0 ? (
+                   <div className="grid gap-3 max-h-60 overflow-y-auto">
+                     {savedAddresses.map((address) => (
+                       <Card key={address.id} className="p-4 hover:shadow-md transition-shadow">
+                         <div className="flex justify-between items-start">
+                           <div className="flex-1 cursor-pointer" onClick={() => handleLoadAddress(address)}>
+                             <div className="flex items-center gap-2 mb-2">
+                               <h5 className="font-medium">{address.name}</h5>
+                               {address.is_default && (
+                                 <Badge variant="secondary" className="text-xs">Default</Badge>
+                               )}
+                             </div>
+                             <div className="text-sm text-muted-foreground space-y-1">
+                               <div>{address.receiver}</div>
+                               {address.company && <div>{address.company}</div>}
+                               <div>{address.address}</div>
+                               {address.address2 && <div>{address.address2}</div>}
+                               <div>{address.city}, {address.state} {address.postcode}</div>
+                               <div>{countries.find(c => c.id === address.country_id)?.name}</div>
+                             </div>
+                           </div>
+                           <div className="flex gap-2 ml-4">
+                             <Button
+                               variant="outline"
+                               size="sm"
+                               onClick={() => handleLoadAddress(address)}
+                               className="text-xs"
+                             >
+                               Load
+                             </Button>
+                             <Button
+                               variant="outline"
+                               size="sm"
+                               onClick={() => handleDeleteAddress(address.id, address.name)}
+                               className="text-xs text-red-600 hover:text-red-700"
+                             >
+                               <Trash2 className="h-3 w-3" />
+                             </Button>
+                           </div>
+                         </div>
+                       </Card>
+                     ))}
+                   </div>
+                 ) : (
+                   <Card className="p-6 text-center text-muted-foreground">
+                     <BookOpen className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                     <p>No saved addresses yet</p>
+                     <p className="text-sm">Fill out the address form above and save it for future orders</p>
+                   </Card>
+                 )}
+               </div>
+             </div>
           )}
 
           {step === 'shipping' && (
