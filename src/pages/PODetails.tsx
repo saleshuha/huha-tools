@@ -1058,6 +1058,142 @@ export default function PODetailsPage() {
     }
   };
 
+  // Reverse ASIN inventory deductions made from partial fulfillments
+  const handleReverseInventoryDeductions = async () => {
+    try {
+      console.log('🔄 Starting inventory reversal process...');
+      
+      // Get all orders that were marked from stock today
+      const ordersToReverse = matchedOrders.filter(order => {
+        const isTracked = itemsMarkedFromStock.has(order.id);
+        const hasPartialNote = order.notes?.includes('Partial fulfillment from stock');
+        return isTracked && hasPartialNote;
+      });
+      
+      if (ordersToReverse.length === 0) {
+        toast({
+          title: "No Items to Reverse",
+          description: "No partial fulfillments found to reverse inventory for",
+          variant: "default"
+        });
+        return;
+      }
+
+      console.log('📦 Orders to reverse inventory for:', ordersToReverse.map(o => ({
+        id: o.id,
+        asin: o.asin,
+        sku: o.sku_code,
+        quantity: o.quantity,
+        notes: o.notes
+      })));
+
+      const confirmed = window.confirm(
+        `Are you sure you want to reverse inventory deductions for ${ordersToReverse.length} item(s)?\n\n` +
+        `This will:\n` +
+        `• Add back the quantities that were deducted from ASIN inventory\n` +
+        `• Restore inventory levels to before partial fulfillment\n` +
+        `• Clear the partial fulfillment tracking\n\n` +
+        `This action cannot be easily undone.`
+      );
+      
+      if (!confirmed) {
+        return;
+      }
+
+      let reversedCount = 0;
+      let errors = [];
+
+      for (const order of ordersToReverse) {
+        try {
+          // Parse how much was fulfilled from stock from the notes
+          const fulfilledFromStockQty = order.quantity; // This is the quantity that was fulfilled from stock
+          
+          if (!order.asin || fulfilledFromStockQty <= 0) {
+            console.log(`⚠️ Skipping ${order.sku_code}: No ASIN or invalid quantity`);
+            continue;
+          }
+
+          console.log(`🔄 Reversing ${fulfilledFromStockQty} units for ASIN ${order.asin}`);
+
+          // Find current ASIN inventory
+          const { data: currentInventory, error: fetchError } = await supabase
+            .from('asin_inventory')
+            .select('id, quantity, asin, serial_number')
+            .eq('asin', order.asin)
+            .eq('user_id', (await supabase.auth.getUser()).data.user?.id);
+
+          if (fetchError) {
+            throw new Error(`Failed to fetch inventory for ${order.asin}: ${fetchError.message}`);
+          }
+
+          if (!currentInventory || currentInventory.length === 0) {
+            errors.push(`No inventory record found for ASIN ${order.asin}`);
+            continue;
+          }
+
+          // Update the first inventory record found (add back the quantity)
+          const inventoryRecord = currentInventory[0];
+          const newQuantity = inventoryRecord.quantity + fulfilledFromStockQty;
+
+          const { error: updateError } = await supabase
+            .from('asin_inventory')
+            .update({ 
+              quantity: newQuantity,
+              status: newQuantity > 0 ? 'in-stock' : 'sold'
+            })
+            .eq('id', inventoryRecord.id);
+
+          if (updateError) {
+            throw new Error(`Failed to update inventory for ${order.asin}: ${updateError.message}`);
+          }
+
+          console.log(`✅ Successfully restored ${fulfilledFromStockQty} units to ASIN ${order.asin} (${inventoryRecord.quantity} → ${newQuantity})`);
+          reversedCount++;
+
+        } catch (error) {
+          console.error(`❌ Error reversing inventory for order ${order.id}:`, error);
+          errors.push(`${order.sku_code}: ${error.message}`);
+        }
+      }
+
+      // Clear the tracked items after successful reversal
+      if (reversedCount > 0) {
+        setItemsMarkedFromStock(new Set());
+        
+        // Refresh inventory and PO data
+        await Promise.all([
+          fetchInventoryData(),
+          fetchPOOrders()
+        ]);
+      }
+
+      // Show results
+      if (reversedCount > 0) {
+        toast({
+          title: "Inventory Reversal Complete",
+          description: `Successfully reversed inventory deductions for ${reversedCount} item(s)${errors.length > 0 ? `. ${errors.length} errors occurred.` : ''}`
+        });
+      }
+
+      if (errors.length > 0) {
+        console.error('❌ Reversal errors:', errors);
+        toast({
+          title: "Some Reversals Failed",
+          description: `${errors.length} items failed to reverse. Check console for details.`,
+          variant: "destructive"
+        });
+      }
+
+    } catch (error) {
+      console.error('❌ Error in inventory reversal process:', error);
+      toast({
+        title: "Reversal Failed",
+        description: "Failed to reverse inventory deductions",
+        variant: "destructive"
+      });
+    }
+  };
+
   // Mark item as ordered and reduce inventory stock
   const markAsOrderedFromInventory = async (order: any, partialQuantity?: number) => {
     setIsUpdating(true);
@@ -1478,15 +1614,27 @@ export default function PODetailsPage() {
           <div className="flex gap-2">
             {/* Reset Partial Fulfillments Button */}
             {itemsMarkedFromStock.size > 0 && (
-              <Button 
-                variant="outline" 
-                className="gap-2 border-orange-200 text-orange-700 hover:bg-orange-50"
-                onClick={handleResetPartialFulfillments}
-                disabled={isUpdating}
-              >
-                <Trash2 className="h-4 w-4" />
-                Reset Partial Fulfillments ({itemsMarkedFromStock.size})
-              </Button>
+              <>
+                <Button 
+                  variant="outline" 
+                  className="gap-2 border-orange-200 text-orange-700 hover:bg-orange-50"
+                  onClick={handleResetPartialFulfillments}
+                  disabled={isUpdating}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Reset Partial Fulfillments ({itemsMarkedFromStock.size})
+                </Button>
+                
+                <Button 
+                  variant="outline" 
+                  className="gap-2 border-red-200 text-red-700 hover:bg-red-50"
+                  onClick={handleReverseInventoryDeductions}
+                  disabled={isUpdating}
+                >
+                  <PackageX className="h-4 w-4" />
+                  Reverse Inventory Deductions
+                </Button>
+              </>
             )}
             
             {/* Print Dialog */}
