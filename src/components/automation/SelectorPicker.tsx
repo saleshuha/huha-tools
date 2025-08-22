@@ -794,18 +794,62 @@ For support, refer to the Desktop Automation app documentation.`
                 Real-time element captures from the browser extension
               </CardDescription>
             </div>
-            <Button onClick={clearCaptureEvents} variant="outline" size="sm">
-              <Trash2 className="h-4 w-4" />
-              Clear All
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button onClick={clearCaptureEvents} variant="outline" size="sm">
+                <Trash2 className="h-4 w-4" />
+                Clear All
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
+          {/* Debug Information */}
+          <Alert className="mb-4">
+            <Eye className="h-4 w-4" />
+            <AlertDescription>
+              <strong>Troubleshooting Tips:</strong>
+              <br />
+              1. Make sure you're on a <strong>noon.partners</strong> website
+              <br />
+              2. Check that the extension popup shows "Connected to App"
+              <br />
+              3. If picker stops immediately, the website may block the overlay
+              <br />
+              4. Try refreshing the page and starting the picker again
+              <br />
+              5. Check browser console (F12) for any error messages
+            </AlertDescription>
+          </Alert>
+
           {captureEvents.length === 0 ? (
             <Alert>
               <Eye className="h-4 w-4" />
               <AlertDescription>
-                No elements captured yet. Install the browser extension, connect with your access token, and start capturing elements from noon.partners.
+                <strong>No elements captured yet.</strong>
+                <br />
+                <br />
+                <strong>Step-by-step guide:</strong>
+                <br />
+                1. Navigate to <strong>noon.partners</strong> in your browser
+                <br />
+                2. Click the extension icon and ensure it shows "Connected to App"
+                <br />
+                3. Click "Start Element Picker" in the extension popup
+                <br />
+                4. You should see a blue overlay on the page
+                <br />
+                5. Hover over elements to highlight them, click to capture
+                <br />
+                6. Captured elements will appear here automatically
+                <br />
+                <br />
+                <strong>Common Issues:</strong>
+                <br />
+                • If picker stops immediately: The website is blocking the overlay
+                <br />
+                • If no overlay appears: Check browser permissions for the extension
+                <br />
+                • If elements don't save: Check network connection and token validity
               </AlertDescription>
             </Alert>
           ) : (
@@ -880,6 +924,58 @@ For support, refer to the Desktop Automation app documentation.`
               </div>
             </ScrollArea>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Extension Status & Debugging */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Extension Debugging</CardTitle>
+          <CardDescription>
+            Real-time status and troubleshooting information
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Database Status</Label>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <span className="text-sm text-muted-foreground">
+                    Connected to Supabase ({captureEvents.length} events)
+                  </span>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Real-time Updates</Label>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  <span className="text-sm text-muted-foreground">
+                    Listening for captures
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <Alert>
+              <Chrome className="h-4 w-4" />
+              <AlertDescription>
+                <strong>If element picker stops immediately:</strong>
+                <br />
+                • Some websites have security policies that prevent overlays
+                <br />
+                • Try on different noon.partners pages (login, dashboard)
+                <br />
+                • Disable other browser extensions temporarily
+                <br />
+                • Check browser console (F12) for security errors
+                <br />
+                <br />
+                <strong>Alternative approach:</strong> Try capturing elements on simpler pages first, then move to complex ones.
+              </AlertDescription>
+            </Alert>
+          </div>
         </CardContent>
       </Card>
     </div>
