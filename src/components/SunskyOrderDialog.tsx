@@ -407,12 +407,22 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
           description: `Sunsky Order #${orderNumber} has been created`,
         });
       } else {
-        throw new Error(data.message || 'Failed to create order');
+        // Handle specific Sunsky API errors
+        if (data.messages && data.messages.includes('已下单。')) {
+          throw new Error('This order has already been placed. Please check your Sunsky account or try with different items.');
+        }
+        throw new Error(data.message || data.messages?.[0] || 'Failed to create order');
       }
     } catch (error) {
+      // Provide more specific error messages
+      let errorMessage = error.message;
+      if (error.message.includes('已下单')) {
+        errorMessage = 'This order has already been placed. Please check your Sunsky account or try with different items.';
+      }
+      
       toast({
         title: "Failed to Create Order",
-        description: error.message,
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {
