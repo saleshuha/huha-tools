@@ -318,7 +318,32 @@ export default function PODetailsPage() {
   const poOrdersForThisPO = poOrders.filter(order => order.po_number === poNumber);
   
   // Only show matched items (items with sunsky_sku populated from database)
-  const matchedOrders = poOrdersForThisPO.filter(order => order.sunsky_sku !== null);
+  const allMatchedOrders = poOrdersForThisPO.filter(order => order.sunsky_sku !== null);
+  
+  // Group orders by ASIN to prevent duplicates in the table
+  // Each ASIN should appear only once per PO, even with partial fulfillments
+  const matchedOrdersMap = new Map<string, any>();
+  
+  allMatchedOrders.forEach(order => {
+    const asin = order.asin;
+    if (!matchedOrdersMap.has(asin)) {
+      matchedOrdersMap.set(asin, order);
+    } else {
+      // If we already have this ASIN, update with the most recent or pending order
+      const existing = matchedOrdersMap.get(asin);
+      
+      // Prefer pending orders over closed/partial-fulfilled for display
+      if (order.status === 'pending' && existing.status !== 'pending') {
+        matchedOrdersMap.set(asin, order);
+      }
+      // If both are same status, prefer the more recent one
+      else if (order.status === existing.status && new Date(order.created_at) > new Date(existing.created_at)) {
+        matchedOrdersMap.set(asin, order);
+      }
+    }
+  });
+  
+  const matchedOrders = Array.from(matchedOrdersMap.values());
 
   // Calculate status progress
   const statusProgress: StatusProgress = matchedOrders.reduce((acc, order) => {
