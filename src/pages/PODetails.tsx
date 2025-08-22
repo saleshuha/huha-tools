@@ -1591,8 +1591,16 @@ export default function PODetailsPage() {
                 </DialogHeader>
                 <div className="space-y-4">
                   {(() => {
-                    const fromStockItems = matchedOrders.filter(order => itemsMarkedFromStock.has(order.id));
-                    console.log('🔍 Preview From Stock Debug:', {
+                    // Filter to only show partial fulfillments, not complete ones
+                    const fromStockItems = matchedOrders.filter(order => {
+                      const isTracked = itemsMarkedFromStock.has(order.id);
+                      const isPartialFulfillment = order.notes?.includes('Partial fulfillment from stock');
+                      
+                      // Only show items that are tracked AND have partial fulfillment notes
+                      return isTracked && isPartialFulfillment;
+                    });
+                    
+                    console.log('🔍 Preview From Stock Debug (Partial Only):', {
                       totalOrders: matchedOrders.length,
                       itemsMarkedFromStockSet: Array.from(itemsMarkedFromStock),
                       fromStockItemsFound: fromStockItems.length,
@@ -1602,11 +1610,12 @@ export default function PODetailsPage() {
                         sku: o.sku_code,
                         quantity: o.quantity,
                         status: o.status,
-                        notes: o.notes?.substring(0, 100)
+                        notes: o.notes?.substring(0, 100),
+                        isPartial: o.notes?.includes('Partial fulfillment from stock')
                       }))
                     });
                     
-                    // Also log all orders that contain EDA006069619A
+                    // Also log all orders that contain EDA006069619A for debugging
                     const edaOrders = matchedOrders.filter(o => 
                       o.sku_code?.includes('EDA006069619A') || 
                       o.sunsky_sku?.sku_code?.includes('EDA006069619A') ||
@@ -1619,13 +1628,25 @@ export default function PODetailsPage() {
                         quantity: o.quantity,
                         status: o.status,
                         notes: o.notes,
-                        isMarkedFromStock: itemsMarkedFromStock.has(o.id)
+                        isMarkedFromStock: itemsMarkedFromStock.has(o.id),
+                        isPartialFulfillment: o.notes?.includes('Partial fulfillment from stock')
                       })));
                     }
                     
-                    return fromStockItems;
-                  })().map((order) => {
-                    const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number);
+                    if (fromStockItems.length === 0) {
+                      return (
+                        <div className="text-center py-8">
+                          <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                          <p className="text-muted-foreground">No partial fulfillments found</p>
+                          <p className="text-sm text-muted-foreground mt-2">
+                            Items that are completely fulfilled from stock won't appear here
+                          </p>
+                        </div>
+                      );
+                    }
+                    
+                     return fromStockItems.map((order) => {
+                     const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number);
                     
                     // Parse fulfillment info from notes
                     const isPartialFulfillment = order.notes?.includes('Partial fulfillment from stock');
@@ -1665,18 +1686,19 @@ export default function PODetailsPage() {
                                       <div className="font-semibold text-green-800">Complete Fulfillment</div>
                                       <div><strong>✓ From Stock:</strong> {fulfilledFromStock} pcs</div>
                                     </div>
-                                  </>
-                                )}
-                                <div><strong>Current Inventory:</strong> {inventoryMatch?.quantity || 0}</div>
-                                <div><strong>Inventory Type:</strong> {inventoryMatch?.type || 'Not Found'}</div>
-                                <div><strong>Status:</strong> {order.status}</div>
-                              </div>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
+                                   </>
+                                 )}
+                                 <div><strong>Current Inventory:</strong> {inventoryMatch?.quantity || 0}</div>
+                                 <div><strong>Inventory Type:</strong> {inventoryMatch?.type || 'Not Found'}</div>
+                                 <div><strong>Status:</strong> {order.status}</div>
+                               </div>
+                             </div>
+                           </div>
+                         </CardContent>
+                       </Card>
+                     );
+                   });
+                 })()}
                 </div>
                 <DialogFooter className="gap-2">
                   <Button onClick={handlePrintFromStockDetails} variant="outline" className="gap-2">
