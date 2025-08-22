@@ -1460,9 +1460,29 @@ export default function PODetailsPage() {
       return;
     }
 
-    // Check if selected items have Sunsky SKUs
+    // Check if selected items have Sunsky SKUs and filter out 0-quantity items
     const selectedOrdersData = matchedOrders.filter(order => selectedItems.has(order.id));
-    const itemsWithSunskyData = selectedOrdersData.filter(order => 
+    
+    // First filter out items with 0 quantity (complete fulfillments)
+    const itemsWithQuantity = selectedOrdersData.filter(order => order.quantity > 0);
+    
+    if (itemsWithQuantity.length === 0) {
+      toast({
+        title: "No Valid Items",
+        description: "All selected items have been completely fulfilled (0 quantity). No items to order from Sunsky.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (itemsWithQuantity.length < selectedOrdersData.length) {
+      toast({
+        title: "Some Items Excluded",
+        description: `${selectedOrdersData.length - itemsWithQuantity.length} item(s) excluded as they have 0 quantity (completely fulfilled)`,
+      });
+    }
+    
+    const itemsWithSunskyData = itemsWithQuantity.filter(order => 
       order.sunsky_sku?.sku_code || order.sku_code
     );
 
@@ -1475,7 +1495,7 @@ export default function PODetailsPage() {
       return;
     }
 
-    if (itemsWithSunskyData.length < selectedOrdersData.length) {
+    if (itemsWithSunskyData.length < itemsWithQuantity.length) {
       toast({
         title: "Some Items Missing Sunsky Data",
         description: `Only ${itemsWithSunskyData.length} of ${selectedOrdersData.length} selected items have Sunsky data`,
@@ -1956,103 +1976,113 @@ export default function PODetailsPage() {
               </p>
             </div>
           )}
-          {/* Bulk Operations */}
-          {selectedItems.size > 0 && (
-            <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+          
+          {/* Always visible action buttons */}
+          <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+            {selectedItems.size > 0 && (
               <Badge variant="secondary">{selectedItems.size} selected</Badge>
-              
-              {selectionType === 'instock' && (
+            )}
+            
+            {/* Mark From Stock - only show when instock items are selected */}
+            {selectionType === 'instock' && (
+              <Button 
+                size="sm"
+                className="bg-green-600 hover:bg-green-700 text-white disabled:bg-green-300"
+                onClick={handleBulkMarkFromInventory}
+                disabled={isUpdating || selectedItems.size === 0}
+              >
+                Mark From Stock
+              </Button>
+            )}
+            
+            <Button 
+              size="sm" 
+              variant="outline"
+              onClick={handleBulkMarkFromSupplier}
+              disabled={isUpdating || selectedItems.size === 0}
+              className="disabled:opacity-50"
+            >
+              Mark From Supplier
+            </Button>
+            
+            <Button 
+              size="sm" 
+              className="bg-orange-600 hover:bg-orange-700 text-white disabled:bg-orange-300"
+              onClick={handleOpenSunskyOrder}
+              disabled={isUpdating || selectedItems.size === 0}
+            >
+              Order at Sunsky
+            </Button>
+            
+            <Dialog>
+              <DialogTrigger asChild>
                 <Button 
-                  size="sm"
-                  className="bg-green-600 hover:bg-green-700 text-white"
-                  onClick={handleBulkMarkFromInventory}
-                  disabled={isUpdating}
+                  size="sm" 
+                  variant="outline"
+                  disabled={selectedItems.size === 0}
+                  className="disabled:opacity-50"
                 >
-                  Mark From Stock
+                  Update Tracking
                 </Button>
-              )}
-              
-              <Button 
-                size="sm" 
-                variant="outline"
-                onClick={handleBulkMarkFromSupplier}
-                disabled={isUpdating}
-              >
-                Mark From Supplier
-              </Button>
-              
-              <Button 
-                size="sm" 
-                className="bg-orange-600 hover:bg-orange-700 text-white"
-                onClick={handleOpenSunskyOrder}
-                disabled={isUpdating}
-              >
-                Order at Sunsky
-              </Button>
-              
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button size="sm" variant="outline">
-                    Update Tracking
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-md">
-                  <DialogHeader>
-                    <DialogTitle>Bulk Update Tracking</DialogTitle>
-                    <DialogDescription>
-                      Update tracking information for {selectedItems.size} selected items
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="bulk-selected-supplier-order">Supplier Order Number</Label>
-                      <Input
-                        id="bulk-selected-supplier-order"
-                        value={bulkTrackingInfo.supplier_order_number}
-                        onChange={(e) => setBulkTrackingInfo({...bulkTrackingInfo, supplier_order_number: e.target.value})}
-                        placeholder="Enter supplier order number"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="bulk-selected-tracking-number">Tracking Number</Label>
-                      <Input
-                        id="bulk-selected-tracking-number"
-                        value={bulkTrackingInfo.tracking_number}
-                        onChange={(e) => setBulkTrackingInfo({...bulkTrackingInfo, tracking_number: e.target.value})}
-                        placeholder="Enter tracking number"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="bulk-selected-tracking-url">Tracking URL</Label>
-                      <Input
-                        id="bulk-selected-tracking-url"
-                        value={bulkTrackingInfo.tracking_url}
-                        onChange={(e) => setBulkTrackingInfo({...bulkTrackingInfo, tracking_url: e.target.value})}
-                        placeholder="Enter tracking URL"
-                      />
-                    </div>
+              </DialogTrigger>
+              <DialogContent className="max-w-md bg-background border shadow-lg">
+                <DialogHeader>
+                  <DialogTitle>Bulk Update Tracking</DialogTitle>
+                  <DialogDescription>
+                    Update tracking information for {selectedItems.size} selected items
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="bulk-selected-supplier-order">Supplier Order Number</Label>
+                    <Input
+                      id="bulk-selected-supplier-order"
+                      value={bulkTrackingInfo.supplier_order_number}
+                      onChange={(e) => setBulkTrackingInfo({...bulkTrackingInfo, supplier_order_number: e.target.value})}
+                      placeholder="Enter supplier order number"
+                    />
                   </div>
-                  <DialogFooter>
-                    <Button onClick={handleBulkTrackingUpdateSelected} disabled={isUpdating}>
-                      {isUpdating ? 'Updating...' : 'Update Selected Items'}
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-              
-              <Button 
-                size="sm" 
-                variant="outline" 
-                onClick={() => {
-                  setSelectedItems(new Set());
-                  setSelectionType(null);
-                }}
-              >
-                <Trash2 className="h-4 w-4 mr-1" />
-                Clear
-              </Button>
-            </div>
-          )}
+                  <div>
+                    <Label htmlFor="bulk-selected-tracking-number">Tracking Number</Label>
+                    <Input
+                      id="bulk-selected-tracking-number"
+                      value={bulkTrackingInfo.tracking_number}
+                      onChange={(e) => setBulkTrackingInfo({...bulkTrackingInfo, tracking_number: e.target.value})}
+                      placeholder="Enter tracking number"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="bulk-selected-tracking-url">Tracking URL</Label>
+                    <Input
+                      id="bulk-selected-tracking-url"
+                      value={bulkTrackingInfo.tracking_url}
+                      onChange={(e) => setBulkTrackingInfo({...bulkTrackingInfo, tracking_url: e.target.value})}
+                      placeholder="Enter tracking URL"
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button onClick={handleBulkTrackingUpdateSelected} disabled={isUpdating}>
+                    {isUpdating ? 'Updating...' : 'Update Selected Items'}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+            
+            <Button 
+              size="sm" 
+              variant="outline" 
+              onClick={() => {
+                setSelectedItems(new Set());
+                setSelectionType(null);
+              }}
+              disabled={selectedItems.size === 0}
+              className="disabled:opacity-50"
+            >
+              <Trash2 className="h-4 w-4 mr-1" />
+              Clear
+            </Button>
+          </div>
           
           {/* Original Bulk Update All Button */}
           <Dialog>
