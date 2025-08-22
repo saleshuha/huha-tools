@@ -390,18 +390,35 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
         }
       });
 
-      // Handle edge function errors
+      // Handle edge function errors (non-2xx status codes)
       if (response.error) {
         console.error('Edge function error:', response.error);
-        throw new Error(`Edge function error: ${response.error.message || 'Unknown error'}`);
+        
+        // Check if it's a specific Sunsky API error
+        if (response.error.message && response.error.message.includes('已下单')) {
+          throw new Error('This order has already been placed. Please check your Sunsky account or try with different items.');
+        }
+        
+        // Generic edge function error
+        throw new Error(`Service error: ${response.error.message || 'Unable to process order request'}`);
       }
       
       const data = response.data;
       
       // Handle API response errors
-      if (!data || data.result === 'error') {
+      if (!data) {
+        throw new Error('No response from order service');
+      }
+      
+      if (data.result === 'error') {
         const errorMsg = data?.messages?.[0] || data?.message || 'Unknown API error';
         console.error('Sunsky API error:', errorMsg);
+        
+        // Handle specific error messages
+        if (errorMsg.includes('已下单')) {
+          throw new Error('This order has already been placed. Please check your Sunsky account or try with different items.');
+        }
+        
         throw new Error(errorMsg);
       }
       
