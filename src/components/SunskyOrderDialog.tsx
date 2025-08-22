@@ -390,9 +390,21 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
         }
       });
 
-      if (response.error) throw response.error;
+      // Handle edge function errors
+      if (response.error) {
+        console.error('Edge function error:', response.error);
+        throw new Error(`Edge function error: ${response.error.message || 'Unknown error'}`);
+      }
       
       const data = response.data;
+      
+      // Handle API response errors
+      if (!data || data.result === 'error') {
+        const errorMsg = data?.messages?.[0] || data?.message || 'Unknown API error';
+        console.error('Sunsky API error:', errorMsg);
+        throw new Error(errorMsg);
+      }
+      
       if (data.result === 'success' && data.data?.number) {
         const orderNumber = data.data.number;
         const selectedOrderIds = selectedOrders
