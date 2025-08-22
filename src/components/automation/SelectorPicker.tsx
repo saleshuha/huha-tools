@@ -81,15 +81,15 @@ export const SelectorPicker = () => {
           "scripting"
         ],
         "host_permissions": [
-          "https://noon.partners/*",
           "https://*.noon.partners/*",
+          "https://noon.partners/*",
           "https://vfqqlifvhooefxvvyebm.supabase.co/*"
         ],
         "background": {
           "service_worker": "background.js"
         },
         "content_scripts": [{
-          "matches": ["https://noon.partners/*", "https://*.noon.partners/*"],
+          "matches": ["https://*.noon.partners/*", "https://noon.partners/*"],
           "js": ["content.js"],
           "run_at": "document_end"
         }],
@@ -560,7 +560,7 @@ async function handlePickerToggle() {
       return;
     }
     if (!tab.url.includes('noon.partners')) {
-      alert('Element picker only works on noon.partners websites');
+      alert('Element picker only works on noon.partners websites (including login.noon.partners)');
       return;
     }
     if (isPickerActive) {
@@ -809,7 +809,7 @@ For support, refer to the Desktop Automation app documentation.`
             <AlertDescription>
               <strong>Troubleshooting Tips:</strong>
               <br />
-              1. Make sure you're on a <strong>noon.partners</strong> website
+              1. Make sure you're on a <strong>noon.partners</strong> website (including login.noon.partners)
               <br />
               2. Check that the extension popup shows "Connected to App"
               <br />
@@ -830,7 +830,7 @@ For support, refer to the Desktop Automation app documentation.`
                 <br />
                 <strong>Step-by-step guide:</strong>
                 <br />
-                1. Navigate to <strong>noon.partners</strong> in your browser
+                1. Navigate to <strong>login.noon.partners</strong> or any noon.partners page
                 <br />
                 2. Click the extension icon and ensure it shows "Connected to App"
                 <br />

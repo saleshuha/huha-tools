@@ -12,8 +12,8 @@
   ],
   
   "host_permissions": [
-    "https://noon.partners/*",
     "https://*.noon.partners/*",
+    "https://noon.partners/*",
     "https://vfqqlifvhooefxvvyebm.supabase.co/*"
   ],
   
@@ -23,7 +23,7 @@
   
   "content_scripts": [
     {
-      "matches": ["https://noon.partners/*", "https://*.noon.partners/*"],
+      "matches": ["https://*.noon.partners/*", "https://noon.partners/*"],
       "js": ["content.js"],
       "run_at": "document_end"
     }
