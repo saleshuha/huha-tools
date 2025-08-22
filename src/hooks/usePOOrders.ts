@@ -14,7 +14,7 @@ export interface POOrder {
   external_id?: string;
   external_id_type?: string;
   sku_code?: string; // Keep for backward compatibility
-  status: 'pending' | 'ordered' | 'shipped' | 'delivered' | 'cancelled' | 'closed';
+  status: 'pending' | 'ordered' | 'shipped' | 'delivered' | 'cancelled' | 'closed' | 'partial-fulfilled';
   order_date?: string;
   expected_delivery?: string;
   notes?: string;

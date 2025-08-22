@@ -32,7 +32,7 @@ export interface POOrder {
   external_id?: string;
   external_id_type?: string;
   sku_code?: string; // Keep for backward compatibility
-  status: 'pending' | 'ordered' | 'shipped' | 'delivered' | 'cancelled' | 'closed';
+  status: 'pending' | 'ordered' | 'shipped' | 'delivered' | 'cancelled' | 'closed' | 'partial-fulfilled';
   order_date?: string;
   expected_delivery?: string;
   notes?: string;
@@ -348,15 +348,16 @@ export const POTracker = () => {
                       <SelectTrigger className="w-[180px]">
                         <SelectValue placeholder="Filter by status" />
                       </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Statuses</SelectItem>
-                        <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="ordered">Ordered</SelectItem>
-                        <SelectItem value="shipped">Shipped</SelectItem>
-                        <SelectItem value="delivered">Delivered</SelectItem>
-                        <SelectItem value="cancelled">Cancelled</SelectItem>
-                        <SelectItem value="closed">Closed</SelectItem>
-                      </SelectContent>
+                       <SelectContent>
+                         <SelectItem value="all">All Statuses</SelectItem>
+                         <SelectItem value="pending">Pending</SelectItem>
+                         <SelectItem value="ordered">Ordered</SelectItem>
+                         <SelectItem value="shipped">Shipped</SelectItem>
+                         <SelectItem value="delivered">Delivered</SelectItem>
+                         <SelectItem value="cancelled">Cancelled</SelectItem>
+                         <SelectItem value="closed">Closed</SelectItem>
+                         <SelectItem value="partial-fulfilled">Partial Fulfilled</SelectItem>
+                       </SelectContent>
                     </Select>
                   </div>
                 </div>
