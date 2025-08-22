@@ -370,7 +370,7 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
     setLoading(true);
     try {
       const items = orderItems
-        .filter(item => checkedItems.has(item.itemNo))
+        .filter(item => checkedItems.has(item.itemNo) && item.qty > 0)
         .map(item => ({
           itemNo: item.itemNo,
           qty: item.qty,
