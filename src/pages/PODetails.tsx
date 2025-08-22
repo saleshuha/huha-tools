@@ -1693,30 +1693,6 @@ export default function PODetailsPage() {
             </h1>
           </div>
           <div className="flex gap-2">
-            {/* Reset Partial Fulfillments Button */}
-            {itemsMarkedFromStock.size > 0 && (
-              <>
-                <Button 
-                  variant="outline" 
-                  className="gap-2 border-orange-200 text-orange-700 hover:bg-orange-50"
-                  onClick={handleResetPartialFulfillments}
-                  disabled={isUpdating}
-                >
-                  <Trash2 className="h-4 w-4" />
-                  Reset Partial Fulfillments ({itemsMarkedFromStock.size})
-                </Button>
-                
-                <Button 
-                  variant="outline" 
-                  className="gap-2 border-red-200 text-red-700 hover:bg-red-50"
-                  onClick={handleReverseInventoryDeductions}
-                  disabled={isUpdating}
-                >
-                  <PackageX className="h-4 w-4" />
-                  Reverse Inventory Deductions
-                </Button>
-              </>
-            )}
             
             {/* Print Dialog */}
             <Dialog open={printDialogOpen} onOpenChange={setPrintDialogOpen}>
@@ -1960,15 +1936,6 @@ export default function PODetailsPage() {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
-            <Button 
-              onClick={handleExportFromStockDetails} 
-              variant="outline"
-              className="gap-2"
-              disabled={itemsMarkedFromStock.size === 0}
-            >
-              <Download className="h-4 w-4" />
-              Export From Stock Details
-            </Button>
             <Button 
               onClick={handleExportPO} 
               className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2"
