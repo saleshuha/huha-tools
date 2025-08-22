@@ -163,23 +163,25 @@ export const useAmazonOrders = () => {
       invoice_date: o.invoice_date 
     })));
     
-    // Overdue payments = pending orders past due date (invoice_date + 45 days < today)
+    // Overdue payments = pending orders past due date (shipment_date + 60 days < today for UAE)
     const overdueOrders = pendingOrders.filter(o => {
-      if (!o.invoice_date) return false;
+      if (!o.shipment_date) return false;
       
       try {
-        const invoiceDate = new Date(o.invoice_date);
-        const dueDate = new Date(invoiceDate);
-        dueDate.setDate(dueDate.getDate() + 45); // Add 45 days credit period
+        const shipmentDate = new Date(o.shipment_date);
+        const dueDate = new Date(shipmentDate);
+        // UAE credit terms: 60 days from shipment date
+        const creditDays = selectedCountry === 'UAE' ? 60 : 45;
+        dueDate.setDate(dueDate.getDate() + creditDays);
         const isOverdue = dueDate < now;
         
         if (isOverdue) {
-          console.log(`Overdue order: ${o.order_id}, Invoice: ${o.invoice_date}, Due: ${dueDate.toDateString()}`);
+          console.log(`Overdue order: ${o.order_id}, Shipment: ${o.shipment_date}, Due: ${dueDate.toDateString()} (${creditDays} days)`);
         }
         
         return isOverdue;
       } catch (error) {
-        console.error('Error parsing invoice date:', o.invoice_date, error);
+        console.error('Error parsing shipment date:', o.shipment_date, error);
         return false;
       }
     });
@@ -238,43 +240,44 @@ export const useAmazonOrders = () => {
       paid: paidPayments
     };
 
-    // Calculate upcoming payments based on invoice_date + 45 days
+    // Calculate upcoming payments based on shipment_date + credit days (60 days for UAE)
     const next7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
     const next30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
     const next90Days = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
+    const creditDays = selectedCountry === 'UAE' ? 60 : 45;
 
     const upcomingPayments = {
       next7Days: pendingOrders.filter(o => {
-        if (!o.invoice_date) return false;
+        if (!o.shipment_date) return false;
         
         try {
-          const invoiceDate = new Date(o.invoice_date);
-          const dueDate = new Date(invoiceDate);
-          dueDate.setDate(dueDate.getDate() + 45);
+          const shipmentDate = new Date(o.shipment_date);
+          const dueDate = new Date(shipmentDate);
+          dueDate.setDate(dueDate.getDate() + creditDays);
           return dueDate <= next7Days && dueDate >= now;
         } catch {
           return false;
         }
       }).length,
       next30Days: pendingOrders.filter(o => {
-        if (!o.invoice_date) return false;
+        if (!o.shipment_date) return false;
         
         try {
-          const invoiceDate = new Date(o.invoice_date);
-          const dueDate = new Date(invoiceDate);
-          dueDate.setDate(dueDate.getDate() + 45);
+          const shipmentDate = new Date(o.shipment_date);
+          const dueDate = new Date(shipmentDate);
+          dueDate.setDate(dueDate.getDate() + creditDays);
           return dueDate <= next30Days && dueDate >= now;
         } catch {
           return false;
         }
       }).length,
       next90Days: pendingOrders.filter(o => {
-        if (!o.invoice_date) return false;
+        if (!o.shipment_date) return false;
         
         try {
-          const invoiceDate = new Date(o.invoice_date);
-          const dueDate = new Date(invoiceDate);
-          dueDate.setDate(dueDate.getDate() + 45);
+          const shipmentDate = new Date(o.shipment_date);
+          const dueDate = new Date(shipmentDate);
+          dueDate.setDate(dueDate.getDate() + creditDays);
           return dueDate <= next90Days && dueDate >= now;
         } catch {
           return false;
