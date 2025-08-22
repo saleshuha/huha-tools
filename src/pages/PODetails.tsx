@@ -1732,23 +1732,21 @@ export default function PODetailsPage() {
               </DialogTrigger>
               <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle>From Stock Items - Stock Deduction Details</DialogTitle>
+                  <DialogTitle>Items Fulfilled From Stock - All Deductions</DialogTitle>
                   <DialogDescription>
-                    Items marked as ordered from stock with quantity deductions
+                    All items where inventory was deducted from stock (both partial and complete fulfillments)
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
                   {(() => {
-                    // Filter to only show partial fulfillments, not complete ones
+                    // Show ALL items that are tracked, not just partial fulfillments
                     const fromStockItems = matchedOrders.filter(order => {
                       const isTracked = itemsMarkedFromStock.has(order.id);
-                      const isPartialFulfillment = order.notes?.includes('Partial fulfillment from stock');
-                      
-                      // Only show items that are tracked AND have partial fulfillment notes
-                      return isTracked && isPartialFulfillment;
+                      // Show all tracked items, both partial and complete fulfillments
+                      return isTracked;
                     });
                     
-                    console.log('🔍 Preview From Stock Debug (Partial Only):', {
+                    console.log('🔍 Preview From Stock Debug (All Tracked Items):', {
                       totalOrders: matchedOrders.length,
                       itemsMarkedFromStockSet: Array.from(itemsMarkedFromStock),
                       fromStockItemsFound: fromStockItems.length,
@@ -1782,15 +1780,15 @@ export default function PODetailsPage() {
                     }
                     
                      if (fromStockItems.length === 0) {
-                       return (
-                         <div className="text-center py-8">
-                           <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                           <p className="text-muted-foreground">No partial fulfillments found</p>
-                           <p className="text-sm text-muted-foreground mt-2">
-                             Items that are completely fulfilled from stock won't appear here
-                           </p>
-                         </div>
-                       );
+                      return (
+                        <div className="text-center py-8">
+                          <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                          <p className="text-muted-foreground">No items fulfilled from stock found</p>
+                          <p className="text-sm text-muted-foreground mt-2">
+                            Items that have been marked as fulfilled from stock will appear here
+                          </p>
+                        </div>
+                      );
                      }
                      
                      // Return the mapped items as an array
