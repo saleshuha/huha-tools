@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Package, Truck, CheckCircle, Clock, AlertTriangle, Plus, Save, ExternalLink, Upload, Edit, PackageCheck, PackageX, Trash2, Download, Printer } from 'lucide-react';
+import { ArrowLeft, Package, Truck, CheckCircle, Clock, AlertTriangle, Plus, Save, ExternalLink, Upload, Edit, PackageCheck, PackageX, Trash2, Download, Printer, Eye, Info, ShoppingCart, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -1700,11 +1700,15 @@ export default function PODetailsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-surface">
-      <div className="glass-container mx-6 my-4 p-8">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+      <div className="glass-container mx-6 my-4 p-8 animate-fade-in">
+        {/* Header Section */}
+        <div className="flex items-center justify-between mb-8 pb-6 border-b border-gradient">
           <div className="flex items-center gap-4">
-            <Button variant="outline" onClick={() => navigate('/po-tracker')}>
+            <Button 
+              variant="outline" 
+              onClick={() => navigate('/po-tracker')}
+              className="hover-scale transition-all duration-200 bg-white/50 hover:bg-white/70 border-primary/20"
+            >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to PO Tracker
             </Button>
