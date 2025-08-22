@@ -62,6 +62,7 @@ export const POTracker = () => {
   const [showFileUploadDialog, setShowFileUploadDialog] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [viewMode, setViewMode] = useState<'grouped' | 'detailed'>('detailed');
   const { poOrders, isLoading, fetchPOOrders, processPOFiles } = usePOOrders();
   const { profile } = useUserProfile();
   const { selectedCountry } = useCountry();
@@ -201,6 +202,11 @@ export const POTracker = () => {
     return filteredPOGroups.slice(startIndex, endIndex);
   }, [filteredPOGroups, startIndex, endIndex]);
 
+  // For detailed view - show individual line items
+  const paginatedDetailedOrders = useMemo(() => {
+    return filteredOrders.slice(startIndex, endIndex);
+  }, [filteredOrders, startIndex, endIndex]);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -331,114 +337,234 @@ export const POTracker = () => {
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="max-w-sm"
                   />
-                  <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as POOrder['status'] | 'all')}>
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue placeholder="Filter by status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Statuses</SelectItem>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="ordered">Ordered</SelectItem>
-                      <SelectItem value="shipped">Shipped</SelectItem>
-                      <SelectItem value="delivered">Delivered</SelectItem>
-                      <SelectItem value="cancelled">Cancelled</SelectItem>
-                      <SelectItem value="closed">Closed</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center border rounded-lg p-1">
+                      <Button
+                        variant={viewMode === 'grouped' ? 'default' : 'ghost'}
+                        size="sm"
+                        onClick={() => setViewMode('grouped')}
+                        className="h-8"
+                      >
+                        Grouped
+                      </Button>
+                      <Button
+                        variant={viewMode === 'detailed' ? 'default' : 'ghost'}
+                        size="sm"
+                        onClick={() => setViewMode('detailed')}
+                        className="h-8"
+                      >
+                        Line Items
+                      </Button>
+                    </div>
+                    <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as POOrder['status'] | 'all')}>
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Filter by status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Statuses</SelectItem>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="ordered">Ordered</SelectItem>
+                        <SelectItem value="shipped">Shipped</SelectItem>
+                        <SelectItem value="delivered">Delivered</SelectItem>
+                        <SelectItem value="cancelled">Cancelled</SelectItem>
+                        <SelectItem value="closed">Closed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
 
                 <div className="rounded-lg border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>PO Number</TableHead>
-                        <TableHead>PO Items</TableHead>
-                        <TableHead>ASN Quantity</TableHead>
-                        <TableHead>Matched %</TableHead>
-                        <TableHead>Status Breakdown</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {paginatedPOGroups.map(({ poNumber, orders }) => {
-                        const firstOrder = orders[0];
-                        
-                        // Get metrics from database function
-                        const dbMetrics = poGroupMetrics?.find(m => m.po_number === poNumber);
-                        const totalLineItems = dbMetrics?.distinct_skus || 0;
-                        const asnQuantity = dbMetrics?.asn_quantity || 0;
-                        
-                        // Calculate matched percentage for display
-                        const activeOrdersInPO = orders.filter((order: any) => 
-                          order.status === 'pending' || order.status === 'ordered' || order.status === 'shipped'
-                        );
-                        const matchedCount = activeOrdersInPO.filter((order: any) => order.sunsky_sku !== null).length;
-                        const matchedPercentage = activeOrdersInPO.length > 0 ? ((matchedCount / activeOrdersInPO.length) * 100).toFixed(0) : '0';
-                        
-                        const statusCounts = orders.reduce((counts: any, order: any) => {
-                          counts[order.status] = (counts[order.status] || 0) + 1;
-                          return counts;
-                        }, {});
+                  {viewMode === 'grouped' ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>PO Number</TableHead>
+                          <TableHead>PO Items</TableHead>
+                          <TableHead>ASN Quantity</TableHead>
+                          <TableHead>Matched %</TableHead>
+                          <TableHead>Status Breakdown</TableHead>
+                          <TableHead>Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {paginatedPOGroups.map(({ poNumber, orders }) => {
+                          const firstOrder = orders[0];
+                          
+                          // Get metrics from database function
+                          const dbMetrics = poGroupMetrics?.find(m => m.po_number === poNumber);
+                          const totalLineItems = dbMetrics?.distinct_skus || 0;
+                          const asnQuantity = dbMetrics?.asn_quantity || 0;
+                          
+                          // Calculate matched percentage for display
+                          const activeOrdersInPO = orders.filter((order: any) => 
+                            order.status === 'pending' || order.status === 'ordered' || order.status === 'shipped'
+                          );
+                          const matchedCount = activeOrdersInPO.filter((order: any) => order.sunsky_sku !== null).length;
+                          const matchedPercentage = activeOrdersInPO.length > 0 ? ((matchedCount / activeOrdersInPO.length) * 100).toFixed(0) : '0';
+                          
+                          const statusCounts = orders.reduce((counts: any, order: any) => {
+                            counts[order.status] = (counts[order.status] || 0) + 1;
+                            return counts;
+                          }, {});
 
-                        return (
-                          <TableRow key={poNumber}>
+                          return (
+                            <TableRow key={poNumber}>
+                              <TableCell className="font-medium">
+                                <Button 
+                                  variant="link" 
+                                  className="p-0 h-auto font-medium text-left justify-start"
+                                  onClick={() => navigate(`/po-details/${poNumber}`)}
+                                >
+                                  {poNumber}
+                                  <ExternalLink className="h-3 w-3 ml-1" />
+                                </Button>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium">{totalLineItems}</span>
+                                  <span className="text-xs text-muted-foreground">distinct SKU lines</span>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium">{asnQuantity}</span>
+                                  <span className="text-xs text-muted-foreground">active units</span>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  <Badge variant={parseInt(matchedPercentage) >= 80 ? "default" : parseInt(matchedPercentage) >= 50 ? "secondary" : "destructive"}>
+                                    {matchedPercentage}%
+                                  </Badge>
+                                  <span className="text-xs text-muted-foreground">
+                                    {matchedCount}/{activeOrdersInPO.length} matched
+                                  </span>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex flex-wrap gap-1">
+                                  {Object.entries(statusCounts).map(([status, count]) => (
+                                    <Badge key={status} variant="outline" className="text-xs">
+                                      {status}: {count as number}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    onClick={() => navigate(`/po-details/${poNumber}`)}
+                                  >
+                                    View Details
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>PO Number</TableHead>
+                          <TableHead>ASIN</TableHead>
+                          <TableHead>Model/SKU</TableHead>
+                          <TableHead>Title</TableHead>
+                          <TableHead>Quantity</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Matched</TableHead>
+                          <TableHead>Cost</TableHead>
+                          <TableHead>Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {paginatedDetailedOrders.map((order) => (
+                          <TableRow key={order.id}>
                             <TableCell className="font-medium">
                               <Button 
                                 variant="link" 
                                 className="p-0 h-auto font-medium text-left justify-start"
-                                onClick={() => navigate(`/po-details/${poNumber}`)}
+                                onClick={() => navigate(`/po-details/${order.po_number}`)}
                               >
-                                {poNumber}
+                                {order.po_number}
                                 <ExternalLink className="h-3 w-3 ml-1" />
                               </Button>
                             </TableCell>
                             <TableCell>
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium">{totalLineItems}</span>
-                                <span className="text-xs text-muted-foreground">distinct SKU lines</span>
+                              <span className="text-sm">{order.asin || '-'}</span>
+                            </TableCell>
+                            <TableCell>
+                              <div className="space-y-1">
+                                {order.model_number && (
+                                  <div className="text-sm font-medium">{order.model_number}</div>
+                                )}
+                                {order.sku_code && order.sku_code !== order.model_number && (
+                                  <div className="text-xs text-muted-foreground">{order.sku_code}</div>
+                                )}
                               </div>
                             </TableCell>
                             <TableCell>
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium">{asnQuantity}</span>
-                                <span className="text-xs text-muted-foreground">active units</span>
+                              <div className="max-w-[200px] truncate text-sm" title={order.title}>
+                                {order.title || '-'}
                               </div>
                             </TableCell>
                             <TableCell>
-                              <div className="flex items-center gap-2">
-                                <Badge variant={parseInt(matchedPercentage) >= 80 ? "default" : parseInt(matchedPercentage) >= 50 ? "secondary" : "destructive"}>
-                                  {matchedPercentage}%
-                                </Badge>
-                                <span className="text-xs text-muted-foreground">
-                                  {matchedCount}/{activeOrdersInPO.length} matched
-                                </span>
+                              <Badge variant="secondary" className="font-mono">
+                                {order.quantity}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Badge 
+                                variant={
+                                  order.status === 'delivered' ? 'default' :
+                                  order.status === 'shipped' ? 'secondary' :
+                                  order.status === 'ordered' ? 'outline' :
+                                  order.status === 'pending' ? 'destructive' :
+                                  'outline'
+                                }
+                              >
+                                {order.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={order.sunsky_sku ? 'default' : 'destructive'}>
+                                {order.sunsky_sku ? 'Matched' : 'No Match'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="space-y-1">
+                                {order.unit_cost && (
+                                  <div className="text-sm font-medium">
+                                    {order.currency} {order.unit_cost}
+                                  </div>
+                                )}
+                                {order.total_cost && (
+                                  <div className="text-xs text-muted-foreground">
+                                    Total: {order.currency} {order.total_cost}
+                                  </div>
+                                )}
                               </div>
                             </TableCell>
                             <TableCell>
-                              <div className="flex flex-wrap gap-1">
-                                {Object.entries(statusCounts).map(([status, count]) => (
-                                  <Badge key={status} variant="outline" className="text-xs">
-                                    {status}: {count as number}
-                                  </Badge>
-                                ))}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-1">
                                 <Button 
                                   variant="outline" 
                                   size="sm"
-                                  onClick={() => navigate(`/po-details/${poNumber}`)}
+                                  onClick={() => navigate(`/po-details/${order.po_number}`)}
                                 >
-                                  View Details
+                                  Details
                                 </Button>
                               </div>
                             </TableCell>
                           </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
                 </div>
 
                 <div className="flex items-center justify-between">
@@ -450,10 +576,13 @@ export const POTracker = () => {
                   >
                     Previous
                   </Button>
-                  <span>Page {currentPage} of {Math.ceil(filteredPOGroups.length / itemsPerPage)}</span>
+                  <span>
+                    Page {currentPage} of {Math.ceil((viewMode === 'grouped' ? filteredPOGroups.length : filteredOrders.length) / itemsPerPage)}
+                    {' '}(showing {viewMode === 'grouped' ? 'PO groups' : 'line items'})
+                  </span>
                   <Button
-                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(filteredPOGroups.length / itemsPerPage)))}
-                    disabled={currentPage === Math.ceil(filteredPOGroups.length / itemsPerPage)}
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil((viewMode === 'grouped' ? filteredPOGroups.length : filteredOrders.length) / itemsPerPage)))}
+                    disabled={currentPage === Math.ceil((viewMode === 'grouped' ? filteredPOGroups.length : filteredOrders.length) / itemsPerPage)}
                     variant="outline"
                     size="sm"
                   >
