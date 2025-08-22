@@ -546,7 +546,7 @@ export const OrdersTable = ({ orders, onUpdateOrder, onDeleteOrder }: OrdersTabl
                     )}
                     <div className="flex justify-between">
                       <span className="text-sm">Payment Schedule:</span>
-                      <span className="text-sm font-medium">{selectedOrder.payment_schedule_days} days</span>
+                      <span className="text-sm font-medium">{selectedCountry === 'UAE' ? 60 : 45} days</span>
                     </div>
                   </div>
                 </div>
