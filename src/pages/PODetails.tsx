@@ -1472,7 +1472,14 @@ export default function PODetailsPage() {
                 <div className="space-y-4">
                   {matchedOrders.filter(order => itemsMarkedFromStock.has(order.id)).map((order) => {
                     const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number);
-                    const originalQuantity = order.quantity === 0 ? 'Completely Fulfilled' : order.quantity;
+                    
+                    // Parse fulfillment info from notes
+                    const isPartialFulfillment = order.notes?.includes('Partial fulfillment from stock');
+                    const originalQtyMatch = order.notes?.match(/Original quantity: (\d+) pcs/);
+                    const originalQuantity = originalQtyMatch ? parseInt(originalQtyMatch[1]) : order.quantity;
+                    const fulfilledFromStock = order.quantity; // Current quantity is what was fulfilled from stock
+                    const remainingQuantity = originalQuantity - fulfilledFromStock;
+                    
                     return (
                       <Card key={order.id}>
                         <CardContent className="p-4">
@@ -1487,10 +1494,25 @@ export default function PODetailsPage() {
                               </div>
                             </div>
                             <div>
-                              <h4 className="font-semibold text-sm">Stock Fulfillment</h4>
+                              <h4 className="font-semibold text-sm">Stock Fulfillment Details</h4>
                               <div className="text-xs space-y-1 mt-2">
-                                <div><strong>Fulfillment Status:</strong> {originalQuantity}</div>
-                                <div><strong>Current PO Qty:</strong> {order.quantity}</div>
+                                {isPartialFulfillment ? (
+                                  <>
+                                    <div className="bg-blue-50 p-2 rounded border-l-4 border-blue-400">
+                                      <div className="font-semibold text-blue-800">Partial Fulfillment</div>
+                                      <div><strong>Total Original:</strong> {originalQuantity} pcs</div>
+                                      <div className="text-green-700"><strong>✓ From Stock:</strong> {fulfilledFromStock} pcs</div>
+                                      <div className="text-orange-600"><strong>⏳ Pending:</strong> {remainingQuantity} pcs</div>
+                                    </div>
+                                  </>
+                                ) : (
+                                  <>
+                                    <div className="bg-green-50 p-2 rounded border-l-4 border-green-400">
+                                      <div className="font-semibold text-green-800">Complete Fulfillment</div>
+                                      <div><strong>✓ From Stock:</strong> {fulfilledFromStock} pcs</div>
+                                    </div>
+                                  </>
+                                )}
                                 <div><strong>Current Inventory:</strong> {inventoryMatch?.quantity || 0}</div>
                                 <div><strong>Inventory Type:</strong> {inventoryMatch?.type || 'Not Found'}</div>
                                 <div><strong>Status:</strong> {order.status}</div>
