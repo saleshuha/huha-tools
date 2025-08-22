@@ -102,6 +102,23 @@ export default function PODetailsPage() {
   // Initialize itemsMarkedFromStock based on existing ordered items
   useEffect(() => {
     if (poOrders.length > 0) {
+      // Debug: Show ALL orders for this PO first
+      const allPOOrders = poOrders.filter(order => order.po_number === poNumber);
+      console.log('🔍 ALL Orders in PO 4KI4G5JN:', {
+        totalCount: allPOOrders.length,
+        orders: allPOOrders.map(order => ({
+          id: order.id,
+          asin: order.asin,
+          sku: order.sku_code,
+          quantity: order.quantity,
+          status: order.status,
+          notes: order.notes,
+          hasSunskySku: !!order.sunsky_sku,
+          hasPartialNote: order.notes?.includes('Partial fulfillment from stock'),
+          created_at: order.created_at
+        }))
+      });
+
       // Look for orders that have been fulfilled from stock (partial or complete)
       const fulfilledFromStockItems = poOrders.filter(order => 
         order.po_number === poNumber && 
@@ -109,26 +126,47 @@ export default function PODetailsPage() {
           // Complete fulfillment: status closed and quantity 0
           (order.status === 'closed' && order.quantity === 0) ||
           // Partial fulfillment: has partial fulfillment notes
-          (order.notes?.includes('Partial fulfillment from stock'))
+          (order.notes?.includes('Partial fulfillment from stock')) ||
+          // Also check for other partial fulfillment patterns
+          (order.notes?.includes('partial fulfillment')) ||
+          (order.notes?.includes('Partial Fulfillment')) ||
+          (order.notes?.includes('fulfilled from stock'))
         ) &&
         order.sunsky_sku !== null
       );
       
+      console.log('🎯 Fulfilled from stock items found:', {
+        count: fulfilledFromStockItems.length,
+        items: fulfilledFromStockItems.map(item => ({
+          id: item.id,
+          asin: item.asin,
+          sku: item.sku_code,
+          quantity: item.quantity,
+          status: item.status,
+          notes: item.notes,
+          isPartial: item.notes?.includes('Partial fulfillment from stock')
+        }))
+      });
+
       if (fulfilledFromStockItems.length > 0) {
         const fulfilledItemIds = new Set(fulfilledFromStockItems.map(item => item.id));
-        console.log('🔄 Initializing itemsMarkedFromStock with existing fulfilled items:', {
-          count: fulfilledItemIds.size,
-          items: fulfilledFromStockItems.map(item => ({
-            id: item.id,
-            asin: item.asin,
-            sku: item.sku_code,
-            quantity: item.quantity,
-            status: item.status,
-            notes: item.notes?.substring(0, 100),
-            isPartial: item.notes?.includes('Partial fulfillment from stock')
-          }))
-        });
+        console.log('✅ Setting itemsMarkedFromStock with IDs:', Array.from(fulfilledItemIds));
         setItemsMarkedFromStock(fulfilledItemIds);
+      } else {
+        console.log('❌ No fulfilled from stock items found - checking why...');
+        // Show items that might be partial fulfillments but not detected
+        const possiblePartials = allPOOrders.filter(order => 
+          order.notes && 
+          (order.notes.toLowerCase().includes('partial') || 
+           order.notes.toLowerCase().includes('stock') ||
+           order.notes.toLowerCase().includes('fulfill'))
+        );
+        console.log('🤔 Possible partial fulfillments not detected:', possiblePartials.map(order => ({
+          id: order.id,
+          asin: order.asin,
+          notes: order.notes,
+          hasSunskySku: !!order.sunsky_sku
+        })));
       }
     }
   }, [poOrders, poNumber]);
