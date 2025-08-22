@@ -657,39 +657,207 @@ javascript:(function(){
       </TabsContent>
 
       <TabsContent value="bookmarklet" className="space-y-6">
+        {/* Draggable Bookmarklet Card */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <MousePointer className="h-5 w-5" />
-              Element Picker Bookmarklet
+              Drag & Drop Installation
             </CardTitle>
             <CardDescription>
-              Use this bookmarklet to select elements on any webpage in real-time
+              Drag the link below to your bookmarks bar for easy access
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Alert>
-              <Eye className="h-4 w-4" />
-              <AlertDescription>
-                <strong>How to use:</strong>
-                <ol className="list-decimal ml-4 mt-2 space-y-1">
-                  <li>Copy the bookmarklet code below</li>
-                  <li>Create a new bookmark in your browser</li>
-                  <li>Paste the code as the bookmark URL</li>
-                  <li>Navigate to noon.partners and click the bookmark</li>
-                  <li>Click any element to capture its selector</li>
-                </ol>
-              </AlertDescription>
-            </Alert>
+            <div className="p-4 bg-muted rounded-lg border-2 border-dashed border-border">
+              <div className="text-center space-y-2">
+                <p className="text-sm text-muted-foreground">
+                  Drag this link to your bookmarks bar:
+                </p>
+                <div 
+                  className="inline-block p-3 bg-primary text-primary-foreground rounded-lg font-medium cursor-grab active:cursor-grabbing hover:bg-primary/90 transition-colors"
+                  draggable={true}
+                  onDragStart={(e) => {
+                    const bookmarkletCode = generateBookmarklet().replace('data:text/html,<a href="', '').replace('">Element Picker</a>', '');
+                    const decodedCode = decodeURIComponent(bookmarkletCode);
+                    e.dataTransfer.setData('text/uri-list', decodedCode);
+                    e.dataTransfer.setData('text/plain', decodedCode);
+                  }}
+                >
+                  🎯 Element Picker
+                </div>
+              </div>
+            </div>
             
             <div className="flex gap-2">
               <Button onClick={copyBookmarklet} className="flex items-center gap-2">
                 <Copy className="h-4 w-4" />
-                Copy Bookmarklet
+                Copy Code
+              </Button>
+              <Button 
+                onClick={() => {
+                  window.open('about:blank', '_blank', 'width=400,height=300');
+                  toast({
+                    title: "Pop-up Test",
+                    description: "If a new tab opened, your browser allows pop-ups from this site.",
+                  });
+                }}
+                variant="outline" 
+                className="flex items-center gap-2"
+              >
+                <Eye className="h-4 w-4" />
+                Test Pop-up
               </Button>
             </div>
           </CardContent>
         </Card>
+
+        {/* Browser-Specific Instructions */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Globe className="h-5 w-5" />
+              Browser Installation Guide
+            </CardTitle>
+            <CardDescription>
+              Choose your browser for specific instructions
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Chrome/Edge */}
+              <div className="p-4 border rounded-lg">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-6 h-6 rounded bg-blue-500 flex items-center justify-center text-white text-xs font-bold">C</div>
+                  <h4 className="font-medium">Chrome / Edge</h4>
+                </div>
+                <ol className="text-sm space-y-1 list-decimal ml-4">
+                  <li>Show bookmarks bar: Ctrl+Shift+B</li>
+                  <li>Drag the "Element Picker" link above to bookmarks bar</li>
+                  <li>Or right-click → "Add to bookmarks"</li>
+                  <li>Visit noon.partners and click the bookmark</li>
+                </ol>
+              </div>
+
+              {/* Firefox */}
+              <div className="p-4 border rounded-lg">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-6 h-6 rounded bg-orange-500 flex items-center justify-center text-white text-xs font-bold">F</div>
+                  <h4 className="font-medium">Firefox</h4>
+                </div>
+                <ol className="text-sm space-y-1 list-decimal ml-4">
+                  <li>Show bookmarks toolbar: Ctrl+Shift+B</li>
+                  <li>Drag the "Element Picker" link to toolbar</li>
+                  <li>Or click "Copy Code" and create new bookmark</li>
+                  <li>Visit noon.partners and click the bookmark</li>
+                </ol>
+              </div>
+
+              {/* Safari */}
+              <div className="p-4 border rounded-lg">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-6 h-6 rounded bg-blue-600 flex items-center justify-center text-white text-xs font-bold">S</div>
+                  <h4 className="font-medium">Safari</h4>
+                </div>
+                <ol className="text-sm space-y-1 list-decimal ml-4">
+                  <li>Show favorites bar: View → Show Favorites Bar</li>
+                  <li>Click "Copy Code" button above</li>
+                  <li>Add bookmark: Cmd+D → Edit → Paste code in URL</li>
+                  <li>Visit noon.partners and click the bookmark</li>
+                </ol>
+              </div>
+
+              {/* Mobile */}
+              <div className="p-4 border rounded-lg">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-6 h-6 rounded bg-green-500 flex items-center justify-center text-white text-xs font-bold">M</div>
+                  <h4 className="font-medium">Mobile</h4>
+                </div>
+                <ol className="text-sm space-y-1 list-decimal ml-4">
+                  <li>Click "Copy Code" button</li>
+                  <li>Create new bookmark in your browser</li>
+                  <li>Paste the code as the bookmark URL</li>
+                  <li>Visit noon.partners and tap the bookmark</li>
+                </ol>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Verification Panel */}
+        {capturedSelectors.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Eye className="h-5 w-5" />
+                Capture Verification
+              </CardTitle>
+              <CardDescription>
+                Verify your captured elements and see which fields still need mapping
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="text-center p-3 bg-muted rounded-lg">
+                  <div className="text-2xl font-bold text-primary">{capturedSelectors.length}</div>
+                  <div className="text-sm text-muted-foreground">Total Captured</div>
+                </div>
+                <div className="text-center p-3 bg-muted rounded-lg">
+                  <div className="text-2xl font-bold text-green-600">{capturedSelectors.filter(s => s.mapped).length}</div>
+                  <div className="text-sm text-muted-foreground">Mapped</div>
+                </div>
+                <div className="text-center p-3 bg-muted rounded-lg">
+                  <div className="text-2xl font-bold text-orange-600">{capturedSelectors.filter(s => !s.mapped).length}</div>
+                  <div className="text-sm text-muted-foreground">Unmapped</div>
+                </div>
+                <div className="text-center p-3 bg-muted rounded-lg">
+                  <div className="text-2xl font-bold text-blue-600">{AUTOMATION_FIELDS.length - capturedSelectors.filter(s => s.mapped).length}</div>
+                  <div className="text-sm text-muted-foreground">Fields Needed</div>
+                </div>
+              </div>
+
+              {/* Show unmapped required fields */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium">Still Need Mapping:</h4>
+                <div className="flex flex-wrap gap-2">
+                  {AUTOMATION_FIELDS
+                    .filter(field => !capturedSelectors.some(s => s.mapped === field.key))
+                    .map(field => (
+                      <Badge key={field.key} variant="outline" className="text-orange-600 border-orange-600">
+                        {field.label}
+                      </Badge>
+                    ))}
+                </div>
+              </div>
+
+              {/* Latest captures */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium">Recent Captures:</h4>
+                <div className="space-y-2 max-h-32 overflow-y-auto">
+                  {capturedSelectors.slice(0, 3).map(selector => (
+                    <div key={selector.id} className="flex items-center justify-between p-2 bg-muted rounded text-sm">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline">{selector.tagName}</Badge>
+                        <span className="truncate max-w-32">{selector.text || selector.css}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {selector.mapped ? (
+                          <Badge variant="default" className="text-xs">
+                            {AUTOMATION_FIELDS.find(f => f.key === selector.mapped)?.label}
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-xs text-orange-600">
+                            Unmapped
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </TabsContent>
 
       {capturedSelectors.length > 0 && (
