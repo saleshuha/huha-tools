@@ -53,12 +53,48 @@ export const SelectorPicker = () => {
         
         // Add picker script injection after iframe loads
         const iframe = iframeRef.current;
-        iframe.onload = () => {
+        
+        // Set up error handling
+        const handleLoad = () => {
           setIsLoading(false);
           if (isPickerActive) {
             injectPickerScript();
           }
         };
+        
+        const handleError = () => {
+          setIsLoading(false);
+          toast({
+            title: "Failed to Load Website",
+            description: "The website blocked iframe loading due to security restrictions. Use the bookmarklet method or try a different URL.",
+            variant: "destructive",
+          });
+        };
+        
+        // Add timeout for slow loading
+        const timeout = setTimeout(() => {
+          if (isLoading) {
+            setIsLoading(false);
+            toast({
+              title: "Loading Timeout",
+              description: "The website is taking too long to load. This might be due to security restrictions.",
+              variant: "destructive",
+            });
+          }
+        }, 10000); // 10 second timeout
+        
+        iframe.onload = () => {
+          clearTimeout(timeout);
+          handleLoad();
+        };
+        
+        iframe.onerror = () => {
+          clearTimeout(timeout);
+          handleError();
+        };
+        
+        // Try to detect X-Frame-Options blocking
+        iframe.src = browserUrl;
       }
     };
 
@@ -596,6 +632,14 @@ javascript:(function(){
       </TabsList>
 
       <TabsContent value="live" className="space-y-6">
+        <Alert>
+          <Globe className="h-4 w-4" />
+          <AlertDescription>
+            <strong>Note:</strong> Many websites (including noon.partners) block iframe embedding due to security policies. 
+            If the browser fails to load, use the <strong>Bookmarklet Method</strong> tab instead for reliable element selection.
+          </AlertDescription>
+        </Alert>
+        
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
