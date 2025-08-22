@@ -39,7 +39,7 @@ export const usePOOrders = () => {
   const [loadingStatus, setLoadingStatus] = useState('');
   const { toast } = useToast();
 
-  // Fetch PO orders using direct query to avoid any function limits
+  // Fetch PO orders using direct query to load all data without limits
   const fetchPOOrders = useCallback(async (useRawData = true) => {
     setIsLoading(true);
     setLoadingProgress(0);
@@ -51,36 +51,73 @@ export const usePOOrders = () => {
 
       setLoadingProgress(30);
       
-      // Use direct query with no limits to get all orders
-      const { data: ordersData, error } = await supabase
+      console.log('🔄 Starting PO orders fetch for user:', user.id);
+      
+      // First, get all PO orders
+      const { data: ordersData, error: ordersError } = await supabase
         .from('po_orders')
-        .select(`
-          *,
-          sunsky_skus!left(*)
-        `)
+        .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (ordersError) {
+        console.error('❌ Error fetching PO orders:', ordersError);
+        throw ordersError;
+      }
+
+      console.log('📊 Fetched PO orders:', ordersData?.length);
+
+      setLoadingProgress(50);
+      
+      // Then get all sunsky_skus for this user to join manually
+      const { data: sunskyData, error: sunskyError } = await supabase
+        .from('sunsky_skus')
+        .select('*')
+        .eq('user_id', user.id);
+
+      if (sunskyError) {
+        console.warn('⚠️ Error fetching Sunsky SKUs (non-critical):', sunskyError);
+      }
+
+      console.log('📦 Fetched Sunsky SKUs:', sunskyData?.length || 0);
 
       setLoadingProgress(70);
       setLoadingStatus('Processing orders...');
 
-      // Convert to POOrder format and join with sunsky_sku data
-      const processedOrders: POOrder[] = (ordersData || []).map(order => ({
-        ...order,
-        status: order.status as POOrder['status'],
-        sunsky_sku: order.sunsky_skus?.[0] || null, // Take first matching sunsky_sku
-      }));
+      // Create a lookup map for sunsky SKUs
+      const sunskyMap = new Map();
+      if (sunskyData) {
+        sunskyData.forEach(sku => {
+          sunskyMap.set(sku.sku_code, sku);
+        });
+      }
 
-      console.log(`📊 Loaded ${processedOrders.length} PO orders from database`);
+      // Join the data manually and convert to POOrder format
+      const processedOrders: POOrder[] = (ordersData || []).map(order => {
+        // Try to find matching sunsky SKU by sku_code or model_number
+        let matchingSunsky = null;
+        if (order.sku_code) {
+          matchingSunsky = sunskyMap.get(order.sku_code);
+        }
+        if (!matchingSunsky && order.model_number) {
+          matchingSunsky = sunskyMap.get(order.model_number);
+        }
+
+        return {
+          ...order,
+          status: order.status as POOrder['status'],
+          sunsky_sku: matchingSunsky || null,
+        };
+      });
+
+      console.log(`✅ Processed ${processedOrders.length} PO orders with SKU matching`);
 
       setPOOrders(processedOrders);
       setLoadingProgress(100);
       setLoadingStatus(`Loaded ${processedOrders.length} orders`);
 
     } catch (error) {
-      console.error('Error fetching PO orders:', error);
+      console.error('❌ Error in fetchPOOrders:', error);
       setLoadingStatus('Failed to load PO orders');
       toast({
         title: "Error",
