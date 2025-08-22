@@ -1459,7 +1459,23 @@ export default function PODetailsPage() {
                   disabled={itemsMarkedFromStock.size === 0}
                 >
                   <Package className="h-4 w-4" />
-                  Preview From Stock ({itemsMarkedFromStock.size})
+                  {(() => {
+                    const fromStockItems = matchedOrders.filter(order => itemsMarkedFromStock.has(order.id));
+                    const partialFulfillments = fromStockItems.filter(order => 
+                      order.notes?.includes('Partial fulfillment from stock')
+                    );
+                    const completeFulfillments = fromStockItems.filter(order => 
+                      !order.notes?.includes('Partial fulfillment from stock')
+                    );
+                    
+                    if (partialFulfillments.length > 0 && completeFulfillments.length > 0) {
+                      return `Preview From Stock (${itemsMarkedFromStock.size}: ${completeFulfillments.length} complete, ${partialFulfillments.length} partial)`;
+                    } else if (partialFulfillments.length > 0) {
+                      return `Preview From Stock (${itemsMarkedFromStock.size} partial fulfillments)`;
+                    } else {
+                      return `Preview From Stock (${itemsMarkedFromStock.size} complete)`;
+                    }
+                  })()}
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
