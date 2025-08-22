@@ -39,7 +39,7 @@ export const usePOOrders = () => {
   const [loadingStatus, setLoadingStatus] = useState('');
   const { toast } = useToast();
 
-  // Fetch PO orders using raw data by default, with option for deduplicated view
+  // Fetch PO orders using direct query to avoid any function limits
   const fetchPOOrders = useCallback(async (useRawData = true) => {
     setIsLoading(true);
     setLoadingProgress(0);
@@ -51,29 +51,29 @@ export const usePOOrders = () => {
 
       setLoadingProgress(30);
       
-      // Use raw data function to get all orders without batching
-      const { data: ordersData, error } = await supabase.rpc(
-        'get_all_po_orders_raw',
-        { user_id_param: user.id }
-      );
+      // Use direct query with no limits to get all orders
+      const { data: ordersData, error } = await supabase
+        .from('po_orders')
+        .select(`
+          *,
+          sunsky_skus!left(*)
+        `)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
 
       setLoadingProgress(70);
       setLoadingStatus('Processing orders...');
 
-      // Convert to POOrder format
+      // Convert to POOrder format and join with sunsky_sku data
       const processedOrders: POOrder[] = (ordersData || []).map(order => ({
         ...order,
         status: order.status as POOrder['status'],
+        sunsky_sku: order.sunsky_skus?.[0] || null, // Take first matching sunsky_sku
       }));
 
-      // Log PO 8RGH1C7S details for debugging
-      const po8RGH1C7S = processedOrders.filter(o => o.po_number === '8RGH1C7S');
-      if (po8RGH1C7S.length > 0) {
-        const totalQty8RGH1C7S = po8RGH1C7S.reduce((sum, order) => sum + (order.quantity || 0), 0);
-        console.log(`🔍 PO 8RGH1C7S from DB: ${po8RGH1C7S.length} orders, ${totalQty8RGH1C7S} total qty`);
-      }
+      console.log(`📊 Loaded ${processedOrders.length} PO orders from database`);
 
       setPOOrders(processedOrders);
       setLoadingProgress(100);
