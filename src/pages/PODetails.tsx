@@ -1746,6 +1746,12 @@ export default function PODetailsPage() {
                       return isTracked;
                     });
                     
+                    // Debug specific ASINs that user mentioned
+                    const specificAsins = ['B0DYGGNWP5', 'B0DYG4TT9H'];
+                    const asinOrders = matchedOrders.filter(order => 
+                      specificAsins.includes(order.asin)
+                    );
+                    
                     console.log('🔍 Preview From Stock Debug (All Tracked Items):', {
                       totalOrders: matchedOrders.length,
                       itemsMarkedFromStockSet: Array.from(itemsMarkedFromStock),
@@ -1758,6 +1764,20 @@ export default function PODetailsPage() {
                         status: o.status,
                         notes: o.notes?.substring(0, 100),
                         isPartial: o.notes?.includes('Partial fulfillment from stock')
+                      }))
+                    });
+                    
+                    console.log('🎯 Specific ASINs Debug:', {
+                      searchingFor: specificAsins,
+                      foundOrders: asinOrders.map(o => ({
+                        id: o.id,
+                        asin: o.asin,
+                        sku: o.sku_code,
+                        quantity: o.quantity,
+                        status: o.status,
+                        notes: o.notes,
+                        isTracked: itemsMarkedFromStock.has(o.id),
+                        inFromStockItems: fromStockItems.some(item => item.id === o.id)
                       }))
                     });
                     
