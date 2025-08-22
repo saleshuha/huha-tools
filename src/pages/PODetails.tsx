@@ -343,7 +343,18 @@ export default function PODetailsPage() {
     }
   });
   
-  const matchedOrders = Array.from(matchedOrdersMap.values());
+  const matchedOrders = Array.from(matchedOrdersMap.values()).sort((a, b) => {
+    // Get inventory matches for both orders
+    const inventoryMatchA = findInventoryMatch(a.asin, a.sunsky_sku?.sku_code, a.sku_code, a.model_number);
+    const inventoryMatchB = findInventoryMatch(b.asin, b.sunsky_sku?.sku_code, b.sku_code, b.model_number);
+    
+    // Check if items have stock
+    const hasStockA = inventoryMatchA && inventoryMatchA.quantity > 0;
+    const hasStockB = inventoryMatchB && inventoryMatchB.quantity > 0;
+    
+    // Sort: in-stock items first (true sorts before false)
+    return hasStockB ? (hasStockA ? 0 : 1) : (hasStockA ? -1 : 0);
+  });
 
   // Calculate status progress
   const statusProgress: StatusProgress = matchedOrders.reduce((acc, order) => {
