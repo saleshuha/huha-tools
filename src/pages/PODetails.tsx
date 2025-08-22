@@ -1318,29 +1318,43 @@ export default function PODetailsPage() {
         return;
       }
 
-      // Update inventory quantity
+      // Validate that we don't try to deduct more than available
+      if (quantityToUse > inventoryMatch.quantity) {
+        throw new Error(`Cannot deduct ${quantityToUse} units - only ${inventoryMatch.quantity} available in stock`);
+      }
+
+      // Update inventory quantity - target the specific inventory record
       const newInventoryQuantity = inventoryMatch.quantity - quantityToUse;
       
       let inventoryError: any = null;
       
       if (inventoryMatch.type === 'ASIN') {
+        // Update the specific ASIN inventory record using both ASIN and serial number
         const { error } = await supabase
           .from('asin_inventory')
           .update({ quantity: newInventoryQuantity })
           .eq('asin', inventoryMatch.identifier)
+          .eq('serial_number', inventoryMatch.serialNumber)
           .eq('user_id', (await supabase.auth.getUser()).data.user?.id);
         inventoryError = error;
+        
+        console.log(`📦 Updated ASIN inventory: ${inventoryMatch.identifier} (${inventoryMatch.serialNumber}) from ${inventoryMatch.quantity} to ${newInventoryQuantity}`);
       } else {
+        // Update the specific SKU inventory record using both SKU and bin serial number
         const { error } = await supabase
           .from('sku_inventory')
           .update({ quantity: newInventoryQuantity })
           .eq('sku_number', inventoryMatch.identifier)
+          .eq('bin_serial_number', inventoryMatch.serialNumber)
           .eq('user_id', (await supabase.auth.getUser()).data.user?.id);
         inventoryError = error;
+        
+        console.log(`📦 Updated SKU inventory: ${inventoryMatch.identifier} (${inventoryMatch.serialNumber}) from ${inventoryMatch.quantity} to ${newInventoryQuantity}`);
       }
 
       if (inventoryError) {
-        throw new Error(`Failed to update inventory: ${inventoryError.message}`);
+        console.error('Inventory update error:', inventoryError);
+        throw new Error(`Failed to update inventory: ${inventoryError.message || 'Unknown error'}`);
       }
 
       // Update PO order quantity to 0 and status to 'closed' (fulfilled from stock)
@@ -1348,13 +1362,15 @@ export default function PODetailsPage() {
         .from('po_orders')
         .update({ 
           quantity: 0,
-          status: 'closed'
+          status: 'closed',
+          notes: `Fulfilled from stock: ${quantityToUse} units deducted from ${inventoryMatch.type} inventory (${inventoryMatch.identifier}/${inventoryMatch.serialNumber})`
         })
         .eq('id', order.id)
         .eq('user_id', (await supabase.auth.getUser()).data.user?.id);
 
       if (poError) {
-        throw new Error(`Failed to update PO order: ${poError.message}`);
+        console.error('PO order update error:', poError);
+        throw new Error(`Failed to update PO order: ${poError.message || 'Unknown error'}`);
       }
 
       // Add to items marked from stock - IMPORTANT: Add this before any async operations
@@ -1371,7 +1387,7 @@ export default function PODetailsPage() {
 
       toast({
         title: "Item Marked as Ordered",
-        description: `Order fulfilled from stock: ${order.quantity} units deducted from inventory (${inventoryMatch.quantity} → ${newInventoryQuantity}). PO quantity set to 0.`
+        description: `Order fulfilled from stock: ${quantityToUse} units deducted from inventory (${inventoryMatch.quantity} → ${newInventoryQuantity}). PO quantity set to 0.`
       });
 
     } catch (error) {
