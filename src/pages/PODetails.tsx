@@ -853,8 +853,122 @@ export default function PODetailsPage() {
     });
   };
 
+  // Handle partial fulfillment - split order between stock and supplier
+  const handlePartialFulfillment = async (order: any, stockQuantity: number, remainingQuantity: number) => {
+    try {
+      const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number);
+      if (!inventoryMatch) return;
+
+      // Update inventory quantity
+      const newInventoryQuantity = inventoryMatch.quantity - stockQuantity;
+      
+      let inventoryError: any = null;
+      
+      if (inventoryMatch.type === 'ASIN') {
+        const { error } = await supabase
+          .from('asin_inventory')
+          .update({ quantity: newInventoryQuantity })
+          .eq('asin', inventoryMatch.identifier)
+          .eq('user_id', (await supabase.auth.getUser()).data.user?.id);
+        inventoryError = error;
+      } else {
+        const { error } = await supabase
+          .from('sku_inventory')
+          .update({ quantity: newInventoryQuantity })
+          .eq('sku_number', inventoryMatch.identifier)
+          .eq('user_id', (await supabase.auth.getUser()).data.user?.id);
+        inventoryError = error;
+      }
+
+      if (inventoryError) {
+        console.error('Inventory update error:', inventoryError);
+        toast({
+          title: "Inventory Update Failed",
+          description: "Failed to update inventory quantity",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Update the original order status to closed and reduce quantity to what was fulfilled from stock
+      const { error: orderError } = await supabase
+        .from('po_orders')
+        .update({ 
+          status: 'closed',
+          quantity: stockQuantity,
+          notes: `Partial fulfillment from stock: ${stockQuantity} pcs. Original quantity: ${order.quantity} pcs.`
+        })
+        .eq('id', order.id);
+
+      if (orderError) {
+        console.error('Order update error:', orderError);
+        toast({
+          title: "Order Update Failed",
+          description: "Failed to update order status",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Create a new order for the remaining quantity that needs to be ordered from supplier
+      const { error: newOrderError } = await supabase
+        .from('po_orders')
+        .insert({
+          user_id: order.user_id,
+          sku_user_id: order.sku_user_id,
+          po_number: order.po_number,
+          sku_code: order.sku_code,
+          file_name: order.file_name || `partial_fulfillment_${new Date().toISOString()}`,
+          asin: order.asin,
+          model_number: order.model_number,
+          title: order.title,
+          quantity: remainingQuantity,
+          unit_cost: order.unit_cost,
+          total_cost: order.unit_cost ? (order.unit_cost * remainingQuantity) : null,
+          currency: order.currency,
+          country: order.country,
+          ship_to_location: order.ship_to_location,
+          status: 'pending',
+          external_id: order.external_id,
+          external_id_type: order.external_id_type,
+          order_date: order.order_date,
+          expected_delivery: order.expected_delivery,
+          notes: `Remaining quantity from partial fulfillment. Original order quantity: ${order.quantity} pcs, fulfilled from stock: ${stockQuantity} pcs.`
+        });
+
+      if (newOrderError) {
+        console.error('New order creation error:', newOrderError);
+        toast({
+          title: "New Order Creation Failed",
+          description: "Failed to create order for remaining quantity",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Track this item as marked from stock
+      setItemsMarkedFromStock(prev => new Set([...prev, order.id]));
+
+      // Refresh data
+      await fetchPOOrders();
+
+      toast({
+        title: "Partial Fulfillment Complete",
+        description: `Fulfilled ${stockQuantity} pcs from stock, ${remainingQuantity} pcs remains pending for supplier order`
+      });
+
+    } catch (error) {
+      console.error('Partial fulfillment error:', error);
+      toast({
+        title: "Partial Fulfillment Failed",
+        description: "Failed to process partial fulfillment",
+        variant: "destructive"
+      });
+    }
+  };
+
   // Mark item as ordered and reduce inventory stock
-  const markAsOrderedFromInventory = async (order: any) => {
+  const markAsOrderedFromInventory = async (order: any, partialQuantity?: number) => {
     setIsUpdating(true);
     try {
       const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number);
@@ -868,18 +982,36 @@ export default function PODetailsPage() {
         return;
       }
 
-      // Check if order quantity exceeds available stock
-      if (order.quantity > inventoryMatch.quantity) {
-        toast({
-          title: "Insufficient Stock",
-          description: `Order quantity (${order.quantity}) exceeds available stock (${inventoryMatch.quantity})`,
-          variant: "destructive"
-        });
+      const quantityToUse = partialQuantity || order.quantity;
+
+      // Check if order quantity exceeds available stock - offer partial fulfillment
+      if (order.quantity > inventoryMatch.quantity && !partialQuantity) {
+        const availableStock = inventoryMatch.quantity;
+        const remainingNeeded = order.quantity - availableStock;
+        
+        // Show confirmation dialog for partial fulfillment
+        const confirmed = window.confirm(
+          `Insufficient stock!\n\n` +
+          `Needed: ${order.quantity} pcs\n` +
+          `Available in stock: ${availableStock} pcs\n` +
+          `Remaining needed: ${remainingNeeded} pcs\n\n` +
+          `Would you like to:\n` +
+          `• Use ${availableStock} pcs from stock\n` +
+          `• Leave ${remainingNeeded} pcs as pending for Sunsky order\n\n` +
+          `Click OK to proceed with partial fulfillment, Cancel to abort.`
+        );
+        
+        if (!confirmed) {
+          return;
+        }
+        
+        // Use available stock and create partial fulfillment
+        await handlePartialFulfillment(order, availableStock, remainingNeeded);
         return;
       }
 
       // Update inventory quantity
-      const newInventoryQuantity = inventoryMatch.quantity - order.quantity;
+      const newInventoryQuantity = inventoryMatch.quantity - quantityToUse;
       
       let inventoryError: any = null;
       
