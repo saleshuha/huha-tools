@@ -754,6 +754,14 @@ export function POTracker() {
                         const matchedCount = activeOrdersInPO.filter((order: any) => order.sunsky_sku !== null).length;
                         const matchedPercentage = activeOrdersInPO.length > 0 ? ((matchedCount / activeOrdersInPO.length) * 100).toFixed(0) : '0';
                         
+                        // Debug logging for verification
+                        console.log(`🔍 PO ${poNumber}:`, {
+                          totalOrders: orders.length,
+                          activeOrders: activeOrdersInPO.length,
+                          totalQuantity,
+                          matchedCount
+                        });
+                        
                         const statusCounts = orders.reduce((counts: any, order: any) => {
                           counts[order.status] = (counts[order.status] || 0) + 1;
                           return counts;
