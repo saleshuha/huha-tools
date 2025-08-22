@@ -6,7 +6,8 @@ import { SingleUpload } from '@/components/automation/SingleUpload';
 import { BulkUploadQueue } from '@/components/automation/BulkUploadQueue';
 import { UploadProgress } from '@/components/automation/UploadProgress';
 import { UploadLogs } from '@/components/automation/UploadLogs';
-import { Bot, Settings, Upload, FileStack, BarChart3, FileText } from 'lucide-react';
+import { SelectorPicker } from '@/components/automation/SelectorPicker';
+import { Bot, Settings, Upload, FileStack, BarChart3, FileText, MousePointer } from 'lucide-react';
 
 export const DesktopAutomation = () => {
   const [activeTab, setActiveTab] = useState('settings');
@@ -28,6 +29,10 @@ export const DesktopAutomation = () => {
           <TabsTrigger value="settings" className="flex items-center gap-2">
             <Settings className="h-4 w-4" />
             Settings
+          </TabsTrigger>
+          <TabsTrigger value="picker" className="flex items-center gap-2">
+            <MousePointer className="h-4 w-4" />
+            Selector Picker
           </TabsTrigger>
           <TabsTrigger value="single" className="flex items-center gap-2">
             <Upload className="h-4 w-4" />
@@ -57,6 +62,20 @@ export const DesktopAutomation = () => {
             </CardHeader>
             <CardContent>
               <AutomationSettings />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="picker" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Element Selector Picker</CardTitle>
+              <CardDescription>
+                Capture selectors from live webpages and map them to automation fields
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <SelectorPicker />
             </CardContent>
           </Card>
         </TabsContent>
