@@ -893,9 +893,8 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
                         <Input
                           id="siteNumber"
                           value={orderOptions.siteNumber}
-                          readOnly
-                          placeholder="PO Number (Auto-filled)"
-                          className="bg-muted"
+                          onChange={(e) => setOrderOptions({...orderOptions, siteNumber: e.target.value})}
+                          placeholder="Enter site number or PO number"
                         />
                       </div>
                       <div className="flex items-center space-x-2 pt-6">
