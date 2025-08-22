@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Package, Truck, CheckCircle, Clock, AlertTriangle, Plus, Save, ExternalLink, Upload, Edit, PackageCheck, PackageX, Trash2, Download } from 'lucide-react';
+import { ArrowLeft, Package, Truck, CheckCircle, Clock, AlertTriangle, Plus, Save, ExternalLink, Upload, Edit, PackageCheck, PackageX, Trash2, Download, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -48,6 +48,10 @@ export default function PODetailsPage() {
   
   // Bulk operations state
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [printDialogOpen, setPrintDialogOpen] = useState(false);
+  const [selectedPrintColumns, setSelectedPrintColumns] = useState<Set<string>>(new Set([
+    'asin', 'title', 'model_number', 'sku_code', 'quantity', 'status', 'tracking_number'
+  ]));
   const [selectionType, setSelectionType] = useState<'instock' | 'outstock' | null>(null);
   const [bulkTrackingInfo, setBulkTrackingInfo] = useState({
     supplier_order_number: '',
@@ -894,6 +898,159 @@ export default function PODetailsPage() {
     setSunskyOrderDialogOpen(true);
   };
 
+  // Handle print functionality
+  const handlePrint = () => {
+    const printColumns = Array.from(selectedPrintColumns);
+    if (printColumns.length === 0) {
+      toast({
+        title: "No Columns Selected",
+        description: "Please select at least one column to print",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Create a new window for printing
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast({
+        title: "Popup Blocked",
+        description: "Please allow popups for this site to enable printing",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Generate HTML content for printing
+    const printContent = generatePrintHTML(matchedOrders, printColumns);
+    
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    
+    // Auto-focus and print
+    printWindow.focus();
+    printWindow.print();
+  };
+
+  // Generate HTML for printing
+  const generatePrintHTML = (orders: any[], columns: string[]) => {
+    const columnLabels: { [key: string]: string } = {
+      'asin': 'ASIN',
+      'title': 'Product Title',
+      'model_number': 'Model Number',
+      'sku_code': 'SKU Code',
+      'quantity': 'Quantity',
+      'unit_cost': 'Unit Cost',
+      'total_cost': 'Total Cost',
+      'status': 'Status',
+      'tracking_number': 'Tracking Number',
+      'supplier_order_number': 'Supplier Order#',
+      'inventory_status': 'Inventory Status',
+      'expected_delivery': 'Expected Delivery'
+    };
+
+    const headers = columns.map(col => columnLabels[col] || col).join('</th><th>');
+    
+    const rows = orders.map(order => {
+      const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number);
+      const inventoryStatus = inventoryMatch ? 
+        `${inventoryMatch.status} (Qty: ${inventoryMatch.quantity})` : 
+        'Not in inventory';
+
+      const cellData = columns.map(col => {
+        switch (col) {
+          case 'asin': return order.asin || '-';
+          case 'title': return order.title || '-';
+          case 'model_number': return order.model_number || '-';
+          case 'sku_code': return order.sunsky_sku?.sku_code || order.sku_code || '-';
+          case 'quantity': return order.quantity || '0';
+          case 'unit_cost': return order.unit_cost ? `$${order.unit_cost}` : '-';
+          case 'total_cost': return order.total_cost ? `$${order.total_cost}` : '-';
+          case 'status': return order.status || '-';
+          case 'tracking_number': return order.tracking_number || '-';
+          case 'supplier_order_number': return order.supplier_order_number || '-';
+          case 'inventory_status': return inventoryStatus;
+          case 'expected_delivery': return order.expected_delivery ? 
+            new Date(order.expected_delivery).toLocaleDateString() : '-';
+          default: return '-';
+        }
+      });
+      
+      return `<tr><td>${cellData.join('</td><td>')}</td></tr>`;
+    }).join('');
+
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>PO ${poNumber} - Print Report</title>
+          <style>
+            body { 
+              font-family: Arial, sans-serif; 
+              margin: 20px; 
+              color: #333;
+            }
+            h1 { 
+              color: #2563eb; 
+              border-bottom: 2px solid #e5e7eb; 
+              padding-bottom: 10px;
+              margin-bottom: 20px;
+            }
+            table { 
+              width: 100%; 
+              border-collapse: collapse; 
+              margin-top: 20px;
+              box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            }
+            th, td { 
+              border: 1px solid #d1d5db; 
+              padding: 8px 12px; 
+              text-align: left;
+              font-size: 12px;
+            }
+            th { 
+              background-color: #f3f4f6; 
+              font-weight: bold;
+              color: #374151;
+            }
+            tr:nth-child(even) { 
+              background-color: #f9fafb; 
+            }
+            .summary {
+              background-color: #eff6ff;
+              padding: 15px;
+              border-radius: 8px;
+              margin-bottom: 20px;
+              border-left: 4px solid #2563eb;
+            }
+            @media print {
+              body { margin: 0; }
+              .summary { break-inside: avoid; }
+              table { font-size: 10px; }
+              th, td { padding: 6px 8px; }
+            }
+          </style>
+        </head>
+        <body>
+          <h1>Purchase Order ${poNumber} - Detailed Report</h1>
+          <div class="summary">
+            <strong>Print Date:</strong> ${new Date().toLocaleString()}<br>
+            <strong>Total Items:</strong> ${orders.length}<br>
+            <strong>Selected Columns:</strong> ${columns.length}
+          </div>
+          <table>
+            <thead>
+              <tr><th>${headers}</th></tr>
+            </thead>
+            <tbody>
+              ${rows}
+            </tbody>
+          </table>
+        </body>
+      </html>
+    `;
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-surface">
@@ -949,6 +1106,72 @@ export default function PODetailsPage() {
             </h1>
           </div>
           <div className="flex gap-2">
+            {/* Print Dialog */}
+            <Dialog open={printDialogOpen} onOpenChange={setPrintDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="gap-2">
+                  <Printer className="h-4 w-4" />
+                  Print
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Print Options</DialogTitle>
+                  <DialogDescription>
+                    Select which columns to include in the printout
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 gap-3">
+                    {[
+                      { key: 'asin', label: 'ASIN' },
+                      { key: 'title', label: 'Product Title' },
+                      { key: 'model_number', label: 'Model Number' },
+                      { key: 'sku_code', label: 'SKU Code' },
+                      { key: 'quantity', label: 'Quantity' },
+                      { key: 'unit_cost', label: 'Unit Cost' },
+                      { key: 'total_cost', label: 'Total Cost' },
+                      { key: 'status', label: 'Status' },
+                      { key: 'tracking_number', label: 'Tracking Number' },
+                      { key: 'supplier_order_number', label: 'Supplier Order#' },
+                      { key: 'inventory_status', label: 'Inventory Status' },
+                      { key: 'expected_delivery', label: 'Expected Delivery' }
+                    ].map(column => (
+                      <div key={column.key} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={column.key}
+                          checked={selectedPrintColumns.has(column.key)}
+                          onCheckedChange={(checked) => {
+                            const newColumns = new Set(selectedPrintColumns);
+                            if (checked) {
+                              newColumns.add(column.key);
+                            } else {
+                              newColumns.delete(column.key);
+                            }
+                            setSelectedPrintColumns(newColumns);
+                          }}
+                        />
+                        <Label htmlFor={column.key} className="text-sm font-medium">
+                          {column.label}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setPrintDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={() => {
+                    handlePrint();
+                    setPrintDialogOpen(false);
+                  }}>
+                    Print
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+            
             <Dialog>
               <DialogTrigger asChild>
                 <Button 
