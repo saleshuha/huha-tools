@@ -947,7 +947,18 @@ export default function PODetailsPage() {
       }
 
       // Track this item as marked from stock
-      setItemsMarkedFromStock(prev => new Set([...prev, order.id]));
+      setItemsMarkedFromStock(prev => {
+        const newSet = new Set([...prev, order.id]);
+        console.log('🏷️ Tracking partial fulfillment for order:', {
+          orderId: order.id,
+          sku: order.sku_code,
+          originalQuantity: order.quantity,
+          stockQuantity,
+          remainingQuantity,
+          currentTrackedItems: Array.from(newSet)
+        });
+        return newSet;
+      });
 
       // Refresh data
       await fetchPOOrders();
@@ -1486,7 +1497,41 @@ export default function PODetailsPage() {
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
-                  {matchedOrders.filter(order => itemsMarkedFromStock.has(order.id)).map((order) => {
+                  {(() => {
+                    const fromStockItems = matchedOrders.filter(order => itemsMarkedFromStock.has(order.id));
+                    console.log('🔍 Preview From Stock Debug:', {
+                      totalOrders: matchedOrders.length,
+                      itemsMarkedFromStockSet: Array.from(itemsMarkedFromStock),
+                      fromStockItemsFound: fromStockItems.length,
+                      fromStockItems: fromStockItems.map(o => ({
+                        id: o.id,
+                        asin: o.asin,
+                        sku: o.sku_code,
+                        quantity: o.quantity,
+                        status: o.status,
+                        notes: o.notes?.substring(0, 100)
+                      }))
+                    });
+                    
+                    // Also log all orders that contain EDA006069619A
+                    const edaOrders = matchedOrders.filter(o => 
+                      o.sku_code?.includes('EDA006069619A') || 
+                      o.sunsky_sku?.sku_code?.includes('EDA006069619A') ||
+                      o.model_number?.includes('EDA006069619A')
+                    );
+                    if (edaOrders.length > 0) {
+                      console.log('📦 EDA006069619A Orders Found:', edaOrders.map(o => ({
+                        id: o.id,
+                        sku: o.sku_code,
+                        quantity: o.quantity,
+                        status: o.status,
+                        notes: o.notes,
+                        isMarkedFromStock: itemsMarkedFromStock.has(o.id)
+                      })));
+                    }
+                    
+                    return fromStockItems;
+                  })().map((order) => {
                     const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number);
                     
                     // Parse fulfillment info from notes
