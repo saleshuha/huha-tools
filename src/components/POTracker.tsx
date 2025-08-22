@@ -748,17 +748,19 @@ export function POTracker() {
                     <TableBody>
                       {filteredPOGroups.map(({ poNumber, orders }) => {
                         const firstOrder = orders[0];
-                        // Only count active orders for display metrics
+                        // Line items = ALL orders in PO (regardless of status)
+                        const totalLineItems = orders.length;
+                        // ASN quantity = only ACTIVE orders quantity
                         const activeOrdersInPO = orders.filter((order: any) => ACTIVE_STATUSES.includes(order.status));
-                        const totalQuantity = activeOrdersInPO.reduce((sum: number, order: any) => sum + (order.quantity || 0), 0);
+                        const asnQuantity = activeOrdersInPO.reduce((sum: number, order: any) => sum + (order.quantity || 0), 0);
                         const matchedCount = activeOrdersInPO.filter((order: any) => order.sunsky_sku !== null).length;
                         const matchedPercentage = activeOrdersInPO.length > 0 ? ((matchedCount / activeOrdersInPO.length) * 100).toFixed(0) : '0';
                         
                         // Debug logging for verification
                         console.log(`🔍 PO ${poNumber}:`, {
-                          totalOrders: orders.length,
-                          activeOrders: activeOrdersInPO.length,
-                          totalQuantity,
+                          totalLineItems,
+                          activeOrdersCount: activeOrdersInPO.length,
+                          asnQuantity,
                           matchedCount
                         });
                         
@@ -781,10 +783,10 @@ export function POTracker() {
                                <div className="flex items-center gap-2">
                                 <span className="font-medium">{poNumber}</span>
                                  <Badge variant="outline" className="text-xs">
-                                   {activeOrdersInPO.length} line items
+                                   {totalLineItems} line items
                                  </Badge>
                                  <Badge variant="outline" className="text-xs">
-                                   {totalQuantity} ASN units
+                                   {asnQuantity} ASN units
                                  </Badge>
                                </div>
                               {firstOrder.title && (
