@@ -747,6 +747,8 @@ export function POTracker() {
                     </TableHeader>
                     <TableBody>
                       {filteredPOGroups.map(({ poNumber, orders }) => {
+                        console.log(`🚀 Starting PO ${poNumber} processing...`);
+                        
                         const firstOrder = orders[0];
                         // Line items = ALL orders in PO (regardless of status)
                         const totalLineItems = orders.length;
@@ -756,12 +758,12 @@ export function POTracker() {
                         const matchedCount = activeOrdersInPO.filter((order: any) => order.sunsky_sku !== null).length;
                         const matchedPercentage = activeOrdersInPO.length > 0 ? ((matchedCount / activeOrdersInPO.length) * 100).toFixed(0) : '0';
                         
-                        // Debug logging for verification
-                        console.log(`🔍 PO ${poNumber}:`, {
+                        console.log(`🔍 PO ${poNumber} calculated:`, {
                           totalLineItems,
                           activeOrdersCount: activeOrdersInPO.length,
                           asnQuantity,
-                          matchedCount
+                          matchedCount,
+                          matchedPercentage
                         });
                         
                         const statusCounts = orders.reduce((counts: any, order: any) => {
