@@ -90,7 +90,9 @@ export const POTracker = () => {
       console.log('📊 Comprehensive metrics result:', data);
       return data?.[0] || null;
     },
-    enabled: !!profile?.id
+    enabled: !!profile?.id,
+    staleTime: 30000, // 30 seconds
+    refetchOnWindowFocus: false
   });
 
   // Keep the existing PO group metrics query for the grouped view
@@ -115,7 +117,9 @@ export const POTracker = () => {
         asn_quantity: number;
       }>;
     },
-    enabled: true
+    enabled: !!profile?.id,
+    staleTime: 30000, // 30 seconds
+    refetchOnWindowFocus: false
   });
 
   useEffect(() => {
@@ -166,7 +170,7 @@ export const POTracker = () => {
 
   // Refetch metrics when PO orders change
   useEffect(() => {
-    if (!isLoading) {
+    if (!isLoading && refetchMetrics && refetchComprehensiveMetrics) {
       refetchMetrics();
       refetchComprehensiveMetrics();
     }
