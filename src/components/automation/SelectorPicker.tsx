@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -6,7 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Copy, MousePointer, Save, Trash2, Eye, Code } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Copy, MousePointer, Save, Trash2, Eye, Code, Globe, Play, Square, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface CapturedSelector {
@@ -34,8 +35,355 @@ const AUTOMATION_FIELDS = [
 
 export const SelectorPicker = () => {
   const [capturedSelectors, setCapturedSelectors] = useState<CapturedSelector[]>([]);
-  const [isBookmarkletActive, setIsBookmarkletActive] = useState(false);
+  const [currentUrl, setCurrentUrl] = useState('https://login.noon.partners/');
+  const [isPickerActive, setIsPickerActive] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   const { toast } = useToast();
+
+  // Live Element Picker Component
+  const LiveElementPicker = () => {
+    const [browserUrl, setBrowserUrl] = useState(currentUrl);
+    const [canNavigate, setCanNavigate] = useState(true);
+
+    const navigateToUrl = () => {
+      if (iframeRef.current && browserUrl) {
+        setIsLoading(true);
+        setCurrentUrl(browserUrl);
+        
+        // Add picker script injection after iframe loads
+        const iframe = iframeRef.current;
+        iframe.onload = () => {
+          setIsLoading(false);
+          if (isPickerActive) {
+            injectPickerScript();
+          }
+        };
+      }
+    };
+
+    const refreshPage = () => {
+      if (iframeRef.current) {
+        setIsLoading(true);
+        iframeRef.current.src = iframeRef.current.src;
+      }
+    };
+
+    const togglePicker = () => {
+      setIsPickerActive(!isPickerActive);
+      if (!isPickerActive) {
+        injectPickerScript();
+        toast({
+          title: "Element Picker Activated",
+          description: "Click on any element in the browser to capture it.",
+        });
+      } else {
+        removePickerScript();
+        toast({
+          title: "Element Picker Deactivated",
+          description: "Element selection mode disabled.",
+        });
+      }
+    };
+
+    const injectPickerScript = () => {
+      if (!iframeRef.current) return;
+      
+      try {
+        const iframeDoc = iframeRef.current.contentDocument || iframeRef.current.contentWindow?.document;
+        if (!iframeDoc) {
+          toast({
+            title: "Cross-Origin Restriction",
+            description: "Cannot access iframe content due to security restrictions. Use the bookmarklet method instead.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // Remove existing picker if any
+        const existingOverlay = iframeDoc.querySelector('#element-picker-overlay');
+        if (existingOverlay) existingOverlay.remove();
+
+        // Create picker overlay
+        const overlay = iframeDoc.createElement('div');
+        overlay.id = 'element-picker-overlay';
+        overlay.style.cssText = `
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: rgba(59, 130, 246, 0.1);
+          z-index: 999999;
+          cursor: crosshair;
+          pointer-events: all;
+        `;
+
+        // Create tooltip
+        const tooltip = iframeDoc.createElement('div');
+        tooltip.id = 'element-picker-tooltip';
+        tooltip.style.cssText = `
+          position: fixed;
+          background: #1f2937;
+          color: white;
+          padding: 8px 12px;
+          border-radius: 6px;
+          font-size: 12px;
+          font-family: monospace;
+          z-index: 1000000;
+          pointer-events: none;
+          display: none;
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        `;
+
+        let lastHighlighted: HTMLElement | null = null;
+
+        const getElementSelector = (element: HTMLElement) => {
+          // Generate CSS selector
+          let css = '';
+          if (element.id) {
+            css = '#' + element.id;
+          } else if (element.className) {
+            const classes = element.className.split(' ').filter(c => c.trim());
+            css = element.tagName.toLowerCase() + (classes.length ? '.' + classes.join('.') : '');
+          } else {
+            // Generate path-based selector
+            const path = [];
+            let current = element;
+            while (current && current !== iframeDoc.body) {
+              let selector = current.tagName.toLowerCase();
+              if (current.id) {
+                selector += '#' + current.id;
+                path.unshift(selector);
+                break;
+              } else if (current.className) {
+                const classes = current.className.split(' ').filter(c => c.trim());
+                if (classes.length) selector += '.' + classes.join('.');
+              }
+              
+              // Add nth-child if necessary
+              const siblings = Array.from(current.parentElement?.children || []);
+              const sameTagSiblings = siblings.filter(s => s.tagName === current.tagName);
+              if (sameTagSiblings.length > 1) {
+                const index = sameTagSiblings.indexOf(current) + 1;
+                selector += `:nth-of-type(${index})`;
+              }
+              
+              path.unshift(selector);
+              current = current.parentElement as HTMLElement;
+            }
+            css = path.join(' > ');
+          }
+
+          // Generate XPath
+          const getXPath = (el: HTMLElement): string => {
+            if (el.id) return `//*[@id="${el.id}"]`;
+            
+            const parts = [];
+            let current = el;
+            while (current && current.nodeType === Node.ELEMENT_NODE && current !== iframeDoc.documentElement) {
+              let part = current.tagName.toLowerCase();
+              const siblings = Array.from(current.parentElement?.children || []);
+              const sameTagSiblings = siblings.filter(s => s.tagName === current.tagName);
+              if (sameTagSiblings.length > 1) {
+                const index = sameTagSiblings.indexOf(current) + 1;
+                part += `[${index}]`;
+              }
+              parts.unshift(part);
+              current = current.parentElement as HTMLElement;
+            }
+            return '//' + parts.join('/');
+          };
+
+          return {
+            css,
+            xpath: getXPath(element),
+            tagName: element.tagName.toLowerCase(),
+            text: element.textContent?.trim() || element.getAttribute('placeholder') || element.getAttribute('value') || '',
+            id: element.id || '',
+            className: element.className || ''
+          };
+        };
+
+        overlay.addEventListener('mousemove', (e) => {
+          const target = iframeDoc.elementFromPoint(e.clientX, e.clientY) as HTMLElement;
+          if (target && target !== overlay && target !== tooltip) {
+            // Remove previous highlight
+            if (lastHighlighted) {
+              lastHighlighted.style.outline = '';
+              lastHighlighted.style.backgroundColor = '';
+            }
+
+            // Highlight current element
+            target.style.outline = '2px solid #3b82f6';
+            target.style.backgroundColor = 'rgba(59, 130, 246, 0.1)';
+            lastHighlighted = target;
+
+            // Show tooltip
+            tooltip.style.display = 'block';
+            tooltip.style.left = (e.clientX + 10) + 'px';
+            tooltip.style.top = (e.clientY - 30) + 'px';
+            
+            const selectorInfo = getElementSelector(target);
+            tooltip.textContent = `${selectorInfo.tagName}${selectorInfo.id ? '#' + selectorInfo.id : ''}${selectorInfo.className ? '.' + selectorInfo.className.split(' ').join('.') : ''}`;
+          }
+        });
+
+        overlay.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          
+          const target = iframeDoc.elementFromPoint(e.clientX, e.clientY) as HTMLElement;
+          if (target && target !== overlay && target !== tooltip) {
+            const selectorData = getElementSelector(target);
+            
+            const capturedSelector: CapturedSelector = {
+              id: Date.now().toString(),
+              css: selectorData.css,
+              xpath: selectorData.xpath,
+              tagName: selectorData.tagName,
+              text: selectorData.text,
+              timestamp: Date.now(),
+            };
+
+            setCapturedSelectors(prev => [capturedSelector, ...prev]);
+            
+            toast({
+              title: "Element Captured!",
+              description: `Captured ${selectorData.tagName} element: ${selectorData.css}`,
+            });
+
+            // Visual feedback
+            target.style.outline = '3px solid #10b981';
+            target.style.backgroundColor = 'rgba(16, 185, 129, 0.2)';
+            setTimeout(() => {
+              target.style.outline = '';
+              target.style.backgroundColor = '';
+            }, 1500);
+          }
+        });
+
+        overlay.addEventListener('mouseleave', () => {
+          if (lastHighlighted) {
+            lastHighlighted.style.outline = '';
+            lastHighlighted.style.backgroundColor = '';
+          }
+          tooltip.style.display = 'none';
+        });
+
+        iframeDoc.body.appendChild(overlay);
+        iframeDoc.body.appendChild(tooltip);
+
+      } catch (error) {
+        console.error('Error injecting picker script:', error);
+        toast({
+          title: "Injection Failed",
+          description: "Cannot inject element picker due to cross-origin restrictions. Try the bookmarklet method.",
+          variant: "destructive",
+        });
+      }
+    };
+
+    const removePickerScript = () => {
+      if (!iframeRef.current) return;
+      
+      try {
+        const iframeDoc = iframeRef.current.contentDocument || iframeRef.current.contentWindow?.document;
+        if (iframeDoc) {
+          const overlay = iframeDoc.querySelector('#element-picker-overlay');
+          const tooltip = iframeDoc.querySelector('#element-picker-tooltip');
+          if (overlay) overlay.remove();
+          if (tooltip) tooltip.remove();
+          
+          // Remove highlights from all elements
+          const allElements = iframeDoc.querySelectorAll('*') as NodeListOf<HTMLElement>;
+          allElements.forEach(el => {
+            el.style.outline = '';
+            el.style.backgroundColor = '';
+          });
+        }
+      } catch (error) {
+        console.log('Could not access iframe content for cleanup');
+      }
+    };
+
+    return (
+      <div className="space-y-4">
+        {/* Browser Controls */}
+        <div className="flex items-center gap-2 p-4 bg-muted rounded-lg">
+          <div className="flex items-center gap-2 flex-1">
+            <Globe className="h-4 w-4 text-muted-foreground" />
+            <Input
+              type="url"
+              value={browserUrl}
+              onChange={(e) => setBrowserUrl(e.target.value)}
+              placeholder="Enter URL to navigate..."
+              className="flex-1"
+              onKeyDown={(e) => e.key === 'Enter' && navigateToUrl()}
+            />
+          </div>
+          <div className="flex items-center gap-1">
+            <Button
+              onClick={navigateToUrl}
+              disabled={isLoading}
+              size="sm"
+              variant="outline"
+            >
+              {isLoading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+            </Button>
+            <Button
+              onClick={refreshPage}
+              disabled={isLoading}
+              size="sm"
+              variant="outline"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+            <Button
+              onClick={togglePicker}
+              size="sm"
+              variant={isPickerActive ? "destructive" : "default"}
+              className="flex items-center gap-2"
+            >
+              {isPickerActive ? <Square className="h-4 w-4" /> : <MousePointer className="h-4 w-4" />}
+              {isPickerActive ? 'Stop Picker' : 'Start Picker'}
+            </Button>
+          </div>
+        </div>
+
+        {/* Live Browser */}
+        <div className="relative border-2 border-border rounded-lg overflow-hidden bg-background">
+          <div className="h-[600px] w-full relative">
+            {isLoading && (
+              <div className="absolute inset-0 bg-background/80 flex items-center justify-center z-10">
+                <div className="flex items-center gap-2">
+                  <RefreshCw className="h-5 w-5 animate-spin" />
+                  <span>Loading...</span>
+                </div>
+              </div>
+            )}
+            <iframe
+              ref={iframeRef}
+              src={currentUrl}
+              className="w-full h-full border-0"
+              title="Live Element Picker Browser"
+              sandbox="allow-same-origin allow-scripts allow-forms allow-navigation"
+            />
+          </div>
+        </div>
+
+        {isPickerActive && (
+          <Alert>
+            <MousePointer className="h-4 w-4" />
+            <AlertDescription>
+              <strong>Element Picker Active:</strong> Hover over elements to highlight them, then click to capture their selectors.
+              The picker will automatically generate CSS selectors and XPath for the clicked elements.
+            </AlertDescription>
+          </Alert>
+        )}
+      </div>
+    );
+  };
 
   // Generate the bookmarklet code
   const generateBookmarklet = () => {
@@ -235,40 +583,70 @@ javascript:(function(){
   };
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MousePointer className="h-5 w-5" />
-            Element Picker Bookmarklet
-          </CardTitle>
-          <CardDescription>
-            Use this bookmarklet to select elements on any webpage in real-time
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Alert>
-            <Eye className="h-4 w-4" />
-            <AlertDescription>
-              <strong>How to use:</strong>
-              <ol className="list-decimal ml-4 mt-2 space-y-1">
-                <li>Copy the bookmarklet code below</li>
-                <li>Create a new bookmark in your browser</li>
-                <li>Paste the code as the bookmark URL</li>
-                <li>Navigate to noon.partners and click the bookmark</li>
-                <li>Click any element to capture its selector</li>
-              </ol>
-            </AlertDescription>
-          </Alert>
-          
-          <div className="flex gap-2">
-            <Button onClick={copyBookmarklet} className="flex items-center gap-2">
-              <Copy className="h-4 w-4" />
-              Copy Bookmarklet
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+    <Tabs defaultValue="live" className="space-y-6">
+      <TabsList className="grid w-full grid-cols-2">
+        <TabsTrigger value="live" className="flex items-center gap-2">
+          <Globe className="h-4 w-4" />
+          Live Browser Picker
+        </TabsTrigger>
+        <TabsTrigger value="bookmarklet" className="flex items-center gap-2">
+          <Copy className="h-4 w-4" />
+          Bookmarklet Method
+        </TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="live" className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Globe className="h-5 w-5" />
+              Live Element Picker Browser
+            </CardTitle>
+            <CardDescription>
+              Browse websites in real-time and click elements to capture their selectors
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <LiveElementPicker />
+          </CardContent>
+        </Card>
+      </TabsContent>
+
+      <TabsContent value="bookmarklet" className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <MousePointer className="h-5 w-5" />
+              Element Picker Bookmarklet
+            </CardTitle>
+            <CardDescription>
+              Use this bookmarklet to select elements on any webpage in real-time
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Alert>
+              <Eye className="h-4 w-4" />
+              <AlertDescription>
+                <strong>How to use:</strong>
+                <ol className="list-decimal ml-4 mt-2 space-y-1">
+                  <li>Copy the bookmarklet code below</li>
+                  <li>Create a new bookmark in your browser</li>
+                  <li>Paste the code as the bookmark URL</li>
+                  <li>Navigate to noon.partners and click the bookmark</li>
+                  <li>Click any element to capture its selector</li>
+                </ol>
+              </AlertDescription>
+            </Alert>
+            
+            <div className="flex gap-2">
+              <Button onClick={copyBookmarklet} className="flex items-center gap-2">
+                <Copy className="h-4 w-4" />
+                Copy Bookmarklet
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </TabsContent>
 
       {capturedSelectors.length > 0 && (
         <Card>
@@ -368,6 +746,6 @@ javascript:(function(){
           </CardContent>
         </Card>
       )}
-    </div>
+    </Tabs>
   );
 };
