@@ -1853,9 +1853,58 @@ export default function PODetailsPage() {
                          )}
                        </div>
                     </TableCell>
-                    <TableCell className="text-center font-semibold">
-                      {order.quantity}
-                    </TableCell>
+                     <TableCell className="text-center font-semibold">
+                       {(() => {
+                         // Check if this is a partial fulfillment case
+                         const isPartialFulfillment = order.notes?.includes('Partial fulfillment from stock');
+                         const isRemainingQuantity = order.notes?.includes('Remaining quantity from partial fulfillment');
+                         
+                         if (isPartialFulfillment) {
+                           // This is the fulfilled portion - extract original quantity
+                           const originalQtyMatch = order.notes?.match(/Original quantity: (\d+) pcs/);
+                           const originalQuantity = originalQtyMatch ? parseInt(originalQtyMatch[1]) : order.quantity;
+                           const fulfilledFromStock = order.quantity;
+                           const remainingQuantity = originalQuantity - fulfilledFromStock;
+                           
+                           return (
+                             <div className="space-y-1">
+                               <div className="text-sm font-semibold text-green-700">
+                                 ✓ {fulfilledFromStock} from stock
+                               </div>
+                               <div className="text-xs text-orange-600">
+                                 ⏳ {remainingQuantity} pending
+                               </div>
+                               <div className="text-xs text-gray-500 border-t pt-1">
+                                 Total: {originalQuantity}
+                               </div>
+                             </div>
+                           );
+                         } else if (isRemainingQuantity) {
+                           // This is the remaining portion - extract fulfilled amount
+                           const originalQtyMatch = order.notes?.match(/Original order quantity: (\d+) pcs/);
+                           const fulfilledMatch = order.notes?.match(/fulfilled from stock: (\d+) pcs/);
+                           const originalQuantity = originalQtyMatch ? parseInt(originalQtyMatch[1]) : order.quantity;
+                           const fulfilledFromStock = fulfilledMatch ? parseInt(fulfilledMatch[1]) : 0;
+                           
+                           return (
+                             <div className="space-y-1">
+                               <div className="text-sm font-semibold text-orange-600">
+                                 ⏳ {order.quantity} pending
+                               </div>
+                               <div className="text-xs text-green-700">
+                                 ✓ {fulfilledFromStock} from stock
+                               </div>
+                               <div className="text-xs text-gray-500 border-t pt-1">
+                                 Total: {originalQuantity}
+                               </div>
+                             </div>
+                           );
+                         } else {
+                           // Regular order
+                           return <span>{order.quantity}</span>;
+                         }
+                       })()}
+                     </TableCell>
                     <TableCell className="text-center">
                       <Badge className={statusColors[order.status as keyof typeof statusColors] || statusColors.pending}>
                         {order.status}
