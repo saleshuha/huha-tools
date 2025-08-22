@@ -978,6 +978,86 @@ export default function PODetailsPage() {
     }
   };
 
+  // Reset partial fulfillments for testing
+  const handleResetPartialFulfillments = async () => {
+    try {
+      console.log('🔄 Resetting partial fulfillments for items:', Array.from(itemsMarkedFromStock));
+      
+      // Get all orders that were marked from stock
+      const ordersToReset = matchedOrders.filter(order => itemsMarkedFromStock.has(order.id));
+      
+      if (ordersToReset.length === 0) {
+        toast({
+          title: "No Partial Fulfillments",
+          description: "No partial fulfillments to reset",
+          variant: "default"
+        });
+        return;
+      }
+
+      const confirmed = window.confirm(
+        `Are you sure you want to reset ${ordersToReset.length} partial fulfillment(s)?\n\n` +
+        `This will:\n` +
+        `• Remove fulfillment notes from orders\n` +
+        `• Clear the tracking of items marked from stock\n` +
+        `• Allow you to test the partial fulfillment process again\n\n` +
+        `Note: This won't restore inventory quantities or delete created orders.`
+      );
+      
+      if (!confirmed) {
+        return;
+      }
+
+      // Remove fulfillment notes from each order
+      for (const order of ordersToReset) {
+        const originalNotes = order.notes || '';
+        const updatedNotes = originalNotes
+          .split('\n')
+          .filter(line => 
+            !line.includes('Partial fulfillment from stock:') && 
+            !line.includes('Remaining quantity from partial fulfillment')
+          )
+          .join('\n')
+          .trim();
+
+        const { error } = await supabase
+          .from('po_orders')
+          .update({ 
+            notes: updatedNotes || null
+          })
+          .eq('id', order.id);
+
+        if (error) {
+          console.error('Error resetting order notes:', error);
+          toast({
+            title: "Reset Failed",
+            description: `Failed to reset notes for order ${order.sku_code}`,
+            variant: "destructive"
+          });
+          return;
+        }
+      }
+
+      // Clear the tracked items
+      setItemsMarkedFromStock(new Set());
+      
+      // Refresh data
+      await fetchPOOrders();
+      
+      toast({
+        title: "Reset Complete",
+        description: `Reset ${ordersToReset.length} partial fulfillment(s). You can now test the process again.`
+      });
+    } catch (error) {
+      console.error('Error resetting partial fulfillments:', error);
+      toast({
+        title: "Reset Failed",
+        description: "Failed to reset partial fulfillments",
+        variant: "destructive"
+      });
+    }
+  };
+
   // Mark item as ordered and reduce inventory stock
   const markAsOrderedFromInventory = async (order: any, partialQuantity?: number) => {
     setIsUpdating(true);
@@ -1396,6 +1476,19 @@ export default function PODetailsPage() {
             </h1>
           </div>
           <div className="flex gap-2">
+            {/* Reset Partial Fulfillments Button */}
+            {itemsMarkedFromStock.size > 0 && (
+              <Button 
+                variant="outline" 
+                className="gap-2 border-orange-200 text-orange-700 hover:bg-orange-50"
+                onClick={handleResetPartialFulfillments}
+                disabled={isUpdating}
+              >
+                <Trash2 className="h-4 w-4" />
+                Reset Partial Fulfillments ({itemsMarkedFromStock.size})
+              </Button>
+            )}
+            
             {/* Print Dialog */}
             <Dialog open={printDialogOpen} onOpenChange={setPrintDialogOpen}>
               <DialogTrigger asChild>
