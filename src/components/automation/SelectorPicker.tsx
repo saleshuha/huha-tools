@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Copy, Download, Chrome, Trash2, Save, MapPin, ExternalLink, Eye } from 'lucide-react';
+import { Copy, Download, Chrome, Trash2, Save, Eye } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAutomationCapture } from '@/hooks/useAutomationCapture';
 import { useAutomationConfig } from '@/hooks/useAutomationConfig';

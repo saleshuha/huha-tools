@@ -32,7 +32,7 @@ export const useAutomationCapture = () => {
         .limit(limit);
 
       if (error) throw error;
-      setCaptureEvents(data || []);
+      setCaptureEvents((data || []) as CaptureEvent[]);
     } catch (error) {
       console.error('Error fetching capture events:', error);
       toast({
@@ -71,7 +71,7 @@ export const useAutomationCapture = () => {
           if (fetchError) throw fetchError;
 
           const updatedFields = {
-            ...config.fields,
+            ...(config.fields as Record<string, any> || {}),
             [fieldKey]: event.css
           };
 
@@ -135,7 +135,7 @@ export const useAutomationCapture = () => {
         },
         (payload) => {
           console.log('New capture event:', payload.new);
-          setCaptureEvents(prev => [payload.new as CaptureEvent, ...prev]);
+          setCaptureEvents(prev => [payload.new as CaptureEvent, ...prev.slice(0, 99)]);
           toast({
             title: "Element Captured!",
             description: `New ${payload.new.tag} element captured from extension`

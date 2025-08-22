@@ -29,7 +29,7 @@ export const useAutomationRuns = () => {
         .limit(limit);
 
       if (error) throw error;
-      setRuns(data || []);
+      setRuns((data || []) as AutomationRun[]);
     } catch (error) {
       console.error('Error fetching automation runs:', error);
       toast({
@@ -129,7 +129,7 @@ export const useAutomationRuns = () => {
           console.log('Automation run update:', payload);
           
           if (payload.eventType === 'INSERT') {
-            setRuns(prev => [payload.new as AutomationRun, ...prev]);
+            setRuns(prev => [payload.new as AutomationRun, ...prev.slice(0, 49)]);
           } else if (payload.eventType === 'UPDATE') {
             setRuns(prev => prev.map(run => 
               run.id === payload.new.id ? payload.new as AutomationRun : run
