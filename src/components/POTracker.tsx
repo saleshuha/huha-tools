@@ -69,7 +69,31 @@ export const POTracker = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // New query to fetch PO group metrics from database
+  // New query to fetch comprehensive PO metrics from database
+  const { data: comprehensiveMetrics, isLoading: isLoadingComprehensiveMetrics, refetch: refetchComprehensiveMetrics } = useQuery({
+    queryKey: ['po-comprehensive-metrics'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      console.log('🔄 Fetching comprehensive PO metrics for user:', user.id);
+
+      const { data, error } = await supabase.rpc('get_po_comprehensive_metrics', {
+        user_id_param: user.id
+      });
+
+      if (error) {
+        console.error('❌ Error fetching comprehensive metrics:', error);
+        throw error;
+      }
+
+      console.log('📊 Comprehensive metrics result:', data);
+      return data?.[0] || null;
+    },
+    enabled: !!profile?.id
+  });
+
+  // Keep the existing PO group metrics query for the grouped view
   const { data: poGroupMetrics, isLoading: isLoadingMetrics, refetch: refetchMetrics } = useQuery({
     queryKey: ['po-group-metrics'],
     queryFn: async () => {
@@ -144,8 +168,9 @@ export const POTracker = () => {
   useEffect(() => {
     if (!isLoading) {
       refetchMetrics();
+      refetchComprehensiveMetrics();
     }
-  }, [poOrders, isLoading, refetchMetrics]);
+  }, [poOrders, isLoading, refetchMetrics, refetchComprehensiveMetrics]);
 
   const filteredOrders = useMemo(() => {
     let filtered = [...poOrders];
@@ -256,11 +281,19 @@ export const POTracker = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{poOrders.length}</div>
+                <div className="text-2xl font-bold">
+                  {comprehensiveMetrics?.total_line_items || poOrders.length}
+                </div>
                 <div className="text-sm text-muted-foreground">
-                  Qty: {poOrders.reduce((sum, order) => sum + (order.quantity || 0), 0)}
+                  Qty: {comprehensiveMetrics?.total_quantity || poOrders.reduce((sum, order) => sum + (order.quantity || 0), 0)}
                 </div>
                 <p className="text-muted-foreground mt-1">All line items across POs</p>
+                {isLoadingComprehensiveMetrics && (
+                  <div className="flex items-center gap-2 mt-2">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    <span className="text-xs text-muted-foreground">Loading metrics...</span>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -273,10 +306,10 @@ export const POTracker = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {poOrders.filter(order => order.sunsky_sku !== null).length}
+                  {comprehensiveMetrics?.matched_line_items || poOrders.filter(order => order.sunsky_sku !== null).length}
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  Qty: {poOrders.filter(order => order.sunsky_sku !== null).reduce((sum, order) => sum + (order.quantity || 0), 0)}
+                  Qty: {comprehensiveMetrics?.matched_quantity || poOrders.filter(order => order.sunsky_sku !== null).reduce((sum, order) => sum + (order.quantity || 0), 0)}
                 </div>
                 <p className="text-muted-foreground mt-1">SKUs matched with supplier</p>
               </CardContent>
@@ -291,10 +324,10 @@ export const POTracker = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {poOrders.filter(order => ['ordered', 'shipped', 'delivered'].includes(order.status)).length}
+                  {comprehensiveMetrics?.placed_line_items || poOrders.filter(order => ['ordered', 'shipped', 'delivered'].includes(order.status)).length}
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  Qty: {poOrders.filter(order => ['ordered', 'shipped', 'delivered'].includes(order.status)).reduce((sum, order) => sum + (order.quantity || 0), 0)}
+                  Qty: {comprehensiveMetrics?.placed_quantity || poOrders.filter(order => ['ordered', 'shipped', 'delivered'].includes(order.status)).reduce((sum, order) => sum + (order.quantity || 0), 0)}
                 </div>
                 <p className="text-muted-foreground mt-1">Orders placed with supplier</p>
               </CardContent>
@@ -309,10 +342,10 @@ export const POTracker = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {poOrders.filter(order => order.status === 'pending').length}
+                  {comprehensiveMetrics?.pending_line_items || poOrders.filter(order => order.status === 'pending').length}
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  Qty: {poOrders.filter(order => order.status === 'pending').reduce((sum, order) => sum + (order.quantity || 0), 0)}
+                  Qty: {comprehensiveMetrics?.pending_quantity || poOrders.filter(order => order.status === 'pending').reduce((sum, order) => sum + (order.quantity || 0), 0)}
                 </div>
                 <p className="text-muted-foreground mt-1">Awaiting supplier placement</p>
               </CardContent>

@@ -2538,6 +2538,21 @@ export type Database = {
           total_fees: number
         }[]
       }
+      get_po_comprehensive_metrics: {
+        Args: { user_id_param: string }
+        Returns: {
+          matched_line_items: number
+          matched_quantity: number
+          pending_line_items: number
+          pending_quantity: number
+          placed_line_items: number
+          placed_quantity: number
+          status_breakdown: Json
+          total_line_items: number
+          total_quantity: number
+          unique_po_numbers: number
+        }[]
+      }
       get_po_dashboard_summary: {
         Args: { user_id_param: string }
         Returns: {
