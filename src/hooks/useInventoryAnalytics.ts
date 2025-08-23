@@ -103,13 +103,13 @@ export function useInventoryAnalytics() {
             .from('asin_inventory')
             .select('restock_quantity, quantity')
             .eq('country', country)
-            .or('not.last_restock_date.is.null,quantity.gt.0');
+            .or('last_restock_date.not.is.null,quantity.gt.0');
 
           let skuRestockQuery = supabase
             .from('sku_inventory')
             .select('restock_quantity, quantity')
             .eq('country', country)
-            .or('not.last_restock_date.is.null,quantity.gt.0');
+            .or('last_restock_date.not.is.null,quantity.gt.0');
 
           const [{ data: asinRestocked }, { data: skuRestocked }, { data: stockChanges }] = await Promise.all([
             asinRestockQuery,
