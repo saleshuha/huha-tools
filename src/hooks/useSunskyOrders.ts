@@ -116,7 +116,7 @@ export const useSunskyOrders = () => {
 
     try {
       // First, get PO orders that have matching Sunsky SKUs (matched orders ready to place/placed)
-      const { data: matchedPOs, error: poError } = await supabase
+      const { data: allPOs, error: poError } = await supabase
         .from('po_orders')
         .select(`
           po_number, 
@@ -125,15 +125,17 @@ export const useSunskyOrders = () => {
           supplier_order_number,
           status,
           title
-        `)
-        .in('status', ['pending', 'ordered', 'shipped', 'delivered', 'closed']);
+        `);
 
       if (poError) throw poError;
 
-      if (!matchedPOs || matchedPOs.length === 0) {
+      console.log('Total PO orders found:', allPOs?.length || 0);
+
+      if (!allPOs || allPOs.length === 0) {
         toast({
-          title: 'No Matched Orders Found',
-          description: 'No PO orders with matching Sunsky SKUs found.',
+          title: 'No PO Orders Found',
+          description: 'No PO orders exist in the system. Create some PO orders first.',
+          variant: 'destructive',
         });
         setState(prev => ({ ...prev, syncing: false }));
         return;
@@ -146,18 +148,32 @@ export const useSunskyOrders = () => {
 
       if (skuError) throw skuError;
 
+      console.log('Total Sunsky SKUs found:', sunskySkus?.length || 0);
+
+      if (!sunskySkus || sunskySkus.length === 0) {
+        toast({
+          title: 'No Sunsky SKUs Found',
+          description: 'No Sunsky SKUs available. Import some SKUs from Sunsky first.',
+          variant: 'destructive',
+        });
+        setState(prev => ({ ...prev, syncing: false }));
+        return;
+      }
+
       // Filter PO orders that have matching Sunsky SKUs
-      const matchedOrders = matchedPOs.filter(po => 
+      const matchedOrders = allPOs.filter(po => 
         sunskySkus?.some(sku => 
           sku.sku_code === po.sku_code || 
           sku.sku_code === po.model_number
         )
       );
 
+      console.log('PO orders with matching Sunsky SKUs:', matchedOrders.length);
+
       if (matchedOrders.length === 0) {
         toast({
           title: 'No Matched Orders Found',
-          description: 'No PO orders match available Sunsky SKUs.',
+          description: 'No PO orders match available Sunsky SKUs. Make sure your PO order SKUs match Sunsky product codes.',
         });
         setState(prev => ({ ...prev, syncing: false }));
         return;
@@ -165,15 +181,25 @@ export const useSunskyOrders = () => {
 
       // Get unique order numbers that were placed (have supplier_order_number)
       const placedOrderNumbers = [...new Set(matchedOrders
+        .filter(po => po.supplier_order_number && po.supplier_order_number.trim() !== '')
         .map(po => po.supplier_order_number)
         .filter(Boolean))];
 
-      console.log('Syncing orders for placed order numbers:', placedOrderNumbers);
+      console.log('Placed order numbers to sync:', placedOrderNumbers);
+
+      if (placedOrderNumbers.length === 0) {
+        toast({
+          title: 'No Placed Orders Found',
+          description: `Found ${matchedOrders.length} matched PO orders, but none have been placed on Sunsky yet. Place orders first to track them.`,
+        });
+        setState(prev => ({ ...prev, syncing: false }));
+        return;
+      }
 
       // Group PO numbers by supplier order number for storage
       const poNumbersByOrderNumber = new Map();
       matchedOrders.forEach(po => {
-        if (po.supplier_order_number) {
+        if (po.supplier_order_number && po.supplier_order_number.trim() !== '') {
           if (!poNumbersByOrderNumber.has(po.supplier_order_number)) {
             poNumbersByOrderNumber.set(po.supplier_order_number, []);
           }
@@ -220,7 +246,7 @@ export const useSunskyOrders = () => {
 
       toast({
         title: 'Success',
-        description: `Synced ${syncedCount} orders from Sunsky`,
+        description: `Synced ${syncedCount} of ${placedOrderNumbers.length} orders from Sunsky`,
       });
       
       // Refresh local data
