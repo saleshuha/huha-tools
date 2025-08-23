@@ -197,6 +197,14 @@ async function md5Both(text: string): Promise<{ lower: string; upper: string }> 
 
 // Generate signature for Sunsky API (exact format from documentation)
 async function generateSignature(params: Record<string, any>, key: string, secret: string): Promise<string> {
+  // Validate inputs
+  if (!key || typeof key !== 'string') {
+    throw new Error('Invalid API key: key must be a non-empty string');
+  }
+  if (!secret || typeof secret !== 'string') {
+    throw new Error('Invalid API secret: secret must be a non-empty string');
+  }
+  
   // Filter out empty values and signature/sign fields
   const filteredParams: Record<string, string> = {};
   Object.entries(params).forEach(([k, v]) => {
@@ -275,7 +283,8 @@ async function getApiCredentials(userId: string, apiId?: string): Promise<{ key:
   const envSecret = Deno.env.get('SUNSKY_API_SECRET');
   
   if (!envKey || !envSecret) {
-    throw new Error('No Sunsky API credentials available');
+    console.error('Missing environment variables: SUNSKY_API_KEY or SUNSKY_API_SECRET');
+    throw new Error('No Sunsky API credentials available. Please configure SUNSKY_API_KEY and SUNSKY_API_SECRET environment variables or add user credentials.');
   }
 
   console.log('Using environment Sunsky credentials');
