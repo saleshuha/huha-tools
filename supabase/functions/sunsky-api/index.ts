@@ -1986,24 +1986,26 @@ serve(async (req) => {
         console.log('Sunsky API response:', { 
           hasResult: !!response.result, 
           resultType: typeof response.result,
-          resultContent: Array.isArray(response.result) ? `Array(${response.result.length})` : response.result
+          hasData: !!response.data,
+          dataKeys: response.data ? Object.keys(response.data) : [],
+          resultLength: response.data?.result?.length || 0
         });
 
-        if (response.result === 'success' && response.data) {
-          if (Array.isArray(response.data)) {
-            console.log(`Processing ${response.data.length} orders for storage`);
+        if (response.result === 'success' && response.data?.result) {
+          if (Array.isArray(response.data.result)) {
+            console.log(`Processing ${response.data.result.length} orders for storage`);
             
-            const ordersToUpsert = response.data.map((order: any) => ({
+            const ordersToUpsert = response.data.result.map((order: any) => ({
               user_id: user.id,
               number: order.number,
               status: order.status,
               site_number: order.siteNumber,
               gmt_created: order.gmtCreated ? new Date(order.gmtCreated) : null,
-              total: order.total,
-              currency: order.currency,
-              shipping_company: order.shippingCompany,
+              total: order.totalAmount,
+              currency: 'USD', // Default currency from Sunsky
+              shipping_company: order.shippingWay?.name || null,
               tracking_number: order.trackingNumber,
-              tracking_url: order.trackingUrl,
+              tracking_url: order.shippingWay?.queryUrl || null,
               raw: order
             }));
 
