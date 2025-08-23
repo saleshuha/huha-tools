@@ -1683,18 +1683,40 @@ serve(async (req) => {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         } catch (error) {
+          console.error('getPricesAndFreights error:', error);
+          
           // Handle Sunsky API errors gracefully - return 200 with error structure
           if (error instanceof Response) {
             const errorData = await error.json();
             return new Response(JSON.stringify({
               result: 'error',
               message: errorData.message || 'Failed to get prices and shipping costs',
+              messages: [errorData.message || 'Failed to get prices and shipping costs'],
               data: null
             }), {
               headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             });
           }
-          throw error;
+          
+          // Handle regular Error objects (like ITEM_NOT_EXIST)
+          const errorMessage = error.message || 'Failed to get prices and shipping costs';
+          let userFriendlyMessage = errorMessage;
+          
+          if (errorMessage === 'ITEM_NOT_EXIST') {
+            userFriendlyMessage = 'One or more items are not available in Sunsky catalog. Please check the item numbers and try again.';
+          } else if (errorMessage.includes('ITEM_NOT_EXIST')) {
+            userFriendlyMessage = 'Some items are not available in Sunsky catalog. Please verify the item numbers.';
+          }
+          
+          return new Response(JSON.stringify({
+            result: 'error',
+            message: userFriendlyMessage,
+            messages: [userFriendlyMessage],
+            originalError: errorMessage,
+            data: null
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
         }
       }
 
