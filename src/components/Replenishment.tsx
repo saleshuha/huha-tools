@@ -1050,18 +1050,26 @@ export function Replenishment() {
     const selectedRestockItems = pendingItems.filter(item => selectedItems.has(item.id));
     
     // Transform restock items to match PO order format expected by dialog
-    const orderItems = selectedRestockItems.map(item => ({
-      id: item.id,
-      po_number: `RESTOCK-${Date.now()}`, // Generate a unique PO number for restocking
-      sku_code: extractSkuFromIdentifier(item.identifier),
-      asin: '', // Don't use ASIN for Sunsky search
-      quantity: 1, // Default quantity, user can modify in dialog
-      status: 'pending',
-      model_number: extractModelFromIdentifier(item.identifier),
-      title: `Restock for ${item.identifier}`,
-      notes: `Replenishment order for out of stock item - Search by SKU`,
-      sunsky_sku: extractSkuFromIdentifier(item.identifier) || extractModelFromIdentifier(item.identifier) // Prioritize SKU number, fallback to model
-    }));
+    const orderItems = selectedRestockItems.map(item => {
+      const extractedSku = extractSkuFromIdentifier(item.identifier);
+      const extractedModel = extractModelFromIdentifier(item.identifier);
+      const sunskySku = extractedSku || extractedModel;
+      
+      return {
+        id: item.id,
+        po_number: `RESTOCK-${Date.now()}`, // Generate a unique PO number for restocking
+        sku_code: extractedSku,
+        asin: '', // Don't use ASIN for Sunsky search
+        quantity: 1, // Default quantity, user can modify in dialog
+        status: 'pending',
+        model_number: extractedModel,
+        title: `Restock for ${item.identifier}`,
+        notes: sunskySku ? 
+          `Replenishment order for out of stock item - Search by ${extractedSku ? 'SKU' : 'Model'}: ${sunskySku}` :
+          `Replenishment order for out of stock item - No valid Sunsky SKU found (contains Amazon ASIN)`,
+        sunsky_sku: sunskySku // Use valid SKU/model, avoiding Amazon ASINs
+      };
+    });
 
     setSunskyOrderItems(orderItems);
     setSunskyDialogOpen(true);
@@ -1106,10 +1114,22 @@ export function Replenishment() {
   };
 
   // Helper functions to extract identifiers
+  const isAmazonAsin = (text: string): boolean => {
+    // Amazon ASINs are typically 10 characters and start with B0
+    return /^B0[A-Z0-9]{8}$/.test(text.trim());
+  };
+
   const extractSkuFromIdentifier = (identifier: string): string => {
     // Extract SKU from identifier like "SKU123 (serial456)"
     const match = identifier.match(/^([^(]+)/);
-    return match ? match[1].trim() : identifier;
+    const extracted = match ? match[1].trim() : identifier;
+    
+    // Don't return Amazon ASINs as SKUs
+    if (isAmazonAsin(extracted)) {
+      return '';
+    }
+    
+    return extracted;
   };
 
   const extractAsinFromIdentifier = (identifier: string): string => {
@@ -1122,6 +1142,11 @@ export function Replenishment() {
     // Extract model from identifier in parentheses (serial number, model number, etc.)
     const match = identifier.match(/\(([^)]+)\)/);
     const modelCandidate = match ? match[1].trim() : '';
+    
+    // Don't return Amazon ASINs as model numbers
+    if (isAmazonAsin(modelCandidate)) {
+      return '';
+    }
     
     // If it looks like a model number (contains letters and numbers, not just numbers), return it
     // Otherwise, try to extract from the main part if it's not an ASIN
