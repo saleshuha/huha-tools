@@ -400,9 +400,9 @@ async function makeSunskyRequest(endpoint: string, params: Record<string, any>, 
     result = await response.json();
   }
 
+  // Don't throw on Sunsky API errors - let the caller handle them
   if (result.result === 'error') {
     console.error('Sunsky API Error:', result);
-    throw new Error(result.messages?.[0] || 'Sunsky API returned an error');
   }
 
   console.log('Sunsky API Success:', result.result);
@@ -2013,9 +2013,9 @@ serve(async (req) => {
           console.error('Order number is required');
           return new Response(JSON.stringify({ 
             result: 'error', 
+            reason: 'invalid_input',
             message: 'Order number is required' 
           }), {
-            status: 400,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
@@ -2029,9 +2029,9 @@ serve(async (req) => {
             console.error('No active Sunsky API credentials found');
             return new Response(JSON.stringify({ 
               result: 'error', 
-              message: 'No active Sunsky API credentials found' 
+              reason: 'no_credentials',
+              message: 'No active Sunsky API credentials found. Please add your Sunsky API credentials.' 
             }), {
-              status: 400,
               headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             });
           }
@@ -2141,12 +2141,42 @@ serve(async (req) => {
               headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             });
           } else {
-            console.error('Sunsky API returned error or no data:', response);
+            // Handle unpaid or unavailable orders gracefully
+            console.log('Order not available or unpaid, storing minimal data:', response);
+            
+            // Store minimal order record for unpaid/unavailable orders
+            const now = new Date().toISOString();
+            const minimalOrder = {
+              user_id: user.id,
+              number: orderNumber,
+              status: 'unpaid',
+              status_last_updated_at: now,
+              po_numbers: poNumbers || [],
+              last_synced_at: now,
+              raw: response
+            };
+
+            console.log('Upserting minimal order to database:', orderNumber);
+            const { error: insertError } = await supabase
+              .from('sunsky_orders')
+              .upsert([minimalOrder], { onConflict: 'number' });
+            
+            if (insertError) {
+              console.error('Error storing minimal order:', insertError);
+              return new Response(JSON.stringify({ 
+                result: 'error', 
+                reason: 'storage_failed',
+                message: 'Failed to store order: ' + insertError.message 
+              }), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              });
+            }
+            
             return new Response(JSON.stringify({ 
-              result: 'error', 
-              message: response.message || 'Failed to get order details from Sunsky API' 
+              result: 'success', 
+              reason: 'unpaid',
+              message: response.message || 'Order not paid yet — stored as pending' 
             }), {
-              status: 400,
               headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             });
           }
@@ -2154,9 +2184,9 @@ serve(async (req) => {
           console.error('Error in getOrderDetails:', error);
           return new Response(JSON.stringify({ 
             result: 'error', 
-            message: 'Internal error: ' + error.message 
+            reason: 'api_error',
+            message: 'Failed to connect to Sunsky API: ' + error.message 
           }), {
-            status: 500,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }

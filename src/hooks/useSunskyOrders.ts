@@ -63,12 +63,28 @@ export const useSunskyOrders = () => {
 
   const { toast } = useToast();
 
-  // Fetch orders from local database - only orders linked to our PO orders
+  // Fetch orders from local database - orders linked to our PO orders or with supplier order numbers
   const fetchStoredOrders = async () => {
     setState(prev => ({ ...prev, loading: true, error: null }));
 
     try {
-      // Fetch all orders and filter client-side for orders with PO relationships
+      // Get all placed supplier order numbers from PO orders for filtering
+      const { data: poOrders, error: poError } = await supabase
+        .from('po_orders')
+        .select('supplier_order_number')
+        .not('supplier_order_number', 'is', null);
+
+      if (poError) throw poError;
+
+      const supplierOrderNumbers = new Set(
+        (poOrders || [])
+          .map(po => po.supplier_order_number)
+          .filter(Boolean)
+      );
+
+      console.log('Found supplier order numbers from PO orders:', Array.from(supplierOrderNumbers));
+
+      // Fetch all orders and filter for those linked to our POs
       const { data: allOrders, error } = await supabase
         .from('sunsky_orders')
         .select(`
@@ -80,16 +96,21 @@ export const useSunskyOrders = () => {
 
       if (error) throw error;
 
-      // Filter only orders that have PO relationships (non-empty po_numbers array)
-      // Type assertion to ensure TypeScript knows this is SunskyOrder[]
+      // Filter orders that are either:
+      // 1. Have po_numbers array with values (primary method)
+      // 2. Have order number that matches a supplier_order_number from POs (fallback)
       const ordersWithPORelations: SunskyOrder[] = (allOrders || [])
-        .filter((order: any): order is SunskyOrder => 
-          order.po_numbers && Array.isArray(order.po_numbers) && order.po_numbers.length > 0
-        )
+        .filter((order: any): order is SunskyOrder => {
+          const hasPoNumbers = order.po_numbers && Array.isArray(order.po_numbers) && order.po_numbers.length > 0;
+          const matchesSupplierOrder = supplierOrderNumbers.has(order.number);
+          return hasPoNumbers || matchesSupplierOrder;
+        })
         .map((order: any): SunskyOrder => ({
           ...order,
           items: order.items || []
         }));
+
+      console.log(`Filtered ${ordersWithPORelations.length} orders with PO relationships out of ${allOrders?.length || 0} total orders`);
 
       setState(prev => ({
         ...prev,
@@ -180,6 +201,7 @@ export const useSunskyOrders = () => {
       }
 
       // Get unique order numbers that were placed (have supplier_order_number)
+      // Deduplicate to avoid processing the same order multiple times
       const placedOrderNumbers = [...new Set(matchedOrders
         .filter(po => po.supplier_order_number && po.supplier_order_number.trim() !== '')
         .map(po => po.supplier_order_number)
@@ -196,21 +218,29 @@ export const useSunskyOrders = () => {
         return;
       }
 
-      // Group PO numbers by supplier order number for storage
+      // Group PO numbers by supplier order number for storage (deduplicated)
       const poNumbersByOrderNumber = new Map();
       matchedOrders.forEach(po => {
         if (po.supplier_order_number && po.supplier_order_number.trim() !== '') {
           if (!poNumbersByOrderNumber.has(po.supplier_order_number)) {
-            poNumbersByOrderNumber.set(po.supplier_order_number, []);
+            poNumbersByOrderNumber.set(po.supplier_order_number, new Set());
           }
-          poNumbersByOrderNumber.get(po.supplier_order_number).push(po.po_number);
+          poNumbersByOrderNumber.get(po.supplier_order_number).add(po.po_number);
         }
+      });
+
+      // Convert Sets back to arrays
+      poNumbersByOrderNumber.forEach((poSet, orderNumber) => {
+        poNumbersByOrderNumber.set(orderNumber, Array.from(poSet));
       });
 
       setState(prev => ({ ...prev, progressTotal: placedOrderNumbers.length }));
 
       // Sync each placed order with PO context and track progress
       let syncedCount = 0;
+      let unpaidCount = 0;
+      let errorCount = 0;
+      
       for (let i = 0; i < placedOrderNumbers.length; i++) {
         const orderNumber = placedOrderNumbers[i];
         
@@ -237,8 +267,9 @@ export const useSunskyOrders = () => {
 
           if (error) {
             console.error(`Error syncing order ${orderNumber}:`, error);
+            errorCount++;
             toast({
-              title: 'API Connection Error',
+              title: 'Connection Error',
               description: `Failed to connect to Sunsky API for order ${orderNumber}. Please check your credentials.`,
               variant: 'destructive',
             });
@@ -246,18 +277,25 @@ export const useSunskyOrders = () => {
           }
 
           if (data && data.result === 'success') {
-            console.log(`Successfully synced order ${orderNumber}`);
-            syncedCount++;
+            if (data.reason === 'unpaid') {
+              console.log(`Order ${orderNumber} is unpaid - stored as pending`);
+              unpaidCount++;
+            } else {
+              console.log(`Successfully synced order ${orderNumber}`);
+              syncedCount++;
+            }
           } else if (data && data.result === 'error') {
             console.error(`Order ${orderNumber} sync failed:`, data);
-            const errorMsg = data.message || (data.messages && data.messages[0]) || 'Unknown error';
+            errorCount++;
+            const errorMsg = data.message || 'Unknown error';
             toast({
-              title: 'Sync Failed',
+              title: 'Order Error',
               description: `Order ${orderNumber}: ${errorMsg}`,
               variant: 'destructive',
             });
           } else {
             console.error(`Order ${orderNumber} unexpected response:`, data);
+            errorCount++;
             toast({
               title: 'Unexpected Response',
               description: `Order ${orderNumber}: Received unexpected response from Sunsky API`,
@@ -266,6 +304,7 @@ export const useSunskyOrders = () => {
           }
         } catch (err) {
           console.error(`Failed to sync order ${orderNumber}:`, err);
+          errorCount++;
           toast({
             title: 'Request Failed',
             description: `Order ${orderNumber}: ${err instanceof Error ? err.message : 'Network error'}`,
@@ -274,9 +313,16 @@ export const useSunskyOrders = () => {
         }
       }
 
+      // Show summary toast
+      const messages = [];
+      if (syncedCount > 0) messages.push(`${syncedCount} synced`);
+      if (unpaidCount > 0) messages.push(`${unpaidCount} unpaid (stored as pending)`);
+      if (errorCount > 0) messages.push(`${errorCount} failed`);
+
       toast({
-        title: 'Success',
-        description: `Synced ${syncedCount} of ${placedOrderNumbers.length} orders from Sunsky`,
+        title: 'Sync Complete',
+        description: `${messages.join(', ')} out of ${placedOrderNumbers.length} orders`,
+        variant: errorCount === placedOrderNumbers.length ? 'destructive' : 'default',
       });
       
       // Refresh local data
@@ -290,6 +336,10 @@ export const useSunskyOrders = () => {
       });
     } finally {
       setState(prev => ({ ...prev, syncing: false, progressCurrent: 0, progressTotal: 0, progressPercent: 0 }));
+
+      // Auto-refresh stored orders after sync
+      console.log('Auto-refreshing stored orders after sync');
+      await fetchStoredOrders();
     }
   };
 
