@@ -365,9 +365,18 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
         });
       } else if (data.result === 'error') {
         console.error('Sunsky API error:', data);
+        
+        // Check if error is due to unavailable items
+        const errorMessage = data.message || data.messages?.[0] || '';
+        if (errorMessage.includes('not available in Sunsky catalog') || data.originalError === 'ITEM_NOT_EXIST') {
+          // Filter out unavailable items and retry with available ones only
+          await filterAndRetryShippingMethods(items);
+          return;
+        }
+        
         toast({
           title: "Failed to Load Shipping Methods",
-          description: data.message || data.messages?.[0] || 'Unable to get shipping options for this location',
+          description: errorMessage || 'Unable to get shipping options for this location',
           variant: "destructive"
         });
       } else {
@@ -383,6 +392,109 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
       });
     } finally {
       setLoadingShipping(false);
+    }
+  };
+
+  // Helper function to filter out unavailable items and retry
+  const filterAndRetryShippingMethods = async (originalItems: any[]) => {
+    console.log('Filtering unavailable items and retrying...');
+    
+    // Test each item individually to see which ones are available
+    const availableItems = [];
+    const unavailableItems = [];
+    
+    for (const item of originalItems) {
+      try {
+        const testResponse = await supabase.functions.invoke('sunsky-api', {
+          body: { 
+            action: 'getPricesAndFreights',
+            items: [item], // Test one item at a time
+            deliveryAddress: {
+              countryId: deliveryAddress.countryId,
+              state: deliveryAddress.state,
+              city: deliveryAddress.city,
+              postcode: deliveryAddress.postcode
+            }
+          }
+        });
+        
+        if (testResponse.data?.result === 'success') {
+          availableItems.push(item);
+        } else {
+          unavailableItems.push(item);
+        }
+      } catch (error) {
+        console.log(`Item ${item.itemNo} not available:`, error);
+        unavailableItems.push(item);
+      }
+    }
+    
+    console.log('Available items:', availableItems);
+    console.log('Unavailable items:', unavailableItems);
+    
+    if (availableItems.length === 0) {
+      toast({
+        title: "No Available Items",
+        description: "None of the selected items are available in Sunsky catalog",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Uncheck unavailable items
+    unavailableItems.forEach(item => {
+      setCheckedItems(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(item.itemNo);
+        return newSet;
+      });
+    });
+    
+    // Retry with only available items
+    try {
+      const response = await supabase.functions.invoke('sunsky-api', {
+        body: { 
+          action: 'getPricesAndFreights',
+          items: availableItems,
+          deliveryAddress: {
+            countryId: deliveryAddress.countryId,
+            state: deliveryAddress.state,
+            city: deliveryAddress.city,
+            postcode: deliveryAddress.postcode
+          }
+        }
+      });
+      
+      if (response.data?.result === 'success' && response.data?.data?.freightList) {
+        const methods = response.data.data.freightList.map((method: any) => ({
+          id: method.id,
+          name: method.name,
+          logo: method.logo,
+          description: method.description,
+          website: method.website,
+          transitTime: method.transitTime || 'N/A',
+          shippingCost: method.shippingCost || 0
+        }));
+        
+        setShippingMethods(methods);
+        
+        // Auto-select the first shipping method
+        if (methods.length > 0 && !deliveryAddress.shippingWayId) {
+          setDeliveryAddress(prev => ({ ...prev, shippingWayId: methods[0].id }));
+        }
+        
+        toast({
+          title: "Shipping Methods Loaded",
+          description: `${unavailableItems.length} unavailable items removed. Found ${methods.length} shipping options for ${availableItems.length} available items.`,
+        });
+      }
+    } catch (error) {
+      console.error('Error retrying with filtered items:', error);
+      toast({
+        title: "Failed to Load Shipping Methods",
+        description: "Unable to get shipping options even after filtering unavailable items",
+        variant: "destructive"
+      });
     }
   };
 
