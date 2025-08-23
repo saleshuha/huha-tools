@@ -263,12 +263,18 @@ async function getApiCredentials(userId: string, apiId?: string): Promise<{ key:
   }
 
   // Try to get user-specific credentials (active ones)
-  const { data: userCredentials } = await supabase
+  const { data: userCredentials, error: credentialsError } = await supabase
     .from('sunsky_credentials')
     .select('api_key, api_secret')
     .eq('user_id', userId)
     .eq('is_active', true)
     .single();
+
+  console.log('User credentials query result:', { 
+    hasCredentials: !!userCredentials, 
+    error: credentialsError?.message,
+    userId: userId 
+  });
 
   if (userCredentials?.api_key && userCredentials?.api_secret) {
     console.log('Using user-specific Sunsky credentials');
@@ -281,6 +287,13 @@ async function getApiCredentials(userId: string, apiId?: string): Promise<{ key:
   // Fallback to environment variables
   const envKey = Deno.env.get('SUNSKY_API_KEY');
   const envSecret = Deno.env.get('SUNSKY_API_SECRET');
+  
+  console.log('Environment variables check:', { 
+    hasKey: !!envKey, 
+    keyLength: envKey?.length || 0,
+    hasSecret: !!envSecret, 
+    secretLength: envSecret?.length || 0 
+  });
   
   if (!envKey || !envSecret) {
     console.error('Missing environment variables: SUNSKY_API_KEY or SUNSKY_API_SECRET');
