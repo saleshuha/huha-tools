@@ -81,9 +81,15 @@ export const useSunskyOrders = () => {
       if (error) throw error;
 
       // Filter only orders that have PO relationships (non-empty po_numbers array)
-      const ordersWithPORelations = (allOrders || []).filter(order => 
-        order.po_numbers && Array.isArray(order.po_numbers) && order.po_numbers.length > 0
-      );
+      // Type assertion to ensure TypeScript knows this is SunskyOrder[]
+      const ordersWithPORelations: SunskyOrder[] = (allOrders || [])
+        .filter((order: any): order is SunskyOrder => 
+          order.po_numbers && Array.isArray(order.po_numbers) && order.po_numbers.length > 0
+        )
+        .map((order: any): SunskyOrder => ({
+          ...order,
+          items: order.items || []
+        }));
 
       setState(prev => ({
         ...prev,
