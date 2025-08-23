@@ -65,6 +65,14 @@ interface SavedAddress {
   is_default: boolean;
 }
 
+interface SunskyCredential {
+  id: string;
+  name?: string;
+  api_key: string;
+  is_active: boolean;
+  created_at: string;
+}
+
 export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderSuccess }: SunskyOrderDialogProps) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -81,6 +89,11 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
   const [loadingSavedAddresses, setLoadingSavedAddresses] = useState(false);
   const [saveAddressName, setSaveAddressName] = useState('');
   const [showSaveAddress, setShowSaveAddress] = useState(false);
+  
+  // Sunsky credentials state
+  const [sunskyCredentials, setSunskyCredentials] = useState<SunskyCredential[]>([]);
+  const [selectedCredentialId, setSelectedCredentialId] = useState<string>('');
+  const [loadingCredentials, setLoadingCredentials] = useState(false);
   
   // Order items state
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
@@ -117,6 +130,7 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
     if (open && selectedOrders.length > 0) {
       loadCountries();
       loadSavedAddresses();
+      loadSunskyCredentials();
       initializeOrderItems();
       // Auto-populate site number with PO number
       const poNumber = selectedOrders[0]?.po_number || '';
@@ -145,6 +159,37 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
       });
     } finally {
       setLoadingSavedAddresses(false);
+    }
+  };
+
+  // Load Sunsky credentials
+  const loadSunskyCredentials = async () => {
+    try {
+      setLoadingCredentials(true);
+      const { data, error } = await supabase
+        .from('sunsky_credentials')
+        .select('id, name, api_key, is_active, created_at')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      
+      const credentials = data || [];
+      setSunskyCredentials(credentials);
+      
+      // Auto-select the first credential if available
+      if (credentials.length > 0) {
+        setSelectedCredentialId(credentials[0].id);
+      }
+    } catch (error) {
+      console.error('Failed to load Sunsky credentials:', error);
+      toast({
+        title: "Failed to Load Sunsky Credentials",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setLoadingCredentials(false);
     }
   };
 
@@ -569,7 +614,8 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
       const response = await supabase.functions.invoke('sunsky-api', {
         body: { 
           action: 'createOrder',
-          orderData
+          orderData,
+          apiId: selectedCredentialId // Pass selected credential ID
         }
       });
 
@@ -685,39 +731,87 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
 
         {/* Step Content */}
         <div className="space-y-6">
-          {step === 'items' && (
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Select Items to Order</h3>
-              <div className="space-y-3 max-h-96 overflow-y-auto">
-                {orderItems.map((item) => (
-                  <Card key={item.itemNo} className="p-4">
-                    <div className="flex items-start space-x-3">
-                      <Checkbox
-                        checked={checkedItems.has(item.itemNo)}
-                        onCheckedChange={() => handleItemToggle(item.itemNo)}
-                      />
-                      <div className="flex-1">
-                        <div className="font-medium">{item.title}</div>
-                        <div className="text-sm text-muted-foreground">
-                          SKU: {item.itemNo} • Qty: {item.qty}
-                        </div>
-                        {item.remark && (
-                          <div className="text-sm text-muted-foreground mt-1">
-                            Note: {item.remark}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </Card>
-                ))}
+        {step === 'items' && (
+          <div>
+            <h3 className="text-lg font-semibold mb-4">Select Items to Order</h3>
+            
+            {/* Sunsky Account Selector */}
+            <Card className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+              <div className="flex items-center gap-2 mb-3">
+                <Package className="h-4 w-4 text-blue-600" />
+                <h4 className="font-medium text-blue-900 dark:text-blue-100">Sunsky Account Selection</h4>
               </div>
-              <div className="mt-4 p-3 bg-muted rounded-lg">
-                <div className="text-sm font-medium">
-                  {checkedItems.size} of {orderItems.length} items selected
+              
+              {loadingCredentials ? (
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="text-sm">Loading Sunsky accounts...</span>
                 </div>
+              ) : sunskyCredentials.length > 0 ? (
+                <div className="space-y-3">
+                  <Label htmlFor="sunskyAccount">Select Sunsky Account *</Label>
+                  <Select value={selectedCredentialId} onValueChange={setSelectedCredentialId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose which Sunsky account to use" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {sunskyCredentials.map((credential) => (
+                        <SelectItem key={credential.id} value={credential.id}>
+                          <div className="flex items-center gap-2">
+                            <span>{credential.name || 'Unnamed Account'}</span>
+                            <Badge variant="outline" className="text-xs">
+                              {credential.api_key.substring(0, 8)}***
+                            </Badge>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Select the correct Sunsky account where you want the order to be placed.
+                    The order will appear in the selected account's dashboard.
+                  </p>
+                </div>
+              ) : (
+                <div className="text-center py-4">
+                  <div className="text-sm text-red-600 mb-2">⚠️ No Sunsky credentials found</div>
+                  <p className="text-xs text-muted-foreground">
+                    Please configure your Sunsky API credentials first to place orders.
+                  </p>
+                </div>
+              )}
+            </Card>
+            
+            <div className="space-y-3 max-h-96 overflow-y-auto">
+              {orderItems.map((item) => (
+                <Card key={item.itemNo} className="p-4">
+                  <div className="flex items-start space-x-3">
+                    <Checkbox
+                      checked={checkedItems.has(item.itemNo)}
+                      onCheckedChange={() => handleItemToggle(item.itemNo)}
+                    />
+                    <div className="flex-1">
+                      <div className="font-medium">{item.title}</div>
+                      <div className="text-sm text-muted-foreground">
+                        SKU: {item.itemNo} • Qty: {item.qty}
+                      </div>
+                      {item.remark && (
+                        <div className="text-sm text-muted-foreground mt-1">
+                          Note: {item.remark}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+            <div className="mt-4 p-3 bg-muted rounded-lg">
+              <div className="text-sm font-medium">
+                {checkedItems.size} of {orderItems.length} items selected
               </div>
             </div>
-          )}
+          </div>
+        )}
 
           {step === 'address' && (
             <div>
@@ -1129,7 +1223,7 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
             {step === 'items' && (
               <Button 
                 onClick={() => setStep('address')}
-                disabled={!canProceedToAddress}
+                disabled={!canProceedToAddress || !selectedCredentialId || sunskyCredentials.length === 0}
               >
                 Next: Address
               </Button>

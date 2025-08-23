@@ -1746,8 +1746,8 @@ serve(async (req) => {
       }
 
       case 'createOrder': {
-        const { orderData } = requestData;
-        const credentials = await getApiCredentials(user.id);
+        const { orderData, apiId } = requestData;
+        const credentials = await getApiCredentials(user.id, apiId);
         
         if (!orderData) {
           throw new Error('Order data is required');
