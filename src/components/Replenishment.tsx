@@ -1202,30 +1202,42 @@ export function Replenishment() {
   // Helper functions to extract identifiers
   const isAmazonAsin = (text: string): boolean => {
     // Amazon ASINs are typically 10 characters and start with B0
-    return /^B0[A-Z0-9]{8}$/.test(text.trim());
+    const result = /^B0[A-Z0-9]{8}$/.test(text.trim());
+    console.log(`isAmazonAsin check: "${text}" -> ${result}`);
+    return result;
   };
 
   const extractSkuFromIdentifier = (identifier: string): string => {
+    console.log(`extractSkuFromIdentifier input: "${identifier}"`);
+    
     // Extract SKU from identifier like "SKU123 (serial456)"
     const match = identifier.match(/^([^(]+)/);
     const extracted = match ? match[1].trim() : identifier;
     
+    console.log(`Extracted part before parentheses: "${extracted}"`);
+    
     // Don't return Amazon ASINs as SKUs
     if (isAmazonAsin(extracted)) {
+      console.log(`Extracted part is Amazon ASIN, skipping: "${extracted}"`);
       return '';
     }
     
     // If the extracted part is too short or looks like a serial number, try the parentheses
     if (extracted.length < 3 || /^\d+$/.test(extracted)) {
+      console.log(`Extracted part too short or all digits, checking parentheses: "${extracted}"`);
       const parenthesesMatch = identifier.match(/\(([^)]+)\)/);
       const parenthesesContent = parenthesesMatch ? parenthesesMatch[1].trim() : '';
       
+      console.log(`Parentheses content: "${parenthesesContent}"`);
+      
       // Return parentheses content if it's not an ASIN and looks valid
       if (parenthesesContent && !isAmazonAsin(parenthesesContent) && parenthesesContent.length >= 3) {
+        console.log(`Using parentheses content as SKU: "${parenthesesContent}"`);
         return parenthesesContent;
       }
     }
     
+    console.log(`Final SKU result: "${extracted}"`);
     return extracted;
   };
 
@@ -2573,28 +2585,44 @@ export function Replenishment() {
                     </div>}
 
                   <div className="space-y-2 max-h-96 overflow-y-auto">
-                    {pendingItems.length > 0 ? pendingItems.map(item => <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg bg-destructive/5 hover:bg-destructive/10 transition-colors">
-                          <div className="flex items-center gap-4">
-                            <Checkbox id={`item-${item.id}`} checked={selectedItems.has(item.id)} onCheckedChange={checked => handleSelectItem(item.id, checked as boolean)} />
-                            <div className="p-2 rounded-lg bg-destructive/20">
-                              {item.table_name === 'asin_inventory' ? <Package className="w-4 h-4 text-destructive" /> : <Database className="w-4 h-4 text-destructive" />}
-                            </div>
-                            <div>
-                              <p className="font-medium text-foreground">{item.identifier}</p>
-                              <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                                <span>Qty: {item.current_quantity}</span>
-                                <span>Last Restock: {item.days_since_last_restock ? `${item.days_since_last_restock}d ago` : 'Never'}</span>
-                                <Badge variant="destructive" className="text-xs">
-                                  Out of Stock
-                                </Badge>
-                              </div>
-                            </div>
-                          </div>
-                          <Button onClick={() => markAsOrdered(item.id)} size="sm" variant="outline" className="gap-2">
-                            <ShoppingCart className="w-4 h-4" />
-                            Mark as Ordered
-                          </Button>
-                        </div>) : <div className="text-center py-8 text-muted-foreground">
+                     {pendingItems.length > 0 ? pendingItems.map(item => {
+                        // Check if item has valid SKU for Sunsky ordering
+                        const extractedSku = extractSkuFromIdentifier(item.identifier);
+                        const extractedModel = extractModelFromIdentifier(item.identifier);
+                        const hasSunskySku = !!(extractedSku || extractedModel);
+                        
+                        return <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg bg-destructive/5 hover:bg-destructive/10 transition-colors">
+                           <div className="flex items-center gap-4">
+                             <Checkbox id={`item-${item.id}`} checked={selectedItems.has(item.id)} onCheckedChange={checked => handleSelectItem(item.id, checked as boolean)} />
+                             <div className="p-2 rounded-lg bg-destructive/20">
+                               {item.table_name === 'asin_inventory' ? <Package className="w-4 h-4 text-destructive" /> : <Database className="w-4 h-4 text-destructive" />}
+                             </div>
+                             <div className="flex-1">
+                               <p className="font-medium text-foreground">{item.identifier}</p>
+                               <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                                 <span>Qty: {item.current_quantity}</span>
+                                 <span>Last Restock: {item.days_since_last_restock ? `${item.days_since_last_restock}d ago` : 'Never'}</span>
+                                 <Badge variant="destructive" className="text-xs">
+                                   Out of Stock
+                                 </Badge>
+                                 {hasSunskySku ? (
+                                   <Badge variant="secondary" className="text-xs bg-green-500/20 text-green-700">
+                                     Sunsky Ready ({extractedSku || extractedModel})
+                                   </Badge>
+                                 ) : (
+                                   <Badge variant="outline" className="text-xs border-orange-500 text-orange-600">
+                                     No Valid SKU
+                                   </Badge>
+                                 )}
+                               </div>
+                             </div>
+                           </div>
+                           <Button onClick={() => markAsOrdered(item.id)} size="sm" variant="outline" className="gap-2">
+                             <ShoppingCart className="w-4 h-4" />
+                             Mark as Ordered
+                           </Button>
+                         </div>
+                       }) : <div className="text-center py-8 text-muted-foreground">
                         <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
                         <p className="text-lg font-medium">No critical stock items</p>
                         <p className="text-sm">All items are well stocked!</p>
