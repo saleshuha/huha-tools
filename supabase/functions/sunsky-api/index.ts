@@ -263,12 +263,15 @@ async function getApiCredentials(userId: string, apiId?: string): Promise<{ key:
   }
 
   // Try to get user-specific credentials (active ones)
-  const { data: userCredentials, error: credentialsError } = await supabase
+  const { data: userCredentialsList, error: credentialsError } = await supabase
     .from('sunsky_credentials')
     .select('api_key, api_secret')
     .eq('user_id', userId)
     .eq('is_active', true)
-    .single();
+    .limit(1);
+
+  // Take the first active credential if available
+  const userCredentials = userCredentialsList?.[0] || null;
 
   console.log('User credentials query result:', { 
     hasCredentials: !!userCredentials, 

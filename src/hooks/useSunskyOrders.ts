@@ -238,8 +238,8 @@ export const useSunskyOrders = () => {
           if (error) {
             console.error(`Error syncing order ${orderNumber}:`, error);
             toast({
-              title: 'API Error',
-              description: `Failed to sync order ${orderNumber}: ${error.message}`,
+              title: 'API Connection Error',
+              description: `Failed to connect to Sunsky API for order ${orderNumber}. Please check your credentials.`,
               variant: 'destructive',
             });
             continue;
@@ -248,11 +248,19 @@ export const useSunskyOrders = () => {
           if (data && data.result === 'success') {
             console.log(`Successfully synced order ${orderNumber}`);
             syncedCount++;
-          } else {
+          } else if (data && data.result === 'error') {
             console.error(`Order ${orderNumber} sync failed:`, data);
+            const errorMsg = data.message || (data.messages && data.messages[0]) || 'Unknown error';
             toast({
               title: 'Sync Failed',
-              description: `Order ${orderNumber}: ${data?.message || 'Unknown error'}`,
+              description: `Order ${orderNumber}: ${errorMsg}`,
+              variant: 'destructive',
+            });
+          } else {
+            console.error(`Order ${orderNumber} unexpected response:`, data);
+            toast({
+              title: 'Unexpected Response',
+              description: `Order ${orderNumber}: Received unexpected response from Sunsky API`,
               variant: 'destructive',
             });
           }
