@@ -95,6 +95,8 @@ export const useSunskyOrders = () => {
     siteNumber?: string;
     gmtCreatedStart?: string;
     gmtCreatedEnd?: string;
+    apiKey?: string;
+    apiSecret?: string;
   } = {}) => {
     setState(prev => ({ ...prev, syncing: true, error: null }));
 
@@ -102,6 +104,8 @@ export const useSunskyOrders = () => {
       const { data, error } = await supabase.functions.invoke('sunsky-api', {
         body: {
           action: 'listOrders',
+          apiKey: 'zawa.faza11',
+          apiSecret: 'djbwfqewbqfeqljfw',
           ...filters,
         },
       });

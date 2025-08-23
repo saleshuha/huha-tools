@@ -1948,12 +1948,22 @@ serve(async (req) => {
       }
 
       case 'listOrders': {
-        const { pageSize = 40, page = 1, status, siteNumber, gmtCreatedStart, gmtCreatedEnd } = requestData;
+        const { pageSize = 40, page = 1, status, siteNumber, gmtCreatedStart, gmtCreatedEnd, apiKey, apiSecret } = requestData;
         
-        const credentials = await getApiCredentials(user.id);
+        // Use provided credentials if available, otherwise get from database/env
+        const credentials = apiKey && apiSecret 
+          ? { key: apiKey, secret: apiSecret }
+          : await getApiCredentials(user.id);
+        
         if (!credentials) {
           throw new Error('No active Sunsky API credentials found');
         }
+
+        console.log('Using credentials for listOrders:', { 
+          hasKey: !!credentials.key, 
+          hasSecret: !!credentials.secret,
+          keyPreview: credentials.key?.substring(0, 6) + '...'
+        });
 
         const params: any = {
           pageSize: Math.min(pageSize, 100),
