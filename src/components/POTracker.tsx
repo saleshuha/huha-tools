@@ -61,7 +61,7 @@ export const POTracker = () => {
   const [statusFilter, setStatusFilter] = useState<POOrder['status'] | 'all'>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
-  const [viewMode, setViewMode] = useState<'grouped' | 'detailed'>('detailed');
+  const [viewMode, setViewMode] = useState<'grouped' | 'detailed'>('grouped');
   const { poOrders, isLoading, fetchPOOrders, processPOFiles } = usePOOrders();
   const { profile } = useUserProfile();
   const { selectedCountry } = useCountry();
