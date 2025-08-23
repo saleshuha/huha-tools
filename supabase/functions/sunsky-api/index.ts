@@ -1983,7 +1983,7 @@ serve(async (req) => {
           user.id
         );
 
-        console.log('Sunsky API response:', { 
+        console.log('Sunsky API response for listOrders (no auto-storage):', { 
           hasResult: !!response.result, 
           resultType: typeof response.result,
           hasData: !!response.data,
@@ -1991,65 +1991,9 @@ serve(async (req) => {
           resultLength: response.data?.result?.length || 0
         });
 
-        if (response.result === 'success' && response.data?.result) {
-          if (Array.isArray(response.data.result)) {
-            console.log(`Processing ${response.data.result.length} orders for storage`);
-            console.log('Sample order data:', JSON.stringify(response.data.result[0], null, 2));
-            
-            const ordersToUpsert = response.data.result.map((order: any, index: number) => {
-              const mappedOrder = {
-                user_id: user.id,
-                number: order.number,
-                status: order.status?.toString() || null,
-                site_number: order.siteNumber || null,
-                gmt_created: order.gmtCreated ? new Date(order.gmtCreated) : null,
-                total: order.totalAmount ? parseFloat(order.totalAmount) : null,
-                currency: 'USD', // Default currency from Sunsky
-                shipping_company: order.shippingWay?.name || null,
-                tracking_number: order.trackingNumber || null,
-                tracking_url: order.shippingWay?.queryUrl || null,
-                raw: order
-              };
-              
-              if (index === 0) {
-                console.log('Mapped first order:', JSON.stringify(mappedOrder, null, 2));
-              }
-              
-              return mappedOrder;
-            });
-
-            console.log(`About to upsert ${ordersToUpsert.length} orders to database`);
-            
-            const { data: insertResult, error: insertError } = await supabase
-              .from('sunsky_orders')
-              .upsert(ordersToUpsert, { onConflict: 'number' });
-            
-            console.log('Upsert result:', { insertResult, insertError });
-            
-            if (insertError) {
-              console.error('Error storing orders:', insertError);
-              throw insertError;
-            }
-            
-            console.log(`Successfully stored ${ordersToUpsert.length} orders`);
-            
-            // Verify insertion
-            const { data: verifyData, error: verifyError } = await supabase
-              .from('sunsky_orders')
-              .select('count')
-              .eq('user_id', user.id);
-            
-            console.log('Verification count:', { verifyData, verifyError });
-          } else {
-            console.log('response.data.result is not an array:', typeof response.data.result);
-          }
-        } else {
-          console.log('Condition not met for processing orders:', {
-            resultSuccess: response.result === 'success',
-            hasDataResult: !!response.data?.result,
-            responseKeys: Object.keys(response)
-          });
-        }
+        // NOTE: We no longer auto-store all orders from listOrders
+        // Orders are only stored via getOrderDetails with PO context
+        console.log('ListOrders: Returning API response without storing all orders');
 
         return new Response(JSON.stringify(response), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },

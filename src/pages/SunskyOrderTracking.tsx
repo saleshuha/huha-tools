@@ -61,6 +61,7 @@ export default function SunskyOrderTrackingPage() {
     progressPercent,
     fetchStoredOrders,
     syncOrdersFromAPI,
+    getOrderDetails,
     getSlowItems
   } = useSunskyOrders();
 
@@ -90,13 +91,19 @@ export default function SunskyOrderTrackingPage() {
     loadSlowItems();
   }, []);
 
-  // Toggle order expansion
-  const toggleOrderExpansion = (orderNumber: string) => {
+  // Toggle order expansion and fetch items if missing
+  const toggleOrderExpansion = async (orderNumber: string) => {
     const newExpanded = new Set(expandedOrders);
     if (newExpanded.has(orderNumber)) {
       newExpanded.delete(orderNumber);
     } else {
       newExpanded.add(orderNumber);
+      
+      // Check if order has items, if not, fetch them
+      const order = orders.find(o => o.number === orderNumber);
+      if (order && (!order.items || order.items.length === 0)) {
+        await getOrderDetails(orderNumber, true); // Silent fetch
+      }
     }
     setExpandedOrders(newExpanded);
   };

@@ -62,19 +62,14 @@ export const useSunskyOrders = () => {
 
   const { toast } = useToast();
 
-  // Fetch orders from local database
+  // Fetch orders from local database - only orders linked to our PO orders
   const fetchStoredOrders = async () => {
     setState(prev => ({ ...prev, loading: true, error: null }));
 
     try {
+      // Only fetch orders that have PO relationships by using SQL to check array length
       const { data: orders, error } = await supabase
-        .from('sunsky_orders')
-        .select(`
-          *,
-          items:sunsky_order_items(*)
-        `)
-        .order('gmt_created', { ascending: false, nullsFirst: false })
-        .order('created_at', { ascending: false });
+        .rpc('get_sunsky_orders_with_po_relations');
 
       if (error) throw error;
 
@@ -224,8 +219,8 @@ export const useSunskyOrders = () => {
     }
   };
 
-  // Get order details with items
-  const getOrderDetails = async (orderNumber: string) => {
+  // Get order details with items - fetch if missing items
+  const getOrderDetails = async (orderNumber: string, silent: boolean = false) => {
     try {
       const { data, error } = await supabase.functions.invoke('sunsky-api', {
         body: {
@@ -239,19 +234,23 @@ export const useSunskyOrders = () => {
       if (data.result === 'success') {
         // Refresh local data to get updated order with items
         await fetchStoredOrders();
-        toast({
-          title: 'Success',
-          description: 'Order details updated',
-        });
+        if (!silent) {
+          toast({
+            title: 'Success',
+            description: 'Order details updated',
+          });
+        }
       } else {
         throw new Error(data.message || 'Failed to get order details');
       }
     } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: `Failed to get order details: ${error.message}`,
-        variant: 'destructive',
-      });
+      if (!silent) {
+        toast({
+          title: 'Error',
+          description: `Failed to get order details: ${error.message}`,
+          variant: 'destructive',
+        });
+      }
     }
   };
 
