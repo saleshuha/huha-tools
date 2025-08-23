@@ -72,23 +72,37 @@ export default function SunskyOrderTrackingPage() {
     try {
       setLoading(true);
       
-      // Fetch PO orders and join with sunsky_skus to get only matched items
-      const { data, error } = await supabase
+      // First fetch all PO orders
+      const { data: allOrders, error: ordersError } = await supabase
         .from('po_orders')
-        .select(`
-          *,
-          sunsky_sku:sunsky_skus!inner(id, sku_code, title, cost, weight, currency)
-        `)
+        .select('*')
         .in('status', ['pending', 'ordered', 'shipped', 'delivered', 'closed'])
         .eq('country', selectedCountry)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      
-      // Filter to only include orders that have matching sunsky SKUs
-      const matchedOrders = (data || []).filter(order => 
-        order.sunsky_sku && order.sunsky_sku.length > 0
-      );
+      if (ordersError) throw ordersError;
+
+      if (!allOrders || allOrders.length === 0) {
+        setOrders([]);
+        setFilteredOrders([]);
+        return;
+      }
+
+      // Then fetch sunsky_skus to match against
+      const { data: sunskySkus, error: skusError } = await supabase
+        .from('sunsky_skus')
+        .select('id, sku_code, title, cost, weight, currency')
+        .eq('user_id', (await supabase.auth.getUser()).data.user?.id);
+
+      if (skusError) throw skusError;
+
+      // Manually filter orders that have matching Sunsky SKUs
+      const matchedOrders = allOrders.filter(order => {
+        return sunskySkus?.some(sku => 
+          sku.sku_code === order.sku_code || 
+          sku.sku_code === order.model_number
+        );
+      });
       
       setOrders(matchedOrders);
       setFilteredOrders(matchedOrders);
@@ -96,7 +110,7 @@ export default function SunskyOrderTrackingPage() {
       console.error('Error fetching matched orders:', error);
       toast({
         title: 'Error',
-        description: 'Failed to load matched orders',
+        description: `Failed to load matched orders: ${error.message}`,
         variant: 'destructive'
       });
     } finally {
