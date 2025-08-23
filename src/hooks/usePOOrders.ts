@@ -377,59 +377,6 @@ export const usePOOrders = () => {
     }
   }, [fetchPOOrders, toast]);
 
-  // Bulk update order status
-  const bulkUpdateOrderStatus = useCallback(async (fromStatus: POOrder['status'], toStatus: POOrder['status']) => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
-
-      const { data: ordersToUpdate, error: fetchError } = await supabase
-        .from('po_orders')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('status', fromStatus);
-
-      if (fetchError) throw fetchError;
-
-      if (!ordersToUpdate || ordersToUpdate.length === 0) {
-        toast({
-          title: "No Orders Found",
-          description: `No orders with status "${fromStatus}" found to update`,
-          variant: "destructive"
-        });
-        return { count: 0 };
-      }
-
-      const { error } = await supabase
-        .from('po_orders')
-        .update({ 
-          status: toStatus,
-          order_date: toStatus === 'ordered' ? new Date().toISOString() : null
-        })
-        .eq('user_id', user.id)
-        .eq('status', fromStatus);
-
-      if (error) throw error;
-
-      await fetchPOOrders();
-      
-      toast({
-        title: "Bulk Update Successful",
-        description: `${ordersToUpdate.length} orders updated from "${fromStatus}" to "${toStatus}"`
-      });
-
-      return { count: ordersToUpdate.length };
-    } catch (error) {
-      console.error('Error bulk updating order status:', error);
-      toast({
-        title: "Error",
-        description: "Failed to bulk update order status",
-        variant: "destructive"
-      });
-      return { count: 0 };
-    }
-  }, [fetchPOOrders, toast]);
-
   // Get model numbers from PO orders for Sunsky search - simplified without batching
   const getPOModelNumbers = useCallback(async () => {
     try {
@@ -506,7 +453,6 @@ export const usePOOrders = () => {
     processPOFiles,
     updateOrderStatus,
     updateTrackingInfo,
-    getPOModelNumbers,
-    bulkUpdateOrderStatus
+    getPOModelNumbers
   };
 };

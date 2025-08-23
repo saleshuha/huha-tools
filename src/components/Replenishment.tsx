@@ -16,7 +16,6 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useCountry } from '@/contexts/CountryContext';
 import { useInventoryAnalytics } from '@/hooks/useInventoryAnalytics';
-import { usePOOrders } from '@/hooks/usePOOrders';
 import { InventoryAnalytics } from './InventoryAnalytics';
 import { format } from 'date-fns';
 import Papa from 'papaparse';
@@ -174,7 +173,6 @@ export function Replenishment() {
     type: 'critical'
   });
   const [loading, setLoading] = useState(true);
-  const [bulkActionLoading, setBulkActionLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPeriod, setSelectedPeriod] = useState('30d');
   const [restockItems, setRestockItems] = useState<RestockItem[]>([]);
@@ -1131,25 +1129,6 @@ export function Replenishment() {
         description: `Order ${orderNumber} was placed successfully, but failed to update item status.`,
         variant: "destructive",
       });
-    }
-  };
-
-  // Bulk revert orders from "ordered" back to "pending" (critical stock)
-  const handleBulkStatusRevert = async () => {
-    setBulkActionLoading(true);
-    try {
-      const result = await bulkUpdateOrderStatus('ordered', 'pending');
-      if (result.count > 0) {
-        // Refresh analytics and restock items to reflect changes
-        await Promise.all([
-          loadAllData(),
-          loadAnalytics(selectedCountry)
-        ]);
-      }
-    } catch (error) {
-      console.error('Error reverting order statuses:', error);
-    } finally {
-      setBulkActionLoading(false);
     }
   };
 
@@ -2446,20 +2425,6 @@ export function Replenishment() {
               <Button onClick={exportOrderedData} variant="outline" size="sm" className="gap-2">
                 <Download className="w-4 h-4" />
                 Export Ordered Items
-              </Button>
-              <Button 
-                onClick={handleBulkStatusRevert} 
-                variant="destructive" 
-                size="sm" 
-                disabled={bulkActionLoading}
-                className="gap-2"
-              >
-                {bulkActionLoading ? (
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                ) : (
-                  <XCircle className="w-4 h-4" />
-                )}
-                Revert Ordered → Critical
               </Button>
             </div>
           </div>
