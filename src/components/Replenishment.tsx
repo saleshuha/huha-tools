@@ -1059,8 +1059,8 @@ export function Replenishment() {
       status: 'pending',
       model_number: extractModelFromIdentifier(item.identifier),
       title: `Restock for ${item.identifier}`,
-      notes: `Replenishment order for out of stock item - Search by ${extractModelFromIdentifier(item.identifier) ? 'Model Number' : 'SKU'}`,
-      sunsky_sku: extractModelFromIdentifier(item.identifier) || extractSkuFromIdentifier(item.identifier) // Prioritize model number, fallback to SKU
+      notes: `Replenishment order for out of stock item - Search by SKU`,
+      sunsky_sku: extractSkuFromIdentifier(item.identifier) || extractModelFromIdentifier(item.identifier) // Prioritize SKU number, fallback to model
     }));
 
     setSunskyOrderItems(orderItems);
