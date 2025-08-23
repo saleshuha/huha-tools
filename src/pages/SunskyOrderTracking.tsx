@@ -204,7 +204,7 @@ export default function SunskyOrderTrackingPage() {
                 variant="outline"
               >
                 <RefreshCw className={`h-4 w-4 mr-2 ${sunskyOrders.syncing ? 'animate-spin' : ''}`} />
-                Sync Sunsky
+                Sync Matched Orders
               </Button>
             </div>
           </div>
@@ -442,7 +442,7 @@ export default function SunskyOrderTrackingPage() {
                   size="sm"
                 >
                   <RefreshCw className={`h-4 w-4 mr-2 ${sunskyOrders.syncing ? 'animate-spin' : ''}`} />
-                  {sunskyOrders.syncing ? 'Syncing App Orders...' : 'Sync App Orders'}
+                  {sunskyOrders.syncing ? 'Syncing Matched Orders...' : 'Sync Matched Orders'}
                 </Button>
               </CardHeader>
               <CardContent>

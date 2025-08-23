@@ -2009,6 +2009,7 @@ export type Database = {
           gmt_created: string | null
           id: string
           number: string
+          po_numbers: string[] | null
           raw: Json | null
           shipping_company: string | null
           site_number: string | null
@@ -2025,6 +2026,7 @@ export type Database = {
           gmt_created?: string | null
           id?: string
           number: string
+          po_numbers?: string[] | null
           raw?: Json | null
           shipping_company?: string | null
           site_number?: string | null
@@ -2041,6 +2043,7 @@ export type Database = {
           gmt_created?: string | null
           id?: string
           number?: string
+          po_numbers?: string[] | null
           raw?: Json | null
           shipping_company?: string | null
           site_number?: string | null

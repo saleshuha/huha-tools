@@ -2057,7 +2057,7 @@ serve(async (req) => {
       }
 
       case 'getOrderDetails': {
-        const { orderNumber, apiKey, apiSecret } = requestData;
+        const { orderNumber, poNumbers, apiKey, apiSecret } = requestData;
         
         if (!orderNumber) {
           throw new Error('Order number is required');
@@ -2072,7 +2072,7 @@ serve(async (req) => {
           throw new Error('No active Sunsky API credentials found');
         }
 
-        console.log('Getting order details for:', orderNumber);
+        console.log('Getting order details for:', orderNumber, 'with PO numbers:', poNumbers);
 
         const response = await makeSunskyRequest(
           '/openapi/order!getOrder.do',
@@ -2090,14 +2090,15 @@ serve(async (req) => {
 
         if (response.result === 'success' && response.data) {
           const order = response.data;
-          console.log('Processing order details for storage');
+          console.log('Processing order details for storage with PO numbers:', poNumbers);
           
-          // Store the main order
+          // Store the main order with PO numbers
           const orderToUpsert = {
             user_id: user.id,
             number: order.number,
             status: order.status?.toString() || null,
             site_number: order.siteNumber || null,
+            po_numbers: poNumbers || [], // Store related PO numbers
             gmt_created: order.gmtCreated ? new Date(order.gmtCreated) : null,
             total: order.totalAmount ? parseFloat(order.totalAmount) : null,
             currency: 'USD',

@@ -87,7 +87,7 @@ export const useSunskyOrders = () => {
     }
   };
 
-  // Sync orders from Sunsky API - only orders placed from our app
+  // Sync orders from Sunsky API - only orders placed from our app that match PO orders
   const syncOrdersFromAPI = async (filters: {
     pageSize?: number;
     page?: number;
@@ -101,35 +101,83 @@ export const useSunskyOrders = () => {
     setState(prev => ({ ...prev, syncing: true, error: null }));
 
     try {
-      // First, get all PO orders with supplier order numbers (orders placed from our app)
-      const { data: poOrders, error: poError } = await supabase
+      // First, get PO orders that have matching Sunsky SKUs (matched orders ready to place/placed)
+      const { data: matchedPOs, error: poError } = await supabase
         .from('po_orders')
-        .select('supplier_order_number, po_number, sku_code, title')
-        .not('supplier_order_number', 'is', null)
-        .neq('supplier_order_number', '');
+        .select(`
+          po_number, 
+          sku_code, 
+          model_number, 
+          supplier_order_number,
+          status,
+          title
+        `)
+        .in('status', ['pending', 'ordered', 'shipped', 'delivered', 'closed']);
 
       if (poError) throw poError;
 
-      if (!poOrders || poOrders.length === 0) {
+      if (!matchedPOs || matchedPOs.length === 0) {
         toast({
-          title: 'No Orders Found',
-          description: 'No orders have been placed from the app yet.',
+          title: 'No Matched Orders Found',
+          description: 'No PO orders with matching Sunsky SKUs found.',
         });
         setState(prev => ({ ...prev, syncing: false }));
         return;
       }
 
-      const orderNumbers = poOrders.map(po => po.supplier_order_number).filter(Boolean);
-      console.log('Syncing orders for order numbers:', orderNumbers);
+      // Get Sunsky SKUs to find matches
+      const { data: sunskySkus, error: skuError } = await supabase
+        .from('sunsky_skus')
+        .select('sku_code');
 
-      // Sync each order individually with details
+      if (skuError) throw skuError;
+
+      // Filter PO orders that have matching Sunsky SKUs
+      const matchedOrders = matchedPOs.filter(po => 
+        sunskySkus?.some(sku => 
+          sku.sku_code === po.sku_code || 
+          sku.sku_code === po.model_number
+        )
+      );
+
+      if (matchedOrders.length === 0) {
+        toast({
+          title: 'No Matched Orders Found',
+          description: 'No PO orders match available Sunsky SKUs.',
+        });
+        setState(prev => ({ ...prev, syncing: false }));
+        return;
+      }
+
+      // Get unique order numbers that were placed (have supplier_order_number)
+      const placedOrderNumbers = matchedOrders
+        .map(po => po.supplier_order_number)
+        .filter(Boolean);
+
+      console.log('Syncing orders for placed order numbers:', placedOrderNumbers);
+
+      // Group PO numbers by supplier order number for storage
+      const poNumbersByOrderNumber = new Map();
+      matchedOrders.forEach(po => {
+        if (po.supplier_order_number) {
+          if (!poNumbersByOrderNumber.has(po.supplier_order_number)) {
+            poNumbersByOrderNumber.set(po.supplier_order_number, []);
+          }
+          poNumbersByOrderNumber.get(po.supplier_order_number).push(po.po_number);
+        }
+      });
+
+      // Sync each placed order with PO context
       let syncedCount = 0;
-      for (const orderNumber of orderNumbers) {
+      for (const orderNumber of placedOrderNumbers) {
         try {
+          const relatedPONumbers = poNumbersByOrderNumber.get(orderNumber) || [];
+          
           const { data, error } = await supabase.functions.invoke('sunsky-api', {
             body: {
               action: 'getOrderDetails',
               orderNumber: orderNumber,
+              poNumbers: relatedPONumbers, // Pass related PO numbers
               apiKey: 'zawa.faza11',
               apiSecret: 'djbwfqewbqfeqljfw',
             },
@@ -150,7 +198,7 @@ export const useSunskyOrders = () => {
 
       toast({
         title: 'Success',
-        description: `Synced ${syncedCount} app-placed orders from Sunsky`,
+        description: `Synced ${syncedCount} matched orders from Sunsky`,
       });
       
       // Refresh local data
