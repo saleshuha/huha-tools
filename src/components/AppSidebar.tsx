@@ -1,6 +1,7 @@
 import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, Wrench, LogOut, Home, Users, TrendingUp, Merge, Edit3, Database, CreditCard, Upload, BarChart3, DollarSign, Store, ShoppingCart, Globe, ExternalLink, Eye, Trash2, Settings, Bot, Truck } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
 import { useState } from "react"
+import { Capacitor } from "@capacitor/core"
 import { supabase } from "@/integrations/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
@@ -144,6 +145,7 @@ export function AppSidebar() {
   const { state } = useSidebar()
   const location = useLocation()
   const isCollapsed = state === "collapsed"
+  const isNative = Capacitor.isNativePlatform()
   
   const { toast } = useToast()
   const { isAdmin } = useUserProfile()
@@ -377,55 +379,59 @@ export function AppSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
 
-              {/* Amazon Vendor Central */}
-              <SidebarMenuItem>
-                <SidebarMenuButton 
-                  asChild
-                  className={`group relative w-full rounded-xl transition-all duration-200 ${
-                    isActive("/amazon-vendor-central")
-                      ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
-                      : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
-                  }`}
-                >
-                  <NavLink 
-                    to="/amazon-vendor-central" 
-                    end
-                    className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
+              {/* Amazon Vendor Central - Hide in native app */}
+              {!isNative && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton 
+                    asChild
+                    className={`group relative w-full rounded-xl transition-all duration-200 ${
+                      isActive("/amazon-vendor-central")
+                        ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
+                        : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
+                    }`}
                   >
-                    <Settings className="h-5 w-5 flex-shrink-0" />
-                    {!isCollapsed && (
-                      <span className="font-semibold text-sm">
-                        Amazon Vendor Central
-                      </span>
-                    )}
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+                    <NavLink 
+                      to="/amazon-vendor-central" 
+                      end
+                      className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
+                    >
+                      <Settings className="h-5 w-5 flex-shrink-0" />
+                      {!isCollapsed && (
+                        <span className="font-semibold text-sm">
+                          Amazon Vendor Central
+                        </span>
+                      )}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
 
-              {/* Desktop Automation */}
-              <SidebarMenuItem>
-                <SidebarMenuButton 
-                  asChild
-                  className={`group relative w-full rounded-xl transition-all duration-200 ${
-                    isActive("/desktop-automation")
-                      ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
-                      : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
-                  }`}
-                >
-                  <NavLink 
-                    to="/desktop-automation" 
-                    end
-                    className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
+              {/* Desktop Automation - Hide in native app */}
+              {!isNative && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton 
+                    asChild
+                    className={`group relative w-full rounded-xl transition-all duration-200 ${
+                      isActive("/desktop-automation")
+                        ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
+                        : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
+                    }`}
                   >
-                    <Bot className="h-5 w-5 flex-shrink-0" />
-                    {!isCollapsed && (
-                      <span className="font-semibold text-sm">
-                        Desktop Automation
-                      </span>
-                    )}
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+                    <NavLink 
+                      to="/desktop-automation" 
+                      end
+                      className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
+                    >
+                      <Bot className="h-5 w-5 flex-shrink-0" />
+                      {!isCollapsed && (
+                        <span className="font-semibold text-sm">
+                          Desktop Automation
+                        </span>
+                      )}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
 
               {/* Carrefour Sales Tracker */}
               <SidebarMenuItem>
@@ -452,8 +458,8 @@ export function AppSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
 
-              {/* Tools dropdown - only show when not collapsed */}
-              {!isCollapsed && (
+              {/* Tools dropdown - only show when not collapsed and not in native app */}
+              {!isCollapsed && !isNative && (
                 <SidebarMenuItem>
                   <Collapsible open={isToolsOpen} onOpenChange={setIsToolsOpen}>
                     <CollapsibleTrigger asChild>
@@ -504,31 +510,33 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               )}
 
-              {/* Data Viewer standalone item */}
-              <SidebarMenuItem>
-                <SidebarMenuButton 
-                  asChild
-                  className={`group relative w-full rounded-xl transition-all duration-200 ${
-                    isActive("/data-viewer")
-                      ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
-                      : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
-                  }`}
-                >
-                  <a 
-                    href="https://huha-data-viewer.lovable.app/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
+              {/* Data Viewer standalone item - Hide in native app */}
+              {!isNative && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton 
+                    asChild
+                    className={`group relative w-full rounded-xl transition-all duration-200 ${
+                      isActive("/data-viewer")
+                        ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
+                        : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
+                    }`}
                   >
-                    <Eye className="h-5 w-5 flex-shrink-0" />
-                    {!isCollapsed && (
-                      <span className="font-semibold text-sm">
-                        Data Viewer
-                      </span>
-                    )}
-                  </a>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+                    <a 
+                      href="https://huha-data-viewer.lovable.app/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
+                    >
+                      <Eye className="h-5 w-5 flex-shrink-0" />
+                      {!isCollapsed && (
+                        <span className="font-semibold text-sm">
+                          Data Viewer
+                        </span>
+                      )}
+                    </a>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

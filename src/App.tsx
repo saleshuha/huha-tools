@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Capacitor } from "@capacitor/core";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -121,6 +122,7 @@ const App = () => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const isNative = Capacitor.isNativePlatform();
 
   useEffect(() => {
     // Set up auth state listener FIRST
@@ -208,39 +210,54 @@ const App = () => {
                   <Routes>
                     <Route path="/" element={<Index />} />
                     
-                    <Route path="/excel-mapper" element={<ExcelMapperPage />} />
-                    <Route path="/batch" element={<BatchProcessor />} />
-                    <Route path="/asin-sum" element={<AsinQtySum />} />
-                     <Route path="/zip-splitter" element={<ZipSplitter />} />
-                     <Route path="/file-merger" element={<FileMergerPage />} />
-                     <Route path="/bulk-column-editor" element={<BulkColumnEditor />} />
-                     <Route path="/inventory" element={<Inventory />} />
+                    {/* Tools Routes - Hide in native app */}
+                    {!isNative && (
+                      <>
+                        <Route path="/excel-mapper" element={<ExcelMapperPage />} />
+                        <Route path="/batch" element={<BatchProcessor />} />
+                        <Route path="/asin-sum" element={<AsinQtySum />} />
+                        <Route path="/zip-splitter" element={<ZipSplitter />} />
+                        <Route path="/file-merger" element={<FileMergerPage />} />
+                        <Route path="/bulk-column-editor" element={<BulkColumnEditor />} />
+                        <Route path="/excel-editor" element={<ExcelEditorPage />} />
+                        <Route path="/noon-file-cleaner" element={<NoonFileCleaner />} />
+                      </>
+                    )}
+
+                    {/* Main App Routes - Available in both web and mobile */}
+                    <Route path="/inventory" element={<Inventory />} />
                     <Route path="/processed-orders" element={<ProcessedOrders />} />
                     <Route path="/users" element={<UserManagementPage />} />
-                     <Route path="/replenishment" element={<ReplenishmentPage />} />
-                     <Route path="/po-tracker" element={<POTrackerPage />} />
-                     <Route path="/po-details/:poNumber" element={<PODetailsPage />} />
-                     <Route path="/add-sku" element={<AddSKUPageWrapper />} />
-                     <Route path="/sunsky-importer" element={<SunskySKUImporterPage />} />
-                     <Route path="/sunsky-order-tracking" element={<SunskyOrderTrackingPage />} />
-                      <Route path="/excel-editor" element={<ExcelEditorPage />} />
-                      <Route path="/noon-file-cleaner" element={<NoonFileCleaner />} />
-                   <Route path="/amazon-fulfillment" element={<AmazonFulfillmentTracker />} />
-                   <Route path="/amazon-vendor-central" element={<AmazonVendorCentral />} />
-                   <Route path="/desktop-automation" element={<DesktopAutomation />} />
-                  <Route path="/noon-sales-tracker" element={<NoonSalesTracker />} />
-                     <Route path="/noon-dashboard" element={<NoonDashboard />} />
-                     <Route path="/noon-stores" element={<NoonStores />} />
-                     <Route path="/noon-sales-data" element={<NoonSalesData />} />
-                     <Route path="/noon-fees-reports" element={<NoonFeesReports />} />
-                     <Route path="/noon-analytics" element={<NoonAnalytics />} />
-                     <Route path="/noon-order-analysis" element={<NoonOrderAnalysis />} />
-                     <Route path="/payment-reports" element={<PaymentReports />} />
-                     <Route path="/noon-sku-costs" element={<SKUCostManagement />} />
-                     <Route path="/sku-costs" element={<SKUCostManagement />} />
-                     <Route path="/carrefour-payments" element={<Navigate to="/stores" replace />} />
-                     <Route path="/stores" element={<StoreSelection />} />
-                     <Route path="/carrefour-payments/:storeId" element={<CarrefourSalesTracker />} />
+                    <Route path="/replenishment" element={<ReplenishmentPage />} />
+                    <Route path="/po-tracker" element={<POTrackerPage />} />
+                    <Route path="/po-details/:poNumber" element={<PODetailsPage />} />
+                    <Route path="/add-sku" element={<AddSKUPageWrapper />} />
+                    <Route path="/sunsky-importer" element={<SunskySKUImporterPage />} />
+                    <Route path="/sunsky-order-tracking" element={<SunskyOrderTrackingPage />} />
+                    <Route path="/amazon-fulfillment" element={<AmazonFulfillmentTracker />} />
+
+                    {/* Desktop-only Routes - Hide in native app */}
+                    {!isNative && (
+                      <>
+                        <Route path="/amazon-vendor-central" element={<AmazonVendorCentral />} />
+                        <Route path="/desktop-automation" element={<DesktopAutomation />} />
+                      </>
+                    )}
+
+                    {/* Noon & Payment Routes - Available in both web and mobile */}
+                    <Route path="/noon-sales-tracker" element={<NoonSalesTracker />} />
+                    <Route path="/noon-dashboard" element={<NoonDashboard />} />
+                    <Route path="/noon-stores" element={<NoonStores />} />
+                    <Route path="/noon-sales-data" element={<NoonSalesData />} />
+                    <Route path="/noon-fees-reports" element={<NoonFeesReports />} />
+                    <Route path="/noon-analytics" element={<NoonAnalytics />} />
+                    <Route path="/noon-order-analysis" element={<NoonOrderAnalysis />} />
+                    <Route path="/payment-reports" element={<PaymentReports />} />
+                    <Route path="/noon-sku-costs" element={<SKUCostManagement />} />
+                    <Route path="/sku-costs" element={<SKUCostManagement />} />
+                    <Route path="/carrefour-payments" element={<Navigate to="/stores" replace />} />
+                    <Route path="/stores" element={<StoreSelection />} />
+                    <Route path="/carrefour-payments/:storeId" element={<CarrefourSalesTracker />} />
                     
                     <Route path="/auth" element={<Navigate to="/" replace />} />
                     
