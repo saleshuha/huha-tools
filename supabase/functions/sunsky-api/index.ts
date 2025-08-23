@@ -1983,9 +1983,17 @@ serve(async (req) => {
           user.id
         );
 
-        if (response.result === 'success' && response.result) {
-          if (Array.isArray(response.result)) {
-            const ordersToUpsert = response.result.map((order: any) => ({
+        console.log('Sunsky API response:', { 
+          hasResult: !!response.result, 
+          resultType: typeof response.result,
+          resultContent: Array.isArray(response.result) ? `Array(${response.result.length})` : response.result
+        });
+
+        if (response.result === 'success' && response.data) {
+          if (Array.isArray(response.data)) {
+            console.log(`Processing ${response.data.length} orders for storage`);
+            
+            const ordersToUpsert = response.data.map((order: any) => ({
               user_id: user.id,
               number: order.number,
               status: order.status,
@@ -1999,7 +2007,16 @@ serve(async (req) => {
               raw: order
             }));
 
-            await supabase.from('sunsky_orders').upsert(ordersToUpsert, { onConflict: 'number' });
+            const { data: insertResult, error: insertError } = await supabase
+              .from('sunsky_orders')
+              .upsert(ordersToUpsert, { onConflict: 'number' });
+            
+            if (insertError) {
+              console.error('Error storing orders:', insertError);
+              throw insertError;
+            }
+            
+            console.log(`Successfully stored ${ordersToUpsert.length} orders`);
           }
         }
 
