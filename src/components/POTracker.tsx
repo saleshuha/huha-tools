@@ -297,12 +297,12 @@ export const POTracker = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {comprehensiveMetrics?.pending_line_items || poOrders.filter(order => order.status === 'pending').length}
+                  {comprehensiveMetrics?.pending_line_items || poOrders.filter(order => order.status === 'pending' && order.sunsky_sku !== null).length}
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  Qty: {comprehensiveMetrics?.pending_quantity || poOrders.filter(order => order.status === 'pending').reduce((sum, order) => sum + (order.quantity || 0), 0)}
+                  Qty: {comprehensiveMetrics?.pending_quantity || poOrders.filter(order => order.status === 'pending' && order.sunsky_sku !== null).reduce((sum, order) => sum + (order.quantity || 0), 0)}
                 </div>
-                <p className="text-muted-foreground mt-1">Awaiting supplier placement</p>
+                <p className="text-muted-foreground mt-1">Matched items awaiting order placement</p>
               </CardContent>
             </Card>
           </div>
