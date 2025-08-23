@@ -223,6 +223,8 @@ export const useSunskyOrders = () => {
         try {
           const relatedPONumbers = poNumbersByOrderNumber.get(orderNumber) || [];
           
+          console.log(`Attempting to sync order ${orderNumber} with PO numbers:`, relatedPONumbers);
+          
           const { data, error } = await supabase.functions.invoke('sunsky-api', {
             body: {
               action: 'getOrderDetails',
@@ -231,16 +233,36 @@ export const useSunskyOrders = () => {
             },
           });
 
+          console.log(`Response for order ${orderNumber}:`, { data, error });
+
           if (error) {
             console.error(`Error syncing order ${orderNumber}:`, error);
+            toast({
+              title: 'API Error',
+              description: `Failed to sync order ${orderNumber}: ${error.message}`,
+              variant: 'destructive',
+            });
             continue;
           }
 
-          if (data.result === 'success') {
+          if (data && data.result === 'success') {
+            console.log(`Successfully synced order ${orderNumber}`);
             syncedCount++;
+          } else {
+            console.error(`Order ${orderNumber} sync failed:`, data);
+            toast({
+              title: 'Sync Failed',
+              description: `Order ${orderNumber}: ${data?.message || 'Unknown error'}`,
+              variant: 'destructive',
+            });
           }
         } catch (err) {
           console.error(`Failed to sync order ${orderNumber}:`, err);
+          toast({
+            title: 'Request Failed',
+            description: `Order ${orderNumber}: ${err instanceof Error ? err.message : 'Network error'}`,
+            variant: 'destructive',
+          });
         }
       }
 

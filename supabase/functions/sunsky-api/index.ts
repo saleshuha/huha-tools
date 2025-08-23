@@ -2003,100 +2003,160 @@ serve(async (req) => {
       case 'getOrderDetails': {
         const { orderNumber, poNumbers } = requestData;
         
-        if (!orderNumber) {
-          throw new Error('Order number is required');
-        }
-
-        // Get credentials from database/env (no longer accept from client)
-        const credentials = await getApiCredentials(user.id);
+        console.log('=== getOrderDetails START ===');
+        console.log('Request data:', { orderNumber, poNumbers });
         
-        if (!credentials) {
-          throw new Error('No active Sunsky API credentials found');
+        if (!orderNumber) {
+          console.error('Order number is required');
+          return new Response(JSON.stringify({ 
+            result: 'error', 
+            message: 'Order number is required' 
+          }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
         }
 
-        console.log('Getting order details for:', orderNumber, 'with PO numbers:', poNumbers);
-
-        const response = await makeSunskyRequest(
-          '/openapi/order!getOrder.do',
-          { number: orderNumber },
-          credentials.key,
-          credentials.secret,
-          user.id
-        );
-
-        console.log('Order details response:', { 
-          hasResult: !!response.result, 
-          resultType: typeof response.result,
-          orderNumber: orderNumber
-        });
-
-        if (response.result === 'success' && response.data) {
-          const order = response.data;
-          console.log('Processing order details for storage with PO numbers:', poNumbers);
+        try {
+          // Get credentials from database/env (no longer accept from client)
+          console.log('Getting API credentials for user:', user.id);
+          const credentials = await getApiCredentials(user.id);
           
-          // Store the main order with status tracking
-          const now = new Date().toISOString();
-          const orderToUpsert = {
-            user_id: user.id,
-            number: order.number,
-            status: order.status?.toString() || null,
-            status_last_updated_at: order.statusUpdateTime || now,
-            site_number: order.siteNumber || null,
-            po_numbers: poNumbers || [],
-            gmt_created: order.gmtCreated ? new Date(order.gmtCreated) : null,
-            total: order.totalAmount ? parseFloat(order.totalAmount) : null,
-            currency: 'USD',
-            shipping_company: order.shippingWay?.name || null,
-            tracking_number: order.trackingNumber || null,
-            tracking_url: order.shippingWay?.queryUrl || null,
-            last_synced_at: now,
-            raw: order
-          };
-
-          const { error: insertError } = await supabase
-            .from('sunsky_orders')
-            .upsert([orderToUpsert], { onConflict: 'number' });
-          
-          if (insertError) {
-            console.error('Error storing order:', insertError);
-          } else {
-            console.log('Successfully stored order details');
+          if (!credentials) {
+            console.error('No active Sunsky API credentials found');
+            return new Response(JSON.stringify({ 
+              result: 'error', 
+              message: 'No active Sunsky API credentials found' 
+            }), {
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
           }
-          
-          // Store order items with status tracking if available
-          if (order.items && Array.isArray(order.items)) {
-            const itemsToUpsert = order.items.map((item: any) => ({
-              user_id: user.id,
-              order_number: order.number,
-              sku_code: item.skuCode || null,
-              model_number: item.modelNumber || null,
-              title: item.title || null,
-              quantity: item.quantity ? parseInt(item.quantity) : null,
-              unit_price: item.unitPrice ? parseFloat(item.unitPrice) : null,
-              currency: 'USD',
-              asin: item.asin || null,
-              item_status: item.status || item.stockStatus || order.status || null,
-              status_last_updated_at: item.statusUpdateTime || order.statusUpdateTime || now,
-              expected_ship_date: item.estimatedShipDate || item.expectedShipDate ? new Date(item.estimatedShipDate || item.expectedShipDate) : null,
-              last_synced_at: now,
-              raw: item
-            }));
 
-            const { error: itemsError } = await supabase
-              .from('sunsky_order_items')
-              .upsert(itemsToUpsert, { onConflict: 'order_number,sku_code' });
+          console.log('Making Sunsky API request for order:', orderNumber);
+          
+          const response = await makeSunskyRequest(
+            '/openapi/order!getOrder.do',
+            { number: orderNumber },
+            credentials.key,
+            credentials.secret,
+            user.id
+          );
+
+          console.log('Sunsky API response:', { 
+            hasResult: !!response.result, 
+            resultType: typeof response.result,
+            orderNumber: orderNumber,
+            message: response.message || 'No message'
+          });
+
+          if (response.result === 'success' && response.data) {
+            const order = response.data;
+            console.log('Processing order details for storage with PO numbers:', poNumbers);
             
-            if (itemsError) {
-              console.error('Error storing order items:', itemsError);
-            } else {
-              console.log(`Successfully stored ${itemsToUpsert.length} order items`);
-            }
-          }
-        }
+            // Store the main order with status tracking
+            const now = new Date().toISOString();
+            const orderToUpsert = {
+              user_id: user.id,
+              number: order.number,
+              status: order.status?.toString() || null,
+              status_last_updated_at: order.statusUpdateTime || now,
+              site_number: order.siteNumber || null,
+              po_numbers: poNumbers || [],
+              gmt_created: order.gmtCreated ? new Date(order.gmtCreated) : null,
+              total: order.totalAmount ? parseFloat(order.totalAmount) : null,
+              currency: 'USD',
+              shipping_company: order.shippingWay?.name || null,
+              tracking_number: order.trackingNumber || null,
+              tracking_url: order.shippingWay?.queryUrl || null,
+              last_synced_at: now,
+              raw: order
+            };
 
-        return new Response(JSON.stringify(response), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+            console.log('Upserting order to database:', orderToUpsert.number);
+            const { error: insertError } = await supabase
+              .from('sunsky_orders')
+              .upsert([orderToUpsert], { onConflict: 'number' });
+            
+            if (insertError) {
+              console.error('Error storing order:', insertError);
+              return new Response(JSON.stringify({ 
+                result: 'error', 
+                message: 'Failed to store order: ' + insertError.message 
+              }), {
+                status: 500,
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              });
+            } else {
+              console.log('Successfully stored order details');
+            }
+            
+            // Store order items with status tracking if available
+            if (order.items && Array.isArray(order.items)) {
+              const itemsToUpsert = order.items.map((item: any) => ({
+                user_id: user.id,
+                order_number: order.number,
+                sku_code: item.skuCode || null,
+                model_number: item.modelNumber || null,
+                title: item.title || null,
+                quantity: item.quantity ? parseInt(item.quantity) : null,
+                unit_price: item.unitPrice ? parseFloat(item.unitPrice) : null,
+                currency: 'USD',
+                asin: item.asin || null,
+                item_status: item.status || item.stockStatus || order.status || null,
+                status_last_updated_at: item.statusUpdateTime || order.statusUpdateTime || now,
+                expected_ship_date: item.estimatedShipDate || item.expectedShipDate ? new Date(item.estimatedShipDate || item.expectedShipDate) : null,
+                last_synced_at: now,
+                raw: item
+              }));
+
+              console.log(`Upserting ${itemsToUpsert.length} order items`);
+              const { error: itemsError } = await supabase
+                .from('sunsky_order_items')
+                .upsert(itemsToUpsert, { onConflict: 'order_number,sku_code' });
+              
+              if (itemsError) {
+                console.error('Error storing order items:', itemsError);
+                return new Response(JSON.stringify({ 
+                  result: 'error', 
+                  message: 'Failed to store order items: ' + itemsError.message 
+                }), {
+                  status: 500,
+                  headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                });
+              } else {
+                console.log(`Successfully stored ${itemsToUpsert.length} order items`);
+              }
+            }
+            
+            console.log('=== getOrderDetails SUCCESS ===');
+            return new Response(JSON.stringify({
+              result: 'success',
+              message: 'Order details synchronized successfully',
+              data: order
+            }), {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+          } else {
+            console.error('Sunsky API returned error or no data:', response);
+            return new Response(JSON.stringify({ 
+              result: 'error', 
+              message: response.message || 'Failed to get order details from Sunsky API' 
+            }), {
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+          }
+        } catch (error: any) {
+          console.error('Error in getOrderDetails:', error);
+          return new Response(JSON.stringify({ 
+            result: 'error', 
+            message: 'Internal error: ' + error.message 
+          }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
       }
 
       case 'getOrderLabels': {
