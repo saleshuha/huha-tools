@@ -5,10 +5,9 @@ const config: CapacitorConfig = {
   appName: 'huha-tools',
   webDir: 'dist',
   server: {
-    // For development (hot reload on device)
-    url: 'https://b8534ecb-6b6b-4285-9675-7d5b3166e7b9.lovableproject.com?forceHideBadge=true',
+    // For production APK build - serves bundled assets
+    // url: 'https://b8534ecb-6b6b-4285-9675-7d5b3166e7b9.lovableproject.com?forceHideBadge=true',
     cleartext: true
-    // For production APK build, comment out the url above
   },
   plugins: {
     SplashScreen: {
