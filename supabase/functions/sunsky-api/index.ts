@@ -1978,7 +1978,9 @@ serve(async (req) => {
         const response = await makeSunskyRequest(
           '/openapi/order!getOrderList.do',
           params,
-          credentials
+          credentials.key,
+          credentials.secret,
+          user.id
         );
 
         if (response.result === 'success' && response.result) {
