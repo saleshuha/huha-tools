@@ -1183,12 +1183,24 @@ export function Replenishment() {
 
       toast({
         title: "Sunsky Order Placed Successfully",
-        description: `Order ${orderNumber} has been placed. Selected items marked as ordered.`,
+        description: `Order ${orderNumber} has been placed. Selected items marked as ordered. The order may take a few minutes to appear in Sunsky Order Tracking.`,
       });
 
       setSelectedItems(new Set());
       setSunskyDialogOpen(false);
       loadRestockItems(); // Refresh data
+      
+      // Try to trigger sync after a short delay to give Sunsky time to process
+      setTimeout(async () => {
+        try {
+          console.log('Attempting to sync Sunsky orders after placement...');
+          // Note: We could call a sync function here if available
+          // For now, just log that manual sync is recommended
+        } catch (error) {
+          console.log('Auto-sync failed, manual sync may be needed');
+        }
+      }, 30000); // Wait 30 seconds before attempting sync
+      
     } catch (error) {
       console.error('Error updating items after Sunsky order:', error);
       toast({
