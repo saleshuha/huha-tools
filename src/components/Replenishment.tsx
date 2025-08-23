@@ -1210,6 +1210,14 @@ export function Replenishment() {
   const extractSkuFromIdentifier = (identifier: string): string => {
     console.log(`extractSkuFromIdentifier input: "${identifier}"`);
     
+    // First check for the specific format: "ASIN (serial) | SKU: ACTUAL_SKU"
+    const skuMatch = identifier.match(/\|\s*SKU:\s*([^\s|]+)/i);
+    if (skuMatch) {
+      const foundSku = skuMatch[1].trim();
+      console.log(`Found SKU in | SKU: format: "${foundSku}"`);
+      return foundSku;
+    }
+    
     // Extract SKU from identifier like "SKU123 (serial456)"
     const match = identifier.match(/^([^(]+)/);
     const extracted = match ? match[1].trim() : identifier;
@@ -1218,7 +1226,20 @@ export function Replenishment() {
     
     // Don't return Amazon ASINs as SKUs
     if (isAmazonAsin(extracted)) {
-      console.log(`Extracted part is Amazon ASIN, skipping: "${extracted}"`);
+      console.log(`Extracted part is Amazon ASIN, checking other parts: "${extracted}"`);
+      
+      // Check if there's a SKU in parentheses or after the ASIN
+      const parenthesesMatch = identifier.match(/\(([^)]+)\)/);
+      const parenthesesContent = parenthesesMatch ? parenthesesMatch[1].trim() : '';
+      
+      console.log(`Parentheses content: "${parenthesesContent}"`);
+      
+      // Return parentheses content if it's not an ASIN and looks valid
+      if (parenthesesContent && !isAmazonAsin(parenthesesContent) && parenthesesContent.length >= 3) {
+        console.log(`Using parentheses content as SKU: "${parenthesesContent}"`);
+        return parenthesesContent;
+      }
+      
       return '';
     }
     
