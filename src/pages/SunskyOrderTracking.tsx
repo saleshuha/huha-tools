@@ -71,22 +71,32 @@ export default function SunskyOrderTrackingPage() {
   const fetchPlacedOrders = async () => {
     try {
       setLoading(true);
+      
+      // Fetch PO orders and join with sunsky_skus to get only matched items
       const { data, error } = await supabase
         .from('po_orders')
-        .select('*')
+        .select(`
+          *,
+          sunsky_sku:sunsky_skus!inner(id, sku_code, title, cost, weight, currency)
+        `)
         .in('status', ['pending', 'ordered', 'shipped', 'delivered', 'closed'])
         .eq('country', selectedCountry)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
       
-      setOrders(data || []);
-      setFilteredOrders(data || []);
+      // Filter to only include orders that have matching sunsky SKUs
+      const matchedOrders = (data || []).filter(order => 
+        order.sunsky_sku && order.sunsky_sku.length > 0
+      );
+      
+      setOrders(matchedOrders);
+      setFilteredOrders(matchedOrders);
     } catch (error) {
-      console.error('Error fetching placed orders:', error);
+      console.error('Error fetching matched orders:', error);
       toast({
         title: 'Error',
-        description: 'Failed to load placed orders',
+        description: 'Failed to load matched orders',
         variant: 'destructive'
       });
     } finally {
@@ -278,7 +288,7 @@ export default function SunskyOrderTrackingPage() {
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="po-orders" className="flex items-center gap-2">
               <Database className="h-4 w-4" />
-              PO Orders ({orders.length})
+              Matched PO Orders ({orders.length})
             </TabsTrigger>
             <TabsTrigger value="sunsky-orders" className="flex items-center gap-2">
               <Cloud className="h-4 w-4" />
@@ -290,7 +300,7 @@ export default function SunskyOrderTrackingPage() {
           <TabsContent value="po-orders">
             <Card>
               <CardHeader>
-                <CardTitle>PO Orders - Local Database ({filteredOrders.length})</CardTitle>
+                <CardTitle>Matched PO Orders - Ready to Place ({filteredOrders.length})</CardTitle>
               </CardHeader>
               <CardContent>
                 {loading ? (
@@ -301,8 +311,8 @@ export default function SunskyOrderTrackingPage() {
                 ) : filteredOrders.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No placed orders found</p>
-                    <p className="text-sm">Orders will appear here once they are placed with Sunsky</p>
+                    <p>No matched orders found</p>
+                    <p className="text-sm">Only PO orders with matching Sunsky SKUs are shown here</p>
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
