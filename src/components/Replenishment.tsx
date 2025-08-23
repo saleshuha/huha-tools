@@ -1051,12 +1051,22 @@ export function Replenishment() {
     
     // Calculate quantities based on units sold after last restock
     const orderItems = await Promise.all(selectedRestockItems.map(async item => {
+      console.log('Processing item for Sunsky order:', item.identifier);
+      
       const extractedSku = extractSkuFromIdentifier(item.identifier);
       const extractedModel = extractModelFromIdentifier(item.identifier);
       const sunskySku = extractedSku || extractedModel;
       
+      console.log('Extracted values:', { 
+        identifier: item.identifier, 
+        extractedSku, 
+        extractedModel, 
+        sunskySku 
+      });
+      
       // If no SKU is found, skip this item
       if (!sunskySku) {
+        console.log('No valid SKU found for item:', item.identifier);
         return null;
       }
       
@@ -1205,6 +1215,17 @@ export function Replenishment() {
       return '';
     }
     
+    // If the extracted part is too short or looks like a serial number, try the parentheses
+    if (extracted.length < 3 || /^\d+$/.test(extracted)) {
+      const parenthesesMatch = identifier.match(/\(([^)]+)\)/);
+      const parenthesesContent = parenthesesMatch ? parenthesesMatch[1].trim() : '';
+      
+      // Return parentheses content if it's not an ASIN and looks valid
+      if (parenthesesContent && !isAmazonAsin(parenthesesContent) && parenthesesContent.length >= 3) {
+        return parenthesesContent;
+      }
+    }
+    
     return extracted;
   };
 
@@ -1225,18 +1246,22 @@ export function Replenishment() {
     }
     
     // If it looks like a model number (contains letters and numbers, not just numbers), return it
-    // Otherwise, try to extract from the main part if it's not an ASIN
     if (modelCandidate && /[A-Za-z]/.test(modelCandidate) && modelCandidate.length > 3) {
       return modelCandidate;
     }
     
     // If no good model found in parentheses, check if the main identifier is a model (not an ASIN)
     const mainPart = identifier.split('(')[0].trim();
-    if (mainPart && !/^[A-Z0-9]{10}$/.test(mainPart)) {
+    if (mainPart && !isAmazonAsin(mainPart) && /[A-Za-z]/.test(mainPart) && mainPart.length >= 3) {
       return mainPart;
     }
     
-    return modelCandidate; // Return whatever we found, even if it might be a serial
+    // As a last resort, return the model candidate if it's not purely numeric and has reasonable length
+    if (modelCandidate && modelCandidate.length >= 3 && !/^\d+$/.test(modelCandidate)) {
+      return modelCandidate;
+    }
+    
+    return '';
   };
 
   // Export data functions
