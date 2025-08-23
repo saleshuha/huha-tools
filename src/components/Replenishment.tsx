@@ -1036,7 +1036,7 @@ export function Replenishment() {
   };
 
   // Sunsky order handlers
-  const handlePlaceOrderFromSunsky = () => {
+  const handlePlaceOrderFromSunsky = async () => {
     if (selectedItems.size === 0) {
       toast({
         title: "No Items Selected",
@@ -1049,31 +1049,88 @@ export function Replenishment() {
     // Convert selected restock items to the format expected by SunskyOrderDialog
     const selectedRestockItems = pendingItems.filter(item => selectedItems.has(item.id));
     
-    // Transform restock items to match PO order format expected by dialog
-    const orderItems = selectedRestockItems.map(item => {
+    // Calculate quantities based on units sold after last restock
+    const orderItems = await Promise.all(selectedRestockItems.map(async item => {
       const extractedSku = extractSkuFromIdentifier(item.identifier);
       const extractedModel = extractModelFromIdentifier(item.identifier);
       const sunskySku = extractedSku || extractedModel;
+      
+      // If no SKU is found, skip this item
+      if (!sunskySku) {
+        return null;
+      }
+      
+      // Calculate quantity based on sales after last restock
+      let calculatedQty = 1; // Default minimum quantity
+      
+      try {
+        // Query stock changes to calculate units sold since last restock
+        let stockChangesQuery;
+        
+        if (item.table_name === 'asin_inventory') {
+          stockChangesQuery = supabase
+            .from('stock_changes')
+            .select('change_amount, created_at')
+            .eq('inventory_id', item.id)
+            .eq('inventory_type', 'asin')
+            .lt('change_amount', 0); // Only negative changes (sales)
+        } else {
+          stockChangesQuery = supabase
+            .from('stock_changes')
+            .select('change_amount, created_at')
+            .eq('inventory_id', item.id)
+            .eq('inventory_type', 'sku')
+            .lt('change_amount', 0); // Only negative changes (sales)
+        }
+
+        // If there's a last restock date, only count sales after that date
+        if (item.days_since_last_restock !== null) {
+          const lastRestockDate = new Date(Date.now() - (item.days_since_last_restock * 24 * 60 * 60 * 1000));
+          stockChangesQuery = stockChangesQuery.gte('created_at', lastRestockDate.toISOString());
+        }
+
+        const { data: stockChanges } = await stockChangesQuery;
+        
+        if (stockChanges && stockChanges.length > 0) {
+          // Sum all negative changes (units sold)
+          const unitsSold = stockChanges.reduce((sum, change) => sum + Math.abs(change.change_amount), 0);
+          calculatedQty = unitsSold;
+        }
+        
+        // If no restock was made before (days_since_last_restock is null), add 1 piece
+        if (item.days_since_last_restock === null) {
+          calculatedQty += 1;
+        }
+        
+        // Ensure minimum quantity of 1
+        calculatedQty = Math.max(1, calculatedQty);
+      } catch (error) {
+        console.error('Error calculating quantity for item:', item.id, error);
+        // Fall back to default quantity of 1
+      }
       
       return {
         id: item.id,
         po_number: `RESTOCK-${Date.now()}`, // Generate a unique PO number for restocking
         sku_code: extractedSku,
         asin: '', // Don't use ASIN for Sunsky search
-        quantity: 1, // Default quantity, user can modify in dialog
+        quantity: calculatedQty,
         status: 'pending',
         model_number: extractedModel,
         title: `Restock for ${item.identifier}`,
         notes: sunskySku ? 
-          `Replenishment order for out of stock item - Search by ${extractedSku ? 'SKU' : 'Model'}: ${sunskySku}` :
+          `Replenishment order - Qty: ${calculatedQty} (based on sales after last restock) - Search by ${extractedSku ? 'SKU' : 'Model'}: ${sunskySku}` :
           `Replenishment order for out of stock item - No valid Sunsky SKU found (contains Amazon ASIN)`,
         sunsky_sku: sunskySku, // Use valid SKU/model, avoiding Amazon ASINs
         itemNo: sunskySku, // Add itemNo field for SunskyOrderDialog compatibility
-        qty: 1
+        qty: calculatedQty
       };
-    }).filter(item => item.itemNo); // Only include items with valid Sunsky SKUs
+    }));
+    
+    // Filter out null items (items without valid SKUs)
+    const validOrderItems = orderItems.filter(item => item !== null);
 
-    if (orderItems.length === 0) {
+    if (validOrderItems.length === 0) {
       toast({
         title: "No Valid SKUs Found",
         description: "The selected items contain only Amazon ASINs which are not compatible with Sunsky. Please select items with valid SKU or model numbers.",
@@ -1082,15 +1139,15 @@ export function Replenishment() {
       return;
     }
 
-    if (orderItems.length < selectedRestockItems.length) {
+    if (validOrderItems.length < selectedRestockItems.length) {
       toast({
-        title: `${selectedRestockItems.length - orderItems.length} Items Skipped`,
+        title: `${selectedRestockItems.length - validOrderItems.length} Items Skipped`,
         description: "Some items were skipped because they only contain Amazon ASINs. Only items with valid SKUs will be processed.",
         variant: "default",
       });
     }
 
-    setSunskyOrderItems(orderItems);
+    setSunskyOrderItems(validOrderItems);
     setSunskyDialogOpen(true);
   };
 
