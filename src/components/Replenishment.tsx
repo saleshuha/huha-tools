@@ -682,7 +682,7 @@ export function Replenishment() {
       'Item Type': item.item_type,
       'ASIN': item.asin || 'N/A',
       'SKU': item.sku || 'N/A',
-      'Serial Number': item.serial_number || 'N/A',
+      'Serial Number': item.serial_number ? `="${item.serial_number}"` : 'N/A',
       'Quantity': item.quantity,
       'Status': item.status,
       'Last Sold Date': item.last_sold_date ? format(new Date(item.last_sold_date), 'yyyy-MM-dd') : 'Never',
