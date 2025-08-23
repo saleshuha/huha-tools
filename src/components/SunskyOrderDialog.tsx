@@ -308,9 +308,23 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
     try {
       // Step 1: Validating items (20%)
       setLoadingProgress(20);
+      console.log('All order items before filtering:', orderItems);
+      console.log('Checked items:', Array.from(checkedItems));
+      
       const items = orderItems
         .filter(item => checkedItems.has(item.itemNo) && item.qty > 0 && item.itemNo)
         .map(item => ({ itemNo: item.itemNo, qty: item.qty }));
+
+      console.log('Filtered items for API:', items);
+      
+      if (items.length === 0) {
+        toast({
+          title: "No Valid Items Selected",
+          description: "Please ensure items have valid SKU codes and quantities greater than 0",
+          variant: "destructive"
+        });
+        return;
+      }
 
       // Step 2: Preparing request data (40%)
       setLoadingProgress(40);
