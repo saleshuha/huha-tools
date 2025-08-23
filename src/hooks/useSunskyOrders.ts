@@ -31,6 +31,10 @@ export interface SunskyOrderItem {
   unit_price: number | null;
   currency: string | null;
   asin: string | null;
+  item_status: string | null;
+  status_last_updated_at: string | null;
+  expected_ship_date: string | null;
+  last_synced_at: string;
   raw: any;
   created_at: string;
 }
@@ -40,6 +44,9 @@ interface SunskyOrdersState {
   loading: boolean;
   error: string | null;
   syncing: boolean;
+  progressCurrent: number;
+  progressTotal: number;
+  progressPercent: number;
 }
 
 export const useSunskyOrders = () => {
@@ -48,6 +55,9 @@ export const useSunskyOrders = () => {
     loading: false,
     error: null,
     syncing: false,
+    progressCurrent: 0,
+    progressTotal: 0,
+    progressPercent: 0,
   });
 
   const { toast } = useToast();
@@ -88,17 +98,8 @@ export const useSunskyOrders = () => {
   };
 
   // Sync orders from Sunsky API - only orders placed from our app that match PO orders
-  const syncOrdersFromAPI = async (filters: {
-    pageSize?: number;
-    page?: number;
-    status?: string;
-    siteNumber?: string;
-    gmtCreatedStart?: string;
-    gmtCreatedEnd?: string;
-    apiKey?: string;
-    apiSecret?: string;
-  } = {}) => {
-    setState(prev => ({ ...prev, syncing: true, error: null }));
+  const syncOrdersFromAPI = async () => {
+    setState(prev => ({ ...prev, syncing: true, error: null, progressCurrent: 0, progressTotal: 0, progressPercent: 0 }));
 
     try {
       // First, get PO orders that have matching Sunsky SKUs (matched orders ready to place/placed)
@@ -150,9 +151,9 @@ export const useSunskyOrders = () => {
       }
 
       // Get unique order numbers that were placed (have supplier_order_number)
-      const placedOrderNumbers = matchedOrders
+      const placedOrderNumbers = [...new Set(matchedOrders
         .map(po => po.supplier_order_number)
-        .filter(Boolean);
+        .filter(Boolean))];
 
       console.log('Syncing orders for placed order numbers:', placedOrderNumbers);
 
@@ -167,9 +168,19 @@ export const useSunskyOrders = () => {
         }
       });
 
-      // Sync each placed order with PO context
+      setState(prev => ({ ...prev, progressTotal: placedOrderNumbers.length }));
+
+      // Sync each placed order with PO context and track progress
       let syncedCount = 0;
-      for (const orderNumber of placedOrderNumbers) {
+      for (let i = 0; i < placedOrderNumbers.length; i++) {
+        const orderNumber = placedOrderNumbers[i];
+        
+        setState(prev => ({ 
+          ...prev, 
+          progressCurrent: i + 1, 
+          progressPercent: Math.round(((i + 1) / placedOrderNumbers.length) * 100)
+        }));
+
         try {
           const relatedPONumbers = poNumbersByOrderNumber.get(orderNumber) || [];
           
@@ -177,9 +188,7 @@ export const useSunskyOrders = () => {
             body: {
               action: 'getOrderDetails',
               orderNumber: orderNumber,
-              poNumbers: relatedPONumbers, // Pass related PO numbers
-              apiKey: 'zawa.faza11',
-              apiSecret: 'djbwfqewbqfeqljfw',
+              poNumbers: relatedPONumbers,
             },
           });
 
@@ -198,7 +207,7 @@ export const useSunskyOrders = () => {
 
       toast({
         title: 'Success',
-        description: `Synced ${syncedCount} matched orders from Sunsky`,
+        description: `Synced ${syncedCount} orders from Sunsky`,
       });
       
       // Refresh local data
@@ -211,7 +220,7 @@ export const useSunskyOrders = () => {
         variant: 'destructive',
       });
     } finally {
-      setState(prev => ({ ...prev, syncing: false }));
+      setState(prev => ({ ...prev, syncing: false, progressCurrent: 0, progressTotal: 0, progressPercent: 0 }));
     }
   };
 
@@ -282,11 +291,27 @@ export const useSunskyOrders = () => {
     fetchStoredOrders();
   }, []);
 
+  // Get slow/delayed items using RPC
+  const getSlowItems = async (thresholdDays: number = 3) => {
+    try {
+      const { data, error } = await supabase.rpc('get_sunsky_slow_items', {
+        threshold_days: thresholdDays
+      });
+      
+      if (error) throw error;
+      return data || [];
+    } catch (error: any) {
+      console.error('Failed to get slow items:', error);
+      return [];
+    }
+  };
+
   return {
     ...state,
     fetchStoredOrders,
     syncOrdersFromAPI,
     getOrderDetails,
     getOrderLabels,
+    getSlowItems,
   };
 };

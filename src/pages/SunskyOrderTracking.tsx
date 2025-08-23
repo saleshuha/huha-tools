@@ -1,50 +1,27 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
-import { useCountry } from '@/contexts/CountryContext';
 import { useSunskyOrders } from '@/hooks/useSunskyOrders';
+import { useCountry } from '@/contexts/CountryContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Progress } from '@/components/ui/progress';
 import { 
-  ExternalLink, Package, Search, RefreshCw, Truck, CheckCircle, 
-  Clock, AlertCircle, Database, Cloud, Info 
+  ExternalLink, Search, RefreshCw, ChevronDown, ChevronUp,
+  Package, Clock, Truck, CheckCircle, AlertTriangle, AlertCircle 
 } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
-interface PlacedOrder {
-  id: string;
-  po_number: string;
-  sku_code: string;
-  quantity: number;
-  status: string;
-  order_date: string;
-  expected_delivery?: string;
-  supplier_order_number?: string;
-  tracking_number?: string;
-  tracking_url?: string;
-  title?: string;
-  model_number?: string;
-  asin?: string;
-  unit_cost?: number;
-  total_cost?: number;
-  currency?: string;
-  ship_to_location?: string;
-  notes?: string;
-  created_at: string;
-  updated_at: string;
-}
-
+// Status configurations for orders and items
 const statusColors = {
-  pending: 'bg-yellow-100 text-yellow-800',
-  ordered: 'bg-blue-100 text-blue-800', 
-  shipped: 'bg-purple-100 text-purple-800',
-  delivered: 'bg-green-100 text-green-800',
-  closed: 'bg-green-100 text-green-800',
-  cancelled: 'bg-red-100 text-red-800'
+  pending: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+  ordered: 'bg-blue-100 text-blue-800 border-blue-200',
+  shipped: 'bg-purple-100 text-purple-800 border-purple-200',
+  delivered: 'bg-green-100 text-green-800 border-green-200',
+  cancelled: 'bg-red-100 text-red-800 border-red-200',
+  ready_to_ship: 'bg-cyan-100 text-cyan-800 border-cyan-200',
+  out_of_stock: 'bg-red-100 text-red-800 border-red-200',
+  delayed: 'bg-orange-100 text-orange-800 border-orange-200'
 };
 
 const statusIcons = {
@@ -52,106 +29,81 @@ const statusIcons = {
   ordered: Package,
   shipped: Truck,
   delivered: CheckCircle,
-  closed: CheckCircle,
-  cancelled: AlertCircle
+  cancelled: AlertCircle,
+  ready_to_ship: Package,
+  out_of_stock: AlertTriangle,
+  delayed: AlertTriangle
 };
 
+interface SlowItem {
+  order_number: string;
+  sku_code: string;
+  title: string;
+  item_status: string;
+  days_in_status: number;
+  expected_ship_date: string;
+  created_at: string;
+}
+
 export default function SunskyOrderTrackingPage() {
-  const [orders, setOrders] = useState<PlacedOrder[]>([]);
-  const [filteredOrders, setFilteredOrders] = useState<PlacedOrder[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
-  
-  const { toast } = useToast();
+  const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
+  const [slowItems, setSlowItems] = useState<SlowItem[]>([]);
+
   const { selectedCountry } = useCountry();
-  const navigate = useNavigate();
-  const sunskyOrders = useSunskyOrders();
+  const {
+    orders,
+    loading,
+    syncing,
+    progressCurrent,
+    progressTotal,
+    progressPercent,
+    fetchStoredOrders,
+    syncOrdersFromAPI,
+    getSlowItems
+  } = useSunskyOrders();
 
-  const fetchPlacedOrders = async () => {
-    try {
-      setLoading(true);
-      
-      // First fetch all PO orders
-      const { data: allOrders, error: ordersError } = await supabase
-        .from('po_orders')
-        .select('*')
-        .in('status', ['pending', 'ordered', 'shipped', 'delivered', 'closed'])
-        .eq('country', selectedCountry)
-        .order('created_at', { ascending: false });
-
-      if (ordersError) throw ordersError;
-
-      if (!allOrders || allOrders.length === 0) {
-        setOrders([]);
-        setFilteredOrders([]);
-        return;
-      }
-
-      // Then fetch sunsky_skus to match against
-      const { data: sunskySkus, error: skusError } = await supabase
-        .from('sunsky_skus')
-        .select('id, sku_code, title, cost, weight, currency')
-        .eq('user_id', (await supabase.auth.getUser()).data.user?.id);
-
-      if (skusError) throw skusError;
-
-      // Manually filter orders that have matching Sunsky SKUs
-      const matchedOrders = allOrders.filter(order => {
-        return sunskySkus?.some(sku => 
-          sku.sku_code === order.sku_code || 
-          sku.sku_code === order.model_number
-        );
-      });
-      
-      setOrders(matchedOrders);
-      setFilteredOrders(matchedOrders);
-    } catch (error) {
-      console.error('Error fetching matched orders:', error);
-      toast({
-        title: 'Error',
-        description: `Failed to load matched orders: ${error.message}`,
-        variant: 'destructive'
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchPlacedOrders();
-  }, [selectedCountry]);
-
-  useEffect(() => {
-    let filtered = orders;
-
-    // Filter by search term
-    if (searchTerm) {
-      filtered = filtered.filter(order => 
-        order.po_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.sku_code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.supplier_order_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.tracking_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.model_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.asin?.toLowerCase().includes(searchTerm.toLowerCase())
+  // Filter orders based on search and status
+  const filteredOrders = orders.filter(order => {
+    const matchesSearch = !searchTerm || 
+      order.number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.tracking_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.items?.some(item => 
+        item.sku_code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.title?.toLowerCase().includes(searchTerm.toLowerCase())
       );
-    }
+    
+    const matchesStatus = selectedStatus === 'all' || order.status === selectedStatus;
+    
+    return matchesSearch && matchesStatus;
+  });
 
-    // Filter by status
-    if (selectedStatus !== 'all') {
-      filtered = filtered.filter(order => order.status === selectedStatus);
-    }
-
-    setFilteredOrders(filtered);
-  }, [searchTerm, selectedStatus, orders]);
-
-  const getStatusIcon = (status: string) => {
-    const IconComponent = statusIcons[status as keyof typeof statusIcons] || AlertCircle;
-    return <IconComponent className="h-4 w-4" />;
+  // Load slow items
+  const loadSlowItems = async () => {
+    const items = await getSlowItems(3);
+    setSlowItems(items);
   };
 
-  const formatDate = (dateString: string) => {
+  useEffect(() => {
+    fetchStoredOrders();
+    loadSlowItems();
+  }, []);
+
+  // Toggle order expansion
+  const toggleOrderExpansion = (orderNumber: string) => {
+    const newExpanded = new Set(expandedOrders);
+    if (newExpanded.has(orderNumber)) {
+      newExpanded.delete(orderNumber);
+    } else {
+      newExpanded.add(orderNumber);
+    }
+    setExpandedOrders(newExpanded);
+  };
+
+  // Format date helper
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
@@ -159,6 +111,7 @@ export default function SunskyOrderTrackingPage() {
     });
   };
 
+  // Format currency helper  
   const formatCurrency = (amount: number, currency: string = 'USD') => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -166,23 +119,49 @@ export default function SunskyOrderTrackingPage() {
     }).format(amount);
   };
 
+  // Get status badge component
+  const getStatusBadge = (status: string, isDelayed?: boolean) => {
+    const displayStatus = isDelayed ? 'delayed' : status;
+    const IconComponent = statusIcons[displayStatus as keyof typeof statusIcons] || AlertCircle;
+    const colorClass = statusColors[displayStatus as keyof typeof statusColors] || 'bg-gray-100 text-gray-800';
+    
+    return (
+      <Badge className={`${colorClass} flex items-center gap-1 w-fit border`}>
+        <IconComponent className="h-3 w-3" />
+        {isDelayed ? 'Delayed' : status?.charAt(0).toUpperCase() + status?.slice(1)}
+      </Badge>
+    );
+  };
+
+  // Check if item is delayed (>3 days in current status)
+  const isItemDelayed = (item: any) => {
+    if (item.item_status === 'shipped' || item.item_status === 'delivered') return false;
+    
+    const statusDate = item.status_last_updated_at || item.created_at;
+    if (!statusDate) return false;
+    
+    const daysSinceUpdate = Math.floor((Date.now() - new Date(statusDate).getTime()) / (1000 * 60 * 60 * 24));
+    return daysSinceUpdate > 3;
+  };
+
+  // Handle tracking link click
   const handleTrackingClick = (url: string) => {
     window.open(url, '_blank');
   };
 
+  // Order statistics
   const orderStats = {
     total: orders.length,
     pending: orders.filter(o => o.status === 'pending').length,
-    closed: orders.filter(o => o.status === 'closed').length,
-    ordered: orders.filter(o => o.status === 'ordered').length,
     shipped: orders.filter(o => o.status === 'shipped').length,
     delivered: orders.filter(o => o.status === 'delivered').length,
-    totalValue: orders.reduce((sum, order) => sum + (order.total_cost || 0), 0)
+    totalValue: orders.reduce((sum, order) => sum + (order.total || 0), 0)
   };
 
   return (
     <div className="min-h-screen bg-gradient-surface">
       <div className="glass-container mx-6 my-4 p-8 animate-fade-in">
+        {/* Header */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -190,27 +169,59 @@ export default function SunskyOrderTrackingPage() {
                 📦 Sunsky Order Tracking
               </h1>
               <p className="text-muted-foreground text-lg">
-                Track your placed Sunsky orders and manage deliveries for {selectedCountry}
+                Track your Sunsky orders and monitor item delivery status for {selectedCountry}
               </p>
             </div>
-            <div className="flex gap-2">
-              <Button onClick={fetchPlacedOrders} disabled={loading} variant="outline">
-                <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-                Refresh PO
-              </Button>
-              <Button 
-                onClick={() => sunskyOrders.syncOrdersFromAPI()}
-                disabled={sunskyOrders.syncing}
-                variant="outline"
-              >
-                <RefreshCw className={`h-4 w-4 mr-2 ${sunskyOrders.syncing ? 'animate-spin' : ''}`} />
-                Sync Matched Orders
-              </Button>
-            </div>
+            <Button 
+              onClick={syncOrdersFromAPI}
+              disabled={syncing}
+              variant="outline"
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+              Sync Sunsky Orders
+            </Button>
           </div>
 
+          {/* Progress bar for syncing */}
+          {syncing && (
+            <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-blue-700">
+                  Syncing orders from Sunsky API...
+                </span>
+                <span className="text-sm text-blue-600">
+                  {progressCurrent}/{progressTotal} ({progressPercent}%)
+                </span>
+              </div>
+              <Progress value={progressPercent} className="h-2" />
+            </div>
+          )}
+
+          {/* Delayed items alert */}
+          {slowItems.length > 0 && (
+            <div className="mb-4 p-4 bg-orange-50 rounded-lg border border-orange-200">
+              <h3 className="font-medium text-orange-800 mb-2 flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4" />
+                Delayed Items ({slowItems.length})
+              </h3>
+              <div className="space-y-2">
+                {slowItems.slice(0, 5).map((item, index) => (
+                  <div key={index} className="text-sm text-orange-700 flex justify-between">
+                    <span>{item.title || item.sku_code} (Order: {item.order_number})</span>
+                    <span>{item.days_in_status} days in {item.item_status || 'current'} status</span>
+                  </div>
+                ))}
+                {slowItems.length > 5 && (
+                  <div className="text-xs text-orange-600">
+                    +{slowItems.length - 5} more delayed items
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-2">
@@ -230,18 +241,6 @@ export default function SunskyOrderTrackingPage() {
                   <div>
                     <p className="text-sm text-muted-foreground">Pending</p>
                     <p className="text-2xl font-bold">{orderStats.pending}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="h-5 w-5 text-green-500" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Closed</p>
-                    <p className="text-2xl font-bold">{orderStats.closed}</p>
                   </div>
                 </div>
               </CardContent>
@@ -277,7 +276,7 @@ export default function SunskyOrderTrackingPage() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by PO number, SKU, tracking number, title..."
+                placeholder="Search by order number, tracking, SKU, or title..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -293,321 +292,149 @@ export default function SunskyOrderTrackingPage() {
               <option value="ordered">Ordered</option>
               <option value="shipped">Shipped</option>
               <option value="delivered">Delivered</option>
-              <option value="closed">Closed</option>
+              <option value="cancelled">Cancelled</option>
             </select>
           </div>
         </div>
 
-        <Tabs defaultValue="po-orders" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="po-orders" className="flex items-center gap-2">
-              <Database className="h-4 w-4" />
-              Matched PO Orders ({orders.length})
-            </TabsTrigger>
-            <TabsTrigger value="sunsky-orders" className="flex items-center gap-2">
-              <Cloud className="h-4 w-4" />
-              Sunsky Orders ({sunskyOrders.orders.length})
-            </TabsTrigger>
-            <TabsTrigger value="detailed">Detailed View</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="po-orders">
-            <Card>
-              <CardHeader>
-                <CardTitle>Matched PO Orders - Ready to Place ({filteredOrders.length})</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {loading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <RefreshCw className="h-6 w-6 animate-spin mr-2" />
-                    Loading orders...
-                  </div>
-                ) : filteredOrders.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No matched orders found</p>
-                    <p className="text-sm">Only PO orders with matching Sunsky SKUs are shown here</p>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>PO Number</TableHead>
-                          <TableHead>SKU/Product</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Quantity</TableHead>
-                          <TableHead>Order Date</TableHead>
-                          <TableHead>Tracking</TableHead>
-                          <TableHead>Value</TableHead>
-                          <TableHead>Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredOrders.map((order) => (
-                          <TableRow key={order.id}>
-                            <TableCell className="font-medium">
-                              {order.po_number}
-                              {order.supplier_order_number && (
-                                <div className="text-xs text-muted-foreground">
-                                  Supplier: {order.supplier_order_number}
-                                </div>
-                              )}
-                            </TableCell>
-                            <TableCell>
+        {/* Orders List */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Sunsky Orders ({filteredOrders.length})</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="flex items-center justify-center py-8">
+                <RefreshCw className="h-6 w-6 animate-spin mr-2" />
+                Loading orders...
+              </div>
+            ) : filteredOrders.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>No orders found</p>
+                <p className="text-sm">Try syncing orders from Sunsky or adjust your filters</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {filteredOrders.map((order) => (
+                  <Card key={order.id} className="border-l-4 border-l-primary">
+                    <Collapsible 
+                      open={expandedOrders.has(order.number)}
+                      onOpenChange={() => toggleOrderExpansion(order.number)}
+                    >
+                      <CollapsibleTrigger asChild>
+                        <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
                               <div>
-                                <div className="font-medium">{order.sku_code}</div>
-                                {order.title && (
-                                  <div className="text-xs text-muted-foreground truncate max-w-[200px]">
-                                    {order.title}
-                                  </div>
-                                )}
-                                {order.model_number && (
-                                  <div className="text-xs text-blue-600">
-                                    Model: {order.model_number}
+                                <div className="font-bold text-lg">Order #{order.number}</div>
+                                <div className="text-sm text-muted-foreground">
+                                  Site: {order.site_number || 'N/A'} • Created: {formatDate(order.gmt_created)}
+                                </div>
+                              </div>
+                              {getStatusBadge(order.status || 'pending')}
+                            </div>
+                            
+                            <div className="flex items-center gap-4">
+                              <div className="text-right">
+                                <div className="font-bold">
+                                  {order.total ? formatCurrency(order.total, order.currency) : 'N/A'}
+                                </div>
+                                {order.tracking_number && (
+                                  <div className="text-xs text-muted-foreground font-mono">
+                                    {order.tracking_number}
                                   </div>
                                 )}
                               </div>
-                            </TableCell>
-                            <TableCell>
-                              <Badge className={`${statusColors[order.status as keyof typeof statusColors]} flex items-center gap-1 w-fit`}>
-                                {getStatusIcon(order.status)}
-                                {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>{order.quantity}</TableCell>
-                            <TableCell>
-                              {order.order_date ? formatDate(order.order_date) : 'N/A'}
-                              {order.expected_delivery && (
-                                <div className="text-xs text-muted-foreground">
-                                  Expected: {formatDate(order.expected_delivery)}
-                                </div>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              {order.tracking_number ? (
-                                <div>
-                                  <div className="font-mono text-xs">{order.tracking_number}</div>
-                                  {order.tracking_url && (
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => handleTrackingClick(order.tracking_url!)}
-                                      className="mt-1 h-6 text-xs"
-                                    >
-                                      <ExternalLink className="h-3 w-3 mr-1" />
-                                      Track
-                                    </Button>
-                                  )}
-                                </div>
-                              ) : (
-                                <span className="text-muted-foreground text-xs">No tracking yet</span>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              {order.total_cost 
-                                ? formatCurrency(order.total_cost, order.currency || 'USD')
-                                : 'N/A'
-                              }
-                            </TableCell>
-                            <TableCell>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => navigate('/po-tracker', { 
-                                  state: { selectedPO: order.po_number } 
+                              
+                              <div className="flex items-center gap-2">
+                                {order.tracking_url && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleTrackingClick(order.tracking_url!);
+                                    }}
+                                  >
+                                    <ExternalLink className="h-3 w-3 mr-1" />
+                                    Track
+                                  </Button>
+                                )}
+                                {expandedOrders.has(order.number) ? (
+                                  <ChevronUp className="h-4 w-4" />
+                                ) : (
+                                  <ChevronDown className="h-4 w-4" />
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </CardHeader>
+                      </CollapsibleTrigger>
+                      
+                      <CollapsibleContent>
+                        <CardContent className="pt-0">
+                          <div className="border-t pt-4">
+                            <h4 className="font-medium mb-3 flex items-center gap-2">
+                              <Package className="h-4 w-4" />
+                              Items ({order.items?.length || 0})
+                            </h4>
+                            
+                            {order.items && order.items.length > 0 ? (
+                              <div className="space-y-3">
+                                {order.items.map((item, index) => {
+                                  const delayed = isItemDelayed(item);
+                                  return (
+                                    <div key={index} className={`p-3 rounded border ${delayed ? 'border-orange-200 bg-orange-50' : 'border-border'}`}>
+                                      <div className="flex items-start justify-between">
+                                        <div className="flex-1">
+                                          <div className="font-medium">{item.title || 'Untitled Item'}</div>
+                                          <div className="text-sm text-muted-foreground space-y-1">
+                                            <div>SKU: {item.sku_code || 'N/A'}</div>
+                                            {item.model_number && <div>Model: {item.model_number}</div>}
+                                            <div>Quantity: {item.quantity || 'N/A'}</div>
+                                            {item.unit_price && (
+                                              <div>Price: {formatCurrency(item.unit_price, item.currency || 'USD')}</div>
+                                            )}
+                                          </div>
+                                        </div>
+                                        
+                                        <div className="ml-4 text-right space-y-2">
+                                          {item.item_status && getStatusBadge(item.item_status, delayed)}
+                                          
+                                          {item.expected_ship_date && (
+                                            <div className="text-xs text-muted-foreground">
+                                              Expected: {formatDate(item.expected_ship_date)}
+                                            </div>
+                                          )}
+                                          
+                                          {delayed && (
+                                            <div className="text-xs text-orange-600 font-medium">
+                                              {Math.floor((Date.now() - new Date(item.status_last_updated_at || item.created_at).getTime()) / (1000 * 60 * 60 * 24))} days in status
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
                                 })}
-                              >
-                                View Details
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="sunsky-orders">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Sunsky Orders - Live API Data</CardTitle>
-                <Button 
-                  onClick={() => sunskyOrders.syncOrdersFromAPI()}
-                  disabled={sunskyOrders.syncing}
-                  variant="outline"
-                  size="sm"
-                >
-                  <RefreshCw className={`h-4 w-4 mr-2 ${sunskyOrders.syncing ? 'animate-spin' : ''}`} />
-                  {sunskyOrders.syncing ? 'Syncing Matched Orders...' : 'Sync Matched Orders'}
-                </Button>
-              </CardHeader>
-              <CardContent>
-                {sunskyOrders.loading ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <RefreshCw className="h-4 w-4 animate-spin mx-auto mb-2" />
-                    Loading Sunsky orders...
-                  </div>
-                ) : sunskyOrders.orders.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Cloud className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No Sunsky orders found</p>
-                    <p className="text-sm">Click "Sync Orders" to fetch from Sunsky API</p>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Order Number</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Site</TableHead>
-                          <TableHead>Created</TableHead>
-                          <TableHead>Total</TableHead>
-                          <TableHead>Tracking</TableHead>
-                          <TableHead>Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {sunskyOrders.orders.map((order) => (
-                          <TableRow key={order.id}>
-                            <TableCell className="font-medium">{order.number}</TableCell>
-                            <TableCell>
-                              <Badge variant="outline">
-                                {order.status || 'Unknown'}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>{order.site_number || '-'}</TableCell>
-                            <TableCell>
-                              {order.gmt_created ? formatDate(order.gmt_created) : '-'}
-                            </TableCell>
-                            <TableCell>
-                              {order.total && order.currency 
-                                ? formatCurrency(order.total, order.currency)
-                                : '-'
-                              }
-                            </TableCell>
-                            <TableCell>
-                              {order.tracking_number ? (
-                                <div className="space-y-1">
-                                  <div className="font-mono text-sm">{order.tracking_number}</div>
-                                  {order.tracking_url && (
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => handleTrackingClick(order.tracking_url!)}
-                                      className="h-6 px-2 text-xs"
-                                    >
-                                      <ExternalLink className="h-3 w-3 mr-1" />
-                                      Track
-                                    </Button>
-                                  )}
-                                </div>
-                              ) : '-'}
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex gap-1">
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm"
-                                  onClick={() => sunskyOrders.getOrderDetails(order.number)}
-                                  title="Get full order details with items"
-                                >
-                                  <Info className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => sunskyOrders.getOrderLabels(order.number)}
-                                  title="Get shipping labels"
-                                >
-                                  <Package className="h-4 w-4" />
-                                </Button>
                               </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="detailed">
-            <div className="grid gap-4">
-              {filteredOrders.map((order) => (
-                <Card key={order.id}>
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <CardTitle className="text-lg">{order.po_number}</CardTitle>
-                        <p className="text-muted-foreground">{order.sku_code}</p>
-                      </div>
-                      <Badge className={`${statusColors[order.status as keyof typeof statusColors]} flex items-center gap-1`}>
-                        {getStatusIcon(order.status)}
-                        {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div>
-                        <h4 className="font-semibold mb-2">Product Details</h4>
-                        <div className="space-y-1 text-sm">
-                          {order.title && <p><strong>Title:</strong> {order.title}</p>}
-                          {order.model_number && <p><strong>Model:</strong> {order.model_number}</p>}
-                          {order.asin && <p><strong>ASIN:</strong> {order.asin}</p>}
-                          <p><strong>Quantity:</strong> {order.quantity}</p>
-                        </div>
-                      </div>
-
-                      <div>
-                        <h4 className="font-semibold mb-2">Order Information</h4>
-                        <div className="space-y-1 text-sm">
-                          {order.order_date && <p><strong>Order Date:</strong> {formatDate(order.order_date)}</p>}
-                          {order.expected_delivery && <p><strong>Expected:</strong> {formatDate(order.expected_delivery)}</p>}
-                          {order.supplier_order_number && <p><strong>Supplier Order:</strong> {order.supplier_order_number}</p>}
-                          {order.ship_to_location && <p><strong>Ship To:</strong> {order.ship_to_location}</p>}
-                        </div>
-                      </div>
-
-                      <div>
-                        <h4 className="font-semibold mb-2">Tracking & Costs</h4>
-                        <div className="space-y-1 text-sm">
-                          {order.tracking_number && <p><strong>Tracking:</strong> {order.tracking_number}</p>}
-                          {order.unit_cost && <p><strong>Unit Cost:</strong> {formatCurrency(order.unit_cost, order.currency)}</p>}
-                          {order.total_cost && <p><strong>Total Cost:</strong> {formatCurrency(order.total_cost, order.currency)}</p>}
-                          {order.tracking_url && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleTrackingClick(order.tracking_url!)}
-                              className="mt-2"
-                            >
-                              <ExternalLink className="h-3 w-3 mr-1" />
-                              Track Package
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    {order.notes && (
-                      <div className="mt-4">
-                        <h4 className="font-semibold mb-2">Notes</h4>
-                        <p className="text-sm text-muted-foreground">{order.notes}</p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </TabsContent>
-        </Tabs>
+                            ) : (
+                              <div className="text-center py-4 text-muted-foreground">
+                                <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                                <p className="text-sm">No items found for this order</p>
+                              </div>
+                            )}
+                          </div>
+                        </CardContent>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

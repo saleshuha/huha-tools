@@ -1954,12 +1954,16 @@ export type Database = {
           asin: string | null
           created_at: string
           currency: string | null
+          expected_ship_date: string | null
           id: string
+          item_status: string | null
+          last_synced_at: string
           model_number: string | null
           order_number: string
           quantity: number | null
           raw: Json | null
           sku_code: string | null
+          status_last_updated_at: string | null
           title: string | null
           unit_price: number | null
           user_id: string
@@ -1968,12 +1972,16 @@ export type Database = {
           asin?: string | null
           created_at?: string
           currency?: string | null
+          expected_ship_date?: string | null
           id?: string
+          item_status?: string | null
+          last_synced_at?: string
           model_number?: string | null
           order_number: string
           quantity?: number | null
           raw?: Json | null
           sku_code?: string | null
+          status_last_updated_at?: string | null
           title?: string | null
           unit_price?: number | null
           user_id: string
@@ -1982,12 +1990,16 @@ export type Database = {
           asin?: string | null
           created_at?: string
           currency?: string | null
+          expected_ship_date?: string | null
           id?: string
+          item_status?: string | null
+          last_synced_at?: string
           model_number?: string | null
           order_number?: string
           quantity?: number | null
           raw?: Json | null
           sku_code?: string | null
+          status_last_updated_at?: string | null
           title?: string | null
           unit_price?: number | null
           user_id?: string
@@ -2008,12 +2020,14 @@ export type Database = {
           currency: string | null
           gmt_created: string | null
           id: string
+          last_synced_at: string
           number: string
           po_numbers: string[] | null
           raw: Json | null
           shipping_company: string | null
           site_number: string | null
           status: string | null
+          status_last_updated_at: string | null
           total: number | null
           tracking_number: string | null
           tracking_url: string | null
@@ -2025,12 +2039,14 @@ export type Database = {
           currency?: string | null
           gmt_created?: string | null
           id?: string
+          last_synced_at?: string
           number: string
           po_numbers?: string[] | null
           raw?: Json | null
           shipping_company?: string | null
           site_number?: string | null
           status?: string | null
+          status_last_updated_at?: string | null
           total?: number | null
           tracking_number?: string | null
           tracking_url?: string | null
@@ -2042,12 +2058,14 @@ export type Database = {
           currency?: string | null
           gmt_created?: string | null
           id?: string
+          last_synced_at?: string
           number?: string
           po_numbers?: string[] | null
           raw?: Json | null
           shipping_company?: string | null
           site_number?: string | null
           status?: string | null
+          status_last_updated_at?: string | null
           total?: number | null
           tracking_number?: string | null
           tracking_url?: string | null
@@ -2772,6 +2790,18 @@ export type Database = {
           restock_frequency_days: number
           slowest_selling_item: string
           total_sold: number
+        }[]
+      }
+      get_sunsky_slow_items: {
+        Args: { threshold_days?: number }
+        Returns: {
+          created_at: string
+          days_in_status: number
+          expected_ship_date: string
+          item_status: string
+          order_number: string
+          sku_code: string
+          title: string
         }[]
       }
       is_user_admin: {

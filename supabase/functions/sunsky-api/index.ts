@@ -2057,16 +2057,14 @@ serve(async (req) => {
       }
 
       case 'getOrderDetails': {
-        const { orderNumber, poNumbers, apiKey, apiSecret } = requestData;
+        const { orderNumber, poNumbers } = requestData;
         
         if (!orderNumber) {
           throw new Error('Order number is required');
         }
 
-        // Use provided credentials if available, otherwise get from database/env
-        const credentials = apiKey && apiSecret 
-          ? { key: apiKey, secret: apiSecret }
-          : await getApiCredentials(user.id);
+        // Get credentials from database/env (no longer accept from client)
+        const credentials = await getApiCredentials(user.id);
         
         if (!credentials) {
           throw new Error('No active Sunsky API credentials found');
@@ -2092,19 +2090,22 @@ serve(async (req) => {
           const order = response.data;
           console.log('Processing order details for storage with PO numbers:', poNumbers);
           
-          // Store the main order with PO numbers
+          // Store the main order with status tracking
+          const now = new Date().toISOString();
           const orderToUpsert = {
             user_id: user.id,
             number: order.number,
             status: order.status?.toString() || null,
+            status_last_updated_at: order.statusUpdateTime || now,
             site_number: order.siteNumber || null,
-            po_numbers: poNumbers || [], // Store related PO numbers
+            po_numbers: poNumbers || [],
             gmt_created: order.gmtCreated ? new Date(order.gmtCreated) : null,
             total: order.totalAmount ? parseFloat(order.totalAmount) : null,
             currency: 'USD',
             shipping_company: order.shippingWay?.name || null,
             tracking_number: order.trackingNumber || null,
             tracking_url: order.shippingWay?.queryUrl || null,
+            last_synced_at: now,
             raw: order
           };
 
@@ -2118,7 +2119,7 @@ serve(async (req) => {
             console.log('Successfully stored order details');
           }
           
-          // Store order items if available
+          // Store order items with status tracking if available
           if (order.items && Array.isArray(order.items)) {
             const itemsToUpsert = order.items.map((item: any) => ({
               user_id: user.id,
@@ -2130,6 +2131,10 @@ serve(async (req) => {
               unit_price: item.unitPrice ? parseFloat(item.unitPrice) : null,
               currency: 'USD',
               asin: item.asin || null,
+              item_status: item.status || item.stockStatus || order.status || null,
+              status_last_updated_at: item.statusUpdateTime || order.statusUpdateTime || now,
+              expected_ship_date: item.estimatedShipDate || item.expectedShipDate ? new Date(item.estimatedShipDate || item.expectedShipDate) : null,
+              last_synced_at: now,
               raw: item
             }));
 
