@@ -39,6 +39,7 @@ const statusColors = {
   ordered: 'bg-blue-100 text-blue-800', 
   shipped: 'bg-purple-100 text-purple-800',
   delivered: 'bg-green-100 text-green-800',
+  closed: 'bg-green-100 text-green-800',
   cancelled: 'bg-red-100 text-red-800'
 };
 
@@ -47,6 +48,7 @@ const statusIcons = {
   ordered: Package,
   shipped: Truck,
   delivered: CheckCircle,
+  closed: CheckCircle,
   cancelled: AlertCircle
 };
 
@@ -67,7 +69,7 @@ export default function SunskyOrderTrackingPage() {
       const { data, error } = await supabase
         .from('po_orders')
         .select('*')
-        .in('status', ['ordered', 'shipped', 'delivered'])
+        .in('status', ['pending', 'ordered', 'shipped', 'delivered', 'closed'])
         .eq('country', selectedCountry)
         .order('created_at', { ascending: false });
 
@@ -141,6 +143,8 @@ export default function SunskyOrderTrackingPage() {
 
   const orderStats = {
     total: orders.length,
+    pending: orders.filter(o => o.status === 'pending').length,
+    closed: orders.filter(o => o.status === 'closed').length,
     ordered: orders.filter(o => o.status === 'ordered').length,
     shipped: orders.filter(o => o.status === 'shipped').length,
     delivered: orders.filter(o => o.status === 'delivered').length,
@@ -185,8 +189,20 @@ export default function SunskyOrderTrackingPage() {
                 <div className="flex items-center gap-2">
                   <Clock className="h-5 w-5 text-yellow-500" />
                   <div>
-                    <p className="text-sm text-muted-foreground">Ordered</p>
-                    <p className="text-2xl font-bold">{orderStats.ordered}</p>
+                    <p className="text-sm text-muted-foreground">Pending</p>
+                    <p className="text-2xl font-bold">{orderStats.pending}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-5 w-5 text-green-500" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Closed</p>
+                    <p className="text-2xl font-bold">{orderStats.closed}</p>
                   </div>
                 </div>
               </CardContent>
@@ -199,18 +215,6 @@ export default function SunskyOrderTrackingPage() {
                   <div>
                     <p className="text-sm text-muted-foreground">Shipped</p>
                     <p className="text-2xl font-bold">{orderStats.shipped}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="h-5 w-5 text-green-500" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Delivered</p>
-                    <p className="text-2xl font-bold">{orderStats.delivered}</p>
                   </div>
                 </div>
               </CardContent>
@@ -246,9 +250,11 @@ export default function SunskyOrderTrackingPage() {
               className="px-3 py-2 border border-input rounded-md bg-background"
             >
               <option value="all">All Status</option>
+              <option value="pending">Pending</option>
               <option value="ordered">Ordered</option>
               <option value="shipped">Shipped</option>
               <option value="delivered">Delivered</option>
+              <option value="closed">Closed</option>
             </select>
           </div>
         </div>
