@@ -23,6 +23,7 @@ import { cn } from '@/lib/utils';
 import { TrendingUp, TrendingDown, AlertTriangle, Package, Download, RefreshCw, Search, BarChart3, Clock, ShoppingCart, Activity, DollarSign, Database, PieChart, LineChart, CalendarIcon, CheckCircle, XCircle, Eye, Truck, ArrowRight, Target, Zap, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Settings, Gauge, Star, Minus, Timer } from 'lucide-react';
 import { Checkbox } from './ui/checkbox';
 import { LineChart as RechartsLineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, AreaChart, Area, BarChart as RechartsBarChart, Bar, PieChart as RechartsPieChart, Cell, Pie, Legend } from 'recharts';
+import { SunskyOrderDialog } from './SunskyOrderDialog';
 interface RestockItem {
   id: string;
   identifier: string;
@@ -180,6 +181,10 @@ export function Replenishment() {
   const [filteredItems, setFilteredItems] = useState<AllInventoryItem[]>([]);
   const [salesData, setSalesData] = useState<SalesData[]>([]);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  
+  // Sunsky order dialog state
+  const [sunskyDialogOpen, setSunskyDialogOpen] = useState(false);
+  const [sunskyOrderItems, setSunskyOrderItems] = useState<any[]>([]);
   
   // Sorting and filtering state
   const [sortConfig, setSortConfig] = useState<{key: keyof AllInventoryItem | null, direction: 'asc' | 'desc'}>({
@@ -1028,6 +1033,95 @@ export function Replenishment() {
         variant: "destructive"
       });
     }
+  };
+
+  // Sunsky order handlers
+  const handlePlaceOrderFromSunsky = () => {
+    if (selectedItems.size === 0) {
+      toast({
+        title: "No Items Selected",
+        description: "Please select items to place an order.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Convert selected restock items to the format expected by SunskyOrderDialog
+    const selectedRestockItems = pendingItems.filter(item => selectedItems.has(item.id));
+    
+    // Transform restock items to match PO order format expected by dialog
+    const orderItems = selectedRestockItems.map(item => ({
+      id: item.id,
+      po_number: `RESTOCK-${Date.now()}`, // Generate a unique PO number for restocking
+      sku_code: extractSkuFromIdentifier(item.identifier),
+      asin: extractAsinFromIdentifier(item.identifier),
+      quantity: 1, // Default quantity, user can modify in dialog
+      status: 'pending',
+      model_number: extractModelFromIdentifier(item.identifier),
+      title: `Restock for ${item.identifier}`,
+      notes: `Replenishment order for out of stock item`,
+      sunsky_sku: null // Will be matched in the dialog if exists
+    }));
+
+    setSunskyOrderItems(orderItems);
+    setSunskyDialogOpen(true);
+  };
+
+  const handleSunskyOrderSuccess = async (orderNumber: string, selectedOrderIds: string[]) => {
+    try {
+      // Mark the original inventory items as ordered
+      const updatePromises = Array.from(selectedItems).map(async itemId => {
+        const item = restockItems.find(i => i.id === itemId);
+        if (!item) return;
+        
+        if (item.table_name === 'asin_inventory') {
+          return supabase.from('asin_inventory').update({
+            status: 'ordered'
+          }).eq('id', itemId);
+        } else if (item.table_name === 'sku_inventory') {
+          return supabase.from('sku_inventory').update({
+            status: 'ordered'
+          }).eq('id', itemId);
+        }
+      });
+
+      await Promise.all(updatePromises);
+
+      toast({
+        title: "Sunsky Order Placed Successfully",
+        description: `Order ${orderNumber} has been placed. Selected items marked as ordered.`,
+      });
+
+      setSelectedItems(new Set());
+      setSunskyDialogOpen(false);
+      loadRestockItems(); // Refresh data
+    } catch (error) {
+      console.error('Error updating items after Sunsky order:', error);
+      toast({
+        title: "Order Placed but Update Failed",
+        description: `Order ${orderNumber} was placed successfully, but failed to update item status.`,
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Helper functions to extract identifiers
+  const extractSkuFromIdentifier = (identifier: string): string => {
+    // Extract SKU from identifier like "SKU123 (serial456)"
+    const match = identifier.match(/^([^(]+)/);
+    return match ? match[1].trim() : identifier;
+  };
+
+  const extractAsinFromIdentifier = (identifier: string): string => {
+    // If identifier contains ASIN pattern, extract it
+    const asinMatch = identifier.match(/([A-Z0-9]{10})/);
+    return asinMatch ? asinMatch[1] : '';
+  };
+
+  const extractModelFromIdentifier = (identifier: string): string => {
+    // Extract model from identifier in parentheses
+    const match = identifier.match(/\(([^)]+)\)/);
+    return match ? match[1].trim() : '';
   };
 
   // Export data functions
@@ -2321,11 +2415,17 @@ export function Replenishment() {
                          {selectedItems.size > 0 && <Badge variant="secondary" className="text-xs">
                              {selectedItems.size} selected
                            </Badge>}
-                      </div>
-                      <Button onClick={handleBulkMarkAsOrdered} disabled={selectedItems.size === 0} size="sm" className="gap-2">
-                        <ShoppingCart className="w-4 h-4" />
-                        Mark {selectedItems.size || 'Selected'} as Ordered
-                      </Button>
+                       </div>
+                       <div className="flex items-center gap-2">
+                         <Button onClick={handlePlaceOrderFromSunsky} disabled={selectedItems.size === 0} size="sm" className="gap-2" variant="secondary">
+                           <Package className="w-4 h-4" />
+                           Order from Sunsky ({selectedItems.size || 'Selected'})
+                         </Button>
+                         <Button onClick={handleBulkMarkAsOrdered} disabled={selectedItems.size === 0} size="sm" className="gap-2">
+                           <ShoppingCart className="w-4 h-4" />
+                           Mark {selectedItems.size || 'Selected'} as Ordered
+                         </Button>
+                       </div>
                     </div>}
 
                   {searchTerm.trim() && <div className="text-xs text-muted-foreground p-2 bg-muted/30 rounded-lg">
@@ -2480,5 +2580,13 @@ export function Replenishment() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Sunsky Order Dialog */}
+      <SunskyOrderDialog
+        open={sunskyDialogOpen}
+        onOpenChange={setSunskyDialogOpen}
+        selectedOrders={sunskyOrderItems}
+        onOrderSuccess={handleSunskyOrderSuccess}
+      />
     </div>;
 }
