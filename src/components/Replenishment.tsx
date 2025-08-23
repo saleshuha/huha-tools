@@ -1067,9 +1067,28 @@ export function Replenishment() {
         notes: sunskySku ? 
           `Replenishment order for out of stock item - Search by ${extractedSku ? 'SKU' : 'Model'}: ${sunskySku}` :
           `Replenishment order for out of stock item - No valid Sunsky SKU found (contains Amazon ASIN)`,
-        sunsky_sku: sunskySku // Use valid SKU/model, avoiding Amazon ASINs
+        sunsky_sku: sunskySku, // Use valid SKU/model, avoiding Amazon ASINs
+        itemNo: sunskySku, // Add itemNo field for SunskyOrderDialog compatibility
+        qty: 1
       };
-    });
+    }).filter(item => item.itemNo); // Only include items with valid Sunsky SKUs
+
+    if (orderItems.length === 0) {
+      toast({
+        title: "No Valid SKUs Found",
+        description: "The selected items contain only Amazon ASINs which are not compatible with Sunsky. Please select items with valid SKU or model numbers.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (orderItems.length < selectedRestockItems.length) {
+      toast({
+        title: `${selectedRestockItems.length - orderItems.length} Items Skipped`,
+        description: "Some items were skipped because they only contain Amazon ASINs. Only items with valid SKUs will be processed.",
+        variant: "default",
+      });
+    }
 
     setSunskyOrderItems(orderItems);
     setSunskyDialogOpen(true);

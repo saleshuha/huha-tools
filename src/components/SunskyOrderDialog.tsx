@@ -309,7 +309,7 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
       // Step 1: Validating items (20%)
       setLoadingProgress(20);
       const items = orderItems
-        .filter(item => checkedItems.has(item.itemNo) && item.qty > 0)
+        .filter(item => checkedItems.has(item.itemNo) && item.qty > 0 && item.itemNo)
         .map(item => ({ itemNo: item.itemNo, qty: item.qty }));
 
       // Step 2: Preparing request data (40%)
