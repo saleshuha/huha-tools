@@ -1054,13 +1054,13 @@ export function Replenishment() {
       id: item.id,
       po_number: `RESTOCK-${Date.now()}`, // Generate a unique PO number for restocking
       sku_code: extractSkuFromIdentifier(item.identifier),
-      asin: extractAsinFromIdentifier(item.identifier),
+      asin: '', // Don't use ASIN for Sunsky search
       quantity: 1, // Default quantity, user can modify in dialog
       status: 'pending',
       model_number: extractModelFromIdentifier(item.identifier),
       title: `Restock for ${item.identifier}`,
-      notes: `Replenishment order for out of stock item`,
-      sunsky_sku: null // Will be matched in the dialog if exists
+      notes: `Replenishment order for out of stock item - Search by ${extractModelFromIdentifier(item.identifier) ? 'Model Number' : 'SKU'}`,
+      sunsky_sku: extractModelFromIdentifier(item.identifier) || extractSkuFromIdentifier(item.identifier) // Prioritize model number, fallback to SKU
     }));
 
     setSunskyOrderItems(orderItems);
@@ -1119,9 +1119,23 @@ export function Replenishment() {
   };
 
   const extractModelFromIdentifier = (identifier: string): string => {
-    // Extract model from identifier in parentheses
+    // Extract model from identifier in parentheses (serial number, model number, etc.)
     const match = identifier.match(/\(([^)]+)\)/);
-    return match ? match[1].trim() : '';
+    const modelCandidate = match ? match[1].trim() : '';
+    
+    // If it looks like a model number (contains letters and numbers, not just numbers), return it
+    // Otherwise, try to extract from the main part if it's not an ASIN
+    if (modelCandidate && /[A-Za-z]/.test(modelCandidate) && modelCandidate.length > 3) {
+      return modelCandidate;
+    }
+    
+    // If no good model found in parentheses, check if the main identifier is a model (not an ASIN)
+    const mainPart = identifier.split('(')[0].trim();
+    if (mainPart && !/^[A-Z0-9]{10}$/.test(mainPart)) {
+      return mainPart;
+    }
+    
+    return modelCandidate; // Return whatever we found, even if it might be a serial
   };
 
   // Export data functions
