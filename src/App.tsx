@@ -44,6 +44,7 @@ import AmazonFulfillmentTracker from "./pages/AmazonFulfillmentTracker";
 import AddSKUPage from "./pages/AddSKUPage";
 import BulkColumnEditor from "./pages/BulkColumnEditor";
 import SunskySKUImporterPage from "./pages/SunskySKUImporter";
+import SunskyOrderTrackingPage from "./pages/SunskyOrderTracking";
 import NoonFileCleaner from "./pages/NoonFileCleaner";
 import AmazonVendorCentral from "./pages/AmazonVendorCentral";
 import { DesktopAutomation } from "./pages/DesktopAutomation";
@@ -221,6 +222,7 @@ const App = () => {
                      <Route path="/po-details/:poNumber" element={<PODetailsPage />} />
                      <Route path="/add-sku" element={<AddSKUPageWrapper />} />
                      <Route path="/sunsky-importer" element={<SunskySKUImporterPage />} />
+                     <Route path="/sunsky-order-tracking" element={<SunskyOrderTrackingPage />} />
                       <Route path="/excel-editor" element={<ExcelEditorPage />} />
                       <Route path="/noon-file-cleaner" element={<NoonFileCleaner />} />
                    <Route path="/amazon-fulfillment" element={<AmazonFulfillmentTracker />} />
