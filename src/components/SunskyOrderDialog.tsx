@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Loader2, Package, Truck, ExternalLink, Save, BookOpen, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 
 interface SunskyOrderDialogProps {
   open: boolean;
@@ -73,6 +74,7 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
   const [countries, setCountries] = useState<Country[]>([]);
   const [shippingMethods, setShippingMethods] = useState<ShippingMethod[]>([]);
   const [loadingShipping, setLoadingShipping] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(0);
   
   // Saved addresses state
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
@@ -302,10 +304,16 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
     }
     
     setLoadingShipping(true);
+    setLoadingProgress(0);
     try {
+      // Step 1: Validating items (20%)
+      setLoadingProgress(20);
       const items = orderItems
         .filter(item => checkedItems.has(item.itemNo) && item.qty > 0)
         .map(item => ({ itemNo: item.itemNo, qty: item.qty }));
+
+      // Step 2: Preparing request data (40%)
+      setLoadingProgress(40);
 
       console.log('Loading shipping methods with params:', {
         items,
@@ -316,6 +324,9 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
           postcode: deliveryAddress.postcode
         }
       });
+
+      // Step 3: Making API call (60%)
+      setLoadingProgress(60);
 
       const response = await supabase.functions.invoke('sunsky-api', {
         body: { 
@@ -329,6 +340,9 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
           }
         }
       });
+
+      // Step 4: Processing response (80%)
+      setLoadingProgress(80);
 
       console.log('Shipping methods response:', response);
 
@@ -353,6 +367,9 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
         
         console.log('Processed shipping methods:', methods);
         setShippingMethods(methods);
+        
+        // Step 5: Finalizing (100%)
+        setLoadingProgress(100);
         
         // Auto-select the first shipping method
         if (methods.length > 0 && !deliveryAddress.shippingWayId) {
@@ -392,6 +409,7 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
       });
     } finally {
       setLoadingShipping(false);
+      setLoadingProgress(0);
     }
   };
 
@@ -932,14 +950,24 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
           {step === 'shipping' && (
             <div>
               <h3 className="text-lg font-semibold mb-4">Select Shipping Method</h3>
-              <Button 
-                onClick={loadShippingMethods} 
-                disabled={loadingShipping || !canLoadShipping}
-                className="mb-4"
-              >
-                {loadingShipping ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Truck className="h-4 w-4 mr-2" />}
-                Load Shipping Options
-              </Button>
+               <Button 
+                 onClick={loadShippingMethods} 
+                 disabled={loadingShipping || !canLoadShipping}
+                 className="mb-4"
+               >
+                 {loadingShipping ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Truck className="h-4 w-4 mr-2" />}
+                 Load Shipping Options
+               </Button>
+
+               {loadingShipping && (
+                 <div className="mb-4">
+                   <div className="flex items-center justify-between text-sm text-muted-foreground mb-2">
+                     <span>Loading shipping options...</span>
+                     <span>{loadingProgress}%</span>
+                   </div>
+                   <Progress value={loadingProgress} className="h-2" />
+                 </div>
+               )}
               
               {!canLoadShipping && (
                 <p className="text-sm text-muted-foreground mb-4">
