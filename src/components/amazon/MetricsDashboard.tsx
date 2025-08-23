@@ -221,7 +221,7 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
               {formatCurrency(convertedOverdueValue, displayCurrency)}
             </div>
             <p className="text-xs text-muted-foreground">
-              Past 60-day credit period (UAE)
+              Past {selectedCountry === 'UAE' ? '60' : '45'}-day credit period ({selectedCountry})
             </p>
           </CardContent>
         </Card>
