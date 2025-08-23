@@ -2792,6 +2792,29 @@ export type Database = {
           total_sold: number
         }[]
       }
+      get_sunsky_orders_with_po_relations: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          created_at: string
+          currency: string
+          gmt_created: string
+          id: string
+          items: Json
+          last_synced_at: string
+          number: string
+          po_numbers: string[]
+          raw: Json
+          shipping_company: string
+          site_number: string
+          status: string
+          status_last_updated_at: string
+          total: number
+          tracking_number: string
+          tracking_url: string
+          updated_at: string
+          user_id: string
+        }[]
+      }
       get_sunsky_slow_items: {
         Args: { threshold_days?: number }
         Returns: {

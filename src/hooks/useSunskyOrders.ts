@@ -14,6 +14,7 @@ export interface SunskyOrder {
   shipping_company: string | null;
   tracking_number: string | null;
   tracking_url: string | null;
+  po_numbers?: string[] | null;
   raw: any;
   created_at: string;
   updated_at: string;
@@ -67,15 +68,26 @@ export const useSunskyOrders = () => {
     setState(prev => ({ ...prev, loading: true, error: null }));
 
     try {
-      // Only fetch orders that have PO relationships by using SQL to check array length
-      const { data: orders, error } = await supabase
-        .rpc('get_sunsky_orders_with_po_relations');
+      // Fetch all orders and filter client-side for orders with PO relationships
+      const { data: allOrders, error } = await supabase
+        .from('sunsky_orders')
+        .select(`
+          *,
+          items:sunsky_order_items(*)
+        `)
+        .order('gmt_created', { ascending: false, nullsFirst: false })
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
 
+      // Filter only orders that have PO relationships (non-empty po_numbers array)
+      const ordersWithPORelations = (allOrders || []).filter(order => 
+        order.po_numbers && Array.isArray(order.po_numbers) && order.po_numbers.length > 0
+      );
+
       setState(prev => ({
         ...prev,
-        orders: orders || [],
+        orders: ordersWithPORelations,
         loading: false,
       }));
     } catch (error: any) {
