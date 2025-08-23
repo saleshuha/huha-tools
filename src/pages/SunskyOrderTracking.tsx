@@ -3,13 +3,17 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useCountry } from '@/contexts/CountryContext';
+import { useSunskyOrders } from '@/hooks/useSunskyOrders';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ExternalLink, Package, Search, RefreshCw, Truck, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { 
+  ExternalLink, Package, Search, RefreshCw, Truck, CheckCircle, 
+  Clock, AlertCircle, Database, Cloud, Info 
+} from 'lucide-react';
 
 interface PlacedOrder {
   id: string;
@@ -62,6 +66,7 @@ export default function SunskyOrderTrackingPage() {
   const { toast } = useToast();
   const { selectedCountry } = useCountry();
   const navigate = useNavigate();
+  const sunskyOrders = useSunskyOrders();
 
   const fetchPlacedOrders = async () => {
     try {
@@ -164,10 +169,20 @@ export default function SunskyOrderTrackingPage() {
                 Track your placed Sunsky orders and manage deliveries for {selectedCountry}
               </p>
             </div>
-            <Button onClick={fetchPlacedOrders} disabled={loading}>
-              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
+            <div className="flex gap-2">
+              <Button onClick={fetchPlacedOrders} disabled={loading} variant="outline">
+                <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                Refresh PO
+              </Button>
+              <Button 
+                onClick={() => sunskyOrders.syncOrdersFromAPI()}
+                disabled={sunskyOrders.syncing}
+                variant="outline"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${sunskyOrders.syncing ? 'animate-spin' : ''}`} />
+                Sync Sunsky
+              </Button>
+            </div>
           </div>
 
           {/* Stats Cards */}
@@ -259,16 +274,23 @@ export default function SunskyOrderTrackingPage() {
           </div>
         </div>
 
-        <Tabs defaultValue="orders" className="w-full">
-          <TabsList>
-            <TabsTrigger value="orders">Order List</TabsTrigger>
-            <TabsTrigger value="details">Detailed View</TabsTrigger>
+        <Tabs defaultValue="po-orders" className="w-full">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="po-orders" className="flex items-center gap-2">
+              <Database className="h-4 w-4" />
+              PO Orders ({orders.length})
+            </TabsTrigger>
+            <TabsTrigger value="sunsky-orders" className="flex items-center gap-2">
+              <Cloud className="h-4 w-4" />
+              Sunsky Orders ({sunskyOrders.orders.length})
+            </TabsTrigger>
+            <TabsTrigger value="detailed">Detailed View</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="orders">
+          <TabsContent value="po-orders">
             <Card>
               <CardHeader>
-                <CardTitle>Placed Orders ({filteredOrders.length})</CardTitle>
+                <CardTitle>PO Orders - Local Database ({filteredOrders.length})</CardTitle>
               </CardHeader>
               <CardContent>
                 {loading ? (
@@ -385,7 +407,114 @@ export default function SunskyOrderTrackingPage() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="details">
+          <TabsContent value="sunsky-orders">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle>Sunsky Orders - Live API Data</CardTitle>
+                <Button 
+                  onClick={() => sunskyOrders.syncOrdersFromAPI()}
+                  disabled={sunskyOrders.syncing}
+                  variant="outline"
+                  size="sm"
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${sunskyOrders.syncing ? 'animate-spin' : ''}`} />
+                  {sunskyOrders.syncing ? 'Syncing...' : 'Sync Orders'}
+                </Button>
+              </CardHeader>
+              <CardContent>
+                {sunskyOrders.loading ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <RefreshCw className="h-4 w-4 animate-spin mx-auto mb-2" />
+                    Loading Sunsky orders...
+                  </div>
+                ) : sunskyOrders.orders.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Cloud className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No Sunsky orders found</p>
+                    <p className="text-sm">Click "Sync Orders" to fetch from Sunsky API</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Order Number</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Site</TableHead>
+                          <TableHead>Created</TableHead>
+                          <TableHead>Total</TableHead>
+                          <TableHead>Tracking</TableHead>
+                          <TableHead>Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {sunskyOrders.orders.map((order) => (
+                          <TableRow key={order.id}>
+                            <TableCell className="font-medium">{order.number}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline">
+                                {order.status || 'Unknown'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>{order.site_number || '-'}</TableCell>
+                            <TableCell>
+                              {order.gmt_created ? formatDate(order.gmt_created) : '-'}
+                            </TableCell>
+                            <TableCell>
+                              {order.total && order.currency 
+                                ? formatCurrency(order.total, order.currency)
+                                : '-'
+                              }
+                            </TableCell>
+                            <TableCell>
+                              {order.tracking_number ? (
+                                <div className="space-y-1">
+                                  <div className="font-mono text-sm">{order.tracking_number}</div>
+                                  {order.tracking_url && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleTrackingClick(order.tracking_url!)}
+                                      className="h-6 px-2 text-xs"
+                                    >
+                                      <ExternalLink className="h-3 w-3 mr-1" />
+                                      Track
+                                    </Button>
+                                  )}
+                                </div>
+                              ) : '-'}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex gap-1">
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => sunskyOrders.getOrderDetails(order.number)}
+                                  title="Get full order details with items"
+                                >
+                                  <Info className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => sunskyOrders.getOrderLabels(order.number)}
+                                  title="Get shipping labels"
+                                >
+                                  <Package className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="detailed">
             <div className="grid gap-4">
               {filteredOrders.map((order) => (
                 <Card key={order.id}>
@@ -426,30 +555,25 @@ export default function SunskyOrderTrackingPage() {
                       <div>
                         <h4 className="font-semibold mb-2">Tracking & Costs</h4>
                         <div className="space-y-1 text-sm">
-                          {order.tracking_number && (
-                            <div>
-                              <p><strong>Tracking:</strong> {order.tracking_number}</p>
-                              {order.tracking_url && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleTrackingClick(order.tracking_url!)}
-                                  className="mt-1"
-                                >
-                                  <ExternalLink className="h-3 w-3 mr-1" />
-                                  Track Package
-                                </Button>
-                              )}
-                            </div>
-                          )}
+                          {order.tracking_number && <p><strong>Tracking:</strong> {order.tracking_number}</p>}
                           {order.unit_cost && <p><strong>Unit Cost:</strong> {formatCurrency(order.unit_cost, order.currency)}</p>}
-                          {order.total_cost && <p><strong>Total:</strong> {formatCurrency(order.total_cost, order.currency)}</p>}
+                          {order.total_cost && <p><strong>Total Cost:</strong> {formatCurrency(order.total_cost, order.currency)}</p>}
+                          {order.tracking_url && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleTrackingClick(order.tracking_url!)}
+                              className="mt-2"
+                            >
+                              <ExternalLink className="h-3 w-3 mr-1" />
+                              Track Package
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </div>
-
                     {order.notes && (
-                      <div className="mt-4 pt-4 border-t">
+                      <div className="mt-4">
                         <h4 className="font-semibold mb-2">Notes</h4>
                         <p className="text-sm text-muted-foreground">{order.notes}</p>
                       </div>

@@ -1925,6 +1925,101 @@ serve(async (req) => {
         });
       }
 
+      case 'listOrders': {
+        const { pageSize = 40, page = 1, status, siteNumber, gmtCreatedStart, gmtCreatedEnd } = requestData;
+        
+        const credentials = await getApiCredentials(user.id);
+        if (!credentials) {
+          throw new Error('No active Sunsky API credentials found');
+        }
+
+        const params: any = {
+          pageSize: Math.min(pageSize, 100),
+          page: Math.max(page, 1)
+        };
+
+        if (status) params.status = status;
+        if (siteNumber) params.siteNumber = siteNumber;
+        if (gmtCreatedStart) params.gmtCreatedStart = gmtCreatedStart;
+        if (gmtCreatedEnd) params.gmtCreatedEnd = gmtCreatedEnd;
+
+        const response = await makeSunskyRequest(
+          '/openapi/order!getOrderList.do',
+          params,
+          credentials
+        );
+
+        if (response.result === 'success' && response.result) {
+          if (Array.isArray(response.result)) {
+            const ordersToUpsert = response.result.map((order: any) => ({
+              user_id: user.id,
+              number: order.number,
+              status: order.status,
+              site_number: order.siteNumber,
+              gmt_created: order.gmtCreated ? new Date(order.gmtCreated) : null,
+              total: order.total,
+              currency: order.currency,
+              shipping_company: order.shippingCompany,
+              tracking_number: order.trackingNumber,
+              tracking_url: order.trackingUrl,
+              raw: order
+            }));
+
+            await supabase.from('sunsky_orders').upsert(ordersToUpsert, { onConflict: 'number' });
+          }
+        }
+
+        return new Response(JSON.stringify(response), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      case 'getOrderDetails': {
+        const { orderNumber } = requestData;
+        
+        if (!orderNumber) {
+          throw new Error('Order number is required');
+        }
+
+        const credentials = await getApiCredentials(user.id);
+        if (!credentials) {
+          throw new Error('No active Sunsky API credentials found');
+        }
+
+        const response = await makeSunskyRequest(
+          '/openapi/order!getOrderDetails.do',
+          { number: orderNumber },
+          credentials
+        );
+
+        return new Response(JSON.stringify(response), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      case 'getOrderLabels': {
+        const { orderNumber } = requestData;
+        
+        if (!orderNumber) {
+          throw new Error('Order number is required');
+        }
+
+        const credentials = await getApiCredentials(user.id);
+        if (!credentials) {
+          throw new Error('No active Sunsky API credentials found');
+        }
+
+        const response = await makeSunskyRequest(
+          '/openapi/order!getLabels.do',
+          { number: orderNumber },
+          credentials
+        );
+
+        return new Response(JSON.stringify(response), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
       case 'setActiveApiKey': {
         const { apiId } = requestData;
 

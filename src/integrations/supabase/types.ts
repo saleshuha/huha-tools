@@ -1949,6 +1949,110 @@ export type Database = {
           },
         ]
       }
+      sunsky_order_items: {
+        Row: {
+          asin: string | null
+          created_at: string
+          currency: string | null
+          id: string
+          model_number: string | null
+          order_number: string
+          quantity: number | null
+          raw: Json | null
+          sku_code: string | null
+          title: string | null
+          unit_price: number | null
+          user_id: string
+        }
+        Insert: {
+          asin?: string | null
+          created_at?: string
+          currency?: string | null
+          id?: string
+          model_number?: string | null
+          order_number: string
+          quantity?: number | null
+          raw?: Json | null
+          sku_code?: string | null
+          title?: string | null
+          unit_price?: number | null
+          user_id: string
+        }
+        Update: {
+          asin?: string | null
+          created_at?: string
+          currency?: string | null
+          id?: string
+          model_number?: string | null
+          order_number?: string
+          quantity?: number | null
+          raw?: Json | null
+          sku_code?: string | null
+          title?: string | null
+          unit_price?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sunsky_order_items_order_number_fkey"
+            columns: ["order_number"]
+            isOneToOne: false
+            referencedRelation: "sunsky_orders"
+            referencedColumns: ["number"]
+          },
+        ]
+      }
+      sunsky_orders: {
+        Row: {
+          created_at: string
+          currency: string | null
+          gmt_created: string | null
+          id: string
+          number: string
+          raw: Json | null
+          shipping_company: string | null
+          site_number: string | null
+          status: string | null
+          total: number | null
+          tracking_number: string | null
+          tracking_url: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          currency?: string | null
+          gmt_created?: string | null
+          id?: string
+          number: string
+          raw?: Json | null
+          shipping_company?: string | null
+          site_number?: string | null
+          status?: string | null
+          total?: number | null
+          tracking_number?: string | null
+          tracking_url?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          currency?: string | null
+          gmt_created?: string | null
+          id?: string
+          number?: string
+          raw?: Json | null
+          shipping_company?: string | null
+          site_number?: string | null
+          status?: string | null
+          total?: number | null
+          tracking_number?: string | null
+          tracking_url?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       sunsky_skus: {
         Row: {
           cost: number | null
