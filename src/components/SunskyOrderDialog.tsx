@@ -287,13 +287,35 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
   };
 
   const loadShippingMethods = async () => {
-    if (!deliveryAddress.countryId || checkedItems.size === 0) return;
+    if (!deliveryAddress.countryId || checkedItems.size === 0) {
+      console.error('Cannot load shipping methods:', {
+        hasCountryId: !!deliveryAddress.countryId,
+        checkedItemsCount: checkedItems.size,
+        deliveryAddress
+      });
+      toast({
+        title: "Cannot Load Shipping Methods",
+        description: checkedItems.size === 0 ? "Please select at least one item first" : "Please select a country first",
+        variant: "destructive"
+      });
+      return;
+    }
     
     setLoadingShipping(true);
     try {
       const items = orderItems
         .filter(item => checkedItems.has(item.itemNo) && item.qty > 0)
         .map(item => ({ itemNo: item.itemNo, qty: item.qty }));
+
+      console.log('Loading shipping methods with params:', {
+        items,
+        deliveryAddress: {
+          countryId: deliveryAddress.countryId,
+          state: deliveryAddress.state,
+          city: deliveryAddress.city,
+          postcode: deliveryAddress.postcode
+        }
+      });
 
       const response = await supabase.functions.invoke('sunsky-api', {
         body: { 
@@ -308,9 +330,16 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
         }
       });
 
-      if (response.error) throw response.error;
+      console.log('Shipping methods response:', response);
+
+      if (response.error) {
+        console.error('Supabase function error:', response.error);
+        throw response.error;
+      }
       
       const data = response.data;
+      console.log('Shipping methods data:', data);
+      
       if (data.result === 'success' && data.data?.freightList) {
         const methods = data.data.freightList.map((method: any) => ({
           id: method.id,
@@ -321,25 +350,35 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
           transitTime: method.transitTime || 'N/A',
           shippingCost: method.shippingCost || 0
         }));
+        
+        console.log('Processed shipping methods:', methods);
         setShippingMethods(methods);
         
         // Auto-select the first shipping method
         if (methods.length > 0 && !deliveryAddress.shippingWayId) {
           setDeliveryAddress(prev => ({ ...prev, shippingWayId: methods[0].id }));
         }
+
+        toast({
+          title: "Shipping Methods Loaded",
+          description: `Found ${methods.length} shipping options`,
+        });
       } else if (data.result === 'error') {
+        console.error('Sunsky API error:', data);
         toast({
           title: "Failed to Load Shipping Methods",
-          description: data.message || 'Unable to get shipping options for this location',
+          description: data.message || data.messages?.[0] || 'Unable to get shipping options for this location',
           variant: "destructive"
         });
       } else {
-        throw new Error(data.message || 'Failed to load shipping methods');
+        console.error('Unexpected response format:', data);
+        throw new Error(data.message || data.messages?.[0] || 'Failed to load shipping methods');
       }
     } catch (error) {
+      console.error('Error in loadShippingMethods:', error);
       toast({
         title: "Failed to Load Shipping Methods",
-        description: error.message,
+        description: error.message || 'An unexpected error occurred while loading shipping options',
         variant: "destructive"
       });
     } finally {
