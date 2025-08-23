@@ -87,7 +87,7 @@ export const useSunskyOrders = () => {
     }
   };
 
-  // Sync orders from Sunsky API
+  // Sync orders from Sunsky API - only orders placed from our app
   const syncOrdersFromAPI = async (filters: {
     pageSize?: number;
     page?: number;
@@ -101,27 +101,60 @@ export const useSunskyOrders = () => {
     setState(prev => ({ ...prev, syncing: true, error: null }));
 
     try {
-      const { data, error } = await supabase.functions.invoke('sunsky-api', {
-        body: {
-          action: 'listOrders',
-          apiKey: 'zawa.faza11',
-          apiSecret: 'djbwfqewbqfeqljfw',
-          ...filters,
-        },
-      });
+      // First, get all PO orders with supplier order numbers (orders placed from our app)
+      const { data: poOrders, error: poError } = await supabase
+        .from('po_orders')
+        .select('supplier_order_number, po_number, sku_code, title')
+        .not('supplier_order_number', 'is', null)
+        .neq('supplier_order_number', '');
 
-      if (error) throw error;
+      if (poError) throw poError;
 
-      if (data.result === 'success') {
+      if (!poOrders || poOrders.length === 0) {
         toast({
-          title: 'Success',
-          description: `Synced ${data.result?.length || 0} orders from Sunsky`,
+          title: 'No Orders Found',
+          description: 'No orders have been placed from the app yet.',
         });
-        // Refresh local data
-        await fetchStoredOrders();
-      } else {
-        throw new Error(data.message || 'Failed to sync orders');
+        setState(prev => ({ ...prev, syncing: false }));
+        return;
       }
+
+      const orderNumbers = poOrders.map(po => po.supplier_order_number).filter(Boolean);
+      console.log('Syncing orders for order numbers:', orderNumbers);
+
+      // Sync each order individually with details
+      let syncedCount = 0;
+      for (const orderNumber of orderNumbers) {
+        try {
+          const { data, error } = await supabase.functions.invoke('sunsky-api', {
+            body: {
+              action: 'getOrderDetails',
+              orderNumber: orderNumber,
+              apiKey: 'zawa.faza11',
+              apiSecret: 'djbwfqewbqfeqljfw',
+            },
+          });
+
+          if (error) {
+            console.error(`Error syncing order ${orderNumber}:`, error);
+            continue;
+          }
+
+          if (data.result === 'success') {
+            syncedCount++;
+          }
+        } catch (err) {
+          console.error(`Failed to sync order ${orderNumber}:`, err);
+        }
+      }
+
+      toast({
+        title: 'Success',
+        description: `Synced ${syncedCount} app-placed orders from Sunsky`,
+      });
+      
+      // Refresh local data
+      await fetchStoredOrders();
     } catch (error: any) {
       setState(prev => ({ ...prev, error: error.message }));
       toast({

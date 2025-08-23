@@ -2057,22 +2057,92 @@ serve(async (req) => {
       }
 
       case 'getOrderDetails': {
-        const { orderNumber } = requestData;
+        const { orderNumber, apiKey, apiSecret } = requestData;
         
         if (!orderNumber) {
           throw new Error('Order number is required');
         }
 
-        const credentials = await getApiCredentials(user.id);
+        // Use provided credentials if available, otherwise get from database/env
+        const credentials = apiKey && apiSecret 
+          ? { key: apiKey, secret: apiSecret }
+          : await getApiCredentials(user.id);
+        
         if (!credentials) {
           throw new Error('No active Sunsky API credentials found');
         }
 
+        console.log('Getting order details for:', orderNumber);
+
         const response = await makeSunskyRequest(
-          '/openapi/order!getOrderDetails.do',
+          '/openapi/order!getOrder.do',
           { number: orderNumber },
-          credentials
+          credentials.key,
+          credentials.secret,
+          user.id
         );
+
+        console.log('Order details response:', { 
+          hasResult: !!response.result, 
+          resultType: typeof response.result,
+          orderNumber: orderNumber
+        });
+
+        if (response.result === 'success' && response.data) {
+          const order = response.data;
+          console.log('Processing order details for storage');
+          
+          // Store the main order
+          const orderToUpsert = {
+            user_id: user.id,
+            number: order.number,
+            status: order.status?.toString() || null,
+            site_number: order.siteNumber || null,
+            gmt_created: order.gmtCreated ? new Date(order.gmtCreated) : null,
+            total: order.totalAmount ? parseFloat(order.totalAmount) : null,
+            currency: 'USD',
+            shipping_company: order.shippingWay?.name || null,
+            tracking_number: order.trackingNumber || null,
+            tracking_url: order.shippingWay?.queryUrl || null,
+            raw: order
+          };
+
+          const { error: insertError } = await supabase
+            .from('sunsky_orders')
+            .upsert([orderToUpsert], { onConflict: 'number' });
+          
+          if (insertError) {
+            console.error('Error storing order:', insertError);
+          } else {
+            console.log('Successfully stored order details');
+          }
+          
+          // Store order items if available
+          if (order.items && Array.isArray(order.items)) {
+            const itemsToUpsert = order.items.map((item: any) => ({
+              user_id: user.id,
+              order_number: order.number,
+              sku_code: item.skuCode || null,
+              model_number: item.modelNumber || null,
+              title: item.title || null,
+              quantity: item.quantity ? parseInt(item.quantity) : null,
+              unit_price: item.unitPrice ? parseFloat(item.unitPrice) : null,
+              currency: 'USD',
+              asin: item.asin || null,
+              raw: item
+            }));
+
+            const { error: itemsError } = await supabase
+              .from('sunsky_order_items')
+              .upsert(itemsToUpsert, { onConflict: 'order_number,sku_code' });
+            
+            if (itemsError) {
+              console.error('Error storing order items:', itemsError);
+            } else {
+              console.log(`Successfully stored ${itemsToUpsert.length} order items`);
+            }
+          }
+        }
 
         return new Response(JSON.stringify(response), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -442,7 +442,7 @@ export default function SunskyOrderTrackingPage() {
                   size="sm"
                 >
                   <RefreshCw className={`h-4 w-4 mr-2 ${sunskyOrders.syncing ? 'animate-spin' : ''}`} />
-                  {sunskyOrders.syncing ? 'Syncing...' : 'Sync Orders'}
+                  {sunskyOrders.syncing ? 'Syncing App Orders...' : 'Sync App Orders'}
                 </Button>
               </CardHeader>
               <CardContent>
