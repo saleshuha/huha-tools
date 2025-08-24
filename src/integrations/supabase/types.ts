@@ -1218,6 +1218,7 @@ export type Database = {
           sku_code: string
           sku_user_id: string
           status: string
+          sunsky_credentials_id: string | null
           supplier_order_number: string | null
           title: string | null
           total_cost: number | null
@@ -1247,6 +1248,7 @@ export type Database = {
           sku_code: string
           sku_user_id: string
           status?: string
+          sunsky_credentials_id?: string | null
           supplier_order_number?: string | null
           title?: string | null
           total_cost?: number | null
@@ -1276,6 +1278,7 @@ export type Database = {
           sku_code?: string
           sku_user_id?: string
           status?: string
+          sunsky_credentials_id?: string | null
           supplier_order_number?: string | null
           title?: string | null
           total_cost?: number | null
@@ -1291,6 +1294,13 @@ export type Database = {
             columns: ["job_id"]
             isOneToOne: false
             referencedRelation: "po_upload_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "po_orders_sunsky_credentials_id_fkey"
+            columns: ["sunsky_credentials_id"]
+            isOneToOne: false
+            referencedRelation: "sunsky_credentials"
             referencedColumns: ["id"]
           },
         ]
@@ -2028,6 +2038,7 @@ export type Database = {
           site_number: string | null
           status: string | null
           status_last_updated_at: string | null
+          sunsky_credentials_id: string | null
           total: number | null
           tracking_number: string | null
           tracking_url: string | null
@@ -2047,6 +2058,7 @@ export type Database = {
           site_number?: string | null
           status?: string | null
           status_last_updated_at?: string | null
+          sunsky_credentials_id?: string | null
           total?: number | null
           tracking_number?: string | null
           tracking_url?: string | null
@@ -2066,13 +2078,22 @@ export type Database = {
           site_number?: string | null
           status?: string | null
           status_last_updated_at?: string | null
+          sunsky_credentials_id?: string | null
           total?: number | null
           tracking_number?: string | null
           tracking_url?: string | null
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "sunsky_orders_sunsky_credentials_id_fkey"
+            columns: ["sunsky_credentials_id"]
+            isOneToOne: false
+            referencedRelation: "sunsky_credentials"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sunsky_skus: {
         Row: {
@@ -2605,6 +2626,7 @@ export type Database = {
           sku_code: string
           sku_user_id: string
           status: string
+          sunsky_credentials_id: string | null
           supplier_order_number: string | null
           title: string | null
           total_cost: number | null

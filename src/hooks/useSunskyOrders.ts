@@ -15,10 +15,12 @@ export interface SunskyOrder {
   tracking_number: string | null;
   tracking_url: string | null;
   po_numbers?: string[] | null;
+  sunsky_credentials_id?: string | null;
   raw: any;
   created_at: string;
   updated_at: string;
   items?: SunskyOrderItem[];
+  credential_name?: string | null;
 }
 
 export interface SunskyOrderItem {
@@ -63,8 +65,8 @@ export const useSunskyOrders = () => {
 
   const { toast } = useToast();
 
-  // Fetch orders from local database - orders linked to our PO orders or with supplier order numbers
-  const fetchStoredOrders = async () => {
+  // Fetch orders from local database - now includes all Sunsky orders with optional PO-only filtering
+  const fetchStoredOrders = async (showOnlyPOLinked: boolean = true) => {
     setState(prev => ({ ...prev, loading: true, error: null }));
 
     try {
@@ -84,37 +86,47 @@ export const useSunskyOrders = () => {
 
       console.log('Found supplier order numbers from PO orders:', Array.from(supplierOrderNumbers));
 
-      // Fetch all orders and filter for those linked to our POs
+      // Fetch all orders and optionally filter for those linked to our POs
       const { data: allOrders, error } = await supabase
         .from('sunsky_orders')
         .select(`
           *,
-          items:sunsky_order_items(*)
+          items:sunsky_order_items(*),
+          sunsky_credential:sunsky_credentials(name)
         `)
         .order('gmt_created', { ascending: false, nullsFirst: false })
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      // Filter orders that are either:
-      // 1. Have po_numbers array with values (primary method)
-      // 2. Have order number that matches a supplier_order_number from POs (fallback)
-      const ordersWithPORelations: SunskyOrder[] = (allOrders || [])
-        .filter((order: any): order is SunskyOrder => {
-          const hasPoNumbers = order.po_numbers && Array.isArray(order.po_numbers) && order.po_numbers.length > 0;
-          const matchesSupplierOrder = supplierOrderNumbers.has(order.number);
-          return hasPoNumbers || matchesSupplierOrder;
-        })
-        .map((order: any): SunskyOrder => ({
-          ...order,
-          items: order.items || []
-        }));
+      let filteredOrders: SunskyOrder[];
 
-      console.log(`Filtered ${ordersWithPORelations.length} orders with PO relationships out of ${allOrders?.length || 0} total orders`);
+      if (showOnlyPOLinked) {
+        // Filter orders that are either:
+        // 1. Have po_numbers array with values (primary method)
+        // 2. Have order number that matches a supplier_order_number from POs (fallback)
+        filteredOrders = (allOrders || [])
+          .filter((order: any): order is SunskyOrder => {
+            const hasPoNumbers = order.po_numbers && Array.isArray(order.po_numbers) && order.po_numbers.length > 0;
+            const matchesSupplierOrder = supplierOrderNumbers.has(order.number);
+            return hasPoNumbers || matchesSupplierOrder;
+          });
+      } else {
+        // Show all orders
+        filteredOrders = allOrders || [];
+      }
+
+      const ordersWithData: SunskyOrder[] = filteredOrders.map((order: any): SunskyOrder => ({
+        ...order,
+        items: order.items || [],
+        credential_name: order.sunsky_credential?.name || null
+      }));
+
+      console.log(`${showOnlyPOLinked ? 'Filtered' : 'Found'} ${filteredOrders.length} orders ${showOnlyPOLinked ? 'with PO relationships' : 'total'} out of ${allOrders?.length || 0} total orders`);
 
       setState(prev => ({
         ...prev,
-        orders: ordersWithPORelations,
+        orders: ordersWithData,
         loading: false,
       }));
     } catch (error: any) {
@@ -260,6 +272,7 @@ export const useSunskyOrders = () => {
               action: 'getOrderDetails',
               orderNumber: orderNumber,
               poNumbers: relatedPONumbers,
+              apiId: undefined // Will be enhanced in future to use credential from PO
             },
           });
 
@@ -343,13 +356,14 @@ export const useSunskyOrders = () => {
     }
   };
 
-  // Get order details with items - fetch if missing items
-  const getOrderDetails = async (orderNumber: string, silent: boolean = false) => {
+  // Get order details with items - fetch if missing items with correct credential
+  const getOrderDetails = async (orderNumber: string, silent: boolean = false, apiId?: string) => {
     try {
       const { data, error } = await supabase.functions.invoke('sunsky-api', {
         body: {
           action: 'getOrderDetails',
           orderNumber,
+          apiId, // Pass credential ID if provided
         },
       });
 

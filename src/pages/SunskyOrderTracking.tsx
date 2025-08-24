@@ -50,6 +50,7 @@ export default function SunskyOrderTrackingPage() {
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
   const [slowItems, setSlowItems] = useState<SlowItem[]>([]);
+  const [showOnlyPOLinked, setShowOnlyPOLinked] = useState(true);
 
   const { selectedCountry } = useCountry();
   const {
@@ -87,11 +88,11 @@ export default function SunskyOrderTrackingPage() {
   };
 
   useEffect(() => {
-    fetchStoredOrders();
+    fetchStoredOrders(showOnlyPOLinked);
     loadSlowItems();
-  }, []);
+  }, [showOnlyPOLinked]);
 
-  // Toggle order expansion and fetch items if missing
+  // Toggle order expansion and fetch items if missing using correct credential
   const toggleOrderExpansion = async (orderNumber: string) => {
     const newExpanded = new Set(expandedOrders);
     if (newExpanded.has(orderNumber)) {
@@ -99,12 +100,16 @@ export default function SunskyOrderTrackingPage() {
     } else {
       newExpanded.add(orderNumber);
       
-      // Check if order has items, if not, fetch them
+      // Find the order and its credential ID
       const order = orders.find(o => o.number === orderNumber);
-      if (order && (!order.items || order.items.length === 0)) {
-        await getOrderDetails(orderNumber, true); // Silent fetch
+      const credentialId = order?.sunsky_credentials_id;
+      
+      // Fetch order details if items are missing, using the correct credential
+      if (!order?.items || order.items.length === 0) {
+        await getOrderDetails(orderNumber, true, credentialId);
       }
     }
+    
     setExpandedOrders(newExpanded);
   };
 
@@ -301,6 +306,17 @@ export default function SunskyOrderTrackingPage() {
               <option value="delivered">Delivered</option>
               <option value="cancelled">Cancelled</option>
             </select>
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium">Show:</label>
+              <select
+                value={showOnlyPOLinked ? 'po-linked' : 'all'}
+                onChange={(e) => setShowOnlyPOLinked(e.target.value === 'po-linked')}
+                className="px-3 py-2 border border-input rounded-md bg-background text-sm"
+              >
+                <option value="po-linked">PO Linked Only</option>
+                <option value="all">All Orders</option>
+              </select>
+            </div>
           </div>
         </div>
 

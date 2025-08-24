@@ -608,7 +608,10 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
       const orderData = {
         ...orderOptions,
         items,
-        deliveryAddress
+        deliveryAddress,
+        selectedOrderIds: selectedOrders
+          .filter(order => checkedItems.has(order.sunsky_sku?.sku_code || order.sku_code))
+          .map(order => order.id)
       };
 
       const response = await supabase.functions.invoke('sunsky-api', {

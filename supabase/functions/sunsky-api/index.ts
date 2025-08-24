@@ -1747,6 +1747,7 @@ serve(async (req) => {
 
       case 'createOrder': {
         const { orderData, apiId } = requestData;
+        console.log('Creating order with apiId:', apiId);
         const credentials = await getApiCredentials(user.id, apiId);
         
         if (!orderData) {
@@ -1805,6 +1806,25 @@ serve(async (req) => {
           const result = await makeSunskyRequest('/openapi/order!createOrder.do', params, credentials.key, credentials.secret, user.id);
           
           console.log('Sunsky order creation result:', JSON.stringify(result, null, 2));
+          
+          // If order creation was successful and we have apiId, update related PO orders with the credential ID
+          if (result.result === 'success' && result.data?.number && apiId) {
+            const orderNumber = result.data.number;
+            console.log(`Order ${orderNumber} created successfully, updating PO orders with credential ID ${apiId}`);
+            
+            // Update PO orders that will use this supplier order number
+            const { error: updateError } = await supabase
+              .from('po_orders')
+              .update({ 
+                supplier_order_number: orderNumber,
+                sunsky_credentials_id: apiId 
+              })
+              .in('id', orderData.selectedOrderIds || []);
+              
+            if (updateError) {
+              console.error('Failed to update PO orders with credential ID:', updateError);
+            }
+          }
           
           return new Response(JSON.stringify(result), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -2004,7 +2024,7 @@ serve(async (req) => {
       }
 
       case 'getOrderDetails': {
-        const { orderNumber, poNumbers } = requestData;
+        const { orderNumber, poNumbers, apiId } = requestData;
         
         console.log('=== getOrderDetails START ===');
         console.log('Request data:', { orderNumber, poNumbers });
@@ -2021,9 +2041,9 @@ serve(async (req) => {
         }
 
         try {
-          // Get credentials from database/env (no longer accept from client)
-          console.log('Getting API credentials for user:', user.id);
-          const credentials = await getApiCredentials(user.id);
+          // Get credentials from database/env with optional apiId
+          console.log('Getting API credentials for user:', user.id, 'apiId:', apiId);
+          const credentials = await getApiCredentials(user.id, apiId);
           
           if (!credentials) {
             console.error('No active Sunsky API credentials found');
@@ -2057,7 +2077,7 @@ serve(async (req) => {
             const order = response.data;
             console.log('Processing order details for storage with PO numbers:', poNumbers);
             
-            // Store the main order with status tracking
+            // Store the main order with status tracking and credential info
             const now = new Date().toISOString();
             const orderToUpsert = {
               user_id: user.id,
@@ -2066,6 +2086,7 @@ serve(async (req) => {
               status_last_updated_at: order.statusUpdateTime || now,
               site_number: order.siteNumber || null,
               po_numbers: poNumbers || [],
+              sunsky_credentials_id: apiId || null,
               gmt_created: order.gmtCreated ? new Date(order.gmtCreated) : null,
               total: order.totalAmount ? parseFloat(order.totalAmount) : null,
               currency: 'USD',
@@ -2148,6 +2169,7 @@ serve(async (req) => {
             const now = new Date().toISOString();
             const minimalOrder = {
               user_id: user.id,
+              sunsky_credentials_id: apiId || null,
               number: orderNumber,
               status: 'unpaid',
               status_last_updated_at: now,
