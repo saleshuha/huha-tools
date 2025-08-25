@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Progress } from './ui/progress';
 import { Checkbox } from './ui/checkbox';
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from './ui/pagination';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { FileSpreadsheet, Search, Minus, Download, History, CheckCircle, Package, AlertTriangle, TrendingUp, Clock, DollarSign, ShoppingCart, Printer, CheckSquare, Square } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import { useAsinInventory, AsinInventoryItem } from '@/hooks/useAsinInventory';
@@ -67,6 +68,7 @@ export function OrderProcessor() {
   const [selectAll, setSelectAll] = useState(false);
   const [fileName, setFileName] = useState<string>('');
   const [dbResults, setDbResults] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState('process');
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -582,64 +584,26 @@ export function OrderProcessor() {
   return <div className="space-y-6">
       <Card className="p-6">
         <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold flex items-center gap-2">
-                <FileSpreadsheet className="w-5 h-5 text-primary" />
-                Order Processing
-              </h3>
-              <div className="flex items-center gap-2">
-                {processedItems.length > 0 && <Dialog>
-                    <DialogTrigger asChild>
-                      <Button variant="outline" size="sm">
-                        <History className="w-4 h-4 mr-2" />
-                        Processed ({processedItems.length})
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
-                      <DialogHeader>
-                        <DialogTitle>Processed Items</DialogTitle>
-                      </DialogHeader>
-                      <div className="flex-1 overflow-auto">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>ASIN/SKU</TableHead>
-                              <TableHead>Serial/Bin</TableHead>
-                              <TableHead>Action</TableHead>
-                              <TableHead>Quantity Change</TableHead>
-                              <TableHead>Previous → New</TableHead>
-                              <TableHead>Processed At</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {processedItems.map((item, index) => <TableRow key={index}>
-                                <TableCell className="font-mono text-sm">
-                                  {item.orderItem.asin || item.orderItem.sku}
-                                </TableCell>
-                                <TableCell className="font-mono text-sm">
-                                  {'serialNumber' in item.inventoryMatch! ? item.inventoryMatch.serialNumber : item.inventoryMatch!.binSerialNumber}
-                                </TableCell>
-                                <TableCell>
-                                  <Badge variant={item.action === 'subtract' ? 'destructive' : 'default'}>
-                                    {item.action === 'subtract' ? 'Subtracted' : 'Added'}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell>{item.quantityChanged}</TableCell>
-                                <TableCell>
-                                  <span className="font-mono">{item.previousQuantity} → {item.newQuantity}</span>
-                                </TableCell>
-                                <TableCell className="text-sm text-muted-foreground">
-                                  {item.processedAt}
-                                </TableCell>
-                              </TableRow>)}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    </DialogContent>
-                  </Dialog>}
-                {matchedItems.length > 0}
-              </div>
-            </div>
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold flex items-center gap-2">
+              <FileSpreadsheet className="w-5 h-5 text-primary" />
+              Order Processing
+            </h3>
+          </div>
+          
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="process" className="flex items-center gap-2">
+                <Package className="w-4 h-4" />
+                Process Orders
+              </TabsTrigger>
+              <TabsTrigger value="processed" className="flex items-center gap-2">
+                <History className="w-4 h-4" />
+                Processed Orders ({processedItems.length + analytics.processedOrdersCount})
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="process" className="space-y-4">
 
           {orderData.length === 0 ? <div {...getRootProps()} className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${isDragActive ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 hover:border-primary/50'}`}>
               <input {...getInputProps()} />
@@ -715,6 +679,79 @@ export function OrderProcessor() {
                 </Card>
               </div>
             </div>}
+            </TabsContent>
+            
+            <TabsContent value="processed" className="space-y-4">
+              <div className="space-y-4">
+                <h4 className="font-semibold">Session Processed Items ({processedItems.length})</h4>
+                {processedItems.length > 0 ? (
+                  <div className="rounded-lg border overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Order ID</TableHead>
+                          <TableHead>ASIN/SKU</TableHead>
+                          <TableHead>Serial/Bin</TableHead>
+                          <TableHead>Action</TableHead>
+                          <TableHead>Quantity Change</TableHead>
+                          <TableHead>Previous → New</TableHead>
+                          <TableHead>Processed At</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {processedItems.map((item, index) => (
+                          <TableRow key={index}>
+                            <TableCell className="font-mono text-sm">
+                              {item.orderItem.orderId}
+                            </TableCell>
+                            <TableCell className="font-mono text-sm">
+                              {item.orderItem.asin || item.orderItem.sku}
+                            </TableCell>
+                            <TableCell className="font-mono text-sm">
+                              {'serialNumber' in item.inventoryMatch! ? item.inventoryMatch.serialNumber : item.inventoryMatch!.binSerialNumber}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={item.action === 'subtract' ? 'destructive' : 'default'}>
+                                {item.action === 'subtract' ? 'Subtracted' : 'Added'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>{item.quantityChanged}</TableCell>
+                            <TableCell>
+                              <span className="font-mono">{item.previousQuantity} → {item.newQuantity}</span>
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {item.processedAt}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <History className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p>No items processed in this session yet.</p>
+                    <p className="text-sm">Process orders from the "Process Orders" tab to see them here.</p>
+                  </div>
+                )}
+                
+                <div className="border-t pt-4">
+                  <h4 className="font-semibold mb-4">All Database Records ({analytics.processedOrdersCount})</h4>
+                  {analytics.processedOrdersCount > 0 ? (
+                    <div className="text-center py-4 text-muted-foreground">
+                      <p>Database records are available but not displayed in this view.</p>
+                      <p className="text-sm">Session processed items above show real-time processing.</p>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      <p>No processed orders in database yet.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
         </div>
       </Card>
 
