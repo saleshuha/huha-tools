@@ -445,11 +445,17 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
         
         // Check if error is due to unavailable items
         const errorMessage = data.message || data.messages?.[0] || '';
-        const hasItemNotExistError = data.messages?.includes('ITEM_NOT_EXIST') || 
-                                   errorMessage.includes('ITEM_NOT_EXIST') ||
-                                   errorMessage.includes('not available in Sunsky catalog') || 
-                                   data.originalError === 'ITEM_NOT_EXIST';
+        console.log('Sunsky API error response:', JSON.stringify(data, null, 2));
+        
+        const hasItemNotExistError = 
+          (Array.isArray(data.messages) && data.messages.includes('ITEM_NOT_EXIST')) ||
+          errorMessage.includes('ITEM_NOT_EXIST') ||
+          errorMessage.includes('not available in Sunsky catalog') ||
+          data.originalError === 'ITEM_NOT_EXIST' ||
+          (Array.isArray(data.messages) && data.messages.some(msg => typeof msg === 'string' && msg.includes('ITEM_NOT_EXIST')));
                                    
+        console.log('Has ITEM_NOT_EXIST error:', hasItemNotExistError);
+        
         if (hasItemNotExistError) {
           console.log('Detected ITEM_NOT_EXIST error, filtering unavailable items...');
           // Filter out unavailable items and retry with available ones only
