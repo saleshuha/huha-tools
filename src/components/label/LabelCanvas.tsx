@@ -53,8 +53,10 @@ export function LabelCanvas({ templateId, datasetId, onCanvasSizeChange }: Label
     { name: "Product Label", width: 283, height: 142, mm: "75 × 37.5 mm" },
     { name: "Name Tag", width: 340, height: 227, mm: "90 × 60 mm" },
     { name: "CD Label", width: 453, height: 453, mm: "120 × 120 mm" },
-    { name: "Custom", width: canvasSize.width, height: canvasSize.height, mm: "Custom" }
+    { name: "Custom", width: 0, height: 0, mm: "Custom Size" }
   ];
+
+  const [selectedPreset, setSelectedPreset] = useState("Custom");
 
   // Font families available
   const fontFamilies = [
@@ -311,14 +313,17 @@ export function LabelCanvas({ templateId, datasetId, onCanvasSizeChange }: Label
               <div className="space-y-2">
                 <Label className="text-xs font-medium">Label Presets</Label>
                 <Select
-                  value={labelPresets.find(p => p.width === canvasSize.width && p.height === canvasSize.height)?.name || "Custom"}
+                  value={selectedPreset}
                   onValueChange={(value) => {
+                    setSelectedPreset(value);
                     const preset = labelPresets.find(p => p.name === value);
                     if (preset && preset.name !== "Custom") {
                       const newSize = { width: preset.width, height: preset.height };
                       setCanvasSize(newSize);
                       onCanvasSizeChange?.(newSize);
                       toast.success(`Applied ${preset.name} (${preset.mm})`);
+                    } else if (preset && preset.name === "Custom") {
+                      toast.info("Custom size selected. Use the width/height inputs below to set your dimensions.");
                     }
                   }}
                 >
@@ -345,29 +350,31 @@ export function LabelCanvas({ templateId, datasetId, onCanvasSizeChange }: Label
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <Label className="text-xs">Width</Label>
-                    <Input
-                      type="number"
-                      value={canvasSize.width}
-                      onChange={(e) => {
-                        const newSize = { ...canvasSize, width: parseInt(e.target.value) || 400 };
-                        setCanvasSize(newSize);
-                        onCanvasSizeChange?.(newSize);
-                      }}
-                      className="h-8 text-xs"
-                    />
+                     <Input
+                       type="number"
+                       value={canvasSize.width}
+                       onChange={(e) => {
+                         const newSize = { ...canvasSize, width: parseInt(e.target.value) || 400 };
+                         setCanvasSize(newSize);
+                         setSelectedPreset("Custom");
+                         onCanvasSizeChange?.(newSize);
+                       }}
+                       className="h-8 text-xs"
+                     />
                   </div>
                   <div>
                     <Label className="text-xs">Height</Label>
-                    <Input
-                      type="number"
-                      value={canvasSize.height}
-                      onChange={(e) => {
-                        const newSize = { ...canvasSize, height: parseInt(e.target.value) || 300 };
-                        setCanvasSize(newSize);
-                        onCanvasSizeChange?.(newSize);
-                      }}
-                      className="h-8 text-xs"
-                    />
+                     <Input
+                       type="number"
+                       value={canvasSize.height}
+                       onChange={(e) => {
+                         const newSize = { ...canvasSize, height: parseInt(e.target.value) || 300 };
+                         setCanvasSize(newSize);
+                         setSelectedPreset("Custom");
+                         onCanvasSizeChange?.(newSize);
+                       }}
+                       className="h-8 text-xs"
+                     />
                   </div>
                 </div>
               </div>
