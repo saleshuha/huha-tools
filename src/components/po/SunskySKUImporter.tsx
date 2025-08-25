@@ -3098,7 +3098,7 @@ export const SunskySKUImporter: React.FC = () => {
                   className="flex-1"
                 >
                   {isExporting ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
-                  {isExporting ? 'Exporting...' : 'Export Now'}
+                  {isExporting ? 'Exporting...' : 'Feature Coming Soon - Foreground concurrent processing will be implemented next.'}
                 </Button>
                 
                 {runInBackground && (
