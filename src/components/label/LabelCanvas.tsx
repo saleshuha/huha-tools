@@ -403,15 +403,39 @@ export function LabelCanvas({ templateId, datasetId, onCanvasSizeChange }: Label
                   <BarChart3 className="w-4 h-4" />
                   <span className="text-xs">Barcode</span>
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={addQRCode}
-                  className="flex flex-col gap-1 h-auto py-3 hover-scale"
-                >
-                  <QrCode className="w-4 h-4" />
-                  <span className="text-xs">QR Code</span>
-                </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={addQRCode}
+                    className="flex flex-col gap-1 h-auto py-3 hover-scale"
+                  >
+                    <QrCode className="w-4 h-4" />
+                    <span className="text-xs">QR Code</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (!fabricCanvas) return;
+                      // Simple test object
+                      const testRect = new Rect({
+                        left: 20,
+                        top: 20,
+                        width: 80,
+                        height: 50,
+                        fill: 'red',
+                        stroke: 'black',
+                        strokeWidth: 3
+                      });
+                      fabricCanvas.add(testRect);
+                      fabricCanvas.renderAll();
+                      toast.success("Test object added!");
+                    }}
+                    className="flex flex-col gap-1 h-auto py-3 hover-scale"
+                  >
+                    <Square className="w-4 h-4" />
+                    <span className="text-xs">Test</span>
+                  </Button>
               </div>
 
               <Separator />
@@ -552,57 +576,23 @@ export function LabelCanvas({ templateId, datasetId, onCanvasSizeChange }: Label
               </div>
             </CardHeader>
             <CardContent>
-              <div className="border rounded-lg p-6 bg-gray-50 flex items-center justify-center relative overflow-hidden">
-                {/* Canvas Container with proper positioning */}
-                <div className="relative bg-white rounded shadow-lg" style={{ 
-                  width: canvasSize.width + 32, 
-                  height: canvasSize.height + 32 
-                }}>
-                  {/* Grid Background - positioned behind canvas */}
-                  <div 
-                    className="absolute inset-4 rounded"
-                    style={{
-                      backgroundImage: `
-                        linear-gradient(rgba(200,200,200,0.3) 1px, transparent 1px),
-                        linear-gradient(90deg, rgba(200,200,200,0.3) 1px, transparent 1px)
-                      `,
-                      backgroundSize: '20px 20px',
-                      backgroundPosition: '0 0, 0 0',
-                      width: canvasSize.width,
-                      height: canvasSize.height
-                    }}
-                  />
-                  
-                  {/* Top Ruler */}
-                  <div className="absolute top-0 left-4 h-4 bg-gray-100 border-b border-gray-300 flex items-end text-xs text-gray-600" style={{ width: canvasSize.width }}>
-                    {Array.from({ length: Math.ceil(canvasSize.width / 50) + 1 }, (_, i) => (
-                      <div key={i} className="absolute flex flex-col items-center" style={{ left: `${i * 50}px` }}>
-                        <div className="w-px h-2 bg-gray-400"></div>
-                        <span className="text-xs">{i * 50}</span>
-                      </div>
-                    ))}
-                  </div>
-                  
-                  {/* Left Ruler */}
-                  <div className="absolute left-0 top-4 w-4 bg-gray-100 border-r border-gray-300 flex flex-col text-xs text-gray-600" style={{ height: canvasSize.height }}>
-                    {Array.from({ length: Math.ceil(canvasSize.height / 50) + 1 }, (_, i) => (
-                      <div key={i} className="absolute flex items-center justify-center" style={{ top: `${i * 50}px`, width: '16px', height: '20px' }}>
-                        <div className="h-px w-2 bg-gray-400 mr-1"></div>
-                        <span className="text-xs transform -rotate-90 whitespace-nowrap">{i * 50}</span>
-                      </div>
-                    ))}
-                  </div>
-                  
-                  {/* Canvas - positioned with clear z-index */}
+              <div className="flex items-center justify-center p-4">
+                <div className="relative">
+                  {/* Simple canvas container */}
                   <canvas 
                     ref={canvasRef} 
-                    className="absolute top-4 left-4 border border-gray-300 bg-white"
+                    className="border-2 border-gray-400 bg-white shadow-md"
                     style={{
-                      zIndex: 10,
-                      width: canvasSize.width,
-                      height: canvasSize.height
+                      display: 'block',
+                      position: 'relative',
+                      zIndex: 1
                     }}
                   />
+                  
+                  {/* Debug info */}
+                  <div className="absolute -bottom-8 left-0 text-xs text-gray-500">
+                    Canvas: {canvasSize.width}×{canvasSize.height}px
+                  </div>
                 </div>
               </div>
             </CardContent>
