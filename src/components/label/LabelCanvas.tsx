@@ -117,9 +117,10 @@ export function LabelCanvas({ templateId, datasetId, onCanvasSizeChange }: Label
       fontFamily: 'Arial',
       fontSize: 20,
       fill: '#000000',
-      width: 200,
-      stroke: '#cccccc',
+      stroke: '#666666',
       strokeWidth: 1,
+      width: 200,
+      backgroundColor: 'rgba(255,255,255,0.8)',
       cornerStyle: 'circle',
       cornerColor: '#2563eb',
       cornerSize: 8,
@@ -132,11 +133,13 @@ export function LabelCanvas({ templateId, datasetId, onCanvasSizeChange }: Label
       lockMovementY: false,
       selectable: true,
       moveable: true,
+      visible: true,
     });
 
     fabricCanvas.add(text);
     fabricCanvas.setActiveObject(text);
     fabricCanvas.renderAll();
+    fabricCanvas.requestRenderAll();
     toast.success("Text element added!");
   }, [fabricCanvas]);
 
@@ -145,13 +148,13 @@ export function LabelCanvas({ templateId, datasetId, onCanvasSizeChange }: Label
     if (!fabricCanvas) return;
 
     const rect = new Rect({
-      left: 50,
-      top: 50,
+      left: 100,
+      top: 100,
       fill: '#3b82f6',
-      width: 100,
-      height: 60,
       stroke: '#1e40af',
       strokeWidth: 2,
+      width: 100,
+      height: 60,
       cornerStyle: 'circle',
       cornerColor: '#2563eb',
       cornerSize: 8,
@@ -164,11 +167,13 @@ export function LabelCanvas({ templateId, datasetId, onCanvasSizeChange }: Label
       lockMovementY: false,
       selectable: true,
       moveable: true,
+      visible: true,
     });
 
     fabricCanvas.add(rect);
     fabricCanvas.setActiveObject(rect);
     fabricCanvas.renderAll();
+    fabricCanvas.requestRenderAll();
     toast.success("Rectangle added!");
   }, [fabricCanvas]);
 
@@ -177,12 +182,12 @@ export function LabelCanvas({ templateId, datasetId, onCanvasSizeChange }: Label
     if (!fabricCanvas) return;
 
     const circle = new Circle({
-      left: 50,
-      top: 50,
+      left: 150,
+      top: 150,
       fill: '#ef4444',
-      radius: 30,
       stroke: '#dc2626',
       strokeWidth: 2,
+      radius: 30,
       cornerStyle: 'circle',
       cornerColor: '#2563eb',
       cornerSize: 8,
@@ -195,11 +200,13 @@ export function LabelCanvas({ templateId, datasetId, onCanvasSizeChange }: Label
       lockMovementY: false,
       selectable: true,
       moveable: true,
+      visible: true,
     });
 
     fabricCanvas.add(circle);
     fabricCanvas.setActiveObject(circle);
     fabricCanvas.renderAll();
+    fabricCanvas.requestRenderAll();
     toast.success("Circle added!");
   }, [fabricCanvas]);
 
