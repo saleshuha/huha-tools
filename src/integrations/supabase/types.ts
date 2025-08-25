@@ -300,6 +300,78 @@ export type Database = {
         }
         Relationships: []
       }
+      label_datasets: {
+        Row: {
+          created_at: string
+          data: Json
+          description: string | null
+          headers: Json
+          id: string
+          name: string
+          row_count: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          data?: Json
+          description?: string | null
+          headers?: Json
+          id?: string
+          name: string
+          row_count?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          data?: Json
+          description?: string | null
+          headers?: Json
+          id?: string
+          name?: string
+          row_count?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      label_templates: {
+        Row: {
+          canvas_data: Json
+          created_at: string
+          description: string | null
+          height: number
+          id: string
+          name: string
+          updated_at: string
+          user_id: string
+          width: number
+        }
+        Insert: {
+          canvas_data?: Json
+          created_at?: string
+          description?: string | null
+          height?: number
+          id?: string
+          name: string
+          updated_at?: string
+          user_id: string
+          width?: number
+        }
+        Update: {
+          canvas_data?: Json
+          created_at?: string
+          description?: string | null
+          height?: number
+          id?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+          width?: number
+        }
+        Relationships: []
+      }
       noon_credit_data: {
         Row: {
           business_unit: string | null
