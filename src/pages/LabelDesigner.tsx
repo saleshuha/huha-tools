@@ -1,256 +1,168 @@
-import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
-import { Plus, FileText, Database, Printer, Palette, ArrowRight } from "lucide-react";
-import { LabelCanvas } from "@/components/label/LabelCanvas";
-import { LabelTemplates } from "@/components/label/LabelTemplates";
-import { BulkDataManager } from "@/components/label/BulkDataManager";
-import { PrintManager } from "@/components/label/PrintManager";
-import { WelcomeGuide } from "@/components/label/WelcomeGuide";
-import { StepperIndicator } from "@/components/label/StepperIndicator";
-import { toast } from "sonner";
+import React, { useState } from 'react';
+import { LabelDocProvider, useLabelDoc } from '@/contexts/LabelDocContext';
+import { LabelToolbar } from '@/components/label/LabelToolbar';
+import { LabelWorkspace } from '@/components/label/LabelWorkspace';
+import { LabelPropertiesPanel } from '@/components/label/LabelPropertiesPanel';
+import { PrintService } from '@/services/print-service';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { LABEL_PRESETS, PrintSettings } from '@/types/label';
+import { Plus, Database, Eye, Download, Printer } from 'lucide-react';
+import { toast } from 'sonner';
 
-export default function LabelDesigner() {
-  const [activeTemplate, setActiveTemplate] = useState<string | null>(null);
-  const [activeDataset, setActiveDataset] = useState<string | null>(null);
-  const [showWelcome, setShowWelcome] = useState(true);
-  const [canvasSize, setCanvasSize] = useState({ width: 400, height: 300 });
-  const [canvasData, setCanvasData] = useState<any>(null);
-  const [currentStep, setCurrentStep] = useState(1);
-  const [activeTab, setActiveTab] = useState("data");
+const LabelDesignerContent: React.FC = () => {
+  const { document, dataset, createDocument } = useLabelDoc();
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [newLabelName, setNewLabelName] = useState('');
+  const [selectedPreset, setSelectedPreset] = useState('address');
+  const [printSettings, setPrintSettings] = useState<PrintSettings>({
+    format: 'pdf',
+    paperSize: 'a4',
+    orientation: 'portrait',
+    dpi: 203,
+    copies: 1,
+    labelsPerPage: 4,
+    margin: 10,
+  });
 
-  // Auto-navigate based on data availability
-  useEffect(() => {
-    if (!activeDataset && activeTab !== "data") {
-      setActiveTab("data");
-      setCurrentStep(1);
-      toast.info("Please select or import data first");
-    } else if (activeDataset && !activeTemplate && activeTab === "data") {
-      // Optionally prompt to move to templates
-      setTimeout(() => {
-        toast.success("Data ready! You can now design your template", {
-          action: {
-            label: "Go to Designer",
-            onClick: () => {
-              setActiveTab("designer");
-              setCurrentStep(3);
-            }
-          }
-        });
-      }, 1000);
+  const handleCreateLabel = async () => {
+    if (!newLabelName.trim()) {
+      toast.error('Please enter a label name');
+      return;
     }
-  }, [activeDataset, activeTemplate, activeTab]);
+    const preset = LABEL_PRESETS[selectedPreset];
+    await createDocument(newLabelName, preset);
+    setShowCreateDialog(false);
+    setNewLabelName('');
+  };
 
-  // Update current step based on active tab
-  useEffect(() => {
-    switch (activeTab) {
-      case "data":
-        setCurrentStep(1);
-        break;
-      case "templates":
-        setCurrentStep(2);
-        break;
-      case "designer":
-        setCurrentStep(3);
-        break;
-      case "print":
-        setCurrentStep(4);
-        break;
-    }
-  }, [activeTab]);
-
-  const handleDatasetSelect = (datasetId: string | null) => {
-    setActiveDataset(datasetId);
-    if (datasetId) {
-      toast.success("Dataset selected successfully!");
+  const handlePreview = async () => {
+    if (!document) return;
+    const html = PrintService.generateHTMLPreview(document, dataset);
+    const newWindow = window.open('', '_blank');
+    if (newWindow) {
+      newWindow.document.write(html);
+      newWindow.document.close();
     }
   };
 
-  const handleTemplateSelect = (templateId: string | null) => {
-    setActiveTemplate(templateId);
-    if (templateId) {
-      toast.success("Template selected successfully!");
+  const handleExportPDF = async () => {
+    if (!document) return;
+    try {
+      const blob = await PrintService.generatePDF(document, dataset, printSettings);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${document.name}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('PDF exported successfully');
+    } catch (error) {
+      toast.error('Failed to export PDF');
     }
   };
-
-  if (showWelcome) {
-    return (
-      <div className="min-h-screen bg-background animate-fade-in">
-        <div className="container mx-auto p-6">
-          <WelcomeGuide onGetStarted={() => setShowWelcome(false)} />
-        </div>
-      </div>
-    );
-  }
 
   return (
-    <div className="min-h-screen bg-background animate-fade-in">
-      <div className="container mx-auto p-6">
-        {/* Header */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold mb-2 text-foreground">Label Designer</h1>
-              <p className="text-muted-foreground">
-                Create professional labels with data-first workflow, smart mapping, and Zebra printer support
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="secondary" className="flex items-center gap-1">
-                <Palette className="w-3 h-3" />
-                Smart Mapping
-              </Badge>
-              <Badge variant="secondary" className="flex items-center gap-1">
-                <Printer className="w-3 h-3" />
-                Zebra Ready
-              </Badge>
-            </div>
-          </div>
-        </div>
-
-        {/* Stepper Indicator */}
-        <StepperIndicator 
-          currentStep={currentStep}
-          hasDataset={!!activeDataset}
-          hasTemplate={!!activeTemplate}
-        />
-
-        {/* Main Content */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="data" className="flex items-center gap-2">
-              <Database className="w-4 h-4" />
-              Data
-            </TabsTrigger>
-            <TabsTrigger value="templates" className="flex items-center gap-2">
-              <FileText className="w-4 h-4" />
-              Templates
-            </TabsTrigger>
-            <TabsTrigger 
-              value="designer" 
-              className="flex items-center gap-2"
-              disabled={!activeDataset}
-            >
-              <Palette className="w-4 h-4" />
-              Designer
-            </TabsTrigger>
-            <TabsTrigger 
-              value="print" 
-              className="flex items-center gap-2"
-              disabled={!activeDataset || !activeTemplate}
-            >
-              <Printer className="w-4 h-4" />
-              Print
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="data" className="mt-6">
-            <BulkDataManager 
-              onDatasetSelect={handleDatasetSelect}
-              activeDataset={activeDataset}
-            />
-          </TabsContent>
-
-          <TabsContent value="templates" className="mt-6">
-            <LabelTemplates 
-              onTemplateSelect={handleTemplateSelect}
-              activeTemplate={activeTemplate}
-            />
-          </TabsContent>
-
-          <TabsContent value="designer" className="mt-6">
-            {!activeDataset ? (
-              <Card>
-                <CardContent className="p-12 text-center">
-                  <Database className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-                  <h3 className="text-xl font-semibold mb-2">No Data Selected</h3>
-                  <p className="text-muted-foreground mb-6">
-                    Import or select a dataset to start designing your labels with smart mapping
-                  </p>
-                  <Button onClick={() => setActiveTab("data")} className="gap-2">
-                    <Database className="w-4 h-4" />
-                    Go to Data Import
-                    <ArrowRight className="w-4 h-4" />
-                  </Button>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid grid-cols-12 gap-6">
-                <div className="col-span-12">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Palette className="w-5 h-5" />
-                          Smart Label Designer
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {activeDataset && (
-                            <Badge variant="secondary" className="text-xs">
-                              <Database className="w-3 h-3 mr-1" />
-                              Data Connected
-                            </Badge>
-                          )}
-                          <Badge variant="outline" className="text-xs font-mono">
-                            {canvasSize.width} × {canvasSize.height} px
-                          </Badge>
-                        </div>
-                      </CardTitle>
-                      <CardDescription>
-                        Add elements and map them to your data columns. Elements will automatically prompt for mapping when added.
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <LabelCanvas 
-                        templateId={activeTemplate}
-                        datasetId={activeDataset}
-                        onCanvasSizeChange={(size) => setCanvasSize(size)}
-                        onCanvasDataChange={(data) => setCanvasData(data)}
-                      />
-                    </CardContent>
-                  </Card>
-                </div>
+    <div className="h-screen flex flex-col bg-background">
+      <div className="border-b bg-card p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <h1 className="text-2xl font-bold">Label Designer</h1>
+            {document && (
+              <div className="flex items-center gap-2">
+                <Badge variant="outline">{document.name}</Badge>
+                <Badge variant="secondary">
+                  {document.size.width}×{document.size.height}mm
+                </Badge>
+                {dataset && (
+                  <Badge variant="secondary">
+                    <Database className="h-3 w-3 mr-1" />
+                    {dataset.name}
+                  </Badge>
+                )}
               </div>
             )}
-          </TabsContent>
-
-          <TabsContent value="print" className="mt-6">
-            {!activeDataset || !activeTemplate ? (
-              <Card>
-                <CardContent className="p-12 text-center">
-                  <Printer className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-                  <h3 className="text-xl font-semibold mb-2">Setup Required</h3>
-                  <p className="text-muted-foreground mb-6">
-                    You need both a dataset and template to print labels
-                  </p>
-                  <div className="flex gap-4 justify-center">
-                    {!activeDataset && (
-                      <Button variant="outline" onClick={() => setActiveTab("data")} className="gap-2">
-                        <Database className="w-4 h-4" />
-                        Import Data
-                      </Button>
-                    )}
-                    {!activeTemplate && (
-                      <Button variant="outline" onClick={() => setActiveTab("designer")} className="gap-2">
-                        <Palette className="w-4 h-4" />
-                        Design Template
-                      </Button>
-                    )}
+          </div>
+          <div className="flex items-center gap-2">
+            <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+              <DialogTrigger asChild>
+                <Button size="sm">
+                  <Plus className="h-4 w-4 mr-2" />
+                  New Label
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Create New Label</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 pt-4">
+                  <div>
+                    <Label>Label Name</Label>
+                    <Input
+                      value={newLabelName}
+                      onChange={(e) => setNewLabelName(e.target.value)}
+                      placeholder="Enter label name"
+                    />
                   </div>
-                </CardContent>
-              </Card>
-            ) : (
-            <PrintManager 
-              templateId={activeTemplate} 
-              datasetId={activeDataset}
-              canvasData={canvasData}
-            />
+                  <div>
+                    <Label>Size Preset</Label>
+                    <Select value={selectedPreset} onValueChange={setSelectedPreset}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(LABEL_PRESETS).map(([key, preset]) => (
+                          <SelectItem key={key} value={key}>
+                            {key} ({preset.width}×{preset.height}mm)
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handleCreateLabel}>Create</Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+            {document && (
+              <>
+                <Button variant="outline" size="sm" onClick={handlePreview}>
+                  <Eye className="h-4 w-4 mr-2" />
+                  Preview
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleExportPDF}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Export PDF
+                </Button>
+              </>
             )}
-          </TabsContent>
-        </Tabs>
+          </div>
+        </div>
+      </div>
+      <div className="flex-1 flex gap-4 p-4 min-h-0">
+        <LabelToolbar />
+        <LabelWorkspace />
+        <LabelPropertiesPanel />
       </div>
     </div>
   );
-}
+};
+
+const LabelDesigner: React.FC = () => {
+  return (
+    <LabelDocProvider>
+      <LabelDesignerContent />
+    </LabelDocProvider>
+  );
+};
+
+export default LabelDesigner;
