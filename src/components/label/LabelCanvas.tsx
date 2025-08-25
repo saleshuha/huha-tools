@@ -166,6 +166,7 @@ export function LabelCanvas({ templateId, datasetId, onCanvasSizeChange }: Label
         scaleX: 0.8,
         scaleY: 0.8,
       });
+      (img as any).isBarcode = true; // Mark as barcode for data mapping
       fabricCanvas.add(img);
       fabricCanvas.setActiveObject(img);
       fabricCanvas.renderAll();
@@ -183,6 +184,7 @@ export function LabelCanvas({ templateId, datasetId, onCanvasSizeChange }: Label
           left: 200,
           top: 200,
         });
+        (img as any).isQRCode = true; // Mark as QR code for data mapping
         fabricCanvas.add(img);
         fabricCanvas.setActiveObject(img);
         fabricCanvas.renderAll();
@@ -239,6 +241,90 @@ export function LabelCanvas({ templateId, datasetId, onCanvasSizeChange }: Label
     selectedObject.set(property, value);
     fabricCanvas?.renderAll();
   }, [selectedObject, fabricCanvas]);
+
+  // Check if any objects have data mappings
+  const hasDataMappings = useCallback(() => {
+    if (!fabricCanvas) return false;
+    return fabricCanvas.getObjects().some(obj => (obj as any).dataColumn);
+  }, [fabricCanvas]);
+
+  // Clear all data mappings
+  const clearAllMappings = useCallback(() => {
+    if (!fabricCanvas) return;
+    fabricCanvas.getObjects().forEach(obj => {
+      (obj as any).dataColumn = undefined;
+    });
+    fabricCanvas.renderAll();
+    toast.success("All data mappings cleared!");
+  }, [fabricCanvas]);
+
+  // Preview canvas with first row of data
+  const previewWithData = useCallback(() => {
+    if (!fabricCanvas || !dataset || dataset.data.length === 0) return;
+
+    const firstRow = dataset.data[0];
+    
+    fabricCanvas.getObjects().forEach(obj => {
+      const dataColumn = (obj as any).dataColumn;
+      if (!dataColumn) return;
+
+      const value = firstRow[dataColumn];
+      if (!value) return;
+
+      // Update text objects
+      if (obj.type === 'textbox') {
+        (obj as Textbox).set('text', String(value));
+      }
+      
+      // Update barcode objects  
+      if (obj.type === 'image' && (obj as any).isBarcode) {
+        const canvas = document.createElement('canvas');
+        JsBarcode(canvas, String(value), {
+          format: "CODE128",
+          width: 2,
+          height: 50,
+          displayValue: true,
+        });
+        const dataURL = canvas.toDataURL();
+        
+        Image.fromURL(dataURL).then((img) => {
+          img.set({
+            left: obj.left,
+            top: obj.top,
+            scaleX: obj.scaleX,
+            scaleY: obj.scaleY,
+          });
+          fabricCanvas.remove(obj);
+          fabricCanvas.add(img);
+          (img as any).dataColumn = dataColumn;
+          (img as any).isBarcode = true;
+          fabricCanvas.renderAll();
+        });
+      }
+
+      // Update QR code objects
+      if (obj.type === 'image' && (obj as any).isQRCode) {
+        QRCode.toDataURL(String(value), { width: 100 }).then((dataURL) => {
+          Image.fromURL(dataURL).then((img) => {
+            img.set({
+              left: obj.left,
+              top: obj.top,
+              scaleX: obj.scaleX,
+              scaleY: obj.scaleY,
+            });
+            fabricCanvas.remove(obj);
+            fabricCanvas.add(img);
+            (img as any).dataColumn = dataColumn;
+            (img as any).isQRCode = true;
+            fabricCanvas.renderAll();
+          });
+        });
+      }
+    });
+
+    fabricCanvas.renderAll();
+    toast.success("Preview updated with first row data!");
+  }, [fabricCanvas, dataset]);
 
   return (
     <div className="grid grid-cols-12 gap-6">
@@ -430,20 +516,63 @@ export function LabelCanvas({ templateId, datasetId, onCanvasSizeChange }: Label
                 {dataset && (
                   <>
                     <Separator />
-                    <div>
+                    <div className="space-y-2">
                       <Label className="text-xs font-medium">Data Mapping</Label>
-                      <Select onValueChange={(value) => updateObjectProperty('dataColumn', value)}>
-                        <SelectTrigger className="h-8 text-xs">
-                          <SelectValue placeholder="Select column" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {dataset.headers.map((header) => (
-                            <SelectItem key={header} value={header} className="text-xs">
-                              {header}
+                      <div>
+                        <Label className="text-xs">Map to Column</Label>
+                        <Select 
+                          value={(selectedObject as any)?.dataColumn || ''} 
+                          onValueChange={(value) => updateObjectProperty('dataColumn', value)}
+                        >
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue placeholder="Select column" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-background border border-border z-50">
+                            <SelectItem value="" className="text-xs">
+                              None
                             </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                            {dataset.headers.map((header) => (
+                              <SelectItem key={header} value={header} className="text-xs">
+                                {header}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      {/* Show current mapping and preview */}
+                      {(selectedObject as any)?.dataColumn && (
+                        <div className="mt-2 p-2 bg-muted rounded text-xs">
+                          <div className="font-medium">Mapped to: {(selectedObject as any).dataColumn}</div>
+                          {dataset.data.length > 0 && (
+                            <div className="mt-1">
+                              <div className="text-muted-foreground">Preview:</div>
+                              <div className="font-mono">{dataset.data[0][(selectedObject as any).dataColumn] || 'N/A'}</div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* Data operations */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => previewWithData()}
+                          disabled={!hasDataMappings()}
+                          className="text-xs"
+                        >
+                          Preview
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => clearAllMappings()}
+                          className="text-xs"
+                        >
+                          Clear All
+                        </Button>
+                      </div>
                     </div>
                   </>
                 )}
