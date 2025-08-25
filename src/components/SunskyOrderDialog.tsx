@@ -445,7 +445,13 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
         
         // Check if error is due to unavailable items
         const errorMessage = data.message || data.messages?.[0] || '';
-        if (errorMessage.includes('not available in Sunsky catalog') || data.originalError === 'ITEM_NOT_EXIST') {
+        const hasItemNotExistError = data.messages?.includes('ITEM_NOT_EXIST') || 
+                                   errorMessage.includes('ITEM_NOT_EXIST') ||
+                                   errorMessage.includes('not available in Sunsky catalog') || 
+                                   data.originalError === 'ITEM_NOT_EXIST';
+                                   
+        if (hasItemNotExistError) {
+          console.log('Detected ITEM_NOT_EXIST error, filtering unavailable items...');
           // Filter out unavailable items and retry with available ones only
           await filterAndRetryShippingMethods(items);
           return;
