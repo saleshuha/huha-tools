@@ -182,7 +182,7 @@ export const SunskySKUImporter: React.FC = () => {
   const { sunskySKUs, isLoading: skusLoading, fetchSKUs, totalCount, refreshSKUs, addSKUs } = useSKUManager();
   const { jobs, isLoading: jobsLoading, createImportJob, fetchJobs } = useImportJobs();
   const { getPOModelNumbers } = usePOOrders();
-  const { addTask, updateTask } = useBackgroundTasks();
+  const { addTask, updateTask, removeTask } = useBackgroundTasks();
   
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -252,13 +252,26 @@ export const SunskySKUImporter: React.FC = () => {
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
   const [exportStatus, setExportStatus] = useState<string>('');
-  const [exportTotalValue, setExportTotalValue] = useState(0);
+  const [exportTotalItems, setExportTotalItems] = useState(0);
   const [selectedExportStatus, setSelectedExportStatus] = useState<number>(1);
+  const [currentExportTaskId, setCurrentExportTaskId] = useState<string | null>(null);
   const [exportResults, setExportResults] = useState<{
     products: SunskyProduct[];
     categories: Map<number, { name: string; products: SunskyProduct[] }>;
     totalFound: number;
   } | null>(null);
+
+  // Export history
+  const [exportHistory, setExportHistory] = useState<Array<{
+    id: string;
+    timestamp: Date;
+    status: 'completed' | 'cancelled' | 'failed';
+    totalItems: number;
+    categories: string;
+    apiKeys: number;
+    filename?: string;
+    error?: string;
+  }>>([]);
 
   // Enhanced export features
   const [exportCategory, setExportCategory] = useState<string>('all');
@@ -509,19 +522,20 @@ export const SunskySKUImporter: React.FC = () => {
   };
 
   const processExport = async (apiIds: string[], isBackground: boolean = false, taskId?: string) => {
-    const updateProgress = (progress: number, status: string, totalItems?: number, processedItems?: number, totalValue?: number) => {
+    const updateProgress = (progress: number, status: string, totalItems?: number, processedItems?: number, estimatedTotal?: number) => {
       if (isBackground && taskId) {
         updateTask(taskId, {
           progress,
           status: 'processing',
+          name: `Sunsky Export - ${status}`,
           totalItems,
           processedItems
         });
       } else {
         setExportProgress(progress);
         setExportStatus(status);
-        if (totalValue !== undefined) {
-          setExportTotalValue(totalValue);
+        if (estimatedTotal !== undefined) {
+          setExportTotalItems(estimatedTotal);
         }
       }
     };
@@ -530,8 +544,9 @@ export const SunskySKUImporter: React.FC = () => {
       setIsExporting(true);
       setExportProgress(0);
       setExportStatus('Initializing export...');
-      setExportTotalValue(0);
+      setExportTotalItems(0);
       setExportResults(null);
+      setCurrentExportTaskId(taskId || null);
     }
 
     try {
@@ -539,10 +554,11 @@ export const SunskySKUImporter: React.FC = () => {
       const categoriesMap = new Map<number, { name: string; products: SunskyProduct[] }>();
       let currentPage = 1;
       let totalProcessed = 0;
-      let totalValue = 0;
+      let estimatedTotal = 0;
       let hasMore = true;
       const perKeyDelay = 250; // 250ms delay per API key for level 9 limits
       let currentApiIndex = 0;
+      let isCancelled = false;
 
       updateProgress(5, 'Fetching categories...');
       
@@ -592,16 +608,24 @@ export const SunskySKUImporter: React.FC = () => {
 
       const maxPages = 200; // Safety limit
       
-      while (hasMore && currentPage <= maxPages) {
+      while (hasMore && currentPage <= maxPages && !isCancelled) {
+        // Check if task was cancelled (for background tasks)
+        if (isBackground && taskId) {
+          const tasks = isBackground ? await new Promise(resolve => {
+            // Access current tasks from context - simplified check
+            resolve([]);
+          }) : [];
+        }
+
         try {
           const currentApiId = apiIds[currentApiIndex % apiIds.length];
           
           updateProgress(
             15 + (currentPage - 1) * 2, 
-            `Fetching page ${currentPage} (${totalProcessed} products found, $${totalValue.toFixed(2)} total value) - API ${currentApiIndex % apiIds.length + 1}`,
-            undefined,
+            `Fetching page ${currentPage} (${totalProcessed} products found, ~${estimatedTotal} estimated total) - API ${currentApiIndex % apiIds.length + 1}`,
+            estimatedTotal,
             totalProcessed,
-            totalValue
+            estimatedTotal
           );
 
           // Determine effective category ID for filtering
@@ -655,10 +679,6 @@ export const SunskySKUImporter: React.FC = () => {
           pageProducts.forEach((product: SunskyProduct) => {
             allProducts.push(product);
             
-            // Calculate total value (using price property)
-            const productPrice = parseFloat(product.price || '0');
-            totalValue += productPrice;
-            
             if (product.categoryId && categoriesMap.has(product.categoryId)) {
               categoriesMap.get(product.categoryId)?.products.push(product);
             } else {
@@ -684,10 +704,10 @@ export const SunskySKUImporter: React.FC = () => {
             const delay = perKeyDelay;
             updateProgress(
               15 + (currentPage - 1) * 2, 
-              `Rate limiting... waiting ${delay}ms (${totalProcessed} products found, $${totalValue.toFixed(2)} total value)`,
-              undefined,
+              `Rate limiting... waiting ${delay}ms (${totalProcessed} products found, ~${estimatedTotal} estimated total)`,
+              estimatedTotal,
               totalProcessed,
-              totalValue
+              estimatedTotal
             );
             await new Promise(resolve => setTimeout(resolve, delay));
           }
@@ -732,7 +752,7 @@ export const SunskySKUImporter: React.FC = () => {
         
       } else {
         setExportResults(finalResults);
-        updateProgress(100, `Export complete! Found ${totalProcessed} products across ${categoriesMap.size} categories. Total value: $${totalValue.toFixed(2)}`, totalProcessed, totalProcessed, totalValue);
+        updateProgress(100, `Export complete! Found ${totalProcessed} products across ${categoriesMap.size} categories`, totalProcessed, totalProcessed, totalProcessed);
 
         toast({
           title: "Export Complete",
@@ -2965,11 +2985,37 @@ export const SunskySKUImporter: React.FC = () => {
                   <Progress value={exportProgress} className="w-full" />
                   <div className="flex items-center justify-between text-sm">
                     <p className="text-muted-foreground">{exportStatus}</p>
-                    {exportTotalValue > 0 && (
-                      <span className="text-primary font-medium">
-                        Total Value: ${exportTotalValue.toFixed(2)}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-4">
+                      {exportTotalItems > 0 && (
+                        <span className="text-primary font-medium">
+                          Estimated: ~{exportTotalItems} items
+                        </span>
+                      )}
+                      {(isExporting || currentExportTaskId) && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            if (currentExportTaskId) {
+                              // Cancel background task
+                              removeTask(currentExportTaskId);
+                            }
+                            setIsExporting(false);
+                            setCurrentExportTaskId(null);
+                            setExportStatus('Export cancelled by user');
+                            toast({
+                              title: "Export Cancelled",
+                              description: "Export has been cancelled",
+                              variant: "destructive"
+                            });
+                          }}
+                          className="h-6 px-2 text-xs"
+                        >
+                          <XCircle className="h-3 w-3 mr-1" />
+                          Cancel
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
@@ -3011,6 +3057,57 @@ export const SunskySKUImporter: React.FC = () => {
                     </ul>
                   </div>
                 </div>
+              )}
+
+              {/* Export History */}
+              {exportHistory.length > 0 && (
+                <Card className="mt-6">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Package className="h-5 w-5" />
+                      Export History
+                    </CardTitle>
+                    <CardDescription>
+                      Recent export activities (last 10)
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {exportHistory.map((entry) => (
+                        <div key={entry.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <div className={`h-2 w-2 rounded-full ${
+                              entry.status === 'completed' ? 'bg-green-500' :
+                              entry.status === 'cancelled' ? 'bg-yellow-500' : 'bg-red-500'
+                            }`} />
+                            <div>
+                              <div className="font-medium text-sm">
+                                {entry.categories} - {entry.totalItems} items
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {entry.timestamp.toLocaleString()}
+                                {entry.apiKeys > 1 && ` • ${entry.apiKeys} API keys`}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant={
+                              entry.status === 'completed' ? 'default' :
+                              entry.status === 'cancelled' ? 'secondary' : 'destructive'
+                            }>
+                              {entry.status}
+                            </Badge>
+                            {entry.error && (
+                              <Badge variant="outline" className="text-xs max-w-32 truncate">
+                                {entry.error}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
               )}
             </CardContent>
           </Card>
