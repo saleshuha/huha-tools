@@ -240,10 +240,11 @@ export default function LabelDesigner() {
                 </CardContent>
               </Card>
             ) : (
-              <PrintManager 
-                templateId={activeTemplate}
-                datasetId={activeDataset}
-              />
+            <PrintManager 
+              templateId={activeTemplate} 
+              datasetId={activeDataset}
+              canvasData={(window as any).labelCanvas?.fabricCanvas?.toJSON()}
+            />
             )}
           </TabsContent>
         </Tabs>

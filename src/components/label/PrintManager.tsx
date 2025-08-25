@@ -21,13 +21,17 @@ import {
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
+import { useLabelDataset } from "@/hooks/useLabelDataset";
+import { supabase } from "@/integrations/supabase/client";
+import { generateLabelZPL, getLabelSizePresets } from "@/utils/zpl-generator";
 
 interface PrintManagerProps {
   templateId?: string | null;
   datasetId?: string | null;
+  canvasData?: any;
 }
 
-export function PrintManager({ templateId, datasetId }: PrintManagerProps) {
+export function PrintManager({ templateId, datasetId, canvasData }: PrintManagerProps) {
   const [printSettings, setPrintSettings] = useState({
     format: 'pdf',
     paperSize: 'A4',
@@ -35,11 +39,37 @@ export function PrintManager({ templateId, datasetId }: PrintManagerProps) {
     quality: 'high',
     copies: 1,
     labelsPerPage: 1,
-    includeBackground: true
+    includeBackground: true,
+    dpi: 203 as 203 | 300
   });
 
   const [previewMode, setPreviewMode] = useState<'single' | 'bulk'>('single');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [templateData, setTemplateData] = useState<any>(null);
+  
+  const { dataset } = useLabelDataset(datasetId);
+
+  // Load template data
+  useEffect(() => {
+    if (!templateId) return;
+    
+    const loadTemplate = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('label_templates')
+          .select('*')
+          .eq('id', templateId)
+          .single();
+        
+        if (error) throw error;
+        setTemplateData(data);
+      } catch (error) {
+        console.error('Error loading template:', error);
+      }
+    };
+    
+    loadTemplate();
+  }, [templateId]);
 
   const generatePDF = async () => {
     if (!templateId) {
@@ -79,34 +109,86 @@ export function PrintManager({ templateId, datasetId }: PrintManagerProps) {
   };
 
   const generateZPL = () => {
-    if (!templateId) {
-      toast.error("Please select a template first");
+    if (!templateData?.canvas_data) {
+      toast.error("No template data available");
       return;
     }
 
-    // Generate ZPL code for Zebra printers
-    let zplCode = `^XA
-^FO50,100^A0N,50,50^FDSample Label^FS
-^FO50,200^A0N,30,30^FDGenerated: ${new Date().toLocaleDateString()}^FS`;
+    try {
+      const canvasObjects = templateData.canvas_data.objects || [];
+      
+      // Convert canvas objects to ZPL elements
+      const elements = canvasObjects.map((obj: any) => ({
+        type: obj.type === 'i-text' ? 'text' : obj.type,
+        x: obj.left || 0,
+        y: obj.top || 0,
+        width: obj.width,
+        height: obj.height,
+        content: obj.text || obj.content || 'Sample',
+        fontSize: obj.fontSize,
+        barcodeType: obj.barcodeType || 'CODE128',
+        showBarcodeText: obj.showBarcodeText !== false
+      }));
 
-    if (datasetId && previewMode === 'bulk') {
-      zplCode += `
-^FO50,250^A0N,25,25^FDBulk Print Mode^FS`;
+      const settings = {
+        dpi: printSettings.dpi,
+        labelWidth: templateData.width || 400,
+        labelHeight: templateData.height || 300
+      };
+
+      let zplCode = '';
+      
+      if (previewMode === 'bulk' && dataset?.data?.length) {
+        // Generate ZPL for each row in dataset
+        dataset.data.forEach((row: any[], index: number) => {
+          const populatedElements = elements.map((element: any) => {
+            let content = element.content;
+            
+            // Find mapped data if element has dataColumn
+            const canvasObj = canvasObjects.find((obj: any) => 
+              obj.left === element.x && obj.top === element.y
+            );
+            
+            if (canvasObj?.dataColumn && dataset.headers) {
+              const columnIndex = dataset.headers.indexOf(canvasObj.dataColumn);
+              if (columnIndex >= 0 && row[columnIndex] !== undefined) {
+                content = String(row[columnIndex]);
+                
+                // Apply transforms
+                if (canvasObj.dataTransform) {
+                  const transform = canvasObj.dataTransform;
+                  if (transform.prefix) content = transform.prefix + content;
+                  if (transform.suffix) content = content + transform.suffix;
+                  if (transform.uppercase) content = content.toUpperCase();
+                  if (transform.truncate) content = content.substring(0, transform.truncate);
+                }
+              }
+            }
+            
+            return { ...element, content };
+          });
+          
+          zplCode += generateLabelZPL(populatedElements, settings) + '\n';
+        });
+      } else {
+        // Single label
+        zplCode = generateLabelZPL(elements, settings);
+      }
+
+      // Download ZPL file
+      const blob = new Blob([zplCode], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `label-${Date.now()}.zpl`;
+      link.click();
+      URL.revokeObjectURL(url);
+
+      toast.success(`ZPL file generated successfully! ${previewMode === 'bulk' ? `(${dataset?.data?.length || 0} labels)` : ''}`);
+    } catch (error) {
+      console.error('Error generating ZPL:', error);
+      toast.error("Failed to generate ZPL file");
     }
-
-    zplCode += `
-^XZ`;
-
-    // Download ZPL file
-    const blob = new Blob([zplCode], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `label-${Date.now()}.zpl`;
-    link.click();
-    URL.revokeObjectURL(url);
-
-    toast.success("ZPL file generated successfully!");
   };
 
   const printPreview = () => {
@@ -289,7 +371,22 @@ export function PrintManager({ templateId, datasetId }: PrintManagerProps) {
               </div>
 
               <div>
-                <Label htmlFor="copies">Number of Copies</Label>
+                <Label htmlFor="dpi">Printer DPI</Label>
+                <Select 
+                  value={printSettings.dpi.toString()} 
+                  onValueChange={(value) => setPrintSettings(prev => ({ ...prev, dpi: parseInt(value) as 203 | 300 }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="203">203 DPI (Standard)</SelectItem>
+                    <SelectItem value="300">300 DPI (High Res)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
                 <Input
                   id="copies"
                   type="number"
