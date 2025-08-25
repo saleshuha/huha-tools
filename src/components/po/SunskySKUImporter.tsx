@@ -246,6 +246,17 @@ export const SunskySKUImporter: React.FC = () => {
   const [selectedSearchAPI, setSelectedSearchAPI] = useState<string>('');
   const [selectedJobAPI, setSelectedJobAPI] = useState<string>('');
   
+  // Export by status feature
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState(0);
+  const [exportStatus, setExportStatus] = useState<string>('');
+  const [selectedExportStatus, setSelectedExportStatus] = useState<number>(1);
+  const [exportResults, setExportResults] = useState<{
+    products: SunskyProduct[];
+    categories: Map<number, { name: string; products: SunskyProduct[] }>;
+    totalFound: number;
+  } | null>(null);
+  
   // SKU table column management - match search results headers
   const [skuTableHeaders, setSkuTableHeaders] = useState<string[]>([
     'sku_code', 'title', 'cost', 'currency', 'weight', 'country', 'created_at'
@@ -393,6 +404,7 @@ export const SunskySKUImporter: React.FC = () => {
     }
   };
 
+  // Clear all SKUs function
   const clearAllSKUs = async () => {
     try {
       const { error } = await supabase
@@ -414,6 +426,251 @@ export const SunskySKUImporter: React.FC = () => {
       toast({
         title: "Error",
         description: "Failed to clear SKUs",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Export by status functionality
+  const exportProductsByStatus = async () => {
+    if (!selectedExportStatus) {
+      toast({
+        title: "Error",
+        description: "Please select a product status to export",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsExporting(true);
+    setExportProgress(0);
+    setExportStatus('Initializing export...');
+    setExportResults(null);
+
+    try {
+      const allProducts: SunskyProduct[] = [];
+      const categoriesMap = new Map<number, { name: string; products: SunskyProduct[] }>();
+      let currentPage = 1;
+      let totalProcessed = 0;
+      let hasMore = true;
+      const pageSize = 50; // Respect API limitations
+      const delayBetweenRequests = 1000; // 1 second delay to respect level 9 limitations
+
+      setExportStatus('Fetching categories...');
+      
+      // First, get all categories
+      const categoriesResponse = await callSunskyAPI('getCategories', {
+        mode: 'all',
+        parentId: '0',
+        modifiedSince: ''
+      }, selectedSearchAPI);
+
+      if (categoriesResponse?.result !== 'success' || !categoriesResponse?.data) {
+        throw new Error('Failed to fetch categories');
+      }
+
+      // Initialize categories map
+      const categories = categoriesResponse.data as SunskyCategory[];
+      categories.forEach(cat => {
+        categoriesMap.set(cat.id, { name: cat.name, products: [] });
+      });
+
+      setExportStatus(`Fetching products with status: ${getProductStatusText(selectedExportStatus)}...`);
+
+      while (hasMore) {
+        try {
+          setExportStatus(`Fetching page ${currentPage}... (${totalProcessed} products found)`);
+          setExportProgress((currentPage - 1) * 10); // Rough progress estimation
+
+          const response = await callSunskyAPI('searchProducts', {
+            page: currentPage,
+            pageSize: pageSize,
+            status: selectedExportStatus,
+            lang: 'en'
+          }, selectedSearchAPI);
+
+          if (response?.result !== 'success') {
+            console.warn(`Failed to fetch page ${currentPage}:`, response);
+            break;
+          }
+
+          const pageProducts = response.data?.products || [];
+          
+          if (pageProducts.length === 0) {
+            hasMore = false;
+            break;
+          }
+
+          // Process products and organize by category
+          pageProducts.forEach((product: SunskyProduct) => {
+            allProducts.push(product);
+            
+            if (product.categoryId && categoriesMap.has(product.categoryId)) {
+              categoriesMap.get(product.categoryId)?.products.push(product);
+            } else {
+              // Handle products without category or unknown category
+              if (!categoriesMap.has(0)) {
+                categoriesMap.set(0, { name: 'Uncategorized', products: [] });
+              }
+              categoriesMap.get(0)?.products.push(product);
+            }
+          });
+
+          totalProcessed += pageProducts.length;
+          currentPage++;
+
+          // Check if we have more pages based on response
+          if (pageProducts.length < pageSize) {
+            hasMore = false;
+          }
+
+          // Rate limiting delay - respect level 9 limitations
+          if (hasMore) {
+            setExportStatus(`Waiting ${delayBetweenRequests/1000}s before next request... (${totalProcessed} products found)`);
+            await new Promise(resolve => setTimeout(resolve, delayBetweenRequests));
+          }
+
+          // Safety limit to prevent runaway requests
+          if (currentPage > 100) {
+            setExportStatus('Reached maximum page limit (100 pages)');
+            hasMore = false;
+          }
+
+        } catch (pageError) {
+          console.error(`Error fetching page ${currentPage}:`, pageError);
+          // Continue with next page instead of failing completely
+          currentPage++;
+          if (currentPage > 10) { // Don't retry too many times
+            hasMore = false;
+          }
+        }
+      }
+
+      setExportResults({
+        products: allProducts,
+        categories: categoriesMap,
+        totalFound: totalProcessed
+      });
+
+      setExportProgress(100);
+      setExportStatus(`Export complete! Found ${totalProcessed} products across ${categoriesMap.size} categories.`);
+
+      toast({
+        title: "Export Complete",
+        description: `Successfully fetched ${totalProcessed} products with status: ${getProductStatusText(selectedExportStatus)}`
+      });
+
+    } catch (error) {
+      console.error('Export error:', error);
+      setExportStatus('Export failed');
+      toast({
+        title: "Export Failed",
+        description: error.message || "Failed to export products",
+        variant: "destructive"
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  // Download results as Excel
+  const downloadExportResults = () => {
+    if (!exportResults) return;
+
+    try {
+      const XLSX = require('xlsx');
+      const workbook = XLSX.utils.book_new();
+
+      // Create summary sheet
+      const summaryData = [
+        ['Export Summary'],
+        ['Status', getProductStatusText(selectedExportStatus)],
+        ['Total Products', exportResults.totalFound.toString()],
+        ['Total Categories', exportResults.categories.size.toString()],
+        ['Export Date', new Date().toLocaleString()],
+        [],
+        ['Category', 'Product Count'],
+      ];
+
+      exportResults.categories.forEach((category, categoryId) => {
+        summaryData.push([category.name, category.products.length.toString()]);
+      });
+
+      const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
+      XLSX.utils.book_append_sheet(workbook, summarySheet, 'Summary');
+
+      // Create detailed products sheet
+      const productsData = [
+        ['Category', 'SKU', 'Name', 'Brand', 'Price', 'Stock', 'Status', 'Lead Time', 'Warehouse', 'Weight', 'Dimensions', 'MOQ']
+      ];
+
+      exportResults.categories.forEach((category, categoryId) => {
+        category.products.forEach(product => {
+           productsData.push([
+            category.name,
+            product.itemNo || '',
+            product.name || '',
+            product.brandName || '',
+            product.price || '',
+            (product.stock || 0).toString(),
+            getProductStatusText(product.status),
+            product.leadTime || '',
+            product.warehouse || '',
+            product.unitWeight || '',
+            `${product.unitLength || ''}x${product.unitWidth || ''}x${product.unitHeight || ''}`,
+            (product.moq || '').toString()
+          ]);
+        });
+      });
+
+      const productsSheet = XLSX.utils.aoa_to_sheet(productsData);
+      XLSX.utils.book_append_sheet(workbook, productsSheet, 'Products');
+
+      // Create category-specific sheets (limit to top 10 categories by product count)
+      const sortedCategories = Array.from(exportResults.categories.entries())
+        .sort(([,a], [,b]) => b.products.length - a.products.length)
+        .slice(0, 10);
+
+      sortedCategories.forEach(([categoryId, category]) => {
+        const categoryData = [
+          ['SKU', 'Name', 'Brand', 'Price', 'Stock', 'Status', 'Lead Time', 'Warehouse', 'Weight', 'MOQ', 'Description']
+        ];
+
+        category.products.forEach(product => {
+          categoryData.push([
+            product.itemNo || '',
+            product.name || '',
+            product.brandName || '',
+            product.price || '',
+            (product.stock || 0).toString(),
+            getProductStatusText(product.status),
+            product.leadTime || '',
+            product.warehouse || '',
+            product.unitWeight || '',
+            (product.moq || '').toString(),
+            product.description || ''
+          ]);
+        });
+
+        const categorySheet = XLSX.utils.aoa_to_sheet(categoryData);
+        const sheetName = category.name ? category.name.substring(0, 31) : `Category ${categoryId}`;
+        XLSX.utils.book_append_sheet(workbook, categorySheet, sheetName);
+      });
+
+      // Download the file
+      const fileName = `sunsky_export_${getProductStatusText(selectedExportStatus).toLowerCase().replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`;
+      XLSX.writeFile(workbook, fileName);
+
+      toast({
+        title: "Download Started",
+        description: `Downloading ${fileName}`
+      });
+
+    } catch (error) {
+      console.error('Download error:', error);
+      toast({
+        title: "Download Failed",
+        description: "Failed to generate Excel file",
         variant: "destructive"
       });
     }
@@ -1172,10 +1429,11 @@ export const SunskySKUImporter: React.FC = () => {
       )}
 
       <Tabs defaultValue="search" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="search">Search & Import</TabsTrigger>
           <TabsTrigger value="jobs">Import Jobs</TabsTrigger>
           <TabsTrigger value="skus">Imported SKUs</TabsTrigger>
+          <TabsTrigger value="export-status">Export by Status</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
         
@@ -2267,6 +2525,96 @@ export const SunskySKUImporter: React.FC = () => {
                </CardContent>
             </Card>
           </div>
+        </TabsContent>
+        
+        <TabsContent value="export-status" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Download className="h-5 w-5" />
+                Export Products by Status
+              </CardTitle>
+              <CardDescription>
+                Export products filtered by their status (Valid, Deleted, Out of Stock, Hidden) organized by category
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center gap-4">
+                <div className="flex-1">
+                  <Label htmlFor="export-status">Product Status</Label>
+                  <Select value={selectedExportStatus.toString()} onValueChange={(value) => setSelectedExportStatus(parseInt(value))}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select status to export" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">Valid</SelectItem>
+                      <SelectItem value="2">Deleted</SelectItem>
+                      <SelectItem value="3">Out of Stock</SelectItem>
+                      <SelectItem value="4">Hidden (too old)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-end">
+                  <Button 
+                    onClick={exportProductsByStatus} 
+                    disabled={isExporting || !hasCredentials}
+                    className="w-32"
+                  >
+                    {isExporting ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
+                    {isExporting ? 'Exporting...' : 'Export'}
+                  </Button>
+                </div>
+              </div>
+
+              {isExporting && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span>Export Progress</span>
+                    <span>{exportProgress}%</span>
+                  </div>
+                  <Progress value={exportProgress} className="w-full" />
+                  <p className="text-sm text-muted-foreground">{exportStatus}</p>
+                </div>
+              )}
+
+              {exportResults && (
+                <div className="space-y-4 mt-6">
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="text-center p-4 bg-primary/5 rounded-lg">
+                      <div className="text-2xl font-bold">{exportResults.totalFound}</div>
+                      <div className="text-sm text-muted-foreground">Total Products</div>
+                    </div>
+                    <div className="text-center p-4 bg-primary/5 rounded-lg">
+                      <div className="text-2xl font-bold">{exportResults.categories.size}</div>
+                      <div className="text-sm text-muted-foreground">Categories</div>
+                    </div>
+                    <div className="text-center p-4 bg-primary/5 rounded-lg">
+                      <Badge variant={getStatusBadgeVariant(selectedExportStatus)}>
+                        {getProductStatusText(selectedExportStatus)}
+                      </Badge>
+                      <div className="text-sm text-muted-foreground mt-1">Status</div>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-center">
+                    <Button onClick={downloadExportResults} className="w-48">
+                      <Download className="h-4 w-4 mr-2" />
+                      Download Excel Report
+                    </Button>
+                  </div>
+
+                  <div className="text-sm text-muted-foreground">
+                    <p>The Excel file will contain:</p>
+                    <ul className="list-disc list-inside ml-4 mt-2">
+                      <li>Summary sheet with category breakdown</li>
+                      <li>Complete products list with all details</li>
+                      <li>Individual sheets for top 10 categories</li>
+                    </ul>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
         
         <TabsContent value="settings" className="space-y-6">
