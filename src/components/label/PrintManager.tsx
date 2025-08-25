@@ -72,8 +72,10 @@ export function PrintManager({ templateId, datasetId, canvasData }: PrintManager
   }, [templateId]);
 
   const generatePDF = async () => {
-    if (!templateData?.canvas_data) {
-      toast.error("No template data available");
+    const canvasObjects = canvasData?.objects || templateData?.canvas_data?.objects || [];
+    
+    if (!canvasObjects.length) {
+      toast.error("No canvas elements to print");
       return;
     }
 
@@ -84,8 +86,6 @@ export function PrintManager({ templateId, datasetId, canvasData }: PrintManager
         unit: 'mm',
         format: printSettings.paperSize.toLowerCase()
       });
-
-      const canvasObjects = templateData.canvas_data.objects || [];
       const rowsToPrint = previewMode === 'bulk' && dataset?.data ? dataset.data : [[]];
       
       let yOffset = 20;
@@ -156,13 +156,14 @@ export function PrintManager({ templateId, datasetId, canvasData }: PrintManager
   };
 
   const generateZPL = () => {
-    if (!templateData?.canvas_data) {
-      toast.error("No template data available");
+    const canvasObjects = canvasData?.objects || templateData?.canvas_data?.objects || [];
+    
+    if (!canvasObjects.length) {
+      toast.error("No canvas elements to generate ZPL");
       return;
     }
 
     try {
-      const canvasObjects = templateData.canvas_data.objects || [];
       
       // Convert canvas objects to ZPL elements
       const elements = canvasObjects.map((obj: any) => ({
@@ -239,15 +240,15 @@ export function PrintManager({ templateId, datasetId, canvasData }: PrintManager
   };
 
   const printPreview = () => {
-    if (!templateData?.canvas_data) {
-      toast.error("No template data available");
+    const canvasObjects = canvasData?.objects || templateData?.canvas_data?.objects || [];
+    
+    if (!canvasObjects.length) {
+      toast.error("No canvas elements to preview");
       return;
     }
 
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
-    
-    const canvasObjects = templateData.canvas_data.objects || [];
     const rowsToPreview = previewMode === 'bulk' && dataset?.data ? dataset.data.slice(0, 5) : [[]]; // Show first 5 for preview
     
     let labelsHTML = '';

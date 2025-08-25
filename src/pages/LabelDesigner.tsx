@@ -17,6 +17,7 @@ export default function LabelDesigner() {
   const [activeDataset, setActiveDataset] = useState<string | null>(null);
   const [showWelcome, setShowWelcome] = useState(true);
   const [canvasSize, setCanvasSize] = useState({ width: 400, height: 300 });
+  const [canvasData, setCanvasData] = useState<any>(null);
   const [currentStep, setCurrentStep] = useState(1);
   const [activeTab, setActiveTab] = useState("data");
 
@@ -206,6 +207,7 @@ export default function LabelDesigner() {
                         templateId={activeTemplate}
                         datasetId={activeDataset}
                         onCanvasSizeChange={(size) => setCanvasSize(size)}
+                        onCanvasDataChange={(data) => setCanvasData(data)}
                       />
                     </CardContent>
                   </Card>
@@ -243,7 +245,7 @@ export default function LabelDesigner() {
             <PrintManager 
               templateId={activeTemplate} 
               datasetId={activeDataset}
-              canvasData={(window as any).labelCanvas?.fabricCanvas?.toJSON()}
+              canvasData={canvasData}
             />
             )}
           </TabsContent>

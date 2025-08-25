@@ -29,9 +29,10 @@ interface LabelCanvasProps {
   templateId?: string | null;
   datasetId?: string | null;
   onCanvasSizeChange?: (size: { width: number; height: number }) => void;
+  onCanvasDataChange?: (data: any) => void;
 }
 
-export function LabelCanvas({ templateId, datasetId, onCanvasSizeChange }: LabelCanvasProps) {
+export function LabelCanvas({ templateId, datasetId, onCanvasSizeChange, onCanvasDataChange }: LabelCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [fabricCanvas, setFabricCanvas] = useState<FabricCanvas | null>(null);
   const [selectedObject, setSelectedObject] = useState<FabricObject | null>(null);
@@ -143,6 +144,7 @@ export function LabelCanvas({ templateId, datasetId, onCanvasSizeChange }: Label
 
     const handleCanvasChange = () => {
       setHasUnsavedChanges(true);
+      onCanvasDataChange?.(fabricCanvas.toJSON());
     };
 
     fabricCanvas.on('object:added', handleCanvasChange);
