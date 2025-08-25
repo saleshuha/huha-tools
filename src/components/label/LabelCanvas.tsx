@@ -22,6 +22,8 @@ import { toast } from "sonner";
 import JsBarcode from "jsbarcode";
 import QRCode from "qrcode";
 import { useLabelDataset } from "@/hooks/useLabelDataset";
+import { supabase } from "@/integrations/supabase/client";
+import { useUserProfile } from "@/hooks/useUserProfile";
 
 interface LabelCanvasProps {
   templateId?: string | null;
@@ -34,7 +36,10 @@ export function LabelCanvas({ templateId, datasetId, onCanvasSizeChange }: Label
   const [fabricCanvas, setFabricCanvas] = useState<FabricCanvas | null>(null);
   const [selectedObject, setSelectedObject] = useState<FabricObject | null>(null);
   const [canvasSize, setCanvasSize] = useState({ width: 400, height: 300 });
+  const [templateData, setTemplateData] = useState<any>(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const { dataset } = useLabelDataset(datasetId);
+  const { user } = useUserProfile();
 
   // Label presets
   const labelPresets = [
@@ -78,14 +83,78 @@ export function LabelCanvas({ templateId, datasetId, onCanvasSizeChange }: Label
     };
   }, []);
 
+  // Load template data
+  useEffect(() => {
+    if (!templateId || !fabricCanvas) return;
+
+    const loadTemplate = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('label_templates')
+          .select('*')
+          .eq('id', templateId)
+          .single();
+
+        if (error) throw error;
+
+        setTemplateData(data);
+        setCanvasSize({ width: data.width, height: data.height });
+        
+        // Clear existing canvas
+        fabricCanvas.clear();
+        fabricCanvas.setDimensions({ width: data.width, height: data.height });
+        
+        // Load canvas data if it exists
+        if (data.canvas_data && typeof data.canvas_data === 'object' && Object.keys(data.canvas_data).length > 0) {
+          fabricCanvas.loadFromJSON(data.canvas_data as Record<string, any>, () => {
+            fabricCanvas.renderAll();
+            toast.success(`Template "${data.name}" loaded!`);
+          });
+        } else {
+          fabricCanvas.renderAll();
+          toast.success(`Template "${data.name}" ready for editing!`);
+        }
+        
+        setHasUnsavedChanges(false);
+      } catch (error) {
+        console.error('Error loading template:', error);
+        toast.error("Failed to load template");
+      }
+    };
+
+    loadTemplate();
+  }, [templateId, fabricCanvas]);
+
   // Update canvas size
   useEffect(() => {
     if (fabricCanvas) {
       fabricCanvas.setDimensions(canvasSize);
       fabricCanvas.renderAll();
       onCanvasSizeChange?.(canvasSize);
+      if (templateId) {
+        setHasUnsavedChanges(true);
+      }
     }
-  }, [canvasSize, fabricCanvas, onCanvasSizeChange]);
+  }, [canvasSize, fabricCanvas, onCanvasSizeChange, templateId]);
+
+  // Track canvas changes
+  useEffect(() => {
+    if (!fabricCanvas || !templateId) return;
+
+    const handleCanvasChange = () => {
+      setHasUnsavedChanges(true);
+    };
+
+    fabricCanvas.on('object:added', handleCanvasChange);
+    fabricCanvas.on('object:removed', handleCanvasChange);
+    fabricCanvas.on('object:modified', handleCanvasChange);
+
+    return () => {
+      fabricCanvas.off('object:added', handleCanvasChange);
+      fabricCanvas.off('object:removed', handleCanvasChange);
+      fabricCanvas.off('object:modified', handleCanvasChange);
+    };
+  }, [fabricCanvas, templateId]);
 
   // Add text element
   const addText = useCallback(() => {
@@ -217,6 +286,33 @@ export function LabelCanvas({ templateId, datasetId, onCanvasSizeChange }: Label
     });
   }, [fabricCanvas, selectedObject]);
 
+  // Save template
+  const saveTemplate = useCallback(async () => {
+    if (!fabricCanvas || !templateId || !templateData) return;
+
+    try {
+      const canvasData = fabricCanvas.toJSON();
+      
+      const { error } = await supabase
+        .from('label_templates')
+        .update({
+          canvas_data: canvasData,
+          width: canvasSize.width,
+          height: canvasSize.height,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', templateId);
+
+      if (error) throw error;
+
+      setHasUnsavedChanges(false);
+      toast.success("Template saved successfully!");
+    } catch (error) {
+      console.error('Error saving template:', error);
+      toast.error("Failed to save template");
+    }
+  }, [fabricCanvas, templateId, templateData, canvasSize]);
+
   // Export canvas
   const exportImage = useCallback(() => {
     if (!fabricCanvas) return;
@@ -228,11 +324,11 @@ export function LabelCanvas({ templateId, datasetId, onCanvasSizeChange }: Label
     });
 
     const link = document.createElement('a');
-    link.download = 'label-design.png';
+    link.download = templateData?.name ? `${templateData.name}.png` : 'label-design.png';
     link.href = dataURL;
     link.click();
     toast.success("Image exported!");
-  }, [fabricCanvas]);
+  }, [fabricCanvas, templateData]);
 
   // Update object property
   const updateObjectProperty = useCallback((property: string, value: any) => {
@@ -418,6 +514,25 @@ export function LabelCanvas({ templateId, datasetId, onCanvasSizeChange }: Label
 
             <Separator />
 
+            {templateId && (
+              <div className="space-y-2">
+                <Button 
+                  variant="default" 
+                  size="sm" 
+                  onClick={saveTemplate} 
+                  disabled={!hasUnsavedChanges}
+                  className="w-full"
+                >
+                  {hasUnsavedChanges ? "Save Template" : "Saved"}
+                </Button>
+                {hasUnsavedChanges && (
+                  <p className="text-xs text-muted-foreground text-center">
+                    You have unsaved changes
+                  </p>
+                )}
+              </div>
+            )}
+
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={deleteSelected} disabled={!selectedObject}>
                 <Trash2 className="w-4 h-4" />
@@ -437,7 +552,14 @@ export function LabelCanvas({ templateId, datasetId, onCanvasSizeChange }: Label
       <div className="col-span-6">
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm">Canvas</CardTitle>
+            <CardTitle className="text-sm">
+              Canvas
+              {templateData && (
+                <span className="ml-2 text-xs text-muted-foreground">
+                  - {templateData.name}
+                </span>
+              )}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex justify-center">
