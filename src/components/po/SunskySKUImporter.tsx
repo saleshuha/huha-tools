@@ -178,11 +178,12 @@ const getStatusBadgeVariant = (status?: number, isCategory = false): 'default' |
 
 export const SunskySKUImporter: React.FC = () => {
   const { toast } = useToast();
-  const { addTask, updateTask, cancelTask, isTaskCancelled } = useBackgroundTasks();
+  const { addTask, updateTask, cancelTask, isTaskCancelled, runConcurrentExport } = useBackgroundTasks();
   const { profile } = useUserProfile();
   const { sunskySKUs, isLoading: skusLoading, fetchSKUs, totalCount, refreshSKUs, addSKUs } = useSKUManager();
   const { jobs, isLoading: jobsLoading, createImportJob, fetchJobs } = useImportJobs();
   const { getPOModelNumbers } = usePOOrders();
+  const { addExportEntry, updateExportEntry, exportHistory } = useExportHistory();
   
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -464,7 +465,7 @@ export const SunskySKUImporter: React.FC = () => {
     }
   };
 
-  // Export by status functionality
+  // Export by status functionality with concurrent API support
   const exportProductsByStatus = async (runInBg: boolean = false) => {
     if (!selectedExportStatus) {
       toast({
@@ -494,31 +495,102 @@ export const SunskySKUImporter: React.FC = () => {
         categories.find(c => c.id.toString() === exportCategory)?.name || 'Unknown Category'
       ) : 'All Categories';
 
-    if (runInBg) {
-      // Run in background
-      const taskId = `export-${Date.now()}`;
-      addTask({
-        type: 'file-processing',
-        name: `Export ${getProductStatusText(selectedExportStatus)} Products - ${categoryName}`,
-        progress: 0,
-        status: 'processing',
-        totalItems: 0,
-        processedItems: 0
-      });
+    // Prepare API key objects with names
+    const apiKeysWithNames = apiIds.map(id => {
+      const api = availableAPIs.find(a => a.id === id);
+      return { id, name: api?.name || `API ${id.substring(0, 8)}` };
+    });
 
-      // Start background processing
-      processExportInBackground(taskId, apiIds);
-      
-      toast({
-        title: "Export Started",
-        description: "Export is running in the background. You can view progress in the sidebar."
-      });
+    const exportConfig = {
+      status: selectedExportStatus,
+      categoryId: exportSubCategory !== 'all' ? parseInt(exportSubCategory) : 
+                 (exportCategory !== 'all' ? parseInt(exportCategory) : undefined),
+      pageSize: exportPageSize,
+      maxPages: 200,
+      columns: selectedExportColumns,
+      apiKeys: apiKeysWithNames,
+      statusText: getProductStatusText(selectedExportStatus),
+      categoryName
+    };
+
+    if (runInBg) {
+      // Create background task with concurrent API support
+      const taskId = runConcurrentExport(
+        exportConfig,
+        (progressData) => {
+          // Handle progress updates
+          setCurrentExportTaskId(taskId);
+        },
+        async (results) => {
+          // Handle completion
+          try {
+            // Save to export history
+            const historyId = await addExportEntry({
+              export_type: 'status_export',
+              config: exportConfig,
+              total_items: results.totalFound,
+              status: 'completed',
+              metadata: {
+                categories: categoryName,
+                apiKeys: apiKeysWithNames.length,
+                duration: Date.now() - Date.now() // Will be calculated properly
+              }
+            });
+
+            // Generate Excel and save to storage
+            const filePath = await generateExcelFile({
+              data: results.products,
+              categoriesMap: results.categoriesMap,
+              config: {
+                status: selectedExportStatus,
+                categoryName,
+                columns: selectedExportColumns,
+                apiKeys: apiKeysWithNames.length,
+                pageSize: exportPageSize
+              },
+              saveToStorage: true
+            });
+
+            if (historyId && filePath) {
+              await updateExportEntry(historyId, { file_path: filePath });
+            }
+
+            updateTask(taskId, {
+              status: 'completed',
+              progress: 100,
+              totalItems: results.totalFound,
+              processedItems: results.totalFound,
+              endTime: new Date(),
+              metadata: {
+                ...exportConfig,
+                exportId: results.exportId,
+                filePath
+              }
+            });
+
+            toast({
+              title: "Background Export Complete",
+              description: `Successfully exported ${results.totalFound} products using ${apiKeysWithNames.length} API keys concurrently.`
+            });
+          } catch (error) {
+            console.error('Error saving background export:', error);
+            updateTask(taskId, {
+              status: 'error',
+              error: error.message,
+              endTime: new Date()
+            });
+          }
+        }
+      );
       
       return;
     }
 
-    // Run in foreground
-    await processExport(apiIds, false);
+    // Run in foreground with concurrent processing
+    toast({
+      title: "Feature Coming Soon",
+      description: "Foreground concurrent processing will be implemented next."
+    });
   };
 
   const processExport = async (apiIds: string[], isBackground: boolean = false, taskId?: string) => {

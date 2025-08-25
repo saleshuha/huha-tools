@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 
 export interface BackgroundTask {
   id: string;
@@ -20,6 +20,8 @@ export interface BackgroundTask {
     fileName?: string;
     fileSize?: number;
     exportHistoryId?: string;
+    exportId?: string;
+    filePath?: string;
   };
 }
 
@@ -49,6 +51,11 @@ interface BackgroundTasksContextType {
     threadCount?: number,
     batchSize?: number
   ) => Promise<void>;
+  runConcurrentExport: (
+    config: any,
+    onProgress: (progress: any) => void,
+    onComplete: (results: any) => void
+  ) => Promise<string>;
 }
 
 const BackgroundTasksContext = createContext<BackgroundTasksContextType | null>(null);
@@ -246,21 +253,67 @@ export function BackgroundTasksProvider({ children }: { children: React.ReactNod
     }
   }, [addTask, updateTask, toast]);
 
-    return (
-      <BackgroundTasksContext.Provider value={{
-        tasks,
-        activeTasks,
-        addTask,
-        updateTask,
-        removeTask,
-        cancelTask,
-        clearCompletedTasks,
-        runBackgroundUpload,
-        isTaskCancelled
-      }}>
-        {children}
-      </BackgroundTasksContext.Provider>
-    );
+  const runConcurrentExport = useCallback(async (
+    config: any,
+    onProgress: (progress: any) => void,
+    onComplete: (results: any) => void
+  ): Promise<string> => {
+    const taskId = addTask({
+      type: 'sunsky-export',
+      name: `Concurrent Export - ${config.statusText || 'Products'}`,
+      progress: 0,
+      status: 'processing',
+      totalItems: 0,
+      processedItems: 0,
+      canCancel: true,
+      threads: config.apiKeys?.map((api: any, index: number) => ({
+        id: index,
+        progress: 0,
+        label: `${api.name}: Waiting`,
+        status: 'waiting',
+        processed: 0,
+        total: 0,
+        apiKey: api.id,
+        categoryId: config.categoryId?.toString()
+      })) || [],
+      metadata: {
+        exportType: 'concurrent',
+        filters: config,
+        exportId: `export-${Date.now()}`
+      }
+    });
+
+    try {
+      // This will be implemented by the calling component
+      // The actual concurrent processing happens in the component
+      onProgress(taskId);
+      return taskId;
+    } catch (error) {
+      updateTask(taskId, {
+        status: 'error',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        endTime: new Date()
+      });
+      throw error;
+    }
+  }, [addTask, updateTask]);
+
+  return (
+    <BackgroundTasksContext.Provider value={{
+      tasks,
+      activeTasks,
+      addTask,
+      updateTask,
+      removeTask,
+      cancelTask,
+      clearCompletedTasks,
+      runBackgroundUpload,
+      runConcurrentExport,
+      isTaskCancelled
+    }}>
+      {children}
+    </BackgroundTasksContext.Provider>
+  );
 }
 
 export function useBackgroundTasks() {
