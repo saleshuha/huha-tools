@@ -621,7 +621,7 @@ export const SunskySKUImporter: React.FC = () => {
 
         const countParams: any = {
           page: 1,
-          pageSize: 1, // Small page size just to get totals
+          pageSize: exportPageSize, // Use actual page size to get better estimate
           status: selectedExportStatus,
           lang: 'en'
         };
@@ -637,19 +637,27 @@ export const SunskySKUImporter: React.FC = () => {
           if (countResponse.data.totalResults) {
             actualTotalProducts = countResponse.data.totalResults;
             actualTotalPages = Math.ceil(actualTotalProducts / exportPageSize);
-          } else if (countResponse.data.products) {
-            // Fallback: estimate based on first page
-            actualTotalProducts = countResponse.data.products.length * 50; // Conservative estimate
-            actualTotalPages = 50;
+          } else if (countResponse.data.products && countResponse.data.products.length > 0) {
+            // Better estimate: if we got a full page, estimate based on typical catalog sizes
+            const firstPageCount = countResponse.data.products.length;
+            if (firstPageCount === exportPageSize) {
+              // Full page returned, estimate conservatively
+              actualTotalProducts = firstPageCount * 20; // More reasonable estimate
+              actualTotalPages = 20;
+            } else {
+              // Partial page, this might be all the data
+              actualTotalProducts = firstPageCount;
+              actualTotalPages = 1;
+            }
           }
         }
       } catch (error) {
         console.warn('Could not fetch total count, using estimates:', error);
-        actualTotalProducts = 1000; // Fallback estimate
+        actualTotalProducts = 500; // More reasonable fallback estimate
         actualTotalPages = Math.ceil(actualTotalProducts / exportPageSize);
       }
 
-      updateProgress(20, `Found ${actualTotalProducts} total products across ${actualTotalPages} pages. Starting export...`, actualTotalProducts, 0, actualTotalProducts);
+      updateProgress(20, `Starting export... (estimated ${actualTotalProducts} products across ~${actualTotalPages} pages)`, actualTotalProducts, 0, actualTotalProducts);
 
       const maxPages = Math.min(actualTotalPages, 200); // Safety limit but respect actual total
       
@@ -732,6 +740,13 @@ export const SunskySKUImporter: React.FC = () => {
                 totalProcessed,
                 actualTotalProducts
               );
+            } else if (pageProducts.length < exportPageSize && currentPage > 1) {
+              // We got less than a full page - update our estimate
+              const estimatedFromCurrentProgress = totalProcessed + (pageProducts.length * (actualTotalPages - currentPage));
+              if (estimatedFromCurrentProgress < actualTotalProducts) {
+                actualTotalProducts = Math.max(totalProcessed + pageProducts.length, estimatedFromCurrentProgress);
+                actualTotalPages = currentPage + Math.ceil((actualTotalProducts - totalProcessed) / exportPageSize);
+              }
             }
           }
 
