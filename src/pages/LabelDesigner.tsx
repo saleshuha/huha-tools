@@ -76,12 +76,17 @@ export default function LabelDesigner() {
               <div className="col-span-12">
                 <Card>
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Palette className="w-5 h-5" />
-                      Label Canvas
+                    <CardTitle className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Palette className="w-5 h-5" />
+                        Label Canvas Designer
+                      </div>
+                      <Badge variant="outline" className="text-xs font-mono">
+                        Canvas Size: 400 × 300 px
+                      </Badge>
                     </CardTitle>
                     <CardDescription>
-                      Drag and drop elements to create your label design
+                      Drag and drop elements to create your label design. Adjust canvas dimensions in the properties panel.
                     </CardDescription>
                   </CardHeader>
                   <CardContent>

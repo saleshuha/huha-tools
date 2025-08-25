@@ -355,10 +355,15 @@ export function LabelCanvas({ templateId, datasetId }: LabelCanvasProps) {
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle className="text-sm">Design Canvas</CardTitle>
+                <CardTitle className="text-sm flex items-center gap-2">
+                  Design Canvas
+                  <Badge variant="secondary" className="text-xs font-mono">
+                    {canvasSize.width} × {canvasSize.height} px
+                  </Badge>
+                </CardTitle>
                 <div className="flex items-center gap-2">
                   <Badge variant="outline" className="text-xs">
-                    {canvasSize.width} × {canvasSize.height}
+                    Label Size: {(canvasSize.width * 0.264583).toFixed(1)} × {(canvasSize.height * 0.264583).toFixed(1)} mm
                   </Badge>
                   <Button
                     variant="outline"
