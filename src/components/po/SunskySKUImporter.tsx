@@ -28,6 +28,7 @@ import type { ImportJob } from "@/hooks/useImportJobs";
 import { usePOOrders } from "@/hooks/usePOOrders";
 import { useParallelPOProcessor } from "./ParallelPOProcessor";
 import { ReAuthDialog } from "@/components/amazon/ReAuthDialog";
+import { generateExcelFile } from "@/utils/excelExport";
 import { useBackgroundTasks } from "@/contexts/BackgroundTasksContext";
 
 interface SunskyProduct {
@@ -526,8 +527,8 @@ export const SunskySKUImporter: React.FC = () => {
           async (results) => {
             // Handle completion
             try {
-              // Save to export history - addExportEntry returns void, don't check result
-              addExportEntry({
+              // Save to export history
+              await addExportEntry({
                 export_type: 'status_export',
                 filters: exportConfig,
                 total_items: results.totalFound,
@@ -555,7 +556,7 @@ export const SunskySKUImporter: React.FC = () => {
 
               // Update export entry with file path if file was created
               if (filePath) {
-                updateExportEntry(savedExportHistory[0]?.id || 'temp', { file_path: filePath });
+                await updateExportEntry(savedExportHistory[0]?.id || 'temp', { file_path: filePath });
               }
 
               updateTask(taskId, {
@@ -897,7 +898,7 @@ export const SunskySKUImporter: React.FC = () => {
         });
 
         // Generate Excel in background
-        await generateExcelFile(finalResults, taskId);
+        await generateLegacyExcelFile(finalResults, taskId);
         
         updateTask(taskId, {
           progress: 100,
@@ -949,7 +950,7 @@ export const SunskySKUImporter: React.FC = () => {
     await processExport(apiIds, true, taskId);
   };
 
-  const generateExcelFile = async (results: any, taskId?: string) => {
+  const generateLegacyExcelFile = async (results: any, taskId?: string) => {
     try {
       const XLSX = require('xlsx');
       const workbook = XLSX.utils.book_new();
@@ -1065,7 +1066,7 @@ export const SunskySKUImporter: React.FC = () => {
   // Download results as Excel
   const downloadExportResults = () => {
     if (!exportResults) return;
-    generateExcelFile(exportResults);
+    generateLegacyExcelFile(exportResults);
   };
 
   // Load available APIs
