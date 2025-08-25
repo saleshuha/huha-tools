@@ -643,14 +643,14 @@ export function LabelCanvas({ templateId, datasetId, onCanvasSizeChange }: Label
                       <div>
                         <Label className="text-xs">Map to Column</Label>
                         <Select 
-                          value={(selectedObject as any)?.dataColumn || ''} 
-                          onValueChange={(value) => updateObjectProperty('dataColumn', value)}
+                          value={(selectedObject as any)?.dataColumn || 'none'} 
+                          onValueChange={(value) => updateObjectProperty('dataColumn', value === 'none' ? undefined : value)}
                         >
                           <SelectTrigger className="h-8 text-xs">
                             <SelectValue placeholder="Select column" />
                           </SelectTrigger>
                           <SelectContent className="bg-background border border-border z-50">
-                            <SelectItem value="" className="text-xs">
+                            <SelectItem value="none" className="text-xs">
                               None
                             </SelectItem>
                             {dataset.headers.map((header) => (
