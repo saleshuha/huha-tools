@@ -68,6 +68,11 @@ export function LabelCanvas({ templateId, datasetId, onCanvasSizeChange }: Label
   useEffect(() => {
     if (!canvasRef.current) return;
 
+    // Clear any existing canvas
+    if (fabricCanvas) {
+      fabricCanvas.dispose();
+    }
+
     const canvas = new FabricCanvas(canvasRef.current, {
       width: canvasSize.width,
       height: canvasSize.height,
@@ -76,7 +81,15 @@ export function LabelCanvas({ templateId, datasetId, onCanvasSizeChange }: Label
       preserveObjectStacking: true,
       renderOnAddRemove: true,
       stateful: true,
+      interactive: true,
+      uniformScaling: false,
     });
+
+    // Force canvas to be visible and interactive
+    canvas.wrapperEl.style.display = 'block';
+    canvas.wrapperEl.style.position = 'relative';
+    canvas.upperCanvasEl.style.display = 'block';
+    canvas.lowerCanvasEl.style.display = 'block';
 
     // Add event listeners
     canvas.on('selection:created', (e) => {
@@ -99,7 +112,18 @@ export function LabelCanvas({ templateId, datasetId, onCanvasSizeChange }: Label
       canvas.renderAll();
     });
 
+    canvas.on('after:render', () => {
+      console.log('Canvas rendered, objects:', canvas.getObjects().length);
+    });
+
     setFabricCanvas(canvas);
+    
+    // Force initial render
+    setTimeout(() => {
+      canvas.renderAll();
+      canvas.requestRenderAll();
+    }, 100);
+    
     toast.success("Canvas initialized successfully!");
 
     return () => {
