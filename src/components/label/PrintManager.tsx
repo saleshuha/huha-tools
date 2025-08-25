@@ -72,8 +72,8 @@ export function PrintManager({ templateId, datasetId, canvasData }: PrintManager
   }, [templateId]);
 
   const generatePDF = async () => {
-    if (!templateId) {
-      toast.error("Please select a template first");
+    if (!templateData?.canvas_data) {
+      toast.error("No template data available");
       return;
     }
 
@@ -85,21 +85,68 @@ export function PrintManager({ templateId, datasetId, canvasData }: PrintManager
         format: printSettings.paperSize.toLowerCase()
       });
 
-      // For demonstration, we'll create a simple PDF with placeholder content
-      pdf.setFontSize(16);
-      pdf.text('Label Design', 20, 20);
-      pdf.setFontSize(12);
-      pdf.text('Generated from Template', 20, 35);
-      pdf.text(`Copies: ${printSettings.copies}`, 20, 50);
-      pdf.text(`Quality: ${printSettings.quality}`, 20, 65);
-
-      if (datasetId && previewMode === 'bulk') {
-        pdf.text('Bulk printing with dataset', 20, 80);
-        // Here you would iterate through dataset records
+      const canvasObjects = templateData.canvas_data.objects || [];
+      const rowsToPrint = previewMode === 'bulk' && dataset?.data ? dataset.data : [[]];
+      
+      let yOffset = 20;
+      
+      for (let rowIndex = 0; rowIndex < rowsToPrint.length; rowIndex++) {
+        const row = rowsToPrint[rowIndex];
+        
+        // Add new page for each label after the first
+        if (rowIndex > 0) {
+          pdf.addPage();
+          yOffset = 20;
+        }
+        
+        // Render each canvas object
+        canvasObjects.forEach((obj: any, objIndex: number) => {
+          let content = obj.text || obj.content || 'Sample';
+          
+          // Apply data mapping if available
+          if (obj.dataColumn && dataset?.headers && row.length > 0) {
+            const columnIndex = dataset.headers.indexOf(obj.dataColumn);
+            if (columnIndex >= 0 && row[columnIndex] !== undefined) {
+              content = String(row[columnIndex]);
+              
+              // Apply transforms
+              if (obj.dataTransform) {
+                const transform = obj.dataTransform;
+                if (transform.prefix) content = transform.prefix + content;
+                if (transform.suffix) content = content + transform.suffix;
+                if (transform.uppercase) content = content.toUpperCase();
+                if (transform.truncate) content = content.substring(0, transform.truncate);
+              }
+            }
+          }
+          
+          // Position based on canvas coordinates (convert from pixels to mm)
+          const x = ((obj.left || 0) * 0.264583) + 20; // px to mm conversion
+          const y = ((obj.top || 0) * 0.264583) + yOffset;
+          
+          // Set font size
+          const fontSize = Math.max(8, Math.min(20, (obj.fontSize || 14) * 0.5));
+          pdf.setFontSize(fontSize);
+          
+          // Add text content
+          if (obj.type === 'i-text' || obj.type === 'text') {
+            pdf.text(content, x, y);
+          } else if (obj.type === 'rect') {
+            // Draw rectangle
+            const width = (obj.width || 100) * 0.264583;
+            const height = (obj.height || 50) * 0.264583;
+            pdf.rect(x, y, width, height);
+          }
+        });
+        
+        // Add label separator for bulk printing
+        if (previewMode === 'bulk' && rowIndex < rowsToPrint.length - 1) {
+          yOffset += 100; // Space between labels
+        }
       }
 
-      pdf.save(`label-${Date.now()}.pdf`);
-      toast.success("PDF generated successfully!");
+      pdf.save(`labels-${Date.now()}.pdf`);
+      toast.success(`PDF generated successfully! ${previewMode === 'bulk' ? `(${rowsToPrint.length} labels)` : ''}`);
     } catch (error) {
       console.error('Error generating PDF:', error);
       toast.error("Failed to generate PDF");
@@ -192,37 +239,109 @@ export function PrintManager({ templateId, datasetId, canvasData }: PrintManager
   };
 
   const printPreview = () => {
-    if (!templateId) {
-      toast.error("Please select a template first");
+    if (!templateData?.canvas_data) {
+      toast.error("No template data available");
       return;
     }
 
-    // Open print preview in a new window
     const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(`
-        <html>
-          <head>
-            <title>Label Print Preview</title>
-            <style>
-              body { font-family: Arial, sans-serif; margin: 20px; }
-              .label { border: 1px solid #ccc; padding: 20px; margin: 10px 0; }
-              .header { font-size: 18px; font-weight: bold; margin-bottom: 10px; }
-            </style>
-          </head>
-          <body>
-            <div class="label">
-              <div class="header">Sample Label</div>
-              <p>Template ID: ${templateId}</p>
-              <p>Generated: ${new Date().toLocaleString()}</p>
-              ${datasetId ? `<p>Dataset ID: ${datasetId}</p>` : ''}
-            </div>
-            <script>window.print();</script>
-          </body>
-        </html>
-      `);
-      printWindow.document.close();
-    }
+    if (!printWindow) return;
+    
+    const canvasObjects = templateData.canvas_data.objects || [];
+    const rowsToPreview = previewMode === 'bulk' && dataset?.data ? dataset.data.slice(0, 5) : [[]]; // Show first 5 for preview
+    
+    let labelsHTML = '';
+    
+    rowsToPreview.forEach((row: any[], rowIndex: number) => {
+      let labelContent = '';
+      
+      canvasObjects.forEach((obj: any) => {
+        let content = obj.text || obj.content || 'Sample';
+        
+        // Apply data mapping if available
+        if (obj.dataColumn && dataset?.headers && row.length > 0) {
+          const columnIndex = dataset.headers.indexOf(obj.dataColumn);
+          if (columnIndex >= 0 && row[columnIndex] !== undefined) {
+            content = String(row[columnIndex]);
+            
+            // Apply transforms
+            if (obj.dataTransform) {
+              const transform = obj.dataTransform;
+              if (transform.prefix) content = transform.prefix + content;
+              if (transform.suffix) content = content + transform.suffix;
+              if (transform.uppercase) content = content.toUpperCase();
+              if (transform.truncate) content = content.substring(0, transform.truncate);
+            }
+          }
+        }
+        
+        const fontSize = Math.max(12, obj.fontSize || 14);
+        const left = obj.left || 0;
+        const top = obj.top || 0;
+        
+        if (obj.type === 'i-text' || obj.type === 'text') {
+          labelContent += `
+            <div style="
+              position: absolute; 
+              left: ${left}px; 
+              top: ${top}px; 
+              font-size: ${fontSize}px;
+              font-family: ${obj.fontFamily || 'Arial'};
+              color: ${obj.fill || '#000000'};
+            ">${content}</div>
+          `;
+        } else if (obj.type === 'rect') {
+          labelContent += `
+            <div style="
+              position: absolute; 
+              left: ${left}px; 
+              top: ${top}px; 
+              width: ${obj.width || 100}px; 
+              height: ${obj.height || 50}px; 
+              border: 2px solid ${obj.stroke || '#000000'};
+              background-color: ${obj.fill || 'transparent'};
+            "></div>
+          `;
+        }
+      });
+      
+      labelsHTML += `
+        <div class="label" style="
+          position: relative;
+          width: ${templateData.width || 400}px;
+          height: ${templateData.height || 300}px;
+          border: 1px solid #ccc;
+          margin: 20px 0;
+          page-break-after: always;
+        ">
+          ${labelContent}
+          ${previewMode === 'bulk' ? `<div style="position: absolute; bottom: 5px; right: 5px; font-size: 10px; color: #666;">Row ${rowIndex + 1}</div>` : ''}
+        </div>
+      `;
+    });
+    
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Label Print Preview</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            .label { page-break-inside: avoid; }
+            @media print {
+              .label { margin: 0; }
+            }
+          </style>
+        </head>
+        <body>
+          <h2>Label Preview ${previewMode === 'bulk' ? `(${rowsToPreview.length} of ${dataset?.data?.length || 0} labels)` : ''}</h2>
+          ${labelsHTML}
+          <script>
+            setTimeout(() => window.print(), 500);
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
   };
 
   return (
