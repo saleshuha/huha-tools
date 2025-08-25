@@ -604,9 +604,54 @@ export const SunskySKUImporter: React.FC = () => {
           categories.find(c => c.id.toString() === exportCategory)?.name || 'Unknown Category'
         ) : 'All Categories';
 
-      updateProgress(15, `Fetching ${statusText} products from ${categoryText}...`);
+      updateProgress(15, `Getting total product count for ${statusText} products from ${categoryText}...`);
 
-      const maxPages = 200; // Safety limit
+      // First, get the total count by fetching page 1 with small pageSize
+      let actualTotalProducts = 0;
+      let actualTotalPages = 0;
+
+      try {
+        // Determine effective category ID for filtering
+        let effectiveCategoryId = undefined;
+        if (exportSubCategory !== 'all') {
+          effectiveCategoryId = parseInt(exportSubCategory);
+        } else if (exportCategory !== 'all') {
+          effectiveCategoryId = parseInt(exportCategory);
+        }
+
+        const countParams: any = {
+          page: 1,
+          pageSize: 1, // Small page size just to get totals
+          status: selectedExportStatus,
+          lang: 'en'
+        };
+
+        if (effectiveCategoryId) {
+          countParams.categoryId = effectiveCategoryId;
+        }
+
+        const countResponse = await callSunskyAPI('searchProducts', countParams, apiIds[0]);
+        
+        if (countResponse?.result === 'success' && countResponse?.data?.products) {
+          // Extract total information from response
+          if (countResponse.data.totalResults) {
+            actualTotalProducts = countResponse.data.totalResults;
+            actualTotalPages = Math.ceil(actualTotalProducts / exportPageSize);
+          } else if (countResponse.data.products) {
+            // Fallback: estimate based on first page
+            actualTotalProducts = countResponse.data.products.length * 50; // Conservative estimate
+            actualTotalPages = 50;
+          }
+        }
+      } catch (error) {
+        console.warn('Could not fetch total count, using estimates:', error);
+        actualTotalProducts = 1000; // Fallback estimate
+        actualTotalPages = Math.ceil(actualTotalProducts / exportPageSize);
+      }
+
+      updateProgress(20, `Found ${actualTotalProducts} total products across ${actualTotalPages} pages. Starting export...`, actualTotalProducts, 0, actualTotalProducts);
+
+      const maxPages = Math.min(actualTotalPages, 200); // Safety limit but respect actual total
       
       while (hasMore && currentPage <= maxPages && !isCancelled) {
         // Check if task was cancelled (for background tasks)
@@ -620,12 +665,14 @@ export const SunskySKUImporter: React.FC = () => {
         try {
           const currentApiId = apiIds[currentApiIndex % apiIds.length];
           
+          const progressPercentage = Math.min(95, 20 + Math.round(((currentPage - 1) / actualTotalPages) * 75));
+          
           updateProgress(
-            15 + (currentPage - 1) * 2, 
-            `Fetching page ${currentPage} (${totalProcessed} products found, ~${estimatedTotal} estimated total) - API ${currentApiIndex % apiIds.length + 1}`,
-            estimatedTotal,
+            progressPercentage, 
+            `Fetching page ${currentPage}/${actualTotalPages} (${totalProcessed}/${actualTotalProducts} products) - API ${currentApiIndex % apiIds.length + 1}`,
+            actualTotalProducts,
             totalProcessed,
-            estimatedTotal
+            actualTotalProducts
           );
 
           // Determine effective category ID for filtering
@@ -673,6 +720,19 @@ export const SunskySKUImporter: React.FC = () => {
             const detectedColumns = Object.keys(firstProduct);
             const allColumns = [...new Set([...availableExportColumns, ...detectedColumns])];
             setAvailableExportColumns(allColumns);
+            
+            // Update actual totals if we have better information from the response
+            if (response.data.totalResults && response.data.totalResults !== actualTotalProducts) {
+              actualTotalProducts = response.data.totalResults;
+              actualTotalPages = Math.ceil(actualTotalProducts / exportPageSize);
+              updateProgress(
+                progressPercentage, 
+                `Updated total: ${actualTotalProducts} products across ${actualTotalPages} pages`,
+                actualTotalProducts,
+                totalProcessed,
+                actualTotalProducts
+              );
+            }
           }
 
           // Process products and organize by category
@@ -702,12 +762,13 @@ export const SunskySKUImporter: React.FC = () => {
           // Rate limiting delay per API key
           if (hasMore) {
             const delay = perKeyDelay;
+            const progressPercentage = Math.min(95, 20 + Math.round(((currentPage - 1) / actualTotalPages) * 75));
             updateProgress(
-              15 + (currentPage - 1) * 2, 
-              `Rate limiting... waiting ${delay}ms (${totalProcessed} products found, ~${estimatedTotal} estimated total)`,
-              estimatedTotal,
+              progressPercentage, 
+              `Rate limiting... waiting ${delay}ms (${totalProcessed}/${actualTotalProducts} products)`,
+              actualTotalProducts,
               totalProcessed,
-              estimatedTotal
+              actualTotalProducts
             );
             await new Promise(resolve => setTimeout(resolve, delay));
           }
@@ -752,7 +813,7 @@ export const SunskySKUImporter: React.FC = () => {
         
       } else {
         setExportResults(finalResults);
-        updateProgress(100, `Export complete! Found ${totalProcessed} products across ${categoriesMap.size} categories`, totalProcessed, totalProcessed, totalProcessed);
+        updateProgress(100, `Export complete! Found ${totalProcessed}/${actualTotalProducts} products across ${categoriesMap.size} categories`, actualTotalProducts, totalProcessed, actualTotalProducts);
 
         toast({
           title: "Export Complete",
