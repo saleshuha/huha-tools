@@ -14,6 +14,7 @@ export default function LabelDesigner() {
   const [activeTemplate, setActiveTemplate] = useState<string | null>(null);
   const [activeDataset, setActiveDataset] = useState<string | null>(null);
   const [showWelcome, setShowWelcome] = useState(true);
+  const [canvasSize, setCanvasSize] = useState({ width: 400, height: 300 });
 
   if (showWelcome) {
     return (
@@ -82,7 +83,7 @@ export default function LabelDesigner() {
                         Label Canvas Designer
                       </div>
                       <Badge variant="outline" className="text-xs font-mono">
-                        Canvas Size: 400 × 300 px
+                        Canvas Size: {canvasSize.width} × {canvasSize.height} px
                       </Badge>
                     </CardTitle>
                     <CardDescription>
@@ -93,6 +94,7 @@ export default function LabelDesigner() {
                     <LabelCanvas 
                       templateId={activeTemplate}
                       datasetId={activeDataset}
+                      onCanvasSizeChange={setCanvasSize}
                     />
                   </CardContent>
                 </Card>

@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   Type, 
   Square, 
@@ -29,6 +30,7 @@ import QRCode from "qrcode";
 interface LabelCanvasProps {
   templateId?: string | null;
   datasetId?: string | null;
+  onCanvasSizeChange?: (size: { width: number; height: number }) => void;
 }
 
 interface CanvasElement {
@@ -37,12 +39,28 @@ interface CanvasElement {
   properties: any;
 }
 
-export function LabelCanvas({ templateId, datasetId }: LabelCanvasProps) {
+export function LabelCanvas({ templateId, datasetId, onCanvasSizeChange }: LabelCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [fabricCanvas, setFabricCanvas] = useState<FabricCanvas | null>(null);
   const [selectedObject, setSelectedObject] = useState<FabricObject | null>(null);
   const [canvasSize, setCanvasSize] = useState({ width: 400, height: 300 });
   const [elements, setElements] = useState<CanvasElement[]>([]);
+  
+  // Preset label sizes (width x height in pixels at 96 DPI)
+  const labelPresets = [
+    { name: "Address Label", width: 378, height: 189, mm: "100 × 50 mm" },
+    { name: "Shipping Label", width: 567, height: 378, mm: "150 × 100 mm" },
+    { name: "Product Label", width: 283, height: 142, mm: "75 × 37.5 mm" },
+    { name: "Name Tag", width: 340, height: 227, mm: "90 × 60 mm" },
+    { name: "CD Label", width: 453, height: 453, mm: "120 × 120 mm" },
+    { name: "Custom", width: canvasSize.width, height: canvasSize.height, mm: "Custom" }
+  ];
+
+  // Font families available
+  const fontFamilies = [
+    "Arial", "Helvetica", "Times New Roman", "Courier New", 
+    "Georgia", "Verdana", "Tahoma", "Trebuchet MS", "Impact"
+  ];
 
   // Initialize Fabric.js canvas
   useEffect(() => {
@@ -53,6 +71,9 @@ export function LabelCanvas({ templateId, datasetId }: LabelCanvasProps) {
       height: canvasSize.height,
       backgroundColor: "#ffffff",
       selection: true,
+      preserveObjectStacking: true,
+      renderOnAddRemove: true,
+      stateful: true,
     });
 
     // Add event listeners
@@ -288,6 +309,38 @@ export function LabelCanvas({ templateId, datasetId }: LabelCanvasProps) {
               <Separator />
 
               <div className="space-y-2">
+                <Label className="text-xs font-medium">Label Presets</Label>
+                <Select
+                  value={labelPresets.find(p => p.width === canvasSize.width && p.height === canvasSize.height)?.name || "Custom"}
+                  onValueChange={(value) => {
+                    const preset = labelPresets.find(p => p.name === value);
+                    if (preset && preset.name !== "Custom") {
+                      const newSize = { width: preset.width, height: preset.height };
+                      setCanvasSize(newSize);
+                      onCanvasSizeChange?.(newSize);
+                      toast.success(`Applied ${preset.name} (${preset.mm})`);
+                    }
+                  }}
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {labelPresets.map((preset) => (
+                      <SelectItem key={preset.name} value={preset.name} className="text-xs">
+                        <div className="flex flex-col">
+                          <span>{preset.name}</span>
+                          <span className="text-muted-foreground text-xs">{preset.mm}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <Separator />
+
+              <div className="space-y-2">
                 <Label className="text-xs font-medium">Canvas Size</Label>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
@@ -295,7 +348,11 @@ export function LabelCanvas({ templateId, datasetId }: LabelCanvasProps) {
                     <Input
                       type="number"
                       value={canvasSize.width}
-                      onChange={(e) => setCanvasSize(prev => ({ ...prev, width: parseInt(e.target.value) || 400 }))}
+                      onChange={(e) => {
+                        const newSize = { ...canvasSize, width: parseInt(e.target.value) || 400 };
+                        setCanvasSize(newSize);
+                        onCanvasSizeChange?.(newSize);
+                      }}
                       className="h-8 text-xs"
                     />
                   </div>
@@ -304,7 +361,11 @@ export function LabelCanvas({ templateId, datasetId }: LabelCanvasProps) {
                     <Input
                       type="number"
                       value={canvasSize.height}
-                      onChange={(e) => setCanvasSize(prev => ({ ...prev, height: parseInt(e.target.value) || 300 }))}
+                      onChange={(e) => {
+                        const newSize = { ...canvasSize, height: parseInt(e.target.value) || 300 };
+                        setCanvasSize(newSize);
+                        onCanvasSizeChange?.(newSize);
+                      }}
                       className="h-8 text-xs"
                     />
                   </div>
@@ -441,17 +502,122 @@ export function LabelCanvas({ templateId, datasetId }: LabelCanvasProps) {
                           className="h-8 text-xs"
                         />
                       </div>
+                      
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label className="text-xs">Font Size</Label>
+                          <Input
+                            type="number"
+                            value={(selectedObject as any).fontSize || 20}
+                            onChange={(e) => {
+                              (selectedObject as any).set({ fontSize: parseInt(e.target.value) || 20 });
+                              fabricCanvas?.renderAll();
+                            }}
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Text Color</Label>
+                          <Input
+                            type="color"
+                            value={(selectedObject as any).fill || '#000000'}
+                            onChange={(e) => {
+                              selectedObject.set({ fill: e.target.value });
+                              fabricCanvas?.renderAll();
+                            }}
+                            className="h-8"
+                          />
+                        </div>
+                      </div>
+
                       <div>
-                        <Label className="text-xs">Font Size</Label>
-                        <Input
-                          type="number"
-                          value={(selectedObject as any).fontSize || 20}
-                          onChange={(e) => {
-                            (selectedObject as any).set({ fontSize: parseInt(e.target.value) || 20 });
+                        <Label className="text-xs">Font Family</Label>
+                        <Select
+                          value={(selectedObject as any).fontFamily || 'Arial'}
+                          onValueChange={(value) => {
+                            (selectedObject as any).set({ fontFamily: value });
                             fabricCanvas?.renderAll();
                           }}
-                          className="h-8 text-xs"
-                        />
+                        >
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {fontFamilies.map((font) => (
+                              <SelectItem key={font} value={font} className="text-xs">
+                                <span style={{ fontFamily: font }}>{font}</span>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label className="text-xs">Font Weight</Label>
+                          <Select
+                            value={(selectedObject as any).fontWeight || 'normal'}
+                            onValueChange={(value) => {
+                              (selectedObject as any).set({ fontWeight: value });
+                              fabricCanvas?.renderAll();
+                            }}
+                          >
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="normal" className="text-xs">Normal</SelectItem>
+                              <SelectItem value="bold" className="text-xs">Bold</SelectItem>
+                              <SelectItem value="lighter" className="text-xs">Light</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label className="text-xs">Text Align</Label>
+                          <Select
+                            value={(selectedObject as any).textAlign || 'left'}
+                            onValueChange={(value) => {
+                              (selectedObject as any).set({ textAlign: value });
+                              fabricCanvas?.renderAll();
+                            }}
+                          >
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="left" className="text-xs">Left</SelectItem>
+                              <SelectItem value="center" className="text-xs">Center</SelectItem>
+                              <SelectItem value="right" className="text-xs">Right</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const isItalic = (selectedObject as any).fontStyle === 'italic';
+                            (selectedObject as any).set({ fontStyle: isItalic ? 'normal' : 'italic' });
+                            fabricCanvas?.renderAll();
+                          }}
+                          className={`text-xs italic ${(selectedObject as any).fontStyle === 'italic' ? 'bg-primary text-primary-foreground' : ''}`}
+                        >
+                          I
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const isUnderline = (selectedObject as any).underline;
+                            (selectedObject as any).set({ underline: !isUnderline });
+                            fabricCanvas?.renderAll();
+                          }}
+                          className={`text-xs underline ${(selectedObject as any).underline ? 'bg-primary text-primary-foreground' : ''}`}
+                        >
+                          U
+                        </Button>
                       </div>
                     </>
                   )}
