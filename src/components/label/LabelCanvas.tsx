@@ -634,46 +634,85 @@ export function LabelCanvas({ templateId, datasetId, onCanvasSizeChange }: Label
                   </>
                 )}
 
-                {/* Data Mapping */}
+      {/* Data Mapping */}
                 {dataset && (
                   <>
                     <Separator />
-                    <div className="space-y-2">
-                      <Label className="text-xs font-medium">Data Mapping</Label>
-                      <div>
-                        <Label className="text-xs">Map to Column</Label>
-                        <Select 
-                          value={(selectedObject as any)?.dataColumn || 'none'} 
-                          onValueChange={(value) => updateObjectProperty('dataColumn', value === 'none' ? undefined : value)}
-                        >
-                          <SelectTrigger className="h-8 text-xs">
-                            <SelectValue placeholder="Select column" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-background border border-border z-50">
-                            <SelectItem value="none" className="text-xs">
-                              None
-                            </SelectItem>
-                            {dataset.headers.map((header) => (
-                              <SelectItem key={header} value={header} className="text-xs">
-                                {header}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs font-medium">Data Mapping</Label>
+                        <div className="text-xs text-muted-foreground">
+                          {dataset.data.length} rows
+                        </div>
                       </div>
-                      
-                      {/* Show current mapping and preview */}
-                      {(selectedObject as any)?.dataColumn && (
-                        <div className="mt-2 p-2 bg-muted rounded text-xs">
-                          <div className="font-medium">Mapped to: {(selectedObject as any).dataColumn}</div>
-                          {dataset.data.length > 0 && (
-                            <div className="mt-1">
-                              <div className="text-muted-foreground">Preview:</div>
-                              <div className="font-mono">{dataset.data[0][(selectedObject as any).dataColumn] || 'N/A'}</div>
+
+                      {selectedObject ? (
+                        <>
+                          <div>
+                            <Label className="text-xs">Map to Column</Label>
+                            <Select 
+                              value={(selectedObject as any)?.dataColumn || 'none'} 
+                              onValueChange={(value) => updateObjectProperty('dataColumn', value === 'none' ? undefined : value)}
+                            >
+                              <SelectTrigger className="h-8 text-xs">
+                                <SelectValue placeholder="Select column" />
+                              </SelectTrigger>
+                              <SelectContent className="bg-background border border-border z-50">
+                                <SelectItem value="none" className="text-xs">
+                                  None
+                                </SelectItem>
+                                {dataset.headers.map((header) => (
+                                  <SelectItem key={header} value={header} className="text-xs">
+                                    {header}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          
+                          {/* Show current mapping and preview */}
+                          {(selectedObject as any)?.dataColumn && (
+                            <div className="mt-2 p-2 bg-muted rounded text-xs">
+                              <div className="font-medium">Mapped to: {(selectedObject as any).dataColumn}</div>
+                              {dataset.data.length > 0 && (
+                                <div className="mt-1">
+                                  <div className="text-muted-foreground">Sample data:</div>
+                                  <div className="font-mono truncate">{dataset.data[0][(selectedObject as any).dataColumn] || 'N/A'}</div>
+                                </div>
+                              )}
                             </div>
                           )}
+                        </>
+                      ) : (
+                        <div className="text-xs text-muted-foreground italic">
+                          Select an element to map it to data
                         </div>
                       )}
+
+                      {/* All mappings overview */}
+                      <div className="space-y-2">
+                        <div className="text-xs font-medium">All Mappings</div>
+                        <div className="max-h-24 overflow-y-auto space-y-1">
+                          {fabricCanvas?.getObjects().map((obj, index) => {
+                            const dataColumn = (obj as any).dataColumn;
+                            if (!dataColumn) return null;
+                            
+                            return (
+                              <div key={index} className="flex items-center justify-between text-xs p-1 bg-muted/50 rounded">
+                                <span className="truncate">
+                                  {obj.type === 'textbox' ? (obj as Textbox).text : obj.type}
+                                </span>
+                                <span className="text-muted-foreground text-xs">→ {dataColumn}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        {!hasDataMappings() && (
+                          <div className="text-xs text-muted-foreground italic">
+                            No mappings yet
+                          </div>
+                        )}
+                      </div>
                       
                       {/* Data operations */}
                       <div className="grid grid-cols-2 gap-2">
@@ -684,16 +723,29 @@ export function LabelCanvas({ templateId, datasetId, onCanvasSizeChange }: Label
                           disabled={!hasDataMappings()}
                           className="text-xs"
                         >
-                          Preview
+                          Preview Data
                         </Button>
                         <Button 
                           variant="outline" 
                           size="sm" 
                           onClick={() => clearAllMappings()}
+                          disabled={!hasDataMappings()}
                           className="text-xs"
                         >
                           Clear All
                         </Button>
+                      </div>
+
+                      {/* Available columns reference */}
+                      <div className="space-y-1">
+                        <div className="text-xs font-medium">Available Columns</div>
+                        <div className="flex flex-wrap gap-1">
+                          {dataset.headers.map((header) => (
+                            <span key={header} className="text-xs px-2 py-1 bg-muted rounded">
+                              {header}
+                            </span>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   </>
