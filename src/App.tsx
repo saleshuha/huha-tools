@@ -48,7 +48,7 @@ import SunskySKUImporterPage from "./pages/SunskySKUImporter";
 import SunskyOrderTrackingPage from "./pages/SunskyOrderTracking";
 import NoonFileCleaner from "./pages/NoonFileCleaner";
 import AmazonVendorCentral from "./pages/AmazonVendorCentral";
-import LabelDesignerPage from "./pages/LabelDesigner";
+import LabelDesignerPage from "@/pages/LabelDesigner";
 
 import { useState as useReactState } from "react";
 import { useToast } from "@/components/ui/use-toast";
