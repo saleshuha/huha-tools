@@ -181,6 +181,7 @@ export function Replenishment() {
   const [filteredItems, setFilteredItems] = useState<AllInventoryItem[]>([]);
   const [salesData, setSalesData] = useState<SalesData[]>([]);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [outOfStockItems, setOutOfStockItems] = useState<RestockItem[]>([]);
   
   // Sunsky order dialog state
   const [sunskyDialogOpen, setSunskyDialogOpen] = useState(false);
@@ -374,8 +375,42 @@ export function Replenishment() {
       console.log('Total items count:', allInventoryItems.length);
       
       // Separate items based on status for the existing logic (convert to RestockItem format)
-      const restockNeeded = allInventoryItems
-        .filter(item => item.quantity === 0 && item.status !== 'ordered')
+      const allOutOfStockItems = allInventoryItems.filter(item => item.quantity === 0 && item.status !== 'ordered');
+      
+      // Separate out of stock items into those that can be ordered and those that cannot
+      const restockNeeded = allOutOfStockItems
+        .filter(item => {
+          // Check if item has valid SKU for ordering
+          const identifier = item.item_type === 'ASIN' 
+            ? `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}` 
+            : `SKU: ${item.sku} (${item.serial_number})`;
+          const extractedSku = extractSkuFromIdentifier(identifier);
+          const extractedModel = extractModelFromIdentifier(identifier);
+          return !!(extractedSku || extractedModel); // Only include items that can be ordered
+        })
+        .map(item => ({
+          id: item.id,
+          identifier: item.item_type === 'ASIN' 
+            ? `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}` 
+            : `SKU: ${item.sku} (${item.serial_number})`,
+          current_quantity: item.quantity,
+          table_name: item.item_type === 'ASIN' ? 'asin_inventory' : 'sku_inventory',
+          status: item.status,
+          date_sold: item.last_sold_date,
+          last_restock_date: item.last_order_date,
+          days_since_last_restock: item.days_since_ordered
+        }));
+
+      // Items that are out of stock but cannot be ordered (no valid SKU)
+      const outOfStockOnly = allOutOfStockItems
+        .filter(item => {
+          const identifier = item.item_type === 'ASIN' 
+            ? `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}` 
+            : `SKU: ${item.sku} (${item.serial_number})`;
+          const extractedSku = extractSkuFromIdentifier(identifier);
+          const extractedModel = extractModelFromIdentifier(identifier);
+          return !(extractedSku || extractedModel); // Only include items that cannot be ordered
+        })
         .map(item => ({
           id: item.id,
           identifier: item.item_type === 'ASIN' 
@@ -408,9 +443,11 @@ export function Replenishment() {
       setAllInventoryItems(allInventoryItems);
       setRestockItems(restockNeeded);
       setOrderedItems(orderedItemsData);
+      setOutOfStockItems(outOfStockOnly);
       
       console.log('State updated - allInventoryItems length:', allInventoryItems.length);
-      console.log('Items needing restock:', restockNeeded.length);
+      console.log('Items needing restock (can be ordered):', restockNeeded.length);
+      console.log('Items out of stock (cannot be ordered):', outOfStockOnly.length);
       console.log('Items on order:', orderedItemsData.length);
     } catch (error: any) {
       console.error('Error loading all inventory items:', error);
@@ -2565,27 +2602,36 @@ export function Replenishment() {
             </CardHeader>
             <CardContent>
               <Tabs defaultValue="critical" className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="critical" className="flex items-center gap-2">
-                    <AlertTriangle className="w-4 h-4" />
-                    Critical Stock ({pendingItems.length})
+                <TabsList className="grid w-full grid-cols-3 bg-gradient-subtle rounded-xl shadow-elegant">
+                  <TabsTrigger value="critical" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                    <ShoppingCart className="w-4 h-4" />
+                    Ready to Order ({pendingItems.length})
                   </TabsTrigger>
-                  <TabsTrigger value="ordered" className="flex items-center gap-2">
+                  <TabsTrigger value="out-of-stock" className="flex items-center gap-2 data-[state=active]:bg-destructive data-[state=active]:text-destructive-foreground">
+                    <AlertTriangle className="w-4 h-4" />
+                    Out of Stock ({outOfStockItems.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="ordered" className="flex items-center gap-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white">
                     <Truck className="w-4 h-4" />
-                    Ordered Items ({orderedItems.length})
+                    Ordered ({orderedItems.length})
                   </TabsTrigger>
                 </TabsList>
 
-                {/* Critical Stock Tab */}
+                {/* Ready to Order Tab */}
                 <TabsContent value="critical" className="space-y-4 mt-6">
                   <div className="flex items-center justify-between gap-4">
                     <div className="relative flex-1">
                       <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
                       <Input placeholder="Search ASINs, SKUs, or serials... (use spaces for multiple)" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10" />
                     </div>
-                    <Badge variant="outline" className="text-sm whitespace-nowrap">
-                      {pendingItems.length} items need attention
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-sm whitespace-nowrap bg-green-50 text-green-700 border-green-200">
+                        {pendingItems.length} ready to order
+                      </Badge>
+                      <Badge variant="outline" className="text-sm whitespace-nowrap bg-red-50 text-red-700 border-red-200">
+                        {outOfStockItems.length} cannot order
+                      </Badge>
+                    </div>
                   </div>
 
                   {/* Bulk Actions for Critical Items */}
@@ -2617,36 +2663,30 @@ export function Replenishment() {
                       <strong>Search Active:</strong> {searchTerm.split(' ').map(term => term.trim()).filter(Boolean).join(', ')}
                     </div>}
 
-                  <div className="space-y-2 max-h-96 overflow-y-auto">
+                   <div className="space-y-2 max-h-96 overflow-y-auto">
                      {pendingItems.length > 0 ? pendingItems.map(item => {
                         // Check if item has valid SKU for Sunsky ordering
                         const extractedSku = extractSkuFromIdentifier(item.identifier);
                         const extractedModel = extractModelFromIdentifier(item.identifier);
                         const hasSunskySku = !!(extractedSku || extractedModel);
                         
-                        return <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg bg-destructive/5 hover:bg-destructive/10 transition-colors">
+                        return <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg bg-green-50/50 hover:bg-green-100/50 transition-colors border-green-200">
                            <div className="flex items-center gap-4">
                              <Checkbox id={`item-${item.id}`} checked={selectedItems.has(item.id)} onCheckedChange={checked => handleSelectItem(item.id, checked as boolean)} />
-                             <div className="p-2 rounded-lg bg-destructive/20">
-                               {item.table_name === 'asin_inventory' ? <Package className="w-4 h-4 text-destructive" /> : <Database className="w-4 h-4 text-destructive" />}
+                             <div className="p-2 rounded-lg bg-green-500/20">
+                               {item.table_name === 'asin_inventory' ? <Package className="w-4 h-4 text-green-700" /> : <Database className="w-4 h-4 text-green-700" />}
                              </div>
                              <div className="flex-1">
                                <p className="font-medium text-foreground">{item.identifier}</p>
                                <div className="flex items-center gap-4 text-sm text-muted-foreground">
                                  <span>Qty: {item.current_quantity}</span>
                                  <span>Last Restock: {item.days_since_last_restock ? `${item.days_since_last_restock}d ago` : 'Never'}</span>
-                                 <Badge variant="destructive" className="text-xs">
-                                   Out of Stock
+                                 <Badge variant="secondary" className="text-xs bg-green-500/20 text-green-700 border-green-300">
+                                   Ready to Order
                                  </Badge>
-                                 {hasSunskySku ? (
-                                   <Badge variant="secondary" className="text-xs bg-green-500/20 text-green-700">
-                                     Sunsky Ready ({extractedSku || extractedModel})
-                                   </Badge>
-                                 ) : (
-                                   <Badge variant="outline" className="text-xs border-orange-500 text-orange-600">
-                                     No Valid SKU
-                                   </Badge>
-                                 )}
+                                 <Badge variant="secondary" className="text-xs bg-blue-500/20 text-blue-700">
+                                   Sunsky SKU: {extractedSku || extractedModel}
+                                 </Badge>
                                </div>
                              </div>
                            </div>
@@ -2656,19 +2696,105 @@ export function Replenishment() {
                            </Button>
                          </div>
                        }) : <div className="text-center py-8 text-muted-foreground">
-                        <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                        <p className="text-lg font-medium">No critical stock items</p>
-                        <p className="text-sm">All items are well stocked!</p>
+                        <ShoppingCart className="w-12 h-12 mx-auto mb-4 opacity-50 text-green-500" />
+                        <p className="text-lg font-medium">No items ready to order</p>
+                        <p className="text-sm">All critical items need SKU mapping or are already ordered!</p>
                       </div>}
                   </div>
 
-                  {/* Export button for critical items */}
-                  {pendingItems.length > 0 && <div className="pt-4 border-t">
-                      <Button onClick={exportRestockData} variant="outline" size="sm" className="gap-2">
+                   {/* Export button for ready-to-order items */}
+                   {pendingItems.length > 0 && <div className="pt-4 border-t">
+                       <Button onClick={exportRestockData} variant="outline" size="sm" className="gap-2">
+                         <Download className="w-4 h-4" />
+                         Export Ready to Order Items
+                       </Button>
+                     </div>}
+                </TabsContent>
+
+                {/* Out of Stock Tab */}
+                <TabsContent value="out-of-stock" className="space-y-4 mt-6">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="text-sm text-muted-foreground">
+                      Items that are out of stock but cannot be automatically ordered due to missing or invalid SKU mapping
+                    </div>
+                    <Badge variant="destructive" className="text-sm whitespace-nowrap">
+                      {outOfStockItems.length} items need manual attention
+                    </Badge>
+                  </div>
+
+                  <div className="space-y-2 max-h-96 overflow-y-auto">
+                    {outOfStockItems.length > 0 ? outOfStockItems.map(item => (
+                      <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg bg-red-50/50 hover:bg-red-100/50 transition-colors border-red-200">
+                        <div className="flex items-center gap-4">
+                          <div className="p-2 rounded-lg bg-red-500/20">
+                            {item.table_name === 'asin_inventory' ? <Package className="w-4 h-4 text-red-700" /> : <Database className="w-4 h-4 text-red-700" />}
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-medium text-foreground">{item.identifier}</p>
+                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                              <span>Qty: {item.current_quantity}</span>
+                              <span>Last Restock: {item.days_since_last_restock ? `${item.days_since_last_restock}d ago` : 'Never'}</span>
+                              <Badge variant="destructive" className="text-xs">
+                                Out of Stock
+                              </Badge>
+                              <Badge variant="outline" className="text-xs border-orange-500 text-orange-600 bg-orange-50">
+                                No Valid SKU - Manual Order Required
+                              </Badge>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button onClick={() => markAsOrdered(item.id)} size="sm" variant="outline" className="gap-2">
+                            <ShoppingCart className="w-4 h-4" />
+                            Mark as Manually Ordered
+                          </Button>
+                        </div>
+                      </div>
+                    )) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <CheckCircle className="w-12 h-12 mx-auto mb-4 opacity-50 text-green-500" />
+                        <p className="text-lg font-medium">No out of stock items</p>
+                        <p className="text-sm">All out of stock items have valid SKUs and can be ordered!</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Export button for out of stock items */}
+                  {outOfStockItems.length > 0 && (
+                    <div className="pt-4 border-t">
+                      <Button 
+                        onClick={() => {
+                          const csvContent = [
+                            ['Item', 'Type', 'Current Quantity', 'Days Since Last Restock', 'Status', 'Notes'],
+                            ...outOfStockItems.map(item => [
+                              item.identifier,
+                              item.table_name === 'asin_inventory' ? 'ASIN' : 'SKU',
+                              item.current_quantity.toString(),
+                              item.days_since_last_restock?.toString() || 'Never',
+                              item.status,
+                              'No valid SKU - requires manual ordering'
+                            ])
+                          ].map(row => row.join(',')).join('\n');
+                          
+                          const blob = new Blob([csvContent], { type: 'text/csv' });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `out-of-stock-items-${selectedCountry}-${new Date().toISOString().split('T')[0]}.csv`;
+                          document.body.appendChild(a);
+                          a.click();
+                          document.body.removeChild(a);
+                          URL.revokeObjectURL(url);
+                        }} 
+                        variant="outline" 
+                        size="sm" 
+                        className="gap-2"
+                      >
                         <Download className="w-4 h-4" />
-                        Export Critical Items
+                        Export Out of Stock Items
                       </Button>
-                    </div>}
+                    </div>
+                  )}
                 </TabsContent>
 
                 {/* Ordered Items Tab */}
