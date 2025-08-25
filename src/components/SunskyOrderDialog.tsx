@@ -522,15 +522,6 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
     console.log('Available items:', availableItems);
     console.log('Unavailable items:', unavailableItems);
     
-    if (availableItems.length === 0) {
-      toast({
-        title: "No Available Items",
-        description: "None of the selected items are available in Sunsky catalog",
-        variant: "destructive"
-      });
-      return;
-    }
-    
     // Uncheck unavailable items
     unavailableItems.forEach(item => {
       setCheckedItems(prev => {
@@ -543,6 +534,19 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
     // Notify parent component about unavailable items
     if (onItemsUnavailable && unavailableItems.length > 0) {
       onItemsUnavailable(unavailableItems);
+    }
+    
+    if (availableItems.length === 0) {
+      toast({
+        title: "Items Moved to Out of Stock",
+        description: `${unavailableItems.length} items not available in Sunsky catalog have been moved to Out of Stock tab`,
+        variant: "default"
+      });
+      // Close the dialog since there are no items left to order
+      if (onOpenChange) {
+        onOpenChange(false);
+      }
+      return;
     }
     
     // Retry with only available items
