@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { DatePickerWithRange } from "@/components/ui/date-range-picker";
-import { Search, Plus, Download, AlertCircle, CheckCircle2, Package, Globe, Calendar, RefreshCw, Filter, Grid, List, Settings, Eye, Save, RotateCcw, Play, Pause, X, PauseCircle, PlayCircle, XCircle, Trash2 } from "lucide-react";
+import { Search, Plus, Download, AlertCircle, CheckCircle2, Package, Globe, Calendar, RefreshCw, Filter, Grid, List, Settings, Eye, Save, RotateCcw, Play, Pause, X, PauseCircle, PlayCircle, XCircle, Trash2, ChevronDown } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -27,6 +27,7 @@ import type { ImportJob } from "@/hooks/useImportJobs";
 import { usePOOrders } from "@/hooks/usePOOrders";
 import { useParallelPOProcessor } from "./ParallelPOProcessor";
 import { ReAuthDialog } from "@/components/amazon/ReAuthDialog";
+import { useBackgroundTasks } from "@/contexts/BackgroundTasksContext";
 
 interface SunskyProduct {
   // Core product fields
@@ -181,6 +182,7 @@ export const SunskySKUImporter: React.FC = () => {
   const { sunskySKUs, isLoading: skusLoading, fetchSKUs, totalCount, refreshSKUs, addSKUs } = useSKUManager();
   const { jobs, isLoading: jobsLoading, createImportJob, fetchJobs } = useImportJobs();
   const { getPOModelNumbers } = usePOOrders();
+  const { addTask, updateTask } = useBackgroundTasks();
   
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -256,6 +258,23 @@ export const SunskySKUImporter: React.FC = () => {
     categories: Map<number, { name: string; products: SunskyProduct[] }>;
     totalFound: number;
   } | null>(null);
+
+  // Enhanced export features
+  const [exportCategory, setExportCategory] = useState<string>('all');
+  const [exportSubCategory, setExportSubCategory] = useState<string>('all');
+  const [exportPageSize, setExportPageSize] = useState<number>(100);
+  const [searchPageSize, setSearchPageSize] = useState<number>(50);
+  const [selectedExportColumns, setSelectedExportColumns] = useState<string[]>([
+    'itemNo', 'name', 'brandName', 'price', 'stock', 'status', 'leadTime', 'warehouse', 'moq'
+  ]);
+  const [availableExportColumns, setAvailableExportColumns] = useState<string[]>([
+    'itemNo', 'name', 'brandName', 'price', 'stock', 'status', 'leadTime', 'warehouse', 'moq',
+    'categoryId', 'description', 'unitWeight', 'packQty', 'unitLength', 'unitWidth', 'unitHeight',
+    'packWeight', 'packLength', 'packWidth', 'packHeight', 'barcode', 'orgPrice', 'priceExpired',
+    'picCount', 'baseImgCount', 'videoUrl', 'gmtListed', 'gmtModified', 'oem', 'withLogo', 'containsBattery'
+  ]);
+  const [selectedExportAPIs, setSelectedExportAPIs] = useState<string[]>([]);
+  const [runInBackground, setRunInBackground] = useState<boolean>(false);
   
   // SKU table column management - match search results headers
   const [skuTableHeaders, setSkuTableHeaders] = useState<string[]>([
@@ -432,7 +451,7 @@ export const SunskySKUImporter: React.FC = () => {
   };
 
   // Export by status functionality
-  const exportProductsByStatus = async () => {
+  const exportProductsByStatus = async (runInBg: boolean = false) => {
     if (!selectedExportStatus) {
       toast({
         title: "Error",
@@ -442,10 +461,73 @@ export const SunskySKUImporter: React.FC = () => {
       return;
     }
 
-    setIsExporting(true);
-    setExportProgress(0);
-    setExportStatus('Initializing export...');
-    setExportResults(null);
+    // Determine which APIs to use
+    const apiIds = selectedExportAPIs.length > 0 ? selectedExportAPIs : 
+                   availableAPIs.filter(api => api.is_active).map(api => api.id);
+    
+    if (apiIds.length === 0) {
+      toast({
+        title: "Error",
+        description: "No active API keys available",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const categoryName = exportCategory !== 'all' ? 
+      (exportSubCategory !== 'all' ? 
+        subCategories.find(c => c.id.toString() === exportSubCategory)?.name || 'Unknown Subcategory' :
+        categories.find(c => c.id.toString() === exportCategory)?.name || 'Unknown Category'
+      ) : 'All Categories';
+
+    if (runInBg) {
+      // Run in background
+      const taskId = `export-${Date.now()}`;
+      addTask({
+        type: 'file-processing',
+        name: `Export ${getProductStatusText(selectedExportStatus)} Products - ${categoryName}`,
+        progress: 0,
+        status: 'processing',
+        totalItems: 0,
+        processedItems: 0
+      });
+
+      // Start background processing
+      processExportInBackground(taskId, apiIds);
+      
+      toast({
+        title: "Export Started",
+        description: "Export is running in the background. You can view progress in the sidebar."
+      });
+      
+      return;
+    }
+
+    // Run in foreground
+    await processExport(apiIds, false);
+  };
+
+  const processExport = async (apiIds: string[], isBackground: boolean = false, taskId?: string) => {
+    const updateProgress = (progress: number, status: string, totalItems?: number, processedItems?: number) => {
+      if (isBackground && taskId) {
+        updateTask(taskId, {
+          progress,
+          status: 'processing',
+          totalItems,
+          processedItems
+        });
+      } else {
+        setExportProgress(progress);
+        setExportStatus(status);
+      }
+    };
+
+    if (!isBackground) {
+      setIsExporting(true);
+      setExportProgress(0);
+      setExportStatus('Initializing export...');
+      setExportResults(null);
+    }
 
     try {
       const allProducts: SunskyProduct[] = [];
@@ -453,45 +535,98 @@ export const SunskySKUImporter: React.FC = () => {
       let currentPage = 1;
       let totalProcessed = 0;
       let hasMore = true;
-      const pageSize = 50; // Respect API limitations
-      const delayBetweenRequests = 1000; // 1 second delay to respect level 9 limitations
+      const perKeyDelay = 250; // 250ms delay per API key for level 9 limits
+      let currentApiIndex = 0;
 
-      setExportStatus('Fetching categories...');
+      updateProgress(5, 'Fetching categories...');
       
-      // First, get all categories
+      // Get all main categories first
       const categoriesResponse = await callSunskyAPI('getCategories', {
         mode: 'all',
         parentId: '0',
         modifiedSince: ''
-      }, selectedSearchAPI);
+      }, apiIds[0]);
 
       if (categoriesResponse?.result !== 'success' || !categoriesResponse?.data) {
         throw new Error('Failed to fetch categories');
       }
 
       // Initialize categories map
-      const categories = categoriesResponse.data as SunskyCategory[];
-      categories.forEach(cat => {
+      const allCategories = categoriesResponse.data as SunskyCategory[];
+      allCategories.forEach(cat => {
         categoriesMap.set(cat.id, { name: cat.name, products: [] });
       });
 
-      setExportStatus(`Fetching products with status: ${getProductStatusText(selectedExportStatus)}...`);
+      // Get subcategories if needed
+      if (exportCategory !== 'all' && exportSubCategory === 'all') {
+        updateProgress(10, 'Fetching subcategories...');
+        
+        const subCatsResponse = await callSunskyAPI('getCategories', {
+          parentId: exportCategory,
+          mode: 'subcategories',
+          modifiedSince: ''
+        }, apiIds[0]);
 
-      while (hasMore) {
+        if (subCatsResponse?.result === 'success' && subCatsResponse?.data) {
+          const subcats = subCatsResponse.data as SunskyCategory[];
+          subcats.forEach(cat => {
+            categoriesMap.set(cat.id, { name: cat.name, products: [] });
+          });
+        }
+      }
+
+      const statusText = getProductStatusText(selectedExportStatus);
+      const categoryText = exportCategory !== 'all' ? 
+        (exportSubCategory !== 'all' ? 
+          subCategories.find(c => c.id.toString() === exportSubCategory)?.name || 'Unknown Subcategory' :
+          categories.find(c => c.id.toString() === exportCategory)?.name || 'Unknown Category'
+        ) : 'All Categories';
+
+      updateProgress(15, `Fetching ${statusText} products from ${categoryText}...`);
+
+      const maxPages = 200; // Safety limit
+      
+      while (hasMore && currentPage <= maxPages) {
         try {
-          setExportStatus(`Fetching page ${currentPage}... (${totalProcessed} products found)`);
-          setExportProgress((currentPage - 1) * 10); // Rough progress estimation
+          const currentApiId = apiIds[currentApiIndex % apiIds.length];
+          
+          updateProgress(
+            15 + (currentPage - 1) * 2, 
+            `Fetching page ${currentPage} (${totalProcessed} products found) - API ${currentApiIndex % apiIds.length + 1}`,
+            undefined,
+            totalProcessed
+          );
 
-          const response = await callSunskyAPI('searchProducts', {
+          // Determine effective category ID for filtering
+          let effectiveCategoryId = undefined;
+          if (exportSubCategory !== 'all') {
+            effectiveCategoryId = parseInt(exportSubCategory);
+          } else if (exportCategory !== 'all') {
+            effectiveCategoryId = parseInt(exportCategory);
+          }
+
+          const searchParams: any = {
             page: currentPage,
-            pageSize: pageSize,
+            pageSize: exportPageSize,
             status: selectedExportStatus,
             lang: 'en'
-          }, selectedSearchAPI);
+          };
+
+          if (effectiveCategoryId) {
+            searchParams.categoryId = effectiveCategoryId;
+          }
+
+          const response = await callSunskyAPI('searchProducts', searchParams, currentApiId);
 
           if (response?.result !== 'success') {
-            console.warn(`Failed to fetch page ${currentPage}:`, response);
-            break;
+            console.warn(`Failed to fetch page ${currentPage} with API ${currentApiId}:`, response);
+            
+            // Try next API or break if all failed
+            currentApiIndex++;
+            if (currentApiIndex >= apiIds.length) {
+              break;
+            }
+            continue;
           }
 
           const pageProducts = response.data?.products || [];
@@ -499,6 +634,14 @@ export const SunskySKUImporter: React.FC = () => {
           if (pageProducts.length === 0) {
             hasMore = false;
             break;
+          }
+
+          // Update available columns based on first page
+          if (currentPage === 1 && pageProducts.length > 0) {
+            const firstProduct = pageProducts[0];
+            const detectedColumns = Object.keys(firstProduct);
+            const allColumns = [...new Set([...availableExportColumns, ...detectedColumns])];
+            setAvailableExportColumns(allColumns);
           }
 
           // Process products and organize by category
@@ -518,108 +661,153 @@ export const SunskySKUImporter: React.FC = () => {
 
           totalProcessed += pageProducts.length;
           currentPage++;
+          currentApiIndex++;
 
-          // Check if we have more pages based on response
-          if (pageProducts.length < pageSize) {
+          // Check if we have more pages
+          if (pageProducts.length < exportPageSize) {
             hasMore = false;
           }
 
-          // Rate limiting delay - respect level 9 limitations
+          // Rate limiting delay per API key
           if (hasMore) {
-            setExportStatus(`Waiting ${delayBetweenRequests/1000}s before next request... (${totalProcessed} products found)`);
-            await new Promise(resolve => setTimeout(resolve, delayBetweenRequests));
-          }
-
-          // Safety limit to prevent runaway requests
-          if (currentPage > 100) {
-            setExportStatus('Reached maximum page limit (100 pages)');
-            hasMore = false;
+            const delay = perKeyDelay;
+            updateProgress(
+              15 + (currentPage - 1) * 2, 
+              `Rate limiting... waiting ${delay}ms (${totalProcessed} products found)`,
+              undefined,
+              totalProcessed
+            );
+            await new Promise(resolve => setTimeout(resolve, delay));
           }
 
         } catch (pageError) {
           console.error(`Error fetching page ${currentPage}:`, pageError);
-          // Continue with next page instead of failing completely
-          currentPage++;
-          if (currentPage > 10) { // Don't retry too many times
+          currentApiIndex++;
+          if (currentApiIndex >= apiIds.length * 2) { // Allow some retries
             hasMore = false;
           }
         }
       }
 
-      setExportResults({
+      const finalResults = {
         products: allProducts,
         categories: categoriesMap,
         totalFound: totalProcessed
-      });
+      };
 
-      setExportProgress(100);
-      setExportStatus(`Export complete! Found ${totalProcessed} products across ${categoriesMap.size} categories.`);
+      if (isBackground && taskId) {
+        updateTask(taskId, {
+          progress: 90,
+          status: 'processing',
+          totalItems: totalProcessed,
+          processedItems: totalProcessed
+        });
 
-      toast({
-        title: "Export Complete",
-        description: `Successfully fetched ${totalProcessed} products with status: ${getProductStatusText(selectedExportStatus)}`
-      });
+        // Generate Excel in background
+        await generateExcelFile(finalResults, taskId);
+        
+        updateTask(taskId, {
+          progress: 100,
+          status: 'completed',
+          totalItems: totalProcessed,
+          processedItems: totalProcessed
+        });
+
+        toast({
+          title: "Export Complete",
+          description: `Background export completed. Found ${totalProcessed} products.`
+        });
+        
+      } else {
+        setExportResults(finalResults);
+        updateProgress(100, `Export complete! Found ${totalProcessed} products across ${categoriesMap.size} categories.`);
+
+        toast({
+          title: "Export Complete",
+          description: `Successfully fetched ${totalProcessed} ${statusText} products from ${categoryText}`
+        });
+      }
 
     } catch (error) {
       console.error('Export error:', error);
-      setExportStatus('Export failed');
+      
+      if (isBackground && taskId) {
+        updateTask(taskId, {
+          status: 'error',
+          progress: 0
+        });
+      } else {
+        setExportStatus('Export failed');
+      }
+      
       toast({
         title: "Export Failed",
         description: error.message || "Failed to export products",
         variant: "destructive"
       });
     } finally {
-      setIsExporting(false);
+      if (!isBackground) {
+        setIsExporting(false);
+      }
     }
   };
 
-  // Download results as Excel
-  const downloadExportResults = () => {
-    if (!exportResults) return;
+  const processExportInBackground = async (taskId: string, apiIds: string[]) => {
+    await processExport(apiIds, true, taskId);
+  };
 
+  const generateExcelFile = async (results: any, taskId?: string) => {
     try {
       const XLSX = require('xlsx');
       const workbook = XLSX.utils.book_new();
 
       // Create summary sheet
+      const categoryText = exportCategory !== 'all' ? 
+        (exportSubCategory !== 'all' ? 
+          subCategories.find(c => c.id.toString() === exportSubCategory)?.name || 'Unknown Subcategory' :
+          categories.find(c => c.id.toString() === exportCategory)?.name || 'Unknown Category'
+        ) : 'All Categories';
+
       const summaryData = [
         ['Export Summary'],
         ['Status', getProductStatusText(selectedExportStatus)],
-        ['Total Products', exportResults.totalFound.toString()],
-        ['Total Categories', exportResults.categories.size.toString()],
+        ['Category Filter', categoryText],
+        ['Total Products', results.totalFound.toString()],
+        ['Total Categories', results.categories.size.toString()],
         ['Export Date', new Date().toLocaleString()],
+        ['Page Size', exportPageSize.toString()],
+        ['API Keys Used', selectedExportAPIs.length || availableAPIs.filter(api => api.is_active).length],
         [],
         ['Category', 'Product Count'],
       ];
 
-      exportResults.categories.forEach((category, categoryId) => {
+      results.categories.forEach((category: any, categoryId: number) => {
         summaryData.push([category.name, category.products.length.toString()]);
       });
 
       const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
       XLSX.utils.book_append_sheet(workbook, summarySheet, 'Summary');
 
-      // Create detailed products sheet
-      const productsData = [
-        ['Category', 'SKU', 'Name', 'Brand', 'Price', 'Stock', 'Status', 'Lead Time', 'Warehouse', 'Weight', 'Dimensions', 'MOQ']
-      ];
+      // Create detailed products sheet with selected columns
+      const productsData = [selectedExportColumns];
 
-      exportResults.categories.forEach((category, categoryId) => {
-        category.products.forEach(product => {
-           productsData.push([
-            category.name,
-            product.itemNo || '',
-            product.name || '',
-            product.brandName || '',
-            product.price || '',
-            (product.stock || 0).toString(),
-            getProductStatusText(product.status),
-            product.leadTime || '',
-            product.warehouse || '',
-            product.unitWeight || '',
-            `${product.unitLength || ''}x${product.unitWidth || ''}x${product.unitHeight || ''}`,
-            (product.moq || '').toString()
-          ]);
+      results.categories.forEach((category: any) => {
+        category.products.forEach((product: any) => {
+          const row = selectedExportColumns.map(column => {
+            switch (column) {
+              case 'status':
+                return getProductStatusText(product.status);
+              case 'dimensions':
+                return `${product.unitLength || ''}x${product.unitWidth || ''}x${product.unitHeight || ''}`;
+              case 'pack_dimensions':
+                return `${product.packLength || ''}x${product.packWidth || ''}x${product.packHeight || ''}`;
+              case 'category':
+                return category.name;
+              default:
+                return product[column] || '';
+            }
+          });
+          productsData.push(row);
         });
       });
 
@@ -627,29 +815,29 @@ export const SunskySKUImporter: React.FC = () => {
       XLSX.utils.book_append_sheet(workbook, productsSheet, 'Products');
 
       // Create category-specific sheets (limit to top 10 categories by product count)
-      const sortedCategories = Array.from(exportResults.categories.entries())
+      const sortedCategories = Array.from(results.categories.entries())
         .sort(([,a], [,b]) => b.products.length - a.products.length)
         .slice(0, 10);
 
       sortedCategories.forEach(([categoryId, category]) => {
-        const categoryData = [
-          ['SKU', 'Name', 'Brand', 'Price', 'Stock', 'Status', 'Lead Time', 'Warehouse', 'Weight', 'MOQ', 'Description']
-        ];
+        const categoryData = [selectedExportColumns];
 
-        category.products.forEach(product => {
-          categoryData.push([
-            product.itemNo || '',
-            product.name || '',
-            product.brandName || '',
-            product.price || '',
-            (product.stock || 0).toString(),
-            getProductStatusText(product.status),
-            product.leadTime || '',
-            product.warehouse || '',
-            product.unitWeight || '',
-            (product.moq || '').toString(),
-            product.description || ''
-          ]);
+        category.products.forEach((product: any) => {
+          const row = selectedExportColumns.map(column => {
+            switch (column) {
+              case 'status':
+                return getProductStatusText(product.status);
+              case 'dimensions':
+                return `${product.unitLength || ''}x${product.unitWidth || ''}x${product.unitHeight || ''}`;
+              case 'pack_dimensions':
+                return `${product.packLength || ''}x${product.packWidth || ''}x${product.packHeight || ''}`;
+              case 'category':
+                return category.name;
+              default:
+                return product[column] || '';
+            }
+          });
+          categoryData.push(row);
         });
 
         const categorySheet = XLSX.utils.aoa_to_sheet(categoryData);
@@ -658,7 +846,10 @@ export const SunskySKUImporter: React.FC = () => {
       });
 
       // Download the file
-      const fileName = `sunsky_export_${getProductStatusText(selectedExportStatus).toLowerCase().replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`;
+      const statusSlug = getProductStatusText(selectedExportStatus).toLowerCase().replace(/\s+/g, '_');
+      const categorySlug = categoryText.toLowerCase().replace(/\s+/g, '_').substring(0, 20);
+      const fileName = `sunsky_export_${statusSlug}_${categorySlug}_${new Date().toISOString().split('T')[0]}.xlsx`;
+      
       XLSX.writeFile(workbook, fileName);
 
       toast({
@@ -667,13 +858,21 @@ export const SunskySKUImporter: React.FC = () => {
       });
 
     } catch (error) {
-      console.error('Download error:', error);
-      toast({
-        title: "Download Failed",
-        description: "Failed to generate Excel file",
-        variant: "destructive"
-      });
+      console.error('Excel generation error:', error);
+      if (taskId) {
+        updateTask(taskId, {
+          status: 'error',
+          progress: 0
+        });
+      }
+      throw error;
     }
+  };
+
+  // Download results as Excel
+  const downloadExportResults = () => {
+    if (!exportResults) return;
+    generateExcelFile(exportResults);
   };
 
   // Load available APIs
@@ -970,11 +1169,11 @@ export const SunskySKUImporter: React.FC = () => {
         dateTo: dateRange?.to?.toISOString().split('T')[0]
       };
 
-      const result = await callSunskyAPI('searchProducts', {
-        filters,
-        page,
-        pageSize: 20
-      }, apiId || selectedSearchAPI);
+                  const result = await callSunskyAPI('searchProducts', {
+                    filters,
+                    page,
+                    pageSize: searchPageSize
+                  }, apiId || selectedSearchAPI);
       
       console.log('Search products API response:', result);
       
@@ -2535,12 +2734,14 @@ export const SunskySKUImporter: React.FC = () => {
                 Export Products by Status
               </CardTitle>
               <CardDescription>
-                Export products filtered by their status (Valid, Deleted, Out of Stock, Hidden) organized by category
+                Export products filtered by their status and category with advanced options
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center gap-4">
-                <div className="flex-1">
+            <CardContent className="space-y-6">
+              {/* Export Configuration */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {/* Product Status */}
+                <div className="space-y-2">
                   <Label htmlFor="export-status">Product Status</Label>
                   <Select value={selectedExportStatus.toString()} onValueChange={(value) => setSelectedExportStatus(parseInt(value))}>
                     <SelectTrigger>
@@ -2554,15 +2755,192 @@ export const SunskySKUImporter: React.FC = () => {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="flex items-end">
-                  <Button 
-                    onClick={exportProductsByStatus} 
-                    disabled={isExporting || !hasCredentials}
-                    className="w-32"
+
+                {/* Category Filter */}
+                <div className="space-y-2">
+                  <Label htmlFor="export-category">Category</Label>
+                  <Select value={exportCategory} onValueChange={setExportCategory}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Categories</SelectItem>
+                      {categories.map((category) => (
+                        <SelectItem key={category.id} value={category.id.toString()}>
+                          {category.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Subcategory Filter */}
+                <div className="space-y-2">
+                  <Label htmlFor="export-subcategory">Subcategory</Label>
+                  <Select 
+                    value={exportSubCategory} 
+                    onValueChange={setExportSubCategory}
+                    disabled={exportCategory === 'all'}
                   >
-                    {isExporting ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
-                    {isExporting ? 'Exporting...' : 'Export'}
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select subcategory" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Subcategories</SelectItem>
+                      {subCategories.map((category) => (
+                        <SelectItem key={category.id} value={category.id.toString()}>
+                          {category.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {exportCategory !== 'all' && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => loadSubCategories(exportCategory, selectedSearchAPI)}
+                      disabled={fetchingSubCategories}
+                      className="w-full mt-2"
+                    >
+                      {fetchingSubCategories ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+                      Load Subcategories
+                    </Button>
+                  )}
+                </div>
+
+                {/* Page Size */}
+                <div className="space-y-2">
+                  <Label htmlFor="export-page-size">Page Size</Label>
+                  <Select value={exportPageSize.toString()} onValueChange={(value) => setExportPageSize(parseInt(value))}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="20">20 per page</SelectItem>
+                      <SelectItem value="50">50 per page</SelectItem>
+                      <SelectItem value="100">100 per page</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* API Keys Selection */}
+                <div className="space-y-2">
+                  <Label>API Keys</Label>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" className="w-full justify-between">
+                        {selectedExportAPIs.length > 0 ? `${selectedExportAPIs.length} selected` : 'Use active keys'}
+                        <ChevronDown className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-56">
+                      {availableAPIs.filter(api => api.is_active).map((api) => (
+                        <DropdownMenuCheckboxItem
+                          key={api.id}
+                          checked={selectedExportAPIs.includes(api.id)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedExportAPIs([...selectedExportAPIs, api.id]);
+                            } else {
+                              setSelectedExportAPIs(selectedExportAPIs.filter(id => id !== api.id));
+                            }
+                          }}
+                        >
+                          {api.name}
+                        </DropdownMenuCheckboxItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+
+                {/* Background Processing */}
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="run-background" 
+                    checked={runInBackground}
+                    onCheckedChange={(checked) => setRunInBackground(checked === true)}
+                  />
+                  <Label htmlFor="run-background" className="text-sm">
+                    Run in background
+                  </Label>
+                </div>
+              </div>
+
+              {/* Column Selection */}
+              <div className="space-y-2">
+                <Label>Export Columns</Label>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="w-full justify-between">
+                      {selectedExportColumns.length} columns selected
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-64 max-h-64 overflow-y-auto">
+                    {availableExportColumns.map((column) => (
+                      <DropdownMenuCheckboxItem
+                        key={column}
+                        checked={selectedExportColumns.includes(column)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSelectedExportColumns([...selectedExportColumns, column]);
+                          } else {
+                            setSelectedExportColumns(selectedExportColumns.filter(col => col !== column));
+                          }
+                        }}
+                      >
+                        {column}
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+
+              {/* Export Actions */}
+              <div className="flex items-center gap-4">
+                <Button 
+                  onClick={() => exportProductsByStatus(false)} 
+                  disabled={isExporting || !hasCredentials}
+                  className="flex-1"
+                >
+                  {isExporting ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
+                  {isExporting ? 'Exporting...' : 'Export Now'}
+                </Button>
+                
+                {runInBackground && (
+                  <Button 
+                    onClick={() => exportProductsByStatus(true)} 
+                    disabled={isExporting || !hasCredentials}
+                    variant="secondary"
+                  >
+                    <Play className="h-4 w-4 mr-2" />
+                    Run in Background
                   </Button>
+                )}
+              </div>
+
+              {/* Export Info */}
+              <div className="text-sm text-muted-foreground bg-muted/50 p-4 rounded-lg">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <strong>Current Settings:</strong>
+                    <ul className="list-disc list-inside mt-1 space-y-1">
+                      <li>Page size: {exportPageSize} products/request</li>
+                      <li>Rate limit: 250ms delay per API key</li>
+                      <li>Max pages: 200 (safety limit)</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <strong>Using APIs:</strong>
+                    <ul className="list-disc list-inside mt-1 space-y-1">
+                      {(selectedExportAPIs.length > 0 ? selectedExportAPIs : availableAPIs.filter(api => api.is_active).map(api => api.id)).map((apiId, index) => {
+                        const api = availableAPIs.find(a => a.id === apiId);
+                        return (
+                          <li key={apiId}>API {index + 1}: {api?.name || 'Unknown'}</li>
+                        );
+                      })}
+                    </ul>
+                  </div>
                 </div>
               </div>
 
@@ -2589,10 +2967,12 @@ export const SunskySKUImporter: React.FC = () => {
                       <div className="text-sm text-muted-foreground">Categories</div>
                     </div>
                     <div className="text-center p-4 bg-primary/5 rounded-lg">
-                      <Badge variant={getStatusBadgeVariant(selectedExportStatus)}>
-                        {getProductStatusText(selectedExportStatus)}
-                      </Badge>
-                      <div className="text-sm text-muted-foreground mt-1">Status</div>
+                      <div className="text-center">
+                        <Badge variant={getStatusBadgeVariant(selectedExportStatus)}>
+                          {getProductStatusText(selectedExportStatus)}
+                        </Badge>
+                        <div className="text-sm text-muted-foreground mt-1">Status</div>
+                      </div>
                     </div>
                   </div>
 
@@ -2604,11 +2984,11 @@ export const SunskySKUImporter: React.FC = () => {
                   </div>
 
                   <div className="text-sm text-muted-foreground">
-                    <p>The Excel file will contain:</p>
+                    <p>The Excel file contains:</p>
                     <ul className="list-disc list-inside ml-4 mt-2">
-                      <li>Summary sheet with category breakdown</li>
-                      <li>Complete products list with all details</li>
-                      <li>Individual sheets for top 10 categories</li>
+                      <li>Summary sheet with category breakdown and export settings</li>
+                      <li>Complete products list with selected columns</li>
+                      <li>Individual sheets for top 10 categories by product count</li>
                     </ul>
                   </div>
                 </div>
