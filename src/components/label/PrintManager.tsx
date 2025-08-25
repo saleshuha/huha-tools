@@ -25,6 +25,8 @@ import { useLabelDataset } from "@/hooks/useLabelDataset";
 import { supabase } from "@/integrations/supabase/client";
 import { generateLabelZPL, getLabelSizePresets } from "@/utils/zpl-generator";
 
+import { resolveMappedContent, getElementBoundsMM } from "@/utils/label-runtime";
+
 interface PrintManagerProps {
   templateId?: string | null;
   datasetId?: string | null;
@@ -101,42 +103,24 @@ export function PrintManager({ templateId, datasetId, canvasData }: PrintManager
         
         // Render each canvas object
         canvasObjects.forEach((obj: any, objIndex: number) => {
-          let content = obj.text || obj.content || 'Sample';
+          const content = resolveMappedContent(obj, row, dataset?.headers || []);
+          const bounds = getElementBoundsMM(obj);
           
-          // Apply data mapping if available
-          if (obj.dataColumn && dataset?.headers && row.length > 0) {
-            const columnIndex = dataset.headers.indexOf(obj.dataColumn);
-            if (columnIndex >= 0 && row[columnIndex] !== undefined) {
-              content = String(row[columnIndex]);
-              
-              // Apply transforms
-              if (obj.dataTransform) {
-                const transform = obj.dataTransform;
-                if (transform.prefix) content = transform.prefix + content;
-                if (transform.suffix) content = content + transform.suffix;
-                if (transform.uppercase) content = content.toUpperCase();
-                if (transform.truncate) content = content.substring(0, transform.truncate);
-              }
-            }
-          }
-          
-          // Position based on canvas coordinates (convert from pixels to mm)
-          const x = ((obj.left || 0) * 0.264583) + 20; // px to mm conversion
-          const y = ((obj.top || 0) * 0.264583) + yOffset;
-          
-          // Set font size
-          const fontSize = Math.max(8, Math.min(20, (obj.fontSize || 14) * 0.5));
-          pdf.setFontSize(fontSize);
-          
-          // Add text content
-          if (obj.type === 'i-text' || obj.type === 'text') {
-            pdf.text(content, x, y);
+          if (obj.type === 'textbox' || obj.type === 'i-text' || obj.type === 'text') {
+            // Render text elements
+            const fontSize = Math.max(8, Math.min(20, (obj.fontSize || 14) * 0.5));
+            pdf.setFontSize(fontSize);
+            pdf.text(content, bounds.x + 20, bounds.y + yOffset);
           } else if (obj.type === 'rect') {
-            // Draw rectangle
-            const width = (obj.width || 100) * 0.264583;
-            const height = (obj.height || 50) * 0.264583;
-            pdf.rect(x, y, width, height);
+            // Render rectangles
+            pdf.setFillColor(obj.fill || '#000000');
+            pdf.rect(bounds.x + 20, bounds.y + yOffset, bounds.width, bounds.height, 'F');
+          } else if (obj.type === 'circle') {
+            // Render circles
+            pdf.setFillColor(obj.fill || '#000000');
+            pdf.circle(bounds.x + bounds.width/2 + 20, bounds.y + bounds.height/2 + yOffset, bounds.width/2, 'F');
           }
+          // Note: Barcodes and QR codes would need special handling with image generation
         });
         
         // Add label separator for bulk printing
@@ -167,13 +151,21 @@ export function PrintManager({ templateId, datasetId, canvasData }: PrintManager
       
       // Convert canvas objects to ZPL elements
       const elements = canvasObjects.map((obj: any) => ({
-        type: obj.type === 'i-text' ? 'text' : obj.type,
-        x: obj.left || 0,
-        y: obj.top || 0,
-        width: obj.width,
-        height: obj.height,
-        content: obj.text || obj.content || 'Sample',
-        fontSize: obj.fontSize,
+        type: obj.type === 'textbox' || obj.type === 'i-text' || obj.type === 'text' ? 'text' : 
+              obj.type === 'rect' ? 'rectangle' :
+              obj.type === 'circle' ? 'circle' :
+              obj.type === 'image' && (obj as any).isBarcode ? 'barcode' :
+              obj.type === 'image' && (obj as any).isQRCode ? 'qrcode' : 'text',
+        left: obj.left || 0,
+        top: obj.top || 0,
+        width: obj.width || 100,
+        height: obj.height || 20,
+        fontSize: obj.fontSize || 12,
+        fontFamily: obj.fontFamily || 'Arial',
+        fill: obj.fill || '#000000',
+        content: resolveMappedContent(obj, [], dataset?.headers || []),
+        dataColumn: obj.dataColumn,
+        dataTransform: obj.dataTransform,
         barcodeType: obj.barcodeType || 'CODE128',
         showBarcodeText: obj.showBarcodeText !== false
       }));
@@ -257,30 +249,13 @@ export function PrintManager({ templateId, datasetId, canvasData }: PrintManager
       let labelContent = '';
       
       canvasObjects.forEach((obj: any) => {
-        let content = obj.text || obj.content || 'Sample';
-        
-        // Apply data mapping if available
-        if (obj.dataColumn && dataset?.headers && row.length > 0) {
-          const columnIndex = dataset.headers.indexOf(obj.dataColumn);
-          if (columnIndex >= 0 && row[columnIndex] !== undefined) {
-            content = String(row[columnIndex]);
-            
-            // Apply transforms
-            if (obj.dataTransform) {
-              const transform = obj.dataTransform;
-              if (transform.prefix) content = transform.prefix + content;
-              if (transform.suffix) content = content + transform.suffix;
-              if (transform.uppercase) content = content.toUpperCase();
-              if (transform.truncate) content = content.substring(0, transform.truncate);
-            }
-          }
-        }
+        const content = resolveMappedContent(obj, row, dataset?.headers || []);
         
         const fontSize = Math.max(12, obj.fontSize || 14);
         const left = obj.left || 0;
         const top = obj.top || 0;
         
-        if (obj.type === 'i-text' || obj.type === 'text') {
+        if (obj.type === 'textbox' || obj.type === 'i-text' || obj.type === 'text') {
           labelContent += `
             <div style="
               position: absolute; 
@@ -289,18 +264,36 @@ export function PrintManager({ templateId, datasetId, canvasData }: PrintManager
               font-size: ${fontSize}px;
               font-family: ${obj.fontFamily || 'Arial'};
               color: ${obj.fill || '#000000'};
-            ">${content}</div>
+            ">
+              ${content}
+            </div>
           `;
         } else if (obj.type === 'rect') {
+          const width = obj.width || 100;
+          const height = obj.height || 60;
           labelContent += `
             <div style="
               position: absolute; 
               left: ${left}px; 
               top: ${top}px; 
-              width: ${obj.width || 100}px; 
-              height: ${obj.height || 50}px; 
-              border: 2px solid ${obj.stroke || '#000000'};
-              background-color: ${obj.fill || 'transparent'};
+              width: ${width}px;
+              height: ${height}px;
+              background-color: ${obj.fill || '#000000'};
+              border: ${obj.strokeWidth || 0}px solid ${obj.stroke || 'transparent'};
+            "></div>
+          `;
+        } else if (obj.type === 'circle') {
+          const radius = obj.radius || 30;
+          labelContent += `
+            <div style="
+              position: absolute; 
+              left: ${left - radius}px; 
+              top: ${top - radius}px; 
+              width: ${radius * 2}px;
+              height: ${radius * 2}px;
+              background-color: ${obj.fill || '#000000'};
+              border-radius: 50%;
+              border: ${obj.strokeWidth || 0}px solid ${obj.stroke || 'transparent'};
             "></div>
           `;
         }
@@ -309,11 +302,12 @@ export function PrintManager({ templateId, datasetId, canvasData }: PrintManager
       labelsHTML += `
         <div class="label" style="
           position: relative;
-          width: ${templateData.width || 400}px;
-          height: ${templateData.height || 300}px;
+          width: ${templateData?.width || 400}px;
+          height: ${templateData?.height || 300}px;
           border: 1px solid #ccc;
           margin: 20px 0;
           page-break-after: always;
+          background: white;
         ">
           ${labelContent}
           ${previewMode === 'bulk' ? `<div style="position: absolute; bottom: 5px; right: 5px; font-size: 10px; color: #666;">Row ${rowIndex + 1}</div>` : ''}

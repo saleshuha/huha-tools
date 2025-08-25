@@ -62,6 +62,10 @@ export function LabelCanvas({ templateId, datasetId, onCanvasSizeChange, onCanva
       height: canvasSize.height,
       backgroundColor: "#ffffff",
     });
+    
+    // Ensure white background is visible
+    canvas.backgroundImage = undefined;
+    canvas.backgroundColor = '#ffffff';
 
     // Event handlers
     canvas.on('selection:created', (e) => {
@@ -144,7 +148,27 @@ export function LabelCanvas({ templateId, datasetId, onCanvasSizeChange, onCanva
 
     const handleCanvasChange = () => {
       setHasUnsavedChanges(true);
-      onCanvasDataChange?.(fabricCanvas.toJSON());
+      
+      // Include custom properties in serialization  
+      const canvasData = fabricCanvas.toJSON();
+      
+      // Manually add custom properties to objects
+      if (canvasData.objects) {
+        canvasData.objects.forEach((objData: any) => {
+          const fabricObj = fabricCanvas.getObjects().find(obj => 
+            obj.left === objData.left && obj.top === objData.top
+          );
+          if (fabricObj) {
+            objData.dataColumn = (fabricObj as any).dataColumn;
+            objData.dataTransform = (fabricObj as any).dataTransform;
+            objData.elementType = (fabricObj as any).elementType;
+            objData.barcodeType = (fabricObj as any).barcodeType;
+            objData.qrOptions = (fabricObj as any).qrOptions;
+          }
+        });
+      }
+      
+      onCanvasDataChange?.(canvasData);
     };
 
     fabricCanvas.on('object:added', handleCanvasChange);
@@ -169,7 +193,8 @@ export function LabelCanvas({ templateId, datasetId, onCanvasSizeChange, onCanva
       fontSize: 16,
       fill: '#000000',
       width: 150,
-    });
+      elementType: 'textbox'
+    } as any);
 
     fabricCanvas.add(text);
     fabricCanvas.setActiveObject(text);
