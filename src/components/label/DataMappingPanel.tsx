@@ -222,18 +222,18 @@ export function DataMappingPanel({
                     <Input
                       id="suffix"
                       size={32}
-                      value={mappedObj.transform?.suffix || ''}
+                      value={mappedObj.dataTransform?.suffix || ''}
                       onChange={(e) => onObjectUpdate({
-                        transform: { ...mappedObj.transform, suffix: e.target.value }
+                        dataTransform: { ...mappedObj.dataTransform, suffix: e.target.value }
                       })}
                       placeholder="-001"
                     />
                   </div>
                   <div className="flex items-center space-x-2">
                     <Switch
-                      checked={mappedObj.transform?.uppercase || false}
+                      checked={mappedObj.dataTransform?.uppercase || false}
                       onCheckedChange={(checked) => onObjectUpdate({
-                        transform: { ...mappedObj.transform, uppercase: checked }
+                        dataTransform: { ...mappedObj.dataTransform, uppercase: checked }
                       })}
                     />
                     <Label className="text-xs">Uppercase</Label>
@@ -244,10 +244,10 @@ export function DataMappingPanel({
                       id="truncate"
                       type="number"
                       size={32}
-                      value={mappedObj.transform?.truncate || ''}
+                      value={mappedObj.dataTransform?.truncate || ''}
                       onChange={(e) => onObjectUpdate({
-                        transform: { 
-                          ...mappedObj.transform, 
+                        dataTransform: { 
+                          ...mappedObj.dataTransform, 
                           truncate: e.target.value ? parseInt(e.target.value) : undefined 
                         }
                       })}

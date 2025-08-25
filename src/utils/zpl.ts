@@ -1,15 +1,20 @@
-import { Canvas, Object as FabricObject, Text, Rect } from 'fabric';
-
+// Legacy ZPL utilities - use zpl-generator.ts instead
 export interface ZPLSettings {
   dpi: 203 | 300;
-  labelWidth: number; // in dots
-  labelHeight: number; // in dots
+  labelWidth: number;
+  labelHeight: number;
 }
 
-export interface MappedObject extends FabricObject {
+export interface MappedObject {
+  type?: string;
+  left?: number;
+  top?: number;
+  width?: number;
+  height?: number;
+  text?: string;
   dataColumn?: string;
   dataMode?: 'static' | 'column';
-  transform?: {
+  dataTransform?: {
     prefix?: string;
     suffix?: string;
     uppercase?: boolean;
@@ -65,14 +70,14 @@ export function getDataValue(
   headers: string[]
 ): string {
   if (obj.dataMode === 'static') {
-    return (obj as any).text || '';
+    return obj.text || '';
   }
   
   if (obj.dataMode === 'column' && obj.dataColumn) {
     const columnIndex = headers.indexOf(obj.dataColumn);
     if (columnIndex !== -1) {
       const rawValue = dataRow[columnIndex]?.toString() || '';
-      return applyTransforms(rawValue, obj.transform);
+      return applyTransforms(rawValue, obj.dataTransform);
     }
   }
   
@@ -80,42 +85,33 @@ export function getDataValue(
 }
 
 /**
- * Convert Fabric.js text object to ZPL
+ * Convert text object to ZPL
  */
-function textToZPL(obj: fabric.Text & MappedObject, settings: ZPLSettings, dataValue: string): string {
+function textToZPL(obj: MappedObject, settings: ZPLSettings, dataValue: string): string {
   const x = pixelsToDots(obj.left || 0, settings.dpi);
   const y = pixelsToDots(obj.top || 0, settings.dpi);
-  const fontSize = Math.round((obj.fontSize || 14) / 2); // ZPL font sizing is different
+  const fontSize = Math.round(14 / 2); // Default font size
   
-  // Basic font selection (ZPL has limited fonts)
-  let fontCode = 'A'; // Default font
-  if (obj.fontFamily?.toLowerCase().includes('arial')) fontCode = 'A';
-  else if (obj.fontFamily?.toLowerCase().includes('helvetica')) fontCode = 'B';
-  else if (obj.fontFamily?.toLowerCase().includes('courier')) fontCode = 'D';
-  
-  const rotation = 'N'; // Normal rotation (could be enhanced)
-  
-  return `^FO${x},${y}^A${fontCode}${rotation},${fontSize},${fontSize}^FD${dataValue}^FS`;
+  return `^FO${x},${y}^A0N,${fontSize},${fontSize}^FD${dataValue}^FS`;
 }
 
 /**
- * Convert Fabric.js rectangle to ZPL
+ * Convert rectangle to ZPL
  */
-function rectangleToZPL(obj: fabric.Rect, settings: ZPLSettings): string {
+function rectangleToZPL(obj: MappedObject, settings: ZPLSettings): string {
   const x = pixelsToDots(obj.left || 0, settings.dpi);
   const y = pixelsToDots(obj.top || 0, settings.dpi);
   const width = pixelsToDots(obj.width || 100, settings.dpi);
   const height = pixelsToDots(obj.height || 50, settings.dpi);
-  const thickness = pixelsToDots(obj.strokeWidth || 1, settings.dpi);
   
-  return `^FO${x},${y}^GB${width},${height},${thickness},B,0^FS`;
+  return `^FO${x},${y}^GB${width},${height},2,B,0^FS`;
 }
 
 /**
  * Convert barcode data to ZPL
  */
 function barcodeToZPL(
-  obj: fabric.Object & MappedObject, 
+  obj: MappedObject, 
   settings: ZPLSettings, 
   dataValue: string
 ): string {
@@ -126,14 +122,11 @@ function barcodeToZPL(
   let barcodeCommand = '';
   
   if (obj.barcodeOptions?.symbology === 'EAN13') {
-    // EAN-13 barcode
     barcodeCommand = `^FO${x},${y}^BEN,${height},Y,N^FD${dataValue}^FS`;
   } else {
-    // CODE128 (default)
     barcodeCommand = `^FO${x},${y}^BCN,${height},Y,N,N^FD${dataValue}^FS`;
   }
   
-  // Add human readable text below if enabled
   if (obj.barcodeOptions?.displayValue) {
     const textY = y + height + pixelsToDots(5, settings.dpi);
     barcodeCommand += `\n^FO${x},${textY}^A0N,20,20^FD${dataValue}^FS`;
@@ -146,7 +139,7 @@ function barcodeToZPL(
  * Convert QR code data to ZPL
  */
 function qrCodeToZPL(
-  obj: fabric.Object & MappedObject, 
+  obj: MappedObject, 
   settings: ZPLSettings, 
   dataValue: string
 ): string {
@@ -154,15 +147,14 @@ function qrCodeToZPL(
   const y = pixelsToDots(obj.top || 0, settings.dpi);
   const moduleSize = obj.qrOptions?.moduleSize || 4;
   
-  // ZPL QR Code: ^BQ = QR Code, N = normal orientation, 2 = model 2
   return `^FO${x},${y}^BQN,2,${moduleSize}^FDMA,${dataValue}^FS`;
 }
 
 /**
- * Convert a single Fabric.js object to ZPL based on its type
+ * Convert object to ZPL based on its type
  */
 function objectToZPL(
-  obj: fabric.Object & MappedObject, 
+  obj: MappedObject, 
   settings: ZPLSettings,
   dataRow: any[],
   headers: string[]
@@ -171,74 +163,38 @@ function objectToZPL(
   
   if (objType === 'text' || objType === 'i-text') {
     const dataValue = getDataValue(obj, dataRow, headers);
-    return textToZPL(obj as fabric.Text & MappedObject, settings, dataValue);
+    return textToZPL(obj, settings, dataValue);
   }
   
   if (objType === 'rect') {
-    return rectangleToZPL(obj as fabric.Rect, settings);
+    return rectangleToZPL(obj, settings);
   }
   
-  // Handle custom barcode objects (you'd need to mark these with a custom property)
   if ((obj as any).isBarcode) {
     const dataValue = getDataValue(obj, dataRow, headers);
     return barcodeToZPL(obj, settings, dataValue);
   }
   
-  // Handle custom QR code objects (you'd need to mark these with a custom property)
   if ((obj as any).isQRCode) {
     const dataValue = getDataValue(obj, dataRow, headers);
     return qrCodeToZPL(obj, settings, dataValue);
   }
   
-  return ''; // Unsupported object type
+  return '';
 }
 
 /**
- * Convert entire Fabric.js canvas to ZPL for a single label
+ * Simple ZPL generation for basic labels
  */
-export function canvasToZPL(
-  canvas: fabric.Canvas,
+export function generateSimpleZPL(
   settings: ZPLSettings,
-  dataRow: any[] = [],
-  headers: string[] = []
+  content: string = "Sample Label"
 ): string {
-  const objects = canvas.getObjects() as (fabric.Object & MappedObject)[];
-  
-  let zpl = `^XA`; // Start of label
-  
-  // Set label dimensions
-  zpl += `\n^PW${settings.labelWidth}`;
-  zpl += `\n^LL${settings.labelHeight}`;
-  
-  // Process each object
-  objects.forEach(obj => {
-    const objectZPL = objectToZPL(obj, settings, dataRow, headers);
-    if (objectZPL) {
-      zpl += `\n${objectZPL}`;
-    }
-  });
-  
-  zpl += `\n^XZ`; // End of label
-  
-  return zpl;
-}
-
-/**
- * Generate ZPL for multiple labels (bulk printing)
- */
-export function generateBulkZPL(
-  canvas: fabric.Canvas,
-  settings: ZPLSettings,
-  dataset: { data: any[][], headers: string[] }
-): string {
-  let bulkZPL = '';
-  
-  dataset.data.forEach((row) => {
-    const labelZPL = canvasToZPL(canvas, settings, row, dataset.headers);
-    bulkZPL += labelZPL + '\n';
-  });
-  
-  return bulkZPL;
+  return `^XA
+^PW${settings.labelWidth}
+^LL${settings.labelHeight}
+^FO50,50^A0N,50,50^FD${content}^FS
+^XZ`;
 }
 
 /**
