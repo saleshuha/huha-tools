@@ -97,6 +97,7 @@ export function OrderProcessor() {
       if (error) {
         console.error('Error loading processed orders:', error);
       } else {
+        console.log('Loaded processed orders from DB:', data);
         setDbResults(data || []);
       }
     };
@@ -283,8 +284,11 @@ export function OrderProcessor() {
       // Remove the processed item from the list
       setMatchedItems(prev => prev.filter((_, index) => index !== matchIndex));
       
-      // Refresh the processed orders count
-      setDbResults(prev => [...prev, { processed: true }]);
+      // Refresh the processed orders from database
+      const { data } = await supabase.from('processed_orders').select('*').order('processed_at', { ascending: false });
+      if (data) {
+        setDbResults(data);
+      }
       
       toast({
         title: "Order Processed",
@@ -329,7 +333,7 @@ export function OrderProcessor() {
     ).length;
     
     console.log('=== DEBUG: Final counts ===', { foundByAsin, foundBySku, totalFound: matchedItems.filter(m => m.inventoryMatch).length });
-    const processedOrdersCount = dbResults.filter(r => r.processed).length;
+    const processedOrdersCount = dbResults.length; // All records in processed_orders table are processed
     const totalValue = matchedItems.reduce((sum, match) => {
       const cost = parseFloat(match.orderItem.itemCost) || 0;
       return sum + cost * match.orderItem.itemQuantity;
@@ -738,9 +742,50 @@ export function OrderProcessor() {
                 <div className="border-t pt-4">
                   <h4 className="font-semibold mb-4">All Database Records ({analytics.processedOrdersCount})</h4>
                   {analytics.processedOrdersCount > 0 ? (
-                    <div className="text-center py-4 text-muted-foreground">
-                      <p>Database records are available but not displayed in this view.</p>
-                      <p className="text-sm">Session processed items above show real-time processing.</p>
+                    <div className="rounded-lg border overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Order Number</TableHead>
+                            <TableHead>ASIN/SKU</TableHead>
+                            <TableHead>Item Title</TableHead>
+                            <TableHead>Quantity</TableHead>
+                            <TableHead>Previous → New Stock</TableHead>
+                            <TableHead>Source File</TableHead>
+                            <TableHead>Processed At</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {dbResults.slice(0, 50).map((record) => (
+                            <TableRow key={record.id}>
+                              <TableCell className="font-mono text-sm">
+                                {record.order_number}
+                              </TableCell>
+                              <TableCell className="font-mono text-sm">
+                                {record.asin || record.sku}
+                              </TableCell>
+                              <TableCell className="text-sm truncate max-w-[200px]">
+                                {record.item_title || '-'}
+                              </TableCell>
+                              <TableCell>{record.quantity_processed}</TableCell>
+                              <TableCell>
+                                <span className="font-mono text-sm">{record.previous_stock} → {record.new_stock}</span>
+                              </TableCell>
+                              <TableCell className="text-sm text-muted-foreground truncate max-w-[150px]">
+                                {record.source_file || '-'}
+                              </TableCell>
+                              <TableCell className="text-sm text-muted-foreground">
+                                {new Date(record.processed_at).toLocaleString()}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                      {dbResults.length > 50 && (
+                        <div className="p-4 text-center text-sm text-muted-foreground border-t">
+                          Showing latest 50 records out of {dbResults.length} total
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="text-center py-8 text-muted-foreground">
