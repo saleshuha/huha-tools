@@ -359,7 +359,7 @@ export function PrintManager({ templateId, datasetId }: PrintManagerProps) {
                     <Button
                       onClick={generatePDF}
                       disabled={!templateId || isGenerating}
-                      className="h-20 flex flex-col gap-2"
+                      className="h-20 flex flex-col gap-2 hover-scale"
                     >
                       <Download className="w-6 h-6" />
                       <span>Export PDF</span>
@@ -368,7 +368,7 @@ export function PrintManager({ templateId, datasetId }: PrintManagerProps) {
                       onClick={generateZPL}
                       disabled={!templateId}
                       variant="outline"
-                      className="h-20 flex flex-col gap-2"
+                      className="h-20 flex flex-col gap-2 hover-scale"
                     >
                       <Zap className="w-6 h-6" />
                       <span>Generate ZPL</span>
@@ -377,7 +377,7 @@ export function PrintManager({ templateId, datasetId }: PrintManagerProps) {
                       onClick={printPreview}
                       disabled={!templateId}
                       variant="outline"
-                      className="h-20 flex flex-col gap-2"
+                      className="h-20 flex flex-col gap-2 hover-scale"
                     >
                       <Eye className="w-6 h-6" />
                       <span>Preview</span>
@@ -386,7 +386,7 @@ export function PrintManager({ templateId, datasetId }: PrintManagerProps) {
                       onClick={() => window.print()}
                       disabled={!templateId}
                       variant="outline"
-                      className="h-20 flex flex-col gap-2"
+                      className="h-20 flex flex-col gap-2 hover-scale"
                     >
                       <Printer className="w-6 h-6" />
                       <span>Direct Print</span>

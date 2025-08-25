@@ -371,7 +371,7 @@ export function BulkDataManager({ onDatasetSelect, activeDataset }: BulkDataMana
           {datasets.map((dataset) => (
             <Card 
               key={dataset.id} 
-              className={`cursor-pointer transition-all hover:shadow-md ${
+              className={`cursor-pointer transition-all hover:shadow-md animate-fade-in hover-scale ${
                 activeDataset === dataset.id ? 'ring-2 ring-primary' : ''
               }`}
               onClick={() => onDatasetSelect(dataset.id)}

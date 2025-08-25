@@ -274,7 +274,7 @@ export function LabelTemplates({ onTemplateSelect, activeTemplate }: LabelTempla
           {templates.map((template) => (
             <Card 
               key={template.id} 
-              className={`cursor-pointer transition-all hover:shadow-md ${
+              className={`cursor-pointer transition-all hover:shadow-md animate-fade-in hover-scale ${
                 activeTemplate === template.id ? 'ring-2 ring-primary' : ''
               }`}
               onClick={() => onTemplateSelect(template.id)}

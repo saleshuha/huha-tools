@@ -242,7 +242,7 @@ export function LabelCanvas({ templateId, datasetId }: LabelCanvasProps) {
                   variant="outline"
                   size="sm"
                   onClick={addText}
-                  className="flex flex-col gap-1 h-auto py-3"
+                  className="flex flex-col gap-1 h-auto py-3 hover-scale"
                 >
                   <Type className="w-4 h-4" />
                   <span className="text-xs">Text</span>
@@ -251,7 +251,7 @@ export function LabelCanvas({ templateId, datasetId }: LabelCanvasProps) {
                   variant="outline"
                   size="sm"
                   onClick={addRectangle}
-                  className="flex flex-col gap-1 h-auto py-3"
+                  className="flex flex-col gap-1 h-auto py-3 hover-scale"
                 >
                   <Square className="w-4 h-4" />
                   <span className="text-xs">Rectangle</span>
@@ -260,7 +260,7 @@ export function LabelCanvas({ templateId, datasetId }: LabelCanvasProps) {
                   variant="outline"
                   size="sm"
                   onClick={addCircle}
-                  className="flex flex-col gap-1 h-auto py-3"
+                  className="flex flex-col gap-1 h-auto py-3 hover-scale"
                 >
                   <CircleIcon className="w-4 h-4" />
                   <span className="text-xs">Circle</span>
@@ -269,7 +269,7 @@ export function LabelCanvas({ templateId, datasetId }: LabelCanvasProps) {
                   variant="outline"
                   size="sm"
                   onClick={addBarcode}
-                  className="flex flex-col gap-1 h-auto py-3"
+                  className="flex flex-col gap-1 h-auto py-3 hover-scale"
                 >
                   <BarChart3 className="w-4 h-4" />
                   <span className="text-xs">Barcode</span>
@@ -278,7 +278,7 @@ export function LabelCanvas({ templateId, datasetId }: LabelCanvasProps) {
                   variant="outline"
                   size="sm"
                   onClick={addQRCode}
-                  className="flex flex-col gap-1 h-auto py-3"
+                  className="flex flex-col gap-1 h-auto py-3 hover-scale"
                 >
                   <QrCode className="w-4 h-4" />
                   <span className="text-xs">QR Code</span>

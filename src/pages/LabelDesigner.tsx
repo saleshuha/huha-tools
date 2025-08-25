@@ -8,13 +8,25 @@ import { LabelCanvas } from "@/components/label/LabelCanvas";
 import { LabelTemplates } from "@/components/label/LabelTemplates";
 import { BulkDataManager } from "@/components/label/BulkDataManager";
 import { PrintManager } from "@/components/label/PrintManager";
+import { WelcomeGuide } from "@/components/label/WelcomeGuide";
 
 export default function LabelDesigner() {
   const [activeTemplate, setActiveTemplate] = useState<string | null>(null);
   const [activeDataset, setActiveDataset] = useState<string | null>(null);
+  const [showWelcome, setShowWelcome] = useState(true);
+
+  if (showWelcome) {
+    return (
+      <div className="min-h-screen bg-background animate-fade-in">
+        <div className="container mx-auto p-6">
+          <WelcomeGuide onGetStarted={() => setShowWelcome(false)} />
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background animate-fade-in">
       <div className="container mx-auto p-6">
         {/* Header */}
         <div className="mb-8">
