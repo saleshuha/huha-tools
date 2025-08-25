@@ -112,6 +112,7 @@ interface SunskyCategory {
   level?: number;
   hasChildren?: boolean;
   children?: SunskyCategory[];
+  status?: number;
 }
 
 interface SunskyBrand {
@@ -134,6 +135,45 @@ interface SearchFilters {
   dateFrom?: string;
   dateTo?: string;
 }
+
+// Status mapping functions
+const getCategoryStatusText = (status?: number): string => {
+  switch (status) {
+    case 1: return 'Valid';
+    case 2: return 'Deleted';
+    default: return status ? `Unknown (${status})` : '';
+  }
+};
+
+const getProductStatusText = (status?: number): string => {
+  switch (status) {
+    case 1: return 'Valid';
+    case 2: return 'Deleted';
+    case 3: return 'Out of stock';
+    case 4: return 'Hidden (too old)';
+    default: return status ? `Unknown (${status})` : '';
+  }
+};
+
+const getStatusBadgeVariant = (status?: number, isCategory = false): 'default' | 'secondary' | 'destructive' | 'outline' => {
+  if (!status) return 'outline';
+  
+  if (isCategory) {
+    switch (status) {
+      case 1: return 'default'; // Valid
+      case 2: return 'destructive'; // Deleted
+      default: return 'outline';
+    }
+  } else {
+    switch (status) {
+      case 1: return 'default'; // Valid
+      case 2: return 'destructive'; // Deleted
+      case 3: return 'secondary'; // Out of stock
+      case 4: return 'outline'; // Hidden
+      default: return 'outline';
+    }
+  }
+};
 
 export const SunskySKUImporter: React.FC = () => {
   const { toast } = useToast();
@@ -2090,7 +2130,14 @@ export const SunskySKUImporter: React.FC = () => {
                                    } else if (header === 'contains_battery' && productData.containsBattery !== undefined) {
                                      return productData.containsBattery ? 'Yes' : 'No';
                                    } else if (header === 'status' && productData.status !== undefined) {
-                                     return productData.status.toString();
+                                      return (
+                                        <Badge 
+                                          variant={getStatusBadgeVariant(productData.status, false)}
+                                          className="text-xs"
+                                        >
+                                          {getProductStatusText(productData.status)}
+                                        </Badge>
+                                      );
                                    } else if (header === 'video_url' && productData.videoUrl) {
                                      return productData.videoUrl;
                                    } else if (header === 'gmt_listed' && productData.gmtListed) {
