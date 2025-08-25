@@ -30,6 +30,7 @@ import { useParallelPOProcessor } from "./ParallelPOProcessor";
 import { ReAuthDialog } from "@/components/amazon/ReAuthDialog";
 import { generateExcelFile } from "@/utils/excelExport";
 import { useBackgroundTasks } from "@/contexts/BackgroundTasksContext";
+import { useConcurrentSunskyExport } from "@/hooks/useConcurrentSunskyExport";
 
 interface SunskyProduct {
   // Core product fields
@@ -186,6 +187,15 @@ export const SunskySKUImporter: React.FC = () => {
   const { jobs, isLoading: jobsLoading, createImportJob, fetchJobs } = useImportJobs();
   const { getPOModelNumbers } = usePOOrders();
   const { addExportEntry, updateExportEntry, exportHistory: savedExportHistory } = useExportHistory();
+  const { 
+    startConcurrentExport,
+    isExporting: isConcurrentExporting,
+    exportProgress: concurrentExportProgress,
+    overallProgress: concurrentOverallProgress,
+    exportStatus: concurrentExportStatus,
+    exportResults: concurrentExportResults,
+    cancelExport: cancelConcurrentExport
+  } = useConcurrentSunskyExport();
   
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -601,10 +611,93 @@ export const SunskySKUImporter: React.FC = () => {
     }
 
     // Run in foreground with concurrent processing
-    toast({
-      title: "Feature Coming Soon",
-      description: "Foreground concurrent processing will be implemented next."
-    });
+    try {
+      setIsExporting(true);
+      
+      const apiKeysWithNames = availableAPIs.filter(api => api.is_active).map(api => ({ 
+        id: api.id, 
+        name: api.name 
+      }));
+
+      if (apiKeysWithNames.length === 0) {
+        toast({
+          title: "No API Keys",
+          description: "Please add and activate at least one API key",
+          variant: "destructive"
+        });
+        setIsExporting(false);
+        return;
+      }
+
+      const categoryName = exportCategory === 'all' ? 'All Categories' : 
+        categories.find(c => c.id.toString() === exportCategory)?.name || 'Unknown';
+
+      const exportConfig = {
+        status: selectedExportStatus,
+        category: exportCategory,
+        subCategory: exportSubCategory,
+        brand: selectedBrand,
+        categoryName,
+        columns: selectedExportColumns,
+        pageSize: exportPageSize,
+        maxPages: 200,
+        apiKeys: apiKeysWithNames
+      };
+
+      // Start concurrent export
+      await startConcurrentExport(exportConfig);
+      
+      // The results will be available in concurrentExportResults from the hook
+      if (concurrentExportResults) {
+        // Save to export history
+        await addExportEntry({
+          export_type: 'status_export',
+          filters: exportConfig,
+          total_items: concurrentExportResults.totalFound,
+          status: 'completed',
+          metadata: {
+            categories: categoryName,
+            apiKeys: apiKeysWithNames.length,
+            concurrent: true
+          }
+        });
+
+        // Generate Excel file for download
+        const filePath = await generateExcelFile({
+          data: concurrentExportResults.products,
+          categoriesMap: concurrentExportResults.categoriesMap,
+          config: {
+            status: selectedExportStatus,
+            categoryName,
+            columns: selectedExportColumns,
+            apiKeys: apiKeysWithNames.length,
+            pageSize: exportPageSize
+          },
+          saveToStorage: false // For foreground, trigger download instead
+        });
+
+        toast({
+          title: "Export Complete",
+          description: `Successfully exported ${concurrentExportResults.totalFound} products using ${apiKeysWithNames.length} API keys concurrently.`
+        });
+
+        // Set export results for display
+        setExportResults({
+          products: concurrentExportResults.products,
+          categories: concurrentExportResults.categoriesMap,
+          totalFound: concurrentExportResults.totalFound
+        });
+      }
+    } catch (error) {
+      console.error('Error during concurrent export:', error);
+      toast({
+        title: "Export Error",
+        description: "Failed to complete concurrent export",
+        variant: "destructive"
+      });
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const processExport = async (apiIds: string[], isBackground: boolean = false, taskId?: string) => {
@@ -967,7 +1060,7 @@ export const SunskySKUImporter: React.FC = () => {
         ['Status', getProductStatusText(selectedExportStatus)],
         ['Category Filter', categoryText],
         ['Total Products', results.totalFound.toString()],
-        ['Total Categories', results.categories.size.toString()],
+        ['Total Categories', results.categoriesMap.size.toString()],
         ['Export Date', new Date().toLocaleString()],
         ['Page Size', exportPageSize.toString()],
         ['API Keys Used', selectedExportAPIs.length || availableAPIs.filter(api => api.is_active).length],
@@ -975,7 +1068,7 @@ export const SunskySKUImporter: React.FC = () => {
         ['Category', 'Product Count'],
       ];
 
-      results.categories.forEach((category: any, categoryId: number) => {
+      results.categoriesMap.forEach((category: any, categoryId: number) => {
         summaryData.push([category.name, category.products.length.toString()]);
       });
 
@@ -985,7 +1078,7 @@ export const SunskySKUImporter: React.FC = () => {
       // Create detailed products sheet with selected columns
       const productsData = [selectedExportColumns];
 
-      results.categories.forEach((category: any) => {
+      results.categoriesMap.forEach((category: any) => {
         category.products.forEach((product: any) => {
           const row = selectedExportColumns.map(column => {
             switch (column) {
@@ -1009,7 +1102,7 @@ export const SunskySKUImporter: React.FC = () => {
       XLSX.utils.book_append_sheet(workbook, productsSheet, 'Products');
 
       // Create category-specific sheets (limit to top 10 categories by product count)
-      const sortedCategories = Array.from(results.categories.entries())
+      const sortedCategories = Array.from(results.categoriesMap.entries())
         .sort(([,a], [,b]) => b.products.length - a.products.length)
         .slice(0, 10);
 
@@ -3097,14 +3190,14 @@ export const SunskySKUImporter: React.FC = () => {
                   disabled={isExporting || !hasCredentials}
                   className="flex-1"
                 >
-                  {isExporting ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
-                  {isExporting ? 'Exporting...' : 'Feature Coming Soon - Foreground concurrent processing will be implemented next.'}
+                  {isExporting || isConcurrentExporting ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
+                  {isExporting || isConcurrentExporting ? 'Exporting...' : 'Export Now'}
                 </Button>
                 
                 {runInBackground && (
                   <Button 
                     onClick={() => exportProductsByStatus(true)} 
-                    disabled={isExporting || !hasCredentials}
+                   disabled={isExporting || isConcurrentExporting || !hasCredentials}
                     variant="secondary"
                   >
                     <Play className="h-4 w-4 mr-2" />
