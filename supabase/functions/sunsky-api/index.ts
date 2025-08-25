@@ -2198,7 +2198,25 @@ serve(async (req) => {
             });
           } else {
             // Handle unpaid or unavailable orders gracefully
+            console.log('Sunsky API Success:', response.result);
+            console.log('Sunsky API Error:', response);
             console.log('Order not available or unpaid, storing minimal data:', response);
+            
+            // Determine actual status based on response
+            let orderStatus = 'unpaid'; // default
+            
+            // Check if it's actually an error (order doesn't exist) vs unpaid
+            if (response.result === 'error') {
+              // If no messages or empty messages, it's likely the order doesn't exist or isn't paid
+              if (!response.messages || response.messages.length === 0) {
+                orderStatus = 'unpaid'; // Order exists but not paid
+              } else {
+                // Order might not exist or have other issues
+                orderStatus = 'error';
+              }
+            } else if (response.message && response.message.toLowerCase().includes('unpaid')) {
+              orderStatus = 'unpaid';
+            }
             
             // Store minimal order record for unpaid/unavailable orders
             const now = new Date().toISOString();
@@ -2206,7 +2224,7 @@ serve(async (req) => {
               user_id: user.id,
               sunsky_credentials_id: finalApiId || null, // Use finalApiId instead of apiId
               number: orderNumber,
-              status: 'unpaid',
+              status: orderStatus,
               status_last_updated_at: now,
               po_numbers: poNumbers || [],
               last_synced_at: now,
@@ -2231,8 +2249,10 @@ serve(async (req) => {
             
             return new Response(JSON.stringify({ 
               result: 'success', 
-              reason: 'unpaid',
-              message: response.message || 'Order not paid yet — stored as pending' 
+              reason: orderStatus,
+              message: orderStatus === 'unpaid' 
+                ? 'Order not paid yet — stored as pending' 
+                : response.message || 'Order not available — stored with error status'
             }), {
               headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             });

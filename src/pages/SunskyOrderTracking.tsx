@@ -15,6 +15,8 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 // Status configurations for orders and items
 const statusColors = {
   pending: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+  unpaid: 'bg-orange-100 text-orange-800 border-orange-200',
+  error: 'bg-red-100 text-red-800 border-red-200',
   ordered: 'bg-blue-100 text-blue-800 border-blue-200',
   shipped: 'bg-purple-100 text-purple-800 border-purple-200',
   delivered: 'bg-green-100 text-green-800 border-green-200',
@@ -26,6 +28,8 @@ const statusColors = {
 
 const statusIcons = {
   pending: Clock,
+  unpaid: AlertTriangle,
+  error: AlertCircle,
   ordered: Package,
   shipped: Truck,
   delivered: CheckCircle,
@@ -165,6 +169,7 @@ export default function SunskyOrderTrackingPage() {
   const orderStats = {
     total: orders.length,
     pending: orders.filter(o => o.status === 'pending').length,
+    unpaid: orders.filter(o => o.status === 'unpaid').length,
     shipped: orders.filter(o => o.status === 'shipped').length,
     delivered: orders.filter(o => o.status === 'delivered').length,
     totalValue: orders.reduce((sum, order) => sum + (order.total || 0), 0)
@@ -249,10 +254,10 @@ export default function SunskyOrderTrackingPage() {
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-2">
-                  <Clock className="h-5 w-5 text-yellow-500" />
+                  <AlertTriangle className="h-5 w-5 text-orange-500" />
                   <div>
-                    <p className="text-sm text-muted-foreground">Pending</p>
-                    <p className="text-2xl font-bold">{orderStats.pending}</p>
+                    <p className="text-sm text-muted-foreground">Unpaid</p>
+                    <p className="text-2xl font-bold">{orderStats.unpaid}</p>
                   </div>
                 </div>
               </CardContent>
@@ -301,6 +306,8 @@ export default function SunskyOrderTrackingPage() {
             >
               <option value="all">All Status</option>
               <option value="pending">Pending</option>
+              <option value="unpaid">Unpaid</option>
+              <option value="error">Error</option>
               <option value="ordered">Ordered</option>
               <option value="shipped">Shipped</option>
               <option value="delivered">Delivered</option>
@@ -444,8 +451,44 @@ export default function SunskyOrderTrackingPage() {
                               </div>
                             ) : (
                               <div className="text-center py-4 text-muted-foreground">
-                                <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                                <p className="text-sm">No items found for this order</p>
+                                <div className="space-y-3">
+                                  <Package className="h-8 w-8 mx-auto opacity-50" />
+                                  <div>
+                                    <p className="text-sm font-medium">No items loaded for this order</p>
+                                     <p className="text-xs">
+                                       {order.status === 'unpaid' 
+                                         ? 'Order is not yet paid on Sunsky - item details unavailable'
+                                         : order.status === 'error'
+                                         ? 'Order has error status on Sunsky - items may not be available'
+                                         : 'Items may not have been fetched yet'}
+                                     </p>
+                                  </div>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      await getOrderDetails(order.number, false, order.sunsky_credentials_id);
+                                    }}
+                                  >
+                                    <RefreshCw className="h-3 w-3 mr-1" />
+                                    Resync Details
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Show PO Numbers if available */}
+                            {order.po_numbers && order.po_numbers.length > 0 && (
+                              <div className="mt-3 pt-3 border-t">
+                                <div className="text-xs font-medium text-muted-foreground mb-1">Related PO Numbers:</div>
+                                <div className="flex flex-wrap gap-1">
+                                  {order.po_numbers.map((poNumber, index) => (
+                                    <Badge key={index} variant="outline" className="text-xs">
+                                      {poNumber}
+                                    </Badge>
+                                  ))}
+                                </div>
                               </div>
                             )}
                           </div>

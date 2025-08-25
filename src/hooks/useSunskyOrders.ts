@@ -253,6 +253,9 @@ export const useSunskyOrders = () => {
             if (data.reason === 'unpaid') {
               console.log(`Order ${orderNumber} is unpaid - stored as pending`);
               unpaidCount++;
+            } else if (data.reason === 'error') {
+              console.log(`Order ${orderNumber} has error status - stored as error`);
+              errorCount++;
             } else {
               console.log(`Successfully synced order ${orderNumber}`);
               syncedCount++;
@@ -319,6 +322,8 @@ export const useSunskyOrders = () => {
   // Get order details with items - fetch if missing items with correct credential
   const getOrderDetails = async (orderNumber: string, silent: boolean = false, apiId?: string) => {
     try {
+      console.log(`Fetching order details for ${orderNumber} with credential ${apiId}`);
+      
       const { data, error } = await supabase.functions.invoke('sunsky-api', {
         body: {
           action: 'getOrderDetails',
@@ -329,19 +334,42 @@ export const useSunskyOrders = () => {
 
       if (error) throw error;
 
+      console.log(`Order details response for ${orderNumber}:`, data);
+
       if (data.result === 'success') {
-        // Refresh local data to get updated order with items
-        await fetchStoredOrders();
-        if (!silent) {
-          toast({
-            title: 'Success',
-            description: 'Order details updated',
-          });
+        // Check if it was an unpaid order
+        if (data.reason === 'unpaid') {
+          if (!silent) {
+            toast({
+              title: 'Order Status',
+              description: `Order ${orderNumber} is not yet paid on Sunsky and has no item details available`,
+              variant: 'destructive',
+            });
+          }
+        } else if (data.reason === 'error') {
+          if (!silent) {
+            toast({
+              title: 'Order Status',
+              description: `Order ${orderNumber} has an error status on Sunsky - items may not be available`,
+              variant: 'destructive',
+            });
+          }
+        } else {
+          if (!silent) {
+            toast({
+              title: 'Success',
+              description: 'Order details updated',
+            });
+          }
         }
+        
+        // Refresh local data to get updated order
+        await fetchStoredOrders();
       } else {
         throw new Error(data.message || 'Failed to get order details');
       }
     } catch (error: any) {
+      console.error(`Failed to get order details for ${orderNumber}:`, error);
       if (!silent) {
         toast({
           title: 'Error',
