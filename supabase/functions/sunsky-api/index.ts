@@ -2197,47 +2197,49 @@ serve(async (req) => {
               headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             });
           } else {
-            // Handle unpaid or unavailable orders gracefully
-            console.log('Sunsky API Success:', response.result);
-            console.log('Sunsky API Error:', response);
-            console.log('Order not available or unpaid, storing minimal data:', response);
+            // Handle error responses - may indicate API/credential issues rather than unpaid orders
+            console.log('Sunsky API Response Details:', {
+              result: response.result,
+              message: response.message,
+              messages: response.messages,
+              hasData: !!response.data,
+              orderNumber: orderNumber
+            });
             
-            // Determine actual status based on response
-            let orderStatus = 'unpaid'; // default
-            
-            // Check if it's actually an error (order doesn't exist) vs unpaid
-            if (response.result === 'error') {
-              // If no messages or empty messages, it's likely the order doesn't exist or isn't paid
-              if (!response.messages || response.messages.length === 0) {
-                orderStatus = 'unpaid'; // Order exists but not paid
-              } else {
-                // Order might not exist or have other issues
-                orderStatus = 'error';
-              }
-            } else if (response.message && response.message.toLowerCase().includes('unpaid')) {
-              orderStatus = 'unpaid';
+            // For orders that should exist (from PO system), an error likely means API issues
+            if (poNumbers && poNumbers.length > 0) {
+              console.log(`Order ${orderNumber} is from PO system but API returned error - likely credential or API issue`);
+              
+              // Return an error to indicate we should try with different credentials or retry later
+              return new Response(JSON.stringify({ 
+                result: 'error', 
+                reason: 'api_issue',
+                message: `Order ${orderNumber} exists in PO system but Sunsky API returned error. This may be due to API credential issues or API access problems. Please check your Sunsky credentials or try again later.`
+              }), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              });
             }
             
-            // Store minimal order record for unpaid/unavailable orders
+            // For orders not in PO system, store as error status
             const now = new Date().toISOString();
             const minimalOrder = {
               user_id: user.id,
-              sunsky_credentials_id: finalApiId || null, // Use finalApiId instead of apiId
+              sunsky_credentials_id: finalApiId || null,
               number: orderNumber,
-              status: orderStatus,
+              status: 'api_error',
               status_last_updated_at: now,
               po_numbers: poNumbers || [],
               last_synced_at: now,
               raw: response
             };
 
-            console.log('Upserting minimal order to database:', orderNumber);
+            console.log('Storing order with API error status:', orderNumber);
             const { error: insertError } = await supabase
               .from('sunsky_orders')
               .upsert([minimalOrder], { onConflict: 'number' });
             
             if (insertError) {
-              console.error('Error storing minimal order:', insertError);
+              console.error('Error storing order with API error:', insertError);
               return new Response(JSON.stringify({ 
                 result: 'error', 
                 reason: 'storage_failed',
@@ -2249,10 +2251,8 @@ serve(async (req) => {
             
             return new Response(JSON.stringify({ 
               result: 'success', 
-              reason: orderStatus,
-              message: orderStatus === 'unpaid' 
-                ? 'Order not paid yet — stored as pending' 
-                : response.message || 'Order not available — stored with error status'
+              reason: 'api_error',
+              message: 'Order stored with API error status - please check credentials or try again later'
             }), {
               headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             });

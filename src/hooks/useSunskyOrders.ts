@@ -253,7 +253,7 @@ export const useSunskyOrders = () => {
             if (data.reason === 'unpaid') {
               console.log(`Order ${orderNumber} is unpaid - stored as pending`);
               unpaidCount++;
-            } else if (data.reason === 'error') {
+            } else if (data.reason === 'error' || data.reason === 'api_error') {
               console.log(`Order ${orderNumber} has error status - stored as error`);
               errorCount++;
             } else {
@@ -264,11 +264,21 @@ export const useSunskyOrders = () => {
             console.error(`Order ${orderNumber} sync failed:`, data);
             errorCount++;
             const errorMsg = data.message || 'Unknown error';
-            toast({
-              title: 'Order Error',
-              description: `Order ${orderNumber}: ${errorMsg}`,
-              variant: 'destructive',
-            });
+            
+            // Show more specific error for API credential issues
+            if (data.reason === 'api_issue') {
+              toast({
+                title: 'API Credential Issue',
+                description: `Order ${orderNumber}: ${errorMsg}`,
+                variant: 'destructive',
+              });
+            } else {
+              toast({
+                title: 'Order Error',
+                description: `Order ${orderNumber}: ${errorMsg}`,
+                variant: 'destructive',
+              });
+            }
           } else {
             console.error(`Order ${orderNumber} unexpected response:`, data);
             errorCount++;
@@ -346,11 +356,13 @@ export const useSunskyOrders = () => {
               variant: 'destructive',
             });
           }
-        } else if (data.reason === 'error') {
+        } else if (data.reason === 'error' || data.reason === 'api_error') {
           if (!silent) {
             toast({
-              title: 'Order Status',
-              description: `Order ${orderNumber} has an error status on Sunsky - items may not be available`,
+              title: 'API Issue',
+              description: data.reason === 'api_error' 
+                ? `Order ${orderNumber}: API credential or access issue. Please check your Sunsky credentials.`
+                : `Order ${orderNumber} has an error status on Sunsky - items may not be available`,
               variant: 'destructive',
             });
           }

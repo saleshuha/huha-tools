@@ -17,6 +17,7 @@ const statusColors = {
   pending: 'bg-yellow-100 text-yellow-800 border-yellow-200',
   unpaid: 'bg-orange-100 text-orange-800 border-orange-200',
   error: 'bg-red-100 text-red-800 border-red-200',
+  api_error: 'bg-red-100 text-red-800 border-red-200',
   ordered: 'bg-blue-100 text-blue-800 border-blue-200',
   shipped: 'bg-purple-100 text-purple-800 border-purple-200',
   delivered: 'bg-green-100 text-green-800 border-green-200',
@@ -30,6 +31,7 @@ const statusIcons = {
   pending: Clock,
   unpaid: AlertTriangle,
   error: AlertCircle,
+  api_error: AlertCircle,
   ordered: Package,
   shipped: Truck,
   delivered: CheckCircle,
@@ -308,6 +310,7 @@ export default function SunskyOrderTrackingPage() {
               <option value="pending">Pending</option>
               <option value="unpaid">Unpaid</option>
               <option value="error">Error</option>
+              <option value="api_error">API Error</option>
               <option value="ordered">Ordered</option>
               <option value="shipped">Shipped</option>
               <option value="delivered">Delivered</option>
@@ -460,6 +463,8 @@ export default function SunskyOrderTrackingPage() {
                                          ? 'Order is not yet paid on Sunsky - item details unavailable'
                                          : order.status === 'error'
                                          ? 'Order has error status on Sunsky - items may not be available'
+                                         : order.status === 'api_error'
+                                         ? 'API credential or access issue - please check Sunsky credentials'
                                          : 'Items may not have been fetched yet'}
                                      </p>
                                   </div>
