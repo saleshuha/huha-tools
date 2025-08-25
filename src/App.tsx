@@ -48,7 +48,7 @@ import SunskySKUImporterPage from "./pages/SunskySKUImporter";
 import SunskyOrderTrackingPage from "./pages/SunskyOrderTracking";
 import NoonFileCleaner from "./pages/NoonFileCleaner";
 import AmazonVendorCentral from "./pages/AmazonVendorCentral";
-import { DesktopAutomation } from "./pages/DesktopAutomation";
+
 import { useState as useReactState } from "react";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -240,7 +240,6 @@ const App = () => {
                     {!isNative && (
                       <>
                         <Route path="/amazon-vendor-central" element={<AmazonVendorCentral />} />
-                        <Route path="/desktop-automation" element={<DesktopAutomation />} />
                       </>
                     )}
 
