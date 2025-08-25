@@ -17,6 +17,7 @@ interface SunskyOrderDialogProps {
   onOpenChange: (open: boolean) => void;
   selectedOrders: any[];
   onOrderSuccess: (orderNumber: string, selectedOrderIds: string[]) => void;
+  onItemsUnavailable?: (unavailableItems: any[]) => void;
 }
 
 interface Country {
@@ -73,7 +74,7 @@ interface SunskyCredential {
   created_at: string;
 }
 
-export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderSuccess }: SunskyOrderDialogProps) {
+export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderSuccess, onItemsUnavailable }: SunskyOrderDialogProps) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<'items' | 'address' | 'shipping' | 'review'>('items');
@@ -526,6 +527,11 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
         return newSet;
       });
     });
+    
+    // Notify parent component about unavailable items
+    if (onItemsUnavailable && unavailableItems.length > 0) {
+      onItemsUnavailable(unavailableItems);
+    }
     
     // Retry with only available items
     try {

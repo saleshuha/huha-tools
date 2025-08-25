@@ -1198,6 +1198,59 @@ export function Replenishment() {
     setSunskyDialogOpen(true);
   };
 
+  // Handle unavailable items from Sunsky
+  const handleItemsUnavailable = async (unavailableItems: any[]) => {
+    console.log('Moving unavailable items to out of stock tab:', unavailableItems);
+    
+    try {
+      // Extract the original restock item IDs from the unavailable Sunsky items
+      const unavailableIds = new Set<string>();
+      
+      unavailableItems.forEach(unavailableItem => {
+        // Find the corresponding restock item by matching the sunsky_sku or itemNo
+        const matchingRestockItem = pendingItems.find(item => {
+          const extractedSku = extractSkuFromIdentifier(item.identifier);
+          const extractedModel = extractModelFromIdentifier(item.identifier);
+          const sunskySku = extractedSku || extractedModel;
+          return sunskySku === unavailableItem.itemNo || sunskySku === unavailableItem.sunsky_sku;
+        });
+        
+        if (matchingRestockItem) {
+          unavailableIds.add(matchingRestockItem.id);
+        }
+      });
+      
+      // Move items from restockItems to outOfStockItems
+      const itemsToMove = restockItems.filter(item => unavailableIds.has(item.id));
+      const remainingRestockItems = restockItems.filter(item => !unavailableIds.has(item.id));
+      
+      // Update the state
+      setRestockItems(remainingRestockItems);
+      setOutOfStockItems(prev => [...prev, ...itemsToMove]);
+      
+      // Clear selection for moved items
+      setSelectedItems(prev => {
+        const newSet = new Set(prev);
+        unavailableIds.forEach(id => newSet.delete(id));
+        return newSet;
+      });
+      
+      toast({
+        title: "Items Moved to Out of Stock",
+        description: `${itemsToMove.length} items that don't exist in Sunsky catalog have been moved to the Out of Stock tab`,
+        variant: "default"
+      });
+      
+    } catch (error) {
+      console.error('Error moving unavailable items:', error);
+      toast({
+        title: "Error",
+        description: "Failed to move unavailable items to out of stock tab",
+        variant: "destructive"
+      });
+    }
+  };
+
   const handleSunskyOrderSuccess = async (orderNumber: string, selectedOrderIds: string[]) => {
     try {
       // Mark the original inventory items as ordered
@@ -2914,6 +2967,7 @@ export function Replenishment() {
         onOpenChange={setSunskyDialogOpen}
         selectedOrders={sunskyOrderItems}
         onOrderSuccess={handleSunskyOrderSuccess}
+        onItemsUnavailable={handleItemsUnavailable}
       />
     </div>;
 }
