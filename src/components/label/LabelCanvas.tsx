@@ -110,10 +110,25 @@ export function LabelCanvas({ templateId, datasetId, onCanvasSizeChange }: Label
       fontSize: 20,
       fill: '#000000',
       width: 200,
+      stroke: '#cccccc',
+      strokeWidth: 1,
+      cornerStyle: 'circle',
+      cornerColor: '#2563eb',
+      cornerSize: 8,
+      transparentCorners: false,
+      borderColor: '#2563eb',
+      borderScaleFactor: 2,
+      hasControls: true,
+      hasBorders: true,
+      lockMovementX: false,
+      lockMovementY: false,
+      selectable: true,
+      moveable: true,
     });
 
     fabricCanvas.add(text);
     fabricCanvas.setActiveObject(text);
+    fabricCanvas.renderAll();
     toast.success("Text element added!");
   }, [fabricCanvas]);
 
@@ -129,10 +144,23 @@ export function LabelCanvas({ templateId, datasetId, onCanvasSizeChange }: Label
       height: 60,
       stroke: '#1e40af',
       strokeWidth: 2,
+      cornerStyle: 'circle',
+      cornerColor: '#2563eb',
+      cornerSize: 8,
+      transparentCorners: false,
+      borderColor: '#2563eb',
+      borderScaleFactor: 2,
+      hasControls: true,
+      hasBorders: true,
+      lockMovementX: false,
+      lockMovementY: false,
+      selectable: true,
+      moveable: true,
     });
 
     fabricCanvas.add(rect);
     fabricCanvas.setActiveObject(rect);
+    fabricCanvas.renderAll();
     toast.success("Rectangle added!");
   }, [fabricCanvas]);
 
@@ -147,10 +175,23 @@ export function LabelCanvas({ templateId, datasetId, onCanvasSizeChange }: Label
       radius: 30,
       stroke: '#dc2626',
       strokeWidth: 2,
+      cornerStyle: 'circle',
+      cornerColor: '#2563eb',
+      cornerSize: 8,
+      transparentCorners: false,
+      borderColor: '#2563eb',
+      borderScaleFactor: 2,
+      hasControls: true,
+      hasBorders: true,
+      lockMovementX: false,
+      lockMovementY: false,
+      selectable: true,
+      moveable: true,
     });
 
     fabricCanvas.add(circle);
     fabricCanvas.setActiveObject(circle);
+    fabricCanvas.renderAll();
     toast.success("Circle added!");
   }, [fabricCanvas]);
 
@@ -174,9 +215,22 @@ export function LabelCanvas({ templateId, datasetId, onCanvasSizeChange }: Label
         top: 50,
         scaleX: 0.8,
         scaleY: 0.8,
+        cornerStyle: 'circle',
+        cornerColor: '#2563eb',
+        cornerSize: 8,
+        transparentCorners: false,
+        borderColor: '#2563eb',
+        borderScaleFactor: 2,
+        hasControls: true,
+        hasBorders: true,
+        lockMovementX: false,
+        lockMovementY: false,
+        selectable: true,
+        moveable: true,
       });
       fabricCanvas.add(img);
       fabricCanvas.setActiveObject(img);
+      fabricCanvas.renderAll();
       toast.success("Barcode added!");
     });
   }, [fabricCanvas]);
@@ -190,9 +244,22 @@ export function LabelCanvas({ templateId, datasetId, onCanvasSizeChange }: Label
         img.set({
           left: 50,
           top: 50,
+          cornerStyle: 'circle',
+          cornerColor: '#2563eb',
+          cornerSize: 8,
+          transparentCorners: false,
+          borderColor: '#2563eb',
+          borderScaleFactor: 2,
+          hasControls: true,
+          hasBorders: true,
+          lockMovementX: false,
+          lockMovementY: false,
+          selectable: true,
+          moveable: true,
         });
         fabricCanvas.add(img);
         fabricCanvas.setActiveObject(img);
+        fabricCanvas.renderAll();
         toast.success("QR Code added!");
       });
     });
@@ -419,7 +486,7 @@ export function LabelCanvas({ templateId, datasetId, onCanvasSizeChange }: Label
         </div>
 
         {/* Canvas */}
-        <div className="col-span-6">
+        <div className="col-span-8">
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -446,15 +513,51 @@ export function LabelCanvas({ templateId, datasetId, onCanvasSizeChange }: Label
               </div>
             </CardHeader>
             <CardContent>
-              <div className="border rounded-lg p-4 bg-gray-50 flex items-center justify-center">
-                <canvas ref={canvasRef} className="border bg-white shadow-sm" />
+              <div className="border rounded-lg p-4 bg-gray-50 flex items-center justify-center relative">
+                {/* Grid Background */}
+                <div 
+                  className="absolute inset-4 rounded bg-white"
+                  style={{
+                    backgroundImage: `
+                      linear-gradient(rgba(0,0,0,0.1) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(0,0,0,0.1) 1px, transparent 1px)
+                    `,
+                    backgroundSize: '20px 20px',
+                    backgroundPosition: '0 0, 0 0'
+                  }}
+                />
+                {/* Rulers */}
+                <div className="absolute top-0 left-4 right-4 h-4 bg-gray-200 border-b border-gray-300 flex items-end text-xs text-gray-600">
+                  {Array.from({ length: Math.ceil(canvasSize.width / 50) + 1 }, (_, i) => (
+                    <div key={i} className="relative" style={{ left: `${i * 50}px`, position: 'absolute' }}>
+                      <div className="w-px h-2 bg-gray-400 mb-1"></div>
+                      <span className="absolute -translate-x-1/2 text-xs">{i * 50}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="absolute left-0 top-4 bottom-4 w-4 bg-gray-200 border-r border-gray-300 flex flex-col justify-end text-xs text-gray-600">
+                  {Array.from({ length: Math.ceil(canvasSize.height / 50) + 1 }, (_, i) => (
+                    <div key={i} className="relative" style={{ bottom: `${i * 50}px`, position: 'absolute' }}>
+                      <div className="h-px w-2 bg-gray-400 mr-1"></div>
+                      <span className="absolute -translate-y-1/2 text-xs transform -rotate-90 origin-center" style={{ left: '-8px' }}>{i * 50}</span>
+                    </div>
+                  ))}
+                </div>
+                <canvas 
+                  ref={canvasRef} 
+                  className="border-2 border-gray-300 bg-white shadow-lg relative z-10" 
+                  style={{
+                    marginTop: '16px',
+                    marginLeft: '16px'
+                  }}
+                />
               </div>
             </CardContent>
           </Card>
         </div>
 
         {/* Properties Panel */}
-        <div className="col-span-3">
+        <div className="col-span-1">
           <Card>
             <CardHeader>
               <CardTitle className="text-sm">Properties</CardTitle>
