@@ -521,44 +521,58 @@ export function LabelCanvas({ templateId, datasetId, onCanvasSizeChange }: Label
               </div>
             </CardHeader>
             <CardContent>
-              <div className="border rounded-lg p-4 bg-gray-50 flex items-center justify-center relative">
-                {/* Grid Background */}
-                <div 
-                  className="absolute inset-4 rounded bg-white"
-                  style={{
-                    backgroundImage: `
-                      linear-gradient(rgba(0,0,0,0.1) 1px, transparent 1px),
-                      linear-gradient(90deg, rgba(0,0,0,0.1) 1px, transparent 1px)
-                    `,
-                    backgroundSize: '20px 20px',
-                    backgroundPosition: '0 0, 0 0'
-                  }}
-                />
-                {/* Rulers */}
-                <div className="absolute top-0 left-4 right-4 h-4 bg-gray-200 border-b border-gray-300 flex items-end text-xs text-gray-600">
-                  {Array.from({ length: Math.ceil(canvasSize.width / 50) + 1 }, (_, i) => (
-                    <div key={i} className="relative" style={{ left: `${i * 50}px`, position: 'absolute' }}>
-                      <div className="w-px h-2 bg-gray-400 mb-1"></div>
-                      <span className="absolute -translate-x-1/2 text-xs">{i * 50}</span>
-                    </div>
-                  ))}
+              <div className="border rounded-lg p-6 bg-gray-50 flex items-center justify-center relative overflow-hidden">
+                {/* Canvas Container with proper positioning */}
+                <div className="relative bg-white rounded shadow-lg" style={{ 
+                  width: canvasSize.width + 32, 
+                  height: canvasSize.height + 32 
+                }}>
+                  {/* Grid Background - positioned behind canvas */}
+                  <div 
+                    className="absolute inset-4 rounded"
+                    style={{
+                      backgroundImage: `
+                        linear-gradient(rgba(200,200,200,0.3) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(200,200,200,0.3) 1px, transparent 1px)
+                      `,
+                      backgroundSize: '20px 20px',
+                      backgroundPosition: '0 0, 0 0',
+                      width: canvasSize.width,
+                      height: canvasSize.height
+                    }}
+                  />
+                  
+                  {/* Top Ruler */}
+                  <div className="absolute top-0 left-4 h-4 bg-gray-100 border-b border-gray-300 flex items-end text-xs text-gray-600" style={{ width: canvasSize.width }}>
+                    {Array.from({ length: Math.ceil(canvasSize.width / 50) + 1 }, (_, i) => (
+                      <div key={i} className="absolute flex flex-col items-center" style={{ left: `${i * 50}px` }}>
+                        <div className="w-px h-2 bg-gray-400"></div>
+                        <span className="text-xs">{i * 50}</span>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {/* Left Ruler */}
+                  <div className="absolute left-0 top-4 w-4 bg-gray-100 border-r border-gray-300 flex flex-col text-xs text-gray-600" style={{ height: canvasSize.height }}>
+                    {Array.from({ length: Math.ceil(canvasSize.height / 50) + 1 }, (_, i) => (
+                      <div key={i} className="absolute flex items-center justify-center" style={{ top: `${i * 50}px`, width: '16px', height: '20px' }}>
+                        <div className="h-px w-2 bg-gray-400 mr-1"></div>
+                        <span className="text-xs transform -rotate-90 whitespace-nowrap">{i * 50}</span>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {/* Canvas - positioned with clear z-index */}
+                  <canvas 
+                    ref={canvasRef} 
+                    className="absolute top-4 left-4 border border-gray-300 bg-white"
+                    style={{
+                      zIndex: 10,
+                      width: canvasSize.width,
+                      height: canvasSize.height
+                    }}
+                  />
                 </div>
-                <div className="absolute left-0 top-4 bottom-4 w-4 bg-gray-200 border-r border-gray-300 flex flex-col justify-end text-xs text-gray-600">
-                  {Array.from({ length: Math.ceil(canvasSize.height / 50) + 1 }, (_, i) => (
-                    <div key={i} className="relative" style={{ bottom: `${i * 50}px`, position: 'absolute' }}>
-                      <div className="h-px w-2 bg-gray-400 mr-1"></div>
-                      <span className="absolute -translate-y-1/2 text-xs transform -rotate-90 origin-center" style={{ left: '-8px' }}>{i * 50}</span>
-                    </div>
-                  ))}
-                </div>
-                <canvas 
-                  ref={canvasRef} 
-                  className="border-2 border-gray-300 bg-white shadow-lg relative z-10" 
-                  style={{
-                    marginTop: '16px',
-                    marginLeft: '16px'
-                  }}
-                />
               </div>
             </CardContent>
           </Card>
