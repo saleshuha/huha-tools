@@ -2027,7 +2027,7 @@ serve(async (req) => {
         const { orderNumber, poNumbers, apiId } = requestData;
         
         console.log('=== getOrderDetails START ===');
-        console.log('Request data:', { orderNumber, poNumbers });
+        console.log('Request data:', { orderNumber, poNumbers, apiId });
         
         if (!orderNumber) {
           console.error('Order number is required');
@@ -2041,9 +2041,44 @@ serve(async (req) => {
         }
 
         try {
-          // Get credentials from database/env with optional apiId
-          console.log('Getting API credentials for user:', user.id, 'apiId:', apiId);
-          const credentials = await getApiCredentials(user.id, apiId);
+          let finalApiId = apiId;
+          
+          // If no apiId provided, try to derive it from existing order data or PO orders
+          if (!finalApiId) {
+            console.log('No apiId provided, attempting to derive from existing data...');
+            
+            // First try to get it from existing sunsky_orders
+            const { data: existingOrder } = await supabase
+              .from('sunsky_orders')
+              .select('sunsky_credentials_id')
+              .eq('number', orderNumber)
+              .eq('user_id', user.id)
+              .single();
+              
+            if (existingOrder?.sunsky_credentials_id) {
+              finalApiId = existingOrder.sunsky_credentials_id;
+              console.log('Found credential ID from existing order:', finalApiId);
+            } else if (poNumbers && poNumbers.length > 0) {
+              // Try to get it from PO orders that match this supplier order number
+              const { data: poWithCredential } = await supabase
+                .from('po_orders')
+                .select('sunsky_credentials_id')
+                .eq('supplier_order_number', orderNumber)
+                .eq('user_id', user.id)
+                .not('sunsky_credentials_id', 'is', null)
+                .limit(1)
+                .single();
+                
+              if (poWithCredential?.sunsky_credentials_id) {
+                finalApiId = poWithCredential.sunsky_credentials_id;
+                console.log('Found credential ID from PO order:', finalApiId);
+              }
+            }
+          }
+          
+          // Get credentials from database/env with final apiId
+          console.log('Getting API credentials for user:', user.id, 'apiId:', finalApiId);
+          const credentials = await getApiCredentials(user.id, finalApiId);
           
           if (!credentials) {
             console.error('No active Sunsky API credentials found');
@@ -2086,7 +2121,7 @@ serve(async (req) => {
               status_last_updated_at: order.statusUpdateTime || now,
               site_number: order.siteNumber || null,
               po_numbers: poNumbers || [],
-              sunsky_credentials_id: apiId || null,
+              sunsky_credentials_id: finalApiId || null, // Use finalApiId instead of apiId
               gmt_created: order.gmtCreated ? new Date(order.gmtCreated) : null,
               total: order.totalAmount ? parseFloat(order.totalAmount) : null,
               currency: 'USD',
@@ -2169,7 +2204,7 @@ serve(async (req) => {
             const now = new Date().toISOString();
             const minimalOrder = {
               user_id: user.id,
-              sunsky_credentials_id: apiId || null,
+              sunsky_credentials_id: finalApiId || null, // Use finalApiId instead of apiId
               number: orderNumber,
               status: 'unpaid',
               status_last_updated_at: now,
