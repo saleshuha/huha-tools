@@ -16,7 +16,7 @@ import { Plus, Database, Eye, Download, Printer } from 'lucide-react';
 import { toast } from 'sonner';
 
 const LabelDesignerContent: React.FC = () => {
-  const { document, dataset, createDocument } = useLabelDoc();
+  const { document: labelDoc, dataset, createDocument } = useLabelDoc();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newLabelName, setNewLabelName] = useState('');
   const [selectedPreset, setSelectedPreset] = useState('address');
@@ -42,8 +42,8 @@ const LabelDesignerContent: React.FC = () => {
   };
 
   const handlePreview = async () => {
-    if (!document) return;
-    const html = PrintService.generateHTMLPreview(document, dataset);
+    if (!labelDoc) return;
+    const html = PrintService.generateHTMLPreview(labelDoc, dataset);
     const newWindow = window.open('', '_blank');
     if (newWindow) {
       newWindow.document.write(html);
@@ -52,13 +52,13 @@ const LabelDesignerContent: React.FC = () => {
   };
 
   const handleExportPDF = async () => {
-    if (!document) return;
+    if (!labelDoc) return;
     try {
-      const blob = await PrintService.generatePDF(document, dataset, printSettings);
+      const blob = await PrintService.generatePDF(labelDoc, dataset, printSettings);
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${document.name}.pdf`;
+      a.download = `${labelDoc.name}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
       toast.success('PDF exported successfully');
@@ -73,11 +73,11 @@ const LabelDesignerContent: React.FC = () => {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <h1 className="text-2xl font-bold">Label Designer</h1>
-            {document && (
+            {labelDoc && (
               <div className="flex items-center gap-2">
-                <Badge variant="outline">{document.name}</Badge>
+                <Badge variant="outline">{labelDoc.name}</Badge>
                 <Badge variant="secondary">
-                  {document.size.width}×{document.size.height}mm
+                  {labelDoc.size.width}×{labelDoc.size.height}mm
                 </Badge>
                 {dataset && (
                   <Badge variant="secondary">
@@ -133,7 +133,7 @@ const LabelDesignerContent: React.FC = () => {
                 </div>
               </DialogContent>
             </Dialog>
-            {document && (
+            {labelDoc && (
               <>
                 <Button variant="outline" size="sm" onClick={handlePreview}>
                   <Eye className="h-4 w-4 mr-2" />
