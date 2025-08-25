@@ -19,6 +19,7 @@ import { Pagination, PaginationContent, PaginationItem, PaginationLink, Paginati
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useUserProfile } from "@/hooks/useUserProfile";
+import { useExportHistory } from "@/hooks/useExportHistory";
 import { DateRange } from "react-day-picker";
 import { SunskyCredentialsManager } from "./SunskyCredentialsManager";
 import { useSKUManager } from "@/hooks/useSKUManager";
@@ -183,7 +184,7 @@ export const SunskySKUImporter: React.FC = () => {
   const { sunskySKUs, isLoading: skusLoading, fetchSKUs, totalCount, refreshSKUs, addSKUs } = useSKUManager();
   const { jobs, isLoading: jobsLoading, createImportJob, fetchJobs } = useImportJobs();
   const { getPOModelNumbers } = usePOOrders();
-  const { addExportEntry, updateExportEntry, exportHistory } = useExportHistory();
+  const { addExportEntry, updateExportEntry, exportHistory: savedExportHistory } = useExportHistory();
   
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -515,73 +516,85 @@ export const SunskySKUImporter: React.FC = () => {
 
     if (runInBg) {
       // Create background task with concurrent API support
-      const taskId = runConcurrentExport(
-        exportConfig,
-        (progressData) => {
-          // Handle progress updates
-          setCurrentExportTaskId(taskId);
-        },
-        async (results) => {
-          // Handle completion
-          try {
-            // Save to export history
-            const historyId = await addExportEntry({
-              export_type: 'status_export',
-              config: exportConfig,
-              total_items: results.totalFound,
-              status: 'completed',
-              metadata: {
-                categories: categoryName,
-                apiKeys: apiKeysWithNames.length,
-                duration: Date.now() - Date.now() // Will be calculated properly
+      try {
+        const taskId = await runConcurrentExport(
+          exportConfig,
+          (progressData) => {
+            // Handle progress updates
+            setCurrentExportTaskId(progressData);
+          },
+          async (results) => {
+            // Handle completion
+            try {
+              // Save to export history - addExportEntry returns void, don't check result
+              addExportEntry({
+                export_type: 'status_export',
+                filters: exportConfig,
+                total_items: results.totalFound,
+                status: 'completed',
+                metadata: {
+                  categories: categoryName,
+                  apiKeys: apiKeysWithNames.length,
+                  duration: Date.now() - Date.now()
+                }
+              });
+
+              // Generate Excel and save to storage
+              const filePath = await generateExcelFile({
+                data: results.products,
+                categoriesMap: results.categoriesMap,
+                config: {
+                  status: selectedExportStatus,
+                  categoryName,
+                  columns: selectedExportColumns,
+                  apiKeys: apiKeysWithNames.length,
+                  pageSize: exportPageSize
+                },
+                saveToStorage: true
+              });
+
+              // Update export entry with file path if file was created
+              if (filePath) {
+                updateExportEntry(savedExportHistory[0]?.id || 'temp', { file_path: filePath });
               }
-            });
 
-            // Generate Excel and save to storage
-            const filePath = await generateExcelFile({
-              data: results.products,
-              categoriesMap: results.categoriesMap,
-              config: {
-                status: selectedExportStatus,
-                categoryName,
-                columns: selectedExportColumns,
-                apiKeys: apiKeysWithNames.length,
-                pageSize: exportPageSize
-              },
-              saveToStorage: true
-            });
+              updateTask(taskId, {
+                status: 'completed',
+                progress: 100,
+                totalItems: results.totalFound,
+                processedItems: results.totalFound,
+                endTime: new Date(),
+                metadata: {
+                  ...exportConfig,
+                  exportId: results.exportId,
+                  filePath: filePath || ''
+                }
+              });
 
-            if (historyId && filePath) {
-              await updateExportEntry(historyId, { file_path: filePath });
+              toast({
+                title: "Background Export Complete",
+                description: `Successfully exported ${results.totalFound} products using ${apiKeysWithNames.length} API keys concurrently.`
+              });
+            } catch (error) {
+              console.error('Error saving background export:', error);
+              updateTask(taskId, {
+                status: 'error',
+                error: error.message,
+                endTime: new Date()
+              });
             }
-
-            updateTask(taskId, {
-              status: 'completed',
-              progress: 100,
-              totalItems: results.totalFound,
-              processedItems: results.totalFound,
-              endTime: new Date(),
-              metadata: {
-                ...exportConfig,
-                exportId: results.exportId,
-                filePath
-              }
-            });
-
-            toast({
-              title: "Background Export Complete",
-              description: `Successfully exported ${results.totalFound} products using ${apiKeysWithNames.length} API keys concurrently.`
-            });
-          } catch (error) {
-            console.error('Error saving background export:', error);
-            updateTask(taskId, {
-              status: 'error',
-              error: error.message,
-              endTime: new Date()
-            });
           }
-        }
-      );
+        );
+        
+        setCurrentExportTaskId(taskId);
+      } catch (error) {
+        console.error('Error starting background export:', error);
+        toast({
+          title: "Export Error", 
+          description: "Failed to start background export",
+          variant: "destructive"
+        });
+      }
       
       return;
     }
@@ -3208,7 +3221,7 @@ export const SunskySKUImporter: React.FC = () => {
               )}
 
               {/* Export History */}
-              {exportHistory.length > 0 && (
+              {savedExportHistory.length > 0 && (
                 <Card className="mt-6">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
@@ -3221,22 +3234,22 @@ export const SunskySKUImporter: React.FC = () => {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-2">
-                      {exportHistory.map((entry) => (
+                      {savedExportHistory.map((entry) => (
                         <div key={entry.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
                           <div className="flex items-center gap-3">
                             <div className={`h-2 w-2 rounded-full ${
                               entry.status === 'completed' ? 'bg-green-500' :
                               entry.status === 'cancelled' ? 'bg-yellow-500' : 'bg-red-500'
                             }`} />
-                            <div>
-                              <div className="font-medium text-sm">
-                                {entry.categories} - {entry.totalItems} items
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                {entry.timestamp.toLocaleString()}
-                                {entry.apiKeys > 1 && ` • ${entry.apiKeys} API keys`}
-                              </div>
-                            </div>
+                             <div>
+                               <div className="font-medium text-sm">
+                                 {(entry.metadata as any)?.categories || 'Export'} - {entry.total_items} items
+                               </div>
+                               <div className="text-xs text-muted-foreground">
+                                 {new Date(entry.created_at).toLocaleString()}
+                                 {(entry.metadata as any)?.apiKeys > 1 && ` • ${(entry.metadata as any)?.apiKeys} API keys`}
+                               </div>
+                             </div>
                           </div>
                           <div className="flex items-center gap-2">
                             <Badge variant={
@@ -3245,11 +3258,11 @@ export const SunskySKUImporter: React.FC = () => {
                             }>
                               {entry.status}
                             </Badge>
-                            {entry.error && (
-                              <Badge variant="outline" className="text-xs max-w-32 truncate">
-                                {entry.error}
-                              </Badge>
-                            )}
+                             {entry.error_message && (
+                               <Badge variant="outline" className="text-xs max-w-32 truncate">
+                                 {entry.error_message}
+                               </Badge>
+                             )}
                           </div>
                         </div>
                       ))}
