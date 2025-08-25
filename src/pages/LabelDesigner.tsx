@@ -94,7 +94,7 @@ export default function LabelDesigner() {
                     <LabelCanvas 
                       templateId={activeTemplate}
                       datasetId={activeDataset}
-                      onCanvasSizeChange={setCanvasSize}
+                      onCanvasSizeChange={(size) => setCanvasSize(size)}
                     />
                   </CardContent>
                 </Card>

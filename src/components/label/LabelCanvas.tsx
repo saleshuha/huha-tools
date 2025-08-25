@@ -80,15 +80,23 @@ export function LabelCanvas({ templateId, datasetId, onCanvasSizeChange }: Label
 
     // Add event listeners
     canvas.on('selection:created', (e) => {
+      console.log('Object selected:', e.selected?.[0]);
       setSelectedObject(e.selected?.[0] || null);
     });
 
     canvas.on('selection:updated', (e) => {
+      console.log('Selection updated:', e.selected?.[0]);
       setSelectedObject(e.selected?.[0] || null);
     });
 
     canvas.on('selection:cleared', () => {
+      console.log('Selection cleared');
       setSelectedObject(null);
+    });
+
+    canvas.on('object:added', (e) => {
+      console.log('Object added:', e.target);
+      canvas.renderAll();
     });
 
     setFabricCanvas(canvas);
@@ -486,7 +494,7 @@ export function LabelCanvas({ templateId, datasetId, onCanvasSizeChange }: Label
         </div>
 
         {/* Canvas */}
-        <div className="col-span-8">
+        <div className="col-span-6">
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -557,7 +565,7 @@ export function LabelCanvas({ templateId, datasetId, onCanvasSizeChange }: Label
         </div>
 
         {/* Properties Panel */}
-        <div className="col-span-1">
+        <div className="col-span-3">
           <Card>
             <CardHeader>
               <CardTitle className="text-sm">Properties</CardTitle>
@@ -745,8 +753,87 @@ export function LabelCanvas({ templateId, datasetId, onCanvasSizeChange }: Label
                         className="h-8"
                       />
                     </div>
-                  )}
-                </div>
+                   )}
+
+                   {/* Bulk Data Mapping */}
+                   <Separator />
+                   <div className="space-y-2">
+                     <Label className="text-xs font-medium">Bulk Data Mapping</Label>
+                     <div className="text-xs text-muted-foreground mb-2">
+                       Map this element to bulk data fields
+                     </div>
+                     
+                     {selectedObject.type === 'textbox' && (
+                       <div>
+                         <Label className="text-xs">Data Field</Label>
+                         <Select
+                           value={(selectedObject as any).dataField || ''}
+                           onValueChange={(value) => {
+                             (selectedObject as any).set({ dataField: value });
+                             fabricCanvas?.renderAll();
+                             toast.success(`Mapped to field: ${value}`);
+                           }}
+                         >
+                           <SelectTrigger className="h-8 text-xs">
+                             <SelectValue placeholder="Select data field" />
+                           </SelectTrigger>
+                           <SelectContent>
+                             <SelectItem value="name" className="text-xs">Name</SelectItem>
+                             <SelectItem value="company" className="text-xs">Company</SelectItem>
+                             <SelectItem value="address" className="text-xs">Address</SelectItem>
+                             <SelectItem value="phone" className="text-xs">Phone</SelectItem>
+                             <SelectItem value="email" className="text-xs">Email</SelectItem>
+                             <SelectItem value="id" className="text-xs">ID/Code</SelectItem>
+                             <SelectItem value="price" className="text-xs">Price</SelectItem>
+                             <SelectItem value="date" className="text-xs">Date</SelectItem>
+                             <SelectItem value="custom1" className="text-xs">Custom Field 1</SelectItem>
+                             <SelectItem value="custom2" className="text-xs">Custom Field 2</SelectItem>
+                           </SelectContent>
+                         </Select>
+                         {(selectedObject as any).dataField && (
+                           <Badge variant="outline" className="mt-1 text-xs">
+                             Mapped: {(selectedObject as any).dataField}
+                           </Badge>
+                         )}
+                       </div>
+                     )}
+
+                     {(selectedObject.type === 'image' && (selectedObject as any).src?.includes('data:image')) && (
+                       <div>
+                         <Label className="text-xs">QR/Barcode Data Field</Label>
+                         <Select
+                           value={(selectedObject as any).dataField || ''}
+                           onValueChange={(value) => {
+                             (selectedObject as any).set({ dataField: value });
+                             fabricCanvas?.renderAll();
+                             toast.success(`QR/Barcode mapped to field: ${value}`);
+                           }}
+                         >
+                           <SelectTrigger className="h-8 text-xs">
+                             <SelectValue placeholder="Select data field" />
+                           </SelectTrigger>
+                           <SelectContent>
+                             <SelectItem value="id" className="text-xs">ID/Code</SelectItem>
+                             <SelectItem value="url" className="text-xs">URL</SelectItem>
+                             <SelectItem value="serial" className="text-xs">Serial Number</SelectItem>
+                             <SelectItem value="barcode" className="text-xs">Barcode</SelectItem>
+                             <SelectItem value="custom1" className="text-xs">Custom Field 1</SelectItem>
+                             <SelectItem value="custom2" className="text-xs">Custom Field 2</SelectItem>
+                           </SelectContent>
+                         </Select>
+                         {(selectedObject as any).dataField && (
+                           <Badge variant="outline" className="mt-1 text-xs">
+                             Mapped: {(selectedObject as any).dataField}
+                           </Badge>
+                         )}
+                       </div>
+                     )}
+                     
+                     <div className="text-xs text-muted-foreground">
+                       💡 Mapped elements will be automatically populated when using bulk data in the Print tab
+                     </div>
+                   </div>
+                 </div>
               ) : (
                 <div className="text-center text-muted-foreground text-xs py-8">
                   Select an element to edit its properties
