@@ -252,6 +252,7 @@ export const SunskySKUImporter: React.FC = () => {
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
   const [exportStatus, setExportStatus] = useState<string>('');
+  const [exportTotalValue, setExportTotalValue] = useState(0);
   const [selectedExportStatus, setSelectedExportStatus] = useState<number>(1);
   const [exportResults, setExportResults] = useState<{
     products: SunskyProduct[];
@@ -508,7 +509,7 @@ export const SunskySKUImporter: React.FC = () => {
   };
 
   const processExport = async (apiIds: string[], isBackground: boolean = false, taskId?: string) => {
-    const updateProgress = (progress: number, status: string, totalItems?: number, processedItems?: number) => {
+    const updateProgress = (progress: number, status: string, totalItems?: number, processedItems?: number, totalValue?: number) => {
       if (isBackground && taskId) {
         updateTask(taskId, {
           progress,
@@ -519,6 +520,9 @@ export const SunskySKUImporter: React.FC = () => {
       } else {
         setExportProgress(progress);
         setExportStatus(status);
+        if (totalValue !== undefined) {
+          setExportTotalValue(totalValue);
+        }
       }
     };
 
@@ -526,6 +530,7 @@ export const SunskySKUImporter: React.FC = () => {
       setIsExporting(true);
       setExportProgress(0);
       setExportStatus('Initializing export...');
+      setExportTotalValue(0);
       setExportResults(null);
     }
 
@@ -534,6 +539,7 @@ export const SunskySKUImporter: React.FC = () => {
       const categoriesMap = new Map<number, { name: string; products: SunskyProduct[] }>();
       let currentPage = 1;
       let totalProcessed = 0;
+      let totalValue = 0;
       let hasMore = true;
       const perKeyDelay = 250; // 250ms delay per API key for level 9 limits
       let currentApiIndex = 0;
@@ -592,9 +598,10 @@ export const SunskySKUImporter: React.FC = () => {
           
           updateProgress(
             15 + (currentPage - 1) * 2, 
-            `Fetching page ${currentPage} (${totalProcessed} products found) - API ${currentApiIndex % apiIds.length + 1}`,
+            `Fetching page ${currentPage} (${totalProcessed} products found, $${totalValue.toFixed(2)} total value) - API ${currentApiIndex % apiIds.length + 1}`,
             undefined,
-            totalProcessed
+            totalProcessed,
+            totalValue
           );
 
           // Determine effective category ID for filtering
@@ -648,6 +655,10 @@ export const SunskySKUImporter: React.FC = () => {
           pageProducts.forEach((product: SunskyProduct) => {
             allProducts.push(product);
             
+            // Calculate total value (using price property)
+            const productPrice = parseFloat(product.price || '0');
+            totalValue += productPrice;
+            
             if (product.categoryId && categoriesMap.has(product.categoryId)) {
               categoriesMap.get(product.categoryId)?.products.push(product);
             } else {
@@ -673,9 +684,10 @@ export const SunskySKUImporter: React.FC = () => {
             const delay = perKeyDelay;
             updateProgress(
               15 + (currentPage - 1) * 2, 
-              `Rate limiting... waiting ${delay}ms (${totalProcessed} products found)`,
+              `Rate limiting... waiting ${delay}ms (${totalProcessed} products found, $${totalValue.toFixed(2)} total value)`,
               undefined,
-              totalProcessed
+              totalProcessed,
+              totalValue
             );
             await new Promise(resolve => setTimeout(resolve, delay));
           }
@@ -720,7 +732,7 @@ export const SunskySKUImporter: React.FC = () => {
         
       } else {
         setExportResults(finalResults);
-        updateProgress(100, `Export complete! Found ${totalProcessed} products across ${categoriesMap.size} categories.`);
+        updateProgress(100, `Export complete! Found ${totalProcessed} products across ${categoriesMap.size} categories. Total value: $${totalValue.toFixed(2)}`, totalProcessed, totalProcessed, totalValue);
 
         toast({
           title: "Export Complete",
@@ -2951,7 +2963,14 @@ export const SunskySKUImporter: React.FC = () => {
                     <span>{exportProgress}%</span>
                   </div>
                   <Progress value={exportProgress} className="w-full" />
-                  <p className="text-sm text-muted-foreground">{exportStatus}</p>
+                  <div className="flex items-center justify-between text-sm">
+                    <p className="text-muted-foreground">{exportStatus}</p>
+                    {exportTotalValue > 0 && (
+                      <span className="text-primary font-medium">
+                        Total Value: ${exportTotalValue.toFixed(2)}
+                      </span>
+                    )}
+                  </div>
                 </div>
               )}
 
