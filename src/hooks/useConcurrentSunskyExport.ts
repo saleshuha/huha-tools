@@ -83,19 +83,19 @@ export const useConcurrentSunskyExport = () => {
     const results: any[] = [];
     let currentPageIndex = 0;
 
-    const updateProgress = (status: ConcurrentExportProgress['status'], error?: string) => {
-      const progress: ConcurrentExportProgress = {
-        apiKeyId: apiKey.id,
-        apiKeyName: apiKey.name,
-        currentPage: currentPageIndex < pages.length ? pages[currentPageIndex] : pages[pages.length - 1] || 0,
-        totalPages: pages.length,
-        processedItems: results.length,
-        status,
-        error,
-        lastUpdate: new Date()
-      };
-      onProgress(progress);
-    };
+        const updateProgress = (status: ConcurrentExportProgress['status'], error?: string) => {
+          const progress: ConcurrentExportProgress = {
+            apiKeyId: apiKey.id,
+            apiKeyName: apiKey.name,
+            currentPage: currentPageIndex + 1, // Show current page being processed
+            totalPages: pages.length,
+            processedItems: results.length,
+            status,
+            error,
+            lastUpdate: new Date()
+          };
+          onProgress(progress);
+        };
 
     updateProgress('processing');
 
@@ -115,13 +115,14 @@ export const useConcurrentSunskyExport = () => {
         }
 
         try {
+          updateProgress('processing'); // Update before each API call
           const response = await callSunskyAPI('searchProducts', searchParams, apiKey.id);
           
           if (response?.result === 'success' && response?.data?.products) {
             const pageProducts = response.data.products;
             results.push(...pageProducts);
             
-            updateProgress('processing');
+            updateProgress('processing'); // Update after successful call
             
             // Stop if we got fewer results than expected (end of data)
             if (pageProducts.length < config.pageSize) {
@@ -129,6 +130,7 @@ export const useConcurrentSunskyExport = () => {
             }
           } else {
             console.warn(`API ${apiKey.name} page ${page} returned no data or error`);
+            updateProgress('processing'); // Still update to show progress
           }
         } catch (pageError) {
           console.error(`API ${apiKey.name} page ${page} failed:`, pageError);
@@ -138,8 +140,8 @@ export const useConcurrentSunskyExport = () => {
 
         currentPageIndex++;
         
-        // Rate limiting delay
-        await new Promise(resolve => setTimeout(resolve, 250));
+        // Rate limiting delay - shorter for faster visual updates
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
 
       if (cancellationRef.current[exportId]) {
@@ -228,6 +230,7 @@ export const useConcurrentSunskyExport = () => {
       // Track progress updates
       const progressTracker = new Map<string, ConcurrentExportProgress>();
       
+      // Calculate overall progress more frequently
       const onApiProgress = (progress: ConcurrentExportProgress) => {
         progressTracker.set(progress.apiKeyId, progress);
         
@@ -236,14 +239,17 @@ export const useConcurrentSunskyExport = () => {
           prev.map(p => p.apiKeyId === progress.apiKeyId ? progress : p)
         );
         
-        // Calculate overall progress
+        // Calculate overall progress based on completed pages across all APIs
+        const totalPagesProcessed = Array.from(progressTracker.values())
+          .reduce((sum, p) => sum + (p as ConcurrentExportProgress).currentPage, 0);
+        const totalPagesExpected = totalPages;
+        const overallPercent = Math.min(95, (totalPagesProcessed / totalPagesExpected) * 100);
+        
         const totalProcessed = Array.from(progressTracker.values())
-          .reduce((sum, p) => sum + p.processedItems, 0);
-        const totalExpected = totalPages * config.pageSize;
-        const overallPercent = Math.min(95, (totalProcessed / totalExpected) * 100);
+          .reduce((sum, p) => sum + (p as ConcurrentExportProgress).processedItems, 0);
         
         setOverallProgress(overallPercent);
-        setExportStatus(`Processing: ${totalProcessed} products found so far...`);
+        setExportStatus(`Processing: ${totalProcessed} products found, ${totalPagesProcessed}/${totalPagesExpected} pages...`);
       };
 
       // Start concurrent processing for each API key

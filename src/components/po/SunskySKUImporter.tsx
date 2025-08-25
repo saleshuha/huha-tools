@@ -3231,20 +3231,38 @@ export const SunskySKUImporter: React.FC = () => {
                 </div>
               </div>
 
-              {isExporting && (
+              {(isExporting || isConcurrentExporting) && (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-sm">
                     <span>Export Progress</span>
-                    <span>{exportProgress}%</span>
+                    <span>{isConcurrentExporting ? concurrentOverallProgress : exportProgress}%</span>
                   </div>
-                  <Progress value={exportProgress} className="w-full" />
+                  <Progress value={isConcurrentExporting ? concurrentOverallProgress : exportProgress} className="w-full" />
                   <div className="flex items-center justify-between text-sm">
-                    <p className="text-muted-foreground">{exportStatus}</p>
+                    <p className="text-muted-foreground">{isConcurrentExporting ? concurrentExportStatus : exportStatus}</p>
                     <div className="flex items-center gap-4">
-                      {exportTotalItems > 0 && (
+                      {exportTotalItems > 0 && !isConcurrentExporting && (
                         <span className="text-primary font-medium">
                           Estimated: ~{exportTotalItems} items
                         </span>
+                      )}
+                      {isConcurrentExporting && concurrentExportProgress.length > 0 && (
+                        <div className="space-y-1">
+                          <span className="text-xs text-muted-foreground">API Progress:</span>
+                          {concurrentExportProgress.map((apiProgress, index) => {
+                            const progressPercent = apiProgress.totalPages > 0 
+                              ? Math.round((apiProgress.currentPage / apiProgress.totalPages) * 100)
+                              : 0;
+                            return (
+                              <div key={apiProgress.apiKeyId} className="flex items-center gap-2 text-xs">
+                                <span className="w-12 truncate">API {index + 1}</span>
+                                <Progress value={progressPercent} className="flex-1 h-1" />
+                                <span className="w-8 text-right">{progressPercent}%</span>
+                                <span className="text-muted-foreground">({apiProgress.processedItems} items)</span>
+                              </div>
+                            );
+                          })}
+                        </div>
                       )}
                       {(isExporting || currentExportTaskId) && (
                         <Button
