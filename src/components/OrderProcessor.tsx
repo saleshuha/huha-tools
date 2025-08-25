@@ -10,12 +10,13 @@ import { Progress } from './ui/progress';
 import { Checkbox } from './ui/checkbox';
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from './ui/pagination';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { FileSpreadsheet, Search, Minus, Download, History, CheckCircle, Package, AlertTriangle, TrendingUp, Clock, DollarSign, ShoppingCart, Printer, CheckSquare, Square } from 'lucide-react';
+import { FileSpreadsheet, Search, Minus, Download, History, CheckCircle, Package, AlertTriangle, TrendingUp, Clock, DollarSign, ShoppingCart, Printer, CheckSquare, Square, Tag } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import { useAsinInventory, AsinInventoryItem } from '@/hooks/useAsinInventory';
 import { useSkuInventory, SkuInventoryItem } from '@/hooks/useSkuInventory';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { generateOrderLabelZPL, generateBulkOrderLabelsZPL, printZPLToPrinter, downloadZPLFile, previewOrderLabel, OrderLabelSettings } from '@/utils/order-label-printer';
 import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
 interface OrderItem {
@@ -69,6 +70,17 @@ export function OrderProcessor() {
   const [fileName, setFileName] = useState<string>('');
   const [dbResults, setDbResults] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState('process');
+  const [labelSettings, setLabelSettings] = useState<OrderLabelSettings>({
+    labelSize: '4x3',
+    dpi: 203,
+    showOrderId: true,
+    showAsin: true,
+    showSku: true,
+    showTitle: true,
+    showQuantity: true,
+    includeBarcode: true,
+    barcodeContent: 'asin'
+  });
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -533,6 +545,63 @@ export function OrderProcessor() {
     printWindow.focus();
     printWindow.print();
   };
+
+  // Print individual order label
+  const printOrderLabel = async (match: MatchedItem) => {
+    try {
+      const zpl = generateOrderLabelZPL(match.orderItem, labelSettings);
+      await printZPLToPrinter(zpl);
+      toast({
+        title: "Label Printing",
+        description: `ZPL label generated for order ${match.orderItem.orderId}. Send to your Zebra printer.`
+      });
+    } catch (error) {
+      toast({
+        title: "Print Error",
+        description: "Failed to generate label.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Print bulk order labels
+  const printBulkOrderLabels = async () => {
+    const itemsToPrint = Array.from(selectedItems).map(index => filteredMatches[index].orderItem);
+    try {
+      const zpl = generateBulkOrderLabelsZPL(itemsToPrint, labelSettings);
+      await printZPLToPrinter(zpl);
+      toast({
+        title: "Bulk Label Printing",
+        description: `Generated ${itemsToPrint.length} labels. Send ZPL to your Zebra printer.`
+      });
+    } catch (error) {
+      toast({
+        title: "Print Error",
+        description: "Failed to generate bulk labels.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Download ZPL file for all found items
+  const downloadAllLabelsZPL = () => {
+    const foundItems = filteredMatches.filter(match => match.inventoryMatch).map(match => match.orderItem);
+    if (foundItems.length === 0) {
+      toast({
+        title: "No Items",
+        description: "No found items to generate labels for.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    const zpl = generateBulkOrderLabelsZPL(foundItems, labelSettings);
+    downloadZPLFile(zpl, `order-labels-${fileName}-${Date.now()}.zpl`);
+    toast({
+      title: "ZPL Downloaded",
+      description: `Downloaded ZPL file with ${foundItems.length} labels.`
+    });
+  };
   const filteredMatches = matchedItems.filter(match => match.orderItem.orderId.toLowerCase().includes(searchTerm.toLowerCase()) || match.orderItem.asin.toLowerCase().includes(searchTerm.toLowerCase()) || match.orderItem.sku.toLowerCase().includes(searchTerm.toLowerCase()) || match.orderItem.itemTitle.toLowerCase().includes(searchTerm.toLowerCase())).sort((a, b) => {
     // Sort found items first, then not found items
     const aHasMatch = a.inventoryMatch ? 1 : 0;
@@ -806,18 +875,26 @@ export function OrderProcessor() {
               <h4 className="font-semibold">Processing Results ({filteredMatches.length} items)</h4>
               
               <div className="flex items-center gap-2">
-                <Button onClick={printFoundItems} variant="outline" disabled={analytics.foundOrders === 0}>
+                <Button onClick={printFoundItems} variant="outline" size="sm" disabled={analytics.foundOrders === 0}>
                   <Printer className="w-4 h-4 mr-2" />
-                  Print Found Items ({analytics.foundOrders})
+                  Print Report ({analytics.foundOrders})
+                </Button>
+                <Button onClick={downloadAllLabelsZPL} variant="outline" size="sm" disabled={analytics.foundOrders === 0}>
+                  <Tag className="w-4 h-4 mr-2" />
+                  Download All Labels
                 </Button>
                 {selectedItems.size > 0 && <>
                     <Button onClick={processSelectedItems} className="bg-gradient-primary hover:opacity-90 text-white" disabled={loading}>
                       <CheckCircle className="w-4 h-4 mr-2" />
                       Process Selected ({selectedItems.size})
                     </Button>
-                    <Button onClick={printSelectedItems} variant="outline" disabled={selectedItems.size === 0}>
+                    <Button onClick={printBulkOrderLabels} variant="outline" size="sm" disabled={selectedItems.size === 0}>
+                      <Tag className="w-4 h-4 mr-2" />
+                      Print Labels ({selectedItems.size})
+                    </Button>
+                    <Button onClick={printSelectedItems} variant="outline" size="sm" disabled={selectedItems.size === 0}>
                       <Printer className="w-4 h-4 mr-2" />
-                      Print Selected
+                      Print Report
                     </Button>
                   </>}
               </div>
@@ -877,7 +954,11 @@ export function OrderProcessor() {
                         {match.inventoryMatch && <div className="flex items-center gap-2">
                             <Button size="sm" className="bg-gradient-primary hover:opacity-90 text-white shadow-md hover:shadow-lg transition-all duration-200" onClick={() => handleQuantityUpdate(match, -match.orderItem.itemQuantity, matchedItems.findIndex(m => m === match))} disabled={loading} title="Process order and update inventory">
                               <CheckCircle className="w-3 h-3 mr-1" />
-                              Process Order
+                              Process
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => printOrderLabel(match)} title="Print label for this order">
+                              <Tag className="w-3 h-3 mr-1" />
+                              Label
                             </Button>
                           </div>}
                       </TableCell>
