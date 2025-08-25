@@ -1802,6 +1802,66 @@ export type Database = {
         }
         Relationships: []
       }
+      sunsky_export_history: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          export_type: string
+          file_name: string | null
+          file_size: number | null
+          filters: Json
+          id: string
+          pages_processed: number | null
+          progress_percentage: number | null
+          started_at: string
+          status: string
+          total_actual: number | null
+          total_estimated: number | null
+          total_pages: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          export_type?: string
+          file_name?: string | null
+          file_size?: number | null
+          filters?: Json
+          id?: string
+          pages_processed?: number | null
+          progress_percentage?: number | null
+          started_at?: string
+          status?: string
+          total_actual?: number | null
+          total_estimated?: number | null
+          total_pages?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          export_type?: string
+          file_name?: string | null
+          file_size?: number | null
+          filters?: Json
+          id?: string
+          pages_processed?: number | null
+          progress_percentage?: number | null
+          started_at?: string
+          status?: string
+          total_actual?: number | null
+          total_estimated?: number | null
+          total_pages?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       sunsky_import_job_items: {
         Row: {
           cost: number | null

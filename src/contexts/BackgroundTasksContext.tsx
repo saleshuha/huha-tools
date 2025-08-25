@@ -3,25 +3,35 @@ import { useToast } from '@/components/ui/use-toast';
 
 export interface BackgroundTask {
   id: string;
-  type: 'sku-upload' | 'file-processing' | 'bulk-save';
+  type: 'sku-upload' | 'file-processing' | 'bulk-save' | 'sunsky-export';
   name: string;
   progress: number;
-  status: 'pending' | 'processing' | 'completed' | 'error';
+  status: 'pending' | 'processing' | 'completed' | 'error' | 'cancelled';
   totalItems: number;
   processedItems: number;
   startTime: Date;
   endTime?: Date;
   error?: string;
   threads?: ThreadProgress[];
+  canCancel?: boolean;
+  metadata?: {
+    exportType?: string;
+    filters?: any;
+    fileName?: string;
+    fileSize?: number;
+    exportHistoryId?: string;
+  };
 }
 
 export interface ThreadProgress {
   id: number;
   progress: number;
   label: string;
-  status: 'waiting' | 'processing' | 'completed' | 'error';
+  status: 'waiting' | 'processing' | 'completed' | 'error' | 'cancelled';
   processed: number;
   total: number;
+  apiKey?: string;
+  categoryId?: string;
 }
 
 interface BackgroundTasksContextType {
@@ -30,7 +40,9 @@ interface BackgroundTasksContextType {
   addTask: (task: Omit<BackgroundTask, 'id' | 'startTime'>) => string;
   updateTask: (id: string, updates: Partial<BackgroundTask>) => void;
   removeTask: (id: string) => void;
+  cancelTask: (id: string) => void;
   clearCompletedTasks: () => void;
+  isTaskCancelled: (taskId: string) => boolean;
   runBackgroundUpload: (
     skus: any[], 
     onAddSKUs: (skus: any[]) => Promise<void>,
@@ -45,6 +57,7 @@ export function BackgroundTasksProvider({ children }: { children: React.ReactNod
   const [tasks, setTasks] = useState<BackgroundTask[]>([]);
   const { toast } = useToast();
   const taskIdCounter = useRef(0);
+  const cancellationFlags = useRef<Map<string, boolean>>(new Map());
 
   const addTask = useCallback((task: Omit<BackgroundTask, 'id' | 'startTime'>) => {
     const id = `task_${Date.now()}_${++taskIdCounter.current}`;
@@ -66,7 +79,17 @@ export function BackgroundTasksProvider({ children }: { children: React.ReactNod
 
   const removeTask = useCallback((id: string) => {
     setTasks(prev => prev.filter(task => task.id !== id));
+    cancellationFlags.current.delete(id);
   }, []);
+
+  const cancelTask = useCallback((id: string) => {
+    cancellationFlags.current.set(id, true);
+    updateTask(id, { 
+      status: 'cancelled', 
+      endTime: new Date(),
+      error: 'Cancelled by user'
+    });
+  }, [updateTask]);
 
   const clearCompletedTasks = useCallback(() => {
     setTasks(prev => prev.filter(task => 
@@ -77,6 +100,11 @@ export function BackgroundTasksProvider({ children }: { children: React.ReactNod
   const activeTasks = tasks.filter(task => 
     task.status === 'pending' || task.status === 'processing'
   );
+
+  // Helper function to check if task is cancelled
+  const isTaskCancelled = useCallback((taskId: string) => {
+    return cancellationFlags.current.get(taskId) === true;
+  }, []);
 
   const runBackgroundUpload = useCallback(async (
     skus: any[], 
@@ -218,19 +246,21 @@ export function BackgroundTasksProvider({ children }: { children: React.ReactNod
     }
   }, [addTask, updateTask, toast]);
 
-  return (
-    <BackgroundTasksContext.Provider value={{
-      tasks,
-      activeTasks,
-      addTask,
-      updateTask,
-      removeTask,
-      clearCompletedTasks,
-      runBackgroundUpload
-    }}>
-      {children}
-    </BackgroundTasksContext.Provider>
-  );
+    return (
+      <BackgroundTasksContext.Provider value={{
+        tasks,
+        activeTasks,
+        addTask,
+        updateTask,
+        removeTask,
+        cancelTask,
+        clearCompletedTasks,
+        runBackgroundUpload,
+        isTaskCancelled
+      }}>
+        {children}
+      </BackgroundTasksContext.Provider>
+    );
 }
 
 export function useBackgroundTasks() {

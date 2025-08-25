@@ -178,11 +178,11 @@ const getStatusBadgeVariant = (status?: number, isCategory = false): 'default' |
 
 export const SunskySKUImporter: React.FC = () => {
   const { toast } = useToast();
+  const { addTask, updateTask, cancelTask, isTaskCancelled } = useBackgroundTasks();
   const { profile } = useUserProfile();
   const { sunskySKUs, isLoading: skusLoading, fetchSKUs, totalCount, refreshSKUs, addSKUs } = useSKUManager();
   const { jobs, isLoading: jobsLoading, createImportJob, fetchJobs } = useImportJobs();
   const { getPOModelNumbers } = usePOOrders();
-  const { addTask, updateTask, removeTask } = useBackgroundTasks();
   
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -3074,7 +3074,7 @@ export const SunskySKUImporter: React.FC = () => {
                           onClick={() => {
                             if (currentExportTaskId) {
                               // Cancel background task
-                              removeTask(currentExportTaskId);
+                              cancelTask(currentExportTaskId);
                             }
                             setIsExporting(false);
                             setCurrentExportTaskId(null);

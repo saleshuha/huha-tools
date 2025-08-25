@@ -24,7 +24,7 @@ interface BackgroundTasksPanelProps {
 }
 
 export function BackgroundTasksPanel({ isOpen, onClose }: BackgroundTasksPanelProps) {
-  const { tasks, activeTasks, removeTask, clearCompletedTasks } = useBackgroundTasks();
+  const { tasks, activeTasks, removeTask, cancelTask, clearCompletedTasks } = useBackgroundTasks();
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
 
   if (!isOpen) return null;
@@ -51,6 +51,8 @@ export function BackgroundTasksPanel({ isOpen, onClose }: BackgroundTasksPanelPr
         return <CheckCircle2 className="h-4 w-4 text-green-500" />;
       case 'error':
         return <AlertCircle className="h-4 w-4 text-red-500" />;
+      case 'cancelled':
+        return <X className="h-4 w-4 text-gray-500" />;
       default:
         return null;
     }
@@ -61,7 +63,8 @@ export function BackgroundTasksPanel({ isOpen, onClose }: BackgroundTasksPanelPr
       pending: 'secondary',
       processing: 'default',
       completed: 'secondary',
-      error: 'destructive'
+      error: 'destructive',
+      cancelled: 'outline'
     } as const;
 
     return (
@@ -81,6 +84,8 @@ export function BackgroundTasksPanel({ isOpen, onClose }: BackgroundTasksPanelPr
         return 'bg-green-500';
       case 'error':
         return 'bg-red-500';
+      case 'cancelled':
+        return 'bg-gray-400';
       default:
         return 'bg-gray-200';
     }
@@ -130,6 +135,7 @@ export function BackgroundTasksPanel({ isOpen, onClose }: BackgroundTasksPanelPr
                         isExpanded={expandedTasks.has(task.id)}
                         onToggleExpand={() => toggleTaskExpansion(task.id)}
                         onRemove={() => removeTask(task.id)}
+                        onCancel={task.canCancel ? () => cancelTask(task.id) : undefined}
                         getStatusIcon={getStatusIcon}
                         getStatusBadge={getStatusBadge}
                         getThreadStatusColor={getThreadStatusColor}
@@ -154,6 +160,7 @@ export function BackgroundTasksPanel({ isOpen, onClose }: BackgroundTasksPanelPr
                           isExpanded={expandedTasks.has(task.id)}
                           onToggleExpand={() => toggleTaskExpansion(task.id)}
                           onRemove={() => removeTask(task.id)}
+                          onCancel={task.canCancel ? () => cancelTask(task.id) : undefined}
                           getStatusIcon={getStatusIcon}
                           getStatusBadge={getStatusBadge}
                           getThreadStatusColor={getThreadStatusColor}
@@ -175,6 +182,7 @@ interface TaskCardProps {
   isExpanded: boolean;
   onToggleExpand: () => void;
   onRemove: () => void;
+  onCancel?: () => void;
   getStatusIcon: (status: BackgroundTask['status']) => React.ReactNode;
   getStatusBadge: (status: BackgroundTask['status']) => React.ReactNode;
   getThreadStatusColor: (status: ThreadProgress['status']) => string;
@@ -185,6 +193,7 @@ function TaskCard({
   isExpanded, 
   onToggleExpand, 
   onRemove,
+  onCancel,
   getStatusIcon,
   getStatusBadge,
   getThreadStatusColor
@@ -259,9 +268,16 @@ function TaskCard({
                   </span>
                 )}
               </div>
-              <Button variant="outline" size="sm" onClick={onRemove}>
-                <X className="h-4 w-4" />
-              </Button>
+              <div className="flex gap-2">
+                {onCancel && task.status === 'processing' && (
+                  <Button variant="outline" size="sm" onClick={onCancel}>
+                    Cancel
+                  </Button>
+                )}
+                <Button variant="outline" size="sm" onClick={onRemove}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </CardContent>
         </CollapsibleContent>
