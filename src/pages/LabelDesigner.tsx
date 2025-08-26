@@ -3,6 +3,9 @@ import { LabelDocProvider, useLabelDoc } from '@/contexts/LabelDocContext';
 import { LabelToolbar } from '@/components/label/LabelToolbar';
 import { LabelWorkspace } from '@/components/label/LabelWorkspace';
 import { LabelPropertiesPanel } from '@/components/label/LabelPropertiesPanel';
+import { InventoryDataMapper } from '@/components/label/InventoryDataMapper';
+import { OrderLabelTemplates } from '@/components/label/OrderLabelTemplates';
+import { DataPreviewPanel } from '@/components/label/DataPreviewPanel';
 import { PrintService } from '@/services/print-service';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -99,7 +102,7 @@ const LabelDesignerContent: React.FC = () => {
                 {dataset && (
                   <Badge variant="secondary">
                     <Database className="h-3 w-3 mr-1" />
-                    {dataset.name}
+                    {dataset.name} ({dataset.rowCount} rows)
                   </Badge>
                 )}
               </div>
@@ -205,11 +208,16 @@ const LabelDesignerContent: React.FC = () => {
           </div>
         </div>
       </div>
-      <div className="flex-1 flex gap-4 p-4 min-h-0">
-        <LabelToolbar />
-        <LabelWorkspace />
-        <LabelPropertiesPanel />
-      </div>
+        <div className="flex-1 flex gap-4 p-4 min-h-0">
+          <LabelToolbar />
+          <LabelWorkspace />
+          <div className="flex flex-col gap-4 overflow-y-auto">
+            <LabelPropertiesPanel />
+            <InventoryDataMapper />
+            <OrderLabelTemplates />
+            <DataPreviewPanel />
+          </div>
+        </div>
     </div>
   );
 };

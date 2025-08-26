@@ -16,6 +16,7 @@ interface LabelDocContextType {
   
   // Dataset operations
   loadDataset: (id: string) => Promise<void>;
+  setDataset: (dataset: LabelDataset) => void;
   
   // Element operations
   addElement: (element: Omit<LabelElement, 'id'>) => void;
@@ -147,6 +148,11 @@ export const LabelDocProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [document]);
 
   const loadDataset = useCallback(async (id: string) => {
+    if (id === 'inventory' || id === 'orders') {
+      // Handle in-memory datasets - they will be set directly via setDataset
+      return;
+    }
+    
     try {
       const { data, error } = await supabase
         .from('label_datasets')
@@ -175,6 +181,14 @@ export const LabelDocProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } catch (error) {
       toast.error('Failed to load dataset');
       console.error(error);
+    }
+  }, [document]);
+
+  const setDatasetDirectly = useCallback((newDataset: LabelDataset) => {
+    setDataset(newDataset);
+    
+    if (document) {
+      setDocument(prev => prev ? { ...prev, datasetId: newDataset.id } : null);
     }
   }, [document]);
 
@@ -250,6 +264,7 @@ export const LabelDocProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       loadDocument,
       saveDocument,
       loadDataset,
+      setDataset: setDatasetDirectly,
       addElement,
       updateElement,
       deleteElement,
