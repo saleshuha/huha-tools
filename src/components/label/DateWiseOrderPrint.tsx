@@ -49,6 +49,11 @@ export const DateWiseOrderPrint: React.FC = () => {
     labelsPerPage: 4,
     margin: 10,
   });
+  const [useCustomPageSize, setUseCustomPageSize] = useState(false);
+  const [customPageSize, setCustomPageSize] = useState({
+    width: 210, // A4 width in mm
+    height: 297, // A4 height in mm
+  });
 
   useEffect(() => {
     fetchOrders();
@@ -225,13 +230,17 @@ export const DateWiseOrderPrint: React.FC = () => {
     const isBulk = dataset && dataset.data.length > 0;
     const totalLabels = Math.min(isBulk ? dataset.data.length : 1, maxLabels);
 
+    // Use custom page size if enabled, otherwise use label size
+    const pageWidth = useCustomPageSize ? customPageSize.width : document.size.width;
+    const pageHeight = useCustomPageSize ? customPageSize.height : document.size.height;
+
     let html = `
       <html>
         <head>
           <title>Label Print</title>
           <style>
             @page {
-              size: ${document.size.width}mm ${document.size.height}mm;
+              size: ${pageWidth}mm ${pageHeight}mm;
               margin: 0;
             }
             body { 
@@ -240,8 +249,8 @@ export const DateWiseOrderPrint: React.FC = () => {
               padding: 0;
             }
             .label { 
-              width: ${document.size.width}mm;
-              height: ${document.size.height}mm;
+              width: ${pageWidth}mm;
+              height: ${pageHeight}mm;
               position: relative; 
               background: white;
               page-break-after: always;
@@ -491,6 +500,48 @@ export const DateWiseOrderPrint: React.FC = () => {
               </Select>
             </div>
           </div>
+        </div>
+
+        {/* Page Size Settings */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Checkbox
+              checked={useCustomPageSize}
+              onCheckedChange={(checked) => setUseCustomPageSize(!!checked)}
+            />
+            <Label className="text-sm font-medium">Use Custom Page Size</Label>
+          </div>
+          
+          {useCustomPageSize && (
+            <div className="grid grid-cols-2 gap-3 p-3 bg-muted rounded-lg">
+              <div>
+                <Label className="text-xs">Width (mm)</Label>
+                <Input
+                  type="number"
+                  value={customPageSize.width}
+                  onChange={(e) => setCustomPageSize(prev => ({...prev, width: Number(e.target.value)}))}
+                  placeholder="210"
+                  className="h-8"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Height (mm)</Label>
+                <Input
+                  type="number"
+                  value={customPageSize.height}
+                  onChange={(e) => setCustomPageSize(prev => ({...prev, height: Number(e.target.value)}))}
+                  placeholder="297"
+                  className="h-8"
+                />
+              </div>
+              <div className="col-span-2">
+                <Label className="text-xs text-muted-foreground">
+                  Page Size: {customPageSize.width} × {customPageSize.height} mm
+                  {!useCustomPageSize && ` (using label size: ${labelDoc?.size.width || 0} × ${labelDoc?.size.height || 0} mm)`}
+                </Label>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Orders List */}
