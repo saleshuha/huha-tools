@@ -224,16 +224,15 @@ export class PrintService {
         let lines: string[] = [];
         let zplOutput = '';
         
-        // Simple line wrapping for ZPL
+        // Better line wrapping for ZPL - more closely matches canvas behavior
+        const avgCharWidthMM = (element.fontSize || 10) * 0.6 / 3.78; // More accurate character width estimation
+        const maxCharsPerLine = Math.floor(pxToMM(maxWidth) / avgCharWidthMM);
+        
         words.forEach(word => {
           const testLine = currentLine ? `${currentLine} ${word}` : word;
-          if (testLine.length * (multiFontSize * 8) > this.mmToDots(pxToMM(maxWidth), dpi)) {
-            if (currentLine) {
-              lines.push(currentLine);
-              currentLine = word;
-            } else {
-              lines.push(word);
-            }
+          if (testLine.length > maxCharsPerLine && currentLine) {
+            lines.push(currentLine);
+            currentLine = word;
           } else {
             currentLine = testLine;
           }
