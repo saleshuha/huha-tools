@@ -1397,10 +1397,12 @@ export type Database = {
           external_id_type: string | null
           file_name: string
           id: string
+          item_key: string | null
           job_id: string | null
           model_number: string | null
           notes: string | null
           order_date: string | null
+          po_key: string | null
           po_number: string
           quantity: number
           ship_to_location: string | null
@@ -1427,10 +1429,12 @@ export type Database = {
           external_id_type?: string | null
           file_name: string
           id?: string
+          item_key?: string | null
           job_id?: string | null
           model_number?: string | null
           notes?: string | null
           order_date?: string | null
+          po_key?: string | null
           po_number: string
           quantity?: number
           ship_to_location?: string | null
@@ -1457,10 +1461,12 @@ export type Database = {
           external_id_type?: string | null
           file_name?: string
           id?: string
+          item_key?: string | null
           job_id?: string | null
           model_number?: string | null
           notes?: string | null
           order_date?: string | null
+          po_key?: string | null
           po_number?: string
           quantity?: number
           ship_to_location?: string | null
@@ -2869,10 +2875,12 @@ export type Database = {
           external_id_type: string | null
           file_name: string
           id: string
+          item_key: string | null
           job_id: string | null
           model_number: string | null
           notes: string | null
           order_date: string | null
+          po_key: string | null
           po_number: string
           quantity: number
           ship_to_location: string | null

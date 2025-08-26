@@ -98,7 +98,7 @@ export const usePOOrders = () => {
     }
   }, [toast]);
 
-  // Process PO files with mapped data - Enhanced comprehensive duplicate detection
+  // Process PO files with identity-based duplicate detection
   const processPOFiles = useCallback(async (mappedData: any[], sunskySKUs: any[]) => {
     setIsLoading(true);
     setLoadingProgress(0);
@@ -111,12 +111,12 @@ export const usePOOrders = () => {
       console.log(`🚀 STARTING PO PROCESSING: ${mappedData.length} rows from file`);
 
       setLoadingProgress(10);
-      setLoadingStatus('Loading existing PO data for duplicate detection...');
+      setLoadingStatus('Loading existing PO identities for duplicate detection...');
 
-      // Fetch ALL existing PO orders for comprehensive duplicate checking
+      // Fetch existing PO identities for duplicate detection
       const { data: existingOrders, error: fetchError } = await supabase
         .from('po_orders')
-        .select('po_number, sku_code, quantity, model_number, asin, title, ship_to_location')
+        .select('po_key, item_key, po_number, model_number, asin, sku_code')
         .eq('user_id', user.id);
 
       if (fetchError) {
@@ -126,43 +126,24 @@ export const usePOOrders = () => {
       console.log(`📊 EXISTING DATA: Found ${existingOrders?.length || 0} existing PO orders`);
 
       setLoadingProgress(20);
-      setLoadingStatus('Building comprehensive duplicate detection system...');
+      setLoadingStatus('Building identity-based duplicate detection...');
 
-      // Create comprehensive duplicate detection system
-      const existingRecordsMap = new Map();
+      // Create identity-based duplicate detection
+      const existingIdentities = new Set();
       
       (existingOrders || []).forEach(order => {
-        // Create a comprehensive fingerprint for each existing record
-        const fingerprint = {
-          po: order.po_number?.trim()?.toLowerCase() || '',
-          model: order.model_number?.trim()?.toLowerCase() || '',
-          asin: order.asin?.trim()?.toLowerCase() || '',
-          sku: order.sku_code?.trim()?.toLowerCase() || '',
-          qty: Number(order.quantity) || 0,
-          title: order.title?.trim()?.toLowerCase() || '',
-          location: order.ship_to_location?.trim()?.toLowerCase() || ''
-        };
-
-        // Generate multiple duplicate detection keys for flexibility
-        const keys = [
-          `${fingerprint.po}|${fingerprint.model}|${fingerprint.qty}`, // Primary: PO + Model + Qty
-          `${fingerprint.po}|${fingerprint.asin}|${fingerprint.qty}`,   // Secondary: PO + ASIN + Qty  
-          `${fingerprint.po}|${fingerprint.sku}|${fingerprint.qty}`,    // Tertiary: PO + SKU + Qty
-          `${fingerprint.po}|${fingerprint.title}|${fingerprint.qty}|${fingerprint.location}` // Quaternary: Full match
-        ];
-
-        keys.forEach(key => {
-          if (key && !key.includes('||') && key.length > 5) { // Avoid empty/invalid keys
-            existingRecordsMap.set(key, order);
-          }
-        });
+        if (order.po_key && order.item_key) {
+          existingIdentities.add(`${order.po_key}|${order.item_key}`);
+        }
       });
 
-      console.log(`🔍 DUPLICATE DETECTION: Created ${existingRecordsMap.size} detection keys from existing data`);
+      console.log(`🔍 DUPLICATE DETECTION: Created ${existingIdentities.size} identity keys from existing data`);
 
       setLoadingProgress(30);
-      setLoadingStatus('Processing and validating incoming data...');
+      setLoadingStatus('Processing and grouping incoming data by identity...');
 
+      // Group items by identity and sum quantities within the file
+      const itemGroups = new Map();
       const results = {
         processed: 0,
         inserted: 0,
@@ -172,24 +153,13 @@ export const usePOOrders = () => {
         skipped: [] as string[]
       };
 
-      const validOrdersToInsert: any[] = [];
-      const currentFileTracker = new Set(); // Track items within current file to prevent intra-file duplicates
-
-      // Process each row with comprehensive validation
+      // First pass: validate and group by identity
       for (let i = 0; i < mappedData.length; i++) {
         const item = mappedData[i];
         const rowNum = i + 1;
         
-        setLoadingProgress(30 + (i / mappedData.length) * 40);
-        setLoadingStatus(`Validating row ${rowNum}/${mappedData.length}...`);
-
-        console.log(`\n🔍 ROW ${rowNum}/${mappedData.length}:`, {
-          po: item.po_number,
-          model: item.model_number,
-          asin: item.asin,
-          qty: item.quantity,
-          title: item.title?.substring(0, 30) + '...'
-        });
+        setLoadingProgress(30 + (i / mappedData.length) * 30);
+        setLoadingStatus(`Processing row ${rowNum}/${mappedData.length}...`);
 
         results.processed++;
 
@@ -226,95 +196,66 @@ export const usePOOrders = () => {
           continue;
         }
 
-        // === DUPLICATE DETECTION ===
-        const newFingerprint = {
-          po: po.toLowerCase(),
-          model: model?.toLowerCase() || '',
-          asin: asin?.toLowerCase() || '',
-          title: title.toLowerCase(),
-          qty: qty,
-          location: location?.toLowerCase() || ''
-        };
+        // === CREATE IDENTITY ===
+        const poKey = po.toLowerCase().trim();
+        const primarySku = model || asin || item.sku_code?.trim() || '';
+        const itemKey = primarySku.toLowerCase().trim();
+        const identity = `${poKey}|${itemKey}`;
 
-        // Generate detection keys for new item
-        const newKeys = [
-          `${newFingerprint.po}|${newFingerprint.model}|${newFingerprint.qty}`,
-          `${newFingerprint.po}|${newFingerprint.asin}|${newFingerprint.qty}`,
-          `${newFingerprint.po}|${newFingerprint.title}|${newFingerprint.qty}|${newFingerprint.location}`
-        ].filter(key => key && !key.includes('||') && key.length > 5);
+        console.log(`🔍 Row ${rowNum}: Identity="${identity}", Qty=${qty}, Title="${title.substring(0, 30)}..."`);
 
-        // Check against existing database records
-        let foundExistingDuplicate = false;
-        let duplicateKey = '';
-        
-        for (const key of newKeys) {
-          if (existingRecordsMap.has(key)) {
-            foundExistingDuplicate = true;
-            duplicateKey = key;
-            break;
-          }
-        }
-
-        if (foundExistingDuplicate) {
-          const skip = `Row ${rowNum}: Duplicate in database - "${title}" (Key: ${duplicateKey})`;
+        // Check if already exists in database
+        if (existingIdentities.has(identity)) {
+          const skip = `Row ${rowNum}: Duplicate in database - "${title}" (Identity: ${identity})`;
           results.duplicates++;
           results.skipped.push(skip);
           console.log(`⚠️ DUPLICATE (DB): ${skip}`);
           continue;
         }
 
-        // Check against current file (prevent intra-file duplicates)
-        let foundIntraFileDuplicate = false;
-        for (const key of newKeys) {
-          if (currentFileTracker.has(key)) {
-            foundIntraFileDuplicate = true;
-            duplicateKey = key;
-            break;
-          }
+        // Group by identity within file
+        if (itemGroups.has(identity)) {
+          // Add to existing group
+          const existingGroup = itemGroups.get(identity);
+          existingGroup.quantity += qty;
+          existingGroup.sourceRows.push(rowNum);
+          console.log(`📎 Row ${rowNum}: Added to existing group, new total qty: ${existingGroup.quantity}`);
+        } else {
+          // Create new group
+          const newGroup = {
+            po_number: po,
+            ship_to_location: location || 'Not specified',
+            asin: asin || null,
+            model_number: model || null,
+            title: title,
+            quantity: qty,
+            sku_code: primarySku,
+            external_id: item.external_id?.trim() || null,
+            external_id_type: item.external_id_type?.trim() || null,
+            status: 'pending',
+            file_name: item.file_name || 'uploaded-file.csv',
+            unit_cost: item.unit_cost ? Number(item.unit_cost) : null,
+            sku_user_id: user.id,
+            user_id: user.id,
+            sourceRows: [rowNum],
+            identity: identity
+          };
+          itemGroups.set(identity, newGroup);
+          console.log(`✨ Row ${rowNum}: Created new group with identity: ${identity}`);
         }
-
-        if (foundIntraFileDuplicate) {
-          const skip = `Row ${rowNum}: Duplicate within file - "${title}" (Key: ${duplicateKey})`;
-          results.duplicates++;
-          results.skipped.push(skip);
-          console.log(`⚠️ DUPLICATE (FILE): ${skip}`);
-          continue;
-        }
-
-        // Add to current file tracker
-        newKeys.forEach(key => currentFileTracker.add(key));
-
-        // === PREPARE FOR INSERT ===
-        const validOrder = {
-          po_number: po,
-          ship_to_location: location || 'Not specified',
-          asin: asin || null,
-          model_number: model || null,
-          title: title,
-          quantity: qty,
-          sku_code: model || asin || null,
-          external_id: item.external_id?.trim() || null,
-          external_id_type: item.external_id_type?.trim() || null,
-          status: 'pending',
-          file_name: item.file_name || 'uploaded-file.csv',
-          unit_cost: item.unit_cost ? Number(item.unit_cost) : null,
-          sku_user_id: user.id,
-          user_id: user.id
-        };
-
-        validOrdersToInsert.push(validOrder);
-        console.log(`✅ Row ${rowNum}: Valid - prepared for insert`);
       }
 
-      console.log(`\n📊 PROCESSING SUMMARY:`);
+      console.log(`\n📊 GROUPING SUMMARY:`);
       console.log(`📥 Rows processed: ${results.processed}`);
-      console.log(`✅ Valid for insert: ${validOrdersToInsert.length}`);
-      console.log(`⚠️ Duplicates skipped: ${results.duplicates}`);
+      console.log(`📦 Unique identities: ${itemGroups.size}`);
+      console.log(`⚠️ DB duplicates skipped: ${results.duplicates}`);
       console.log(`❌ Invalid rows: ${results.invalid}`);
 
       // === BULK INSERT ===
-      setLoadingProgress(80);
-      setLoadingStatus(`Inserting ${validOrdersToInsert.length} valid orders...`);
+      setLoadingProgress(70);
+      setLoadingStatus(`Inserting ${itemGroups.size} unique items...`);
+
+      const validOrdersToInsert = Array.from(itemGroups.values());
 
       if (validOrdersToInsert.length > 0) {
         const { error: insertError } = await supabase
@@ -326,7 +267,11 @@ export const usePOOrders = () => {
         }
 
         results.inserted = validOrdersToInsert.length;
-        console.log(`✅ Successfully inserted ${results.inserted} orders into database`);
+        console.log(`✅ Successfully inserted ${results.inserted} unique orders into database`);
+
+        // Log first 5 inserted identities for debugging
+        const insertedIdentities = validOrdersToInsert.slice(0, 5).map(order => order.identity);
+        console.log(`🔎 First 5 inserted identities:`, insertedIdentities);
       }
 
       setLoadingProgress(95);
@@ -337,23 +282,23 @@ export const usePOOrders = () => {
       // === FINAL RESULTS ===
       console.log(`\n🏁 FINAL RESULTS:`);
       console.log(`📊 Total rows in file: ${mappedData.length}`);
-      console.log(`✅ Successfully inserted: ${results.inserted}`);
+      console.log(`✅ Successfully inserted: ${results.inserted} unique items`);
       console.log(`⚠️ Duplicates skipped: ${results.duplicates}`);
       console.log(`❌ Invalid/Errors: ${results.invalid}`);
-      console.log(`🎯 Database now contains these new records`);
+      console.log(`🎯 Database enforces uniqueness on (user_id, po_key, item_key)`);
 
       // Show user-friendly results
       let message = `Processed ${results.processed} rows: `;
       let details = [];
       
-      if (results.inserted > 0) details.push(`${results.inserted} inserted`);
+      if (results.inserted > 0) details.push(`${results.inserted} unique items inserted`);
       if (results.duplicates > 0) details.push(`${results.duplicates} duplicates skipped`);
       if (results.invalid > 0) details.push(`${results.invalid} invalid`);
       
       message += details.join(', ');
 
       if (results.errors.length > 0) {
-        console.log('🚨 Processing errors:', results.errors.slice(0, 5));
+        console.log('🚨 First 5 processing errors:', results.errors.slice(0, 5));
       }
 
       toast({
