@@ -1141,7 +1141,8 @@ export function Replenishment() {
         if (stockChanges && stockChanges.length > 0) {
           // Sum all negative changes (units sold)
           const unitsSold = stockChanges.reduce((sum, change) => sum + Math.abs(change.change_amount), 0);
-          calculatedQty = unitsSold;
+          // Calculate quantity as half of units sold after last restock, minimum 1
+          calculatedQty = Math.max(1, Math.ceil(unitsSold / 2));
         }
         
         // If no restock was made before (days_since_last_restock is null), add 1 piece
