@@ -9,7 +9,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { CalendarIcon, Printer, Download, Eye, Filter } from 'lucide-react';
+import { CalendarIcon, Printer, Download, Eye, Filter, Copy } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useLabelDoc } from '@/contexts/LabelDocContext';
@@ -17,6 +17,7 @@ import { PrintService } from '@/services/print-service';
 import { LabelDataset, PrintSettings, LabelDoc, LabelElement } from '@/types/label';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import QZTrayPrinter from '@/utils/qz-tray-printer';
 
 interface OrderToProcess {
   id: string;
@@ -41,23 +42,54 @@ export const DateWiseOrderPrint: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [printSettings, setPrintSettings] = useState<PrintSettings>({
-    format: 'pdf',
-    paperSize: 'a4',
+    format: 'zpl',
+    paperSize: 'custom',
     orientation: 'portrait',
     dpi: 203,
     copies: 1,
-    labelsPerPage: 4,
-    margin: 10,
+    labelsPerPage: 1,
+    margin: 0,
   });
   const [useCustomPageSize, setUseCustomPageSize] = useState(false);
   const [customPageSize, setCustomPageSize] = useState({
     width: 210, // A4 width in mm
     height: 297, // A4 height in mm
   });
+  const [usePerQuantityPrinting, setUsePerQuantityPrinting] = useState(true);
+  
+  // QZ Tray state
+  const [qzConnected, setQzConnected] = useState(false);
+  const [availablePrinters, setAvailablePrinters] = useState<string[]>([]);
+  const [selectedPrinter, setSelectedPrinter] = useState<string>('');
 
   useEffect(() => {
     fetchOrders();
+    initializeQZ();
   }, [selectedDate, dateRange, endDate, statusFilter]);
+
+  const initializeQZ = async () => {
+    try {
+      const connected = await QZTrayPrinter.connect();
+      if (connected) {
+        setQzConnected(true);
+        const printers = await QZTrayPrinter.getPrinters();
+        setAvailablePrinters(printers);
+        
+        // Set default printer (prefer Zebra printers)
+        const defaultPrinter = await QZTrayPrinter.getDefaultPrinter();
+        if (defaultPrinter) {
+          setSelectedPrinter(defaultPrinter);
+        } else if (printers.length > 0) {
+          setSelectedPrinter(printers[0]);
+        }
+        
+        toast.success('QZ Tray connected successfully');
+      }
+    } catch (error) {
+      console.error('Failed to connect to QZ Tray:', error);
+      // Don't show error toast as it's optional
+    }
+  };
 
   const fetchOrders = async () => {
     setLoading(true);
@@ -155,16 +187,37 @@ export const DateWiseOrderPrint: React.FC = () => {
       'File Name'
     ];
 
-    const data = selectedOrderData.map(order => [
-      order.order_number || '',
-      order.asin_code || '',
-      order.sku_code || '',
-      order.product_title || '',
-      order.quantity.toString(),
-      order.order_date,
-      order.status,
-      order.file_name
-    ]);
+    let data: any[][] = [];
+    
+    if (usePerQuantityPrinting) {
+      // Create a row for each quantity
+      selectedOrderData.forEach(order => {
+        for (let i = 0; i < order.quantity; i++) {
+          data.push([
+            order.order_number || '',
+            order.asin_code || '',
+            order.sku_code || '',
+            order.product_title || '',
+            '1', // Each label represents quantity of 1
+            order.order_date,
+            order.status,
+            order.file_name
+          ]);
+        }
+      });
+    } else {
+      // Single row per order
+      data = selectedOrderData.map(order => [
+        order.order_number || '',
+        order.asin_code || '',
+        order.sku_code || '',
+        order.product_title || '',
+        order.quantity.toString(),
+        order.order_date,
+        order.status,
+        order.file_name
+      ]);
+    }
 
     return {
       id: `orders_${Date.now()}`,
@@ -179,44 +232,48 @@ export const DateWiseOrderPrint: React.FC = () => {
   };
 
   const handlePrintLabels = async () => {
-    console.log('Print labels clicked');
-    
     if (!labelDoc) {
-      console.log('No label document found');
       toast.error('Please create a label template first');
       return;
     }
 
     if (selectedOrders.length === 0) {
-      console.log('No orders selected');
       toast.error('Please select at least one order to print');
       return;
     }
 
     try {
-      console.log('Generating dataset for orders:', selectedOrders.length);
       const ordersDataset = createDatasetFromOrders();
       
-      console.log('Opening print window like canvas method...');
-      // Use the same approach as the working canvas print
-      const printWindow = window.open('', '_blank', 'width=800,height=600');
-      
-      if (!printWindow) {
-        toast.error('Unable to open print window. Please allow popups for this site.');
-        return;
-      }
+      if (qzConnected && selectedPrinter && printSettings.format === 'zpl') {
+        // Direct printing via QZ Tray
+        const zplCode = PrintService.generateZPL(labelDoc, ordersDataset, printSettings);
+        
+        await QZTrayPrinter.printZPL(zplCode, { 
+          printerName: selectedPrinter 
+        });
+        
+        const totalLabels = ordersDataset.data.length * printSettings.copies;
+        toast.success(`Successfully sent ${totalLabels} labels to printer: ${selectedPrinter}`);
+      } else {
+        // Fallback to HTML printing
+        const printWindow = window.open('', '_blank', 'width=800,height=600');
+        
+        if (!printWindow) {
+          toast.error('Unable to open print window. Please allow popups for this site.');
+          return;
+        }
 
-      // Generate complete HTML for print window
-      const html = generatePrintWindowHTML(labelDoc, ordersDataset, selectedOrders.length);
-      
-      printWindow.document.write(html);
-      printWindow.document.close();
-      
-      toast.success(`Preparing ${selectedOrders.length} labels for printing...`);
+        const html = generatePrintWindowHTML(labelDoc, ordersDataset, ordersDataset.data.length);
+        printWindow.document.write(html);
+        printWindow.document.close();
+        
+        toast.success(`Preparing ${ordersDataset.data.length} labels for printing...`);
+      }
       
     } catch (error) {
       console.error('Print error:', error);
-      toast.error('Failed to print labels: ' + error.message);
+      toast.error('Failed to print labels: ' + (error as Error).message);
     }
   };
 
@@ -500,6 +557,19 @@ export const DateWiseOrderPrint: React.FC = () => {
     toast.success(`Dataset created with ${selectedOrders.length} orders. Use the data in your label template.`);
   };
 
+  const getTotalLabels = (): number => {
+    if (selectedOrders.length === 0) return 0;
+    
+    const selectedOrderData = orders.filter(order => selectedOrders.includes(order.id));
+    
+    if (usePerQuantityPrinting) {
+      const totalQuantity = selectedOrderData.reduce((sum, order) => sum + order.quantity, 0);
+      return totalQuantity * printSettings.copies;
+    } else {
+      return selectedOrders.length * printSettings.copies;
+    }
+  };
+
   return (
     <Card className="w-full h-fit">
       <CardHeader className="pb-3">
@@ -585,16 +655,50 @@ export const DateWiseOrderPrint: React.FC = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="pdf">PDF</SelectItem>
-                  <SelectItem value="zpl">ZPL</SelectItem>
+                  <SelectItem value="zpl">ZPL (Direct Print)</SelectItem>
+                  <SelectItem value="pdf">PDF (Preview)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
         </div>
 
-        {/* Page Size Settings */}
+        {/* Print Settings */}
         <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-sm font-medium">DPI</Label>
+              <Select value={printSettings.dpi.toString()} onValueChange={(value) => setPrintSettings(prev => ({...prev, dpi: Number(value) as 203 | 300}))}>
+                <SelectTrigger className="h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="203">203 DPI</SelectItem>
+                  <SelectItem value="300">300 DPI</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-sm font-medium">Copies</Label>
+              <Input
+                type="number"
+                min="1"
+                max="10"
+                value={printSettings.copies}
+                onChange={(e) => setPrintSettings(prev => ({...prev, copies: Number(e.target.value)}))}
+                className="h-8"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Checkbox
+              checked={usePerQuantityPrinting}
+              onCheckedChange={(checked) => setUsePerQuantityPrinting(!!checked)}
+            />
+            <Label className="text-sm font-medium">Print separate label for each quantity</Label>
+          </div>
+          
           <div className="flex items-center gap-2">
             <Checkbox
               checked={useCustomPageSize}
@@ -634,6 +738,46 @@ export const DateWiseOrderPrint: React.FC = () => {
             </div>
           )}
         </div>
+
+        {/* QZ Tray Status and Printer Selection */}
+        {printSettings.format === 'zpl' && (
+          <div className="space-y-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+            <div className="flex items-center gap-2">
+              <Badge variant={qzConnected ? "default" : "secondary"} className={qzConnected ? "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400" : ""}>
+                QZ Tray {qzConnected ? "Connected" : "Disconnected"}
+              </Badge>
+              {!qzConnected && (
+                <Button variant="outline" size="sm" onClick={initializeQZ}>
+                  Reconnect
+                </Button>
+              )}
+            </div>
+            
+            {qzConnected && availablePrinters.length > 0 && (
+              <div>
+                <Label className="text-sm font-medium">Select Printer</Label>
+                <Select value={selectedPrinter} onValueChange={setSelectedPrinter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select printer" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availablePrinters.map(printer => (
+                      <SelectItem key={printer} value={printer}>
+                        {printer}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            
+            {!qzConnected && (
+              <p className="text-sm text-blue-700 dark:text-blue-400">
+                Install and run QZ Tray for direct printer support
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Orders List */}
         <div className="space-y-3">
@@ -722,11 +866,11 @@ export const DateWiseOrderPrint: React.FC = () => {
         
         <Button
           onClick={handlePrintLabels}
-          disabled={selectedOrders.length === 0 || !labelDoc}
+          disabled={selectedOrders.length === 0 || !labelDoc || (printSettings.format === 'zpl' && (!qzConnected || !selectedPrinter))}
           className="w-full"
         >
           <Printer className="h-4 w-4 mr-2" />
-          Print {selectedOrders.length > 0 ? `${selectedOrders.length} ` : ''}Labels
+          {printSettings.format === 'zpl' && qzConnected ? 'Direct Print' : 'Print'} {selectedOrders.length > 0 ? `${getTotalLabels()} ` : ''}Labels
         </Button>
 
         {!labelDoc && (
@@ -736,14 +880,20 @@ export const DateWiseOrderPrint: React.FC = () => {
         )}
 
         {selectedOrders.length > 0 && (
-          <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-xs space-y-2">
-            <p className="font-medium text-blue-900 dark:text-blue-300">
-              Print Settings:
+          <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg text-xs space-y-2">
+            <p className="font-medium text-green-900 dark:text-green-300">
+              Print Summary:
             </p>
-            <ul className="text-blue-700 dark:text-blue-400 space-y-1">
+            <ul className="text-green-700 dark:text-green-400 space-y-1">
               <li>• Format: {printSettings.format.toUpperCase()}</li>
-              <li>• Selected: {selectedOrders.length} orders</li>
-              <li>• Total Labels: {selectedOrders.length * printSettings.copies}</li>
+              <li>• Selected Orders: {selectedOrders.length}</li>
+              <li>• Labels per Order: {usePerQuantityPrinting ? 'Per Quantity' : '1'}</li>
+              <li>• Total Labels: {getTotalLabels()}</li>
+              <li>• DPI: {printSettings.dpi}</li>
+              <li>• Copies: {printSettings.copies}</li>
+              {qzConnected && selectedPrinter && (
+                <li>• Printer: {selectedPrinter}</li>
+              )}
             </ul>
           </div>
         )}
