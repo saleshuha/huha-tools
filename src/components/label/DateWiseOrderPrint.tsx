@@ -197,39 +197,22 @@ export const DateWiseOrderPrint: React.FC = () => {
       console.log('Generating dataset for orders:', selectedOrders.length);
       const ordersDataset = createDatasetFromOrders();
       
-      console.log('Creating print content...');
-      // Generate HTML content for direct printing
-      const html = generateDirectPrintHTML(labelDoc, ordersDataset, selectedOrders.length);
+      console.log('Opening print window like canvas method...');
+      // Use the same approach as the working canvas print
+      const printWindow = window.open('', '_blank', 'width=800,height=600');
       
-      // Create and show print container
-      const printContainer = document.createElement('div');
-      printContainer.id = 'print-labels-container';
-      printContainer.innerHTML = html;
+      if (!printWindow) {
+        toast.error('Unable to open print window. Please allow popups for this site.');
+        return;
+      }
+
+      // Generate complete HTML for print window
+      const html = generatePrintWindowHTML(labelDoc, ordersDataset, selectedOrders.length);
       
-      // Add to document body
-      document.body.appendChild(printContainer);
+      printWindow.document.write(html);
+      printWindow.document.close();
       
-      // Create print-specific styles
-      const printStyles = document.createElement('style');
-      printStyles.id = 'print-labels-styles';
-      printStyles.innerHTML = generatePrintStyles();
-      document.head.appendChild(printStyles);
-      
-      console.log('Triggering print dialog...');
-      // Small delay to ensure content is ready
-      setTimeout(() => {
-        window.print();
-        
-        // Clean up after print dialog closes
-        setTimeout(() => {
-          const container = document.getElementById('print-labels-container');
-          const styles = document.getElementById('print-labels-styles');
-          if (container) document.body.removeChild(container);
-          if (styles) document.head.removeChild(styles);
-        }, 1000);
-      }, 100);
-      
-      toast.success(`Printing ${selectedOrders.length} labels...`);
+      toast.success(`Preparing ${selectedOrders.length} labels for printing...`);
       
     } catch (error) {
       console.error('Print error:', error);
@@ -237,94 +220,96 @@ export const DateWiseOrderPrint: React.FC = () => {
     }
   };
 
-  const generateDirectPrintHTML = (
+  const generatePrintWindowHTML = (
     document: LabelDoc,
     dataset: LabelDataset | null,
     maxLabels: number = 10
   ): string => {
     const isBulk = dataset && dataset.data.length > 0;
     const totalLabels = Math.min(isBulk ? dataset.data.length : 1, maxLabels);
+    
+    // Use custom page size if enabled, otherwise use label size
+    const pageWidth = useCustomPageSize ? customPageSize.width : document.size.width;  
+    const pageHeight = useCustomPageSize ? customPageSize.height : document.size.height;
 
-    let html = '';
+    let labelsHTML = '';
 
     for (let labelIndex = 0; labelIndex < totalLabels; labelIndex++) {
       const dataRow = isBulk ? dataset.data[labelIndex] : [];
       
-      html += `<div class="print-label" data-label="${labelIndex}">`;
+      labelsHTML += `<div class="label" style="
+        width: ${pageWidth}mm;
+        height: ${pageHeight}mm;
+        position: relative;
+        background: white;
+        border: 1px solid #ccc;
+        margin: 10px 0;
+        page-break-after: always;
+      ">`;
       
       for (const element of document.elements) {
-        html += renderElementToHTML(element, dataset, dataRow);
+        labelsHTML += renderElementToHTML(element, dataset, dataRow);
       }
       
-      html += `</div>`;
+      labelsHTML += `</div>`;
     }
 
-    return html;
-  };
-
-  const generatePrintStyles = (): string => {
-    const pageWidth = useCustomPageSize ? customPageSize.width : labelDoc?.size.width || 210;
-    const pageHeight = useCustomPageSize ? customPageSize.height : labelDoc?.size.height || 297;
-
     return `
-      /* Hide print container on screen */
-      #print-labels-container {
-        display: none;
-      }
-      
-      @media print {
-        /* Hide everything except our labels */
-        body > *:not(#print-labels-container) {
-          display: none !important;
-        }
-        
-        /* Show our print container */
-        #print-labels-container {
-          display: block !important;
-          position: absolute;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-        }
-        
-        /* Page settings */
-        @page {
-          size: ${pageWidth}mm ${pageHeight}mm;
-          margin: 0;
-        }
-        
-        /* Label styling */
-        .print-label {
-          position: relative;
-          width: ${pageWidth}mm;
-          height: ${pageHeight}mm;
-          background: white;
-          page-break-after: always;
-          display: block;
-        }
-        
-        .print-label:last-child {
-          page-break-after: avoid;
-        }
-        
-        /* Element positioning */
-        .print-label .element {
-          position: absolute;
-        }
-        
-        .print-label .text {
-          font-family: Arial, sans-serif;
-        }
-        
-        .print-label .barcode,
-        .print-label .qr {
-          text-align: center;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-      }
+      <html>
+        <head>
+          <title>Print Labels</title>
+          <style>
+            body { 
+              font-family: Arial, sans-serif; 
+              margin: 0;
+              padding: 20px;
+            }
+            .label { 
+              page-break-inside: avoid; 
+            }
+            .element { 
+              position: absolute; 
+            }
+            .text { 
+              font-family: Arial, sans-serif; 
+            }
+            .barcode, .qr { 
+              text-align: center;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            }
+            @media print {
+              body {
+                margin: 0;
+                padding: 0;
+              }
+              .label { 
+                margin: 0; 
+                border: none;
+                page-break-after: always;
+              }
+              .label:last-child {
+                page-break-after: avoid;
+              }
+              @page {
+                size: ${pageWidth}mm ${pageHeight}mm;
+                margin: 0;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <h2 style="margin-bottom: 20px;">Labels (${totalLabels} total)</h2>
+          ${labelsHTML}
+          <script>
+            setTimeout(() => {
+              window.focus();
+              window.print();
+            }, 500);
+          </script>
+        </body>
+      </html>
     `;
   };
 
