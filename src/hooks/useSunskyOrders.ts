@@ -322,7 +322,6 @@ export const useSunskyOrders = () => {
       // Show summary toast
       const messages = [];
       if (syncedCount > 0) messages.push(`${syncedCount} synced`);
-      if (unpaidCount > 0) messages.push(`${unpaidCount} unpaid (stored as pending)`);
       if (errorCount > 0) messages.push(`${errorCount} failed`);
 
       toast({
@@ -367,22 +366,11 @@ export const useSunskyOrders = () => {
       console.log(`Order details response for ${orderNumber}:`, data);
 
       if (data.result === 'success') {
-        // Check if it was an unpaid order
-        if (data.reason === 'unpaid') {
-          if (!silent) {
-            toast({
-              title: 'Order Status',
-              description: `Order ${orderNumber} is not yet paid on Sunsky and has no item details available`,
-              variant: 'destructive',
-            });
-          }
-        } else if (data.reason === 'error' || data.reason === 'api_error') {
+        if (data.reason === 'api_error') {
           if (!silent) {
             toast({
               title: 'API Issue',
-              description: data.reason === 'api_error' 
-                ? `Order ${orderNumber}: API credential or access issue. Please check your Sunsky credentials.`
-                : `Order ${orderNumber} has an error status on Sunsky - items may not be available`,
+              description: `Order ${orderNumber}: API credential or access issue. Please check your Sunsky credentials.`,
               variant: 'destructive',
             });
           }

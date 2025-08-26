@@ -2094,7 +2094,7 @@ serve(async (req) => {
           console.log('Making Sunsky API request for order:', orderNumber);
           
           const response = await makeSunskyRequest(
-            '/openapi/order!getOrder.do',
+            '/openapi/order!getOrderDetails.do',
             { number: orderNumber },
             credentials.key,
             credentials.secret,
@@ -2118,13 +2118,13 @@ serve(async (req) => {
               user_id: user.id,
               number: order.number,
               status: order.status?.toString() || null,
-              status_last_updated_at: order.statusUpdateTime || now,
+              status_last_updated_at: order.gmtPaid || order.gmtShipped || order.gmtCreated || now,
               site_number: order.siteNumber || null,
               po_numbers: poNumbers || [],
               sunsky_credentials_id: finalApiId || null, // Use finalApiId instead of apiId
               gmt_created: order.gmtCreated ? new Date(order.gmtCreated) : null,
               total: order.totalAmount ? parseFloat(order.totalAmount) : null,
-              currency: 'USD',
+              currency: order.currency || 'USD',
               shipping_company: order.shippingWay?.name || null,
               tracking_number: order.trackingNumber || null,
               tracking_url: order.shippingWay?.queryUrl || null,
@@ -2150,21 +2150,22 @@ serve(async (req) => {
               console.log('Successfully stored order details');
             }
             
-            // Store order items with status tracking if available
-            if (order.items && Array.isArray(order.items)) {
-              const itemsToUpsert = order.items.map((item: any) => ({
+            // Store order items with status tracking if available - use detailList from getOrderDetails
+            const orderItems = order.detailList || order.items || [];
+            if (orderItems && Array.isArray(orderItems)) {
+              const itemsToUpsert = orderItems.map((item: any) => ({
                 user_id: user.id,
                 order_number: order.number,
-                sku_code: item.skuCode || null,
+                sku_code: item.itemNo || item.skuCode || null,
                 model_number: item.modelNumber || null,
                 title: item.title || null,
-                quantity: item.quantity ? parseInt(item.quantity) : null,
-                unit_price: item.unitPrice ? parseFloat(item.unitPrice) : null,
-                currency: 'USD',
+                quantity: item.qty ? parseInt(item.qty) : (item.quantity ? parseInt(item.quantity) : null),
+                unit_price: item.price ? parseFloat(item.price) : (item.unitPrice ? parseFloat(item.unitPrice) : null),
+                currency: order.currency || 'USD',
                 asin: item.asin || null,
-                item_status: item.status || item.stockStatus || order.status || null,
-                status_last_updated_at: item.statusUpdateTime || order.statusUpdateTime || now,
-                expected_ship_date: item.estimatedShipDate || item.expectedShipDate ? new Date(item.estimatedShipDate || item.expectedShipDate) : null,
+                item_status: item.status || order.status || null,
+                status_last_updated_at: order.gmtPaid || order.gmtShipped || order.gmtCreated || now,
+                expected_ship_date: item.expectedShipDate ? new Date(item.expectedShipDate) : null,
                 last_synced_at: now,
                 raw: item
               }));

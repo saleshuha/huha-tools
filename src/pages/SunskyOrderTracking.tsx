@@ -27,9 +27,11 @@ const statusColors = {
   out_of_stock: 'bg-red-100 text-red-800 border-red-200',
   delayed: 'bg-orange-100 text-orange-800 border-orange-200',
   // Numeric status mappings from Sunsky API
+  '0': 'bg-orange-100 text-orange-800 border-orange-200', // Unpaid
   '1': 'bg-yellow-100 text-yellow-800 border-yellow-200', // Pending/Ordered
   '4': 'bg-blue-100 text-blue-800 border-blue-200', // Paid
-  '5': 'bg-purple-100 text-purple-800 border-purple-200', // Shipped/Delivered
+  '5': 'bg-purple-100 text-purple-800 border-purple-200', // Shipped
+  '6': 'bg-green-100 text-green-800 border-green-200', // Delivered
 };
 
 const statusIcons = {
@@ -46,18 +48,22 @@ const statusIcons = {
   out_of_stock: AlertTriangle,
   delayed: AlertTriangle,
   // Numeric status mappings from Sunsky API
+  '0': AlertTriangle, // Unpaid
   '1': Package, // Pending/Ordered
   '4': CheckCircle, // Paid
-  '5': Truck, // Shipped/Delivered
+  '5': Truck, // Shipped
+  '6': CheckCircle, // Delivered
 };
 
 // Map Sunsky numeric status to readable text
 const getReadableStatus = (status: string | number): string => {
   const statusStr = String(status);
   switch (statusStr) {
+    case '0': return 'unpaid';
     case '1': return 'ordered';
     case '4': return 'paid';
     case '5': return 'shipped';
+    case '6': return 'delivered';
     case 'unpaid': return 'unpaid';
     case 'api_error': return 'api error';
     case 'error': return 'error';
@@ -81,6 +87,8 @@ export default function SunskyOrderTrackingPage() {
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
   const [slowItems, setSlowItems] = useState<SlowItem[]>([]);
   const [showOnlyPOLinked, setShowOnlyPOLinked] = useState(true);
+  const [loadingLabels, setLoadingLabels] = useState<Set<string>>(new Set());
+  const [orderLabels, setOrderLabels] = useState<Map<string, any[]>>(new Map());
 
   const { selectedCountry } = useCountry();
   const {
@@ -93,6 +101,7 @@ export default function SunskyOrderTrackingPage() {
     fetchStoredOrders,
     syncOrdersFromAPI,
     getOrderDetails,
+    getOrderLabels,
     getSlowItems
   } = useSunskyOrders();
 
@@ -197,12 +206,30 @@ export default function SunskyOrderTrackingPage() {
     window.open(url, '_blank');
   };
 
+  // Handle labels fetch
+  const handleGetLabels = async (orderNumber: string) => {
+    setLoadingLabels(prev => new Set(prev).add(orderNumber));
+    try {
+      const labels = await getOrderLabels(orderNumber);
+      setOrderLabels(prev => new Map(prev).set(orderNumber, labels || []));
+    } catch (error) {
+      console.error('Failed to fetch labels:', error);
+    } finally {
+      setLoadingLabels(prev => {
+        const updated = new Set(prev);
+        updated.delete(orderNumber);
+        return updated;
+      });
+    }
+  };
+
   // Order statistics with proper status mapping
   const orderStats = {
     total: orders.length,
     pending: orders.filter(o => getReadableStatus(o.status) === 'ordered' || o.status === 'pending').length,
-    unpaid: orders.filter(o => o.status === 'unpaid').length,
-    shipped: orders.filter(o => getReadableStatus(o.status) === 'shipped' || getReadableStatus(o.status) === 'paid').length,
+    unpaid: orders.filter(o => getReadableStatus(o.status) === 'unpaid').length,
+    paid: orders.filter(o => getReadableStatus(o.status) === 'paid').length,
+    shipped: orders.filter(o => getReadableStatus(o.status) === 'shipped').length,
     delivered: orders.filter(o => getReadableStatus(o.status) === 'delivered').length,
     totalValue: orders.reduce((sum, order) => sum + (order.total || 0), 0)
   };
@@ -270,7 +297,7 @@ export default function SunskyOrderTrackingPage() {
           )}
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-2">
@@ -290,6 +317,18 @@ export default function SunskyOrderTrackingPage() {
                   <div>
                     <p className="text-sm text-muted-foreground">Unpaid</p>
                     <p className="text-2xl font-bold">{orderStats.unpaid}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-5 w-5 text-blue-500" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Paid</p>
+                    <p className="text-2xl font-bold">{orderStats.paid}</p>
                   </div>
                 </div>
               </CardContent>
@@ -425,6 +464,22 @@ export default function SunskyOrderTrackingPage() {
                                     Track
                                   </Button>
                                 )}
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleGetLabels(order.number);
+                                  }}
+                                  disabled={loadingLabels.has(order.number)}
+                                >
+                                  {loadingLabels.has(order.number) ? (
+                                    <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                                  ) : (
+                                    <Package className="h-3 w-3 mr-1" />
+                                  )}
+                                  Labels
+                                </Button>
                                 {expandedOrders.has(order.number) ? (
                                   <ChevronUp className="h-4 w-4" />
                                 ) : (
@@ -436,9 +491,31 @@ export default function SunskyOrderTrackingPage() {
                         </CardHeader>
                       </CollapsibleTrigger>
                       
-                      <CollapsibleContent>
+                       <CollapsibleContent>
                         <CardContent className="pt-0">
                           <div className="border-t pt-4">
+                            {/* Labels section */}
+                            {orderLabels.has(order.number) && orderLabels.get(order.number)!.length > 0 && (
+                              <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                                <h4 className="font-medium text-blue-800 mb-2">Order Labels</h4>
+                                <div className="space-y-2">
+                                  {orderLabels.get(order.number)!.map((label, index) => (
+                                    <div key={index} className="flex items-center justify-between text-sm">
+                                      <span className="font-mono text-blue-700">{label.barcode}</span>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => window.open(label.url, '_blank')}
+                                      >
+                                        <ExternalLink className="h-3 w-3 mr-1" />
+                                        View Label
+                                      </Button>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            
                             <h4 className="font-medium mb-3 flex items-center gap-2">
                               <Package className="h-4 w-4" />
                               Items ({order.items?.length || 0})
