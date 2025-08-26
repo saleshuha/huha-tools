@@ -39,8 +39,8 @@ export const usePOOrders = () => {
   const [loadingStatus, setLoadingStatus] = useState('');
   const { toast } = useToast();
 
-  // Fetch PO orders using direct query to load all data without limits
-  const fetchPOOrders = useCallback(async (useRawData = true) => {
+  // Fetch PO orders using deduplicated function to avoid double counting
+  const fetchPOOrders = useCallback(async (useRawData = false) => {
     setIsLoading(true);
     setLoadingProgress(0);
     setLoadingStatus('Fetching PO orders...');
@@ -51,66 +51,31 @@ export const usePOOrders = () => {
 
       setLoadingProgress(30);
       
-      console.log('🔄 Starting PO orders fetch for user:', user.id);
+      console.log('🔄 Starting deduplicated PO orders fetch for user:', user.id);
       
-      // First, get all PO orders
-      const { data: ordersData, error: ordersError } = await supabase
-        .from('po_orders')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+      // Use the deduplicated function to avoid double counting from multiple uploads
+      const { data: ordersData, error: ordersError } = await supabase.rpc(
+        'get_all_po_orders_deduplicated',
+        { user_id_param: user.id }
+      );
 
       if (ordersError) {
-        console.error('❌ Error fetching PO orders:', ordersError);
+        console.error('❌ Error fetching deduplicated PO orders:', ordersError);
         throw ordersError;
       }
 
-      console.log('📊 Fetched PO orders:', ordersData?.length);
-
-      setLoadingProgress(50);
-      
-      // Then get all sunsky_skus for this user to join manually
-      const { data: sunskyData, error: sunskyError } = await supabase
-        .from('sunsky_skus')
-        .select('*')
-        .eq('user_id', user.id);
-
-      if (sunskyError) {
-        console.warn('⚠️ Error fetching Sunsky SKUs (non-critical):', sunskyError);
-      }
-
-      console.log('📦 Fetched Sunsky SKUs:', sunskyData?.length || 0);
+      console.log('📊 Fetched deduplicated PO orders:', ordersData?.length);
 
       setLoadingProgress(70);
       setLoadingStatus('Processing orders...');
 
-      // Create a lookup map for sunsky SKUs
-      const sunskyMap = new Map();
-      if (sunskyData) {
-        sunskyData.forEach(sku => {
-          sunskyMap.set(sku.sku_code, sku);
-        });
-      }
+      // Convert to POOrder format
+      const processedOrders: POOrder[] = (ordersData || []).map(order => ({
+        ...order,
+        status: order.status as POOrder['status'],
+      }));
 
-      // Join the data manually and convert to POOrder format
-      const processedOrders: POOrder[] = (ordersData || []).map(order => {
-        // Try to find matching sunsky SKU by sku_code or model_number
-        let matchingSunsky = null;
-        if (order.sku_code) {
-          matchingSunsky = sunskyMap.get(order.sku_code);
-        }
-        if (!matchingSunsky && order.model_number) {
-          matchingSunsky = sunskyMap.get(order.model_number);
-        }
-
-        return {
-          ...order,
-          status: order.status as POOrder['status'],
-          sunsky_sku: matchingSunsky || null,
-        };
-      });
-
-      console.log(`✅ Processed ${processedOrders.length} PO orders with SKU matching`);
+      console.log(`✅ Processed ${processedOrders.length} deduplicated PO orders`);
 
       setPOOrders(processedOrders);
       setLoadingProgress(100);

@@ -40,25 +40,24 @@ export const usePOMetrics = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  const fetchMetrics = useCallback(async (useRawData = true) => {
+  const fetchMetrics = useCallback(async (useRawData = false) => {
     setIsLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      console.log('🔄 Fetching PO metrics from database function...');
+      console.log('🔄 Fetching deduplicated PO metrics from dashboard summary...');
 
-      // Use raw or deduplicated metrics based on flag
-      const functionName = useRawData ? 'get_active_po_metrics_raw' : 'get_active_po_metrics';
-      const { data: metricsData, error } = await supabase.rpc(
-        functionName,
+      // Use the updated dashboard summary function that handles deduplication
+      const { data: summaryData, error } = await supabase.rpc(
+        'get_po_dashboard_summary',
         { user_id_param: user.id }
       );
 
       if (error) throw error;
 
-      if (metricsData && metricsData.length > 0) {
-        const result = metricsData[0];
+      if (summaryData && summaryData.length > 0) {
+        const result = summaryData[0];
         const newMetrics: POMetrics = {
           totalActiveOrders: Number(result.total_active_orders) || 0,
           totalActiveQuantity: Number(result.total_active_quantity) || 0,
@@ -68,7 +67,7 @@ export const usePOMetrics = () => {
           shippedOrders: Number(result.shipped_orders) || 0,
         };
 
-        console.log(`✅ ${useRawData ? 'RAW' : 'DEDUPLICATED'} METRICS FROM DATABASE:`);
+        console.log('✅ DEDUPLICATED METRICS FROM DASHBOARD SUMMARY:');
         console.log(`📦 Active Orders: ${newMetrics.totalActiveOrders}`);
         console.log(`📋 Active Quantity: ${newMetrics.totalActiveQuantity}`);
         console.log(`📄 Unique PO Numbers: ${newMetrics.uniquePONumbers}`);
