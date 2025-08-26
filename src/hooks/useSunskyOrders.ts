@@ -168,6 +168,37 @@ export const useSunskyOrders = () => {
     setState(prev => ({ ...prev, syncing: true, error: null, progressCurrent: 0, progressTotal: 0, progressPercent: 0 }));
 
     try {
+      // First check if user has any Sunsky credentials
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({
+          title: 'Authentication Error',
+          description: 'Please sign in to sync orders.',
+          variant: 'destructive',
+        });
+        setState(prev => ({ ...prev, syncing: false }));
+        return;
+      }
+
+      const { data: credentials, error: credError } = await supabase
+        .from('sunsky_credentials')
+        .select('id, name, is_active')
+        .eq('user_id', user.id);
+
+      if (credError) throw credError;
+
+      if (!credentials || credentials.length === 0) {
+        toast({
+          title: 'No Sunsky Credentials',
+          description: 'Please add your Sunsky API credentials before syncing orders.',
+          variant: 'destructive',
+        });
+        setState(prev => ({ ...prev, syncing: false }));
+        return;
+      }
+
+      console.log('Found Sunsky credentials:', credentials.length);
+
       // Get ALL PO orders that have supplier order numbers (orders that have been placed)
       const { data: allPOs, error: poError } = await supabase
         .from('po_orders')
@@ -247,12 +278,30 @@ export const useSunskyOrders = () => {
         try {
           console.log(`Attempting to sync order ${orderNumber} with credential ${credentialId} and PO numbers:`, relatedPONumbers);
           
+          // If no credential ID from PO, try to get any active credential for the user
+          let apiIdToUse = credentialId;
+          if (!apiIdToUse) {
+            console.log(`No credential ID in PO for order ${orderNumber}, trying to find active credential`);
+            const { data: activeCredential } = await supabase
+              .from('sunsky_credentials')
+              .select('id')
+              .eq('user_id', user.id)
+              .eq('is_active', true)
+              .limit(1)
+              .single();
+            
+            if (activeCredential) {
+              apiIdToUse = activeCredential.id;
+              console.log(`Using active credential ${apiIdToUse} for order ${orderNumber}`);
+            }
+          }
+          
           const { data, error } = await supabase.functions.invoke('sunsky-api', {
             body: {
               action: 'getOrderDetails',
               orderNumber: orderNumber,
               poNumbers: relatedPONumbers,
-              apiId: credentialId // Use the credential from the PO order
+              apiId: apiIdToUse
             },
           });
 
@@ -266,6 +315,12 @@ export const useSunskyOrders = () => {
               description: `Failed to connect to Sunsky API for order ${orderNumber}. Please check your credentials.`,
               variant: 'destructive',
             });
+            continue;
+          }
+
+          if (!data) {
+            console.error(`No data returned for order ${orderNumber}`);
+            errorCount++;
             continue;
           }
 
@@ -289,7 +344,7 @@ export const useSunskyOrders = () => {
             if (data.reason === 'api_issue') {
               toast({
                 title: 'API Credential Issue',
-                description: `Order ${orderNumber}: ${errorMsg}`,
+                description: `Order ${orderNumber}: Please add valid Sunsky API credentials to sync this order.`,
                 variant: 'destructive',
               });
             } else {
@@ -324,9 +379,13 @@ export const useSunskyOrders = () => {
       if (syncedCount > 0) messages.push(`${syncedCount} synced`);
       if (errorCount > 0) messages.push(`${errorCount} failed`);
 
+      const summaryMsg = messages.length > 0 ? messages.join(', ') : 'No orders processed';
+      
       toast({
         title: 'Sync Complete',
-        description: `${messages.join(', ')} out of ${placedOrderEntries.length} orders`,
+        description: errorCount === placedOrderEntries.length && errorCount > 0 
+          ? `All ${placedOrderEntries.length} orders failed. Please check your Sunsky API credentials.`
+          : `${summaryMsg} out of ${placedOrderEntries.length} orders`,
         variant: errorCount === placedOrderEntries.length ? 'destructive' : 'default',
       });
       

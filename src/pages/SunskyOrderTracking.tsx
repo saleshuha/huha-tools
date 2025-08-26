@@ -248,14 +248,23 @@ export default function SunskyOrderTrackingPage() {
                 Track your Sunsky orders and monitor item delivery status for {selectedCountry}
               </p>
             </div>
-            <Button 
-              onClick={syncOrdersFromAPI}
-              disabled={syncing}
-              variant="outline"
-            >
-              <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
-              Sync Sunsky Orders
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button 
+                onClick={syncOrdersFromAPI}
+                disabled={syncing}
+                variant="outline"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+                Sync Sunsky Orders
+              </Button>
+              <Button 
+                onClick={() => window.open('/po-tracker', '_blank')}
+                variant="ghost"
+                size="sm"
+              >
+                Manage Credentials
+              </Button>
+            </div>
           </div>
 
           {/* Progress bar for syncing */}
