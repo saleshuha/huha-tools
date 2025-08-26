@@ -137,6 +137,56 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
     };
   }, [metrics, orders, convertCurrency, displayCurrency, selectedCountry]);
 
+  // Calculate weekly performance data
+  const weeklyData = useMemo(() => {
+    if (!orders) return [];
+    
+    const now = new Date();
+    const weeks = [];
+    
+    for (let i = 0; i < 4; i++) {
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate() - (i + 1) * 7);
+      weekStart.setHours(0, 0, 0, 0);
+      
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
+      weekEnd.setHours(23, 59, 59, 999);
+      
+      const weekOrders = orders.filter(order => {
+        if (!order.shipment_date) return false;
+        const shipmentDate = new Date(order.shipment_date);
+        return shipmentDate >= weekStart && shipmentDate <= weekEnd;
+      });
+      
+      const weekValue = weekOrders.reduce((sum, order) => {
+        const cost = parseFloat(order.item_cost?.toString() || '0') || 0;
+        const qty = parseInt(order.quantity?.toString() || '1') || 1;
+        const orderValue = cost * qty;
+        
+        // Convert to USD if not already in USD
+        if (order.currency === 'AED') {
+          return sum + (orderValue * 0.27);
+        } else if (order.currency === 'SAR') {
+          return sum + (orderValue * 0.27);
+        } else {
+          return sum + orderValue;
+        }
+      }, 0);
+      
+      const paidOrders = weekOrders.filter(o => (o.payment_status || '').toLowerCase() === 'paid').length;
+      
+      weeks.unshift({
+        label: `${weekStart.getDate()}-${weekStart.toLocaleDateString('en-US', { month: 'short' })} to ${weekEnd.getDate()}-${weekEnd.toLocaleDateString('en-US', { month: 'short' })}`,
+        orders: weekOrders.length,
+        value: convertCurrency(weekValue, 'USD', displayCurrency),
+        paid: paidOrders
+      });
+    }
+    
+    return weeks;
+  }, [orders, convertCurrency, displayCurrency]);
+
   console.log('MetricsDashboard render - Country:', selectedCountry, 'Display Currency:', displayCurrency, 'Total Value:', metrics?.totalValue, 'Converted:', convertedTotalValue);
 
   if (loading) {
@@ -228,7 +278,7 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
       </div>
 
       {/* Secondary Metrics Row */}
-      <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
+      <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-3">
         <Card>
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
@@ -295,6 +345,35 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
                   </span>
                 </div>
               </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <DollarSign className="h-5 w-5 text-primary" />
+              Weekly Performance (4 Weeks)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {weeklyData.map((week, index) => (
+                <div key={index} className="flex justify-between items-center">
+                  <div className="flex flex-col">
+                    <span className="text-xs font-medium">{week.label}</span>
+                    <span className="text-xs text-muted-foreground">{week.orders} orders</span>
+                  </div>
+                  <div className="flex flex-col items-end">
+                    <Badge variant={week.paid > 0 ? 'default' : 'outline'} className="text-xs">
+                      {week.paid} paid
+                    </Badge>
+                    <span className="text-xs text-muted-foreground font-medium">
+                      {formatCurrency(week.value, displayCurrency)}
+                    </span>
+                  </div>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>
