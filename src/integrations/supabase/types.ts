@@ -2918,6 +2918,30 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_all_user_sunsky_orders: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          created_at: string
+          currency: string
+          gmt_created: string
+          id: string
+          is_app_placed: boolean
+          items: Json
+          last_synced_at: string
+          number: string
+          po_numbers: string[]
+          raw: Json
+          shipping_company: string
+          site_number: string
+          status: string
+          status_last_updated_at: string
+          total: number
+          tracking_number: string
+          tracking_url: string
+          updated_at: string
+          user_id: string
+        }[]
+      }
       get_exchange_rate: {
         Args: { from_currency: string; to_currency: string }
         Returns: number

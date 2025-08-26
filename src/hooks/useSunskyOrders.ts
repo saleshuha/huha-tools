@@ -65,84 +65,44 @@ export const useSunskyOrders = () => {
 
   const { toast } = useToast();
 
-  // Fetch orders from local database - now includes all Sunsky orders with optional PO-only filtering
-  const fetchStoredOrders = async (showOnlyPOLinked: boolean = true) => {
+  // Fetch ALL orders placed by user through the app - no filtering by PO relationship 
+  const fetchStoredOrders = async (showOnlyPOLinked: boolean = false) => {
     setState(prev => ({ ...prev, loading: true, error: null }));
 
     try {
-      // Get all placed supplier order numbers from PO orders for filtering
-      const { data: poOrders, error: poError } = await supabase
-        .from('po_orders')
-        .select('supplier_order_number, po_number')
-        .not('supplier_order_number', 'is', null);
+      console.log('🔄 Fetching ALL Sunsky orders placed by user...');
 
-      if (poError) throw poError;
-
-      const supplierOrderNumbers = new Set(
-        (poOrders || [])
-          .map(po => po.supplier_order_number)
-          .filter(Boolean)
-      );
-
-      // Create a mapping of supplier order numbers to PO numbers
-      const supplierToPOMap = new Map();
-      (poOrders || []).forEach(po => {
-        if (po.supplier_order_number) {
-          if (!supplierToPOMap.has(po.supplier_order_number)) {
-            supplierToPOMap.set(po.supplier_order_number, new Set());
-          }
-          supplierToPOMap.get(po.supplier_order_number).add(po.po_number);
-        }
-      });
-
-      console.log('Found supplier order numbers from PO orders:', Array.from(supplierOrderNumbers));
-
-      // Fetch all orders with better filtering and enrichment
-      const { data: allOrders, error } = await supabase
-        .from('sunsky_orders')
-        .select(`
-          *,
-          items:sunsky_order_items(*),
-          sunsky_credential:sunsky_credentials(name)
-        `)
-        .order('gmt_created', { ascending: false, nullsFirst: false })
-        .order('created_at', { ascending: false });
+      // Use the new RPC function to get ALL user orders with app-placed filtering
+      const { data: allOrders, error } = await supabase.rpc('get_all_user_sunsky_orders');
 
       if (error) throw error;
 
-      let filteredOrders: SunskyOrder[];
+      let ordersWithData: SunskyOrder[];
 
       if (showOnlyPOLinked) {
-        // Filter orders that are either:
-        // 1. Have po_numbers array with values (primary method)
-        // 2. Have order number that matches a supplier_order_number from POs (fallback)
-        filteredOrders = (allOrders || [])
-          .filter((order: any): order is SunskyOrder => {
+        // Filter to show only orders with PO relationships if requested
+        ordersWithData = (allOrders || [])
+          .filter((order: any) => {
             const hasPoNumbers = order.po_numbers && Array.isArray(order.po_numbers) && order.po_numbers.length > 0;
-            const matchesSupplierOrder = supplierOrderNumbers.has(order.number);
-            return hasPoNumbers || matchesSupplierOrder;
-          });
+            const isAppPlaced = order.is_app_placed === true;
+            return hasPoNumbers && isAppPlaced;
+          })
+          .map((order: any): SunskyOrder => ({
+            ...order,
+            items: order.items || [],
+            credential_name: order.sunsky_credential?.name || null
+          }));
       } else {
-        // Show all orders
-        filteredOrders = allOrders || [];
-      }
-
-      const ordersWithData: SunskyOrder[] = filteredOrders.map((order: any): SunskyOrder => {
-        // If the order doesn't have po_numbers but matches a supplier order number, add the PO numbers
-        let poNumbers = order.po_numbers || [];
-        if (supplierToPOMap.has(order.number) && (!poNumbers || poNumbers.length === 0)) {
-          poNumbers = Array.from(supplierToPOMap.get(order.number));
-        }
-
-        return {
+        // Show ALL orders placed by the user (default behavior)
+        ordersWithData = (allOrders || []).map((order: any): SunskyOrder => ({
           ...order,
           items: order.items || [],
-          credential_name: order.sunsky_credential?.name || null,
-          po_numbers: poNumbers
-        };
-      });
+          credential_name: order.sunsky_credential?.name || null
+        }));
+      }
 
-      console.log(`${showOnlyPOLinked ? 'Filtered' : 'Found'} ${filteredOrders.length} orders ${showOnlyPOLinked ? 'with PO relationships' : 'total'} out of ${allOrders?.length || 0} total orders`);
+      console.log(`📊 Found ${ordersWithData.length} total orders placed through the app`);
+      console.log('Order numbers:', ordersWithData.map(o => o.number).join(', '));
 
       setState(prev => ({
         ...prev,
