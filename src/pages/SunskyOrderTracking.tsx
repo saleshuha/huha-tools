@@ -252,8 +252,8 @@ export default function SunskyOrderTrackingPage() {
             </div>
             <div className="flex flex-col sm:flex-row gap-2">
               <Button 
-                onClick={syncOrdersFromAPI}
-                disabled={syncing}
+                onClick={() => syncOrdersFromAPI(selectedCredentialId)}
+                disabled={syncing || !selectedCredentialId}
                 variant="outline"
               >
                 <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />

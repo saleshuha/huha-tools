@@ -164,7 +164,7 @@ export const useSunskyOrders = () => {
   };
 
   // Sync orders from Sunsky API - all orders that have been placed on Sunsky
-  const syncOrdersFromAPI = async () => {
+  const syncOrdersFromAPI = async (credentialId?: string | null) => {
     setState(prev => ({ ...prev, syncing: true, error: null, progressCurrent: 0, progressTotal: 0, progressPercent: 0 }));
 
     try {
@@ -180,24 +180,32 @@ export const useSunskyOrders = () => {
         return;
       }
 
-      const { data: credentials, error: credError } = await supabase
-        .from('sunsky_credentials')
-        .select('id, name, is_active')
-        .eq('user_id', user.id);
+      // If a specific credential is provided, use it; otherwise check for any active credentials
+      if (!credentialId) {
+        const { data: credentials, error: credError } = await supabase
+          .from('sunsky_credentials')
+          .select('id, name, is_active')
+          .eq('user_id', user.id)
+          .eq('is_active', true)
+          .limit(1);
 
-      if (credError) throw credError;
+        if (credError) throw credError;
 
-      if (!credentials || credentials.length === 0) {
-        toast({
-          title: 'No Sunsky Credentials',
-          description: 'Please add your Sunsky API credentials before syncing orders.',
-          variant: 'destructive',
-        });
-        setState(prev => ({ ...prev, syncing: false }));
-        return;
+        if (!credentials || credentials.length === 0) {
+          toast({
+            title: 'No Sunsky Credentials',
+            description: 'Please add your Sunsky API credentials before syncing orders.',
+            variant: 'destructive',
+          });
+          setState(prev => ({ ...prev, syncing: false }));
+          return;
+        }
+
+        credentialId = credentials[0].id;
+        console.log('Using first available credential:', credentialId);
+      } else {
+        console.log('Using selected credential:', credentialId);
       }
-
-      console.log('Found Sunsky credentials:', credentials.length);
 
       // Get ALL PO orders that have supplier order numbers (orders that have been placed)
       const { data: allPOs, error: poError } = await supabase
@@ -266,7 +274,7 @@ export const useSunskyOrders = () => {
       let errorCount = 0;
       
       for (let i = 0; i < placedOrderEntries.length; i++) {
-        const { orderNumber, credentialId, poNumbers } = placedOrderEntries[i];
+        const { orderNumber, credentialId: orderCredentialId, poNumbers } = placedOrderEntries[i];
         const relatedPONumbers = Array.from(poNumbers);
         
         setState(prev => ({ 
@@ -276,25 +284,10 @@ export const useSunskyOrders = () => {
         }));
 
         try {
-          console.log(`Attempting to sync order ${orderNumber} with credential ${credentialId} and PO numbers:`, relatedPONumbers);
+          console.log(`Attempting to sync order ${orderNumber} with selected credential ${credentialId} and PO numbers:`, relatedPONumbers);
           
-          // If no credential ID from PO, try to get any active credential for the user
-          let apiIdToUse = credentialId;
-          if (!apiIdToUse) {
-            console.log(`No credential ID in PO for order ${orderNumber}, trying to find active credential`);
-            const { data: activeCredential } = await supabase
-              .from('sunsky_credentials')
-              .select('id')
-              .eq('user_id', user.id)
-              .eq('is_active', true)
-              .limit(1)
-              .single();
-            
-            if (activeCredential) {
-              apiIdToUse = activeCredential.id;
-              console.log(`Using active credential ${apiIdToUse} for order ${orderNumber}`);
-            }
-          }
+          // Use the selected credential for all orders
+          const apiIdToUse = credentialId;
           
           const { data, error } = await supabase.functions.invoke('sunsky-api', {
             body: {
