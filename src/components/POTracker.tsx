@@ -61,7 +61,7 @@ export const POTracker = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<POOrder['status'] | 'all'>('all');
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(50);
   const [viewMode, setViewMode] = useState<'grouped' | 'detailed'>('grouped');
   const [processingProgress, setProcessingProgress] = useState(0);
   const [processingStatus, setProcessingStatus] = useState('');
