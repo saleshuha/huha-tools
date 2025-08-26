@@ -2935,6 +2935,7 @@ export type Database = {
           site_number: string
           status: string
           status_last_updated_at: string
+          sunsky_credentials_id: string
           total: number
           tracking_number: string
           tracking_url: string
