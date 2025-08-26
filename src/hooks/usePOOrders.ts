@@ -218,7 +218,6 @@ export const usePOOrders = () => {
           // Add to existing group
           const existingGroup = itemGroups.get(identity);
           existingGroup.quantity += qty;
-          existingGroup.sourceRows.push(rowNum);
           console.log(`📎 Row ${rowNum}: Added to existing group, new total qty: ${existingGroup.quantity}`);
         } else {
           // Create new group
@@ -236,8 +235,7 @@ export const usePOOrders = () => {
             file_name: item.file_name || 'uploaded-file.csv',
             unit_cost: item.unit_cost ? Number(item.unit_cost) : null,
             sku_user_id: user.id,
-            user_id: user.id,
-            sourceRows: [rowNum]
+            user_id: user.id
           };
           itemGroups.set(identity, newGroup);
           console.log(`✨ Row ${rowNum}: Created new group with identity: ${identity}`);
