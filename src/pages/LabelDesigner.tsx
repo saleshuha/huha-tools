@@ -5,6 +5,7 @@ import { LabelWorkspace } from '@/components/label/LabelWorkspace';
 import { LabelPropertiesPanel } from '@/components/label/LabelPropertiesPanel';
 import { InventoryDataMapper } from '@/components/label/InventoryDataMapper';
 import { OrderLabelTemplates } from '@/components/label/OrderLabelTemplates';
+import { DateWiseOrderPrint } from '@/components/label/DateWiseOrderPrint';
 import { DataPreviewPanel } from '@/components/label/DataPreviewPanel';
 import { PrintService } from '@/services/print-service';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -253,16 +254,19 @@ const LabelDesignerContent: React.FC = () => {
           </div>
         </div>
       </div>
-        <div className="flex-1 flex gap-4 p-4 min-h-0">
+      <div className="flex-1 flex gap-4 min-h-0">
+        <div className="flex flex-col gap-4 w-80">
           <LabelToolbar />
-          <LabelWorkspace />
-          <div className="flex flex-col gap-4 overflow-y-auto">
-            <LabelPropertiesPanel />
-            <InventoryDataMapper />
-            <OrderLabelTemplates />
-            <DataPreviewPanel />
-          </div>
+          <OrderLabelTemplates />
         </div>
+        <LabelWorkspace />
+        <div className="flex flex-col gap-4 w-80 overflow-y-auto">
+          <LabelPropertiesPanel />
+          <InventoryDataMapper />
+          <DateWiseOrderPrint />
+          <DataPreviewPanel />
+        </div>
+      </div>
     </div>
   );
 };
