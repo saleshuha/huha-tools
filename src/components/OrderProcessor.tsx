@@ -17,6 +17,7 @@ import { useSkuInventory, SkuInventoryItem } from '@/hooks/useSkuInventory';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { generateOrderLabelZPL, generateBulkOrderLabelsZPL, printZPLToPrinter, downloadZPLFile, previewOrderLabel, OrderLabelSettings } from '@/utils/order-label-printer';
+import QZTrayPrinter from '@/utils/qz-tray-printer';
 import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
 interface OrderItem {
@@ -85,6 +86,11 @@ export function OrderProcessor() {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(50); // Show 50 items per page
+
+  // QZ Tray state
+  const [qzConnected, setQzConnected] = useState(false);
+  const [selectedPrinter, setSelectedPrinter] = useState<string>('');
+  const [availablePrinters, setAvailablePrinters] = useState<string[]>([]);
   const {
     inventory: asinInventory,
     updateQuantity: updateAsinQuantity
@@ -114,6 +120,36 @@ export function OrderProcessor() {
       }
     };
     loadProcessedOrders();
+  }, []);
+
+  // Initialize QZ Tray connection on component mount
+  useEffect(() => {
+    const initializeQZTray = async () => {
+      try {
+        await QZTrayPrinter.connect();
+        const printers = await QZTrayPrinter.getPrinters();
+        setAvailablePrinters(printers);
+        
+        // Auto-select first Zebra printer or default printer
+        const defaultPrinter = await QZTrayPrinter.getDefaultPrinter();
+        if (defaultPrinter) {
+          setSelectedPrinter(defaultPrinter);
+        }
+        
+        setQzConnected(true);
+        console.log('QZ Tray initialized successfully');
+      } catch (error) {
+        console.log('QZ Tray not available:', error);
+        setQzConnected(false);
+      }
+    };
+
+    initializeQZTray();
+
+    // Cleanup on unmount
+    return () => {
+      QZTrayPrinter.disconnect();
+    };
   }, []);
 
   // Save processed order to database
@@ -564,6 +600,33 @@ export function OrderProcessor() {
     }
   };
 
+  // Print individual order label directly via QZ Tray
+  const printOrderLabelDirect = async (match: MatchedItem) => {
+    if (!qzConnected) {
+      toast({
+        title: "QZ Tray Not Connected",
+        description: "Please ensure QZ Tray is running and connected.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const zpl = generateOrderLabelZPL(match.orderItem, labelSettings);
+      await QZTrayPrinter.printZPL(zpl, { printerName: selectedPrinter });
+      toast({
+        title: "Label Printed",
+        description: `Successfully printed label for order ${match.orderItem.orderId}.`
+      });
+    } catch (error) {
+      toast({
+        title: "Print Error",
+        description: "Failed to print label directly. " + (error instanceof Error ? error.message : 'Unknown error'),
+        variant: "destructive"
+      });
+    }
+  };
+
   // Print bulk order labels
   const printBulkOrderLabels = async () => {
     const itemsToPrint = Array.from(selectedItems).map(index => filteredMatches[index].orderItem);
@@ -578,6 +641,34 @@ export function OrderProcessor() {
       toast({
         title: "Print Error",
         description: "Failed to generate bulk labels.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Print bulk order labels directly via QZ Tray
+  const printBulkOrderLabelsDirect = async () => {
+    if (!qzConnected) {
+      toast({
+        title: "QZ Tray Not Connected",
+        description: "Please ensure QZ Tray is running and connected.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const itemsToPrint = Array.from(selectedItems).map(index => filteredMatches[index].orderItem);
+    try {
+      const zplCodes = itemsToPrint.map(item => generateOrderLabelZPL(item, labelSettings));
+      await QZTrayPrinter.printMultipleZPL(zplCodes, { printerName: selectedPrinter });
+      toast({
+        title: "Labels Printed",
+        description: `Successfully printed ${itemsToPrint.length} labels.`
+      });
+    } catch (error) {
+      toast({
+        title: "Print Error",
+        description: "Failed to print labels directly. " + (error instanceof Error ? error.message : 'Unknown error'),
         variant: "destructive"
       });
     }
@@ -875,6 +966,24 @@ export function OrderProcessor() {
               <h4 className="font-semibold">Processing Results ({filteredMatches.length} items)</h4>
               
               <div className="flex items-center gap-2">
+                {/* QZ Tray Status and Printer Selection */}
+                {qzConnected && availablePrinters.length > 0 && (
+                  <div className="flex items-center gap-2 mr-4">
+                    <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400">
+                      QZ Tray Connected
+                    </Badge>
+                    <select 
+                      value={selectedPrinter} 
+                      onChange={(e) => setSelectedPrinter(e.target.value)}
+                      className="text-xs px-2 py-1 border rounded"
+                    >
+                      {availablePrinters.map(printer => (
+                        <option key={printer} value={printer}>{printer}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                
                 <Button onClick={printFoundItems} variant="outline" size="sm" disabled={analytics.foundOrders === 0}>
                   <Printer className="w-4 h-4 mr-2" />
                   Print Report ({analytics.foundOrders})
@@ -892,6 +1001,12 @@ export function OrderProcessor() {
                       <Tag className="w-4 h-4 mr-2" />
                       Print Labels ({selectedItems.size})
                     </Button>
+                    {qzConnected && (
+                      <Button onClick={printBulkOrderLabelsDirect} variant="outline" size="sm" disabled={selectedItems.size === 0}>
+                        <Printer className="w-4 h-4 mr-2" />
+                        Direct Print ({selectedItems.size})
+                      </Button>
+                    )}
                     <Button onClick={printSelectedItems} variant="outline" size="sm" disabled={selectedItems.size === 0}>
                       <Printer className="w-4 h-4 mr-2" />
                       Print Report
@@ -951,7 +1066,7 @@ export function OrderProcessor() {
                           </span> : '-'}
                       </TableCell>
                       <TableCell>
-                        {match.inventoryMatch && <div className="flex items-center gap-2">
+                         {match.inventoryMatch && <div className="flex items-center gap-2">
                             <Button size="sm" className="bg-gradient-primary hover:opacity-90 text-white shadow-md hover:shadow-lg transition-all duration-200" onClick={() => handleQuantityUpdate(match, -match.orderItem.itemQuantity, matchedItems.findIndex(m => m === match))} disabled={loading} title="Process order and update inventory">
                               <CheckCircle className="w-3 h-3 mr-1" />
                               Process
@@ -960,6 +1075,12 @@ export function OrderProcessor() {
                               <Tag className="w-3 h-3 mr-1" />
                               Label
                             </Button>
+                            {qzConnected && (
+                              <Button size="sm" variant="outline" onClick={() => printOrderLabelDirect(match)} title="Print label directly to Zebra printer">
+                                <Printer className="w-3 h-3 mr-1" />
+                                Print
+                              </Button>
+                            )}
                           </div>}
                       </TableCell>
                     </TableRow>)}
