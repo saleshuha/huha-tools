@@ -1145,11 +1145,6 @@ export function Replenishment() {
           calculatedQty = Math.max(1, Math.ceil(unitsSold / 2));
         }
         
-        // If no restock was made before (days_since_last_restock is null), add 1 piece
-        if (item.days_since_last_restock === null) {
-          calculatedQty += 1;
-        }
-        
         // Ensure minimum quantity of 1
         calculatedQty = Math.max(1, calculatedQty);
       } catch (error) {
