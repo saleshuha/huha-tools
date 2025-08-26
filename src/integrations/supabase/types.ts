@@ -1021,6 +1021,123 @@ export type Database = {
           },
         ]
       }
+      order_imports: {
+        Row: {
+          asin: string | null
+          created_at: string
+          gift_message: string | null
+          has_inventory_match: boolean
+          id: string
+          inventory_id: string | null
+          inventory_match_type: string | null
+          is_gift: string | null
+          is_processed: boolean
+          item_cost: string | null
+          item_quantity: number
+          item_title: string | null
+          match_field_type: string | null
+          order_id: string
+          order_place_date: string | null
+          order_status: string | null
+          phone_number: string | null
+          processed_at: string | null
+          required_ship_date: string | null
+          ship_method: string | null
+          ship_method_code: string | null
+          ship_to_address_line1: string | null
+          ship_to_address_line2: string | null
+          ship_to_address_line3: string | null
+          ship_to_city: string | null
+          ship_to_country: string | null
+          ship_to_name: string | null
+          ship_to_state: string | null
+          ship_to_zip_code: string | null
+          shipped_date: string | null
+          sku: string | null
+          source_file: string
+          tracking_id: string | null
+          updated_at: string
+          user_id: string
+          warehouse_code: string | null
+        }
+        Insert: {
+          asin?: string | null
+          created_at?: string
+          gift_message?: string | null
+          has_inventory_match?: boolean
+          id?: string
+          inventory_id?: string | null
+          inventory_match_type?: string | null
+          is_gift?: string | null
+          is_processed?: boolean
+          item_cost?: string | null
+          item_quantity?: number
+          item_title?: string | null
+          match_field_type?: string | null
+          order_id: string
+          order_place_date?: string | null
+          order_status?: string | null
+          phone_number?: string | null
+          processed_at?: string | null
+          required_ship_date?: string | null
+          ship_method?: string | null
+          ship_method_code?: string | null
+          ship_to_address_line1?: string | null
+          ship_to_address_line2?: string | null
+          ship_to_address_line3?: string | null
+          ship_to_city?: string | null
+          ship_to_country?: string | null
+          ship_to_name?: string | null
+          ship_to_state?: string | null
+          ship_to_zip_code?: string | null
+          shipped_date?: string | null
+          sku?: string | null
+          source_file: string
+          tracking_id?: string | null
+          updated_at?: string
+          user_id: string
+          warehouse_code?: string | null
+        }
+        Update: {
+          asin?: string | null
+          created_at?: string
+          gift_message?: string | null
+          has_inventory_match?: boolean
+          id?: string
+          inventory_id?: string | null
+          inventory_match_type?: string | null
+          is_gift?: string | null
+          is_processed?: boolean
+          item_cost?: string | null
+          item_quantity?: number
+          item_title?: string | null
+          match_field_type?: string | null
+          order_id?: string
+          order_place_date?: string | null
+          order_status?: string | null
+          phone_number?: string | null
+          processed_at?: string | null
+          required_ship_date?: string | null
+          ship_method?: string | null
+          ship_method_code?: string | null
+          ship_to_address_line1?: string | null
+          ship_to_address_line2?: string | null
+          ship_to_address_line3?: string | null
+          ship_to_city?: string | null
+          ship_to_country?: string | null
+          ship_to_name?: string | null
+          ship_to_state?: string | null
+          ship_to_zip_code?: string | null
+          shipped_date?: string | null
+          sku?: string | null
+          source_file?: string
+          tracking_id?: string | null
+          updated_at?: string
+          user_id?: string
+          warehouse_code?: string | null
+        }
+        Relationships: []
+      }
       orders: {
         Row: {
           asin: string | null

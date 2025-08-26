@@ -65,6 +65,8 @@ export function OrderProcessor() {
   const [orderData, setOrderData] = useState<OrderItem[]>([]);
   const [matchedItems, setMatchedItems] = useState<MatchedItem[]>([]);
   const [processedItems, setProcessedItems] = useState<ProcessedItem[]>([]);
+  const [allOrders, setAllOrders] = useState<OrderItem[]>([]); // All imported orders
+  const [unmatchedOrders, setUnmatchedOrders] = useState<OrderItem[]>([]); // Orders without inventory match
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
@@ -126,6 +128,74 @@ export function OrderProcessor() {
     loadProcessedOrders();
   }, []);
 
+  // Load all imported orders from database
+  useEffect(() => {
+    const loadAllOrders = async () => {
+      const { data, error } = await supabase
+        .from('order_imports')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('Error loading imported orders:', error);
+      } else {
+        const formattedOrders: OrderItem[] = (data || []).map((order: any) => ({
+          orderId: order.order_id || '',
+          orderStatus: order.order_status || '',
+          warehouseCode: order.warehouse_code || '',
+          orderPlaceDate: order.order_place_date || '',
+          requiredShipDate: order.required_ship_date || '',
+          shipMethod: order.ship_method || '',
+          shipMethodCode: order.ship_method_code || '',
+          shipToName: order.ship_to_name || '',
+          shipToAddressLine1: order.ship_to_address_line1 || '',
+          shipToAddressLine2: order.ship_to_address_line2 || '',
+          shipToAddressLine3: order.ship_to_address_line3 || '',
+          shipToCity: order.ship_to_city || '',
+          shipToState: order.ship_to_state || '',
+          shipToZipCode: order.ship_to_zip_code || '',
+          shipToCountry: order.ship_to_country || '',
+          phoneNumber: order.phone_number || '',
+          isGift: order.is_gift || '',
+          itemCost: order.item_cost || '',
+          sku: order.sku || '',
+          asin: order.asin || '',
+          itemTitle: order.item_title || '',
+          itemQuantity: order.item_quantity || 1,
+          giftMessage: order.gift_message || '',
+          trackingId: order.tracking_id || '',
+          shippedDate: order.shipped_date || ''
+        }));
+        
+        setOrderData(formattedOrders);
+        if (formattedOrders.length > 0) {
+          await matchOrdersWithInventory(formattedOrders);
+        }
+      }
+    };
+    
+    loadAllOrders();
+  }, []);
+
+  // Load processed orders from database
+  useEffect(() => {
+    const loadProcessedOrders = async () => {
+      const {
+        data,
+        error
+      } = await supabase.from('processed_orders').select('*').order('processed_at', {
+        ascending: false
+      });
+      if (error) {
+        console.error('Error loading processed orders:', error);
+      } else {
+        console.log('Loaded processed orders from DB:', data);
+        setDbResults(data || []);
+      }
+    };
+    loadProcessedOrders();
+  }, []);
+
   // Initialize QZ Tray connection on component mount
   useEffect(() => {
     const initializeQZTray = async () => {
@@ -156,7 +226,72 @@ export function OrderProcessor() {
     };
   }, []);
 
-  // Save processed order to database
+  // Save all orders to database during file upload
+  const saveOrdersToDatabase = async (orders: OrderItem[], fileName: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const orderRecords = orders.map(order => ({
+      user_id: user.id,
+      order_id: order.orderId,
+      order_status: order.orderStatus,
+      warehouse_code: order.warehouseCode,
+      order_place_date: order.orderPlaceDate,
+      required_ship_date: order.requiredShipDate,
+      ship_method: order.shipMethod,
+      ship_method_code: order.shipMethodCode,
+      ship_to_name: order.shipToName,
+      ship_to_address_line1: order.shipToAddressLine1,
+      ship_to_address_line2: order.shipToAddressLine2,
+      ship_to_address_line3: order.shipToAddressLine3,
+      ship_to_city: order.shipToCity,
+      ship_to_state: order.shipToState,
+      ship_to_zip_code: order.shipToZipCode,
+      ship_to_country: order.shipToCountry,
+      phone_number: order.phoneNumber,
+      is_gift: order.isGift,
+      item_cost: order.itemCost,
+      sku: order.sku,
+      asin: order.asin,
+      item_title: order.itemTitle,
+      item_quantity: order.itemQuantity,
+      gift_message: order.giftMessage,
+      tracking_id: order.trackingId,
+      shipped_date: order.shippedDate,
+      source_file: fileName
+    }));
+
+    const { error } = await supabase
+      .from('order_imports')
+      .insert(orderRecords);
+    
+    if (error) {
+      console.error('Error saving orders to database:', error);
+      throw error;
+    }
+  };
+
+  // Update order match status in database
+  const updateOrderMatchStatus = async (orderId: string, hasMatch: boolean, matchType?: string, matchFieldType?: string, inventoryId?: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { error } = await supabase
+      .from('order_imports')
+      .update({
+        has_inventory_match: hasMatch,
+        inventory_match_type: matchType || null,
+        match_field_type: matchFieldType || null,
+        inventory_id: inventoryId || null,
+        updated_at: new Date().toISOString()
+      })
+      .eq('user_id', user.id)
+      .eq('order_id', orderId);
+    
+    if (error) {
+      console.error('Error updating order match status:', error);
+    }
+  };
   const saveProcessedOrder = async (match: MatchedItem, previousStock: number, newStock: number, fileName: string) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
@@ -232,14 +367,17 @@ export function OrderProcessor() {
         shippedDate: row['Shipped Date'] || ''
       }));
       setOrderData(formattedOrders);
+      setAllOrders(formattedOrders);
       setFileName(file.name);
+      
+      // Save all orders to database first
+      await saveOrdersToDatabase(formattedOrders, file.name);
+      
       const matches = await matchOrdersWithInventory(formattedOrders);
 
-      // Save to database
-      // No need to save unprocessed orders anymore
       toast({
         title: "Orders Uploaded",
-        description: `Successfully processed ${formattedOrders.length} orders.`
+        description: `Successfully uploaded ${formattedOrders.length} orders to database. Found ${matches.filter(m => m.inventoryMatch).length} matches.`
       });
     } catch (error) {
       console.error('Error processing file:', error);
@@ -253,7 +391,9 @@ export function OrderProcessor() {
     }
   };
   const matchOrdersWithInventory = async (orders: OrderItem[]) => {
-    const matches: MatchedItem[] = orders.map(order => {
+    const matches: MatchedItem[] = [];
+    
+    for (const order of orders) {
       let inventoryMatch: AsinInventoryItem | SkuInventoryItem | undefined;
       let inventoryType: 'asin' | 'sku' | undefined;
       let matchType: 'asin' | 'sku' | undefined;
@@ -298,14 +438,32 @@ export function OrderProcessor() {
         }
       }
 
-      return {
+      // Update match status in database
+      await updateOrderMatchStatus(
+        order.orderId, 
+        !!inventoryMatch, 
+        inventoryType, 
+        matchType, 
+        inventoryMatch?.id
+      );
+
+      const match: MatchedItem = {
         orderItem: order,
         inventoryMatch,
         inventoryType,
         matchType
       };
-    });
+      
+      matches.push(match);
+    }
+    
+    // Separate matched and unmatched orders
+    const matchedOrders = matches.filter(m => m.inventoryMatch);
+    const unmatchedOrdersList = matches.filter(m => !m.inventoryMatch).map(m => m.orderItem);
+    
     setMatchedItems(matches);
+    setUnmatchedOrders(unmatchedOrdersList);
+    
     return matches;
   };
   const handleQuantityUpdate = async (match: MatchedItem, changeAmount: number, matchIndex: number) => {
@@ -760,18 +918,711 @@ export function OrderProcessor() {
           </div>
           
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="process" className="flex items-center gap-2">
                 <Package className="w-4 h-4" />
                 Process Orders
               </TabsTrigger>
+              <TabsTrigger value="all-orders" className="flex items-center gap-2">
+                <ShoppingCart className="w-4 h-4" />
+                All Orders ({allOrders.length})
+              </TabsTrigger>
+              <TabsTrigger value="matched-orders" className="flex items-center gap-2">
+                <CheckCircle className="w-4 h-4" />
+                Matched ({matchedItems.filter(m => m.inventoryMatch).length})
+              </TabsTrigger>
               <TabsTrigger value="processed" className="flex items-center gap-2">
                 <History className="w-4 h-4" />
-                Processed Orders ({processedItems.length + analytics.processedOrdersCount})
+                Processed ({analytics.processedOrdersCount})
               </TabsTrigger>
             </TabsList>
             
+            <TabsContent value="all-orders" className="space-y-4">
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h4 className="font-semibold">All Imported Orders ({allOrders.length})</h4>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => {
+                      setOrderData([]);
+                      setAllOrders([]);
+                      setMatchedItems([]);
+                      setUnmatchedOrders([]);
+                    }}>
+                      Clear All
+                    </Button>
+                  </div>
+                </div>
+                
+                {allOrders.length > 0 ? (
+                  <div className="rounded-lg border overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Order ID</TableHead>
+                          <TableHead>ASIN</TableHead>
+                          <TableHead>SKU</TableHead>
+                          <TableHead>Title</TableHead>
+                          <TableHead>Quantity</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Match Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {allOrders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((order, index) => {
+                          const match = matchedItems.find(m => m.orderItem.orderId === order.orderId);
+                          const hasMatch = !!match?.inventoryMatch;
+                          
+                          return (
+                            <TableRow key={`${order.orderId}-${index}`}>
+                              <TableCell className="font-mono text-sm">{order.orderId}</TableCell>
+                              <TableCell className="font-mono text-sm">{order.asin}</TableCell>
+                              <TableCell className="font-mono text-sm">{order.sku}</TableCell>
+                              <TableCell className="max-w-xs truncate">{order.itemTitle}</TableCell>
+                              <TableCell>{order.itemQuantity}</TableCell>
+                              <TableCell>
+                                <Badge variant="secondary">{order.orderStatus}</Badge>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant={hasMatch ? "default" : "destructive"}>
+                                  {hasMatch ? `Matched (${match?.matchType})` : "No Match"}
+                                </Badge>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ) : (
+                  <div className="text-center text-muted-foreground py-8">
+                    No orders uploaded yet. Upload a file to see all orders here.
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="matched-orders" className="space-y-4">
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h4 className="font-semibold">Matched Orders ({matchedItems.filter(m => m.inventoryMatch).length})</h4>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={processSelectedItems}
+                      disabled={selectedItems.size === 0}
+                    >
+                      Process Selected ({selectedItems.size})
+                    </Button>
+                  </div>
+                </div>
+
+                {matchedItems.filter(m => m.inventoryMatch).length > 0 ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-4">
+                      <div className="flex-1">
+                        <Label htmlFor="search-matched">Search Matched Orders</Label>
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                          <Input 
+                            id="search-matched" 
+                            placeholder="Search matched orders..." 
+                            value={searchTerm} 
+                            onChange={e => setSearchTerm(e.target.value)} 
+                            className="pl-10" 
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="rounded-lg border overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-12">
+                              <Checkbox 
+                                checked={selectAll}
+                                onCheckedChange={handleSelectAll}
+                              />
+                            </TableHead>
+                            <TableHead>Order ID</TableHead>
+                            <TableHead>Product</TableHead>
+                            <TableHead>Match Info</TableHead>
+                            <TableHead>Stock</TableHead>
+                            <TableHead>Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {matchedItems.filter(m => m.inventoryMatch)
+                            .filter(match => 
+                              !searchTerm || 
+                              match.orderItem.orderId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                              match.orderItem.asin?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                              match.orderItem.sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                              match.orderItem.itemTitle?.toLowerCase().includes(searchTerm.toLowerCase())
+                            )
+                            .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+                            .map((match, index) => {
+                              const globalIndex = matchedItems.findIndex(m => m === match);
+                              return (
+                                <TableRow key={`${match.orderItem.orderId}-${index}`}>
+                                  <TableCell>
+                                    <Checkbox 
+                                      checked={selectedItems.has(globalIndex)}
+                                      onCheckedChange={() => handleSelectItem(globalIndex)}
+                                    />
+                                  </TableCell>
+                                  <TableCell className="font-mono text-sm">{match.orderItem.orderId}</TableCell>
+                                  <TableCell>
+                                    <div className="space-y-1">
+                                      <div className="font-medium text-sm truncate max-w-xs">{match.orderItem.itemTitle}</div>
+                                      <div className="text-xs text-muted-foreground">
+                                        ASIN: {match.orderItem.asin} | SKU: {match.orderItem.sku}
+                                      </div>
+                                      <div className="text-xs text-muted-foreground">
+                                        Qty: {match.orderItem.itemQuantity}
+                                      </div>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="space-y-1">
+                                      <Badge variant="default" className="text-xs">
+                                        {match.inventoryType?.toUpperCase()} - {match.matchType?.toUpperCase()}
+                                      </Badge>
+                                      <div className="text-xs text-muted-foreground">
+                                        {'asin' in match.inventoryMatch! ? match.inventoryMatch.asin : match.inventoryMatch!.skuNumber}
+                                      </div>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Badge variant={
+                                      match.inventoryMatch!.quantity >= match.orderItem.itemQuantity ? "default" : 
+                                      match.inventoryMatch!.quantity === 0 ? "destructive" : "destructive"
+                                    }>
+                                      {match.inventoryMatch!.quantity} available
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="flex gap-1">
+                                      <Button
+                                        size="sm"
+                                        variant="destructive"
+                                        onClick={() => handleQuantityUpdate(match, -match.orderItem.itemQuantity, globalIndex)}
+                                        disabled={match.inventoryMatch!.quantity < match.orderItem.itemQuantity}
+                                      >
+                                        <Minus className="w-3 h-3" />
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => printOrderLabelDirect(match)}
+                                        disabled={!qzConnected}
+                                      >
+                                        <Printer className="w-3 h-3" />
+                                      </Button>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center text-muted-foreground py-8">
+                    No matched orders found. Upload a file and ensure you have matching inventory.
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+            
+            
+            <TabsContent value="all-orders" className="space-y-4">
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h4 className="font-semibold">All Imported Orders ({allOrders.length})</h4>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => {
+                      setOrderData([]);
+                      setAllOrders([]);
+                      setMatchedItems([]);
+                      setUnmatchedOrders([]);
+                    }}>
+                      Clear All
+                    </Button>
+                  </div>
+                </div>
+                
+                {allOrders.length > 0 ? (
+                  <div className="rounded-lg border overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Order ID</TableHead>
+                          <TableHead>ASIN</TableHead>
+                          <TableHead>SKU</TableHead>
+                          <TableHead>Title</TableHead>
+                          <TableHead>Quantity</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Match Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {allOrders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((order, index) => {
+                          const match = matchedItems.find(m => m.orderItem.orderId === order.orderId);
+                          const hasMatch = !!match?.inventoryMatch;
+                          
+                          return (
+                            <TableRow key={`${order.orderId}-${index}`}>
+                              <TableCell className="font-mono text-sm">{order.orderId}</TableCell>
+                              <TableCell className="font-mono text-sm">{order.asin}</TableCell>
+                              <TableCell className="font-mono text-sm">{order.sku}</TableCell>
+                              <TableCell className="max-w-xs truncate">{order.itemTitle}</TableCell>
+                              <TableCell>{order.itemQuantity}</TableCell>
+                              <TableCell>
+                                <Badge variant="secondary">{order.orderStatus}</Badge>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant={hasMatch ? "default" : "destructive"}>
+                                  {hasMatch ? `Matched (${match?.matchType})` : "No Match"}
+                                </Badge>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ) : (
+                  <div className="text-center text-muted-foreground py-8">
+                    No orders uploaded yet. Upload a file to see all orders here.
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="matched-orders" className="space-y-4">
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h4 className="font-semibold">Matched Orders (Ready to Process)</h4>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={processSelectedItems}
+                      disabled={selectedItems.size === 0}
+                    >
+                      Process Selected ({selectedItems.size})
+                    </Button>
+                  </div>
+                </div>
+
+                {matchedItems.filter(m => m.inventoryMatch).length > 0 ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-4">
+                      <div className="flex-1">
+                        <Label htmlFor="search-matched">Search Matched Orders</Label>
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                          <Input 
+                            id="search-matched" 
+                            placeholder="Search matched orders..." 
+                            value={searchTerm} 
+                            onChange={e => setSearchTerm(e.target.value)} 
+                            className="pl-10" 
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="rounded-lg border overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-12">
+                              <Checkbox 
+                                checked={selectAll}
+                                onCheckedChange={handleSelectAll}
+                              />
+                            </TableHead>
+                            <TableHead>Order ID</TableHead>
+                            <TableHead>Product</TableHead>
+                            <TableHead>Match Info</TableHead>
+                            <TableHead>Stock</TableHead>
+                            <TableHead>Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {matchedItems.filter(m => m.inventoryMatch)
+                            .filter(match => 
+                              !searchTerm || 
+                              match.orderItem.orderId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                              match.orderItem.asin?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                              match.orderItem.sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                              match.orderItem.itemTitle?.toLowerCase().includes(searchTerm.toLowerCase())
+                            )
+                            .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+                            .map((match, index) => {
+                              const globalIndex = matchedItems.findIndex(m => m === match);
+                              return (
+                                <TableRow key={`${match.orderItem.orderId}-${index}`}>
+                                  <TableCell>
+                                    <Checkbox 
+                                      checked={selectedItems.has(globalIndex)}
+                                      onCheckedChange={() => handleSelectItem(globalIndex)}
+                                    />
+                                  </TableCell>
+                                  <TableCell className="font-mono text-sm">{match.orderItem.orderId}</TableCell>
+                                  <TableCell>
+                                    <div className="space-y-1">
+                                      <div className="font-medium text-sm truncate max-w-xs">{match.orderItem.itemTitle}</div>
+                                      <div className="text-xs text-muted-foreground">
+                                        ASIN: {match.orderItem.asin} | SKU: {match.orderItem.sku}
+                                      </div>
+                                      <div className="text-xs text-muted-foreground">
+                                        Qty: {match.orderItem.itemQuantity}
+                                      </div>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="space-y-1">
+                                      <Badge variant="default" className="text-xs">
+                                        {match.inventoryType?.toUpperCase()} - {match.matchType?.toUpperCase()}
+                                      </Badge>
+                                      <div className="text-xs text-muted-foreground">
+                                        {'asin' in match.inventoryMatch! ? match.inventoryMatch.asin : match.inventoryMatch!.skuNumber}
+                                      </div>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Badge variant={
+                                      match.inventoryMatch!.quantity >= match.orderItem.itemQuantity ? "default" : 
+                                      match.inventoryMatch!.quantity === 0 ? "destructive" : "destructive"
+                                    }>
+                                      {match.inventoryMatch!.quantity} available
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="flex gap-1">
+                                      <Button
+                                        size="sm"
+                                        variant="destructive"
+                                        onClick={() => handleQuantityUpdate(match, -match.orderItem.itemQuantity, globalIndex)}
+                                        disabled={match.inventoryMatch!.quantity < match.orderItem.itemQuantity}
+                                      >
+                                        <Minus className="w-3 h-3" />
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => printOrderLabelDirect(match)}
+                                        disabled={!qzConnected}
+                                      >
+                                        <Printer className="w-3 h-3" />
+                                      </Button>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center text-muted-foreground py-8">
+                    No matched orders found. Upload a file and ensure you have matching inventory.
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+            
             <TabsContent value="process" className="space-y-4">
+
+            {orderData.length === 0 ? (
+              <div {...getRootProps()} className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${isDragActive ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 hover:border-primary/50'}`}>
+                <input {...getInputProps()} />
+                <FileSpreadsheet className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                <h4 className="text-lg font-medium mb-2">Upload Order File</h4>
+                <p className="text-muted-foreground mb-2">
+                  Drop your Excel or CSV file here, or click to browse
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Expected columns: Order ID, ASIN, SKU, Item Quantity, Item Title, etc.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <div className="flex-1">
+                    <Label htmlFor="search">Search Orders</Label>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                      <Input id="search" placeholder="Search by Order ID, ASIN, SKU, or Title..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10" />
+                    </div>
+                  </div>
+                  <Button onClick={() => {
+                    setOrderData([]);
+                    setMatchedItems([]);
+                    setProcessedItems([]);
+                  }} variant="outline">
+                    Upload New File
+                  </Button>
+                </div>
+                
+                {/* Keep existing analytics cards and table content */}
+                {/* ... rest of existing process tab content ... */}
+              </div>
+            )}
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <Card className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-primary/10 rounded-full">
+                      <ShoppingCart className="w-4 h-4 text-primary" />
+                    </div>
+                    <div>
+                      <div className="text-2xl font-bold">{analytics.totalOrders}</div>
+                      <div className="text-xs text-muted-foreground">
+                        Total Orders
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+                <Card className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-green-100 rounded-full">
+                      <CheckCircle className="w-4 h-4 text-green-600" />
+                    </div>
+                    <div>
+                      <div className="text-2xl font-bold text-green-600">{analytics.foundOrders}</div>
+                      <div className="text-xs text-muted-foreground">
+                        Found Items
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+                <Card className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-red-100 rounded-full">
+                      <AlertTriangle className="w-4 h-4 text-red-600" />
+                    </div>
+                    <div>
+                      <div className="text-2xl font-bold text-red-600">{analytics.totalOrders - analytics.foundOrders}</div>
+                      <div className="text-xs text-muted-foreground">
+                        Missing Items
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+                <Card className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-100 rounded-full">
+                      <TrendingUp className="w-4 h-4 text-blue-600" />
+                    </div>
+                    <div>
+                      <div className="text-2xl font-bold">{analytics.fulfillmentRate.toFixed(1)}%</div>
+                      <div className="text-xs text-muted-foreground">
+                        Fulfillment Rate
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <Card className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-purple-100 rounded-full">
+                      <Tag className="w-4 h-4 text-purple-600" />
+                    </div>
+                    <div>
+                      <div className="text-2xl font-bold text-purple-600">{analytics.foundByAsin}</div>
+                      <div className="text-xs text-muted-foreground">
+                        Found by ASIN
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+                <Card className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-orange-100 rounded-full">
+                      <Tag className="w-4 h-4 text-orange-600" />
+                    </div>
+                    <div>
+                      <div className="text-2xl font-bold text-orange-600">{analytics.foundBySku}</div>
+                      <div className="text-xs text-muted-foreground">
+                        Found by SKU
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+                <Card className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-amber-100 rounded-full">
+                      <Clock className="w-4 h-4 text-amber-600" />
+                    </div>
+                    <div>
+                      <div className="text-2xl font-bold text-amber-600">{analytics.urgentOrders}</div>
+                      <div className="text-xs text-muted-foreground">
+                        Urgent Orders
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+                <Card className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-gray-100 rounded-full">
+                      <History className="w-4 h-4 text-gray-600" />
+                    </div>
+                    <div>
+                      <div className="text-2xl font-bold">{analytics.processedOrdersCount}</div>
+                      <div className="text-xs text-muted-foreground">
+                        Total in database
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              </div>}
+            </TabsContent>
+
+            <TabsContent value="matched-orders" className="space-y-4">
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h4 className="font-semibold">Matched Orders (Ready to Process)</h4>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={processSelectedItems}
+                      disabled={selectedItems.size === 0}
+                    >
+                      Process Selected ({selectedItems.size})
+                    </Button>
+                  </div>
+                </div>
+
+                {matchedItems.filter(m => m.inventoryMatch).length > 0 ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-4">
+                      <div className="flex-1">
+                        <Label htmlFor="search-matched">Search Matched Orders</Label>
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                          <Input 
+                            id="search-matched" 
+                            placeholder="Search matched orders..." 
+                            value={searchTerm} 
+                            onChange={e => setSearchTerm(e.target.value)} 
+                            className="pl-10" 
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="rounded-lg border overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-12">
+                              <Checkbox 
+                                checked={selectAll}
+                                onCheckedChange={handleSelectAll}
+                              />
+                            </TableHead>
+                            <TableHead>Order ID</TableHead>
+                            <TableHead>Product</TableHead>
+                            <TableHead>Match Info</TableHead>
+                            <TableHead>Stock</TableHead>
+                            <TableHead>Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {matchedItems.filter(m => m.inventoryMatch)
+                            .filter(match => 
+                              !searchTerm || 
+                              match.orderItem.orderId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                              match.orderItem.asin?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                              match.orderItem.sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                              match.orderItem.itemTitle?.toLowerCase().includes(searchTerm.toLowerCase())
+                            )
+                            .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+                            .map((match, index) => {
+                              const globalIndex = matchedItems.findIndex(m => m === match);
+                              return (
+                                <TableRow key={`${match.orderItem.orderId}-${index}`}>
+                                  <TableCell>
+                                    <Checkbox 
+                                      checked={selectedItems.has(globalIndex)}
+                                      onCheckedChange={() => handleSelectItem(globalIndex)}
+                                    />
+                                  </TableCell>
+                                  <TableCell className="font-mono text-sm">{match.orderItem.orderId}</TableCell>
+                                  <TableCell>
+                                    <div className="space-y-1">
+                                      <div className="font-medium text-sm truncate max-w-xs">{match.orderItem.itemTitle}</div>
+                                      <div className="text-xs text-muted-foreground">
+                                        ASIN: {match.orderItem.asin} | SKU: {match.orderItem.sku}
+                                      </div>
+                                      <div className="text-xs text-muted-foreground">
+                                        Qty: {match.orderItem.itemQuantity}
+                                      </div>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="space-y-1">
+                                      <Badge variant="default" className="text-xs">
+                                        {match.inventoryType?.toUpperCase()} - {match.matchType?.toUpperCase()}
+                                      </Badge>
+                                      <div className="text-xs text-muted-foreground">
+                                        {'asin' in match.inventoryMatch! ? match.inventoryMatch.asin : match.inventoryMatch!.skuNumber}
+                                      </div>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Badge variant={
+                                      match.inventoryMatch!.quantity >= match.orderItem.itemQuantity ? "default" : 
+                                      match.inventoryMatch!.quantity === 0 ? "destructive" : "destructive"
+                                    }>
+                                      {match.inventoryMatch!.quantity} available
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="flex gap-1">
+                                      <Button
+                                        size="sm"
+                                        variant="destructive"
+                                        onClick={() => handleQuantityUpdate(match, -match.orderItem.itemQuantity, globalIndex)}
+                                        disabled={match.inventoryMatch!.quantity < match.orderItem.itemQuantity}
+                                      >
+                                        <Minus className="w-3 h-3" />
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => printOrderLabelDirect(match)}
+                                        disabled={!qzConnected}
+                                      >
+                                        <Printer className="w-3 h-3" />
+                                      </Button>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center text-muted-foreground py-8">
+                    No matched orders found. Upload a file and ensure you have matching inventory.
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+            
 
           {orderData.length === 0 ? <div {...getRootProps()} className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${isDragActive ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 hover:border-primary/50'}`}>
               <input {...getInputProps()} />
