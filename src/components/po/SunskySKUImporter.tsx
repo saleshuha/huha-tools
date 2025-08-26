@@ -1634,12 +1634,26 @@ export const SunskySKUImporter: React.FC = () => {
       
       if (modelData.uniqueCount === 0) {
         toast({
-          title: "No Model Numbers Found",
-          description: "No model numbers found in your PO orders to search",
+          title: "No Model Numbers Found", 
+          description: `Searched ${modelData.totalUniqueCount || 0} PO records but found no model numbers. Check console for details.`,
           variant: "default"
         });
         return;
       }
+
+      // Show enhanced diagnostics
+      toast({
+        title: `Found ${modelData.uniqueCount} Model Numbers`,
+        description: `Total PO items: ${modelData.totalCount} | Unique models: ${modelData.uniqueCount} | Already imported: ${modelData.alreadyImportedCount} | Processing ALL models...`,
+        variant: "default"
+      });
+
+      console.log(`🎯 STARTING PO MODEL SEARCH:`, {
+        totalPOItems: modelData.totalCount,
+        uniqueModels: modelData.uniqueCount,
+        alreadyImported: modelData.alreadyImportedCount,
+        willProcess: modelData.uniqueCount
+      });
 
       // Create import job first
       const { data: importJob } = await supabase

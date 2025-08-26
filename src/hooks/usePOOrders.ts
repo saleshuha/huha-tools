@@ -399,13 +399,48 @@ export const usePOOrders = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      // Use unlimited RPC function to bypass any query limits
-      const { data: allPOOrders, error } = await supabase
-        .rpc('get_all_po_orders_unlimited', { user_id_param: user.id });
+      // Use client-side pagination to fetch ALL PO orders (bypass PostgREST limit)
+      const pageSize = 1000;
+      let allPOOrders: any[] = [];
+      let page = 0;
+      let hasMore = true;
 
-      if (error) throw error;
+      console.log(`🚀 Starting client-side pagination to fetch ALL PO orders...`);
 
-      console.log(`✅ Fetched ${allPOOrders?.length || 0} total PO orders from RPC`);
+      while (hasMore) {
+        const startRange = page * pageSize;
+        const endRange = startRange + pageSize - 1;
+        
+        console.log(`📄 Fetching page ${page + 1} (rows ${startRange}-${endRange})...`);
+        
+        const { data: pageData, error, count } = await supabase
+          .from('po_orders')
+          .select('*', { count: 'exact' })
+          .eq('user_id', user.id)
+          .range(startRange, endRange)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        if (pageData && pageData.length > 0) {
+          allPOOrders = [...allPOOrders, ...pageData];
+          console.log(`✅ Page ${page + 1}: fetched ${pageData.length} records (total so far: ${allPOOrders.length})`);
+          
+          // Continue if this page was full
+          hasMore = pageData.length === pageSize;
+          page++;
+        } else {
+          hasMore = false;
+        }
+
+        // Safety limit to prevent infinite loops
+        if (page > 100) {
+          console.warn(`⚠️ Reached safety limit of 100 pages (${allPOOrders.length} records)`);
+          break;
+        }
+      }
+
+      console.log(`📦 TOTAL PO orders fetched via pagination: ${allPOOrders.length}`);
 
       // Filter for active orders and extract model numbers
       const activePOOrders = (allPOOrders || []).filter(order => 
