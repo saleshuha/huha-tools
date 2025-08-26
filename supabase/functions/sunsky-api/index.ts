@@ -2173,7 +2173,7 @@ serve(async (req) => {
               console.log(`Upserting ${itemsToUpsert.length} order items`);
               const { error: itemsError } = await supabase
                 .from('sunsky_order_items')
-                .upsert(itemsToUpsert, { onConflict: 'order_number,sku_code' });
+                .upsert(itemsToUpsert, { onConflict: 'user_id,order_number,sku_code' });
               
               if (itemsError) {
                 console.error('Error storing order items:', itemsError);
