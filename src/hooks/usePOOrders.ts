@@ -414,7 +414,7 @@ export const usePOOrders = () => {
 
       console.log(`🔍 ${activePOOrders.length} active PO orders after filtering`);
 
-      // Extract model numbers
+      // Extract model numbers from full record structure
       const itemsWithModelNumbers = activePOOrders.filter(item => 
         item.model_number && item.model_number.trim() !== ''
       );
