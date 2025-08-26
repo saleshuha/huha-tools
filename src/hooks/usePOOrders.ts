@@ -123,20 +123,34 @@ export const usePOOrders = () => {
 
       console.log(`📊 Found ${existingOrders?.length || 0} existing orders for duplicate checking`);
 
-      // Create a Set for fast duplicate checking - include multiple possible combinations
+      // Create a comprehensive Set for fast duplicate checking using multiple identifiers
       const existingSet = new Set();
       (existingOrders || []).forEach(order => {
-        // Add the original sku_code combination
-        existingSet.add(`${order.po_number}|${order.sku_code}|${order.quantity}`);
+        // Create comprehensive duplicate keys that consider all identifying factors
+        const poNumber = order.po_number?.trim();
+        const model = order.model_number?.trim();
+        const asin = order.asin?.trim();
+        const sku = order.sku_code?.trim();
+        const qty = order.quantity;
         
-        // Add model_number combination if different from sku_code
-        if (order.model_number && order.model_number !== order.sku_code) {
-          existingSet.add(`${order.po_number}|${order.model_number}|${order.quantity}`);
+        // Primary key: PO + Model Number + Quantity (most reliable)
+        if (poNumber && model && qty) {
+          existingSet.add(`${poNumber}|${model}|${qty}`);
         }
         
-        // Add asin combination if different from sku_code and model_number
-        if (order.asin && order.asin !== order.sku_code && order.asin !== order.model_number) {
-          existingSet.add(`${order.po_number}|${order.asin}|${order.quantity}`);
+        // Secondary key: PO + ASIN + Quantity (if different from model)
+        if (poNumber && asin && qty && asin !== model) {
+          existingSet.add(`${poNumber}|${asin}|${qty}`);
+        }
+        
+        // Tertiary key: PO + SKU + Quantity (if different from model and asin)
+        if (poNumber && sku && qty && sku !== model && sku !== asin) {
+          existingSet.add(`${poNumber}|${sku}|${qty}`);
+        }
+        
+        // Legacy compatibility: Original format
+        if (poNumber && sku && qty) {
+          existingSet.add(`${poNumber}|${sku}|${qty}`);
         }
       });
 
@@ -201,24 +215,36 @@ export const usePOOrders = () => {
           continue;
         }
 
-        // Check for duplicates using multiple possible combinations
+        // Enhanced duplicate checking with more comprehensive key generation
         const model_number = item.model_number?.trim();
         const asin = item.asin?.trim(); 
         const sku_code = model_number || asin;
         const po_number = item.po_number?.trim();
         const quantity = Number(item.quantity);
         
-        // Check all possible duplicate combinations
-        const possibleKeys = [
-          `${po_number}|${sku_code}|${quantity}`,
-          model_number ? `${po_number}|${model_number}|${quantity}` : null,
-          asin ? `${po_number}|${asin}|${quantity}` : null
-        ].filter(Boolean);
+        // Generate all possible duplicate detection keys
+        const duplicateKeys = [];
         
+        // Primary key: PO + Model Number + Quantity (most reliable identifier)
+        if (po_number && model_number && quantity) {
+          duplicateKeys.push(`${po_number}|${model_number}|${quantity}`);
+        }
+        
+        // Secondary key: PO + ASIN + Quantity (if ASIN is different from model)
+        if (po_number && asin && quantity && asin !== model_number) {
+          duplicateKeys.push(`${po_number}|${asin}|${quantity}`);
+        }
+        
+        // Tertiary key: PO + SKU Code + Quantity (fallback)
+        if (po_number && sku_code && quantity) {
+          duplicateKeys.push(`${po_number}|${sku_code}|${quantity}`);
+        }
+        
+        // Check for duplicates using any of the generated keys
         let isDuplicate = false;
         let matchedKey = '';
         
-        for (const key of possibleKeys) {
+        for (const key of duplicateKeys) {
           if (existingSet.has(key)) {
             isDuplicate = true;
             matchedKey = key;
@@ -228,10 +254,15 @@ export const usePOOrders = () => {
         
         if (isDuplicate) {
           processedResults.duplicates++;
-          const skip = `Row ${i + 1}: Duplicate found - "${productTitle}" (${matchedKey})`;
+          const skip = `Row ${i + 1}: Duplicate detected - "${productTitle}" (Key: ${matchedKey})`;
           processedResults.skippedReasons.push(skip);
-          console.log(`⚠️ STAGE 3 SKIP (DUPLICATE): ${skip}`);
+          console.log(`⚠️ STAGE 3 DUPLICATE SKIP: ${skip}`);
           continue;
+        }
+
+        // Add the new item's keys to existingSet to prevent duplicates within the same file
+        for (const key of duplicateKeys) {
+          existingSet.add(key);
         }
 
         console.log(`✅ Row ${i + 1}: No duplicate found, proceeding with insert`);
