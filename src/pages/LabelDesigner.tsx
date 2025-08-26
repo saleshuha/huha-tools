@@ -106,7 +106,7 @@ const LabelDesignerContent: React.FC = () => {
       <div className="border-b bg-card p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold">Label Designer</h1>
+            <h1 className="text-2xl font-bold">Label Designer & Printer</h1>
             {labelDoc && (
               <div className="flex items-center gap-2">
                 <Badge variant="outline">{labelDoc.name}</Badge>
