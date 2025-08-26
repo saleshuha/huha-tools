@@ -187,29 +187,33 @@ export const DateWiseOrderPrint: React.FC = () => {
     try {
       const ordersDataset = createDatasetFromOrders();
       
-      if (printSettings.format === 'pdf') {
-        const blob = await PrintService.generatePDF(labelDoc, ordersDataset, printSettings);
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `labels_${format(selectedDate, 'yyyy-MM-dd')}_${selectedOrders.length}orders.pdf`;
-        a.click();
-        URL.revokeObjectURL(url);
-        toast.success(`PDF with ${selectedOrders.length} labels exported successfully`);
+      // Generate HTML content for direct printing
+      const html = PrintService.generateHTMLPreview(labelDoc, ordersDataset, selectedOrders.length);
+      
+      // Create a new window for printing
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(html);
+        printWindow.document.close();
+        
+        // Wait for content to load, then print
+        printWindow.onload = () => {
+          printWindow.focus();
+          printWindow.print();
+          
+          // Close the print window after printing
+          printWindow.onafterprint = () => {
+            printWindow.close();
+          };
+        };
+        
+        toast.success(`Sending ${selectedOrders.length} labels to printer`);
       } else {
-        const zplCode = PrintService.generateZPL(labelDoc, ordersDataset, printSettings);
-        const blob = new Blob([zplCode], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `labels_${format(selectedDate, 'yyyy-MM-dd')}_${selectedOrders.length}orders.zpl`;
-        a.click();
-        URL.revokeObjectURL(url);
-        toast.success(`ZPL file with ${selectedOrders.length} labels exported successfully`);
+        toast.error('Unable to open print window. Please check popup blockers.');
       }
     } catch (error) {
       console.error('Print error:', error);
-      toast.error('Failed to generate labels');
+      toast.error('Failed to print labels');
     }
   };
 
