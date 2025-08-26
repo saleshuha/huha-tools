@@ -42,16 +42,40 @@ serve(async (req) => {
   }
 
   try {
-    const { integration_id, user_id, force_country } = await req.json();
+    // Get JWT token and validate user
+    const authHeader = req.headers.get('authorization')
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Authorization header required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
-    console.log('Generating vendor inventory feed', { integration_id, user_id, force_country });
+    const authClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+    );
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await authClient.auth.getUser(token);
+
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid or expired token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const { integration_id, force_country } = await req.json();
+
+    console.log('Generating vendor inventory feed', { integration_id, user_id: user.id, force_country });
 
     // Get integration configuration
     const { data: integration, error: integrationError } = await supabase
       .from('vendor_integrations')
       .select('*')
       .eq('id', integration_id)
-      .eq('user_id', user_id)
+      .eq('user_id', user.id)
       .single();
 
     if (integrationError || !integration) {
@@ -68,7 +92,7 @@ serve(async (req) => {
       const { data: skuInventory, error: skuError } = await supabase
         .from('sku_inventory')
         .select('sku_number, quantity, bin_serial_number')
-        .eq('user_id', user_id)
+        .eq('user_id', user.id)
         .eq('country', targetCountry)
         .eq('status', 'in-stock')
         .gt('quantity', 0);
@@ -84,7 +108,7 @@ serve(async (req) => {
       const { data: asinInventory, error: asinError } = await supabase
         .from('asin_inventory')
         .select('asin, sku, quantity, serial_number')
-        .eq('user_id', user_id)
+        .eq('user_id', user.id)
         .eq('country', targetCountry)
         .eq('status', 'in-stock')
         .gt('quantity', 0);
@@ -127,7 +151,7 @@ serve(async (req) => {
 
     // Store XML file in Supabase Storage (create bucket if needed)
     const bucketName = 'vendor-feeds';
-    const filePath = `${user_id}/${fileName}`;
+    const filePath = `${user.id}/${fileName}`;
 
     // Try to create bucket (will fail silently if exists)
     await supabase.storage.createBucket(bucketName, { public: false });
@@ -148,7 +172,7 @@ serve(async (req) => {
     const { data: feedLog, error: logError } = await supabase
       .from('vendor_feed_logs')
       .insert({
-        user_id,
+        user_id: user.id,
         integration_id,
         feed_type: 'inventory',
         file_name: fileName,

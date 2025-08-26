@@ -20,6 +20,30 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Get JWT token and validate user
+    const authHeader = req.headers.get('authorization')
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Authorization header required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const authClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+    );
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await authClient.auth.getUser(token);
+
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid or expired token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     console.log('amazon-test-sender: Request received - v1.1');
     
     const supabase = createClient(
@@ -39,16 +63,16 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { integration_id, user_id, xml_content, file_name }: TestSendRequest = requestBody;
+    const { integration_id, xml_content, file_name }: Omit<TestSendRequest, 'user_id'> = requestBody;
 
-    console.log('Starting test XML send for integration:', integration_id, 'user:', user_id);
+    console.log('Starting test XML send for integration:', integration_id, 'user:', user.id);
 
     // Get integration configuration
     const { data: integration, error: integrationError } = await supabase
       .from('vendor_integrations')
       .select('*')
       .eq('id', integration_id)
-      .eq('user_id', user_id)
+      .eq('user_id', user.id)
       .single();
 
     if (integrationError || !integration) {
@@ -80,11 +104,11 @@ Deno.serve(async (req) => {
       
       try {
         await supabase.from('vendor_feed_logs').insert({
-          user_id: user_id,
+          user_id: user.id,
           integration_id: integration_id,
           feed_type: 'test_ofr',
           file_name: defaultFileName,
-          file_path: `${user_id}/${defaultFileName}`,
+          file_path: `${user.id}/${defaultFileName}`,
           status: 'failed',
           total_items: 1,
           error_message: 'SSH private key not configured',
@@ -118,7 +142,7 @@ Deno.serve(async (req) => {
         // Store the XML content in Supabase Storage first
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('vendor-feeds')
-          .upload(`${user_id}/${defaultFileName}`, xml_content, {
+          .upload(`${user.id}/${defaultFileName}`, xml_content, {
             contentType: 'application/xml',
             upsert: true
           });
@@ -247,7 +271,7 @@ Deno.serve(async (req) => {
         const { error: logError } = await supabase
           .from('vendor_feed_logs')
           .insert({
-            user_id: user_id,
+            user_id: user.id,
             integration_id: integration_id,
             feed_type: 'test_ofr',
             file_name: defaultFileName,
@@ -274,7 +298,7 @@ Deno.serve(async (req) => {
         await supabase
           .from('vendor_feed_logs')
           .insert({
-            user_id: user_id,
+            user_id: user.id,
             integration_id: integration_id,
             feed_type: 'test_error',
             file_name: defaultFileName,

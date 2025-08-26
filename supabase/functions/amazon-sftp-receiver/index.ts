@@ -18,12 +18,36 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Get JWT token and validate user
+    const authHeader = req.headers.get('authorization')
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Authorization header required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const authClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+    );
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await authClient.auth.getUser(token);
+
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid or expired token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { integration_id, user_id, force_check = false }: ReceiveFilesRequest = await req.json();
+    const { integration_id, force_check = false }: Omit<ReceiveFilesRequest, 'user_id'> = await req.json();
 
     console.log('Starting SFTP receive for integration:', integration_id, '- v1.1');
 
@@ -32,7 +56,7 @@ Deno.serve(async (req) => {
       .from('vendor_integrations')
       .select('*')
       .eq('id', integration_id)
-      .eq('user_id', user_id)
+      .eq('user_id', user.id)
       .single();
 
     if (integrationError || !integration) {
@@ -100,7 +124,7 @@ Deno.serve(async (req) => {
           const { error: logError } = await supabase
             .from('vendor_feed_logs')
             .insert({
-              user_id: user_id,
+              user_id: user.id,
               integration_id: integration_id,
               feed_type: feedType,
               file_name: fileName,
@@ -127,7 +151,7 @@ Deno.serve(async (req) => {
         await supabase
           .from('vendor_feed_logs')
           .insert({
-            user_id: user_id,
+            user_id: user.id,
             integration_id: integration_id,
             feed_type: 'receive_error',
             file_name: 'sftp_receive_error.log',
