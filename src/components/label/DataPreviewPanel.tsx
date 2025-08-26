@@ -97,7 +97,7 @@ export const DataPreviewPanel: React.FC = () => {
             <SelectTrigger className="h-8">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="max-h-48">
+            <SelectContent className="bg-background border shadow-md z-50 max-h-48">
               {dataset.data.slice(0, 50).map((row, index) => {
                 // Try to show meaningful row identifier (first few columns)
                 const identifier = row.slice(0, 2).join(' - ') || `Row ${index + 1}`;
@@ -108,9 +108,9 @@ export const DataPreviewPanel: React.FC = () => {
                 );
               })}
               {dataset.data.length > 50 && (
-                <SelectItem value="" disabled>
+                <div className="px-2 py-1 text-xs text-muted-foreground">
                   ... and {dataset.data.length - 50} more rows
-                </SelectItem>
+                </div>
               )}
             </SelectContent>
           </Select>

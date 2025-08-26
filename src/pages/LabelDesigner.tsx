@@ -145,7 +145,7 @@ const LabelDesignerContent: React.FC = () => {
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="bg-background border shadow-md z-50">
                         {Object.entries(LABEL_PRESETS).map(([key, preset]) => (
                           <SelectItem key={key} value={key}>
                             {key} ({preset.width}×{preset.height}mm)

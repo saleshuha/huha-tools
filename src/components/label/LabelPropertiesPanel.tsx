@@ -130,7 +130,7 @@ export const LabelPropertiesPanel: React.FC = () => {
                   <SelectTrigger className="h-8">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-background border shadow-md z-50">
                     <SelectItem value="Arial">Arial</SelectItem>
                     <SelectItem value="Helvetica">Helvetica</SelectItem>
                     <SelectItem value="Times New Roman">Times New Roman</SelectItem>
@@ -202,7 +202,7 @@ export const LabelPropertiesPanel: React.FC = () => {
                   <SelectTrigger className="h-8">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-background border shadow-md z-50">
                     <SelectItem value="CODE128">CODE128</SelectItem>
                     <SelectItem value="EAN13">EAN13</SelectItem>
                     <SelectItem value="CODE39">CODE39</SelectItem>
@@ -238,14 +238,14 @@ export const LabelPropertiesPanel: React.FC = () => {
               <div>
                 <Label className="text-xs">Map to Column</Label>
                 <Select
-                  value={selectedElement.dataColumn || ''}
-                  onValueChange={(value) => handleUpdate({ dataColumn: value || undefined })}
+                  value={selectedElement.dataColumn === 'none' ? '' : selectedElement.dataColumn || ''}
+                  onValueChange={(value) => handleUpdate({ dataColumn: value === 'none' ? undefined : value || undefined })}
                 >
                   <SelectTrigger className="h-8">
                     <SelectValue placeholder="Select column" />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">None</SelectItem>
+                  <SelectContent className="bg-background border shadow-md z-50">
+                    <SelectItem value="none">None</SelectItem>
                     {dataset.headers.map((header) => (
                       <SelectItem key={header} value={header}>
                         {header}
