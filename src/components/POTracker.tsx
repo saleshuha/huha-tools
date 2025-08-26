@@ -77,13 +77,6 @@ export const POTracker = () => {
     await deletePOOrders();
   };
 
-  // Auto-delete on component mount for fresh uploads
-  useEffect(() => {
-    if (profile?.id) {
-      handleDeleteAllPO();
-    }
-  }, [profile?.id]);
-
   // New query to fetch deduplicated PO metrics from database
   const { data: comprehensiveMetrics, isLoading: isLoadingComprehensiveMetrics, refetch: refetchComprehensiveMetrics } = useQuery({
     queryKey: ['po-comprehensive-metrics'],
