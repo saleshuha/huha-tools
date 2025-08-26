@@ -5,6 +5,7 @@ interface StepperIndicatorProps {
   currentStep: number;
   hasDataset: boolean;
   hasTemplate: boolean;
+  onStepClick?: (step: number) => void;
 }
 
 const steps = [
@@ -14,7 +15,7 @@ const steps = [
   { id: 4, label: "Print", icon: Printer, description: "Generate and print labels" }
 ];
 
-export function StepperIndicator({ currentStep, hasDataset, hasTemplate }: StepperIndicatorProps) {
+export function StepperIndicator({ currentStep, hasDataset, hasTemplate, onStepClick }: StepperIndicatorProps) {
   const getStepStatus = (stepId: number) => {
     if (stepId < currentStep) return 'completed';
     if (stepId === currentStep) return 'current';
@@ -37,7 +38,13 @@ export function StepperIndicator({ currentStep, hasDataset, hasTemplate }: Stepp
         const Icon = step.icon;
 
         return (
-          <div key={step.id} className="flex items-center flex-1">
+          <div 
+            key={step.id} 
+            className={`flex items-center flex-1 ${
+              isAccessible ? 'cursor-pointer' : 'cursor-not-allowed'
+            }`}
+            onClick={() => isAccessible && onStepClick?.(step.id)}
+          >
             <div className="flex flex-col items-center">
               <div className={`
                 flex items-center justify-center w-12 h-12 rounded-full border-2 transition-all duration-300
@@ -46,7 +53,7 @@ export function StepperIndicator({ currentStep, hasDataset, hasTemplate }: Stepp
                   : status === 'current'
                   ? 'bg-primary border-primary text-primary-foreground'
                   : isAccessible
-                  ? 'bg-muted border-border text-muted-foreground hover:border-primary'
+                  ? 'bg-muted border-border text-muted-foreground hover:border-primary hover:bg-muted/50'
                   : 'bg-muted border-muted text-muted-foreground/50'
                 }
               `}>
