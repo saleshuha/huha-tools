@@ -66,11 +66,23 @@ export const POTracker = () => {
   const [processingProgress, setProcessingProgress] = useState(0);
   const [processingStatus, setProcessingStatus] = useState('');
   
-  const { poOrders, isLoading, fetchPOOrders, processPOFiles } = usePOOrders();
+  const { poOrders, isLoading, fetchPOOrders, processPOFiles, deletePOOrders } = usePOOrders();
   const { profile } = useUserProfile();
   const { selectedCountry } = useCountry();
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  // Delete all PO orders for fresh upload
+  const handleDeleteAllPO = async () => {
+    await deletePOOrders();
+  };
+
+  // Auto-delete on component mount for fresh uploads
+  useEffect(() => {
+    if (profile?.id) {
+      handleDeleteAllPO();
+    }
+  }, [profile?.id]);
 
   // New query to fetch deduplicated PO metrics from database
   const { data: comprehensiveMetrics, isLoading: isLoadingComprehensiveMetrics, refetch: refetchComprehensiveMetrics } = useQuery({
