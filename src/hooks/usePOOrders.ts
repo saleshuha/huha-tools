@@ -399,21 +399,23 @@ export const usePOOrders = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      // Get all active PO orders directly without batching - with explicit large limit
+      // Use unlimited RPC function to bypass any query limits
       const { data: allPOOrders, error } = await supabase
-        .from('po_orders')
-        .select('model_number, sku_code, title, po_number, status')
-        .eq('user_id', user.id)
-        .not('status', 'in', '("completed", "cancelled", "delivered")')
-        .order('created_at', { ascending: false })
-        .limit(50000); // Explicit large limit to avoid default 1000 limit
+        .rpc('get_all_po_orders_unlimited', { user_id_param: user.id });
 
       if (error) throw error;
 
-      console.log(`✅ Fetched ${allPOOrders?.length || 0} active PO orders`);
+      console.log(`✅ Fetched ${allPOOrders?.length || 0} total PO orders from RPC`);
+
+      // Filter for active orders and extract model numbers
+      const activePOOrders = (allPOOrders || []).filter(order => 
+        !['completed', 'cancelled', 'delivered'].includes(order.status)
+      );
+
+      console.log(`🔍 ${activePOOrders.length} active PO orders after filtering`);
 
       // Extract model numbers
-      const itemsWithModelNumbers = (allPOOrders || []).filter(item => 
+      const itemsWithModelNumbers = activePOOrders.filter(item => 
         item.model_number && item.model_number.trim() !== ''
       );
       
