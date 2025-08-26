@@ -1,11 +1,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { DollarSign, Package, Clock, CheckCircle, AlertTriangle, Calendar, CreditCard } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { DollarSign, Package, Clock, CheckCircle, AlertTriangle, Calendar, CreditCard, ChevronLeft, ChevronRight } from 'lucide-react';
 import { DashboardMetrics } from '@/types/amazon-fulfillment';
 import { useCurrencyConverter } from '@/hooks/useCurrencyConverter';
 import { useCurrencyDisplay } from '@/components/amazon/CurrencySelector';
 import { useCountry } from '@/contexts/CountryContext';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 interface MetricsDashboardProps {
   metrics: DashboardMetrics | null;
@@ -17,6 +18,7 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
   const { formatCurrency, convertCurrency } = useCurrencyConverter();
   const { displayCurrency } = useCurrencyDisplay();
   const { selectedCountry } = useCountry();
+  const [weekOffset, setWeekOffset] = useState(0); // 0 = current 4 weeks, positive = future, negative = past
   
   // Force re-render when display currency or metrics change by creating a unique key
   const renderKey = `${displayCurrency}-${metrics?.totalValue || 0}`;
@@ -146,7 +148,8 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
     
     for (let i = 0; i < 4; i++) {
       const weekStart = new Date(now);
-      weekStart.setDate(now.getDate() - (i + 1) * 7);
+      // Adjust for weekOffset: negative = past weeks, positive = future weeks
+      weekStart.setDate(now.getDate() - (i + 1) * 7 + (weekOffset * 28)); // 28 days = 4 weeks
       weekStart.setHours(0, 0, 0, 0);
       
       const weekEnd = new Date(weekStart);
@@ -185,7 +188,7 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
     }
     
     return weeks;
-  }, [orders, convertCurrency, displayCurrency]);
+  }, [orders, convertCurrency, displayCurrency, weekOffset]);
 
   console.log('MetricsDashboard render - Country:', selectedCountry, 'Display Currency:', displayCurrency, 'Total Value:', metrics?.totalValue, 'Converted:', convertedTotalValue);
 
@@ -351,10 +354,30 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <DollarSign className="h-5 w-5 text-primary" />
-              Weekly Performance (4 Weeks)
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <DollarSign className="h-5 w-5 text-primary" />
+                Weekly Performance (4 Weeks)
+              </CardTitle>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setWeekOffset(weekOffset - 1)}
+                  className="h-7 w-7 p-0"
+                >
+                  <ChevronLeft className="h-3 w-3" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setWeekOffset(weekOffset + 1)}
+                  className="h-7 w-7 p-0"
+                >
+                  <ChevronRight className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
