@@ -90,7 +90,7 @@ export const DateWiseOrderPrint: React.FC = () => {
       // Fetch processed orders from database - simplified query to avoid type issues
       const { data, error } = await supabase
         .from('processed_orders')
-        .select('id, asin, sku, item_title, quantity_change, order_number, processed_at, notes, file_name')
+        .select('id, asin, sku, item_title, quantity_processed, order_number, processed_at, notes, source_file')
         .gte('processed_at', startDate.toISOString())
         .lte('processed_at', queryEndDate.toISOString())
         .order('processed_at', { ascending: false });
@@ -103,11 +103,11 @@ export const DateWiseOrderPrint: React.FC = () => {
 
       const formattedOrders: ProcessedOrder[] = (data || []).map((order: any) => ({
         id: order.id,
-        file_name: order.file_name || 'Unknown File',
+        file_name: order.source_file || 'Unknown File',
         asin_code: order.asin || order.sku || '',
         sku_code: order.sku || order.asin || '',
         product_title: order.item_title || order.sku || order.asin || 'Unknown Product',
-        quantity: Math.abs(order.quantity_change || 1),
+        quantity: Math.abs(order.quantity_processed || 1),
         order_number: order.order_number || '',
         processed_date: format(new Date(order.processed_at), 'MMM dd, yyyy HH:mm'),
         status: 'processed',
