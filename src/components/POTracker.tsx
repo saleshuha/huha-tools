@@ -615,15 +615,15 @@ export const POTracker = () => {
                 }
 
                 const mappedData = data.map((item: any) => ({
-                  po_number: item['PO Number'],
-                  ship_to_location: item['Ship To Location'],
-                  asin: item['ASIN'],
-                  model_number: item['Model Number'],
-                  title: item['Title'],
-                  quantity: item['Quantity'],
-                  external_id: item['External ID'],
-                  external_id_type: item['External ID Type'],
-                  file_name: item['File Name'],
+                  po_number: item.po_number,
+                  ship_to_location: item.ship_to_location,
+                  asin: item.asin,
+                  model_number: item.model_number,
+                  title: item.title,
+                  quantity: item.quantity,
+                  external_id: item.external_id,
+                  external_id_type: item.external_id_type,
+                  file_name: item.file_name,
                   country: selectedCountry
                 }));
 
