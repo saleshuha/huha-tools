@@ -18,7 +18,7 @@ import { LabelDataset, PrintSettings } from '@/types/label';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
-interface ProcessedOrder {
+interface OrderToProcess {
   id: string;
   file_name: string;
   asin_code?: string;
@@ -26,9 +26,9 @@ interface ProcessedOrder {
   product_title?: string;
   quantity: number;
   order_number?: string;
-  processed_date: string;
+  order_date: string;
   status: string;
-  notes?: string;
+  has_match: boolean;
 }
 
 export const DateWiseOrderPrint: React.FC = () => {
@@ -36,7 +36,7 @@ export const DateWiseOrderPrint: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [dateRange, setDateRange] = useState<'today' | 'week' | 'month' | 'custom'>('today');
   const [endDate, setEndDate] = useState<Date>(new Date());
-  const [orders, setOrders] = useState<ProcessedOrder[]>([]);
+  const [orders, setOrders] = useState<OrderToProcess[]>([]);
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -87,13 +87,13 @@ export const DateWiseOrderPrint: React.FC = () => {
           break;
       }
 
-      // Fetch processed orders from database - simplified query to avoid type issues
+      // Fetch all orders from database for label processing
       const { data, error } = await supabase
-        .from('processed_orders')
-        .select('id, asin, sku, item_title, quantity_processed, order_number, processed_at, notes, source_file')
-        .gte('processed_at', startDate.toISOString())
-        .lte('processed_at', queryEndDate.toISOString())
-        .order('processed_at', { ascending: false });
+        .from('order_imports')
+        .select('id, order_id, asin, sku, item_title, item_quantity, order_place_date, order_status, has_inventory_match, source_file, created_at')
+        .gte('created_at', startDate.toISOString())
+        .lte('created_at', queryEndDate.toISOString())
+        .order('created_at', { ascending: false });
 
       if (error) {
         console.error('Error fetching orders:', error);
@@ -101,17 +101,17 @@ export const DateWiseOrderPrint: React.FC = () => {
         return;
       }
 
-      const formattedOrders: ProcessedOrder[] = (data || []).map((order: any) => ({
+      const formattedOrders: OrderToProcess[] = (data || []).map((order: any) => ({
         id: order.id,
         file_name: order.source_file || 'Unknown File',
-        asin_code: order.asin || order.sku || '',
-        sku_code: order.sku || order.asin || '',
+        asin_code: order.asin || '',
+        sku_code: order.sku || '',
         product_title: order.item_title || order.sku || order.asin || 'Unknown Product',
-        quantity: Math.abs(order.quantity_processed || 1),
-        order_number: order.order_number || '',
-        processed_date: format(new Date(order.processed_at), 'MMM dd, yyyy HH:mm'),
-        status: 'processed',
-        notes: order.notes || '',
+        quantity: order.item_quantity || 1,
+        order_number: order.order_id || '',
+        order_date: format(new Date(order.created_at), 'MMM dd, yyyy HH:mm'),
+        status: order.order_status || 'pending',
+        has_match: order.has_inventory_match || false,
       }));
 
       setOrders(formattedOrders);
@@ -145,10 +145,9 @@ export const DateWiseOrderPrint: React.FC = () => {
       'SKU',
       'Title',
       'Quantity',
-      'Processed Date',
+      'Order Date',
       'Status',
-      'File Name',
-      'Notes'
+      'File Name'
     ];
 
     const data = selectedOrderData.map(order => [
@@ -157,16 +156,15 @@ export const DateWiseOrderPrint: React.FC = () => {
       order.sku_code || '',
       order.product_title || '',
       order.quantity.toString(),
-      order.processed_date,
+      order.order_date,
       order.status,
-      order.file_name,
-      order.notes || ''
+      order.file_name
     ]);
 
     return {
       id: `orders_${Date.now()}`,
       name: `Orders_${format(selectedDate, 'yyyy-MM-dd')}`,
-      description: `Processed orders from ${format(selectedDate, 'MMM dd, yyyy')}`,
+      description: `Orders from ${format(selectedDate, 'MMM dd, yyyy')}`,
       headers,
       data,
       rowCount: data.length,
@@ -267,7 +265,7 @@ export const DateWiseOrderPrint: React.FC = () => {
           Date-Wise Order Printing
         </CardTitle>
         <p className="text-sm text-muted-foreground">
-          Select processed orders by date and print with your label template
+          Select orders by date to process labels for all available orders
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -405,7 +403,7 @@ export const DateWiseOrderPrint: React.FC = () => {
                         {order.order_number && <div>Order: {order.order_number}</div>}
                         {order.asin_code && <div>ASIN: {order.asin_code}</div>}
                         {order.sku_code && <div>SKU: {order.sku_code}</div>}
-                        <div>Qty: {order.quantity} • {order.processed_date}</div>
+                        <div>Qty: {order.quantity} • {order.order_date}</div>
                       </div>
                     </div>
                   </div>
