@@ -87,7 +87,7 @@ export default function SunskyOrderTrackingPage() {
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
   const [slowItems, setSlowItems] = useState<SlowItem[]>([]);
-  const [showOnlyPOLinked, setShowOnlyPOLinked] = useState(true);
+  const [showOnlyPOLinked, setShowOnlyPOLinked] = useState(false);
   const [loadingLabels, setLoadingLabels] = useState<Set<string>>(new Set());
   const [orderLabels, setOrderLabels] = useState<Map<string, any[]>>(new Map());
   const [selectedCredentialId, setSelectedCredentialId] = useState<string | null>(null);
@@ -395,14 +395,14 @@ export default function SunskyOrderTrackingPage() {
               <option value="api_error">API Error</option>
             </select>
             <div className="flex items-center gap-2">
-              <label className="text-sm font-medium">Show:</label>
+              <label className="text-sm font-medium">Filter:</label>
               <select
-                value={showOnlyPOLinked ? 'restock-orders' : 'all'}
-                onChange={(e) => setShowOnlyPOLinked(e.target.value === 'restock-orders')}
+                value={showOnlyPOLinked ? 'po-linked' : 'all-app-orders'}
+                onChange={(e) => setShowOnlyPOLinked(e.target.value === 'po-linked')}
                 className="px-3 py-2 border border-input rounded-md bg-background text-sm"
               >
-                <option value="restock-orders">Restock Orders Only</option>
-                <option value="all">All Orders</option>
+                <option value="all-app-orders">All App Orders ({orders.length})</option>
+                <option value="po-linked">PO-Linked Only</option>
               </select>
             </div>
           </div>
