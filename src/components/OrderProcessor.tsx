@@ -18,6 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { generateOrderLabelZPL, generateBulkOrderLabelsZPL, printZPLToPrinter, downloadZPLFile, previewOrderLabel, OrderLabelSettings } from '@/utils/order-label-printer';
 import QZTrayPrinter from '@/utils/qz-tray-printer';
+import { LabelPrintDialog } from '@/components/inventory/LabelPrintDialog';
 import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
 interface OrderItem {
@@ -91,6 +92,9 @@ export function OrderProcessor() {
   const [qzConnected, setQzConnected] = useState(false);
   const [selectedPrinter, setSelectedPrinter] = useState<string>('');
   const [availablePrinters, setAvailablePrinters] = useState<string[]>([]);
+  
+  // Label print dialog state
+  const [labelPrintDialogOpen, setLabelPrintDialogOpen] = useState(false);
   const {
     inventory: asinInventory,
     updateQuantity: updateAsinQuantity
@@ -1001,6 +1005,10 @@ export function OrderProcessor() {
                       <Tag className="w-4 h-4 mr-2" />
                       Print Labels ({selectedItems.size})
                     </Button>
+                    <Button onClick={() => setLabelPrintDialogOpen(true)} variant="outline" size="sm" disabled={selectedItems.size === 0}>
+                      <Tag className="w-4 h-4 mr-2" />
+                      Custom Labels ({selectedItems.size})
+                    </Button>
                     {qzConnected && (
                       <Button onClick={printBulkOrderLabelsDirect} variant="outline" size="sm" disabled={selectedItems.size === 0}>
                         <Printer className="w-4 h-4 mr-2" />
@@ -1158,5 +1166,25 @@ export function OrderProcessor() {
             )}
           </div>
         </Card>}
+        
+        {/* Label Print Dialog */}
+        <LabelPrintDialog
+          open={labelPrintDialogOpen}
+          onOpenChange={setLabelPrintDialogOpen}
+          selectedItems={Array.from(selectedItems).map(index => {
+            const match = filteredMatches[index];
+            return {
+              id: match.inventoryMatch?.id || '',
+              asin: match.orderItem.asin || '',
+              sku: match.orderItem.sku || '',
+              title: match.orderItem.itemTitle || '',
+              quantity: match.inventoryMatch?.quantity || 0,
+              type: match.inventoryType || 'asin',
+              order_id: match.orderItem.orderId,
+              order_quantity: match.orderItem.itemQuantity
+            };
+          })}
+          inventoryType="mixed"
+        />
     </div>;
 }
