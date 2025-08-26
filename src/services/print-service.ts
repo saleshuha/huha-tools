@@ -154,6 +154,20 @@ export class PrintService {
         pdf.text(content, x, y + height / 2);
         break;
 
+      case 'multitext':
+        const multiContent = resolveMappedContent(element, dataRow, dataset?.headers || []);
+        pdf.setFontSize(element.fontSize || 10);
+        pdf.setTextColor(element.color || '#000000');
+        
+        // Split text into lines that fit within the element width
+        const lines = pdf.splitTextToSize(multiContent, width);
+        const lineHeight = (element.lineHeight || 1.2) * (element.fontSize || 10) * 0.352778; // Convert to mm
+        
+        lines.forEach((line: string, index: number) => {
+          pdf.text(line, x, y + (index + 1) * lineHeight);
+        });
+        break;
+
       case 'rectangle':
         pdf.setFillColor(element.fill || '#ffffff');
         pdf.setDrawColor(element.stroke || '#000000');
@@ -198,6 +212,42 @@ export class PrintService {
         const fontSize = Math.round((element.fontSize || 12) / 3); // ZPL font scaling
         return `^FO${x},${y}^A0N,${fontSize * 10},${fontSize * 8}^FD${content}^FS\n`;
 
+      case 'multitext':
+        const multiContent = resolveMappedContent(element, dataRow, dataset?.headers || []);
+        const multiFontSize = Math.round((element.fontSize || 10) / 3);
+        const lineHeight = Math.round((element.lineHeight || 1.2) * multiFontSize * 10);
+        
+        // Split content into lines and create multiple text fields
+        const words = multiContent.split(' ');
+        const maxWidth = element.width;
+        let currentLine = '';
+        let lines: string[] = [];
+        let zplOutput = '';
+        
+        // Simple line wrapping for ZPL
+        words.forEach(word => {
+          const testLine = currentLine ? `${currentLine} ${word}` : word;
+          if (testLine.length * (multiFontSize * 8) > this.mmToDots(pxToMM(maxWidth), dpi)) {
+            if (currentLine) {
+              lines.push(currentLine);
+              currentLine = word;
+            } else {
+              lines.push(word);
+            }
+          } else {
+            currentLine = testLine;
+          }
+        });
+        
+        if (currentLine) lines.push(currentLine);
+        
+        lines.forEach((line, index) => {
+          const lineY = y + (index * lineHeight);
+          zplOutput += `^FO${x},${lineY}^A0N,${multiFontSize * 10},${multiFontSize * 8}^FD${line}^FS\n`;
+        });
+        
+        return zplOutput;
+
       case 'rectangle':
         const width = this.mmToDots(pxToMM(element.width), dpi);
         const height = this.mmToDots(pxToMM(element.height), dpi);
@@ -235,6 +285,19 @@ export class PrintService {
       case 'text':
         const content = resolveMappedContent(element, dataRow, dataset?.headers || []);
         return `<div class="element text" style="${style}">${content}</div>`;
+
+      case 'multitext':
+        const multiContent = resolveMappedContent(element, dataRow, dataset?.headers || []);
+        const multiStyle = `
+          ${style} 
+          line-height: ${element.lineHeight || 1.2}; 
+          word-wrap: break-word; 
+          white-space: pre-wrap; 
+          overflow: hidden;
+          text-align: ${element.textAlign || 'left'};
+          font-family: ${element.fontFamily || 'Arial'};
+        `;
+        return `<div class="element text" style="${multiStyle}">${multiContent}</div>`;
 
       case 'rectangle':
         const rectStyle = `${style} background: ${element.fill || 'transparent'}; border: ${element.strokeWidth || 1}px solid ${element.stroke || '#000000'};`;
