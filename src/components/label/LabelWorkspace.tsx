@@ -276,6 +276,35 @@ export const LabelWorkspace: React.FC = () => {
     setResizeHandle(null);
   };
 
+  // Helper function to get display text for elements with data mapping
+  const getDisplayText = (element: LabelElement, fallbackText: string) => {
+    if (element.dataColumn && dataset && dataset.data.length > 0) {
+      const columnIndex = dataset.headers.indexOf(element.dataColumn);
+      if (columnIndex !== -1 && dataset.data[0] && dataset.data[0][columnIndex] !== undefined) {
+        let value = String(dataset.data[0][columnIndex]);
+        
+        // Apply transformations
+        if (element.dataTransform) {
+          if (element.dataTransform.prefix) {
+            value = element.dataTransform.prefix + value;
+          }
+          if (element.dataTransform.suffix) {
+            value = value + element.dataTransform.suffix;
+          }
+          if (element.dataTransform.uppercase) {
+            value = value.toUpperCase();
+          }
+          if (element.dataTransform.truncate && element.dataTransform.truncate > 0) {
+            value = value.substring(0, element.dataTransform.truncate);
+          }
+        }
+        
+        return value;
+      }
+    }
+    return element.text || fallbackText;
+  };
+
   const renderElement = (element: LabelElement) => {
     const isSelected = selectedElement?.id === element.id;
     
@@ -310,7 +339,7 @@ export const LabelWorkspace: React.FC = () => {
             onClick={(e) => handleElementClick(element, e)}
             onMouseDown={(e) => handleMouseDown(element, e)}
           >
-            {element.text || 'Sample Text'}
+            {getDisplayText(element, 'Sample Text')}
             {renderResizeHandles(element)}
           </div>
         );
@@ -329,15 +358,15 @@ export const LabelWorkspace: React.FC = () => {
               padding: '4px',
               backgroundColor: isSelected ? 'rgba(var(--primary), 0.1)' : 'transparent',
               lineHeight: element.lineHeight || 1.2,
-              wordWrap: element.wordWrap ? 'break-word' : 'normal',
-              whiteSpace: element.wordWrap ? 'pre-wrap' : 'nowrap',
+              wordWrap: 'break-word',
+              whiteSpace: 'pre-wrap',
               overflow: 'hidden',
               display: 'block',
             }}
             onClick={(e) => handleElementClick(element, e)}
             onMouseDown={(e) => handleMouseDown(element, e)}
           >
-            {element.text || 'Multi-line text content will wrap automatically within this container to show all content across multiple lines.'}
+            {getDisplayText(element, 'Multi-line text content will wrap automatically within this container to show all content across multiple lines.')}
             {renderResizeHandles(element)}
           </div>
         );
