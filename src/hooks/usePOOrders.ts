@@ -460,6 +460,37 @@ export const usePOOrders = () => {
     }
   }, [toast]);
 
+  // Delete PO orders
+  const deletePOOrders = useCallback(async (orderIds?: string[]) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      let query = supabase.from('po_orders').delete().eq('user_id', user.id);
+      
+      if (orderIds && orderIds.length > 0) {
+        query = query.in('id', orderIds);
+      }
+
+      const { error } = await query;
+
+      if (error) throw error;
+
+      await fetchPOOrders();
+      toast({
+        title: "Success",
+        description: orderIds ? `Deleted ${orderIds.length} PO orders` : "Deleted all PO orders"
+      });
+    } catch (error) {
+      console.error('Error deleting PO orders:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete PO orders",
+        variant: "destructive"
+      });
+    }
+  }, [fetchPOOrders, toast]);
+
   return {
     poOrders,
     isLoading,
@@ -469,6 +500,7 @@ export const usePOOrders = () => {
     processPOFiles,
     updateOrderStatus,
     updateTrackingInfo,
-    getPOModelNumbers
+    getPOModelNumbers,
+    deletePOOrders
   };
 };
