@@ -8,7 +8,7 @@ extra_search_path = ["public", "extensions"]
 max_rows = 1000
 
 [functions.amazon-feed-receiver]
-verify_jwt = false
+verify_jwt = true
 
 [functions.amazon-test-sender]
 verify_jwt = true
@@ -23,7 +23,7 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.send-inventory-email]
-verify_jwt = false
+verify_jwt = true
 
 [functions.process-po-background]
 verify_jwt = true

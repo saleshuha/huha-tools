@@ -37,6 +37,30 @@ serve(async (req) => {
   }
 
   try {
+    // Get JWT token and validate user
+    const authHeader = req.headers.get('authorization')
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Authorization header required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const authClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+    );
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await authClient.auth.getUser(token);
+
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid or expired token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openaiApiKey) {
       throw new Error('OpenAI API key not configured');
@@ -50,17 +74,19 @@ serve(async (req) => {
 
     console.log('Starting AI forecast analysis for:', { country, itemType, analysisDepth });
 
-    // Fetch inventory data
+    // Fetch inventory data restricted to authenticated user
     const [asinData, skuData] = await Promise.all([
       supabase
         .from('asin_inventory')
         .select('*')
+        .eq('user_id', user.id)
         .eq('country', country)
         .order('date_added', { ascending: false })
         .limit(200),
       supabase
         .from('sku_inventory')
         .select('*')
+        .eq('user_id', user.id)
         .eq('country', country)
         .order('date_added', { ascending: false })
         .limit(200)

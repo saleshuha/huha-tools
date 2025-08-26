@@ -19,6 +19,30 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Get JWT token and validate user
+    const authHeader = req.headers.get('authorization')
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Authorization header required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const authClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+    );
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await authClient.auth.getUser(token);
+
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid or expired token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const url = new URL(req.url)
     const integrationId = url.searchParams.get('integration_id')
     const feedType = url.searchParams.get('feed_type') || 'acknowledgment'
@@ -36,11 +60,12 @@ Deno.serve(async (req) => {
 
     console.log(`Processing feed for integration: ${integrationId}, type: ${feedType}`)
 
-    // Verify the integration exists and get user info
+    // Verify the integration exists and belongs to the authenticated user
     const { data: integration, error: integrationError } = await supabase
       .from('vendor_integrations')
       .select('id, user_id, vendor_name, country')
       .eq('id', integrationId)
+      .eq('user_id', user.id)
       .single()
 
     if (integrationError || !integration) {

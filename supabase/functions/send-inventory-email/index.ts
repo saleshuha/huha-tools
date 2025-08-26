@@ -12,7 +12,6 @@ const corsHeaders = {
 
 interface InventoryEmailRequest {
   inventory: any[];
-  userEmail: string;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -22,7 +21,32 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { inventory, userEmail }: InventoryEmailRequest = await req.json();
+    // Get JWT token and validate user
+    const authHeader = req.headers.get('authorization')
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Authorization header required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+    );
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid or expired token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const { inventory }: InventoryEmailRequest = await req.json();
+    const userEmail = user.email; // Use authenticated user's email
 
     console.log('Sending inventory email to:', userEmail, 'Items count:', inventory.length);
 
