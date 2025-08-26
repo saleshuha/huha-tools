@@ -237,8 +237,7 @@ export const usePOOrders = () => {
             unit_cost: item.unit_cost ? Number(item.unit_cost) : null,
             sku_user_id: user.id,
             user_id: user.id,
-            sourceRows: [rowNum],
-            identity: identity
+            sourceRows: [rowNum]
           };
           itemGroups.set(identity, newGroup);
           console.log(`✨ Row ${rowNum}: Created new group with identity: ${identity}`);
@@ -269,9 +268,11 @@ export const usePOOrders = () => {
         results.inserted = validOrdersToInsert.length;
         console.log(`✅ Successfully inserted ${results.inserted} unique orders into database`);
 
-        // Log first 5 inserted identities for debugging
-        const insertedIdentities = validOrdersToInsert.slice(0, 5).map(order => order.identity);
-        console.log(`🔎 First 5 inserted identities:`, insertedIdentities);
+        // Log first 5 inserted items for debugging
+        const sampleItems = validOrdersToInsert.slice(0, 5).map(order => 
+          `${order.po_number}/${order.model_number || order.asin || order.sku_code}`
+        );
+        console.log(`🔎 First 5 inserted items:`, sampleItems);
       }
 
       setLoadingProgress(95);
