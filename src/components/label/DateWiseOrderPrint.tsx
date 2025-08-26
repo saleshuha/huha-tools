@@ -197,62 +197,120 @@ export const DateWiseOrderPrint: React.FC = () => {
       console.log('Generating dataset for orders:', selectedOrders.length);
       const ordersDataset = createDatasetFromOrders();
       
-      console.log('Generating HTML for print...');
-      // Generate HTML content with custom page size for direct printing
-      const html = generateCustomHTMLForPrint(labelDoc, ordersDataset, selectedOrders.length);
+      console.log('Generating HTML for direct print...');
+      // Generate HTML content for direct printing
+      const html = generateDirectPrintHTML(labelDoc, ordersDataset, selectedOrders.length);
       
-      console.log('Opening print window...');
-      // Create a new window for printing
-      const printWindow = window.open('', '_blank', 'width=800,height=600');
+      // Create temporary container
+      const printContainer = document.createElement('div');
+      printContainer.innerHTML = html;
+      printContainer.style.position = 'fixed';
+      printContainer.style.top = '-9999px';
+      printContainer.style.left = '-9999px';
       
-      if (!printWindow) {
-        console.error('Failed to open print window - likely blocked by popup blocker');
-        toast.error('Unable to open print window. Please allow popups for this site and try again.');
-        return;
-      }
-
-      console.log('Writing HTML to print window...');
-      printWindow.document.write(html);
-      printWindow.document.close();
+      // Add to document
+      document.body.appendChild(printContainer);
       
-      console.log('Setting up print window load handler...');
-      // Wait for content to load, then print
-      printWindow.addEventListener('load', () => {
-        console.log('Print window loaded, focusing and printing...');
-        printWindow.focus();
-        
-        // Add a small delay to ensure rendering is complete
-        setTimeout(() => {
-          console.log('Triggering print dialog...');
-          printWindow.print();
-        }, 500);
-        
-        // Close the print window after printing
-        printWindow.addEventListener('afterprint', () => {
-          console.log('Print dialog closed, closing window...');
-          printWindow.close();
-        });
-      });
+      // Create print-specific styles
+      const printStyles = document.createElement('style');
+      printStyles.innerHTML = generatePrintStyles();
+      document.head.appendChild(printStyles);
       
-      // Fallback - if window doesn't load properly, try printing after a delay
+      // Add class to body to trigger print styles
+      document.body.classList.add('printing-labels');
+      
+      console.log('Triggering direct print...');
+      // Print directly
+      window.print();
+      
+      // Clean up after printing
       setTimeout(() => {
-        if (printWindow && !printWindow.closed) {
-          console.log('Fallback: triggering print after delay...');
-          try {
-            printWindow.focus();
-            printWindow.print();
-          } catch (e) {
-            console.error('Fallback print failed:', e);
-          }
-        }
-      }, 2000);
+        document.body.removeChild(printContainer);
+        document.head.removeChild(printStyles);
+        document.body.classList.remove('printing-labels');
+      }, 1000);
       
-      toast.success(`Preparing ${selectedOrders.length} labels for printing...`);
+      toast.success(`Printing ${selectedOrders.length} labels...`);
       
     } catch (error) {
       console.error('Print error:', error);
       toast.error('Failed to print labels: ' + error.message);
     }
+  };
+
+  const generateDirectPrintHTML = (
+    document: LabelDoc,
+    dataset: LabelDataset | null,
+    maxLabels: number = 10
+  ): string => {
+    const isBulk = dataset && dataset.data.length > 0;
+    const totalLabels = Math.min(isBulk ? dataset.data.length : 1, maxLabels);
+
+    let html = '';
+
+    for (let labelIndex = 0; labelIndex < totalLabels; labelIndex++) {
+      const dataRow = isBulk ? dataset.data[labelIndex] : [];
+      
+      html += `<div class="print-label">`;
+      
+      for (const element of document.elements) {
+        html += renderElementToHTML(element, dataset, dataRow);
+      }
+      
+      html += `</div>`;
+    }
+
+    return html;
+  };
+
+  const generatePrintStyles = (): string => {
+    const pageWidth = useCustomPageSize ? customPageSize.width : labelDoc?.size.width || 210;
+    const pageHeight = useCustomPageSize ? customPageSize.height : labelDoc?.size.height || 297;
+
+    return `
+      @media print {
+        @page {
+          size: ${pageWidth}mm ${pageHeight}mm;
+          margin: 0;
+        }
+        
+        body.printing-labels * {
+          visibility: hidden;
+        }
+        
+        body.printing-labels .print-label,
+        body.printing-labels .print-label * {
+          visibility: visible;
+        }
+        
+        body.printing-labels .print-label {
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: ${pageWidth}mm;
+          height: ${pageHeight}mm;
+          background: white;
+          page-break-after: always;
+        }
+        
+        body.printing-labels .print-label:last-child {
+          page-break-after: avoid;
+        }
+        
+        body.printing-labels .element {
+          position: absolute;
+        }
+        
+        body.printing-labels .text {
+          font-family: Arial;
+        }
+        
+        body.printing-labels .barcode,
+        body.printing-labels .qr {
+          text-align: center;
+        }
+      }
+    `;
   };
 
   const generateCustomHTMLForPrint = (
