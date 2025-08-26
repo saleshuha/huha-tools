@@ -3058,6 +3058,21 @@ export type Database = {
           unique_po_numbers: number
         }[]
       }
+      get_po_dashboard_summary_deduplicated: {
+        Args: { user_id_param: string }
+        Returns: {
+          ordered_orders: number
+          pending_orders: number
+          recent_uploads: Json
+          shipped_orders: number
+          status_breakdown: Json
+          top_suppliers: Json
+          total_active_orders: number
+          total_active_quantity: number
+          total_active_value: number
+          unique_po_numbers: number
+        }[]
+      }
       get_po_group_metrics: {
         Args: { user_id_param: string }
         Returns: {
