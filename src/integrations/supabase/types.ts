@@ -2704,6 +2704,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cleanup_po_duplicates: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
       get_active_po_metrics: {
         Args: { user_id_param: string }
         Returns: {
