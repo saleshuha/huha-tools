@@ -14,7 +14,7 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useLabelDoc } from '@/contexts/LabelDocContext';
 import { PrintService } from '@/services/print-service';
-import { LabelDataset, PrintSettings } from '@/types/label';
+import { LabelDataset, PrintSettings, LabelDoc, LabelElement } from '@/types/label';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -187,8 +187,8 @@ export const DateWiseOrderPrint: React.FC = () => {
     try {
       const ordersDataset = createDatasetFromOrders();
       
-      // Generate HTML content for direct printing
-      const html = PrintService.generateHTMLPreview(labelDoc, ordersDataset, selectedOrders.length);
+      // Generate HTML content with custom page size for direct printing
+      const html = generateCustomHTMLForPrint(labelDoc, ordersDataset, selectedOrders.length);
       
       // Create a new window for printing
       const printWindow = window.open('', '_blank');
@@ -214,6 +214,145 @@ export const DateWiseOrderPrint: React.FC = () => {
     } catch (error) {
       console.error('Print error:', error);
       toast.error('Failed to print labels');
+    }
+  };
+
+  const generateCustomHTMLForPrint = (
+    document: LabelDoc,
+    dataset: LabelDataset | null,
+    maxLabels: number = 10
+  ): string => {
+    const isBulk = dataset && dataset.data.length > 0;
+    const totalLabels = Math.min(isBulk ? dataset.data.length : 1, maxLabels);
+
+    let html = `
+      <html>
+        <head>
+          <title>Label Print</title>
+          <style>
+            @page {
+              size: ${document.size.width}mm ${document.size.height}mm;
+              margin: 0;
+            }
+            body { 
+              font-family: Arial, sans-serif; 
+              margin: 0; 
+              padding: 0;
+            }
+            .label { 
+              width: ${document.size.width}mm;
+              height: ${document.size.height}mm;
+              position: relative; 
+              background: white;
+              page-break-after: always;
+            }
+            .label:last-child {
+              page-break-after: avoid;
+            }
+            .element { position: absolute; }
+            .text { font-family: Arial; }
+            .barcode, .qr { text-align: center; }
+            @media print {
+              .label {
+                page-break-after: always;
+              }
+              .label:last-child {
+                page-break-after: avoid;
+              }
+            }
+          </style>
+        </head>
+        <body>
+    `;
+
+    for (let labelIndex = 0; labelIndex < totalLabels; labelIndex++) {
+      const dataRow = isBulk ? dataset.data[labelIndex] : [];
+      
+      html += `<div class="label">`;
+      
+      for (const element of document.elements) {
+        html += renderElementToHTML(element, dataset, dataRow);
+      }
+      
+      html += `</div>`;
+    }
+
+    html += `</body></html>`;
+    return html;
+  };
+
+  const renderElementToHTML = (
+    element: LabelElement,
+    dataset: LabelDataset | null,
+    dataRow: any[]
+  ): string => {
+    const pxToMM = (px: number) => px * 0.264583; // Convert pixels to mm
+    
+    const style = `
+      left: ${pxToMM(element.x)}mm;
+      top: ${pxToMM(element.y)}mm;
+      width: ${pxToMM(element.width)}mm;
+      height: ${pxToMM(element.height)}mm;
+      font-size: ${element.fontSize || 12}px;
+      color: ${element.color || '#000000'};
+    `;
+
+    const resolveMappedContent = (element: LabelElement, dataRow: any[], headers: string[]): string => {
+      if (element.dataColumn && headers.includes(element.dataColumn)) {
+        const columnIndex = headers.indexOf(element.dataColumn);
+        let value = dataRow[columnIndex] || '';
+        
+        if (element.dataTransform) {
+          const transform = element.dataTransform;
+          if (transform.prefix) value = transform.prefix + value;
+          if (transform.suffix) value = value + transform.suffix;
+          if (transform.uppercase) value = value.toUpperCase();
+          if (transform.truncate && value.length > transform.truncate) {
+            value = value.substring(0, transform.truncate) + '...';
+          }
+        }
+        
+        return value;
+      }
+      return element.text || '';
+    };
+
+    switch (element.type) {
+      case 'text':
+        const content = resolveMappedContent(element, dataRow, dataset?.headers || []);
+        return `<div class="element text" style="${style}">${content}</div>`;
+
+      case 'multitext':
+        const multiContent = resolveMappedContent(element, dataRow, dataset?.headers || []);
+        const multiStyle = `
+          ${style} 
+          line-height: ${element.lineHeight || 1.2}; 
+          word-wrap: break-word; 
+          white-space: pre-wrap; 
+          overflow: hidden;
+          text-align: ${element.textAlign || 'left'};
+          font-family: ${element.fontFamily || 'Arial'};
+        `;
+        return `<div class="element text" style="${multiStyle}">${multiContent}</div>`;
+
+      case 'rectangle':
+        const rectStyle = `${style} background: ${element.fill || 'transparent'}; border: ${element.strokeWidth || 1}px solid ${element.stroke || '#000000'};`;
+        return `<div class="element" style="${rectStyle}"></div>`;
+
+      case 'circle':
+        const circleStyle = `${style} background: ${element.fill || 'transparent'}; border: ${element.strokeWidth || 1}px solid ${element.stroke || '#000000'}; border-radius: 50%;`;
+        return `<div class="element" style="${circleStyle}"></div>`;
+
+      case 'barcode':
+        const barcodeContent = resolveMappedContent(element, dataRow, dataset?.headers || []);
+        return `<div class="element barcode" style="${style}">*${barcodeContent}*</div>`;
+
+      case 'qr':
+        const qrContent = resolveMappedContent(element, dataRow, dataset?.headers || []);
+        return `<div class="element qr" style="${style}">QR: ${qrContent}</div>`;
+
+      default:
+        return '';
     }
   };
 
