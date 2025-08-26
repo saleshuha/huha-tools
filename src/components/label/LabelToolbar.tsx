@@ -74,16 +74,22 @@ export const LabelToolbar: React.FC = () => {
   };
 
   const handleAddBarcode = () => {
-    addElement({
-      type: 'barcode',
-      x: 10,
-      y: 150,
-      width: 80,
-      height: 30,
-      text: '123456789',
-      barcodeType: 'CODE128',
-      showText: true,
-    });
+    const barcodeText = prompt('Enter barcode text:', '123456789012');
+    if (barcodeText && barcodeText.trim()) {
+      addElement({
+        type: 'barcode',
+        x: 10,
+        y: 150,
+        width: 120,
+        height: 40,
+        text: barcodeText.trim(),
+        barcodeType: 'CODE128',
+        showText: true,
+      });
+      toast.success(`Barcode added with text: ${barcodeText.trim()}`);
+    } else {
+      toast.error('Barcode text is required');
+    }
   };
 
   const handleAddQR = () => {
