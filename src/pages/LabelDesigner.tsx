@@ -254,17 +254,21 @@ const LabelDesignerContent: React.FC = () => {
           </div>
         </div>
       </div>
-      <div className="flex-1 flex gap-4 min-h-0">
-        <div className="flex flex-col gap-4 w-80">
-          <LabelToolbar />
-          <OrderLabelTemplates />
-        </div>
-        <LabelWorkspace />
-        <div className="flex flex-col gap-4 w-80 overflow-y-auto">
-          <LabelPropertiesPanel />
-          <InventoryDataMapper />
-          <DateWiseOrderPrint />
-          <DataPreviewPanel />
+      <div className="flex flex-col gap-4 p-4">
+        <DateWiseOrderPrint />
+        
+        <div className="flex gap-4 min-h-0 flex-1">
+          <div className="flex-1">
+            <LabelWorkspace />
+          </div>
+          
+          <div className="w-96 space-y-4">
+            <LabelToolbar />
+            <OrderLabelTemplates />
+            <LabelPropertiesPanel />
+            <InventoryDataMapper />
+            <DataPreviewPanel />
+          </div>
         </div>
       </div>
     </div>
