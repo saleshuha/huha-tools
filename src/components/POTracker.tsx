@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
@@ -62,6 +63,9 @@ export const POTracker = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [viewMode, setViewMode] = useState<'grouped' | 'detailed'>('grouped');
+  const [processingProgress, setProcessingProgress] = useState(0);
+  const [processingStatus, setProcessingStatus] = useState('');
+  
   const { poOrders, isLoading, fetchPOOrders, processPOFiles } = usePOOrders();
   const { profile } = useUserProfile();
   const { selectedCountry } = useCountry();
@@ -594,7 +598,33 @@ export const POTracker = () => {
               </CardContent>
             </CardHeader>
             <CardContent>
+              {/* Progress Bar */}
+              {isLoading && (
+                <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                    <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                      {processingStatus || 'Processing Files...'}
+                    </span>
+                  </div>
+                  <Progress 
+                    value={processingProgress || 20} 
+                    className="h-2" 
+                  />
+                  <p className="text-xs text-blue-600 dark:text-blue-300 mt-1">
+                    {processingProgress < 30 ? 'Parsing and validating file contents...' :
+                     processingProgress < 60 ? 'Mapping columns and validating data...' :
+                     processingProgress < 90 ? 'Importing data and matching SKUs...' :
+                     'Finalizing import process...'}
+                  </p>
+                </div>
+              )}
+              
               <POFileUpload onFilesUpload={(data) => {
+                // Update progress as we start processing
+                setProcessingProgress(30);
+                setProcessingStatus('Mapping and validating data...');
+                
                 // Handle file upload in the uploads section
                 if (!profile) {
                   toast({
@@ -602,6 +632,8 @@ export const POTracker = () => {
                     description: "User profile not loaded",
                     variant: "destructive"
                   });
+                  setProcessingProgress(0);
+                  setProcessingStatus('');
                   return;
                 }
 
@@ -611,8 +643,13 @@ export const POTracker = () => {
                     description: "Please select a country",
                     variant: "destructive"
                   });
+                  setProcessingProgress(0);
+                  setProcessingStatus('');
                   return;
                 }
+
+                setProcessingProgress(60);
+                setProcessingStatus('Processing purchase order data...');
 
                 const mappedData = data.map((item: any) => ({
                   po_number: item.po_number,
@@ -627,8 +664,21 @@ export const POTracker = () => {
                   country: selectedCountry
                 }));
 
+                setProcessingProgress(90);
+                setProcessingStatus('Importing to database and matching SKUs...');
+
                 processPOFiles(mappedData, []).then(() => {
+                  setProcessingProgress(100);
+                  setProcessingStatus('Import completed successfully!');
+                  setTimeout(() => {
+                    setProcessingProgress(0);
+                    setProcessingStatus('');
+                  }, 2000);
                   fetchPOOrders();
+                }).catch((error) => {
+                  setProcessingProgress(0);
+                  setProcessingStatus('');
+                  console.error('Error processing files:', error);
                 });
               }} isLoading={isLoading} />
             </CardContent>

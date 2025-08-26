@@ -2,7 +2,8 @@ import { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Upload, FileText, X, ArrowRight } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { Upload, FileText, X, ArrowRight, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { POColumnMapping } from './POColumnMapping';
 import Papa from 'papaparse';
@@ -21,6 +22,13 @@ interface ParsedFile {
 export function POFileUpload({ onFilesUpload, isLoading }: POFileUploadProps) {
   const [parsedFiles, setParsedFiles] = useState<ParsedFile[]>([]);
   const [showMapping, setShowMapping] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [progressStatus, setProgressStatus] = useState('');
+
+  const updateProgress = (value: number, status: string) => {
+    setProgress(value);
+    setProgressStatus(status);
+  };
 
   const parseFile = async (file: File): Promise<ParsedFile> => {
     return new Promise((resolve, reject) => {
