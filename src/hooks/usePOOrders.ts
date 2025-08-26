@@ -149,19 +149,33 @@ export const usePOOrders = () => {
       // Fetch all existing PO orders for this user to check duplicates in bulk
       const { data: existingOrders, error: fetchError } = await supabase
         .from('po_orders')
-        .select('po_number, sku_code, quantity')
+        .select('po_number, sku_code, quantity, model_number, asin')
         .eq('user_id', user.id);
 
       if (fetchError) {
         throw new Error(`Failed to fetch existing orders: ${fetchError.message}`);
       }
 
-      // Create a Set for fast duplicate checking
-      const existingSet = new Set(
-        (existingOrders || []).map(order => 
-          `${order.po_number}|${order.sku_code}|${order.quantity}`
-        )
-      );
+      console.log(`📊 Found ${existingOrders?.length || 0} existing orders for duplicate checking`);
+
+      // Create a Set for fast duplicate checking - include multiple possible combinations
+      const existingSet = new Set();
+      (existingOrders || []).forEach(order => {
+        // Add the original sku_code combination
+        existingSet.add(`${order.po_number}|${order.sku_code}|${order.quantity}`);
+        
+        // Add model_number combination if different from sku_code
+        if (order.model_number && order.model_number !== order.sku_code) {
+          existingSet.add(`${order.po_number}|${order.model_number}|${order.quantity}`);
+        }
+        
+        // Add asin combination if different from sku_code and model_number
+        if (order.asin && order.asin !== order.sku_code && order.asin !== order.model_number) {
+          existingSet.add(`${order.po_number}|${order.asin}|${order.quantity}`);
+        }
+      });
+
+      console.log(`🔍 Created duplicate detection set with ${existingSet.size} combinations`);
 
       setLoadingProgress(20);
       setLoadingStatus('Validating order data...');
@@ -220,17 +234,40 @@ export const usePOOrders = () => {
           continue;
         }
 
-        // Check for duplicates using the Set (much faster than DB queries)
-        const sku_code = item.model_number?.trim() || item.asin?.trim();
-        const duplicateKey = `${item.po_number}|${sku_code}|${Number(item.quantity)}`;
+        // Check for duplicates using multiple possible combinations
+        const model_number = item.model_number?.trim();
+        const asin = item.asin?.trim(); 
+        const sku_code = model_number || asin;
+        const po_number = item.po_number?.trim();
+        const quantity = Number(item.quantity);
         
-        if (existingSet.has(duplicateKey)) {
+        // Check all possible duplicate combinations
+        const possibleKeys = [
+          `${po_number}|${sku_code}|${quantity}`,
+          model_number ? `${po_number}|${model_number}|${quantity}` : null,
+          asin ? `${po_number}|${asin}|${quantity}` : null
+        ].filter(Boolean);
+        
+        let isDuplicate = false;
+        let matchedKey = '';
+        
+        for (const key of possibleKeys) {
+          if (existingSet.has(key)) {
+            isDuplicate = true;
+            matchedKey = key;
+            break;
+          }
+        }
+        
+        if (isDuplicate) {
           processedResults.duplicates++;
-          const skip = `Row ${i + 1}: Duplicate found for PO ${item.po_number}, SKU ${sku_code}`;
+          const skip = `Row ${i + 1}: Duplicate found - ${matchedKey}`;
           processedResults.skippedReasons.push(skip);
           console.log(`⚠️ STAGE 3 SKIP (DUPLICATE): ${skip}`);
           continue;
         }
+
+        console.log(`✅ Row ${i + 1}: No duplicate found, proceeding with insert`);
 
         // Add to valid orders for bulk insert
         const orderData = {
