@@ -133,7 +133,7 @@ export const usePOOrders = () => {
     }
   }, [toast]);
 
-  // Process PO files with mapped data - Process each order individually
+  // Process PO files with mapped data - Optimized with bulk operations
   const processPOFiles = useCallback(async (mappedData: any[], sunskySKUs: any[]) => {
     setIsLoading(true);
     setLoadingProgress(0);
@@ -143,24 +143,46 @@ export const usePOOrders = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
+      setLoadingProgress(10);
+      setLoadingStatus('Fetching existing orders for duplicate check...');
+
+      // Fetch all existing PO orders for this user to check duplicates in bulk
+      const { data: existingOrders, error: fetchError } = await supabase
+        .from('po_orders')
+        .select('po_number, sku_code, quantity')
+        .eq('user_id', user.id);
+
+      if (fetchError) {
+        throw new Error(`Failed to fetch existing orders: ${fetchError.message}`);
+      }
+
+      // Create a Set for fast duplicate checking
+      const existingSet = new Set(
+        (existingOrders || []).map(order => 
+          `${order.po_number}|${order.sku_code}|${order.quantity}`
+        )
+      );
+
       setLoadingProgress(20);
       setLoadingStatus('Validating order data...');
 
-      // Process each order individually to ensure proper handling
       const processedResults = {
         inserted: 0,
         duplicates: 0,
         invalid: 0,
         errors: [] as string[],
-        skippedReasons: [] as string[]  // Track why records were skipped
+        skippedReasons: [] as string[]
       };
+
+      const validOrders: any[] = [];
 
       console.log(`📊 Starting processing of ${mappedData.length} rows from file`);
 
+      // Validate all orders and filter out duplicates/invalid ones
       for (let i = 0; i < mappedData.length; i++) {
         const item = mappedData[i];
-        setLoadingProgress(20 + (i / mappedData.length) * 60);
-        setLoadingStatus(`Processing order ${i + 1} of ${mappedData.length}...`);
+        setLoadingProgress(20 + (i / mappedData.length) * 30);
+        setLoadingStatus(`Validating order ${i + 1} of ${mappedData.length}...`);
 
         // Log each row for debugging
         console.log(`🔍 STAGE 3 Processing row ${i + 1}/${mappedData.length}:`, {
@@ -198,33 +220,19 @@ export const usePOOrders = () => {
           continue;
         }
 
-        // Check for duplicates
-        const { data: existing, error: checkError } = await supabase
-          .from('po_orders')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('po_number', item.po_number)
-          .eq('sku_code', item.model_number || item.asin)
-          .eq('quantity', Number(item.quantity))
-          .maybeSingle();
-
-        if (checkError) {
-          const error = `Row ${i + 1}: Database error checking duplicates`;
-          processedResults.errors.push(error);
-          processedResults.skippedReasons.push(error);
-          console.log(`❌ STAGE 3 SKIP: ${error}:`, checkError);
-          continue;
-        }
-
-        if (existing) {
+        // Check for duplicates using the Set (much faster than DB queries)
+        const sku_code = item.model_number?.trim() || item.asin?.trim();
+        const duplicateKey = `${item.po_number}|${sku_code}|${Number(item.quantity)}`;
+        
+        if (existingSet.has(duplicateKey)) {
           processedResults.duplicates++;
-          const skip = `Row ${i + 1}: Duplicate found for PO ${item.po_number}, SKU ${item.model_number || item.asin}`;
+          const skip = `Row ${i + 1}: Duplicate found for PO ${item.po_number}, SKU ${sku_code}`;
           processedResults.skippedReasons.push(skip);
           console.log(`⚠️ STAGE 3 SKIP (DUPLICATE): ${skip}`);
           continue;
         }
 
-        // Insert individual order
+        // Add to valid orders for bulk insert
         const orderData = {
           po_number: item.po_number.trim(),
           ship_to_location: item.ship_to_location?.trim() || 'Not specified',
@@ -232,7 +240,7 @@ export const usePOOrders = () => {
           model_number: item.model_number?.trim() || null,
           title: item.title?.trim() || 'Title not provided',
           quantity: Number(item.quantity),
-          sku_code: (item.model_number?.trim() || item.asin?.trim()),
+          sku_code: sku_code,
           external_id: item.external_id?.trim() || null,
           external_id_type: item.external_id_type?.trim() || null,
           status: 'pending',
@@ -242,20 +250,25 @@ export const usePOOrders = () => {
           user_id: user.id
         };
 
+        validOrders.push(orderData);
+        console.log(`✅ Row ${i + 1}: Valid order prepared for bulk insert`);
+      }
+
+      setLoadingProgress(60);
+      setLoadingStatus(`Inserting ${validOrders.length} valid orders...`);
+
+      // Bulk insert all valid orders
+      if (validOrders.length > 0) {
         const { error: insertError } = await supabase
           .from('po_orders')
-          .insert([orderData]);
+          .insert(validOrders);
 
         if (insertError) {
-          const error = `Row ${i + 1}: ${insertError.message}`;
-          processedResults.errors.push(error);
-          processedResults.skippedReasons.push(error);
-          console.log(`❌ Insert error: ${error}`);
-          continue;
+          throw new Error(`Bulk insert failed: ${insertError.message}`);
         }
 
-        processedResults.inserted++;
-        console.log(`✅ Row ${i + 1}: Successfully inserted`);
+        processedResults.inserted = validOrders.length;
+        console.log(`✅ Successfully bulk inserted ${validOrders.length} orders`);
       }
 
       console.log(`📊 STAGE 3 (DATABASE) PROCESSING SUMMARY:`);
