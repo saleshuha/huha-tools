@@ -10,6 +10,7 @@ import { PrintService } from '@/services/print-service';
 import QZTrayPrinter from '@/utils/qz-tray-printer';
 import { Printer, Eye, Save, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
+import JsBarcode from 'jsbarcode';
 
 export const LabelWorkspace: React.FC = () => {
   const { document, dataset, selectedElement, selectElement, updateElement, saveDocument } = useLabelDoc();
@@ -305,6 +306,26 @@ export const LabelWorkspace: React.FC = () => {
     return element.text || fallbackText;
   };
 
+  // Helper function to generate barcode image
+  const generateBarcodeImage = (text: string, barcodeType: string = 'CODE128'): string => {
+    try {
+      const canvas = globalThis.document.createElement('canvas');
+      JsBarcode(canvas, text, {
+        format: barcodeType,
+        width: 2,
+        height: 50,
+        displayValue: true,
+        fontSize: 12,
+        margin: 0,
+      });
+      return canvas.toDataURL();
+    } catch (error) {
+      console.error('Error generating barcode:', error);
+      // Return a fallback image or empty string
+      return '';
+    }
+  };
+
   const renderElement = (element: LabelElement) => {
     const isSelected = selectedElement?.id === element.id;
     
@@ -406,6 +427,9 @@ export const LabelWorkspace: React.FC = () => {
         );
 
       case 'barcode':
+        const barcodeText = getDisplayText(element, 'BARCODE123');
+        const barcodeImage = generateBarcodeImage(barcodeText, element.barcodeType || 'CODE128');
+        
         return (
           <div
             key={element.id}
@@ -416,13 +440,26 @@ export const LabelWorkspace: React.FC = () => {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: 10,
-              fontFamily: 'monospace',
+              padding: '2px',
             }}
             onClick={(e) => handleElementClick(element, e)}
             onMouseDown={(e) => handleMouseDown(element, e)}
           >
-            ||||| {element.text || 'BARCODE'} |||||
+            {barcodeImage ? (
+              <img 
+                src={barcodeImage} 
+                alt={barcodeText}
+                style={{
+                  maxWidth: '100%',
+                  maxHeight: '100%',
+                  objectFit: 'contain',
+                }}
+              />
+            ) : (
+              <span style={{ fontSize: 10, fontFamily: 'monospace', color: '#666' }}>
+                BARCODE: {barcodeText}
+              </span>
+            )}
             {renderResizeHandles(element)}
           </div>
         );
