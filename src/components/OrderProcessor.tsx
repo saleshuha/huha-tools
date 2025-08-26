@@ -472,12 +472,21 @@ export function OrderProcessor() {
   const paginatedMatches = filteredMatches.slice(startIndex, startIndex + itemsPerPage);
 
   const analytics = useMemo(() => {
+    const latestOrderDate = allOrders.length > 0 
+      ? allOrders.reduce((latest, order) => {
+          const orderDate = new Date(order.orderPlaceDate);
+          const latestDate = new Date(latest);
+          return orderDate > latestDate ? order.orderPlaceDate : latest;
+        }, allOrders[0].orderPlaceDate)
+      : '';
+    
     return {
       totalOrders: allOrders.length,
       matchedOrdersCount: matchedOrders.length,
       unmatchedOrdersCount: unmatchedOrders.length,
       processedOrdersCount: processedOrders.length,
-      totalValue: allOrders.reduce((sum, order) => sum + (parseFloat(order.itemCost) || 0), 0)
+      totalValue: allOrders.reduce((sum, order) => sum + (parseFloat(order.itemCost) || 0), 0),
+      latestOrderDate: latestOrderDate ? new Date(latestOrderDate).toLocaleDateString() : ''
     };
   }, [allOrders, matchedOrders, unmatchedOrders, processedOrders]);
 
@@ -495,7 +504,7 @@ export function OrderProcessor() {
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="process">Process Orders</TabsTrigger>
-              <TabsTrigger value="all-orders">All Orders ({analytics.totalOrders})</TabsTrigger>
+              <TabsTrigger value="all-orders">All Orders ({analytics.totalOrders}) {analytics.latestOrderDate && `- ${analytics.latestOrderDate}`}</TabsTrigger>
               <TabsTrigger value="matched-orders">Matched Orders ({analytics.matchedOrdersCount})</TabsTrigger>
               <TabsTrigger value="processed">Processed Orders ({analytics.processedOrdersCount})</TabsTrigger>
             </TabsList>
