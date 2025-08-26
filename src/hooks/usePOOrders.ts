@@ -399,13 +399,14 @@ export const usePOOrders = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      // Get all active PO orders directly without batching
+      // Get all active PO orders directly without batching - with explicit large limit
       const { data: allPOOrders, error } = await supabase
         .from('po_orders')
         .select('model_number, sku_code, title, po_number, status')
         .eq('user_id', user.id)
         .not('status', 'in', '("completed", "cancelled", "delivered")')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(50000); // Explicit large limit to avoid default 1000 limit
 
       if (error) throw error;
 
