@@ -133,11 +133,14 @@ export const usePOOrders = () => {
       
       (existingOrders || []).forEach(order => {
         if (order.po_key && order.item_key) {
-          existingIdentities.add(`${order.po_key}|${order.item_key}`);
+          const identity = `${order.po_key}|${order.item_key}`;
+          existingIdentities.add(identity);
+          console.log(`🔎 DB Identity: "${identity}" from PO="${order.po_number}", Model="${order.model_number}", ASIN="${order.asin}", SKU="${order.sku_code}"`);
         }
       });
 
       console.log(`🔍 DUPLICATE DETECTION: Created ${existingIdentities.size} identity keys from existing data`);
+      console.log(`📋 All existing identities:`, Array.from(existingIdentities).slice(0, 10));
 
       setLoadingProgress(30);
       setLoadingStatus('Processing and grouping incoming data by identity...');
@@ -196,15 +199,24 @@ export const usePOOrders = () => {
           continue;
         }
 
-        // === CREATE IDENTITY ===
+        // === CREATE IDENTITY (must match SQL computed columns exactly) ===
         const poKey = po.toLowerCase().trim();
-        const primarySku = model || asin || item.sku_code?.trim() || '';
+        
+        // Match SQL: coalesce(nullif(model_number, ''), nullif(asin, ''), sku_code)
+        let primarySku = '';
+        if (model && model.trim() !== '') {
+          primarySku = model.trim();
+        } else if (asin && asin.trim() !== '') {
+          primarySku = asin.trim();
+        } else {
+          primarySku = item.sku_code?.trim() || '';
+        }
         const itemKey = primarySku.toLowerCase().trim();
         const identity = `${poKey}|${itemKey}`;
 
-        console.log(`🔍 Row ${rowNum}: Identity="${identity}", Qty=${qty}, Title="${title.substring(0, 30)}..."`);
+        console.log(`🔍 Row ${rowNum}: Identity="${identity}", Qty=${qty}, Title="${title.substring(0, 30)}...", PoKey="${poKey}", ItemKey="${itemKey}"`);
 
-        // Check if already exists in database
+        // Check if already exists in database using the exact keys
         if (existingIdentities.has(identity)) {
           const skip = `Row ${rowNum}: Duplicate in database - "${title}" (Identity: ${identity})`;
           results.duplicates++;
@@ -255,16 +267,22 @@ export const usePOOrders = () => {
       const validOrdersToInsert = Array.from(itemGroups.values());
 
       if (validOrdersToInsert.length > 0) {
+        console.log(`🚀 About to insert ${validOrdersToInsert.length} items. Sample data:`, validOrdersToInsert.slice(0, 2));
+        
         const { error: insertError } = await supabase
           .from('po_orders')
-          .insert(validOrdersToInsert);
+          .upsert(validOrdersToInsert, {
+            onConflict: 'user_id,po_key,item_key',
+            ignoreDuplicates: false
+          });
 
         if (insertError) {
-          throw new Error(`Bulk insert failed: ${insertError.message}`);
+          console.error('❌ Upsert error details:', insertError);
+          throw new Error(`Bulk upsert failed: ${insertError.message}`);
         }
 
         results.inserted = validOrdersToInsert.length;
-        console.log(`✅ Successfully inserted ${results.inserted} unique orders into database`);
+        console.log(`✅ Successfully upserted ${results.inserted} unique orders into database`);
 
         // Log first 5 inserted items for debugging
         const sampleItems = validOrdersToInsert.slice(0, 5).map(order => 
