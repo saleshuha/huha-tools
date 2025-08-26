@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { Type, Square, Circle, QrCode, BarChart3, Save, Download } from 'lucide-react';
+import { Type, Square, Circle, QrCode, BarChart3, Save, Download, AlignLeft } from 'lucide-react';
 import { toast } from 'sonner';
 
 export const LabelToolbar: React.FC = () => {
@@ -26,6 +26,24 @@ export const LabelToolbar: React.FC = () => {
       fontSize: 12,
       fontFamily: 'Arial',
       color: '#000000',
+    });
+  };
+
+  const handleAddMultiText = () => {
+    addElement({
+      type: 'multitext',
+      x: 10,
+      y: 35,
+      width: 120,
+      height: 60,
+      text: 'This is a long text that will be displayed across multiple lines automatically when it exceeds the width of the text box.',
+      fontSize: 10,
+      fontFamily: 'Arial',
+      color: '#000000',
+      lineHeight: 1.2,
+      maxLines: 0, // 0 means unlimited lines
+      wordWrap: true,
+      textAlign: 'left',
     });
   };
 
@@ -123,6 +141,15 @@ export const LabelToolbar: React.FC = () => {
             >
               <Type className="h-4 w-4" />
               <span className="text-xs">Text</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleAddMultiText}
+              className="flex flex-col items-center gap-1 h-12"
+            >
+              <AlignLeft className="h-4 w-4" />
+              <span className="text-xs">Multi-Text</span>
             </Button>
             <Button
               variant="outline"

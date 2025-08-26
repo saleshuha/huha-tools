@@ -315,6 +315,33 @@ export const LabelWorkspace: React.FC = () => {
           </div>
         );
 
+      case 'multitext':
+        return (
+          <div
+            key={element.id}
+            style={{
+              ...baseStyle,
+              fontSize: element.fontSize || 12,
+              fontFamily: element.fontFamily || 'Arial',
+              fontWeight: element.fontWeight || 'normal',
+              textAlign: element.textAlign || 'left',
+              color: element.color || '#000000',
+              padding: '4px',
+              backgroundColor: isSelected ? 'rgba(var(--primary), 0.1)' : 'transparent',
+              lineHeight: element.lineHeight || 1.2,
+              wordWrap: element.wordWrap ? 'break-word' : 'normal',
+              whiteSpace: element.wordWrap ? 'pre-wrap' : 'nowrap',
+              overflow: 'hidden',
+              display: 'block',
+            }}
+            onClick={(e) => handleElementClick(element, e)}
+            onMouseDown={(e) => handleMouseDown(element, e)}
+          >
+            {element.text || 'Multi-line text content will wrap automatically within this container to show all content across multiple lines.'}
+            {renderResizeHandles(element)}
+          </div>
+        );
+
       case 'rectangle':
         return (
           <div

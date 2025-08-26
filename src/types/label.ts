@@ -6,7 +6,7 @@ export interface LabelSize {
 
 export interface LabelElement {
   id: string;
-  type: 'text' | 'barcode' | 'qr' | 'rectangle' | 'circle' | 'image';
+  type: 'text' | 'multitext' | 'barcode' | 'qr' | 'rectangle' | 'circle' | 'image';
   x: number;
   y: number;
   width: number;
@@ -20,6 +20,11 @@ export interface LabelElement {
   fontWeight?: string;
   textAlign?: 'left' | 'center' | 'right';
   color?: string;
+  
+  // Multi-line text properties
+  lineHeight?: number;
+  maxLines?: number;
+  wordWrap?: boolean;
   
   // Shape properties
   fill?: string;
