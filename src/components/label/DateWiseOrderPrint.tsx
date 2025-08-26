@@ -197,38 +197,37 @@ export const DateWiseOrderPrint: React.FC = () => {
       console.log('Generating dataset for orders:', selectedOrders.length);
       const ordersDataset = createDatasetFromOrders();
       
-      console.log('Generating HTML for direct print...');
+      console.log('Creating print content...');
       // Generate HTML content for direct printing
       const html = generateDirectPrintHTML(labelDoc, ordersDataset, selectedOrders.length);
       
-      // Create temporary container
+      // Create and show print container
       const printContainer = document.createElement('div');
+      printContainer.id = 'print-labels-container';
       printContainer.innerHTML = html;
-      printContainer.style.position = 'fixed';
-      printContainer.style.top = '-9999px';
-      printContainer.style.left = '-9999px';
       
-      // Add to document
+      // Add to document body
       document.body.appendChild(printContainer);
       
       // Create print-specific styles
       const printStyles = document.createElement('style');
+      printStyles.id = 'print-labels-styles';
       printStyles.innerHTML = generatePrintStyles();
       document.head.appendChild(printStyles);
       
-      // Add class to body to trigger print styles
-      document.body.classList.add('printing-labels');
-      
-      console.log('Triggering direct print...');
-      // Print directly
-      window.print();
-      
-      // Clean up after printing
+      console.log('Triggering print dialog...');
+      // Small delay to ensure content is ready
       setTimeout(() => {
-        document.body.removeChild(printContainer);
-        document.head.removeChild(printStyles);
-        document.body.classList.remove('printing-labels');
-      }, 1000);
+        window.print();
+        
+        // Clean up after print dialog closes
+        setTimeout(() => {
+          const container = document.getElementById('print-labels-container');
+          const styles = document.getElementById('print-labels-styles');
+          if (container) document.body.removeChild(container);
+          if (styles) document.head.removeChild(styles);
+        }, 1000);
+      }, 100);
       
       toast.success(`Printing ${selectedOrders.length} labels...`);
       
@@ -251,7 +250,7 @@ export const DateWiseOrderPrint: React.FC = () => {
     for (let labelIndex = 0; labelIndex < totalLabels; labelIndex++) {
       const dataRow = isBulk ? dataset.data[labelIndex] : [];
       
-      html += `<div class="print-label">`;
+      html += `<div class="print-label" data-label="${labelIndex}">`;
       
       for (const element of document.elements) {
         html += renderElementToHTML(element, dataset, dataRow);
@@ -268,46 +267,62 @@ export const DateWiseOrderPrint: React.FC = () => {
     const pageHeight = useCustomPageSize ? customPageSize.height : labelDoc?.size.height || 297;
 
     return `
+      /* Hide print container on screen */
+      #print-labels-container {
+        display: none;
+      }
+      
       @media print {
+        /* Hide everything except our labels */
+        body > *:not(#print-labels-container) {
+          display: none !important;
+        }
+        
+        /* Show our print container */
+        #print-labels-container {
+          display: block !important;
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+        }
+        
+        /* Page settings */
         @page {
           size: ${pageWidth}mm ${pageHeight}mm;
           margin: 0;
         }
         
-        body.printing-labels * {
-          visibility: hidden;
-        }
-        
-        body.printing-labels .print-label,
-        body.printing-labels .print-label * {
-          visibility: visible;
-        }
-        
-        body.printing-labels .print-label {
-          position: absolute;
-          left: 0;
-          top: 0;
+        /* Label styling */
+        .print-label {
+          position: relative;
           width: ${pageWidth}mm;
           height: ${pageHeight}mm;
           background: white;
           page-break-after: always;
+          display: block;
         }
         
-        body.printing-labels .print-label:last-child {
+        .print-label:last-child {
           page-break-after: avoid;
         }
         
-        body.printing-labels .element {
+        /* Element positioning */
+        .print-label .element {
           position: absolute;
         }
         
-        body.printing-labels .text {
-          font-family: Arial;
+        .print-label .text {
+          font-family: Arial, sans-serif;
         }
         
-        body.printing-labels .barcode,
-        body.printing-labels .qr {
+        .print-label .barcode,
+        .print-label .qr {
           text-align: center;
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
       }
     `;
