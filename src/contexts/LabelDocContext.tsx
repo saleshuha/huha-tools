@@ -13,6 +13,7 @@ interface LabelDocContextType {
   createDocument: (name: string, size: LabelSize) => Promise<void>;
   loadDocument: (id: string) => Promise<void>;
   saveDocument: () => Promise<void>;
+  loadUserDocuments: () => Promise<any[]>;
   
   // Dataset operations
   loadDataset: (id: string) => Promise<void>;
@@ -49,27 +50,33 @@ export const LabelDocProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
-
-      const newDoc: LabelDoc = {
-        id: crypto.randomUUID(),
-        name,
-        size,
-        elements: [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
       
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('label_templates')
         .insert({
-          name: newDoc.name,
+          name,
           width: size.width,
           height: size.height,
           canvas_data: { elements: [] } as any,
           user_id: user.id,
-        });
+        })
+        .select()
+        .single();
 
       if (error) throw error;
+      
+      const newDoc: LabelDoc = {
+        id: data.id,
+        name: data.name,
+        size: {
+          width: data.width,
+          height: data.height,
+          unit: 'mm'
+        },
+        elements: [],
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+      };
       
       setDocument(newDoc);
       toast.success('Label created successfully');
@@ -254,6 +261,38 @@ export const LabelDocProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } : null);
   }, [document]);
 
+  const loadUserDocuments = useCallback(async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { data, error } = await supabase
+        .from('label_templates')
+        .select('id, name, width, height, created_at, updated_at')
+        .eq('user_id', user.id)
+        .order('updated_at', { ascending: false });
+
+      if (error) throw error;
+      
+      return data || [];
+    } catch (error) {
+      toast.error('Failed to load documents');
+      console.error(error);
+      return [];
+    }
+  }, []);
+
+  // Auto-save when elements change
+  useEffect(() => {
+    if (document && document.elements.length > 0) {
+      const timeoutId = setTimeout(() => {
+        saveDocument();
+      }, 2000); // Auto-save after 2 seconds of inactivity
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [document?.elements, document?.size, saveDocument]);
+
   return (
     <LabelDocContext.Provider value={{
       document,
@@ -263,6 +302,7 @@ export const LabelDocProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       createDocument,
       loadDocument,
       saveDocument,
+      loadUserDocuments,
       loadDataset,
       setDataset: setDatasetDirectly,
       addElement,

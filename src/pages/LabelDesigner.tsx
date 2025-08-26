@@ -15,12 +15,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { LABEL_PRESETS, PrintSettings } from '@/types/label';
-import { Plus, Database, Eye, Download, Printer } from 'lucide-react';
+import { Plus, Database, Eye, Download, Printer, FolderOpen } from 'lucide-react';
 import { toast } from 'sonner';
 
 const LabelDesignerContent: React.FC = () => {
-  const { document: labelDoc, dataset, createDocument } = useLabelDoc();
+  const { document: labelDoc, dataset, createDocument, loadDocument, loadUserDocuments } = useLabelDoc();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showLoadDialog, setShowLoadDialog] = useState(false);
+  const [userDocuments, setUserDocuments] = useState<any[]>([]);
   const [newLabelName, setNewLabelName] = useState('');
   const [selectedPreset, setSelectedPreset] = useState('address');
   const [customWidth, setCustomWidth] = useState(100);
@@ -87,6 +89,17 @@ const LabelDesignerContent: React.FC = () => {
     }
   };
 
+  const handleLoadDocuments = async () => {
+    const docs = await loadUserDocuments();
+    setUserDocuments(docs);
+    setShowLoadDialog(true);
+  };
+
+  const handleLoadDocument = async (id: string) => {
+    await loadDocument(id);
+    setShowLoadDialog(false);
+  };
+
   return (
     <div className="h-screen flex flex-col bg-background">
       <div className="border-b bg-card p-4">
@@ -109,6 +122,42 @@ const LabelDesignerContent: React.FC = () => {
             )}
           </div>
           <div className="flex items-center gap-2">
+            <Dialog open={showLoadDialog} onOpenChange={setShowLoadDialog}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" onClick={handleLoadDocuments}>
+                  <FolderOpen className="h-4 w-4 mr-2" />
+                  Load Label
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Load Existing Label</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 pt-4">
+                  {userDocuments.length === 0 ? (
+                    <p className="text-muted-foreground">No saved labels found.</p>
+                  ) : (
+                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                      {userDocuments.map((doc) => (
+                        <div
+                          key={doc.id}
+                          className="flex justify-between items-center p-3 border rounded-lg hover:bg-muted cursor-pointer"
+                          onClick={() => handleLoadDocument(doc.id)}
+                        >
+                          <div>
+                            <h4 className="font-medium">{doc.name}</h4>
+                            <p className="text-sm text-muted-foreground">
+                              {doc.width}×{doc.height}mm • {new Date(doc.updated_at).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </DialogContent>
+            </Dialog>
+            
             <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
               <DialogTrigger asChild>
                 <Button size="sm">

@@ -3,17 +3,59 @@ import { useLabelDoc } from '@/contexts/LabelDocContext';
 import { LabelElement } from '@/types/label';
 import { mmToPx } from '@/utils/label-serializer';
 import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { PrintService } from '@/services/print-service';
+import { Printer, Eye, Save } from 'lucide-react';
+import { toast } from 'sonner';
 
 export const LabelWorkspace: React.FC = () => {
-  const { document, selectedElement, selectElement, updateElement } = useLabelDoc();
+  const { document, dataset, selectedElement, selectElement, updateElement, saveDocument } = useLabelDoc();
   const canvasRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
+  const handleSave = async () => {
+    await saveDocument();
+  };
+
+  const handlePreview = async () => {
+    if (!document) return;
+    const html = PrintService.generateHTMLPreview(document, dataset);
+    const newWindow = window.open('', '_blank');
+    if (newWindow) {
+      newWindow.document.write(html);
+      newWindow.document.close();
+    }
+  };
+
+  const handlePrint = async () => {
+    if (!document) return;
+    try {
+      const blob = await PrintService.generatePDF(document, dataset, {
+        format: 'pdf',
+        paperSize: 'a4',
+        orientation: 'portrait',
+        dpi: 203,
+        copies: 1,
+        labelsPerPage: 4,
+        margin: 10,
+      });
+      const url = URL.createObjectURL(blob);
+      const anchor = window.document.createElement('a');
+      anchor.href = url;
+      anchor.download = `${document.name}.pdf`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+      toast.success('Label printed successfully');
+    } catch (error) {
+      toast.error('Failed to print label');
+    }
+  };
+
   if (!document) {
     return (
       <Card className="flex-1 flex items-center justify-center text-muted-foreground">
-        <p>No label document loaded</p>
+        <p>No label document loaded. Create a new label to get started.</p>
       </Card>
     );
   }
@@ -176,6 +218,29 @@ export const LabelWorkspace: React.FC = () => {
   return (
     <Card className="flex-1 p-4">
       <div className="flex flex-col items-center">
+        <div className="w-full flex justify-between items-center mb-4">
+          <div className="text-sm text-muted-foreground">
+            {document.size.width}mm × {document.size.height}mm
+            {document.elements.length > 0 && (
+              <span className="ml-4">{document.elements.length} elements</span>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={handleSave}>
+              <Save className="h-4 w-4 mr-2" />
+              Save
+            </Button>
+            <Button variant="outline" size="sm" onClick={handlePreview}>
+              <Eye className="h-4 w-4 mr-2" />
+              Preview
+            </Button>
+            <Button variant="default" size="sm" onClick={handlePrint}>
+              <Printer className="h-4 w-4 mr-2" />
+              Print PDF
+            </Button>
+          </div>
+        </div>
+        
         <div
           ref={canvasRef}
           className="relative bg-white shadow-lg border-2 border-dashed border-muted-foreground/20"
@@ -191,13 +256,6 @@ export const LabelWorkspace: React.FC = () => {
           onMouseLeave={handleMouseUp}
         >
           {document.elements.map(renderElement)}
-        </div>
-        
-        <div className="mt-4 text-sm text-muted-foreground">
-          {document.size.width}mm × {document.size.height}mm
-          {document.elements.length > 0 && (
-            <span className="ml-4">{document.elements.length} elements</span>
-          )}
         </div>
       </div>
     </Card>
