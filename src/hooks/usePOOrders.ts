@@ -207,9 +207,11 @@ export const usePOOrders = () => {
         });
 
         // Validate required fields
+        const productTitle = item.title?.trim() || 'Unknown Product';
+        
         if (!item.po_number?.trim()) {
           processedResults.invalid++;
-          const error = `Row ${i + 1}: Missing PO number`;
+          const error = `Row ${i + 1}: Missing PO number - "${productTitle}"`;
           processedResults.errors.push(error);
           processedResults.skippedReasons.push(error);
           console.log(`❌ STAGE 3 SKIP: ${error}`);
@@ -218,7 +220,7 @@ export const usePOOrders = () => {
         
         if (!item.quantity || isNaN(Number(item.quantity)) || Number(item.quantity) <= 0) {
           processedResults.invalid++;
-          const error = `Row ${i + 1}: Invalid quantity for PO ${item.po_number} (value: ${item.quantity})`;
+          const error = `Row ${i + 1}: Invalid quantity for PO ${item.po_number} - "${productTitle}" (qty: ${item.quantity})`;
           processedResults.errors.push(error);
           processedResults.skippedReasons.push(error);
           console.log(`❌ STAGE 3 SKIP: ${error}`);
@@ -227,7 +229,7 @@ export const usePOOrders = () => {
 
         if (!item.model_number?.trim() && !item.asin?.trim()) {
           processedResults.invalid++;
-          const error = `Row ${i + 1}: Missing both model_number and asin for PO ${item.po_number}`;
+          const error = `Row ${i + 1}: Missing SKU/ASIN for PO ${item.po_number} - "${productTitle}"`;
           processedResults.errors.push(error);
           processedResults.skippedReasons.push(error);
           console.log(`❌ STAGE 3 SKIP: ${error}`);
@@ -261,7 +263,7 @@ export const usePOOrders = () => {
         
         if (isDuplicate) {
           processedResults.duplicates++;
-          const skip = `Row ${i + 1}: Duplicate found - ${matchedKey}`;
+          const skip = `Row ${i + 1}: Duplicate found - "${productTitle}" (${matchedKey})`;
           processedResults.skippedReasons.push(skip);
           console.log(`⚠️ STAGE 3 SKIP (DUPLICATE): ${skip}`);
           continue;
