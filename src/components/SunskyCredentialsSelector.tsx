@@ -96,37 +96,27 @@ export const SunskyCredentialsSelector: React.FC<SunskyCredentialsSelectorProps>
   }
 
   return (
-    <div className="flex items-center gap-2">
-      <Select value={selectedCredentialId || ''} onValueChange={handleCredentialChange}>
-        <SelectTrigger className="w-48">
-          <div className="flex items-center gap-2">
-            <Key className="h-4 w-4" />
-            <SelectValue placeholder="Select API Key" />
-          </div>
-        </SelectTrigger>
-        <SelectContent>
-          {credentials.map((credential) => (
-            <SelectItem key={credential.id} value={credential.id}>
-              <div className="flex items-center gap-2">
-                <span className={credential.is_active ? 'text-green-600' : 'text-muted-foreground'}>
-                  ●
-                </span>
-                <span>
-                  {credential.name || `${credential.api_key.substring(0, 8)}...`}
-                </span>
-              </div>
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      
-      <Button 
-        onClick={navigateToCredentials}
-        variant="ghost"
-        size="sm"
-      >
-        Manage
-      </Button>
-    </div>
+    <Select value={selectedCredentialId || ''} onValueChange={handleCredentialChange}>
+      <SelectTrigger className="w-48">
+        <div className="flex items-center gap-2">
+          <Key className="h-4 w-4" />
+          <SelectValue placeholder="Select API Key" />
+        </div>
+      </SelectTrigger>
+      <SelectContent>
+        {credentials.map((credential) => (
+          <SelectItem key={credential.id} value={credential.id}>
+            <div className="flex items-center gap-2">
+              <span className={credential.is_active ? 'text-green-600' : 'text-muted-foreground'}>
+                ●
+              </span>
+              <span>
+                {credential.name || `${credential.api_key.substring(0, 8)}...`}
+              </span>
+            </div>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 };
