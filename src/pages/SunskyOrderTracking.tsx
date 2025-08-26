@@ -11,6 +11,7 @@ import {
   Package, Clock, Truck, CheckCircle, AlertTriangle, AlertCircle 
 } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { SunskyCredentialsSelector } from '@/components/SunskyCredentialsSelector';
 
 // Status configurations for orders and items with Sunsky numeric status mapping
 const statusColors = {
@@ -89,6 +90,7 @@ export default function SunskyOrderTrackingPage() {
   const [showOnlyPOLinked, setShowOnlyPOLinked] = useState(true);
   const [loadingLabels, setLoadingLabels] = useState<Set<string>>(new Set());
   const [orderLabels, setOrderLabels] = useState<Map<string, any[]>>(new Map());
+  const [selectedCredentialId, setSelectedCredentialId] = useState<string | null>(null);
 
   const { selectedCountry } = useCountry();
   const {
@@ -257,13 +259,10 @@ export default function SunskyOrderTrackingPage() {
                 <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
                 Sync Sunsky Orders
               </Button>
-              <Button 
-                onClick={() => window.open('/po-tracker', '_blank')}
-                variant="ghost"
-                size="sm"
-              >
-                Manage Credentials
-              </Button>
+              <SunskyCredentialsSelector
+                selectedCredentialId={selectedCredentialId}
+                onCredentialSelect={setSelectedCredentialId}
+              />
             </div>
           </div>
 
