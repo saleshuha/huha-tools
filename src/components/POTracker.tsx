@@ -236,17 +236,25 @@ export const POTracker = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-primary">
                   <Package className="h-5 w-5" />
-                  Total PO Line Items
+                  {viewMode === 'grouped' ? 'Unique PO Numbers' : 'Total Line Items'}
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {comprehensiveMetrics?.total_active_orders || poOrders.length}
+                  {viewMode === 'grouped' ? 
+                    (comprehensiveMetrics?.unique_po_numbers || groupedPOOrders.length) :
+                    (comprehensiveMetrics?.total_active_orders || poOrders.length)
+                  }
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  Qty: {comprehensiveMetrics?.total_active_quantity || poOrders.reduce((sum, order) => sum + (order.quantity || 0), 0)}
+                  {viewMode === 'grouped' ? 
+                    `Line Items: ${comprehensiveMetrics?.total_active_orders || poOrders.length}` :
+                    `Qty: ${comprehensiveMetrics?.total_active_quantity || poOrders.reduce((sum, order) => sum + (order.quantity || 0), 0)}`
+                  }
                 </div>
-                <p className="text-muted-foreground mt-1">All line items across POs</p>
+                <p className="text-muted-foreground mt-1">
+                  {viewMode === 'grouped' ? 'Unique POs with total line items' : 'All line items across POs'}
+                </p>
                 {isLoadingComprehensiveMetrics && (
                   <div className="flex items-center gap-2 mt-2">
                     <Loader2 className="h-3 w-3 animate-spin" />
