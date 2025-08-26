@@ -413,11 +413,30 @@ export const usePOOrders = () => {
       );
 
       console.log(`🔍 ${activePOOrders.length} active PO orders after filtering`);
+      console.log(`📋 Status breakdown:`, {
+        total: allPOOrders?.length || 0,
+        active: activePOOrders.length,
+        statusCounts: (allPOOrders || []).reduce((acc, order) => {
+          acc[order.status] = (acc[order.status] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>)
+      });
 
       // Extract model numbers from full record structure
       const itemsWithModelNumbers = activePOOrders.filter(item => 
         item.model_number && item.model_number.trim() !== ''
       );
+      
+      console.log(`🔢 Model number analysis:`, {
+        totalActive: activePOOrders.length,
+        withModelNumbers: itemsWithModelNumbers.length,
+        withoutModelNumbers: activePOOrders.length - itemsWithModelNumbers.length,
+        sampleWithoutModel: activePOOrders.filter(item => !item.model_number || item.model_number.trim() === '').slice(0, 3).map(item => ({
+          sku_code: item.sku_code,
+          po_number: item.po_number,
+          model_number: item.model_number
+        }))
+      });
       
       const allModelNumbers = itemsWithModelNumbers.map(item => item.model_number);
       const uniqueModelNumbers = [...new Set(allModelNumbers)];
