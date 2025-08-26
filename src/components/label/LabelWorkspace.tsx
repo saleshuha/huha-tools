@@ -4,7 +4,10 @@ import { LabelElement } from '@/types/label';
 import { mmToPx } from '@/utils/label-serializer';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 import { PrintService } from '@/services/print-service';
+import QZTrayPrinter from '@/utils/qz-tray-printer';
 import { Printer, Eye, Save, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -18,6 +21,39 @@ export const LabelWorkspace: React.FC = () => {
   const [resizeHandle, setResizeHandle] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  
+  // QZ Tray state
+  const [qzConnected, setQzConnected] = useState(false);
+  const [availablePrinters, setAvailablePrinters] = useState<string[]>([]);
+  const [selectedPrinter, setSelectedPrinter] = useState<string>('');
+
+  useEffect(() => {
+    initializeQZ();
+  }, []);
+
+  const initializeQZ = async () => {
+    try {
+      const connected = await QZTrayPrinter.connect();
+      if (connected) {
+        setQzConnected(true);
+        const printers = await QZTrayPrinter.getPrinters();
+        setAvailablePrinters(printers);
+        
+        // Set default printer
+        const defaultPrinter = await QZTrayPrinter.getDefaultPrinter();
+        if (defaultPrinter) {
+          setSelectedPrinter(defaultPrinter);
+        } else if (printers.length > 0) {
+          setSelectedPrinter(printers[0]);
+        }
+        
+        toast.success('QZ Tray connected successfully');
+      }
+    } catch (error) {
+      console.error('Failed to connect to QZ Tray:', error);
+      toast.error('Failed to connect to QZ Tray. Please ensure it is running.');
+    }
+  };
 
   const handleSave = async () => {
     await saveDocument();
@@ -34,25 +70,33 @@ export const LabelWorkspace: React.FC = () => {
   };
 
   const handlePrint = async () => {
-    if (!document) return;
+    if (!document || !qzConnected || !selectedPrinter) {
+      toast.error('Please ensure QZ Tray is connected and a printer is selected');
+      return;
+    }
+
     try {
-      const blob = await PrintService.generatePDF(document, dataset, {
-        format: 'pdf',
-        paperSize: 'a4',
-        orientation: 'portrait',
-        dpi: 203,
+      // Generate ZPL code for the label
+      const printSettings = {
+        format: 'zpl' as const,
+        paperSize: 'custom' as const,
+        orientation: 'portrait' as const,
+        dpi: 203 as const,
         copies: 1,
-        labelsPerPage: 4,
-        margin: 10,
+        labelsPerPage: 1,
+        margin: 0
+      };
+      
+      const zplCode = PrintService.generateZPL(document, dataset, printSettings);
+      
+      // Print directly to selected printer
+      await QZTrayPrinter.printZPL(zplCode, { 
+        printerName: selectedPrinter 
       });
-      const url = URL.createObjectURL(blob);
-      const anchor = window.document.createElement('a');
-      anchor.href = url;
-      anchor.download = `${document.name}.pdf`;
-      anchor.click();
-      URL.revokeObjectURL(url);
-      toast.success('Label printed successfully');
+      
+      toast.success('Label sent to printer successfully');
     } catch (error) {
+      console.error('Print error:', error);
       toast.error('Failed to print label');
     }
   };
@@ -378,6 +422,28 @@ export const LabelWorkspace: React.FC = () => {
                 {Math.round(zoom * 100)}%
               </span>
             </div>
+            
+            {/* QZ Tray Status and Printer Selection */}
+            {qzConnected && availablePrinters.length > 0 && (
+              <div className="flex items-center gap-2 border-r pr-2">
+                <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400 text-xs">
+                  QZ Connected
+                </Badge>
+                <Select value={selectedPrinter} onValueChange={setSelectedPrinter}>
+                  <SelectTrigger className="w-32 h-7 text-xs">
+                    <SelectValue placeholder="Select printer" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availablePrinters.map(printer => (
+                      <SelectItem key={printer} value={printer} className="text-xs">
+                        {printer.length > 20 ? `${printer.substring(0, 20)}...` : printer}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            
             <Button variant="outline" size="sm" onClick={handleSave}>
               <Save className="h-4 w-4 mr-2" />
               Save
@@ -386,9 +452,14 @@ export const LabelWorkspace: React.FC = () => {
               <Eye className="h-4 w-4 mr-2" />
               Preview
             </Button>
-            <Button variant="default" size="sm" onClick={handlePrint}>
+            <Button 
+              variant="default" 
+              size="sm" 
+              onClick={handlePrint}
+              disabled={!qzConnected || !selectedPrinter}
+            >
               <Printer className="h-4 w-4 mr-2" />
-              Print PDF
+              Direct Print
             </Button>
           </div>
         </div>
