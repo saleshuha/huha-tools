@@ -3051,6 +3051,27 @@ export type Database = {
           total_records: number
         }[]
       }
+      get_procurement_unified_items: {
+        Args: { country_filter?: string }
+        Returns: {
+          created_at: string
+          expected_ship_date: string
+          item_id: string
+          model_number: string
+          po_id: string
+          po_number: string
+          quantity: number
+          sku: string
+          source: string
+          status: string
+          status_last_updated_at: string
+          sunsky_item_status: string
+          sunsky_order_number: string
+          supplier_order_number: string
+          title: string
+          tracking_number: string
+        }[]
+      }
       get_sales_analytics: {
         Args: { end_date?: string; start_date?: string }
         Returns: {

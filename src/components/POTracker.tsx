@@ -10,10 +10,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
-import { AlertCircle, CheckCircle, Clock, FileUp, Search, Filter, Package, TrendingUp, ShoppingCart, Truck, DollarSign, X, Plus, Edit2, ExternalLink, Loader2, BarChart3, Download, RefreshCw } from 'lucide-react';
+import { AlertCircle, CheckCircle, Clock, FileUp, Search, Filter, Package, TrendingUp, ShoppingCart, Truck, DollarSign, X, Plus, Edit2, ExternalLink, Loader2, BarChart3, Download, RefreshCw, Layers } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { POFileUpload } from '@/components/po/POFileUpload';
 import { POProfitAnalytics } from '@/components/po/POProfitAnalytics';
+import { UnifiedProcurementView } from '@/components/procurement/UnifiedProcurementView';
 import { usePOOrders } from '@/hooks/usePOOrders';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useCountry } from '@/contexts/CountryContext';
@@ -57,7 +58,7 @@ interface POGroup {
 }
 
 export const POTracker = () => {
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('unified');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<POOrder['status'] | 'all'>('all');
   const [currentPage, setCurrentPage] = useState(1);
@@ -215,10 +216,14 @@ export const POTracker = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="unified" className="flex items-center gap-2">
+            <Layers className="h-4 w-4" />
+            Unified View
+          </TabsTrigger>
           <TabsTrigger value="overview" className="flex items-center gap-2">
             <Package className="h-4 w-4" />
-            Overview
+            PO Overview
           </TabsTrigger>
           <TabsTrigger value="upload" className="flex items-center gap-2">
             <FileUp className="h-4 w-4" />
@@ -229,6 +234,10 @@ export const POTracker = () => {
             Profit Analysis
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="unified" className="space-y-6">
+          <UnifiedProcurementView />
+        </TabsContent>
 
         <TabsContent value="overview" className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
