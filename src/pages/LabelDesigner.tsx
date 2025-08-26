@@ -20,6 +20,9 @@ const LabelDesignerContent: React.FC = () => {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newLabelName, setNewLabelName] = useState('');
   const [selectedPreset, setSelectedPreset] = useState('address');
+  const [customWidth, setCustomWidth] = useState(100);
+  const [customHeight, setCustomHeight] = useState(50);
+  const [isCustomSize, setIsCustomSize] = useState(false);
   const [printSettings, setPrintSettings] = useState<PrintSettings>({
     format: 'pdf',
     paperSize: 'a4',
@@ -35,10 +38,24 @@ const LabelDesignerContent: React.FC = () => {
       toast.error('Please enter a label name');
       return;
     }
-    const preset = LABEL_PRESETS[selectedPreset];
-    await createDocument(newLabelName, preset);
+    
+    let labelSize;
+    if (isCustomSize) {
+      if (customWidth <= 0 || customHeight <= 0) {
+        toast.error('Please enter valid dimensions (greater than 0)');
+        return;
+      }
+      labelSize = { width: customWidth, height: customHeight, unit: 'mm' as const };
+    } else {
+      labelSize = LABEL_PRESETS[selectedPreset];
+    }
+    
+    await createDocument(newLabelName, labelSize);
     setShowCreateDialog(false);
     setNewLabelName('');
+    setIsCustomSize(false);
+    setCustomWidth(100);
+    setCustomHeight(50);
   };
 
   const handlePreview = async () => {
@@ -111,7 +128,17 @@ const LabelDesignerContent: React.FC = () => {
                   </div>
                   <div>
                     <Label>Size Preset</Label>
-                    <Select value={selectedPreset} onValueChange={setSelectedPreset}>
+                    <Select 
+                      value={isCustomSize ? 'custom' : selectedPreset} 
+                      onValueChange={(value) => {
+                        if (value === 'custom') {
+                          setIsCustomSize(true);
+                        } else {
+                          setIsCustomSize(false);
+                          setSelectedPreset(value);
+                        }
+                      }}
+                    >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
@@ -121,9 +148,39 @@ const LabelDesignerContent: React.FC = () => {
                             {key} ({preset.width}×{preset.height}mm)
                           </SelectItem>
                         ))}
+                        <SelectItem value="custom">
+                          Custom Size
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
+                  
+                  {isCustomSize && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>Width (mm)</Label>
+                        <Input
+                          type="number"
+                          value={customWidth}
+                          onChange={(e) => setCustomWidth(Number(e.target.value))}
+                          placeholder="Width"
+                          min="1"
+                          max="500"
+                        />
+                      </div>
+                      <div>
+                        <Label>Height (mm)</Label>
+                        <Input
+                          type="number"
+                          value={customHeight}
+                          onChange={(e) => setCustomHeight(Number(e.target.value))}
+                          placeholder="Height"
+                          min="1"
+                          max="500"
+                        />
+                      </div>
+                    </div>
+                  )}
                   <div className="flex justify-end gap-2">
                     <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
                       Cancel
