@@ -230,6 +230,20 @@ export function AsinInventory() {
       return;
     }
 
+    // Check for duplicate ASIN in current inventory
+    const duplicateAsin = inventory.find(item => 
+      item.asin.toLowerCase() === newItem.asin.toLowerCase().trim()
+    );
+
+    if (duplicateAsin) {
+      toast({
+        title: "Duplicate ASIN",
+        description: `ASIN "${newItem.asin}" already exists in inventory. Each ASIN must be unique.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Check for duplicate serial number in current inventory
     const duplicateSerial = inventory.find(item => 
       item.serialNumber.toLowerCase() === newItem.serialNumber.toLowerCase().trim()
@@ -238,10 +252,26 @@ export function AsinInventory() {
     if (duplicateSerial) {
       toast({
         title: "Duplicate Serial Number",
-        description: `Serial number "${newItem.serialNumber}" is already used by ASIN "${duplicateSerial.asin}". Each serial number must be unique across all ASINs.`,
+        description: `Serial number "${newItem.serialNumber}" already exists in inventory. Each serial number must be unique.`,
         variant: "destructive",
       });
       return;
+    }
+
+    // Check for duplicate SKU in current inventory (if SKU is provided)
+    if (newItem.sku && newItem.sku.trim()) {
+      const duplicateSku = inventory.find(item => 
+        item.sku && item.sku.toLowerCase() === newItem.sku.toLowerCase().trim()
+      );
+
+      if (duplicateSku) {
+        toast({
+          title: "Duplicate SKU",
+          description: `SKU "${newItem.sku}" already exists in inventory. Each SKU must be unique.`,
+          variant: "destructive",
+        });
+        return;
+      }
     }
     await addItem({
       ...newItem,
@@ -290,6 +320,76 @@ export function AsinInventory() {
       });
       return;
     }
+
+    // Validate for duplicates
+    const validationErrors = [];
+    const seenAsins = new Set();
+    const seenSerials = new Set();
+    const seenSkus = new Set();
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      
+      // Check for duplicate ASIN against existing inventory
+      const duplicateAsin = inventory.find(existing => 
+        existing.asin.toLowerCase() === item.asin.toLowerCase()
+      );
+      if (duplicateAsin) {
+        validationErrors.push(`Row ${i + 1}: ASIN "${item.asin}" already exists in inventory`);
+        continue;
+      }
+
+      // Check for duplicate ASIN within bulk data
+      if (seenAsins.has(item.asin.toLowerCase())) {
+        validationErrors.push(`Row ${i + 1}: ASIN "${item.asin}" appears multiple times in bulk data`);
+        continue;
+      }
+      seenAsins.add(item.asin.toLowerCase());
+
+      // Check for duplicate serial number against existing inventory
+      const duplicateSerial = inventory.find(existing => 
+        existing.serialNumber.toLowerCase() === item.serialNumber.toLowerCase()
+      );
+      if (duplicateSerial) {
+        validationErrors.push(`Row ${i + 1}: Serial number "${item.serialNumber}" already exists in inventory`);
+        continue;
+      }
+
+      // Check for duplicate serial number within bulk data
+      if (seenSerials.has(item.serialNumber.toLowerCase())) {
+        validationErrors.push(`Row ${i + 1}: Serial number "${item.serialNumber}" appears multiple times in bulk data`);
+        continue;
+      }
+      seenSerials.add(item.serialNumber.toLowerCase());
+
+      // Check for duplicate SKU (if provided)
+      if (item.sku && item.sku.trim()) {
+        const duplicateSku = inventory.find(existing => 
+          existing.sku && existing.sku.toLowerCase() === item.sku.toLowerCase()
+        );
+        if (duplicateSku) {
+          validationErrors.push(`Row ${i + 1}: SKU "${item.sku}" already exists in inventory`);
+          continue;
+        }
+
+        // Check for duplicate SKU within bulk data
+        if (seenSkus.has(item.sku.toLowerCase())) {
+          validationErrors.push(`Row ${i + 1}: SKU "${item.sku}" appears multiple times in bulk data`);
+          continue;
+        }
+        seenSkus.add(item.sku.toLowerCase());
+      }
+    }
+
+    if (validationErrors.length > 0) {
+      toast({
+        title: "Validation Errors",
+        description: `Found ${validationErrors.length} duplicate(s): ${validationErrors.slice(0, 3).join(', ')}${validationErrors.length > 3 ? '...' : ''}`,
+        variant: "destructive"
+      });
+      return;
+    }
+
     await bulkAdd(items);
     setBulkText('');
     setIsBulkDialogOpen(false);
