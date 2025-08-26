@@ -179,46 +179,79 @@ export const DateWiseOrderPrint: React.FC = () => {
   };
 
   const handlePrintLabels = async () => {
+    console.log('Print labels clicked');
+    
     if (!labelDoc) {
+      console.log('No label document found');
       toast.error('Please create a label template first');
       return;
     }
 
     if (selectedOrders.length === 0) {
+      console.log('No orders selected');
       toast.error('Please select at least one order to print');
       return;
     }
 
     try {
+      console.log('Generating dataset for orders:', selectedOrders.length);
       const ordersDataset = createDatasetFromOrders();
       
+      console.log('Generating HTML for print...');
       // Generate HTML content with custom page size for direct printing
       const html = generateCustomHTMLForPrint(labelDoc, ordersDataset, selectedOrders.length);
       
+      console.log('Opening print window...');
       // Create a new window for printing
-      const printWindow = window.open('', '_blank');
-      if (printWindow) {
-        printWindow.document.write(html);
-        printWindow.document.close();
-        
-        // Wait for content to load, then print
-        printWindow.onload = () => {
-          printWindow.focus();
-          printWindow.print();
-          
-          // Close the print window after printing
-          printWindow.onafterprint = () => {
-            printWindow.close();
-          };
-        };
-        
-        toast.success(`Sending ${selectedOrders.length} labels to printer`);
-      } else {
-        toast.error('Unable to open print window. Please check popup blockers.');
+      const printWindow = window.open('', '_blank', 'width=800,height=600');
+      
+      if (!printWindow) {
+        console.error('Failed to open print window - likely blocked by popup blocker');
+        toast.error('Unable to open print window. Please allow popups for this site and try again.');
+        return;
       }
+
+      console.log('Writing HTML to print window...');
+      printWindow.document.write(html);
+      printWindow.document.close();
+      
+      console.log('Setting up print window load handler...');
+      // Wait for content to load, then print
+      printWindow.addEventListener('load', () => {
+        console.log('Print window loaded, focusing and printing...');
+        printWindow.focus();
+        
+        // Add a small delay to ensure rendering is complete
+        setTimeout(() => {
+          console.log('Triggering print dialog...');
+          printWindow.print();
+        }, 500);
+        
+        // Close the print window after printing
+        printWindow.addEventListener('afterprint', () => {
+          console.log('Print dialog closed, closing window...');
+          printWindow.close();
+        });
+      });
+      
+      // Fallback - if window doesn't load properly, try printing after a delay
+      setTimeout(() => {
+        if (printWindow && !printWindow.closed) {
+          console.log('Fallback: triggering print after delay...');
+          try {
+            printWindow.focus();
+            printWindow.print();
+          } catch (e) {
+            console.error('Fallback print failed:', e);
+          }
+        }
+      }, 2000);
+      
+      toast.success(`Preparing ${selectedOrders.length} labels for printing...`);
+      
     } catch (error) {
       console.error('Print error:', error);
-      toast.error('Failed to print labels');
+      toast.error('Failed to print labels: ' + error.message);
     }
   };
 
