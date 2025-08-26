@@ -98,7 +98,7 @@ export const usePOOrders = () => {
     }
   }, [toast]);
 
-  // Process PO files with mapped data - Optimized with bulk operations
+  // Process PO files with mapped data - Enhanced comprehensive duplicate detection
   const processPOFiles = useCallback(async (mappedData: any[], sunskySKUs: any[]) => {
     setIsLoading(true);
     setLoadingProgress(0);
@@ -108,258 +108,264 @@ export const usePOOrders = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      setLoadingProgress(10);
-      setLoadingStatus('Fetching existing orders for duplicate check...');
+      console.log(`🚀 STARTING PO PROCESSING: ${mappedData.length} rows from file`);
 
-      // Fetch all existing PO orders for this user to check duplicates in bulk
+      setLoadingProgress(10);
+      setLoadingStatus('Loading existing PO data for duplicate detection...');
+
+      // Fetch ALL existing PO orders for comprehensive duplicate checking
       const { data: existingOrders, error: fetchError } = await supabase
         .from('po_orders')
-        .select('po_number, sku_code, quantity, model_number, asin')
+        .select('po_number, sku_code, quantity, model_number, asin, title, ship_to_location')
         .eq('user_id', user.id);
 
       if (fetchError) {
         throw new Error(`Failed to fetch existing orders: ${fetchError.message}`);
       }
 
-      console.log(`📊 Found ${existingOrders?.length || 0} existing orders for duplicate checking`);
-
-      // Create a comprehensive Set for fast duplicate checking using multiple identifiers
-      const existingSet = new Set();
-      (existingOrders || []).forEach(order => {
-        // Create comprehensive duplicate keys that consider all identifying factors
-        const poNumber = order.po_number?.trim();
-        const model = order.model_number?.trim();
-        const asin = order.asin?.trim();
-        const sku = order.sku_code?.trim();
-        const qty = order.quantity;
-        
-        // Primary key: PO + Model Number + Quantity (most reliable)
-        if (poNumber && model && qty) {
-          existingSet.add(`${poNumber}|${model}|${qty}`);
-        }
-        
-        // Secondary key: PO + ASIN + Quantity (if different from model)
-        if (poNumber && asin && qty && asin !== model) {
-          existingSet.add(`${poNumber}|${asin}|${qty}`);
-        }
-        
-        // Tertiary key: PO + SKU + Quantity (if different from model and asin)
-        if (poNumber && sku && qty && sku !== model && sku !== asin) {
-          existingSet.add(`${poNumber}|${sku}|${qty}`);
-        }
-        
-        // Legacy compatibility: Original format
-        if (poNumber && sku && qty) {
-          existingSet.add(`${poNumber}|${sku}|${qty}`);
-        }
-      });
-
-      console.log(`🔍 Created duplicate detection set with ${existingSet.size} combinations`);
+      console.log(`📊 EXISTING DATA: Found ${existingOrders?.length || 0} existing PO orders`);
 
       setLoadingProgress(20);
-      setLoadingStatus('Validating order data...');
+      setLoadingStatus('Building comprehensive duplicate detection system...');
 
-      const processedResults = {
+      // Create comprehensive duplicate detection system
+      const existingRecordsMap = new Map();
+      
+      (existingOrders || []).forEach(order => {
+        // Create a comprehensive fingerprint for each existing record
+        const fingerprint = {
+          po: order.po_number?.trim()?.toLowerCase() || '',
+          model: order.model_number?.trim()?.toLowerCase() || '',
+          asin: order.asin?.trim()?.toLowerCase() || '',
+          sku: order.sku_code?.trim()?.toLowerCase() || '',
+          qty: Number(order.quantity) || 0,
+          title: order.title?.trim()?.toLowerCase() || '',
+          location: order.ship_to_location?.trim()?.toLowerCase() || ''
+        };
+
+        // Generate multiple duplicate detection keys for flexibility
+        const keys = [
+          `${fingerprint.po}|${fingerprint.model}|${fingerprint.qty}`, // Primary: PO + Model + Qty
+          `${fingerprint.po}|${fingerprint.asin}|${fingerprint.qty}`,   // Secondary: PO + ASIN + Qty  
+          `${fingerprint.po}|${fingerprint.sku}|${fingerprint.qty}`,    // Tertiary: PO + SKU + Qty
+          `${fingerprint.po}|${fingerprint.title}|${fingerprint.qty}|${fingerprint.location}` // Quaternary: Full match
+        ];
+
+        keys.forEach(key => {
+          if (key && !key.includes('||') && key.length > 5) { // Avoid empty/invalid keys
+            existingRecordsMap.set(key, order);
+          }
+        });
+      });
+
+      console.log(`🔍 DUPLICATE DETECTION: Created ${existingRecordsMap.size} detection keys from existing data`);
+
+      setLoadingProgress(30);
+      setLoadingStatus('Processing and validating incoming data...');
+
+      const results = {
+        processed: 0,
         inserted: 0,
         duplicates: 0,
         invalid: 0,
         errors: [] as string[],
-        skippedReasons: [] as string[]
+        skipped: [] as string[]
       };
 
-      const validOrders: any[] = [];
+      const validOrdersToInsert: any[] = [];
+      const currentFileTracker = new Set(); // Track items within current file to prevent intra-file duplicates
 
-      console.log(`📊 Starting processing of ${mappedData.length} rows from file`);
-
-      // Validate all orders and filter out duplicates/invalid ones
+      // Process each row with comprehensive validation
       for (let i = 0; i < mappedData.length; i++) {
         const item = mappedData[i];
-        setLoadingProgress(20 + (i / mappedData.length) * 30);
-        setLoadingStatus(`Validating order ${i + 1} of ${mappedData.length}...`);
+        const rowNum = i + 1;
+        
+        setLoadingProgress(30 + (i / mappedData.length) * 40);
+        setLoadingStatus(`Validating row ${rowNum}/${mappedData.length}...`);
 
-        // Log each row for debugging
-        console.log(`🔍 STAGE 3 Processing row ${i + 1}/${mappedData.length}:`, {
-          po_number: item.po_number,
-          quantity: item.quantity,
-          model_number: item.model_number,
-          asin: item.asin
+        console.log(`\n🔍 ROW ${rowNum}/${mappedData.length}:`, {
+          po: item.po_number,
+          model: item.model_number,
+          asin: item.asin,
+          qty: item.quantity,
+          title: item.title?.substring(0, 30) + '...'
         });
 
-        // Validate required fields
-        const productTitle = item.title?.trim() || 'Unknown Product';
-        
-        if (!item.po_number?.trim()) {
-          processedResults.invalid++;
-          const error = `Row ${i + 1}: Missing PO number - "${productTitle}"`;
-          processedResults.errors.push(error);
-          processedResults.skippedReasons.push(error);
-          console.log(`❌ STAGE 3 SKIP: ${error}`);
-          continue;
-        }
-        
-        if (!item.quantity || isNaN(Number(item.quantity)) || Number(item.quantity) <= 0) {
-          processedResults.invalid++;
-          const error = `Row ${i + 1}: Invalid quantity for PO ${item.po_number} - "${productTitle}" (qty: ${item.quantity})`;
-          processedResults.errors.push(error);
-          processedResults.skippedReasons.push(error);
-          console.log(`❌ STAGE 3 SKIP: ${error}`);
-          continue;
-        }
+        results.processed++;
 
-        if (!item.model_number?.trim() && !item.asin?.trim()) {
-          processedResults.invalid++;
-          const error = `Row ${i + 1}: Missing SKU/ASIN for PO ${item.po_number} - "${productTitle}"`;
-          processedResults.errors.push(error);
-          processedResults.skippedReasons.push(error);
-          console.log(`❌ STAGE 3 SKIP: ${error}`);
-          continue;
-        }
-
-        // Enhanced duplicate checking with more comprehensive key generation
-        const model_number = item.model_number?.trim();
+        // === BASIC VALIDATION ===
+        const po = item.po_number?.trim();
+        const model = item.model_number?.trim();
         const asin = item.asin?.trim(); 
-        const sku_code = model_number || asin;
-        const po_number = item.po_number?.trim();
-        const quantity = Number(item.quantity);
-        
-        // Generate all possible duplicate detection keys
-        const duplicateKeys = [];
-        
-        // Primary key: PO + Model Number + Quantity (most reliable identifier)
-        if (po_number && model_number && quantity) {
-          duplicateKeys.push(`${po_number}|${model_number}|${quantity}`);
+        const title = item.title?.trim() || 'Unknown Product';
+        const qty = parseInt(item.quantity) || 0;
+        const location = item.ship_to_location?.trim();
+
+        // Validate required fields
+        if (!po) {
+          const error = `Row ${rowNum}: Missing PO number - "${title}"`;
+          results.invalid++;
+          results.errors.push(error);
+          console.log(`❌ INVALID: ${error}`);
+          continue;
         }
-        
-        // Secondary key: PO + ASIN + Quantity (if ASIN is different from model)
-        if (po_number && asin && quantity && asin !== model_number) {
-          duplicateKeys.push(`${po_number}|${asin}|${quantity}`);
+
+        if (qty <= 0) {
+          const error = `Row ${rowNum}: Invalid quantity (${item.quantity}) - PO: ${po}, Product: "${title}"`;
+          results.invalid++;
+          results.errors.push(error);
+          console.log(`❌ INVALID: ${error}`);
+          continue;
         }
-        
-        // Tertiary key: PO + SKU Code + Quantity (fallback)
-        if (po_number && sku_code && quantity) {
-          duplicateKeys.push(`${po_number}|${sku_code}|${quantity}`);
+
+        if (!model && !asin) {
+          const error = `Row ${rowNum}: Missing both Model Number and ASIN - PO: ${po}, Product: "${title}"`;
+          results.invalid++;
+          results.errors.push(error);
+          console.log(`❌ INVALID: ${error}`);
+          continue;
         }
+
+        // === DUPLICATE DETECTION ===
+        const newFingerprint = {
+          po: po.toLowerCase(),
+          model: model?.toLowerCase() || '',
+          asin: asin?.toLowerCase() || '',
+          title: title.toLowerCase(),
+          qty: qty,
+          location: location?.toLowerCase() || ''
+        };
+
+        // Generate detection keys for new item
+        const newKeys = [
+          `${newFingerprint.po}|${newFingerprint.model}|${newFingerprint.qty}`,
+          `${newFingerprint.po}|${newFingerprint.asin}|${newFingerprint.qty}`,
+          `${newFingerprint.po}|${newFingerprint.title}|${newFingerprint.qty}|${newFingerprint.location}`
+        ].filter(key => key && !key.includes('||') && key.length > 5);
+
+        // Check against existing database records
+        let foundExistingDuplicate = false;
+        let duplicateKey = '';
         
-        // Check for duplicates using any of the generated keys
-        let isDuplicate = false;
-        let matchedKey = '';
-        
-        for (const key of duplicateKeys) {
-          if (existingSet.has(key)) {
-            isDuplicate = true;
-            matchedKey = key;
+        for (const key of newKeys) {
+          if (existingRecordsMap.has(key)) {
+            foundExistingDuplicate = true;
+            duplicateKey = key;
             break;
           }
         }
-        
-        if (isDuplicate) {
-          processedResults.duplicates++;
-          const skip = `Row ${i + 1}: Duplicate detected - "${productTitle}" (Key: ${matchedKey})`;
-          processedResults.skippedReasons.push(skip);
-          console.log(`⚠️ STAGE 3 DUPLICATE SKIP: ${skip}`);
+
+        if (foundExistingDuplicate) {
+          const skip = `Row ${rowNum}: Duplicate in database - "${title}" (Key: ${duplicateKey})`;
+          results.duplicates++;
+          results.skipped.push(skip);
+          console.log(`⚠️ DUPLICATE (DB): ${skip}`);
           continue;
         }
 
-        // Add the new item's keys to existingSet to prevent duplicates within the same file
-        for (const key of duplicateKeys) {
-          existingSet.add(key);
+        // Check against current file (prevent intra-file duplicates)
+        let foundIntraFileDuplicate = false;
+        for (const key of newKeys) {
+          if (currentFileTracker.has(key)) {
+            foundIntraFileDuplicate = true;
+            duplicateKey = key;
+            break;
+          }
         }
 
-        console.log(`✅ Row ${i + 1}: No duplicate found, proceeding with insert`);
+        if (foundIntraFileDuplicate) {
+          const skip = `Row ${rowNum}: Duplicate within file - "${title}" (Key: ${duplicateKey})`;
+          results.duplicates++;
+          results.skipped.push(skip);
+          console.log(`⚠️ DUPLICATE (FILE): ${skip}`);
+          continue;
+        }
 
-        // Add to valid orders for bulk insert
-        const orderData = {
-          po_number: item.po_number.trim(),
-          ship_to_location: item.ship_to_location?.trim() || 'Not specified',
-          asin: item.asin?.trim() || null,
-          model_number: item.model_number?.trim() || null,
-          title: item.title?.trim() || 'Title not provided',
-          quantity: Number(item.quantity),
-          sku_code: sku_code,
+        // Add to current file tracker
+        newKeys.forEach(key => currentFileTracker.add(key));
+
+        // === PREPARE FOR INSERT ===
+        const validOrder = {
+          po_number: po,
+          ship_to_location: location || 'Not specified',
+          asin: asin || null,
+          model_number: model || null,
+          title: title,
+          quantity: qty,
+          sku_code: model || asin || null,
           external_id: item.external_id?.trim() || null,
           external_id_type: item.external_id_type?.trim() || null,
           status: 'pending',
-          file_name: item.file_name,
+          file_name: item.file_name || 'uploaded-file.csv',
           unit_cost: item.unit_cost ? Number(item.unit_cost) : null,
           sku_user_id: user.id,
           user_id: user.id
         };
 
-        validOrders.push(orderData);
-        console.log(`✅ Row ${i + 1}: Valid order prepared for bulk insert`);
+        validOrdersToInsert.push(validOrder);
+        console.log(`✅ Row ${rowNum}: Valid - prepared for insert`);
       }
 
-      setLoadingProgress(60);
-      setLoadingStatus(`Inserting ${validOrders.length} valid orders...`);
+      console.log(`\n📊 PROCESSING SUMMARY:`);
+      console.log(`📥 Rows processed: ${results.processed}`);
+      console.log(`✅ Valid for insert: ${validOrdersToInsert.length}`);
+      console.log(`⚠️ Duplicates skipped: ${results.duplicates}`);
+      console.log(`❌ Invalid rows: ${results.invalid}`);
 
-      // Bulk insert all valid orders
-      if (validOrders.length > 0) {
+      // === BULK INSERT ===
+      setLoadingProgress(80);
+      setLoadingStatus(`Inserting ${validOrdersToInsert.length} valid orders...`);
+
+      if (validOrdersToInsert.length > 0) {
         const { error: insertError } = await supabase
           .from('po_orders')
-          .insert(validOrders);
+          .insert(validOrdersToInsert);
 
         if (insertError) {
           throw new Error(`Bulk insert failed: ${insertError.message}`);
         }
 
-        processedResults.inserted = validOrders.length;
-        console.log(`✅ Successfully bulk inserted ${validOrders.length} orders`);
+        results.inserted = validOrdersToInsert.length;
+        console.log(`✅ Successfully inserted ${results.inserted} orders into database`);
       }
 
-      console.log(`📊 STAGE 3 (DATABASE) PROCESSING SUMMARY:`);
-      console.log(`🔢 Records received from Stage 2: ${mappedData.length}`);
-      console.log(`✅ Successfully inserted into database: ${processedResults.inserted}`);
-      console.log(`❌ Stage 3 validation failures: ${processedResults.invalid}`);
-      console.log(`⚠️ Duplicates skipped: ${processedResults.duplicates}`);
-      console.log(`🎯 FINAL RESULT: ${processedResults.inserted} records in database`);
-      
-      if (processedResults.skippedReasons.length > 0) {
-        console.log('❌ Stage 3 skip reasons:', processedResults.skippedReasons);
-      }
-
-      console.log('\n🏁 COMPLETE PROCESSING PIPELINE SUMMARY:');
-      console.log('Stage 1: File Parsing & Empty Row Removal (see above)');
-      console.log('Stage 2: Column Mapping & Field Validation (see above)');
-      console.log(`Stage 3: Database Validation & Insert = ${processedResults.inserted} final records`);
-      console.log('\n💡 If your final count is less than expected, check the Stage 1 and Stage 2 logs above for skipped rows.');
-
-      setLoadingProgress(90);
-      setLoadingStatus('Refreshing order list...');
+      setLoadingProgress(95);
+      setLoadingStatus('Refreshing PO data...');
       
       await fetchPOOrders();
 
-      // Show results
-      const totalProcessed = mappedData.length;
-      let message = `Processed ${totalProcessed} rows: `;
+      // === FINAL RESULTS ===
+      console.log(`\n🏁 FINAL RESULTS:`);
+      console.log(`📊 Total rows in file: ${mappedData.length}`);
+      console.log(`✅ Successfully inserted: ${results.inserted}`);
+      console.log(`⚠️ Duplicates skipped: ${results.duplicates}`);
+      console.log(`❌ Invalid/Errors: ${results.invalid}`);
+      console.log(`🎯 Database now contains these new records`);
+
+      // Show user-friendly results
+      let message = `Processed ${results.processed} rows: `;
       let details = [];
       
-      if (processedResults.inserted > 0) {
-        details.push(`${processedResults.inserted} inserted`);
-      }
-      if (processedResults.duplicates > 0) {
-        details.push(`${processedResults.duplicates} duplicates skipped`);
-      }
-      if (processedResults.invalid > 0) {
-        details.push(`${processedResults.invalid} invalid rows`);
-      }
+      if (results.inserted > 0) details.push(`${results.inserted} inserted`);
+      if (results.duplicates > 0) details.push(`${results.duplicates} duplicates skipped`);
+      if (results.invalid > 0) details.push(`${results.invalid} invalid`);
       
       message += details.join(', ');
 
-      if (processedResults.errors.length > 0) {
-        console.log('Processing errors:', processedResults.errors.slice(0, 10));
-        console.log('All skipped reasons:', processedResults.skippedReasons);
+      if (results.errors.length > 0) {
+        console.log('🚨 Processing errors:', results.errors.slice(0, 5));
       }
 
       toast({
-        title: processedResults.inserted > 0 ? "PO Upload Complete" : "Upload Issues",
+        title: results.inserted > 0 ? "PO Upload Complete" : "Upload Issues Found",
         description: message,
-        variant: processedResults.inserted > 0 ? "default" : "destructive"
+        variant: results.inserted > 0 ? "default" : "destructive"
       });
 
     } catch (error) {
-      console.error('Error processing PO files:', error);
+      console.error('❌ CRITICAL ERROR in processPOFiles:', error);
       toast({
-        title: "Error",
+        title: "Processing Error",
         description: error instanceof Error ? error.message : "Failed to process PO files",
         variant: "destructive"
       });
