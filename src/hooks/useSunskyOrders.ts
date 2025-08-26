@@ -65,14 +65,14 @@ export const useSunskyOrders = () => {
 
   const { toast } = useToast();
 
-  // Fetch ALL orders placed by user through the app - no filtering by PO relationship 
+  // Fetch ALL orders placed by user through the app - now filtered by backend
   const fetchStoredOrders = async (showOnlyPOLinked: boolean = false) => {
     setState(prev => ({ ...prev, loading: true, error: null }));
 
     try {
-      console.log('🔄 Fetching ALL Sunsky orders placed by user...');
+      console.log('🔄 Fetching app-placed Sunsky orders...');
 
-      // Use the new RPC function to get ALL user orders with app-placed filtering
+      // Use the updated RPC function that only returns truly app-placed orders
       const { data: allOrders, error } = await supabase.rpc('get_all_user_sunsky_orders');
 
       if (error) throw error;
@@ -80,12 +80,11 @@ export const useSunskyOrders = () => {
       let ordersWithData: SunskyOrder[];
 
       if (showOnlyPOLinked) {
-        // Filter to show only orders with PO relationships if requested
+        // Filter to show only orders with explicit PO relationships if requested
         ordersWithData = (allOrders || [])
           .filter((order: any) => {
             const hasPoNumbers = order.po_numbers && Array.isArray(order.po_numbers) && order.po_numbers.length > 0;
-            const isAppPlaced = order.is_app_placed === true;
-            return hasPoNumbers && isAppPlaced;
+            return hasPoNumbers;
           })
           .map((order: any): SunskyOrder => ({
             ...order,
@@ -93,7 +92,7 @@ export const useSunskyOrders = () => {
             credential_name: order.sunsky_credential?.name || null
           }));
       } else {
-        // Show ALL orders placed by the user (default behavior)
+        // Show ALL app-placed orders (default behavior)
         ordersWithData = (allOrders || []).map((order: any): SunskyOrder => ({
           ...order,
           items: order.items || [],
@@ -101,8 +100,36 @@ export const useSunskyOrders = () => {
         }));
       }
 
-      console.log(`📊 Found ${ordersWithData.length} total orders placed through the app`);
+      console.log(`📊 Found ${ordersWithData.length} app-placed orders`);
       console.log('Order numbers:', ordersWithData.map(o => o.number).join(', '));
+
+      // Auto-fetch missing item details for orders without items but with credentials
+      const ordersNeedingItems = ordersWithData.filter(order => 
+        (!order.items || order.items.length === 0) && order.sunsky_credentials_id
+      );
+
+      if (ordersNeedingItems.length > 0) {
+        console.log(`🔄 Auto-fetching items for ${ordersNeedingItems.length} orders...`);
+        
+        // Fetch items for orders that need them
+        for (const order of ordersNeedingItems) {
+          try {
+            await getOrderDetails(order.number, true, order.sunsky_credentials_id);
+          } catch (error) {
+            console.warn(`Failed to auto-fetch items for order ${order.number}:`, error);
+          }
+        }
+
+        // Re-fetch orders after auto-fetching items
+        const { data: updatedOrders, error: refetchError } = await supabase.rpc('get_all_user_sunsky_orders');
+        if (!refetchError && updatedOrders) {
+          ordersWithData = (updatedOrders || []).map((order: any): SunskyOrder => ({
+            ...order,
+            items: order.items || [],
+            credential_name: order.sunsky_credential?.name || null
+          }));
+        }
+      }
 
       setState(prev => ({
         ...prev,
