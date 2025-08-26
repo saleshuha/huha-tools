@@ -273,7 +273,7 @@ export const usePOOrders = () => {
           .from('po_orders')
           .upsert(validOrdersToInsert, {
             onConflict: 'user_id,po_key,item_key',
-            ignoreDuplicates: false
+            ignoreDuplicates: true
           });
 
         if (insertError) {
