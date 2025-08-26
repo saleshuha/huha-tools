@@ -12,19 +12,24 @@ import {
 } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
-// Status configurations for orders and items
+// Status configurations for orders and items with Sunsky numeric status mapping
 const statusColors = {
   pending: 'bg-yellow-100 text-yellow-800 border-yellow-200',
   unpaid: 'bg-orange-100 text-orange-800 border-orange-200',
   error: 'bg-red-100 text-red-800 border-red-200',
   api_error: 'bg-red-100 text-red-800 border-red-200',
   ordered: 'bg-blue-100 text-blue-800 border-blue-200',
+  paid: 'bg-blue-100 text-blue-800 border-blue-200',
   shipped: 'bg-purple-100 text-purple-800 border-purple-200',
   delivered: 'bg-green-100 text-green-800 border-green-200',
   cancelled: 'bg-red-100 text-red-800 border-red-200',
   ready_to_ship: 'bg-cyan-100 text-cyan-800 border-cyan-200',
   out_of_stock: 'bg-red-100 text-red-800 border-red-200',
-  delayed: 'bg-orange-100 text-orange-800 border-orange-200'
+  delayed: 'bg-orange-100 text-orange-800 border-orange-200',
+  // Numeric status mappings from Sunsky API
+  '1': 'bg-yellow-100 text-yellow-800 border-yellow-200', // Pending/Ordered
+  '4': 'bg-blue-100 text-blue-800 border-blue-200', // Paid
+  '5': 'bg-purple-100 text-purple-800 border-purple-200', // Shipped/Delivered
 };
 
 const statusIcons = {
@@ -33,12 +38,31 @@ const statusIcons = {
   error: AlertCircle,
   api_error: AlertCircle,
   ordered: Package,
+  paid: Package,
   shipped: Truck,
   delivered: CheckCircle,
   cancelled: AlertCircle,
   ready_to_ship: Package,
   out_of_stock: AlertTriangle,
-  delayed: AlertTriangle
+  delayed: AlertTriangle,
+  // Numeric status mappings from Sunsky API
+  '1': Package, // Pending/Ordered
+  '4': CheckCircle, // Paid
+  '5': Truck, // Shipped/Delivered
+};
+
+// Map Sunsky numeric status to readable text
+const getReadableStatus = (status: string | number): string => {
+  const statusStr = String(status);
+  switch (statusStr) {
+    case '1': return 'ordered';
+    case '4': return 'paid';
+    case '5': return 'shipped';
+    case 'unpaid': return 'unpaid';
+    case 'api_error': return 'api error';
+    case 'error': return 'error';
+    default: return statusStr;
+  }
 };
 
 interface SlowItem {
@@ -56,7 +80,7 @@ export default function SunskyOrderTrackingPage() {
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
   const [slowItems, setSlowItems] = useState<SlowItem[]>([]);
-  const [showOnlyPOLinked, setShowOnlyPOLinked] = useState(false);
+  const [showOnlyPOLinked, setShowOnlyPOLinked] = useState(true);
 
   const { selectedCountry } = useCountry();
   const {
@@ -72,7 +96,7 @@ export default function SunskyOrderTrackingPage() {
     getSlowItems
   } = useSunskyOrders();
 
-  // Filter orders based on search and status
+  // Filter orders based on search and status with proper status mapping
   const filteredOrders = orders.filter(order => {
     const matchesSearch = !searchTerm || 
       order.number.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -82,7 +106,10 @@ export default function SunskyOrderTrackingPage() {
         item.title?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     
-    const matchesStatus = selectedStatus === 'all' || order.status === selectedStatus;
+    const readableStatus = getReadableStatus(order.status);
+    const matchesStatus = selectedStatus === 'all' || 
+                         readableStatus === selectedStatus ||
+                         order.status === selectedStatus;
     
     return matchesSearch && matchesStatus;
   });
@@ -138,15 +165,18 @@ export default function SunskyOrderTrackingPage() {
   };
 
   // Get status badge component
-  const getStatusBadge = (status: string, isDelayed?: boolean) => {
-    const displayStatus = isDelayed ? 'delayed' : status;
+  const getStatusBadge = (status: string | number, isDelayed?: boolean) => {
+    const readableStatus = getReadableStatus(status);
+    const displayStatus = isDelayed ? 'delayed' : String(status);
+    const displayText = isDelayed ? 'Delayed' : readableStatus.charAt(0).toUpperCase() + readableStatus.slice(1);
+    
     const IconComponent = statusIcons[displayStatus as keyof typeof statusIcons] || AlertCircle;
     const colorClass = statusColors[displayStatus as keyof typeof statusColors] || 'bg-gray-100 text-gray-800';
     
     return (
       <Badge className={`${colorClass} flex items-center gap-1 w-fit border`}>
         <IconComponent className="h-3 w-3" />
-        {isDelayed ? 'Delayed' : status?.charAt(0).toUpperCase() + status?.slice(1)}
+        {displayText}
       </Badge>
     );
   };
@@ -167,13 +197,13 @@ export default function SunskyOrderTrackingPage() {
     window.open(url, '_blank');
   };
 
-  // Order statistics
+  // Order statistics with proper status mapping
   const orderStats = {
     total: orders.length,
-    pending: orders.filter(o => o.status === 'pending').length,
+    pending: orders.filter(o => getReadableStatus(o.status) === 'ordered' || o.status === 'pending').length,
     unpaid: orders.filter(o => o.status === 'unpaid').length,
-    shipped: orders.filter(o => o.status === 'shipped').length,
-    delivered: orders.filter(o => o.status === 'delivered').length,
+    shipped: orders.filter(o => getReadableStatus(o.status) === 'shipped' || getReadableStatus(o.status) === 'paid').length,
+    delivered: orders.filter(o => getReadableStatus(o.status) === 'delivered').length,
     totalValue: orders.reduce((sum, order) => sum + (order.total || 0), 0)
   };
 
@@ -309,21 +339,22 @@ export default function SunskyOrderTrackingPage() {
               <option value="all">All Status</option>
               <option value="pending">Pending</option>
               <option value="unpaid">Unpaid</option>
-              <option value="error">Error</option>
-              <option value="api_error">API Error</option>
               <option value="ordered">Ordered</option>
+              <option value="paid">Paid</option>
               <option value="shipped">Shipped</option>
               <option value="delivered">Delivered</option>
               <option value="cancelled">Cancelled</option>
+              <option value="error">Error</option>
+              <option value="api_error">API Error</option>
             </select>
             <div className="flex items-center gap-2">
               <label className="text-sm font-medium">Show:</label>
               <select
-                value={showOnlyPOLinked ? 'po-linked' : 'all'}
-                onChange={(e) => setShowOnlyPOLinked(e.target.value === 'po-linked')}
+                value={showOnlyPOLinked ? 'restock-orders' : 'all'}
+                onChange={(e) => setShowOnlyPOLinked(e.target.value === 'restock-orders')}
                 className="px-3 py-2 border border-input rounded-md bg-background text-sm"
               >
-                <option value="po-linked">PO Linked Only</option>
+                <option value="restock-orders">Restock Orders Only</option>
                 <option value="all">All Orders</option>
               </select>
             </div>
