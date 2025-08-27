@@ -113,7 +113,7 @@ export const DateWiseOrderPrint: React.FC = () => {
       const result = data?.[0];
       if (result) {
         toast.success(
-          `Matching completed! Activated ${result.updated_active_count} items that match with orders. Total SKUs found: ${result.total_unique_skus}`
+          `Matching completed! Activated: ${result.updated_active_count} matching items, Deactivated: ${result.updated_inactive_count} non-matching items. Total order SKUs: ${result.total_unique_skus}`
         );
       } else {
         toast.success('Matching completed!');
