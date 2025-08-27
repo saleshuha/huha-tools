@@ -19,6 +19,7 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
   const { displayCurrency } = useCurrencyDisplay();
   const { selectedCountry } = useCountry();
   const [weekOffset, setWeekOffset] = useState(0); // 0 = current 4 weeks, positive = future, negative = past
+  const [upcomingWeeksOffset, setUpcomingWeeksOffset] = useState(0); // Separate offset for upcoming payments
   
   // Force re-render when display currency or metrics change by creating a unique key
   const renderKey = `${displayCurrency}-${metrics?.totalValue || 0}`;
@@ -139,7 +140,7 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
     };
   }, [metrics, orders, convertCurrency, displayCurrency, selectedCountry]);
 
-  // Calculate weekly upcoming payments with order numbers
+  // Calculate weekly upcoming payments with navigation
   const weeklyUpcomingPayments = useMemo(() => {
     if (!orders) return [];
     
@@ -152,10 +153,11 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
     });
 
     const weeks = [];
-    // Show 2 previous weeks and 4 upcoming weeks
-    for (let i = -2; i < 4; i++) {
+    // Show 4 weeks based on offset: offset 0 = current week + 3 future, offset -1 = 1 past + current + 2 future, etc.
+    for (let i = 0; i < 4; i++) {
       const weekStart = new Date(now);
-      weekStart.setDate(now.getDate() + (i * 7));
+      // Calculate week start based on offset
+      weekStart.setDate(now.getDate() + ((upcomingWeeksOffset * 4) + i) * 7);
       weekStart.setHours(0, 0, 0, 0);
       
       const weekEnd = new Date(weekStart);
@@ -193,17 +195,22 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
         return `${date.getDate()}/${date.getMonth() + 1}`;
       };
       
+      const currentWeek = new Date();
+      currentWeek.setHours(0, 0, 0, 0);
+      const isPast = weekEnd < currentWeek;
+      const isCurrentWeek = weekStart <= currentWeek && weekEnd >= currentWeek;
+      
       weeks.push({
         label: `${formatDate(weekStart)} - ${formatDate(weekEnd)}`,
         orders: weekOrders.length,
         value: convertCurrency(weekValue, 'USD', displayCurrency),
-        isPast: i < 0,
-        isCurrentWeek: i === 0
+        isPast,
+        isCurrentWeek
       });
     }
     
     return weeks;
-  }, [orders, convertCurrency, displayCurrency, selectedCountry]);
+  }, [orders, convertCurrency, displayCurrency, selectedCountry, upcomingWeeksOffset]);
 
   // Calculate weekly performance data
   const weeklyData = useMemo(() => {
@@ -472,10 +479,30 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-primary" />
-              Weekly Upcoming Payments
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-primary" />
+                Weekly Upcoming Payments
+              </CardTitle>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setUpcomingWeeksOffset(upcomingWeeksOffset - 1)}
+                  className="h-7 w-7 p-0"
+                >
+                  <ChevronLeft className="h-3 w-3" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setUpcomingWeeksOffset(upcomingWeeksOffset + 1)}
+                  className="h-7 w-7 p-0"
+                >
+                  <ChevronRight className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
