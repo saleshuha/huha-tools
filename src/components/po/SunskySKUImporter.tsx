@@ -709,13 +709,11 @@ export const SunskySKUImporter: React.FC = () => {
 
       const exportConfig = {
         status: selectedExportStatus,
-        category: exportCategory,
-        subCategory: exportSubCategory,
-        brand: selectedBrand,
-        categoryName,
-        columns: selectedExportColumns,
+        categoryId: exportSubCategory !== 'all' ? parseInt(exportSubCategory) : 
+                   (exportCategory !== 'all' ? parseInt(exportCategory) : undefined),
         pageSize: exportPageSize,
         maxPages: Number.MAX_SAFE_INTEGER, // Unlimited pages
+        columns: selectedExportColumns,
         apiKeys: apiKeysWithNames
       };
 
