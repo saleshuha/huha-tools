@@ -565,11 +565,11 @@ export const LabelWorkspace: React.FC = () => {
             ref={canvasRef}
             className="relative bg-white shadow-lg"
             style={{
-              width: mmToPx(document.size.width) * zoom,
-              height: mmToPx(document.size.height) * zoom,
-              minWidth: 200 * zoom,
-              minHeight: 100 * zoom,
-              transform: `translate(${panOffset.x}px, ${panOffset.y}px)`,
+              width: mmToPx(document.size.width),
+              height: mmToPx(document.size.height),
+              minWidth: 200,
+              minHeight: 100,
+              transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoom})`,
               transformOrigin: '0 0',
               cursor: isPanning ? 'grabbing' : isDragging ? 'grabbing' : isResizing ? 'nw-resize' : 'default'
             }}
@@ -578,9 +578,7 @@ export const LabelWorkspace: React.FC = () => {
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
           >
-            <div style={{ transform: `scale(${zoom})`, transformOrigin: '0 0' }}>
-              {document.elements.map(renderElement)}
-            </div>
+            {document.elements.map(renderElement)}
           </div>
         </div>
         
