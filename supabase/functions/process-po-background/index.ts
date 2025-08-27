@@ -425,22 +425,32 @@ async function callSunskyAPI(action: string, data: any, credentials: SunskyCrede
 
   if (action === 'searchProducts') {
     url = 'https://open.sunsky-online.com/openapi/product!search.do'
-    const searchParams = {
-      keyword: params.keyword,
+    const searchParams: Record<string, any> = {
       page: params.page.toString(),
       pageSize: params.pageSize.toString(),
-      status: '1',
+      status: params.status ? params.status.toString() : '1',
       lang: 'en'
     }
+    
+    // Add optional search parameters
+    if (params.keyword) searchParams.keyword = params.keyword
+    if (params.categoryId) searchParams.categoryId = params.categoryId.toString()
+    if (params.brandId) searchParams.brandId = params.brandId.toString()
+    if (params.dateFrom) searchParams.dateFrom = params.dateFrom
+    if (params.dateTo) searchParams.dateTo = params.dateTo
     
     const signature = await generateSignature(searchParams, credentials.api_key, credentials.api_secret)
     
     requestBody.append('key', credentials.api_key)
     requestBody.append('lang', 'en')
-    requestBody.append('keyword', searchParams.keyword)
     requestBody.append('page', searchParams.page)
     requestBody.append('pageSize', searchParams.pageSize)
     requestBody.append('status', searchParams.status)
+    if (params.keyword) requestBody.append('keyword', params.keyword)
+    if (params.categoryId) requestBody.append('categoryId', params.categoryId.toString())
+    if (params.brandId) requestBody.append('brandId', params.brandId.toString())
+    if (params.dateFrom) requestBody.append('dateFrom', params.dateFrom)
+    if (params.dateTo) requestBody.append('dateTo', params.dateTo)
     requestBody.append('signature', signature)
     
   } else if (action === 'getProductDetails') {
@@ -483,21 +493,31 @@ async function callSunskyAPI(action: string, data: any, credentials: SunskyCrede
     
     if (action === 'searchProducts') {
       retryParams = {
-        keyword: params.keyword,
         page: params.page.toString(),
         pageSize: params.pageSize.toString(),
-        status: '1',
+        status: params.status ? params.status.toString() : '1',
         lang: 'en'
       }
+      
+      // Add optional search parameters
+      if (params.keyword) retryParams.keyword = params.keyword
+      if (params.categoryId) retryParams.categoryId = params.categoryId.toString()
+      if (params.brandId) retryParams.brandId = params.brandId.toString()
+      if (params.dateFrom) retryParams.dateFrom = params.dateFrom
+      if (params.dateTo) retryParams.dateTo = params.dateTo
       
       const upperSignature = (await generateSignature(retryParams, credentials.api_key, credentials.api_secret)).toUpperCase()
       
       retryBody.append('key', credentials.api_key)
       retryBody.append('lang', 'en')
-      retryBody.append('keyword', retryParams.keyword)
       retryBody.append('page', retryParams.page)
       retryBody.append('pageSize', retryParams.pageSize)
       retryBody.append('status', retryParams.status)
+      if (params.keyword) retryBody.append('keyword', params.keyword)
+      if (params.categoryId) retryBody.append('categoryId', params.categoryId.toString())
+      if (params.brandId) retryBody.append('brandId', params.brandId.toString())
+      if (params.dateFrom) retryBody.append('dateFrom', params.dateFrom)
+      if (params.dateTo) retryBody.append('dateTo', params.dateTo)
       retryBody.append('sign', upperSignature)
       
     } else if (action === 'getProductDetails') {
@@ -550,12 +570,27 @@ async function processSunskyExportBackground(supabaseClient: any, userId: string
 
     const userCountry = userProfile?.country || 'UAE'
 
+    // Get full API credentials from database (availableAPIs only has id and name)
+    const apiIds = availableAPIs.map(api => api.id)
+    const { data: fullCredentials, error: credError } = await supabaseClient
+      .from('sunsky_credentials')
+      .select('id, api_key, api_secret')
+      .eq('user_id', userId)
+      .in('id', apiIds)
+      .eq('is_active', true)
+
+    if (credError || !fullCredentials || fullCredentials.length === 0) {
+      throw new Error('Failed to get API credentials: ' + (credError?.message || 'No credentials found'))
+    }
+
+    console.log(`Found ${fullCredentials.length} API credentials for background export`)
+
     let allProducts: any[] = []
     let totalProcessed = 0
     let totalPages = 0
 
     // Calculate total pages across all APIs
-    for (const api of availableAPIs) {
+    for (const creds of fullCredentials) {
       try {
         // Get first page to determine total
         const response = await callSunskyAPI('searchProducts', {
@@ -563,19 +598,19 @@ async function processSunskyExportBackground(supabaseClient: any, userId: string
           status: config.selectedExportStatus,
           page: 1,
           pageSize: config.exportPageSize,
-          apiId: api.id
-        }, api)
+          apiId: creds.id
+        }, creds)
 
         if (response?.result === 'success' && response.data?.totalPages) {
           totalPages += response.data.totalPages
         }
       } catch (error) {
-        console.error(`Error getting page count for API ${api.id}:`, error)
+        console.error(`Error getting page count for API ${creds.id}:`, error)
       }
     }
 
     // Process each API
-    for (const api of availableAPIs) {
+    for (const creds of fullCredentials) {
       try {
         let currentPage = 1
         let hasMorePages = true
@@ -587,8 +622,8 @@ async function processSunskyExportBackground(supabaseClient: any, userId: string
               status: config.selectedExportStatus,
               page: currentPage,
               pageSize: config.exportPageSize,
-              apiId: api.id
-            }, api)
+              apiId: creds.id
+            }, creds)
 
             if (response?.result === 'success' && response.data?.products) {
               const products = response.data.products
@@ -643,12 +678,12 @@ async function processSunskyExportBackground(supabaseClient: any, userId: string
               hasMorePages = false
             }
           } catch (error) {
-            console.error(`Error processing page ${currentPage} for API ${api.id}:`, error)
+            console.error(`Error processing page ${currentPage} for API ${creds.id}:`, error)
             hasMorePages = false
           }
         }
       } catch (error) {
-        console.error(`Error processing API ${api.id}:`, error)
+        console.error(`Error processing API ${creds.id}:`, error)
       }
     }
 
