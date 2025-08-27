@@ -32,6 +32,7 @@ import { ReAuthDialog } from "@/components/amazon/ReAuthDialog";
 import { generateExcelFile } from "@/utils/excelExport";
 import { useBackgroundTasks } from "@/contexts/BackgroundTasksContext";
 import { useConcurrentSunskyExport } from "@/hooks/useConcurrentSunskyExport";
+import { usePersistentBackgroundTasks } from "@/hooks/usePersistentBackgroundTasks";
 
 interface SunskyProduct {
   // Core product fields
@@ -195,6 +196,17 @@ export const SunskySKUImporter: React.FC = () => {
   const { jobs, isLoading: jobsLoading, createImportJob, fetchJobs } = useImportJobs();
   const { getPOModelNumbers } = usePOOrders();
   const { addExportEntry, updateExportEntry, exportHistory: savedExportHistory } = useExportHistory();
+  const { 
+    tasks: persistentTasks, 
+    loading: tasksLoading,
+    activeTasks, 
+    completedTasks,
+    failedTasks,
+    fetchTasks,
+    cancelTask: cancelPersistentTask,
+    deleteTask: deletePersistentTask,
+    downloadResult
+  } = usePersistentBackgroundTasks();
   const { 
     startConcurrentExport,
     isExporting: isConcurrentExporting,
@@ -702,7 +714,7 @@ export const SunskySKUImporter: React.FC = () => {
         };
 
         // Start background processing via edge function
-        const { error } = await supabase.functions.invoke('process-po-background', {
+        const { data, error } = await supabase.functions.invoke('process-po-background', {
           body: {
             action: 'startExport',
             config: exportConfig,
@@ -720,28 +732,26 @@ export const SunskySKUImporter: React.FC = () => {
           return;
         }
 
+        const { taskId, historyId } = data || {};
+        
+        if (!taskId || !historyId) {
+          toast({
+            title: "Background Export Error",
+            description: "Failed to get task identifiers",
+            variant: "destructive"
+          });
+          return;
+        }
+
         toast({
           title: "Background Export Started",
           description: "Export is running in the background. You can close the app and return later to check progress.",
           duration: 5000
         });
 
-        // Add to background tasks context for immediate UI feedback
-        const taskId = addTask({
-          type: 'sunsky-export',
-          name: `Background export: ${categoryName}`,
-          status: 'processing',
-          progress: 0,
-          totalItems: 0,
-          processedItems: 0,
-          metadata: {
-            exportType: 'background'
-          }
-        });
+        // The background task and export history are automatically tracked by the database
+        // The usePersistentBackgroundTasks hook will pick up the task and display it
         
-        // Use the returned task ID
-        setCurrentExportTaskId(taskId);
-
       } catch (error) {
         console.error('Error starting background export:', error);
         toast({

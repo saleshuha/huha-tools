@@ -342,6 +342,62 @@ export type Database = {
         }
         Relationships: []
       }
+      export_history: {
+        Row: {
+          background_task_id: string | null
+          created_at: string
+          error_message: string | null
+          export_type: string
+          file_path: string | null
+          file_size: number | null
+          filters: Json
+          id: string
+          metadata: Json
+          status: string
+          total_items: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          background_task_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          export_type: string
+          file_path?: string | null
+          file_size?: number | null
+          filters?: Json
+          id?: string
+          metadata?: Json
+          status?: string
+          total_items?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          background_task_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          export_type?: string
+          file_path?: string | null
+          file_size?: number | null
+          filters?: Json
+          id?: string
+          metadata?: Json
+          status?: string
+          total_items?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "export_history_background_task_id_fkey"
+            columns: ["background_task_id"]
+            isOneToOne: false
+            referencedRelation: "background_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       label_datasets: {
         Row: {
           created_at: string

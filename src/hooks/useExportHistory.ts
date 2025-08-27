@@ -30,7 +30,7 @@ export const useExportHistory = () => {
       if (!user) return;
 
       const { data, error } = await supabase
-        .from('sunsky_export_history')
+        .from('export_history')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
@@ -40,9 +40,7 @@ export const useExportHistory = () => {
 
       const historyEntries = (data || []).map(entry => ({
         ...entry,
-        total_items: entry.pages_processed || 0,
-        file_path: entry.file_name,
-        metadata: typeof entry.filters === 'object' ? entry.filters : {}
+        metadata: typeof entry.metadata === 'object' ? entry.metadata : {}
       })) as ExportHistoryEntry[];
 
       setExportHistory(historyEntries);
@@ -73,16 +71,17 @@ export const useExportHistory = () => {
       if (!user) return;
 
       const { data, error } = await supabase
-        .from('sunsky_export_history')
+        .from('export_history')
         .insert({
           user_id: user.id,
           export_type: entry.export_type,
           filters: entry.filters,
-          pages_processed: entry.total_items,
+          total_items: entry.total_items,
           status: entry.status,
-          file_name: entry.file_path,
+          file_path: entry.file_path,
           file_size: entry.file_size,
-          error_message: entry.error_message
+          error_message: entry.error_message,
+          metadata: entry.metadata || {}
         })
         .select()
         .single();
@@ -91,9 +90,7 @@ export const useExportHistory = () => {
 
       const newEntry: ExportHistoryEntry = {
         ...data,
-        total_items: data.pages_processed || 0,
-        file_path: data.file_name,
-        metadata: typeof data.filters === 'object' ? data.filters : {}
+        metadata: typeof data.metadata === 'object' ? data.metadata : {}
       };
 
       setExportHistory(prev => {
@@ -121,9 +118,9 @@ export const useExportHistory = () => {
   }) => {
     try {
       const { error } = await supabase
-        .from('sunsky_export_history')
+        .from('export_history')
         .update({
-          file_name: updates.file_path,
+          file_path: updates.file_path,
           file_size: updates.file_size,
           status: updates.status,
           error_message: updates.error_message
@@ -160,7 +157,7 @@ export const useExportHistory = () => {
 
     try {
       const { data, error } = await supabase.storage
-        .from('sunsky-exports')
+        .from('exports')
         .download(entry.file_path);
 
       if (error) throw error;
@@ -210,13 +207,13 @@ export const useExportHistory = () => {
       // Delete file from storage if it exists
       if (entry?.file_path) {
         await supabase.storage
-          .from('sunsky-exports')
+          .from('exports')
           .remove([entry.file_path]);
       }
 
       // Delete database entry
       const { error } = await supabase
-        .from('sunsky_export_history')
+        .from('export_history')
         .delete()
         .eq('id', id);
 

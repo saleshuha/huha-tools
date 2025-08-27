@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
-interface PersistentTask {
+export interface PersistentTask {
   id: string;
+  user_id: string;
   type: string;
-  status: 'processing' | 'completed' | 'error' | 'cancelled';
+  status: 'processing' | 'completed' | 'failed' | 'cancelled';
   progress: number;
   processed_items: number;
   total_items: number;
@@ -22,17 +23,22 @@ export function usePersistentBackgroundTasks() {
 
   const fetchTasks = async () => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
       const { data, error } = await supabase
         .from('background_tasks')
         .select('*')
-        .order('created_at', { ascending: false });
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(20);
 
       if (error) throw error;
       
       // Type the data properly
       const typedTasks: PersistentTask[] = (data || []).map(task => ({
         ...task,
-        status: task.status as PersistentTask['status'],
+        status: task.status === 'error' ? 'failed' : task.status as PersistentTask['status'],
         metadata: task.metadata || {}
       }));
       
@@ -110,18 +116,26 @@ export function usePersistentBackgroundTasks() {
 
   const downloadResult = async (task: PersistentTask) => {
     try {
-      const downloadUrl = task.metadata?.downloadUrl;
-      if (!downloadUrl) {
-        throw new Error('No download URL available for this task');
+      const filePath = task.metadata?.filePath;
+      if (!filePath) {
+        throw new Error('No file available for this task');
       }
 
-      // Create a temporary link to download the file
+      const { data, error } = await supabase.storage
+        .from('exports')
+        .download(filePath);
+
+      if (error) throw error;
+
+      // Create download link
+      const url = URL.createObjectURL(data);
       const link = document.createElement('a');
-      link.href = downloadUrl;
-      link.download = `export-${task.id}.csv`;
+      link.href = url;
+      link.download = filePath.split('/').pop() || `export-${task.id}.csv`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      URL.revokeObjectURL(url);
 
       toast({
         title: "Download Started",
@@ -131,7 +145,7 @@ export function usePersistentBackgroundTasks() {
       console.error('Failed to download result:', error);
       toast({
         title: "Download Failed",
-        description: error.message,
+        description: error.message || 'Failed to download file',
         variant: "destructive"
       });
     }
@@ -172,7 +186,7 @@ export function usePersistentBackgroundTasks() {
 
   const activeTasks = tasks.filter(task => task.status === 'processing');
   const completedTasks = tasks.filter(task => task.status === 'completed');
-  const failedTasks = tasks.filter(task => task.status === 'error');
+  const failedTasks = tasks.filter(task => task.status === 'failed');
 
   return {
     tasks,

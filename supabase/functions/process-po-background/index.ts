@@ -58,10 +58,11 @@ Deno.serve(async (req) => {
       const { config, availableAPIs } = body
       console.log(`Starting background export for user ${user.id}`)
       
-      // Create a background task record
+      // Create both background task and export history records
       const taskId = crypto.randomUUID()
+      const historyId = crypto.randomUUID()
       
-      // Insert task into database for persistence
+      // Insert background task for tracking
       await supabaseClient
         .from('background_tasks')
         .insert({
@@ -75,16 +76,38 @@ Deno.serve(async (req) => {
             ...config,
             availableAPIs,
             exportType: 'background',
-            persistent: true
-          },
-          created_at: new Date().toISOString()
+            persistent: true,
+            historyId: historyId
+          }
+        })
+      
+      // Insert export history for long-term tracking
+      await supabaseClient
+        .from('export_history')
+        .insert({
+          id: historyId,
+          user_id: user.id,
+          background_task_id: taskId,
+          export_type: 'sunsky_status_export',
+          filters: config,
+          status: 'processing',
+          metadata: {
+            availableAPIs: availableAPIs,
+            concurrent: true,
+            background: true
+          }
         })
       
       // Start background export without waiting
-      EdgeRuntime.waitUntil(processSunskyExportBackground(supabaseClient, user.id, taskId, config, availableAPIs))
+      EdgeRuntime.waitUntil(processSunskyExportBackground(supabaseClient, user.id, taskId, historyId, config, availableAPIs))
       
       return new Response(
-        JSON.stringify({ success: true, message: 'Background export started', taskId }),
+        JSON.stringify({ 
+          success: true, 
+          message: 'Background export started', 
+          taskId: taskId,
+          historyId: historyId 
+        }),
         { 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 200 
@@ -556,8 +579,8 @@ async function callSunskyAPI(action: string, data: any, credentials: SunskyCrede
   return result
 }
 
-// Background export processing function
-async function processSunskyExportBackground(supabaseClient: any, userId: string, taskId: string, config: any, availableAPIs: any[]) {
+// Background export processing function  
+async function processSunskyExportBackground(supabaseClient: any, userId: string, taskId: string, historyId: string, config: any, availableAPIs: any[]) {
   try {
     console.log(`Background export started for task ${taskId}`)
 
@@ -609,6 +632,19 @@ async function processSunskyExportBackground(supabaseClient: any, userId: string
       }
     }
 
+    // Update total items estimate in both tables
+    const estimatedItems = totalPages * config.exportPageSize
+    await Promise.all([
+      supabaseClient
+        .from('background_tasks')
+        .update({ total_items: estimatedItems })
+        .eq('id', taskId),
+      supabaseClient
+        .from('export_history')
+        .update({ total_items: estimatedItems })
+        .eq('id', historyId)
+    ])
+
     // Process each API
     for (const creds of fullCredentials) {
       try {
@@ -656,17 +692,33 @@ async function processSunskyExportBackground(supabaseClient: any, userId: string
 
               totalProcessed++
               
-              // Update progress every page
+              // Update progress every page in both tables
               const progress = totalPages > 0 ? Math.min(95, (totalProcessed / totalPages) * 100) : 0
               
-              await supabaseClient
-                .from('background_tasks')
-                .update({
-                  progress,
-                  processed_items: allProducts.length,
-                  updated_at: new Date().toISOString()
-                })
-                .eq('id', taskId)
+              await Promise.all([
+                supabaseClient
+                  .from('background_tasks')
+                  .update({
+                    progress: Math.round(progress),
+                    processed_items: allProducts.length
+                  })
+                  .eq('id', taskId),
+                supabaseClient
+                  .from('export_history')
+                  .update({
+                    total_items: allProducts.length,
+                    metadata: {
+                      ...config,
+                      availableAPIs,
+                      concurrent: true,
+                      background: true,
+                      progress: Math.round(progress),
+                      processed_pages: totalProcessed,
+                      total_pages: totalPages
+                    }
+                  })
+                  .eq('id', historyId)
+              ])
 
               hasMorePages = currentPage < (response.data.totalPages || 1)
               currentPage++
@@ -687,8 +739,9 @@ async function processSunskyExportBackground(supabaseClient: any, userId: string
       }
     }
 
-    // Export to storage (if needed) and complete task
-    let downloadUrl = null
+    // Create and upload export file
+    let filePath = null
+    let fileSize = 0
     if (allProducts.length > 0) {
       try {
         // Create CSV content
@@ -706,8 +759,8 @@ async function processSunskyExportBackground(supabaseClient: any, userId: string
           )
         ].join('\n')
 
-        // Upload to Supabase storage
-        const fileName = `export-${taskId}-${Date.now()}.csv`
+        // Upload to user's folder in exports bucket
+        const fileName = `${userId}/export-${taskId}-${Date.now()}.csv`
         const { data: uploadData, error: uploadError } = await supabaseClient.storage
           .from('exports')
           .upload(fileName, csvContent, {
@@ -715,51 +768,80 @@ async function processSunskyExportBackground(supabaseClient: any, userId: string
           })
 
         if (!uploadError && uploadData) {
-          const { data: urlData } = await supabaseClient.storage
-            .from('exports')
-            .createSignedUrl(uploadData.path, 3600) // 1 hour expiry
-
-          downloadUrl = urlData?.signedUrl
+          filePath = uploadData.path
+          fileSize = new Blob([csvContent]).size
+        } else {
+          console.error('Upload error:', uploadError)
         }
       } catch (error) {
         console.error('Error creating export file:', error)
       }
     }
 
-    // Mark task as completed
-    await supabaseClient
-      .from('background_tasks')
-      .update({
-        status: 'completed',
-        progress: 100,
-        processed_items: allProducts.length,
-        completed_at: new Date().toISOString(),
-        metadata: {
-          ...config,
-          availableAPIs,
-          exportType: 'background',
-          persistent: true,
-          totalProducts: allProducts.length,
-          downloadUrl
-        }
-      })
-      .eq('id', taskId)
+    // Mark both records as completed
+    await Promise.all([
+      supabaseClient
+        .from('background_tasks')
+        .update({
+          status: 'completed',
+          progress: 100,
+          processed_items: allProducts.length,
+          completed_at: new Date().toISOString(),
+          metadata: {
+            ...config,
+            availableAPIs,
+            exportType: 'background',
+            persistent: true,
+            totalProducts: allProducts.length,
+            filePath
+          }
+        })
+        .eq('id', taskId),
+      supabaseClient
+        .from('export_history')
+        .update({
+          status: 'completed',
+          total_items: allProducts.length,
+          file_path: filePath,
+          file_size: fileSize,
+          metadata: {
+            ...config,
+            availableAPIs,
+            concurrent: true,
+            background: true,
+            totalProducts: allProducts.length,
+            completed: true
+          }
+        })
+        .eq('id', historyId)
+    ])
 
     console.log(`Background export completed for task ${taskId}: ${allProducts.length} products`)
 
   } catch (error) {
     console.error(`Background export failed for task ${taskId}:`, error)
     
-    // Mark task as failed
-    await supabaseClient
-      .from('background_tasks')
-      .update({
-        status: 'error',
-        completed_at: new Date().toISOString(),
-        metadata: {
-          error: error.message
-        }
-      })
-      .eq('id', taskId)
+    // Mark both records as failed
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    
+    await Promise.all([
+      supabaseClient
+        .from('background_tasks')
+        .update({
+          status: 'failed',
+          completed_at: new Date().toISOString(),
+          metadata: {
+            error: errorMessage
+          }
+        })
+        .eq('id', taskId),
+      supabaseClient
+        .from('export_history')
+        .update({
+          status: 'failed',
+          error_message: errorMessage
+        })
+        .eq('id', historyId)
+    ])
   }
 }
