@@ -535,12 +535,13 @@ export const SunskySKUImporter: React.FC = () => {
         .eq('user_id', profile?.id)
         .eq('file_type', 'sunsky_sku_columns')
         .eq('store_name', 'sunsky_importer')
-        .maybeSingle();
+        .limit(1);
       
       if (error) throw error;
       
-      if (data?.headers) {
-        setSkuTableHeaders(data.headers);
+      // Take the first result if any exist
+      if (data && data.length > 0 && data[0]?.headers) {
+        setSkuTableHeaders(data[0].headers);
       }
     } catch (error) {
       console.error('Error loading preferences:', error);
@@ -3469,12 +3470,6 @@ export const SunskySKUImporter: React.FC = () => {
                       try {
                         await exportProductsByStatus(true);
                         console.log('✅ exportProductsByStatus completed');
-                        
-                        // Refresh background tasks panel
-                        if (typeof window !== 'undefined') {
-                          // Trigger a custom event to refresh background tasks
-                          window.dispatchEvent(new CustomEvent('refreshBackgroundTasks'));
-                        }
                       } catch (error) {
                         console.error('❌ exportProductsByStatus failed:', error);
                         toast({

@@ -16,6 +16,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { useBackgroundTasks, BackgroundTask, ThreadProgress } from '@/contexts/BackgroundTasksContext';
+import { usePersistentBackgroundTasks } from '@/hooks/usePersistentBackgroundTasks';
 import { formatDistanceToNow } from 'date-fns';
 
 interface BackgroundTasksPanelProps {
@@ -25,9 +26,49 @@ interface BackgroundTasksPanelProps {
 
 export function BackgroundTasksPanel({ isOpen, onClose }: BackgroundTasksPanelProps) {
   const { tasks, activeTasks, removeTask, cancelTask, clearCompletedTasks } = useBackgroundTasks();
+  const { 
+    tasks: persistentTasks, 
+    activeTasks: persistentActiveTasks, 
+    completedTasks: persistentCompletedTasks,
+    failedTasks: persistentFailedTasks,
+    cancelTask: cancelPersistentTask,
+    deleteTask: deletePersistentTask,
+    downloadResult
+  } = usePersistentBackgroundTasks();
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
 
   if (!isOpen) return null;
+
+  // Combine both types of tasks - map persistent task statuses to BackgroundTask statuses
+  const mapPersistentStatus = (status: string): BackgroundTask['status'] => {
+    switch (status) {
+      case 'queued': return 'pending';
+      case 'processing': return 'processing';
+      case 'completed': return 'completed';
+      case 'failed': return 'error';
+      case 'cancelled': return 'cancelled';
+      default: return 'pending';
+    }
+  };
+
+  const persistentTasksAsBackground = persistentTasks.map(t => ({
+    id: t.id,
+    name: t.type === 'sunsky_export' ? 'Sunsky Background Export' : t.type,
+    status: mapPersistentStatus(t.status),
+    progress: t.progress,
+    processedItems: t.processed_items,
+    totalItems: t.total_items,
+    threads: [] as ThreadProgress[],
+    startTime: new Date(t.created_at),
+    endTime: t.completed_at ? new Date(t.completed_at) : undefined,
+    canCancel: ['processing', 'queued'].includes(t.status),
+    metadata: t.metadata || {},
+    isPersistent: true
+  } as BackgroundTask & { isPersistent: boolean }));
+  
+  const allTasks = [...tasks, ...persistentTasksAsBackground];
+  const allActiveTasks = allTasks.filter(t => t.status === 'processing' || t.status === 'pending');
+
 
   const toggleTaskExpansion = (taskId: string) => {
     setExpandedTasks(prev => {
@@ -97,7 +138,7 @@ export function BackgroundTasksPanel({ isOpen, onClose }: BackgroundTasksPanelPr
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
           <CardTitle className="text-xl font-semibold">Background Tasks</CardTitle>
           <div className="flex items-center gap-2">
-            {tasks.length > 0 && (
+            {allTasks.length > 0 && (
               <Button
                 variant="outline"
                 size="sm"
@@ -115,7 +156,7 @@ export function BackgroundTasksPanel({ isOpen, onClose }: BackgroundTasksPanelPr
         </CardHeader>
         
         <CardContent className="flex-1 overflow-hidden">
-          {tasks.length === 0 ? (
+          {allTasks.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               No background tasks running
             </div>
@@ -123,19 +164,31 @@ export function BackgroundTasksPanel({ isOpen, onClose }: BackgroundTasksPanelPr
             <ScrollArea className="h-full pr-4">
               <div className="space-y-4">
                 {/* Active Tasks */}
-                {activeTasks.length > 0 && (
+                {allActiveTasks.length > 0 && (
                   <div>
                     <h3 className="text-sm font-medium text-muted-foreground mb-2 uppercase tracking-wide">
-                      Active Tasks ({activeTasks.length})
+                      Active Tasks ({allActiveTasks.length})
                     </h3>
-                    {activeTasks.map(task => (
+                    {allActiveTasks.map(task => (
                       <TaskCard
                         key={task.id}
                         task={task}
                         isExpanded={expandedTasks.has(task.id)}
                         onToggleExpand={() => toggleTaskExpansion(task.id)}
-                        onRemove={() => removeTask(task.id)}
-                        onCancel={task.canCancel ? () => cancelTask(task.id) : undefined}
+                        onRemove={() => {
+                          if ((task as any).isPersistent) {
+                            deletePersistentTask(task.id);
+                          } else {
+                            removeTask(task.id);
+                          }
+                        }}
+                        onCancel={task.canCancel ? () => {
+                          if ((task as any).isPersistent) {
+                            cancelPersistentTask(task.id);
+                          } else {
+                            cancelTask(task.id);
+                          }
+                        } : undefined}
                         getStatusIcon={getStatusIcon}
                         getStatusBadge={getStatusBadge}
                         getThreadStatusColor={getThreadStatusColor}
@@ -145,12 +198,12 @@ export function BackgroundTasksPanel({ isOpen, onClose }: BackgroundTasksPanelPr
                 )}
 
                 {/* Completed/Error Tasks */}
-                {tasks.filter(t => t.status === 'completed' || t.status === 'error').length > 0 && (
+                {allTasks.filter(t => t.status === 'completed' || t.status === 'error').length > 0 && (
                   <div>
                     <h3 className="text-sm font-medium text-muted-foreground mb-2 uppercase tracking-wide">
                       Recent Tasks
                     </h3>
-                    {tasks
+                    {allTasks
                       .filter(t => t.status === 'completed' || t.status === 'error')
                       .slice(-5)
                       .map(task => (
@@ -159,8 +212,20 @@ export function BackgroundTasksPanel({ isOpen, onClose }: BackgroundTasksPanelPr
                           task={task}
                           isExpanded={expandedTasks.has(task.id)}
                           onToggleExpand={() => toggleTaskExpansion(task.id)}
-                          onRemove={() => removeTask(task.id)}
-                          onCancel={task.canCancel ? () => cancelTask(task.id) : undefined}
+                          onRemove={() => {
+                            if ((task as any).isPersistent) {
+                              deletePersistentTask(task.id);
+                            } else {
+                              removeTask(task.id);
+                            }
+                          }}
+                          onCancel={task.canCancel ? () => {
+                            if ((task as any).isPersistent) {
+                              cancelPersistentTask(task.id);
+                            } else {
+                              cancelTask(task.id);
+                            }
+                          } : undefined}
                           getStatusIcon={getStatusIcon}
                           getStatusBadge={getStatusBadge}
                           getThreadStatusColor={getThreadStatusColor}
