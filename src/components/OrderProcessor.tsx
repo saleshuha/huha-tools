@@ -9,6 +9,7 @@ import { Progress } from './ui/progress';
 import { Checkbox } from './ui/checkbox';
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from './ui/pagination';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { FileSpreadsheet, Search, Minus, Download, Package, AlertTriangle, TrendingUp, Clock, DollarSign, ShoppingCart, Printer, CheckSquare, Square, Tag } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import { useAsinInventory, AsinInventoryItem } from '@/hooks/useAsinInventory';
@@ -45,6 +46,7 @@ interface OrderItem {
   giftMessage: string;
   trackingId: string;
   shippedDate: string;
+  uploadDate?: string; // Add upload date for filtering
 }
 
 interface MatchedItem {
@@ -79,6 +81,11 @@ export function OrderProcessor() {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(50);
+  
+  // Filter state
+  const [orderDateFilter, setOrderDateFilter] = useState('');
+  const [uploadDateFilter, setUploadDateFilter] = useState('');
+  const [orderStatusFilter, setOrderStatusFilter] = useState('all');
 
   const {
     inventory: asinInventory,
@@ -134,7 +141,8 @@ export function OrderProcessor() {
           itemQuantity: order.item_quantity || 1,
           giftMessage: order.gift_message || '',
           trackingId: order.tracking_id || '',
-          shippedDate: order.shipped_date || ''
+          shippedDate: order.shipped_date || '',
+          uploadDate: order.created_at ? new Date(order.created_at).toISOString().split('T')[0] : ''
         }));
         
         setOrderData(formattedOrders);
@@ -517,7 +525,8 @@ export function OrderProcessor() {
     multiple: false
   });
 
-  // Filter logic for search
+  
+  // Filter logic for search in Process Orders tab
   const filteredMatches = useMemo(() => {
     if (!searchTerm) return matchedItems.filter(m => m.inventoryMatch);
     
@@ -533,6 +542,47 @@ export function OrderProcessor() {
       );
     });
   }, [matchedItems, searchTerm]);
+
+  // Filter logic for all orders
+  const filteredAllOrders = useMemo(() => {
+    let filtered = allOrders;
+    
+    // Apply order date filter
+    if (orderDateFilter) {
+      filtered = filtered.filter(order => {
+        if (!order.orderPlaceDate) return false;
+        const orderDate = new Date(order.orderPlaceDate).toISOString().split('T')[0];
+        return orderDate === orderDateFilter;
+      });
+    }
+    
+    // Apply upload date filter (from database created_at)
+    if (uploadDateFilter) {
+      filtered = filtered.filter(order => {
+        return order.uploadDate === uploadDateFilter;
+      });
+    }
+    
+    // Apply status filter
+    if (orderStatusFilter !== 'all') {
+      filtered = filtered.filter(order => order.orderStatus === orderStatusFilter);
+    }
+    
+    return filtered;
+  }, [allOrders, orderDateFilter, uploadDateFilter, orderStatusFilter]);
+
+  // Clear all filters
+  const clearFilters = () => {
+    setOrderDateFilter('');
+    setUploadDateFilter('');
+    setOrderStatusFilter('all');
+  };
+
+  // Get unique statuses for the filter dropdown
+  const uniqueStatuses = useMemo(() => {
+    const statuses = [...new Set(allOrders.map(order => order.orderStatus).filter(Boolean))];
+    return statuses.sort();
+  }, [allOrders]);
 
   // Get matched orders (orders with inventory matches) grouped by date
   const matchedOrders = useMemo(() => {
@@ -605,7 +655,7 @@ export function OrderProcessor() {
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="process">Process Orders</TabsTrigger>
-              <TabsTrigger value="all-orders">All Orders ({analytics.totalOrders}) {analytics.latestOrderDate && `- ${analytics.latestOrderDate}`}</TabsTrigger>
+              <TabsTrigger value="all-orders">All Orders ({filteredAllOrders.length}) {analytics.latestOrderDate && `- ${analytics.latestOrderDate}`}</TabsTrigger>
               <TabsTrigger value="matched-orders">Matched Orders ({analytics.matchedOrdersCount})</TabsTrigger>
               <TabsTrigger value="processed">Processed Orders ({analytics.processedOrdersCount})</TabsTrigger>
             </TabsList>
@@ -868,6 +918,8 @@ export function OrderProcessor() {
                   <Label>Filter by Order Date</Label>
                   <Input 
                     type="date" 
+                    value={orderDateFilter}
+                    onChange={(e) => setOrderDateFilter(e.target.value)}
                     placeholder="Order date filter"
                     className="w-full"
                   />
@@ -876,12 +928,30 @@ export function OrderProcessor() {
                   <Label>Filter by Upload Date</Label>
                   <Input 
                     type="date" 
+                    value={uploadDateFilter}
+                    onChange={(e) => setUploadDateFilter(e.target.value)}
                     placeholder="Upload date filter"
                     className="w-full"
                   />
                 </div>
+                <div className="flex-1">
+                  <Label>Filter by Status</Label>
+                  <Select value={orderStatusFilter} onValueChange={setOrderStatusFilter}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="All Statuses" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Statuses</SelectItem>
+                      {uniqueStatuses.map((status) => (
+                        <SelectItem key={status} value={status}>
+                          {status}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="flex items-end">
-                  <Button variant="outline">
+                  <Button variant="outline" onClick={clearFilters}>
                     Clear Filters
                   </Button>
                 </div>
@@ -901,7 +971,7 @@ export function OrderProcessor() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {allOrders.slice(0, 50).map((order, index) => (
+                      {filteredAllOrders.slice(0, 50).map((order, index) => (
                         <TableRow key={`${order.orderId}-${index}`}>
                           <TableCell className="font-mono text-xs">{order.orderId}</TableCell>
                           <TableCell className="text-xs">
@@ -942,11 +1012,11 @@ export function OrderProcessor() {
                       ))}
                     </TableBody>
                   </Table>
-                  {allOrders.length > 50 && (
-                    <div className="p-4 text-center text-sm text-muted-foreground border-t">
-                      Showing first 50 records out of {allOrders.length} total
-                    </div>
-                  )}
+                   {filteredAllOrders.length > 50 && (
+                     <div className="p-4 text-center text-sm text-muted-foreground border-t">
+                       Showing first 50 records out of {filteredAllOrders.length} total
+                     </div>
+                   )}
                 </div>
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
