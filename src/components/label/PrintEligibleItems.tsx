@@ -214,7 +214,7 @@ export const PrintEligibleItems: React.FC = () => {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>
-            Print Eligible Items ({totalItems}/{maxTotalItems})
+            Print Eligible Items ({totalItems}{totalItems >= maxTotalItems ? `/${maxTotalItems}` : ''})
           </CardTitle>
           <div className="flex gap-2">
             <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
