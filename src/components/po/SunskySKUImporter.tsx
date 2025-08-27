@@ -3446,16 +3446,35 @@ export const SunskySKUImporter: React.FC = () => {
                   {isExporting || isConcurrentExporting ? 'Exporting...' : 'Export Now'}
                 </Button>
                 
-                {runInBackground && (
-                  <Button 
-                    onClick={async () => {
-                      console.log('🔥 Run in Background button clicked!');
-                      console.log('hasCredentials:', hasCredentials);
+                <Button 
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('🔥🔥🔥 RUN IN BACKGROUND BUTTON CLICKED!!!');
+                    console.log('Button event triggered successfully');
+                    console.log('runInBackground state:', runInBackground);
+                    console.log('Button disabled?:', isExporting || isConcurrentExporting || !hasCredentials);
+                    console.log('isExporting:', isExporting);
+                    console.log('isConcurrentExporting:', isConcurrentExporting); 
+                    console.log('hasCredentials:', hasCredentials);
+                    
+                    try {
+                      console.log('=== VALIDATION CHECKS ===');
                       console.log('selectedExportAPIs:', selectedExportAPIs);
+                      console.log('selectedExportStatus:', selectedExportStatus);
+                      console.log('exportCategory:', exportCategory);
+                      console.log('exportSubCategory:', exportSubCategory);
                       
                       // Check if user is authenticated first
-                      const { data: { session } } = await supabase.auth.getSession();
+                      console.log('🔐 Checking authentication...');
+                      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+                      if (sessionError) {
+                        console.error('❌ Session error:', sessionError);
+                        throw new Error(`Session error: ${sessionError.message}`);
+                      }
+                      
                       if (!session?.user) {
+                        console.error('❌ No authenticated user');
                         toast({
                           title: "Authentication Required",
                           description: "Please sign in to start background exports",
@@ -3463,9 +3482,11 @@ export const SunskySKUImporter: React.FC = () => {
                         });
                         return;
                       }
+                      console.log('✅ User authenticated:', session.user.id);
                       
                       // Validate export settings
                       if (!selectedExportStatus) {
+                        console.error('❌ No export status selected');
                         toast({
                           title: "Selection Required",
                           description: "Please select a product status to export",
@@ -3473,12 +3494,16 @@ export const SunskySKUImporter: React.FC = () => {
                         });
                         return;
                       }
+                      console.log('✅ Export status validated:', selectedExportStatus);
                       
                       // Determine which APIs to use
                       const apiIds = selectedExportAPIs.length > 0 ? selectedExportAPIs : 
                                      availableAPIs.filter(api => api.is_active).map(api => api.id);
                       
+                      console.log('🔍 API IDs determined:', apiIds);
+                      
                       if (apiIds.length === 0) {
+                        console.error('❌ No API keys available');
                         toast({
                           title: "No API Keys",
                           description: "Please select or activate at least one API key",
@@ -3486,12 +3511,14 @@ export const SunskySKUImporter: React.FC = () => {
                         });
                         return;
                       }
+                      console.log('✅ API keys validated, count:', apiIds.length);
                       
                       // Prepare API key objects with names
                       const apiKeysWithNames = apiIds.map(id => {
                         const api = availableAPIs.find(a => a.id === id);
                         return { id, name: api?.name || `API ${id.substring(0, 8)}` };
                       });
+                      console.log('📋 API keys with names prepared:', apiKeysWithNames);
                       
                       const backgroundExportConfig = {
                         categoryId: exportSubCategory !== 'all' ? exportSubCategory : exportCategory,
@@ -3501,69 +3528,83 @@ export const SunskySKUImporter: React.FC = () => {
                         selectedAPIs: apiKeysWithNames
                       };
                       
-                      console.log('🚀 Starting background export with config:', backgroundExportConfig);
+                      console.log('🚀 STARTING BACKGROUND EXPORT');
+                      console.log('📊 Background Export Config:', JSON.stringify(backgroundExportConfig, null, 2));
                       
-                      try {
-                        // Call the process-po-background edge function directly
-                        console.log('📞 Calling process-po-background function...');
-                        const response = await supabase.functions.invoke('process-po-background', {
-                          body: {
-                            action: 'startExport',
-                            config: backgroundExportConfig,
-                            availableAPIs: apiKeysWithNames
-                          }
-                        });
-                        
-                        console.log('📞 Function response:', response);
-                        const { data, error } = response;
-                        
-                        if (error) {
-                          console.error('❌ Background export error:', error);
-                          toast({
-                            title: "Background Export Failed",
-                            description: error.message || "Failed to start background processing",
-                            variant: "destructive"
-                          });
-                          return;
+                      // Call the process-po-background edge function directly
+                      console.log('📞 Calling process-po-background function...');
+                      console.log('📍 Function URL: /functions/v1/process-po-background');
+                      
+                      const functionResponse = await supabase.functions.invoke('process-po-background', {
+                        body: {
+                          action: 'startExport',
+                          config: backgroundExportConfig,
+                          availableAPIs: apiKeysWithNames
                         }
-                        
-                        if (!data) {
-                          console.error('❌ No data received from background function');
-                          toast({
-                            title: "Background Export Failed", 
-                            description: "No response data received",
-                            variant: "destructive"
-                          });
-                          return;
-                        }
-                        
-                        console.log('✅ Background export started successfully:', data);
-                        toast({
-                          title: "Background Export Started",
-                          description: "Export is running in the background. Check the Tasks panel for progress.",
-                          duration: 5000
-                        });
-                        
-                        // Dispatch event to refresh background tasks panel
-                        window.dispatchEvent(new CustomEvent('refreshBackgroundTasks'));
-                        
-                      } catch (error) {
-                        console.error('❌ Exception starting background export:', error);
+                      });
+                      
+                      console.log('📞 Raw Function response received:', functionResponse);
+                      const { data, error } = functionResponse;
+                      console.log('📊 Function data:', data);
+                      console.log('❌ Function error:', error);
+                      
+                      if (error) {
+                        console.error('❌ BACKGROUND EXPORT ERROR:', error);
+                        console.error('Error details:', JSON.stringify(error, null, 2));
                         toast({
                           title: "Background Export Failed",
-                          description: error.message || "An unexpected error occurred",
+                          description: `Error: ${error.message || JSON.stringify(error)}`,
                           variant: "destructive"
                         });
+                        return;
                       }
-                    }} 
-                    disabled={isExporting || isConcurrentExporting || !hasCredentials}
-                    variant="secondary"
-                    className="flex items-center gap-2"
-                  >
-                    <Play className="h-4 w-4" />
-                    Run in Background
-                  </Button>
-                )}
+                      
+                      if (!data) {
+                        console.error('❌ NO DATA RECEIVED from background function');
+                        toast({
+                          title: "Background Export Failed", 
+                          description: "No response data received from background function",
+                          variant: "destructive"
+                        });
+                        return;
+                      }
+                      
+                      console.log('✅ BACKGROUND EXPORT STARTED SUCCESSFULLY');
+                      console.log('🎉 Success data:', JSON.stringify(data, null, 2));
+                      
+                      toast({
+                        title: "Background Export Started! 🎉",
+                        description: "Export is running in the background. Check the Tasks panel for progress.",
+                        duration: 8000
+                      });
+                      
+                      // Dispatch event to refresh background tasks panel
+                      console.log('📡 Dispatching refresh event...');
+                      window.dispatchEvent(new CustomEvent('refreshBackgroundTasks'));
+                      console.log('✅ Refresh event dispatched');
+                      
+                    } catch (error) {
+                      console.error('❌❌❌ EXCEPTION in background export:', error);
+                      console.error('Exception details:', {
+                        message: error.message,
+                        stack: error.stack,
+                        name: error.name
+                      });
+                      toast({
+                        title: "Background Export Failed",
+                        description: `Exception: ${error.message || error.toString()}`,
+                        variant: "destructive"
+                      });
+                    }
+                  }} 
+                  disabled={isExporting || isConcurrentExporting || !hasCredentials}
+                  variant="secondary"
+                  className="flex items-center gap-2"
+                  style={{ display: runInBackground ? 'flex' : 'none' }}
+                >
+                  <Play className="h-4 w-4" />
+                  Run in Background
+                </Button>
               </div>
 
               {/* Export Info */}
