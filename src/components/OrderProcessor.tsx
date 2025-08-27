@@ -699,6 +699,7 @@ export function OrderProcessor() {
                               <TableRow>
                                 <TableHead className="w-12">Select</TableHead>
                                 <TableHead>Order ID</TableHead>
+                                <TableHead>Order Date</TableHead>
                                 <TableHead>ASIN/SKU</TableHead>
                                 <TableHead>Title</TableHead>
                                 <TableHead>Stock</TableHead>
@@ -728,6 +729,15 @@ export function OrderProcessor() {
                                     </TableCell>
                                     <TableCell className="font-mono text-xs">
                                       {match.orderItem.orderId}
+                                    </TableCell>
+                                    <TableCell className="text-xs">
+                                      {match.orderItem.orderPlaceDate ? (
+                                        <div className="text-muted-foreground">
+                                          {new Date(match.orderItem.orderPlaceDate).toLocaleDateString()}
+                                        </div>
+                                      ) : (
+                                        <span className="text-muted-foreground">N/A</span>
+                                      )}
                                     </TableCell>
                                     <TableCell>
                                       <div className="space-y-1">
@@ -895,6 +905,7 @@ export function OrderProcessor() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Order ID</TableHead>
+                        <TableHead>Order Date</TableHead>
                         <TableHead>ASIN/SKU</TableHead>
                         <TableHead>Title</TableHead>
                         <TableHead>Quantity</TableHead>
@@ -905,6 +916,15 @@ export function OrderProcessor() {
                       {allOrders.slice(0, 50).map((order, index) => (
                         <TableRow key={`${order.orderId}-${index}`}>
                           <TableCell className="font-mono text-xs">{order.orderId}</TableCell>
+                          <TableCell className="text-xs">
+                            {order.orderPlaceDate ? (
+                              <div className="text-muted-foreground">
+                                {new Date(order.orderPlaceDate).toLocaleDateString()}
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">N/A</span>
+                            )}
+                          </TableCell>
                           <TableCell>
                             <div className="space-y-1">
                               {order.asin && (
