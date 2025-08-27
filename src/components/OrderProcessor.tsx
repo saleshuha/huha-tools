@@ -863,43 +863,28 @@ export function OrderProcessor() {
             </TabsContent>
 
             <TabsContent value="all-orders" className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <Card className="p-4">
-                  <div className="flex items-center space-x-2">
-                    <ShoppingCart className="w-4 h-4 text-blue-500" />
-                    <div>
-                      <div className="text-2xl font-bold">{analytics.totalOrders}</div>
-                      <div className="text-xs text-muted-foreground">Total Orders</div>
-                    </div>
-                  </div>
-                </Card>
-                <Card className="p-4">
-                  <div className="flex items-center space-x-2">
-                    <CheckSquare className="w-4 h-4 text-green-500" />
-                    <div>
-                      <div className="text-2xl font-bold">{analytics.matchedOrdersCount}</div>
-                      <div className="text-xs text-muted-foreground">Matched Orders</div>
-                    </div>
-                  </div>
-                </Card>
-                <Card className="p-4">
-                  <div className="flex items-center space-x-2">
-                    <AlertTriangle className="w-4 h-4 text-orange-500" />
-                    <div>
-                      <div className="text-2xl font-bold">{analytics.unmatchedOrdersCount}</div>
-                      <div className="text-xs text-muted-foreground">Unmatched Orders</div>
-                    </div>
-                  </div>
-                </Card>
-                <Card className="p-4">
-                  <div className="flex items-center space-x-2">
-                    <DollarSign className="w-4 h-4 text-green-600" />
-                    <div>
-                      <div className="text-2xl font-bold">${analytics.totalValue.toFixed(2)}</div>
-                      <div className="text-xs text-muted-foreground">Total Value</div>
-                    </div>
-                  </div>
-                </Card>
+              <div className="flex flex-col sm:flex-row gap-4 mb-4">
+                <div className="flex-1">
+                  <Label>Filter by Order Date</Label>
+                  <Input 
+                    type="date" 
+                    placeholder="Order date filter"
+                    className="w-full"
+                  />
+                </div>
+                <div className="flex-1">
+                  <Label>Filter by Upload Date</Label>
+                  <Input 
+                    type="date" 
+                    placeholder="Upload date filter"
+                    className="w-full"
+                  />
+                </div>
+                <div className="flex items-end">
+                  <Button variant="outline">
+                    Clear Filters
+                  </Button>
+                </div>
               </div>
 
               {allOrders.length > 0 ? (
