@@ -44,7 +44,7 @@ export const useConcurrentSunskyExport = () => {
   const callSunskyAPI = async (action: string, params: any, apiKeyId: string) => {
     try {
       const { data, error } = await supabase.functions.invoke('sunsky-api', {
-        body: { action, params, apiKeyId }
+        body: { action, apiId: apiKeyId, filters: params }
       });
 
       if (error) throw error;
@@ -123,8 +123,8 @@ export const useConcurrentSunskyExport = () => {
           updateProgress('processing');
           const response = await callSunskyAPI('searchProducts', searchParams, apiKey.id);
           
-          if (response?.result === 'success' && response?.data?.products) {
-            const pageProducts = response.data.products;
+          if ((response?.success === true || response?.result === 'success') && response?.data) {
+            const pageProducts = response.data.products ?? response.data.result ?? [];
             results.push(...pageProducts);
             
             updateProgress('processing');
@@ -212,9 +212,10 @@ export const useConcurrentSunskyExport = () => {
       let estimatedTotal = 0;
       let estimatedPages = 50; // Default conservative estimate
       
-      if (estimateResponse?.result === 'success' && estimateResponse?.data) {
-        if (estimateResponse.data.totalResults) {
-          estimatedTotal = estimateResponse.data.totalResults;
+      if ((estimateResponse?.success === true || estimateResponse?.result === 'success') && estimateResponse?.data) {
+        const total = estimateResponse.data.total ?? estimateResponse.data.totalResults;
+        if (total) {
+          estimatedTotal = total;
           estimatedPages = Math.ceil(estimatedTotal / config.pageSize);
         } else if (estimateResponse.data.products?.length > 0) {
           // Conservative estimate if no total is provided
