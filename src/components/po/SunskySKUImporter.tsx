@@ -439,6 +439,41 @@ export const SunskySKUImporter: React.FC = () => {
     }
   }, [concurrentExportResults, isExporting, isConcurrentExporting, exportCategory, categories, availableAPIs, selectedExportStatus, exportSubCategory, selectedExportColumns, exportPageSize, addExportEntry, updateTask, currentExportTaskId, savedExportHistory, updateExportEntry, toast]);
 
+  // Update background task progress when concurrent export progress changes
+  useEffect(() => {
+    if (currentExportTaskId && (isConcurrentExporting || concurrentExportProgress.length > 0)) {
+      // Calculate overall progress and update task
+      const totalProgress = concurrentOverallProgress || 0;
+      
+      // Update threads progress
+      const threads = concurrentExportProgress.map((apiProgress, index) => ({
+        id: index,
+        progress: apiProgress.currentPage > 0 && apiProgress.totalPages > 0 
+          ? Math.min(95, (apiProgress.currentPage / apiProgress.totalPages) * 100) 
+          : 0,
+        label: `${apiProgress.apiKeyName}: ${apiProgress.status === 'processing' ? 'Processing' : apiProgress.status}`,
+        status: apiProgress.status,
+        processed: apiProgress.processedItems || 0,
+        total: apiProgress.totalPages || 0,
+        apiKey: apiProgress.apiKeyId,
+        categoryId: exportSubCategory !== 'all' ? exportSubCategory : exportCategory
+      }));
+
+      // Calculate total processed items across all APIs
+      const totalProcessedItems = concurrentExportProgress.reduce((sum, p) => sum + (p.processedItems || 0), 0);
+
+      updateTask(currentExportTaskId, {
+        progress: totalProgress,
+        processedItems: totalProcessedItems,
+        status: isConcurrentExporting ? 'processing' : 'completed',
+        threads: threads,
+        metadata: {
+          exportType: 'concurrent'
+        }
+      });
+    }
+  }, [currentExportTaskId, isConcurrentExporting, concurrentExportProgress, concurrentOverallProgress, concurrentExportStatus, updateTask, exportCategory, exportSubCategory]);
+
   // Save column preferences
   const saveColumnPreferences = async () => {
     try {
