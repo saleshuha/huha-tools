@@ -357,9 +357,21 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
       console.log('All order items before filtering:', orderItems);
       console.log('Checked items:', Array.from(checkedItems));
       
-      const items = orderItems
+      // Deduplicate items by itemNo and sum quantities
+      const itemsMap = new Map<string, { itemNo: string, qty: number }>();
+      
+      orderItems
         .filter(item => checkedItems.has(item.itemNo) && item.qty > 0 && item.itemNo)
-        .map(item => ({ itemNo: item.itemNo, qty: item.qty }));
+        .forEach(item => {
+          const existing = itemsMap.get(item.itemNo);
+          if (existing) {
+            existing.qty += item.qty;
+          } else {
+            itemsMap.set(item.itemNo, { itemNo: item.itemNo, qty: item.qty });
+          }
+        });
+      
+      const items = Array.from(itemsMap.values());
 
       console.log('Filtered items for API:', items);
       
