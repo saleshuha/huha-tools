@@ -41,10 +41,25 @@ Deno.serve(async (req) => {
       console.log(`Starting background PO processing for user ${user.id}`)
       
       // Start background processing without waiting
-      EdgeRuntime.waitUntil(processModelNumbersBackground(supabaseClient, user.id, jobId, modelData))
+      EdgeRuntime.waitUntil(processJobInBatches(supabaseClient, user.id, jobId, modelData))
       
       return new Response(
         JSON.stringify({ success: true, message: 'Background processing started', jobId }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200 
+        }
+      )
+    }
+
+    if (action === 'resume') {
+      console.log(`Resuming background PO processing for job ${jobId}`)
+      
+      // Resume processing from where it left off
+      EdgeRuntime.waitUntil(processJobInBatches(supabaseClient, user.id, jobId))
+      
+      return new Response(
+        JSON.stringify({ success: true, message: 'Background processing resumed', jobId }),
         { 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 200 
@@ -72,9 +87,17 @@ Deno.serve(async (req) => {
   }
 })
 
-async function processModelNumbersBackground(supabaseClient: any, userId: string, jobId: string, modelData: any) {
+// Handle graceful shutdown
+addEventListener('beforeunload', (ev) => {
+  console.log('Function shutdown due to:', ev.detail?.reason)
+})
+
+async function processJobInBatches(supabaseClient: any, userId: string, jobId: string, modelData?: any) {
+  const BATCH_SIZE = 50
+  const MAX_RETRIES = 3
+  
   try {
-    console.log(`Background processing started for job ${jobId}`)
+    console.log(`Processing job ${jobId} in batches`)
 
     // Get user's country from profile
     const { data: userProfile, error: profileError } = await supabaseClient
@@ -88,8 +111,7 @@ async function processModelNumbersBackground(supabaseClient: any, userId: string
       throw new Error("Failed to get user profile")
     }
 
-    const userCountry = userProfile.country || 'UAE' // fallback to UAE if no country set
-    console.log(`Using user country: ${userCountry}`)
+    const userCountry = userProfile.country || 'UAE'
 
     // Get all active API keys
     const { data: activeKeys, error: keysError } = await supabaseClient
@@ -103,184 +125,257 @@ async function processModelNumbersBackground(supabaseClient: any, userId: string
       throw new Error("No active API keys found")
     }
 
-    console.log(`Found ${activeKeys.length} active API keys for parallel processing`)
+    console.log(`Found ${activeKeys.length} active API keys`)
 
-    const uniqueModelNumbers = modelData.uniqueModels
+    // If this is a new job with model data, create job items
+    if (modelData) {
+      console.log(`Creating ${modelData.uniqueModels.length} job items`)
+      
+      const jobItems = modelData.uniqueModels.map(modelNumber => ({
+        job_id: jobId,
+        user_id: userId,
+        model_number: modelNumber,
+        status: 'pending'
+      }))
 
-    // Update job status to processing
-    await supabaseClient
-      .from('sunsky_import_jobs')
-      .update({
-        status: 'processing',
-        started_at: new Date().toISOString()
-      })
-      .eq('id', jobId)
+      const { error: itemsError } = await supabaseClient
+        .from('po_job_items')
+        .insert(jobItems)
 
-    // Process items sequentially instead of parallel to avoid coordination issues
-    let totalProcessed = 0
-    let totalSuccess = 0
-    let totalErrors = 0
+      if (itemsError) {
+        console.error('Failed to create job items:', itemsError)
+        throw new Error('Failed to create job items')
+      }
+
+      // Update job with total items
+      await supabaseClient
+        .from('sunsky_import_jobs')
+        .update({
+          total_items: modelData.uniqueModels.length,
+          status: 'processing',
+          started_at: new Date().toISOString()
+        })
+        .eq('id', jobId)
+    }
+
+    // Process items in batches
     let currentApiKeyIndex = 0
+    
+    while (true) {
+      // Get next batch of pending items
+      const { data: pendingItems, error: itemsError } = await supabaseClient
+        .from('po_job_items')
+        .select('*')
+        .eq('job_id', jobId)
+        .eq('status', 'pending')
+        .limit(BATCH_SIZE)
 
-    for (const modelNumber of uniqueModelNumbers) {
-      try {
-        // Use round-robin API key selection
-        const apiKey = activeKeys[currentApiKeyIndex % activeKeys.length]
-        currentApiKeyIndex++
+      if (itemsError) {
+        console.error('Failed to fetch pending items:', itemsError)
+        break
+      }
 
-        let productToImport = null
+      if (!pendingItems || pendingItems.length === 0) {
+        console.log('No more pending items, job completed')
+        break
+      }
 
-        // Try direct lookup first
-        if (modelNumber.match(/^[A-Z0-9]{6,}$/i)) {
-          try {
-            const detailResponse = await callSunskyAPI('getProductDetails', {
-              itemNo: modelNumber,
-              apiId: apiKey.id
-            }, apiKey)
-            
-            if (detailResponse?.result === 'success' && detailResponse.data) {
-              productToImport = detailResponse.data
+      console.log(`Processing batch of ${pendingItems.length} items`)
+
+      // Process each item in the batch
+      for (const item of pendingItems) {
+        try {
+          // Mark item as processing
+          await supabaseClient
+            .from('po_job_items')
+            .update({ 
+              status: 'processing',
+              attempts: item.attempts + 1,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', item.id)
+
+          // Use round-robin API key selection
+          const apiKey = activeKeys[currentApiKeyIndex % activeKeys.length]
+          currentApiKeyIndex++
+
+          let productToImport = null
+
+          // Try direct lookup first with timeout and retry
+          if (item.model_number.match(/^[A-Z0-9]{6,}$/i)) {
+            try {
+              productToImport = await callSunskyAPIWithRetry('getProductDetails', {
+                itemNo: item.model_number,
+                apiId: apiKey.id
+              }, apiKey, MAX_RETRIES)
+            } catch (error) {
+              console.log(`Direct lookup failed for ${item.model_number}:`, error.message)
             }
-          } catch (error) {
-            // Ignore "not found" errors, try search instead
           }
-        }
 
-        // Try search if no direct match
-        if (!productToImport) {
-          try {
-            const searchResponse = await callSunskyAPI('searchProducts', {
-              keyword: modelNumber,
-              page: 1,
-              pageSize: 10,
-              apiId: apiKey.id
-            }, apiKey)
+          // Try search if no direct match
+          if (!productToImport) {
+            try {
+              const searchResponse = await callSunskyAPIWithRetry('searchProducts', {
+                keyword: item.model_number,
+                page: 1,
+                pageSize: 10,
+                apiId: apiKey.id
+              }, apiKey, MAX_RETRIES)
 
-            if (searchResponse?.result === 'success' && searchResponse.data?.products?.length > 0) {
-              const normalizedSearch = modelNumber.trim().toLowerCase().replace(/[-_\s]/g, '')
-              
-              for (const product of searchResponse.data.products) {
-                const normalizedItem = (product.itemNo || '').trim().toLowerCase().replace(/[-_\s]/g, '')
-                const normalizedName = (product.name || '').trim().toLowerCase().replace(/[-_\s]/g, '')
+              if (searchResponse?.data?.products?.length > 0) {
+                const normalizedSearch = item.model_number.trim().toLowerCase().replace(/[-_\s]/g, '')
                 
-                if (normalizedItem === normalizedSearch || 
-                    normalizedName.includes(normalizedSearch) ||
-                    normalizedSearch.includes(normalizedItem)) {
+                for (const product of searchResponse.data.products) {
+                  const normalizedItem = (product.itemNo || '').trim().toLowerCase().replace(/[-_\s]/g, '')
+                  const normalizedName = (product.name || '').trim().toLowerCase().replace(/[-_\s]/g, '')
                   
-                  const detailResponse = await callSunskyAPI('getProductDetails', {
-                    itemNo: product.itemNo,
-                    apiId: apiKey.id
-                  }, apiKey)
+                  if (normalizedItem === normalizedSearch || 
+                      normalizedName.includes(normalizedSearch) ||
+                      normalizedSearch.includes(normalizedItem)) {
+                    
+                    const detailResponse = await callSunskyAPIWithRetry('getProductDetails', {
+                      itemNo: product.itemNo,
+                      apiId: apiKey.id
+                    }, apiKey, MAX_RETRIES)
 
-                  if (detailResponse?.result === 'success' && detailResponse.data) {
-                    productToImport = detailResponse.data
-                    break
+                    if (detailResponse?.data) {
+                      productToImport = detailResponse.data
+                      break
+                    }
                   }
                 }
               }
+            } catch (error) {
+              console.log(`Search failed for ${item.model_number}:`, error.message)
             }
-          } catch (error) {
-            console.log(`Search failed for ${modelNumber}:`, error)
           }
-        }
-        
-        if (productToImport) {
-          // Import SKU
-          const { error } = await supabaseClient
-            .from('sunsky_skus')
-            .upsert({
-              user_id: userId,
-              sku_code: productToImport.itemNo,
-              title: productToImport.name || '',
-              cost: productToImport.convertedPrice || parseFloat(productToImport.price || '0') || 0,
-              weight: productToImport.unitWeight ? parseFloat(productToImport.unitWeight) : 0,
-              currency: productToImport.convertedCurrency || 'USD',
-              country: userCountry, // Use user's actual country
-              product_data: productToImport
-            }, {
-              onConflict: 'user_id,sku_code',
-              ignoreDuplicates: false
-            })
-
-          if (!error) {
-            totalSuccess++
-            
-            // Update PO orders
-            await supabaseClient
-              .from('po_orders')
-              .update({
+          
+          if (productToImport) {
+            // Import SKU
+            const { error } = await supabaseClient
+              .from('sunsky_skus')
+              .upsert({
+                user_id: userId,
                 sku_code: productToImport.itemNo,
                 title: productToImport.name || '',
-                unit_cost: productToImport.convertedPrice || parseFloat(productToImport.price || '0') || 0,
-                external_id: productToImport.itemNo,
-                external_id_type: 'sunsky'
+                cost: productToImport.convertedPrice || parseFloat(productToImport.price || '0') || 0,
+                weight: productToImport.unitWeight ? parseFloat(productToImport.unitWeight) : 0,
+                currency: productToImport.convertedCurrency || 'USD',
+                country: userCountry,
+                product_data: productToImport
+              }, {
+                onConflict: 'user_id,sku_code',
+                ignoreDuplicates: false
               })
-              .eq('user_id', userId)
-              .eq('model_number', modelNumber)
+
+            if (!error) {
+              // Update PO orders
+              await supabaseClient
+                .from('po_orders')
+                .update({
+                  sku_code: productToImport.itemNo,
+                  title: productToImport.name || '',
+                  unit_cost: productToImport.convertedPrice || parseFloat(productToImport.price || '0') || 0,
+                  external_id: productToImport.itemNo,
+                  external_id_type: 'sunsky'
+                })
+                .eq('user_id', userId)
+                .eq('model_number', item.model_number)
+
+              // Mark item as completed
+              await supabaseClient
+                .from('po_job_items')
+                .update({
+                  status: 'completed',
+                  sku_code: productToImport.itemNo,
+                  product_data: productToImport,
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', item.id)
+
+              console.log(`Successfully processed: ${item.model_number} -> ${productToImport.itemNo}`)
+            } else {
+              throw new Error(`Failed to upsert SKU: ${error.message}`)
+            }
           } else {
-            totalErrors++
-            console.error(`Failed to upsert SKU ${productToImport.itemNo}:`, error)
+            // No product found
+            console.log(`No product found for model: ${item.model_number}`)
+            
+            // Mark item as error if max retries reached
+            if (item.attempts >= MAX_RETRIES) {
+              await supabaseClient
+                .from('po_job_items')
+                .update({
+                  status: 'error',
+                  error_message: 'Product not found after maximum retries',
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', item.id)
+            } else {
+              // Reset to pending for retry
+              await supabaseClient
+                .from('po_job_items')
+                .update({
+                  status: 'pending',
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', item.id)
+            }
           }
-        } else {
-          // No product found
-          totalErrors++
-          console.log(`No product found for model: ${modelNumber}`)
+
+        } catch (error) {
+          console.error(`Error processing ${item.model_number}:`, error.message)
+          
+          // Mark item as error if max retries reached
+          if (item.attempts >= MAX_RETRIES) {
+            await supabaseClient
+              .from('po_job_items')
+              .update({
+                status: 'error',
+                error_message: error.message,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', item.id)
+          } else {
+            // Reset to pending for retry
+            await supabaseClient
+              .from('po_job_items')
+              .update({
+                status: 'pending',
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', item.id)
+          }
         }
 
-        totalProcessed++
-        
-        // Update job progress every 5 items or on final items
-        if (totalProcessed % 5 === 0 || totalProcessed === uniqueModelNumbers.length) {
-          await supabaseClient
-            .from('sunsky_import_jobs')
-            .update({
-              processed_items: totalProcessed,
-              success_count: totalSuccess,
-              error_count: totalErrors,
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', jobId)
-        }
+        // Small delay between items
+        await new Promise(resolve => setTimeout(resolve, 200))
+      }
 
-        // Small delay to avoid overwhelming the API
-        await new Promise(resolve => setTimeout(resolve, 100))
+      // Update job progress after each batch
+      await updateJobProgress(supabaseClient, jobId)
+      
+      // Check if we should continue processing
+      const { data: jobStatus } = await supabaseClient
+        .from('sunsky_import_jobs')
+        .select('status')
+        .eq('id', jobId)
+        .single()
 
-      } catch (error) {
-        console.error(`Error processing ${modelNumber}:`, error.message || error)
-        totalErrors++
-        totalProcessed++
+      if (jobStatus?.status === 'cancelled') {
+        console.log('Job was cancelled, stopping processing')
+        break
       }
     }
 
-    // Final progress update
-    await supabaseClient
-      .from('sunsky_import_jobs')
-      .update({
-        processed_items: totalProcessed,
-        success_count: totalSuccess,
-        error_count: totalErrors,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', jobId)
-
-    // Complete the import job
-    await supabaseClient
-      .from('sunsky_import_jobs')
-      .update({
-        status: 'completed',
-        completed_at: new Date().toISOString(),
-        processed_items: totalProcessed,
-        success_count: totalSuccess,
-        error_count: totalErrors
-      })
-      .eq('id', jobId)
-
-    console.log(`Background processing completed for job ${jobId}: ${totalSuccess} success, ${totalErrors} errors`)
+    // Final job completion
+    await completeJob(supabaseClient, jobId)
+    console.log(`Job ${jobId} completed successfully`)
 
   } catch (error) {
-    console.error(`Background processing failed for job ${jobId}:`, error)
+    console.error(`Job ${jobId} failed:`, error.message)
     
-    // Mark job as failed
     await supabaseClient
       .from('sunsky_import_jobs')
       .update({
@@ -292,113 +387,124 @@ async function processModelNumbersBackground(supabaseClient: any, userId: string
   }
 }
 
-async function callSunskyAPI(action: string, data: any, credentials: SunskyCredential) {
+async function updateJobProgress(supabaseClient: any, jobId: string) {
+  const { data: stats } = await supabaseClient
+    .rpc('get_job_item_stats', { job_id_param: jobId })
+
+  if (stats && stats.length > 0) {
+    const { total, completed, errors, pending } = stats[0]
+    
+    await supabaseClient
+      .from('sunsky_import_jobs')
+      .update({
+        processed_items: completed + errors,
+        success_count: completed,
+        error_count: errors,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', jobId)
+  }
+}
+
+async function completeJob(supabaseClient: any, jobId: string) {
+  const { data: stats } = await supabaseClient
+    .rpc('get_job_item_stats', { job_id_param: jobId })
+
+  if (stats && stats.length > 0) {
+    const { completed, errors } = stats[0]
+    
+    await supabaseClient
+      .from('sunsky_import_jobs')
+      .update({
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+        processed_items: completed + errors,
+        success_count: completed,
+        error_count: errors
+      })
+      .eq('id', jobId)
+  }
+}
+
+async function callSunskyAPIWithRetry(action: string, data: any, credentials: SunskyCredential, maxRetries: number = 3) {
+  let lastError: Error | null = null
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const result = await callSunskyAPIWithTimeout(action, data, credentials, 15000) // 15 second timeout
+      
+      if (action === 'getProductDetails' && result?.data) {
+        return result.data
+      } else if (action === 'searchProducts' && result?.data) {
+        return result
+      } else {
+        throw new Error('Invalid API response')
+      }
+    } catch (error) {
+      lastError = error
+      console.log(`API call attempt ${attempt}/${maxRetries} failed:`, error.message)
+      
+      if (attempt < maxRetries) {
+        // Exponential backoff: 1s, 2s, 4s
+        const delay = Math.pow(2, attempt - 1) * 1000
+        await new Promise(resolve => setTimeout(resolve, delay))
+      }
+    }
+  }
+  
+  throw lastError || new Error('Max retries exceeded')
+}
+
+async function callSunskyAPIWithTimeout(action: string, data: any, credentials: SunskyCredential, timeout: number = 15000) {
   const crypto = await import('node:crypto')
   
-  // Remove apiId from data as it's not needed for the actual API call
-  const { apiId, ...apiData } = data
+  // Create abort controller for timeout
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), timeout)
   
-  let params: Record<string, any> = {
-    ...apiData,
-    lang: 'en'
-  }
-
-  // Generate signature using the exact same logic as the working sunsky-api function
-  const generateSignature = async (params: Record<string, any>, key: string, secret: string): Promise<string> => {
-    // Filter out empty values and signature/sign fields
-    const filteredParams: Record<string, string> = {};
-    Object.entries(params).forEach(([k, v]) => {
-      if (v !== null && v !== undefined && v !== '' && k !== 'signature' && k !== 'sign') {
-        filteredParams[k] = String(v);
-      }
-    });
+  try {
+    // Remove apiId from data as it's not needed for the actual API call
+    const { apiId, ...apiData } = data
     
-    // Add key to parameters
-    filteredParams.key = key;
-    
-    // Sort by parameter names using ASCII comparison
-    const sortedEntries = Object.entries(filteredParams).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0);
-    
-    // Create value string by concatenating sorted values
-    const valueString = sortedEntries.map(([_, value]) => value).join('');
-    
-    // Append '@' and secret
-    const stringToHash = valueString + '@' + secret;
-    
-    console.log('Parameters for signature (sorted):', Object.fromEntries(sortedEntries.map(([k, v]) => [k, k === 'key' ? key.substring(0, 4) + '***' : v])));
-    console.log('Value string (masked):', valueString.replace(key, key.substring(0, 4) + '***'));
-    console.log('String to hash (masked):', valueString.replace(key, key.substring(0, 4) + '***') + '@***');
-    
-    // Generate signature using lowercase MD5
-    const signature = crypto.createHash('md5').update(stringToHash).digest('hex');
-    console.log('Generated signature:', signature);
-    
-    return signature;
-  }
-
-  let url = ''
-  let requestBody = new URLSearchParams()
-
-  if (action === 'searchProducts') {
-    url = 'https://open.sunsky-online.com/openapi/product!search.do'
-    const searchParams = {
-      keyword: params.keyword,
-      page: params.page.toString(),
-      pageSize: params.pageSize.toString(),
-      status: '1',
+    let params: Record<string, any> = {
+      ...apiData,
       lang: 'en'
     }
-    
-    const signature = await generateSignature(searchParams, credentials.api_key, credentials.api_secret)
-    
-    requestBody.append('key', credentials.api_key)
-    requestBody.append('lang', 'en')
-    requestBody.append('keyword', searchParams.keyword)
-    requestBody.append('page', searchParams.page)
-    requestBody.append('pageSize', searchParams.pageSize)
-    requestBody.append('status', searchParams.status)
-    requestBody.append('signature', signature)
-    
-  } else if (action === 'getProductDetails') {
-    url = 'https://open.sunsky-online.com/openapi/product!detail.do'
-    const detailParams = {
-      itemNo: params.itemNo,
-      lang: 'en'
+
+    // Generate signature using the exact same logic as the working sunsky-api function
+    const generateSignature = async (params: Record<string, any>, key: string, secret: string): Promise<string> => {
+      // Filter out empty values and signature/sign fields
+      const filteredParams: Record<string, string> = {};
+      Object.entries(params).forEach(([k, v]) => {
+        if (v !== null && v !== undefined && v !== '' && k !== 'signature' && k !== 'sign') {
+          filteredParams[k] = String(v);
+        }
+      });
+      
+      // Add key to parameters
+      filteredParams.key = key;
+      
+      // Sort by parameter names using ASCII comparison
+      const sortedEntries = Object.entries(filteredParams).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0);
+      
+      // Create value string by concatenating sorted values
+      const valueString = sortedEntries.map(([_, value]) => value).join('');
+      
+      // Append '@' and secret
+      const stringToHash = valueString + '@' + secret;
+      
+      // Generate signature using lowercase MD5
+      const signature = crypto.createHash('md5').update(stringToHash).digest('hex');
+      
+      return signature;
     }
-    
-    const signature = await generateSignature(detailParams, credentials.api_key, credentials.api_secret)
-    
-    requestBody.append('key', credentials.api_key)
-    requestBody.append('lang', 'en')
-    requestBody.append('itemNo', detailParams.itemNo)
-    requestBody.append('signature', signature)
-  }
 
-  console.log(`Making request to: ${url}`)
+    let url = ''
+    let requestBody = new URLSearchParams()
 
-  let response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: requestBody
-  })
-
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`)
-  }
-
-  let result = await response.json()
-  
-  // If we get signature error, retry with uppercase MD5 and 'sign' parameter (same retry logic as main function)
-  if (result.result === 'error' && result.messages?.[0] === 'NO_PERMISSION_DUE_TO_SIGNATURE') {
-    console.log('Retrying with uppercase MD5 and "sign" parameter...')
-    
-    let retryParams: Record<string, any>
-    let retryBody = new URLSearchParams()
-    
     if (action === 'searchProducts') {
-      retryParams = {
+      url = 'https://open.sunsky-online.com/openapi/product!search.do'
+      const searchParams = {
         keyword: params.keyword,
         page: params.page.toString(),
         pageSize: params.pageSize.toString(),
@@ -406,48 +512,112 @@ async function callSunskyAPI(action: string, data: any, credentials: SunskyCrede
         lang: 'en'
       }
       
-      const upperSignature = (await generateSignature(retryParams, credentials.api_key, credentials.api_secret)).toUpperCase()
+      const signature = await generateSignature(searchParams, credentials.api_key, credentials.api_secret)
       
-      retryBody.append('key', credentials.api_key)
-      retryBody.append('lang', 'en')
-      retryBody.append('keyword', retryParams.keyword)
-      retryBody.append('page', retryParams.page)
-      retryBody.append('pageSize', retryParams.pageSize)
-      retryBody.append('status', retryParams.status)
-      retryBody.append('sign', upperSignature)
+      requestBody.append('key', credentials.api_key)
+      requestBody.append('lang', 'en')
+      requestBody.append('keyword', searchParams.keyword)
+      requestBody.append('page', searchParams.page)
+      requestBody.append('pageSize', searchParams.pageSize)
+      requestBody.append('status', searchParams.status)
+      requestBody.append('signature', signature)
       
     } else if (action === 'getProductDetails') {
-      retryParams = {
+      url = 'https://open.sunsky-online.com/openapi/product!detail.do'
+      const detailParams = {
         itemNo: params.itemNo,
         lang: 'en'
       }
       
-      const upperSignature = (await generateSignature(retryParams, credentials.api_key, credentials.api_secret)).toUpperCase()
+      const signature = await generateSignature(detailParams, credentials.api_key, credentials.api_secret)
       
-      retryBody.append('key', credentials.api_key)
-      retryBody.append('lang', 'en')
-      retryBody.append('itemNo', retryParams.itemNo)
-      retryBody.append('sign', upperSignature)
+      requestBody.append('key', credentials.api_key)
+      requestBody.append('lang', 'en')
+      requestBody.append('itemNo', detailParams.itemNo)
+      requestBody.append('signature', signature)
     }
 
-    response = await fetch(url, {
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: retryBody
+      body: requestBody,
+      signal: controller.signal
     })
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`)
     }
 
-    result = await response.json()
-  }
-  
-  if (result.result === 'error') {
-    throw new Error(result.messages?.[0] || 'Sunsky API error')
-  }
+    const result = await response.json()
+    
+    // If we get signature error, retry with uppercase MD5 and 'sign' parameter
+    if (result.result === 'error' && result.messages?.[0] === 'NO_PERMISSION_DUE_TO_SIGNATURE') {
+      let retryParams: Record<string, any>
+      let retryBody = new URLSearchParams()
+      
+      if (action === 'searchProducts') {
+        retryParams = {
+          keyword: params.keyword,
+          page: params.page.toString(),
+          pageSize: params.pageSize.toString(),
+          status: '1',
+          lang: 'en'
+        }
+        
+        const upperSignature = (await generateSignature(retryParams, credentials.api_key, credentials.api_secret)).toUpperCase()
+        
+        retryBody.append('key', credentials.api_key)
+        retryBody.append('lang', 'en')
+        retryBody.append('keyword', retryParams.keyword)
+        retryBody.append('page', retryParams.page)
+        retryBody.append('pageSize', retryParams.pageSize)
+        retryBody.append('status', retryParams.status)
+        retryBody.append('sign', upperSignature)
+        
+      } else if (action === 'getProductDetails') {
+        retryParams = {
+          itemNo: params.itemNo,
+          lang: 'en'
+        }
+        
+        const upperSignature = (await generateSignature(retryParams, credentials.api_key, credentials.api_secret)).toUpperCase()
+        
+        retryBody.append('key', credentials.api_key)
+        retryBody.append('lang', 'en')
+        retryBody.append('itemNo', retryParams.itemNo)
+        retryBody.append('sign', upperSignature)
+      }
 
-  return result
+      const retryResponse = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: retryBody,
+        signal: controller.signal
+      })
+
+      if (!retryResponse.ok) {
+        throw new Error(`HTTP retry error! status: ${retryResponse.status}`)
+      }
+
+      const retryResult = await retryResponse.json()
+      
+      if (retryResult.result === 'error') {
+        throw new Error(retryResult.messages?.[0] || 'Sunsky API error')
+      }
+
+      return retryResult
+    }
+    
+    if (result.result === 'error') {
+      throw new Error(result.messages?.[0] || 'Sunsky API error')
+    }
+
+    return result
+  } finally {
+    clearTimeout(timeoutId)
+  }
 }

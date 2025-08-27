@@ -1386,6 +1386,56 @@ export type Database = {
         }
         Relationships: []
       }
+      po_job_items: {
+        Row: {
+          attempts: number
+          created_at: string
+          error_message: string | null
+          id: string
+          job_id: string
+          model_number: string
+          product_data: Json | null
+          sku_code: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          job_id: string
+          model_number: string
+          product_data?: Json | null
+          sku_code?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          job_id?: string
+          model_number?: string
+          product_data?: Json | null
+          sku_code?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "po_job_items_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "sunsky_import_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       po_orders: {
         Row: {
           asin: string | null
