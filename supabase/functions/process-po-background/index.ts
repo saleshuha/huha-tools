@@ -357,6 +357,22 @@ async function processModelNumbersBackground(supabaseClient: any, userId: string
 async function callSunskyAPI(action: string, data: any, credentials: SunskyCredential) {
   const crypto = await import('node:crypto')
   
+  // Validate credentials first
+  if (!credentials) {
+    throw new Error('No credentials provided')
+  }
+  
+  if (!credentials.api_key || !credentials.api_secret) {
+    console.error('Invalid credentials structure:', {
+      hasApiKey: !!credentials.api_key,
+      hasApiSecret: !!credentials.api_secret,
+      credentialsKeys: Object.keys(credentials)
+    })
+    throw new Error(`Invalid credentials: api_key=${credentials.api_key ? 'present' : 'missing'}, api_secret=${credentials.api_secret ? 'present' : 'missing'}`)
+  }
+  
+  console.log(`Using specific Sunsky credentials for API ID: ${credentials.id}`)
+  
   // Remove apiId from data as it's not needed for the actual API call
   const { apiId, ...apiData } = data
   
@@ -367,6 +383,11 @@ async function callSunskyAPI(action: string, data: any, credentials: SunskyCrede
 
   // Generate signature using the exact same logic as the working sunsky-api function
   const generateSignature = async (params: Record<string, any>, key: string, secret: string): Promise<string> => {
+    // Validate key and secret
+    if (!key || !secret) {
+      throw new Error(`Invalid credentials: key=${key ? 'present' : 'missing'}, secret=${secret ? 'present' : 'missing'}`);
+    }
+    
     // Filter out empty values and signature/sign fields
     const filteredParams: Record<string, string> = {};
     Object.entries(params).forEach(([k, v]) => {
@@ -387,9 +408,10 @@ async function callSunskyAPI(action: string, data: any, credentials: SunskyCrede
     // Append '@' and secret
     const stringToHash = valueString + '@' + secret;
     
-    console.log('Parameters for signature (sorted):', Object.fromEntries(sortedEntries.map(([k, v]) => [k, k === 'key' ? key.substring(0, 4) + '***' : v])));
-    console.log('Value string (masked):', valueString.replace(key, key.substring(0, 4) + '***'));
-    console.log('String to hash (masked):', valueString.replace(key, key.substring(0, 4) + '***') + '@***');
+    const maskedKey = key && key.length >= 4 ? key.substring(0, 4) + '***' : '***';
+    console.log('Parameters for signature (sorted):', Object.fromEntries(sortedEntries.map(([k, v]) => [k, k === 'key' ? maskedKey : v])));
+    console.log('Value string (masked):', valueString.replace(key, maskedKey));
+    console.log('String to hash (masked):', valueString.replace(key, maskedKey) + '@***');
     
     // Generate signature using lowercase MD5
     const signature = crypto.createHash('md5').update(stringToHash).digest('hex');
