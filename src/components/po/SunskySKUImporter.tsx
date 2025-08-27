@@ -322,6 +322,81 @@ export const SunskySKUImporter: React.FC = () => {
   const skuEndIndex = skuStartIndex + skuItemsPerPage;
   const paginatedSKUs = sunskySKUs.slice(skuStartIndex, skuEndIndex);
 
+  // Handle concurrent export results when they become available
+  useEffect(() => {
+    if (concurrentExportResults && !isExporting && isConcurrentExporting === false) {
+      const handleConcurrentExportComplete = async () => {
+        try {
+          const categoryName = exportCategory === 'all' ? 'All Categories' : 
+            categories.find(c => c.id.toString() === exportCategory)?.name || 'Unknown';
+          
+          const apiKeysWithNames = availableAPIs.filter(api => api.is_active).map(api => ({ 
+            id: api.id, 
+            name: api.name 
+          }));
+
+          // Save to export history
+          await addExportEntry({
+            export_type: 'status_export',
+            filters: {
+              status: selectedExportStatus,
+              category: exportCategory,
+              subCategory: exportSubCategory,
+              categoryName,
+              columns: selectedExportColumns,
+              pageSize: exportPageSize,
+              maxPages: Number.MAX_SAFE_INTEGER,
+              apiKeys: apiKeysWithNames
+            },
+            total_items: concurrentExportResults.totalFound,
+            status: 'completed',
+            metadata: {
+              categories: categoryName,
+              apiKeys: apiKeysWithNames.length,
+              concurrent: true
+            }
+          });
+
+          // Generate Excel file for download
+          const filePath = await generateExcelFile({
+            data: concurrentExportResults.products,
+            categoriesMap: concurrentExportResults.categoriesMap,
+            config: {
+              status: selectedExportStatus,
+              categoryName,
+              columns: selectedExportColumns,
+              apiKeys: apiKeysWithNames.length,
+              pageSize: exportPageSize
+            },
+            saveToStorage: false // For foreground, trigger download instead
+          });
+
+          // Set export results for display
+          setExportResults({
+            products: concurrentExportResults.products,
+            categories: concurrentExportResults.categoriesMap,
+            totalFound: concurrentExportResults.totalFound
+          });
+
+          toast({
+            title: "Export Complete",
+            description: `Successfully exported ${concurrentExportResults.totalFound} products using ${apiKeysWithNames.length} API keys concurrently.`
+          });
+          
+        } catch (error) {
+          console.error('Error handling concurrent export results:', error);
+          toast({
+            title: "Export Processing Error",
+            description: "Export completed but failed to process results",
+            variant: "destructive"
+          });
+        }
+      };
+
+      handleConcurrentExportComplete();
+    }
+  }, [concurrentExportResults, isExporting, isConcurrentExporting, exportCategory, categories, availableAPIs, selectedExportStatus, exportSubCategory, selectedExportColumns, exportPageSize, addExportEntry, toast]);
+
   // Save column preferences
   const saveColumnPreferences = async () => {
     try {
@@ -645,56 +720,39 @@ export const SunskySKUImporter: React.FC = () => {
       };
 
       // Start concurrent export
-      await startConcurrentExport(exportConfig);
-      
-      // The results will be available in concurrentExportResults from the hook
-      if (concurrentExportResults) {
-        // Save to export history
-        await addExportEntry({
-          export_type: 'status_export',
-          filters: exportConfig,
-          total_items: concurrentExportResults.totalFound,
-          status: 'completed',
-          metadata: {
-            categories: categoryName,
-            apiKeys: apiKeysWithNames.length,
-            concurrent: true
-          }
-        });
-
-        // Generate Excel file for download
-        const filePath = await generateExcelFile({
-          data: concurrentExportResults.products,
-          categoriesMap: concurrentExportResults.categoriesMap,
-          config: {
-            status: selectedExportStatus,
-            categoryName,
-            columns: selectedExportColumns,
-            apiKeys: apiKeysWithNames.length,
-            pageSize: exportPageSize
-          },
-          saveToStorage: false // For foreground, trigger download instead
-        });
-
-        toast({
-          title: "Export Complete",
-          description: `Successfully exported ${concurrentExportResults.totalFound} products using ${apiKeysWithNames.length} API keys concurrently.`
-        });
-
-        // Set export results for display
-        setExportResults({
-          products: concurrentExportResults.products,
-          categories: concurrentExportResults.categoriesMap,
-          totalFound: concurrentExportResults.totalFound
-        });
+      try {
+        const exportId = await startConcurrentExport(exportConfig);
+        
+        // Wait for the concurrent export to complete and results to be available
+        // The hook manages its own state, so we need to wait for completion
+        console.log('Concurrent export completed with ID:', exportId);
+        
+        // The results are now available in the hook's state
+        // We'll handle the success in a useEffect that watches concurrentExportResults
+        
+      } catch (concurrentError) {
+        console.error('Concurrent export failed:', concurrentError);
+        throw concurrentError; // Re-throw to be caught by outer try-catch
       }
     } catch (error) {
       console.error('Error during concurrent export:', error);
+      
+      // More specific error messages based on error type
+      let errorMessage = "Failed to complete concurrent export";
+      if (error.message) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      
       toast({
         title: "Export Error",
-        description: "Failed to complete concurrent export",
+        description: errorMessage,
         variant: "destructive"
       });
+      
+      // Reset export state
+      setExportResults(null);
     } finally {
       setIsExporting(false);
     }
