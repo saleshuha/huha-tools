@@ -369,43 +369,6 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
         <Card>
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-primary" />
-              Weekly Upcoming Payments
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {weeklyUpcomingPayments.map((week, index) => (
-                <div key={index} className="space-y-1">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium">{week.label}</span>
-                    <div className="flex flex-col items-end">
-                      <Badge variant={week.orders > 0 ? 'destructive' : 'outline'} className="text-xs">
-                        {week.orders} orders
-                      </Badge>
-                      <span className="text-xs text-muted-foreground font-medium">
-                        {formatCurrency(week.value, displayCurrency)}
-                      </span>
-                    </div>
-                  </div>
-                  {week.orderNumbers.length > 0 && (
-                    <div className="text-xs text-muted-foreground">
-                      Orders: {week.orderNumbers.join(', ')}
-                      {week.orders > 3 && ` +${week.orders - 3} more`}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Third Row - Full Width Cards */}
-      <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
               <Calendar className="h-5 w-5 text-warning" />
               Upcoming Payments
             </CardTitle>
@@ -448,7 +411,10 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
             </div>
           </CardContent>
         </Card>
+      </div>
 
+      {/* Third Row - Full Width Cards */}
+      <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -492,6 +458,40 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
                       {formatCurrency(week.value, displayCurrency)}
                     </span>
                   </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Calendar className="h-5 w-5 text-primary" />
+              Weekly Upcoming Payments
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {weeklyUpcomingPayments.map((week, index) => (
+                <div key={index} className="space-y-1">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium">{week.label}</span>
+                    <div className="flex flex-col items-end">
+                      <Badge variant={week.orders > 0 ? 'destructive' : 'outline'} className="text-xs">
+                        {week.orders} orders
+                      </Badge>
+                      <span className="text-xs text-muted-foreground font-medium">
+                        {formatCurrency(week.value, displayCurrency)}
+                      </span>
+                    </div>
+                  </div>
+                  {week.orderNumbers.length > 0 && (
+                    <div className="text-xs text-muted-foreground">
+                      Orders: {week.orderNumbers.join(', ')}
+                      {week.orders > 3 && ` +${week.orders - 3} more`}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
