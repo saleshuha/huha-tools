@@ -141,13 +141,15 @@ export const PrintEligibleItems: React.FC = () => {
     }
 
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
       const { error } = await supabase
         .from('print_eligible_items')
         .insert([{
           identifier: newIdentifier.trim().toUpperCase(),
           type: identifierType,
           is_active: true,
-          user_id: (await supabase.auth.getUser()).data.user?.id
+          user_id: user?.id
         }]);
 
       if (error) throw error;
@@ -174,11 +176,13 @@ export const PrintEligibleItems: React.FC = () => {
     }
 
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
       const insertData = items.map(identifier => ({
         identifier,
         type: identifierType,
         is_active: true,
-        user_id: (await supabase.auth.getUser()).data.user?.id
+        user_id: user?.id
       }));
 
       const { error } = await supabase
