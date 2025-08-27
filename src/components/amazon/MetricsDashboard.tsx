@@ -139,6 +139,66 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
     };
   }, [metrics, orders, convertCurrency, displayCurrency, selectedCountry]);
 
+  // Calculate weekly upcoming payments with order numbers
+  const weeklyUpcomingPayments = useMemo(() => {
+    if (!orders) return [];
+    
+    const now = new Date();
+    const creditDays = selectedCountry === 'UAE' ? 60 : 45;
+    
+    const pendingOrders = orders.filter(o => {
+      const status = (o.status || '').toLowerCase().trim();
+      return status === 'approved' || status === 'non-submitted';
+    });
+
+    const weeks = [];
+    for (let i = 0; i < 4; i++) {
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate() + (i * 7));
+      weekStart.setHours(0, 0, 0, 0);
+      
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
+      weekEnd.setHours(23, 59, 59, 999);
+      
+      const weekOrders = pendingOrders.filter(o => {
+        if (!o.shipment_date) return false;
+        try {
+          const shipmentDate = new Date(o.shipment_date);
+          const dueDate = new Date(shipmentDate);
+          dueDate.setDate(dueDate.getDate() + creditDays);
+          return dueDate >= weekStart && dueDate <= weekEnd;
+        } catch {
+          return false;
+        }
+      });
+      
+      const weekValue = weekOrders.reduce((sum, order) => {
+        const cost = parseFloat(order.item_cost?.toString() || '0') || 0;
+        const qty = parseInt(order.quantity?.toString() || '1') || 1;
+        const orderValue = cost * qty;
+        
+        // Convert to USD if not already in USD
+        if (order.currency === 'AED') {
+          return sum + (orderValue * 0.27);
+        } else if (order.currency === 'SAR') {
+          return sum + (orderValue * 0.27);
+        } else {
+          return sum + orderValue;
+        }
+      }, 0);
+      
+      weeks.push({
+        label: `Week ${i + 1} (${weekStart.getDate()}-${weekStart.toLocaleDateString('en-US', { month: 'short' })})`,
+        orders: weekOrders.length,
+        value: convertCurrency(weekValue, 'USD', displayCurrency),
+        orderNumbers: weekOrders.slice(0, 3).map(o => o.order_id || 'N/A')
+      });
+    }
+    
+    return weeks;
+  }, [orders, convertCurrency, displayCurrency, selectedCountry]);
+
   // Calculate weekly performance data
   const weeklyData = useMemo(() => {
     if (!orders) return [];
@@ -281,7 +341,7 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
       </div>
 
       {/* Secondary Metrics Row */}
-      <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
@@ -306,6 +366,43 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
           </CardContent>
         </Card>
 
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Calendar className="h-5 w-5 text-primary" />
+              Weekly Upcoming Payments
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {weeklyUpcomingPayments.map((week, index) => (
+                <div key={index} className="space-y-1">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium">{week.label}</span>
+                    <div className="flex flex-col items-end">
+                      <Badge variant={week.orders > 0 ? 'destructive' : 'outline'} className="text-xs">
+                        {week.orders} orders
+                      </Badge>
+                      <span className="text-xs text-muted-foreground font-medium">
+                        {formatCurrency(week.value, displayCurrency)}
+                      </span>
+                    </div>
+                  </div>
+                  {week.orderNumbers.length > 0 && (
+                    <div className="text-xs text-muted-foreground">
+                      Orders: {week.orderNumbers.join(', ')}
+                      {week.orders > 3 && ` +${week.orders - 3} more`}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Third Row - Full Width Cards */}
+      <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
