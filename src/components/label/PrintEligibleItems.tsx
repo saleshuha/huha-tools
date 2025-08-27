@@ -4,10 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 import { Upload, Plus, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -319,43 +319,69 @@ export const PrintEligibleItems: React.FC = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <ScrollArea className="h-96">
-            <div className="space-y-2">
-              {eligibleItems.map((item) => (
-                <div key={item.id} className="flex items-center justify-between p-2 border rounded">
-                  <div className="flex items-center gap-3">
-                    <Badge variant={item.type === 'ASIN' ? 'default' : 'secondary'}>
-                      {item.type}
-                    </Badge>
-                    <span className="font-mono">{item.identifier}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Switch
-                      checked={item.is_active}
-                      onCheckedChange={(checked) => toggleItemStatus(item.id, checked)}
-                    />
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => deleteItem(item.id)}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-              {eligibleItems.length === 0 && !loading && (
-                <p className="text-muted-foreground text-center py-8">
-                  No eligible items found
-                </p>
-              )}
-              {loading && (
-                <p className="text-muted-foreground text-center py-8">
-                  Loading...
-                </p>
-              )}
-            </div>
-          </ScrollArea>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Identifier</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Created</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {eligibleItems.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell>
+                      <Badge variant={item.type === 'ASIN' ? 'default' : 'secondary'}>
+                        {item.type}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="font-mono">{item.identifier}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          checked={item.is_active}
+                          onCheckedChange={(checked) => toggleItemStatus(item.id, checked)}
+                        />
+                        <span className="text-sm text-muted-foreground">
+                          {item.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {new Date(item.created_at).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => deleteItem(item.id)}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {eligibleItems.length === 0 && !loading && (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                      No eligible items found
+                    </TableCell>
+                  </TableRow>
+                )}
+                {loading && (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                      Loading...
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
           
           {totalPages > 1 && (
             <div className="mt-4">
