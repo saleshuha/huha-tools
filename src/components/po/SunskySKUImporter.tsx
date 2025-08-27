@@ -756,6 +756,11 @@ export const SunskySKUImporter: React.FC = () => {
           return;
         }
 
+        console.log('Background Export Started - Response:', { taskId, historyId });
+
+        // Refresh tasks immediately to show the new task
+        await fetchTasks();
+
         toast({
           title: "Background Export Started",
           description: "Export is running in the background. You can close the app and return later to check progress.",
@@ -2086,8 +2091,9 @@ export const SunskySKUImporter: React.FC = () => {
       fetchJobs();
       loadColumnPreferences();
       loadAvailableAPIs();
+      fetchTasks(); // Load background tasks
     }
-  }, [profile?.id, fetchSKUs, fetchJobs]);
+  }, [profile?.id, fetchSKUs, fetchJobs, fetchTasks]);
 
   useEffect(() => {
     if (hasCredentials && selectedAPI) {
@@ -3555,6 +3561,77 @@ export const SunskySKUImporter: React.FC = () => {
                     </ul>
                   </div>
                 </div>
+              )}
+
+              {/* Background Tasks Panel */}
+              {activeTasks.length > 0 && (
+                <Card className="mt-6">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <RefreshCw className="h-5 w-5 animate-spin" />
+                      Active Background Tasks ({activeTasks.length})
+                    </CardTitle>
+                    <CardDescription>
+                      Tasks running in the background - will persist even if you close the browser
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {activeTasks.map((task) => (
+                        <div key={task.id} className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                          <div className="flex items-center justify-between mb-3">
+                            <div>
+                              <div className="font-medium">
+                                {task.type === 'sunsky_export' ? 'Sunsky Export' : task.type}
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                Started {new Date(task.created_at).toLocaleString()}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="bg-blue-100">
+                                {task.status}
+                              </Badge>
+                              {task.status === 'processing' && (
+                                <Button
+                                  size="sm"
+                                  variant="outline" 
+                                  onClick={() => cancelPersistentTask(task.id)}
+                                  className="text-red-600 hover:bg-red-50"
+                                >
+                                  <XCircle className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                          
+                          {/* Progress Bar */}
+                          {task.total_items > 0 && (
+                            <div className="space-y-2">
+                              <div className="flex justify-between text-sm">
+                                <span>Progress</span>
+                                <span>{task.processed_items} / {task.total_items} items ({task.progress}%)</span>
+                              </div>
+                              <Progress value={task.progress} className="h-2" />
+                            </div>
+                          )}
+                          
+                          {/* Task Details */}
+                          {task.metadata && (
+                            <div className="mt-3 text-sm text-muted-foreground">
+                              {task.metadata.categoryName && (
+                                <div>Category: {task.metadata.categoryName}</div>
+                              )}
+                              {task.metadata.selectedAPIs && (
+                                <div>Using {task.metadata.selectedAPIs.length} API key(s)</div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
               )}
 
               {/* Export History */}
