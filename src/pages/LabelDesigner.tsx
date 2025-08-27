@@ -6,6 +6,7 @@ import { LabelPropertiesPanel } from '@/components/label/LabelPropertiesPanel';
 import { InventoryDataMapper } from '@/components/label/InventoryDataMapper';
 import { OrderLabelTemplates } from '@/components/label/OrderLabelTemplates';
 import { DateWiseOrderPrint } from '@/components/label/DateWiseOrderPrint';
+import { PrintEligibleItems } from '@/components/label/PrintEligibleItems';
 import { DataPreviewPanel } from '@/components/label/DataPreviewPanel';
 import { PrintService } from '@/services/print-service';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -256,7 +257,18 @@ const LabelDesignerContent: React.FC = () => {
         </div>
       </div>
       <div className="flex flex-col gap-4 p-4">
-        <DateWiseOrderPrint />
+        <Tabs defaultValue="orders" className="flex-1">
+          <TabsList className="grid w-fit grid-cols-2 mb-4">
+            <TabsTrigger value="orders">Order Printing</TabsTrigger>
+            <TabsTrigger value="eligible">Print Eligible Items</TabsTrigger>
+          </TabsList>
+          <TabsContent value="orders">
+            <DateWiseOrderPrint />
+          </TabsContent>
+          <TabsContent value="eligible">
+            <PrintEligibleItems />
+          </TabsContent>
+        </Tabs>
         
         <div className="flex gap-4 min-h-0 flex-1">
           <div className="flex-1">
