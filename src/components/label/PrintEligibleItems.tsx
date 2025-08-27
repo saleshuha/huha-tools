@@ -4,15 +4,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
-import { Upload, Plus, Trash2, Eye, Printer, Download } from 'lucide-react';
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
+import { Upload, Plus, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { useLabelDoc } from '@/contexts/SimpleLabelDocContext';
 
 interface EligibleItem {
   id: string;
@@ -22,48 +21,45 @@ interface EligibleItem {
   created_at: string;
 }
 
-interface OrderToProcess {
-  id: string;
-  file_name: string;
-  asin_code?: string;
-  sku_code?: string;
-  product_title?: string;
-  quantity: number;
-  order_number?: string;
-  order_date: string;
-  status: string;
-  has_match: boolean;
-}
-
 export const PrintEligibleItems: React.FC = () => {
-  const { document: labelDoc, dataset, loadDataset } = useLabelDoc();
   const [eligibleItems, setEligibleItems] = useState<EligibleItem[]>([]);
-  const [filteredOrders, setFilteredOrders] = useState<OrderToProcess[]>([]);
-  const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [newIdentifier, setNewIdentifier] = useState('');
   const [identifierType, setIdentifierType] = useState<'ASIN' | 'SKU'>('ASIN');
   const [bulkIdentifiers, setBulkIdentifiers] = useState('');
   const [showBulkDialog, setShowBulkDialog] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  
+  const itemsPerPage = 20;
+  const maxTotalItems = 1000;
 
   useEffect(() => {
     fetchEligibleItems();
-  }, []);
-
-  useEffect(() => {
-    if (eligibleItems.length > 0) {
-      fetchFilteredOrders();
-    }
-  }, [eligibleItems]);
+  }, [currentPage]);
 
   const fetchEligibleItems = async () => {
     try {
       setLoading(true);
+      const offset = (currentPage - 1) * itemsPerPage;
+      
+      // First get the count
+      const { count } = await supabase
+        .from('print_eligible_items')
+        .select('*', { count: 'exact', head: true });
+      
+      // Limit total items to 1000
+      const actualTotal = Math.min(count || 0, maxTotalItems);
+      setTotalItems(actualTotal);
+      
+      // Then get the data with pagination
       const { data, error } = await supabase
         .from('print_eligible_items')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(offset, offset + itemsPerPage - 1)
+        .limit(Math.min(itemsPerPage, maxTotalItems - offset));
 
       if (error) throw error;
       setEligibleItems(data?.map(item => ({
@@ -73,62 +69,6 @@ export const PrintEligibleItems: React.FC = () => {
     } catch (error) {
       console.error('Error fetching eligible items:', error);
       toast.error('Failed to fetch eligible items');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchFilteredOrders = async () => {
-    try {
-      setLoading(true);
-      const activeItems = eligibleItems.filter(item => item.is_active);
-      
-      if (activeItems.length === 0) {
-        setFilteredOrders([]);
-        return;
-      }
-
-      const asinList = activeItems.filter(item => item.type === 'ASIN').map(item => item.identifier);
-      const skuList = activeItems.filter(item => item.type === 'SKU').map(item => item.identifier);
-
-      let query = supabase
-        .from('order_imports')
-        .select('id, order_id, asin, sku, item_title, item_quantity, source_file, order_status, order_place_date');
-
-      // Build the filter conditions
-      const conditions = [];
-      if (asinList.length > 0) {
-        conditions.push(`asin.in.(${asinList.join(',')})`);
-      }
-      if (skuList.length > 0) {
-        conditions.push(`sku.in.(${skuList.join(',')})`);
-      }
-
-      if (conditions.length > 0) {
-        query = query.or(conditions.join(','));
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-
-      const transformedData: OrderToProcess[] = (data || []).map(order => ({
-        id: order.id,
-        file_name: order.source_file || '',
-        asin_code: order.asin,
-        sku_code: order.sku,
-        product_title: order.item_title,
-        quantity: order.item_quantity || 1,
-        order_number: order.order_id,
-        order_date: order.order_place_date || new Date().toISOString(),
-        status: order.order_status || 'pending',
-        has_match: true
-      }));
-
-      setFilteredOrders(transformedData);
-    } catch (error) {
-      console.error('Error fetching filtered orders:', error);
-      toast.error('Failed to fetch orders');
     } finally {
       setLoading(false);
     }
@@ -231,6 +171,7 @@ export const PrintEligibleItems: React.FC = () => {
       if (error) throw error;
 
       setEligibleItems(prev => prev.filter(item => item.id !== id));
+      setTotalItems(prev => prev - 1);
       toast.success('Item deleted successfully');
     } catch (error) {
       console.error('Error deleting item:', error);
@@ -238,28 +179,15 @@ export const PrintEligibleItems: React.FC = () => {
     }
   };
 
-  const handleOrderSelection = (orderId: string) => {
-    setSelectedOrders(prev => 
-      prev.includes(orderId) 
-        ? prev.filter(id => id !== orderId)
-        : [...prev, orderId]
-    );
-  };
-
-  const handleSelectAll = () => {
-    if (selectedOrders.length === filteredOrders.length) {
-      setSelectedOrders([]);
-    } else {
-      setSelectedOrders(filteredOrders.map(order => order.id));
-    }
-  };
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
 
   return (
     <div className="space-y-4">
-      {/* Eligible Items Management */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Print Eligible Items ({eligibleItems.length})</CardTitle>
+          <CardTitle>
+            Print Eligible Items ({totalItems}/{maxTotalItems})
+          </CardTitle>
           <div className="flex gap-2">
             <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
               <DialogTrigger asChild>
@@ -374,7 +302,7 @@ export const PrintEligibleItems: React.FC = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <ScrollArea className="h-32">
+          <ScrollArea className="h-96">
             <div className="space-y-2">
               {eligibleItems.map((item) => (
                 <div key={item.id} className="flex items-center justify-between p-2 border rounded">
@@ -399,89 +327,59 @@ export const PrintEligibleItems: React.FC = () => {
                   </div>
                 </div>
               ))}
-              {eligibleItems.length === 0 && (
-                <p className="text-muted-foreground text-center py-4">
-                  No eligible items added yet
+              {eligibleItems.length === 0 && !loading && (
+                <p className="text-muted-foreground text-center py-8">
+                  No eligible items found
+                </p>
+              )}
+              {loading && (
+                <p className="text-muted-foreground text-center py-8">
+                  Loading...
                 </p>
               )}
             </div>
           </ScrollArea>
-        </CardContent>
-      </Card>
-
-      {/* Filtered Orders */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>
-            Matching Orders ({filteredOrders.length})
-            {selectedOrders.length > 0 && (
-              <Badge variant="secondary" className="ml-2">
-                {selectedOrders.length} selected
-              </Badge>
-            )}
-          </CardTitle>
-          <div className="flex gap-2">
-            {filteredOrders.length > 0 && (
-              <>
-                <Button size="sm" variant="outline" onClick={handleSelectAll}>
-                  {selectedOrders.length === filteredOrders.length ? 'Deselect All' : 'Select All'}
-                </Button>
-                <Button size="sm" disabled={selectedOrders.length === 0}>
-                  <Eye className="h-4 w-4 mr-2" />
-                  Preview
-                </Button>
-                <Button size="sm" disabled={selectedOrders.length === 0}>
-                  <Printer className="h-4 w-4 mr-2" />
-                  Print
-                </Button>
-              </>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent>
-          <ScrollArea className="h-96">
-            <div className="space-y-2">
-              {filteredOrders.map((order) => (
-                <div key={order.id} className="flex items-center justify-between p-3 border rounded hover:bg-muted/50">
-                  <div className="flex items-center gap-3">
-                    <Checkbox
-                      checked={selectedOrders.includes(order.id)}
-                      onCheckedChange={() => handleOrderSelection(order.id)}
+          
+          {totalPages > 1 && (
+            <div className="mt-4">
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious 
+                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
                     />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Badge variant="outline">{order.order_number}</Badge>
-                        {order.asin_code && (
-                          <Badge variant="secondary">ASIN: {order.asin_code}</Badge>
-                        )}
-                        {order.sku_code && (
-                          <Badge variant="default">SKU: {order.sku_code}</Badge>
-                        )}
-                      </div>
-                      <p className="text-sm text-muted-foreground truncate">
-                        {order.product_title}
-                      </p>
-                      <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1">
-                        <span>Qty: {order.quantity}</span>
-                        <span>{new Date(order.order_date).toLocaleDateString()}</span>
-                        <span>Status: {order.status}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {filteredOrders.length === 0 && eligibleItems.some(item => item.is_active) && (
-                <p className="text-muted-foreground text-center py-8">
-                  No orders match the active eligible items
-                </p>
-              )}
-              {eligibleItems.filter(item => item.is_active).length === 0 && (
-                <p className="text-muted-foreground text-center py-8">
-                  No active eligible items. Add some items and activate them to see matching orders.
-                </p>
-              )}
+                  </PaginationItem>
+                  
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    const pageNum = i + 1;
+                    return (
+                      <PaginationItem key={pageNum}>
+                        <PaginationLink
+                          onClick={() => setCurrentPage(pageNum)}
+                          isActive={currentPage === pageNum}
+                          className="cursor-pointer"
+                        >
+                          {pageNum}
+                        </PaginationLink>
+                      </PaginationItem>
+                    );
+                  })}
+                  
+                  <PaginationItem>
+                    <PaginationNext 
+                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                      className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+              
+              <p className="text-sm text-muted-foreground text-center mt-2">
+                Page {currentPage} of {totalPages} - Showing {eligibleItems.length} of {totalItems} items
+              </p>
             </div>
-          </ScrollArea>
+          )}
         </CardContent>
       </Card>
     </div>
