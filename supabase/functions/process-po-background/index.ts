@@ -158,16 +158,32 @@ async function processJobInBatches(supabaseClient: any, userId: string, jobId: s
         .eq('id', jobId)
     }
 
+    // Pre-repair: Convert any pending items with attempts >= MAX_RETRIES to error
+    console.log('Pre-repair: Converting stuck pending items to error status')
+    await supabaseClient
+      .from('po_job_items')
+      .update({
+        status: 'error',
+        error_message: 'Exceeded maximum retry attempts (pre-repair)',
+        updated_at: new Date().toISOString()
+      })
+      .eq('job_id', jobId)
+      .eq('status', 'pending')
+      .gte('attempts', MAX_RETRIES)
+
     // Process items in batches
     let currentApiKeyIndex = 0
     
     while (true) {
-      // Get next batch of pending items
+      // Get next batch of pending items that haven't exceeded max retries
       const { data: pendingItems, error: itemsError } = await supabaseClient
         .from('po_job_items')
         .select('*')
         .eq('job_id', jobId)
         .eq('status', 'pending')
+        .lt('attempts', MAX_RETRIES)
+        .order('attempts', { ascending: true })
+        .order('updated_at', { ascending: true })
         .limit(BATCH_SIZE)
 
       if (itemsError) {
@@ -184,13 +200,16 @@ async function processJobInBatches(supabaseClient: any, userId: string, jobId: s
 
       // Process each item in the batch
       for (const item of pendingItems) {
+        const newAttempts = item.attempts + 1
+        console.log(`Processing ${item.model_number} (attempt ${newAttempts}/${MAX_RETRIES})`)
+        
         try {
           // Mark item as processing
           await supabaseClient
             .from('po_job_items')
             .update({ 
               status: 'processing',
-              attempts: item.attempts + 1,
+              attempts: newAttempts,
               updated_at: new Date().toISOString()
             })
             .eq('id', item.id)
@@ -302,8 +321,8 @@ async function processJobInBatches(supabaseClient: any, userId: string, jobId: s
             // No product found
             console.log(`No product found for model: ${item.model_number}`)
             
-            // Mark item as error if max retries reached
-            if (item.attempts >= MAX_RETRIES) {
+            // Mark item as error if max retries reached (use newAttempts)
+            if (newAttempts >= MAX_RETRIES) {
               await supabaseClient
                 .from('po_job_items')
                 .update({
@@ -312,6 +331,7 @@ async function processJobInBatches(supabaseClient: any, userId: string, jobId: s
                   updated_at: new Date().toISOString()
                 })
                 .eq('id', item.id)
+              console.log(`Marked ${item.model_number} as error after ${newAttempts} attempts`)
             } else {
               // Reset to pending for retry
               await supabaseClient
@@ -321,14 +341,15 @@ async function processJobInBatches(supabaseClient: any, userId: string, jobId: s
                   updated_at: new Date().toISOString()
                 })
                 .eq('id', item.id)
+              console.log(`Reset ${item.model_number} to pending for retry (attempt ${newAttempts}/${MAX_RETRIES})`)
             }
           }
 
         } catch (error) {
           console.error(`Error processing ${item.model_number}:`, error.message)
           
-          // Mark item as error if max retries reached
-          if (item.attempts >= MAX_RETRIES) {
+          // Mark item as error if max retries reached (use newAttempts)
+          if (newAttempts >= MAX_RETRIES) {
             await supabaseClient
               .from('po_job_items')
               .update({
@@ -337,6 +358,7 @@ async function processJobInBatches(supabaseClient: any, userId: string, jobId: s
                 updated_at: new Date().toISOString()
               })
               .eq('id', item.id)
+            console.log(`Marked ${item.model_number} as error after ${newAttempts} attempts: ${error.message}`)
           } else {
             // Reset to pending for retry
             await supabaseClient
@@ -346,6 +368,7 @@ async function processJobInBatches(supabaseClient: any, userId: string, jobId: s
                 updated_at: new Date().toISOString()
               })
               .eq('id', item.id)
+            console.log(`Reset ${item.model_number} to pending for retry (attempt ${newAttempts}/${MAX_RETRIES})`)
           }
         }
 
