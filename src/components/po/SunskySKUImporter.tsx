@@ -737,19 +737,29 @@ export const SunskySKUImporter: React.FC = () => {
         console.log('Background Export Config:', backgroundExportConfig);
 
         // Start background processing via edge function
-        const { data, error } = await supabase.functions.invoke('process-po-background', {
+        console.log('📞 About to invoke process-po-background function...');
+        const response = await supabase.functions.invoke('process-po-background', {
           body: {
             action: 'startExport',
             config: backgroundExportConfig,
             availableAPIs: apiKeysWithNames // Only pass selected APIs
           }
         });
+        
+        console.log('📞 Function invoke response:', response);
+        const { data, error } = response;
 
         if (error) {
-          console.error('Failed to start background export:', error);
+          console.error('❌ Failed to start background export:', error);
+          console.error('Error details:', {
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            code: error.code
+          });
           toast({
             title: "Background Export Failed",
-            description: error.message || "Failed to start background processing",
+            description: `${error.message || "Failed to start background processing"}${error.details ? ` (${error.details})` : ''}`,
             variant: "destructive"
           });
           return;
@@ -3437,11 +3447,25 @@ export const SunskySKUImporter: React.FC = () => {
                 
                 {runInBackground && (
                   <Button 
-                    onClick={() => {
-                      console.log('Run in Background button clicked!');
+                    onClick={async () => {
+                      console.log('🔥 Run in Background button clicked!');
                       console.log('hasCredentials:', hasCredentials);
                       console.log('selectedExportAPIs:', selectedExportAPIs);
-                      exportProductsByStatus(true);
+                      console.log('exportSubCategory:', exportSubCategory);
+                      console.log('exportCategory:', exportCategory);
+                      console.log('selectedExportStatus:', selectedExportStatus);
+                      
+                      try {
+                        await exportProductsByStatus(true);
+                        console.log('✅ exportProductsByStatus completed');
+                      } catch (error) {
+                        console.error('❌ exportProductsByStatus failed:', error);
+                        toast({
+                          title: "Background Export Failed",
+                          description: error.message || "Unknown error occurred",
+                          variant: "destructive"
+                        });
+                      }
                     }} 
                     disabled={isExporting || isConcurrentExporting || !hasCredentials}
                     variant="secondary"
