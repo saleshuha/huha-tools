@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { DatePickerWithRange } from "@/components/ui/date-range-picker";
-import { Search, Plus, Download, AlertCircle, CheckCircle2, Package, Globe, Calendar, RefreshCw, Filter, Grid, List, Settings, Eye, Save, RotateCcw, Play, Pause, X, PauseCircle, PlayCircle, XCircle, Trash2, ChevronDown } from "lucide-react";
+import { Search, Plus, Download, AlertCircle, CheckCircle2, Package, Globe, Calendar, RefreshCw, Filter, Grid, List, Settings, Eye, Save, RotateCcw, Play, Pause, X, PauseCircle, PlayCircle, XCircle, Trash2, ChevronDown, TestTube } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -3597,13 +3597,64 @@ export const SunskySKUImporter: React.FC = () => {
                       });
                     }
                   }} 
-                  disabled={isExporting || isConcurrentExporting || !hasCredentials}
+                  disabled={!runInBackground || !hasCredentials}
                   variant="secondary"
                   className="flex items-center gap-2"
-                  style={{ display: runInBackground ? 'flex' : 'none' }}
                 >
                   <Play className="h-4 w-4" />
                   Run in Background
+                </Button>
+
+                {/* Test Task Button for debugging */}
+                <Button 
+                  onClick={async () => {
+                    console.log('🧪 Creating test background task...');
+                    try {
+                      const { data, error } = await supabase
+                        .from('background_tasks')
+                        .insert({
+                          user_id: (await supabase.auth.getUser()).data.user?.id,
+                          type: 'test_export', 
+                          status: 'queued',
+                          progress: 0,
+                          total_items: 100,
+                          processed_items: 0,
+                          metadata: { test: true, created_by: 'test_button' }
+                        })
+                        .select()
+                        .single();
+                      
+                      if (error) {
+                        console.error('❌ Test task creation failed:', error);
+                        toast({
+                          title: "Test Task Failed",
+                          description: error.message,
+                          variant: "destructive"
+                        });
+                      } else {
+                        console.log('✅ Test task created:', data);
+                        toast({
+                          title: "Test Task Created! 🧪",
+                          description: "Check the Tasks panel to see if it appears.",
+                          duration: 5000
+                        });
+                        window.dispatchEvent(new CustomEvent('refreshBackgroundTasks'));
+                      }
+                    } catch (error) {
+                      console.error('❌ Exception creating test task:', error);
+                      toast({
+                        title: "Test Task Failed",
+                        description: error.message,
+                        variant: "destructive"
+                      });
+                    }
+                  }}
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-2"
+                >
+                  <TestTube className="h-4 w-4" />
+                  Create Test Task
                 </Button>
               </div>
 
