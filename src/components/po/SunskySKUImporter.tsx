@@ -518,7 +518,7 @@ export const SunskySKUImporter: React.FC = () => {
       categoryId: exportSubCategory !== 'all' ? parseInt(exportSubCategory) : 
                  (exportCategory !== 'all' ? parseInt(exportCategory) : undefined),
       pageSize: exportPageSize,
-      maxPages: 200,
+        maxPages: Number.MAX_SAFE_INTEGER, // Unlimited pages
       columns: selectedExportColumns,
       apiKeys: apiKeysWithNames,
       statusText: getProductStatusText(selectedExportStatus),
@@ -640,7 +640,7 @@ export const SunskySKUImporter: React.FC = () => {
         categoryName,
         columns: selectedExportColumns,
         pageSize: exportPageSize,
-        maxPages: 200,
+        maxPages: Number.MAX_SAFE_INTEGER, // Unlimited pages
         apiKeys: apiKeysWithNames
       };
 
@@ -838,7 +838,7 @@ export const SunskySKUImporter: React.FC = () => {
 
       updateProgress(20, `Starting export... (estimated ${actualTotalProducts} products across ~${actualTotalPages} pages)`, actualTotalProducts, 0, actualTotalProducts);
 
-      const maxPages = Math.min(actualTotalPages, 200); // Safety limit but respect actual total
+      const maxPages = actualTotalPages; // Fetch all available pages
       
       while (hasMore && currentPage <= maxPages && !isCancelled) {
         // Check if task was cancelled (for background tasks)
@@ -3228,7 +3228,7 @@ export const SunskySKUImporter: React.FC = () => {
                     <ul className="list-disc list-inside mt-1 space-y-1">
                       <li>Page size: {exportPageSize} products/request</li>
                       <li>Rate limit: 250ms delay per API key</li>
-                      <li>Max pages: 200 (safety limit)</li>
+                      <li>Max pages: Unlimited (fetches all available)</li>
                     </ul>
                   </div>
                   <div>
