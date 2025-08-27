@@ -1659,7 +1659,7 @@ export const SunskySKUImporter: React.FC = () => {
       const importJob = await createImportJob('itemNos', {
         source: 'po_model_numbers',
         totalModels: modelData.totalCount,
-        uniqueModels: modelData.uniqueCount,
+        uniqueModels: modelData.uniqueModels, // This should be the array, not the count
         modelNumbers: modelData.uniqueModels
       });
 
