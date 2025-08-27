@@ -184,7 +184,7 @@ export const SunskySKUImporter: React.FC = () => {
   const { addTask, updateTask, cancelTask, isTaskCancelled, runConcurrentExport } = useBackgroundTasks();
   const { profile } = useUserProfile();
   const { sunskySKUs, isLoading: skusLoading, fetchSKUs, totalCount, refreshSKUs, addSKUs } = useSKUManager();
-  const { jobs, isLoading: jobsLoading, createImportJob, resumeImportJob, retryFailedItems, fetchJobs } = useImportJobs();
+  const { jobs, isLoading: jobsLoading, createImportJob, fetchJobs } = useImportJobs();
   const { getPOModelNumbers } = usePOOrders();
   const { addExportEntry, updateExportEntry, exportHistory: savedExportHistory } = useExportHistory();
   const { 
@@ -1655,16 +1655,43 @@ export const SunskySKUImporter: React.FC = () => {
         willProcess: modelData.uniqueCount
       });
 
-      // Create import job using the proper import jobs hook
-      const importJob = await createImportJob('itemNos', {
-        source: 'po_model_numbers',
-        totalModels: modelData.totalCount,
-        uniqueModels: modelData.uniqueModels, // This should be the array, not the count
-        modelNumbers: modelData.uniqueModels
-      });
+      // Create import job first
+      const { data: importJob } = await supabase
+        .from('sunsky_import_jobs')
+        .insert({
+          user_id: profile?.id,
+          type: 'po_search',
+          criteria: { 
+            source: 'po_model_numbers', 
+            total_models: modelData.totalCount,
+            unique_models: modelData.uniqueCount,
+            api_keys_used: 3 // Will be updated by background function
+          },
+          status: 'pending',
+          total_items: modelData.uniqueCount,
+          processed_items: 0,
+          success_count: 0,
+          error_count: 0,
+          started_at: new Date().toISOString()
+        })
+        .select()
+        .single();
 
       if (!importJob) {
         throw new Error('Failed to create import job');
+      }
+
+      // Start background processing
+      const response = await supabase.functions.invoke('process-po-background', {
+        body: { 
+          action: 'start',
+          jobId: importJob.id,
+          modelData: modelData
+        }
+      });
+
+      if (response.error) {
+        throw new Error('Failed to start background processing');
       }
 
       // Initialize stats for UI
@@ -2585,35 +2612,6 @@ export const SunskySKUImporter: React.FC = () => {
                                 >
                                   <XCircle className="h-4 w-4" />
                                 </Button>
-                              )}
-                              
-                              {job.status === 'failed' && (
-                                <>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      resumeImportJob(job.id);
-                                    }}
-                                    className="text-blue-600 hover:bg-blue-50"
-                                  >
-                                    <RefreshCw className="h-4 w-4" />
-                                    Resume
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      retryFailedItems(job.id);
-                                    }}
-                                    className="text-green-600 hover:bg-green-50"
-                                  >
-                                    <RotateCcw className="h-4 w-4" />
-                                    Retry Failed
-                                  </Button>
-                                </>
                               )}
                               
                               <div className="text-xs text-muted-foreground text-right">

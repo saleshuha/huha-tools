@@ -45,27 +45,6 @@ export const useImportJobs = () => {
     return response.json();
   }, []);
 
-  const callBackgroundProcessor = useCallback(async (action: string, jobId: string, modelData?: any) => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) throw new Error('Not authenticated');
-
-    const response = await fetch('https://vfqqlifvhooefxvvyebm.supabase.co/functions/v1/process-po-background', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify({ action, jobId, modelData }),
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Background processing failed');
-    }
-
-    return response.json();
-  }, []);
-
   const createImportJob = useCallback(async (type: string, criteria: Record<string, any>) => {
     try {
       setIsLoading(true);
@@ -77,13 +56,8 @@ export const useImportJobs = () => {
           description: "Import job created successfully"
         });
         
-        // Start the job using background processor
-        if (type === 'itemNos' && criteria.uniqueModels) {
-          await callBackgroundProcessor('start', result.data.id, criteria);
-        } else {
-          // Start the job using the old method for other types
-          await callSunskyAPI('startImportJob', { jobId: result.data.id });
-        }
+        // Start the job immediately
+        await callSunskyAPI('startImportJob', { jobId: result.data.id });
         
         // Refresh jobs list
         await fetchJobs();
@@ -103,76 +77,7 @@ export const useImportJobs = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [callSunskyAPI, callBackgroundProcessor, toast]);
-
-  const resumeImportJob = useCallback(async (jobId: string) => {
-    try {
-      setIsLoading(true);
-      
-      await callBackgroundProcessor('resume', jobId);
-      
-      toast({
-        title: "Success",
-        description: "Import job resumed successfully"
-      });
-      
-      // Refresh jobs list
-      await fetchJobs();
-      
-    } catch (error) {
-      console.error('Error resuming import job:', error);
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to resume import job",
-        variant: "destructive"
-      });
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [callBackgroundProcessor, toast]);
-
-  const retryFailedItems = useCallback(async (jobId: string) => {
-    try {
-      setIsLoading(true);
-      
-      // Reset failed items to pending
-      const { error } = await supabase
-        .from('po_job_items')
-        .update({ 
-          status: 'pending', 
-          attempts: 0,
-          error_message: null,
-          updated_at: new Date().toISOString()
-        })
-        .eq('job_id', jobId)
-        .eq('status', 'error');
-
-      if (error) throw error;
-
-      // Resume processing
-      await callBackgroundProcessor('resume', jobId);
-      
-      toast({
-        title: "Success",
-        description: "Failed items reset and processing resumed"
-      });
-      
-      // Refresh jobs list
-      await fetchJobs();
-      
-    } catch (error) {
-      console.error('Error retrying failed items:', error);
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to retry failed items",
-        variant: "destructive"
-      });
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [callBackgroundProcessor, toast]);
+  }, [callSunskyAPI, toast]);
 
   const fetchJobs = useCallback(async () => {
     try {
@@ -215,8 +120,6 @@ export const useImportJobs = () => {
     jobs,
     isLoading,
     createImportJob,
-    resumeImportJob,
-    retryFailedItems,
     fetchJobs,
     getJobStatus
   };
