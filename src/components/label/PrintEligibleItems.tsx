@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
-import { Upload, Plus, Trash2, CheckCircle, XCircle } from 'lucide-react';
+import { Upload, Plus, Trash2, CheckCircle, XCircle, Search } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -31,25 +31,34 @@ export const PrintEligibleItems: React.FC = () => {
   const [showBulkDialog, setShowBulkDialog] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
-  
+  const [searchQuery, setSearchQuery] = useState('');
   
   const itemsPerPage = 20;
 
   useEffect(() => {
     fetchEligibleItems();
-  }, [currentPage]);
+  }, [currentPage, searchQuery]);
 
   const fetchEligibleItems = async () => {
     try {
       setLoading(true);
       const offset = (currentPage - 1) * itemsPerPage;
       
-      // Get data with pagination
-      const { data, error } = await supabase
+      // Build query with search filtering
+      let query = supabase
         .from('print_eligible_items')
         .select('*')
-        .order('created_at', { ascending: false })
-        .range(offset, offset + itemsPerPage - 1);
+        .order('created_at', { ascending: false });
+
+      // Add search filter if query exists
+      if (searchQuery.trim()) {
+        query = query.ilike('identifier', `%${searchQuery.trim()}%`);
+      }
+
+      // Apply pagination
+      query = query.range(offset, offset + itemsPerPage - 1);
+
+      const { data, error } = await query;
 
       if (error) throw error;
       
@@ -60,14 +69,17 @@ export const PrintEligibleItems: React.FC = () => {
       
       setEligibleItems(items);
       
-      // Get count only for the first page to avoid repeated count queries
-      if (currentPage === 1) {
-        const { count } = await supabase
-          .from('print_eligible_items')
-          .select('*', { count: 'exact', head: true });
-        
-        setTotalItems(count || 0);
+      // Get count for search results
+      let countQuery = supabase
+        .from('print_eligible_items')
+        .select('*', { count: 'exact', head: true });
+
+      if (searchQuery.trim()) {
+        countQuery = countQuery.ilike('identifier', `%${searchQuery.trim()}%`);
       }
+
+      const { count } = await countQuery;
+      setTotalItems(count || 0);
       
     } catch (error) {
       console.error('Error fetching eligible items:', error);
@@ -369,6 +381,22 @@ export const PrintEligibleItems: React.FC = () => {
           </div>
         </CardHeader>
         <CardContent>
+          {/* Search Bar */}
+          <div className="mb-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+              <Input
+                placeholder="Search by SKU or ASIN..."
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setCurrentPage(1); // Reset to first page when searching
+                }}
+                className="pl-10"
+              />
+            </div>
+          </div>
+
           {/* Bulk Actions */}
           <div className="flex gap-2 mb-4 p-3 bg-muted/50 rounded-lg">
             <div className="flex items-center text-sm font-medium text-muted-foreground mr-4">
