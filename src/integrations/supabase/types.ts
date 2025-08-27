@@ -3205,6 +3205,14 @@ export type Database = {
         Args: { user_id: string }
         Returns: boolean
       }
+      update_print_eligible_items_by_order_skus: {
+        Args: { user_id_param: string }
+        Returns: {
+          total_unique_skus: number
+          updated_active_count: number
+          updated_inactive_count: number
+        }[]
+      }
     }
     Enums: {
       country_code: "UAE" | "KSA"
