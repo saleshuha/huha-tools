@@ -9,7 +9,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { CalendarIcon, Printer, Download, Eye, Filter, Copy } from 'lucide-react';
+import { CalendarIcon, Printer, Download, Eye, Filter, Copy, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useLabelDoc } from '@/contexts/SimpleLabelDocContext';
@@ -63,6 +63,7 @@ export const DateWiseOrderPrint: React.FC = () => {
   const [qzConnected, setQzConnected] = useState(false);
   const [availablePrinters, setAvailablePrinters] = useState<string[]>([]);
   const [selectedPrinter, setSelectedPrinter] = useState<string>('');
+  const [matchingLoading, setMatchingLoading] = useState(false);
 
   useEffect(() => {
     fetchOrders();
@@ -90,6 +91,39 @@ export const DateWiseOrderPrint: React.FC = () => {
     } catch (error) {
       console.error('Failed to connect to QZ Tray:', error);
       // Don't show error toast as it's optional
+    }
+  };
+
+  const matchWithOrders = async () => {
+    try {
+      setMatchingLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        toast.error('You must be logged in to match items with orders');
+        return;
+      }
+
+      const { data, error } = await supabase.rpc('update_print_eligible_items_by_order_skus', {
+        user_id_param: user.id
+      });
+
+      if (error) throw error;
+
+      const result = data?.[0];
+      if (result) {
+        toast.success(
+          `Matching completed! Activated: ${result.updated_active_count}, Deactivated: ${result.updated_inactive_count}, Total SKUs found: ${result.total_unique_skus}`
+        );
+      } else {
+        toast.success('Matching completed!');
+      }
+
+    } catch (error) {
+      console.error('Error matching items with orders:', error);
+      toast.error('Failed to match items with orders');
+    } finally {
+      setMatchingLoading(false);
     }
   };
 
@@ -834,6 +868,35 @@ export const DateWiseOrderPrint: React.FC = () => {
             )}
           </div>
         )}
+
+        {/* Match with Orders Section */}
+        <div className="p-4 bg-muted/50 rounded-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-medium">Match Print Eligible Items</h3>
+              <p className="text-sm text-muted-foreground">
+                Automatically activate print eligible items that match SKUs in your orders and deactivate the rest
+              </p>
+            </div>
+            <Button 
+              onClick={matchWithOrders}
+              disabled={matchingLoading}
+              className="ml-4"
+            >
+              {matchingLoading ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Matching...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Match with Orders
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
 
         {/* Orders List */}
         <div className="space-y-3">

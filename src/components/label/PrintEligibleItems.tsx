@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
-import { Upload, Plus, Trash2, RefreshCw } from 'lucide-react';
+import { Upload, Plus, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -31,7 +31,7 @@ export const PrintEligibleItems: React.FC = () => {
   const [showBulkDialog, setShowBulkDialog] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
-  const [matchingLoading, setMatchingLoading] = useState(false);
+  
   
   const itemsPerPage = 20;
 
@@ -197,40 +197,6 @@ export const PrintEligibleItems: React.FC = () => {
     }
   };
 
-  const matchWithOrders = async () => {
-    try {
-      setMatchingLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        toast.error('You must be logged in to match items with orders');
-        return;
-      }
-
-      const { data, error } = await supabase.rpc('update_print_eligible_items_by_order_skus', {
-        user_id_param: user.id
-      });
-
-      if (error) throw error;
-
-      const result = data?.[0];
-      if (result) {
-        toast.success(
-          `Matching completed! Activated: ${result.updated_active_count}, Deactivated: ${result.updated_inactive_count}, Total SKUs found: ${result.total_unique_skus}`
-        );
-      } else {
-        toast.success('Matching completed!');
-      }
-
-      // Refresh the list to show updated statuses
-      fetchEligibleItems();
-    } catch (error) {
-      console.error('Error matching items with orders:', error);
-      toast.error('Failed to match items with orders');
-    } finally {
-      setMatchingLoading(false);
-    }
-  };
 
   const totalPages = Math.ceil(totalItems / itemsPerPage);
 
@@ -355,33 +321,6 @@ export const PrintEligibleItems: React.FC = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="mb-4 p-4 bg-muted/50 rounded-lg">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-medium">Match with Orders</h3>
-                <p className="text-sm text-muted-foreground">
-                  Automatically activate items that match SKUs in your orders and deactivate the rest
-                </p>
-              </div>
-              <Button 
-                onClick={matchWithOrders}
-                disabled={matchingLoading}
-                className="ml-4"
-              >
-                {matchingLoading ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Matching...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Match with Orders
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
           
           <div className="rounded-md border">
             <Table>
