@@ -74,6 +74,7 @@ export function OrderProcessor() {
   const [fileName, setFileName] = useState<string>('');
   const [dbResults, setDbResults] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState('process');
+  const [processingProgress, setProcessingProgress] = useState(0);
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -91,12 +92,13 @@ export function OrderProcessor() {
   
   const { toast } = useToast();
 
-  // Load all imported orders from database
+  // Load all imported orders from database, ordered by date
   useEffect(() => {
     const loadAllOrders = async () => {
       const { data, error } = await supabase
         .from('order_imports')
         .select('*')
+        .order('order_place_date', { ascending: false, nullsFirst: false })
         .order('created_at', { ascending: false });
       
       if (error) {
@@ -159,12 +161,43 @@ export function OrderProcessor() {
     loadProcessedOrders();
   }, []);
 
-  // Save all orders to database during file upload
+  // Save all orders to database during file upload with duplicate prevention
   const saveOrdersToDatabase = async (orders: OrderItem[], fileName: string) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const orderRecords = orders.map(order => ({
+    // Check for existing order IDs to prevent duplicates
+    const orderIds = orders.map(order => order.orderId).filter(id => id);
+    const { data: existingOrders } = await supabase
+      .from('order_imports')
+      .select('order_id')
+      .eq('user_id', user.id)
+      .in('order_id', orderIds);
+
+    const existingOrderIds = new Set((existingOrders || []).map(o => o.order_id));
+    
+    // Filter out duplicate orders
+    const newOrders = orders.filter(order => !existingOrderIds.has(order.orderId));
+    const duplicateCount = orders.length - newOrders.length;
+
+    if (duplicateCount > 0) {
+      toast({
+        title: "Duplicate Orders Detected",
+        description: `Skipped ${duplicateCount} duplicate orders. Adding ${newOrders.length} new orders.`,
+        variant: "default"
+      });
+    }
+
+    if (newOrders.length === 0) {
+      toast({
+        title: "No New Orders",
+        description: "All orders in the file already exist in the database.",
+        variant: "default"
+      });
+      return { newCount: 0, duplicateCount };
+    }
+
+    const orderRecords = newOrders.map(order => ({
       user_id: user.id,
       order_id: order.orderId,
       order_status: order.orderStatus,
@@ -202,6 +235,8 @@ export function OrderProcessor() {
       console.error('Error saving orders to database:', error);
       throw error;
     }
+
+    return { newCount: newOrders.length, duplicateCount };
   };
 
   // Update order match status in database
@@ -279,14 +314,17 @@ export function OrderProcessor() {
       setAllOrders(formattedOrders);
       setFileName(file.name);
       
-      // Save all orders to database first
-      await saveOrdersToDatabase(formattedOrders, file.name);
+      // Save all orders to database first with duplicate prevention
+      const saveResult = await saveOrdersToDatabase(formattedOrders, file.name);
       
       const matches = await matchOrdersWithInventory(formattedOrders);
 
+      const matchedCount = matches.filter(m => m.inventoryMatch).length;
       toast({
-        title: "Orders Uploaded",
-        description: `Successfully uploaded ${formattedOrders.length} orders to database. Found ${matches.filter(m => m.inventoryMatch).length} matches.`
+        title: "Orders Upload Complete",
+        description: saveResult 
+          ? `Added ${saveResult.newCount} new orders (${saveResult.duplicateCount} duplicates skipped). Found ${matchedCount} inventory matches.`
+          : `Processed ${formattedOrders.length} orders. Found ${matchedCount} inventory matches.`
       });
     } catch (error) {
       console.error('Error processing file:', error);
@@ -375,12 +413,23 @@ export function OrderProcessor() {
     if (selectedItems.size === 0) return;
     
     setLoading(true);
+    setProcessingProgress(0);
+    
     try {
       const itemsToProcess = Array.from(selectedItems).map(index => matchedItems[index]);
       const processed: ProcessedItem[] = [];
+      const total = itemsToProcess.length;
 
-      for (const match of itemsToProcess) {
+      // Save processing records to database
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      for (let i = 0; i < itemsToProcess.length; i++) {
+        const match = itemsToProcess[i];
         if (!match.inventoryMatch || !match.inventoryType) continue;
+        
+        // Update progress
+        const progress = Math.floor(((i + 1) / total) * 100);  
+        setProcessingProgress(progress);
         
         const previousQuantity = match.inventoryMatch.quantity;
         const quantityChange = -match.orderItem.itemQuantity;
@@ -390,6 +439,25 @@ export function OrderProcessor() {
           await updateAsinQuantity(match.inventoryMatch.id, newQuantity, `Order processing: Removed ${Math.abs(quantityChange)} units`);
         } else {
           await updateSkuQuantity(match.inventoryMatch.id, newQuantity, `Order processing: Removed ${Math.abs(quantityChange)} units`);
+        }
+
+        // Save to processed_orders table
+        if (user) {
+          await supabase.from('processed_orders').insert({
+            user_id: user.id,
+            order_number: match.orderItem.orderId,
+            asin: match.orderItem.asin,
+            sku: match.orderItem.sku,
+            item_title: match.orderItem.itemTitle,
+            inventory_type: match.inventoryType,
+            match_type: match.matchType || 'unknown',
+            quantity_processed: match.orderItem.itemQuantity,
+            source_file: fileName,
+            previous_stock: previousQuantity,
+            new_stock: newQuantity,
+            inventory_id: match.inventoryMatch.id,
+            processed_at: new Date().toISOString()
+          });
         }
 
         const processedItem: ProcessedItem = {
@@ -407,10 +475,21 @@ export function OrderProcessor() {
       setProcessedItems(prev => [...prev, ...processed]);
       setSelectedItems(new Set());
       setSelectAll(false);
+      setProcessingProgress(100);
+
+      // Refresh processed orders from database
+      const { data: refreshedProcessed } = await supabase
+        .from('processed_orders')
+        .select('*')
+        .order('processed_at', { ascending: false });
+      
+      if (refreshedProcessed) {
+        setDbResults(refreshedProcessed);
+      }
 
       toast({
         title: "Orders Processed",
-        description: `Successfully processed ${processed.length} orders.`
+        description: `Successfully processed ${processed.length} orders and updated inventory.`
       });
     } catch (error) {
       console.error('Error processing orders:', error);
@@ -421,6 +500,7 @@ export function OrderProcessor() {
       });
     } finally {
       setLoading(false);
+      setTimeout(() => setProcessingProgress(0), 2000);
     }
   };
 
@@ -451,14 +531,32 @@ export function OrderProcessor() {
     });
   }, [matchedItems, searchTerm]);
 
-  // Get matched orders (orders with inventory matches)
+  // Get matched orders (orders with inventory matches) grouped by date
   const matchedOrders = useMemo(() => {
-    return matchedItems.filter(m => m.inventoryMatch).map(m => m.orderItem);
+    const matched = matchedItems.filter(m => m.inventoryMatch).map(m => m.orderItem);
+    // Sort by order place date, then by order ID
+    return matched.sort((a, b) => {
+      const dateA = new Date(a.orderPlaceDate || '1970-01-01');
+      const dateB = new Date(b.orderPlaceDate || '1970-01-01');
+      if (dateA.getTime() !== dateB.getTime()) {
+        return dateB.getTime() - dateA.getTime(); // Newest first
+      }
+      return a.orderId.localeCompare(b.orderId);
+    });
   }, [matchedItems]);
 
-  // Get unmatched orders (orders without inventory matches)
+  // Get unmatched orders (orders without inventory matches) grouped by date
   const unmatchedOrders = useMemo(() => {
-    return matchedItems.filter(m => !m.inventoryMatch).map(m => m.orderItem);
+    const unmatched = matchedItems.filter(m => !m.inventoryMatch).map(m => m.orderItem);
+    // Sort by order place date, then by order ID
+    return unmatched.sort((a, b) => {
+      const dateA = new Date(a.orderPlaceDate || '1970-01-01');
+      const dateB = new Date(b.orderPlaceDate || '1970-01-01');
+      if (dateA.getTime() !== dateB.getTime()) {
+        return dateB.getTime() - dateA.getTime(); // Newest first
+      }
+      return a.orderId.localeCompare(b.orderId);
+    });
   }, [matchedItems]);
 
   // Get processed orders from DB
@@ -551,10 +649,18 @@ export function OrderProcessor() {
                       </Button>
                     </div>
 
-                    {loading && (
+                    {(loading || processingProgress > 0) && (
                       <div className="space-y-2">
-                        <Progress value={undefined} className="w-full" />
-                        <p className="text-sm text-center text-muted-foreground">Processing orders...</p>
+                        <div className="flex justify-between text-sm">
+                          <span>{processingProgress > 0 ? 'Processing orders...' : 'Loading...'}</span>
+                          {processingProgress > 0 && <span>{processingProgress}%</span>}
+                        </div>
+                        <Progress value={processingProgress > 0 ? processingProgress : undefined} className="w-full" />
+                        {processingProgress > 0 && (
+                          <p className="text-xs text-center text-muted-foreground">
+                            Updating inventory and saving records...
+                          </p>
+                        )}
                       </div>
                     )}
 
@@ -846,47 +952,57 @@ export function OrderProcessor() {
               {matchedOrders.length > 0 ? (
                 <div className="rounded-lg border overflow-hidden">
                   <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Order ID</TableHead>
-                        <TableHead>ASIN/SKU</TableHead>
-                        <TableHead>Title</TableHead>
-                        <TableHead>Quantity</TableHead>
-                        <TableHead>Match Status</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {matchedOrders.slice(0, 50).map((order, index) => (
-                        <TableRow key={`${order.orderId}-${index}`}>
-                          <TableCell className="font-mono text-xs">{order.orderId}</TableCell>
-                          <TableCell>
-                            <div className="space-y-1">
-                              {order.asin && (
-                                <div className="text-xs text-blue-600 dark:text-blue-400">
-                                  ASIN: {order.asin}
-                                </div>
-                              )}
-                              {order.sku && (
-                                <div className="text-xs text-green-600 dark:text-green-400">
-                                  SKU: {order.sku}
-                                </div>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell className="max-w-xs truncate">{order.itemTitle}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="text-xs">
-                              {order.itemQuantity}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="default" className="text-xs">
-                              Matched
-                            </Badge>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
+                     <TableHeader>
+                       <TableRow>
+                         <TableHead>Order ID</TableHead>
+                         <TableHead>Order Date</TableHead>
+                         <TableHead>ASIN/SKU</TableHead>
+                         <TableHead>Title</TableHead>
+                         <TableHead>Quantity</TableHead>
+                         <TableHead>Match Status</TableHead>
+                       </TableRow>
+                     </TableHeader>
+                     <TableBody>
+                       {matchedOrders.slice(0, 50).map((order, index) => (
+                         <TableRow key={`${order.orderId}-${index}`}>
+                           <TableCell className="font-mono text-xs">{order.orderId}</TableCell>
+                           <TableCell className="text-xs">
+                             {order.orderPlaceDate ? (
+                               <div className="text-muted-foreground">
+                                 {new Date(order.orderPlaceDate).toLocaleDateString()}
+                               </div>
+                             ) : (
+                               <span className="text-muted-foreground">N/A</span>
+                             )}
+                           </TableCell>
+                           <TableCell>
+                             <div className="space-y-1">
+                               {order.asin && (
+                                 <div className="text-xs text-blue-600 dark:text-blue-400">
+                                   ASIN: {order.asin}
+                                 </div>
+                               )}
+                               {order.sku && (
+                                 <div className="text-xs text-green-600 dark:text-green-400">
+                                   SKU: {order.sku}
+                                 </div>
+                               )}
+                             </div>
+                           </TableCell>
+                           <TableCell className="max-w-xs truncate">{order.itemTitle}</TableCell>
+                           <TableCell>
+                             <Badge variant="outline" className="text-xs">
+                               {order.itemQuantity}
+                             </Badge>
+                           </TableCell>
+                           <TableCell>
+                             <Badge variant="default" className="text-xs">
+                               Matched
+                             </Badge>
+                           </TableCell>
+                         </TableRow>
+                       ))}
+                     </TableBody>
                   </Table>
                   {matchedOrders.length > 50 && (
                     <div className="p-4 text-center text-sm text-muted-foreground border-t">
