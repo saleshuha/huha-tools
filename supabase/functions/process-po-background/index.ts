@@ -245,14 +245,15 @@ async function processModelNumbersBackground(supabaseClient: any, userId: string
 
           totalProcessed++
           
-          // Update job progress every 10 items
-          if (totalProcessed % 10 === 0) {
+          // Update job progress every 5 items or on final items
+          if (totalProcessed % 5 === 0 || totalProcessed === uniqueModelNumbers.length) {
             await supabaseClient
               .from('sunsky_import_jobs')
               .update({
                 processed_items: totalProcessed,
                 success_count: totalSuccess + chunkSuccess,
-                error_count: totalErrors + chunkErrors
+                error_count: totalErrors + chunkErrors,
+                updated_at: new Date().toISOString()
               })
               .eq('id', jobId)
           }
@@ -284,6 +285,18 @@ async function processModelNumbersBackground(supabaseClient: any, userId: string
     // Calculate final totals
     totalSuccess = results.reduce((sum, r) => sum + r.chunkSuccess, 0)
     totalErrors = results.reduce((sum, r) => sum + r.chunkErrors, 0)
+    totalProcessed = uniqueModelNumbers.length // Ensure we have the correct total
+
+    // Force final progress update before completion
+    await supabaseClient
+      .from('sunsky_import_jobs')
+      .update({
+        processed_items: totalProcessed,
+        success_count: totalSuccess,
+        error_count: totalErrors,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', jobId)
 
     // Complete the import job
     await supabaseClient
