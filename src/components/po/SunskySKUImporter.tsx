@@ -678,38 +678,63 @@ export const SunskySKUImporter: React.FC = () => {
     };
 
     if (runInBg) {
-      // Create background task with concurrent API support
+      // True background processing using edge function
       try {
-        const taskId = await runConcurrentExport(
-          exportConfig,
-          (progressTaskId) => {
-            // Handle progress updates - taskId from background context
-            setCurrentExportTaskId(progressTaskId);
-            
-            // Now start the actual concurrent export
-            startConcurrentExport(exportConfig).then(exportId => {
-              console.log('Background export started with ID:', exportId);
-            }).catch(error => {
-              console.error('Background export failed:', error);
-              updateTask(progressTaskId, {
-                status: 'error',
-                error: error.message,
-                endTime: new Date()
-              });
-            });
-          },
-          async (results) => {
-            // This will be handled by the useEffect watching concurrentExportResults
-            console.log('Background export completion callback called');
-          }
-        );
+        console.log('Starting true background export via edge function...');
         
+        const exportConfig = {
+          categoryId: exportSubCategory !== 'all' ? exportSubCategory : exportCategory,
+          selectedExportStatus,
+          selectedExportColumns,
+          exportPageSize
+        };
+
+        // Start background processing via edge function
+        const { error } = await supabase.functions.invoke('process-po-background', {
+          body: {
+            action: 'startExport',
+            config: exportConfig,
+            availableAPIs: apiKeysWithNames
+          }
+        });
+
+        if (error) {
+          console.error('Failed to start background export:', error);
+          toast({
+            title: "Background Export Failed",
+            description: error.message || "Failed to start background processing",
+            variant: "destructive"
+          });
+          return;
+        }
+
+        toast({
+          title: "Background Export Started",
+          description: "Export is running in the background. You can close the app and return later to check progress.",
+          duration: 5000
+        });
+
+        // Add to background tasks context for immediate UI feedback
+        const taskId = addTask({
+          type: 'sunsky-export',
+          name: `Background export: ${categoryName}`,
+          status: 'processing',
+          progress: 0,
+          totalItems: 0,
+          processedItems: 0,
+          metadata: {
+            exportType: 'background'
+          }
+        });
+        
+        // Use the returned task ID
         setCurrentExportTaskId(taskId);
+
       } catch (error) {
         console.error('Error starting background export:', error);
         toast({
-          title: "Export Error", 
-          description: "Failed to start background export",
+          title: "Background Export Failed",
+          description: "Failed to start background processing",
           variant: "destructive"
         });
       }
