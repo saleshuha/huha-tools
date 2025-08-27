@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { LabelDoc, LabelElement, LabelDataset, LabelSize } from '@/types/label';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -47,52 +47,210 @@ export const SimpleLabelDocProvider: React.FC<{ children: React.ReactNode }> = (
   const [selectedElement, setSelectedElement] = useState<LabelElement | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Simple implementations that won't fail
   const createDocument = useCallback(async (name: string, size: LabelSize) => {
+    setIsLoading(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+      
+      const { data, error } = await supabase
+        .from('label_templates')
+        .insert({
+          name,
+          width: size.width,
+          height: size.height,
+          canvas_data: { elements: [] } as any,
+          user_id: user.id,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      
       const newDoc: LabelDoc = {
-        id: crypto.randomUUID(),
-        name,
-        size,
+        id: data.id,
+        name: data.name,
+        size: {
+          width: data.width,
+          height: data.height,
+          unit: 'mm'
+        },
         elements: [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
       };
+      
       setDocument(newDoc);
       toast.success('Label created successfully');
     } catch (error) {
       console.error('Create document error:', error);
       toast.error('Failed to create label');
+    } finally {
+      setIsLoading(false);
     }
   }, []);
 
   const loadDocument = useCallback(async (id: string) => {
-    // Simple placeholder - you can enhance later
-    toast.info('Load document not yet implemented');
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('label_templates')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error) throw error;
+      
+      const doc: LabelDoc = {
+        id: data.id,
+        name: data.name,
+        size: {
+          width: data.width || 100,
+          height: data.height || 50,
+          unit: 'mm'
+        },
+        elements: Array.isArray((data.canvas_data as any)?.elements) ? 
+          (data.canvas_data as any).elements.map((el: any) => ({
+            id: el.id || crypto.randomUUID(),
+            type: el.type || 'text',
+            x: Number(el.x) || 0,
+            y: Number(el.y) || 0,
+            width: Number(el.width) || 100,
+            height: Number(el.height) || 20,
+            rotation: Number(el.rotation) || 0,
+            text: el.text || '',
+            fontSize: Number(el.fontSize) || 12,
+            fontFamily: el.fontFamily || 'Arial',
+            fontWeight: el.fontWeight || 'normal',
+            textAlign: el.textAlign || 'left',
+            color: el.color || '#000000',
+            lineHeight: Number(el.lineHeight) || 1.2,
+            maxLines: Number(el.maxLines) || undefined,
+            wordWrap: Boolean(el.wordWrap),
+            fill: el.fill || 'transparent',
+            stroke: el.stroke || '#000000',
+            strokeWidth: Number(el.strokeWidth) || 1,
+            borderRadius: Number(el.borderRadius) || 0,
+            barcodeType: el.barcodeType || 'CODE128',
+            showText: Boolean(el.showText),
+            dataColumn: el.dataColumn || undefined,
+            dataTransform: el.dataTransform || undefined,
+            src: el.src || undefined,
+            objectFit: el.objectFit || 'contain'
+          })) : [],
+        datasetId: data.description, // using description field temporarily for dataset ID
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+      };
+      
+      setDocument(doc);
+      
+      if (doc.datasetId) {
+        await loadDataset(doc.datasetId);
+      }
+      
+      toast.success('Label loaded successfully');
+    } catch (error) {
+      console.error('Load document error:', error);
+      toast.error('Failed to load label');
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
   const saveDocument = useCallback(async () => {
     if (!document) return;
+    
+    setIsLoading(true);
     try {
-      // Simple placeholder - you can enhance later
-      toast.success('Document saved (local only)');
+      const { error } = await supabase
+        .from('label_templates')
+        .update({
+          name: document.name,
+          width: document.size.width,
+          height: document.size.height,
+          canvas_data: { elements: document.elements } as any,
+          description: document.datasetId || null,
+        })
+        .eq('id', document.id);
+
+      if (error) throw error;
+      
+      setDocument(prev => prev ? { ...prev, updatedAt: new Date().toISOString() } : null);
+      toast.success('Label saved successfully');
     } catch (error) {
-      console.error('Save error:', error);
-      toast.error('Failed to save document');
+      console.error('Save document error:', error);
+      toast.error('Failed to save label');
+    } finally {
+      setIsLoading(false);
     }
   }, [document]);
 
   const loadUserDocuments = useCallback(async () => {
-    return [];
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { data, error } = await supabase
+        .from('label_templates')
+        .select('id, name, width, height, created_at, updated_at')
+        .eq('user_id', user.id)
+        .order('updated_at', { ascending: false });
+
+      if (error) throw error;
+      
+      return data || [];
+    } catch (error) {
+      console.error('Load user documents error:', error);
+      toast.error('Failed to load documents');
+      return [];
+    }
   }, []);
 
   const loadDataset = useCallback(async (id: string) => {
-    // Simple placeholder
-  }, []);
+    if (id === 'inventory' || id === 'orders') {
+      // Handle in-memory datasets - they will be set directly via setDataset
+      return;
+    }
+    
+    try {
+      const { data, error } = await supabase
+        .from('label_datasets')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error) throw error;
+      
+      const dataset: LabelDataset = {
+        id: data.id,
+        name: data.name,
+        description: data.description || '',
+        headers: Array.isArray(data.headers) ? data.headers.map(h => String(h)) : [],
+        data: Array.isArray(data.data) ? data.data as any[][] : [],
+        rowCount: data.row_count || 0,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+      };
+      
+      setDataset(dataset);
+      
+      if (document) {
+        setDocument(prev => prev ? { ...prev, datasetId: id } : null);
+      }
+    } catch (error) {
+      console.error('Load dataset error:', error);
+      toast.error('Failed to load dataset');
+    }
+  }, [document]);
 
   const setDatasetDirectly = useCallback((newDataset: LabelDataset) => {
     setDataset(newDataset);
-  }, []);
+    
+    if (document) {
+      setDocument(prev => prev ? { ...prev, datasetId: newDataset.id } : null);
+    }
+  }, [document]);
 
   const addElement = useCallback((element: Omit<LabelElement, 'id'>) => {
     if (!document) return;
@@ -174,6 +332,17 @@ export const SimpleLabelDocProvider: React.FC<{ children: React.ReactNode }> = (
     selectElement,
     updateCanvasSize,
   };
+
+  // Auto-save when elements change
+  useEffect(() => {
+    if (document && document.elements.length > 0 && document.id) {
+      const timeoutId = setTimeout(() => {
+        saveDocument();
+      }, 2000); // Auto-save after 2 seconds of inactivity
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [document?.elements, document?.size, document?.id, saveDocument]);
 
   return (
     <LabelDocContext.Provider value={contextValue}>
