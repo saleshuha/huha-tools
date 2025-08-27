@@ -192,7 +192,9 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
       }, 0);
       
       const formatDate = (date: Date) => {
-        return `${date.getDate()}/${date.getMonth() + 1}`;
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        return `${date.getDate()}-${months[date.getMonth()]}`;
       };
       
       const currentWeek = new Date();
@@ -250,13 +252,10 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
         }
       }, 0);
       
-      const paidOrders = weekOrders.filter(o => (o.payment_status || '').toLowerCase() === 'paid').length;
-      
       weeks.unshift({
         label: `${weekStart.getDate()}-${weekStart.toLocaleDateString('en-US', { month: 'short' })} to ${weekEnd.getDate()}-${weekEnd.toLocaleDateString('en-US', { month: 'short' })}`,
         orders: weekOrders.length,
-        value: convertCurrency(weekValue, 'USD', displayCurrency),
-        paid: paidOrders
+        value: convertCurrency(weekValue, 'USD', displayCurrency)
       });
     }
     
@@ -464,9 +463,6 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
                     <span className="text-xs text-muted-foreground">{week.orders} orders</span>
                   </div>
                   <div className="flex flex-col items-end">
-                    <Badge variant={week.paid > 0 ? 'default' : 'outline'} className="text-xs">
-                      {week.paid} paid
-                    </Badge>
                     <span className="text-xs text-muted-foreground font-medium">
                       {formatCurrency(week.value, displayCurrency)}
                     </span>
