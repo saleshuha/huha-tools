@@ -259,9 +259,10 @@ const LabelDesignerContent: React.FC = () => {
       </div>
       <div className="flex flex-col gap-4 p-4">
         <Tabs defaultValue="orders" className="flex-1">
-          <TabsList className="grid w-fit grid-cols-2 mb-4">
+          <TabsList className="grid w-fit grid-cols-3 mb-4">
             <TabsTrigger value="orders">Order Printing</TabsTrigger>
             <TabsTrigger value="eligible">Print Eligible Items</TabsTrigger>
+            <TabsTrigger value="designer">Label Designer</TabsTrigger>
           </TabsList>
           <TabsContent value="orders">
             <DateWiseOrderPrint />
@@ -269,21 +270,22 @@ const LabelDesignerContent: React.FC = () => {
           <TabsContent value="eligible">
             <PrintEligibleItems />
           </TabsContent>
+          <TabsContent value="designer">
+            <div className="flex gap-4 min-h-0 flex-1">
+              <div className="flex-1">
+                <LabelWorkspace />
+              </div>
+              
+              <div className="w-96 space-y-4">
+                <LabelToolbar />
+                <OrderLabelTemplates />
+                <LabelPropertiesPanel />
+                <InventoryDataMapper />
+                <DataPreviewPanel />
+              </div>
+            </div>
+          </TabsContent>
         </Tabs>
-        
-        <div className="flex gap-4 min-h-0 flex-1">
-          <div className="flex-1">
-            <LabelWorkspace />
-          </div>
-          
-          <div className="w-96 space-y-4">
-            <LabelToolbar />
-            <OrderLabelTemplates />
-            <LabelPropertiesPanel />
-            <InventoryDataMapper />
-            <DataPreviewPanel />
-          </div>
-        </div>
       </div>
     </div>
   );
