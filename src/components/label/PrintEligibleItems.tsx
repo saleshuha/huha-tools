@@ -66,7 +66,10 @@ export const PrintEligibleItems: React.FC = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setEligibleItems(data || []);
+      setEligibleItems(data?.map(item => ({
+        ...item,
+        type: item.type as 'ASIN' | 'SKU'
+      })) || []);
     } catch (error) {
       console.error('Error fetching eligible items:', error);
       toast.error('Failed to fetch eligible items');
@@ -143,7 +146,8 @@ export const PrintEligibleItems: React.FC = () => {
         .insert([{
           identifier: newIdentifier.trim().toUpperCase(),
           type: identifierType,
-          is_active: true
+          is_active: true,
+          user_id: (await supabase.auth.getUser()).data.user?.id
         }]);
 
       if (error) throw error;
@@ -173,7 +177,8 @@ export const PrintEligibleItems: React.FC = () => {
       const insertData = items.map(identifier => ({
         identifier,
         type: identifierType,
-        is_active: true
+        is_active: true,
+        user_id: (await supabase.auth.getUser()).data.user?.id
       }));
 
       const { error } = await supabase

@@ -1595,6 +1595,36 @@ export type Database = {
         }
         Relationships: []
       }
+      print_eligible_items: {
+        Row: {
+          created_at: string
+          id: string
+          identifier: string
+          is_active: boolean
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          identifier: string
+          is_active?: boolean
+          type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          identifier?: string
+          is_active?: boolean
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       processed_orders: {
         Row: {
           asin: string | null
