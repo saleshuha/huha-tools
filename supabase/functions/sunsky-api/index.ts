@@ -1452,17 +1452,18 @@ serve(async (req) => {
         try {
           const result = await makeSunskyRequest('/openapi/brand!getAll.do', params, credentials.key, credentials.secret, user.id);
         
-          if (result.result === 'error') {
-            throw new Error(result.messages?.[0] || 'Sunsky API error');
+          if (result.result === 'success' && result.data) {
+            // Normalize response to match frontend expectations
+            return new Response(JSON.stringify({
+              success: true,
+              data: result.data || []
+            }), {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+          } else {
+            // If brands endpoint failed, proceed to fallback
+            throw new Error(result.messages?.[0] || 'Brand endpoint failed');
           }
-
-          // Normalize response to match frontend expectations
-          return new Response(JSON.stringify({
-            success: true,
-            data: result.data || []
-          }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
         } catch (error) {
           console.log('Brand endpoint failed, trying fallback with product search...');
           
