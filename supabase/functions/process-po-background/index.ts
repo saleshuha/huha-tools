@@ -57,6 +57,8 @@ Deno.serve(async (req) => {
     if (action === 'startExport') {
       const { config, availableAPIs } = body
       console.log(`Starting background export for user ${user.id}`)
+      console.log('Received config:', JSON.stringify(config, null, 2))
+      console.log('Received availableAPIs:', JSON.stringify(availableAPIs, null, 2))
       
       // Create both background task and export history records
       const taskId = crypto.randomUUID()

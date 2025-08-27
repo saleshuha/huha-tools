@@ -655,6 +655,12 @@ export const SunskySKUImporter: React.FC = () => {
 
   // Export by status functionality with concurrent API support
   const exportProductsByStatus = async (runInBg: boolean = false) => {
+    console.log(`=== Export Debug ===`);
+    console.log(`runInBg: ${runInBg}`);
+    console.log(`selectedExportStatus: ${selectedExportStatus}`);
+    console.log(`selectedExportAPIs: ${JSON.stringify(selectedExportAPIs)}`);
+    console.log(`availableAPIs: ${JSON.stringify(availableAPIs.map(api => ({id: api.id, name: api.name, is_active: api.is_active})))}`);
+    
     if (!selectedExportStatus) {
       toast({
         title: "Error",
@@ -667,6 +673,8 @@ export const SunskySKUImporter: React.FC = () => {
     // Determine which APIs to use
     const apiIds = selectedExportAPIs.length > 0 ? selectedExportAPIs : 
                    availableAPIs.filter(api => api.is_active).map(api => api.id);
+    
+    console.log(`Determined apiIds: ${JSON.stringify(apiIds)}`);
     
     if (apiIds.length === 0) {
       toast({
@@ -688,6 +696,8 @@ export const SunskySKUImporter: React.FC = () => {
       const api = availableAPIs.find(a => a.id === id);
       return { id, name: api?.name || `API ${id.substring(0, 8)}` };
     });
+    
+    console.log(`API Keys with Names: ${JSON.stringify(apiKeysWithNames)}`);
 
     const exportConfig = {
       status: selectedExportStatus,
@@ -704,9 +714,6 @@ export const SunskySKUImporter: React.FC = () => {
     if (runInBg) {
       // True background processing using edge function
       try {
-        console.log('Starting true background export via edge function...');
-        console.log('Selected API Keys:', apiKeysWithNames);
-        
         const backgroundExportConfig = {
           categoryId: exportSubCategory !== 'all' ? exportSubCategory : exportCategory,
           selectedExportStatus,
@@ -714,6 +721,10 @@ export const SunskySKUImporter: React.FC = () => {
           exportPageSize,
           selectedAPIs: apiKeysWithNames // Include selected APIs in config
         };
+        
+        console.log('Starting true background export via edge function...');
+        console.log('Selected API Keys:', apiKeysWithNames);
+        console.log('Background Export Config:', backgroundExportConfig);
 
         // Start background processing via edge function
         const { data, error } = await supabase.functions.invoke('process-po-background', {
