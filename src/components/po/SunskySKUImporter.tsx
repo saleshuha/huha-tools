@@ -1655,43 +1655,16 @@ export const SunskySKUImporter: React.FC = () => {
         willProcess: modelData.uniqueCount
       });
 
-      // Create import job first
-      const { data: importJob } = await supabase
-        .from('sunsky_import_jobs')
-        .insert({
-          user_id: profile?.id,
-          type: 'po_search',
-          criteria: { 
-            source: 'po_model_numbers', 
-            total_models: modelData.totalCount,
-            unique_models: modelData.uniqueCount,
-            api_keys_used: 3 // Will be updated by background function
-          },
-          status: 'pending',
-          total_items: modelData.uniqueCount,
-          processed_items: 0,
-          success_count: 0,
-          error_count: 0,
-          started_at: new Date().toISOString()
-        })
-        .select()
-        .single();
+      // Create import job using the proper import jobs hook
+      const importJob = await createImportJob('itemNos', {
+        source: 'po_model_numbers',
+        totalModels: modelData.totalCount,
+        uniqueModels: modelData.uniqueCount,
+        modelNumbers: modelData.uniqueModels
+      });
 
       if (!importJob) {
         throw new Error('Failed to create import job');
-      }
-
-      // Start background processing
-      const response = await supabase.functions.invoke('process-po-background', {
-        body: { 
-          action: 'start',
-          jobId: importJob.id,
-          modelData: modelData
-        }
-      });
-
-      if (response.error) {
-        throw new Error('Failed to start background processing');
       }
 
       // Initialize stats for UI
