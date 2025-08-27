@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { LabelDocProvider, useLabelDoc } from '@/contexts/LabelDocContext';
+import React, { useState, createContext, useContext } from 'react';
+import { SimpleLabelDocProvider, useLabelDoc } from '@/contexts/SimpleLabelDocContext';
 import { LabelToolbar } from '@/components/label/LabelToolbar';
 import { LabelWorkspace } from '@/components/label/LabelWorkspace';
 import { LabelPropertiesPanel } from '@/components/label/LabelPropertiesPanel';
@@ -19,8 +19,79 @@ import { LABEL_PRESETS, PrintSettings } from '@/types/label';
 import { Plus, Database, Eye, Download, Printer, FolderOpen } from 'lucide-react';
 import { toast } from 'sonner';
 
+// Error Boundary Component
+class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean, error?: Error}> {
+  constructor(props: {children: React.ReactNode}) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    console.error('Error boundary caught error:', error);
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('Error boundary details:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-4">
+          <h2>Something went wrong with the Label Designer</h2>
+          <p>Error: {this.state.error?.message}</p>
+          <Button onClick={() => this.setState({ hasError: false })}>
+            Try again
+          </Button>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+// Simple test context to verify the mechanism works
+const TestContext = createContext<{ test: string } | null>(null);
+
+const useTestContext = () => {
+  const context = useContext(TestContext);
+  if (!context) {
+    throw new Error('useTestContext must be used within TestProvider');
+  }
+  return context;
+};
+
+const TestProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  console.log('TestProvider rendering');
+  return (
+    <TestContext.Provider value={{ test: 'working' }}>
+      {children}
+    </TestContext.Provider>
+  );
+};
+
+const TestComponent: React.FC = () => {
+  console.log('TestComponent rendering');
+  const { test } = useTestContext();
+  console.log('Test context value:', test);
+  return <div>Test context works: {test}</div>;
+};
+
 const LabelDesignerContent: React.FC = () => {
-  const { document: labelDoc, dataset, createDocument, loadDocument, loadUserDocuments } = useLabelDoc();
+  console.log('LabelDesignerContent component rendering - attempting to use context');
+  
+  let contextData;
+  try {
+    contextData = useLabelDoc();
+    console.log('Successfully got context:', { labelDoc: !!contextData.document, dataset: !!contextData.dataset });
+  } catch (error) {
+    console.error('Error getting context:', error);
+    throw error;
+  }
+  
+  const { document: labelDoc, dataset, createDocument, loadDocument, loadUserDocuments } = contextData;
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showLoadDialog, setShowLoadDialog] = useState(false);
   const [userDocuments, setUserDocuments] = useState<any[]>([]);
@@ -277,10 +348,28 @@ const LabelDesignerContent: React.FC = () => {
 };
 
 const LabelDesigner: React.FC = () => {
+  console.log('LabelDesigner component rendering');
+  
   return (
-    <LabelDocProvider>
-      <LabelDesignerContent />
-    </LabelDocProvider>
+    <ErrorBoundary>
+      <div className="p-4">
+        <h2>Testing Context Setup</h2>
+        
+        {/* Test if basic context works */}
+        <TestProvider>
+          <TestComponent />
+        </TestProvider>
+        
+        {/* Test if LabelDocProvider works */}
+        <div className="mt-4">
+          <h3>LabelDocProvider Test:</h3>
+          <SimpleLabelDocProvider>
+            <div>Provider rendered successfully</div>
+            <LabelDesignerContent />
+          </SimpleLabelDocProvider>
+        </div>
+      </div>
+    </ErrorBoundary>
   );
 };
 

@@ -34,12 +34,14 @@ const LabelDocContext = createContext<LabelDocContextType | null>(null);
 export const useLabelDoc = () => {
   const context = useContext(LabelDocContext);
   if (!context) {
+    console.error('useLabelDoc called outside provider - context is null');
     throw new Error('useLabelDoc must be used within a LabelDocProvider');
   }
   return context;
 };
 
 export const LabelDocProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  console.log('LabelDocProvider rendering');
   const [document, setDocument] = useState<LabelDoc | null>(null);
   const [dataset, setDataset] = useState<LabelDataset | null>(null);
   const [selectedElement, setSelectedElement] = useState<LabelElement | null>(null);
@@ -321,6 +323,8 @@ export const LabelDocProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, [document?.elements, document?.size, saveDocument]);
 
+  console.log('LabelDocProvider providing context');
+  
   return (
     <LabelDocContext.Provider value={{
       document,
