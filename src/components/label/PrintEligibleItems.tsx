@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
-import { Upload, Plus, Trash2 } from 'lucide-react';
+import { Upload, Plus, Trash2, CheckCircle, XCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -197,6 +197,54 @@ export const PrintEligibleItems: React.FC = () => {
     }
   };
 
+  const activateAllItems = async () => {
+    try {
+      setLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      const { error } = await supabase
+        .from('print_eligible_items')
+        .update({ is_active: true })
+        .eq('user_id', user?.id)
+        .eq('is_active', false);
+
+      if (error) throw error;
+
+      // Refresh the current page data
+      await fetchEligibleItems();
+      toast.success('All items activated successfully');
+    } catch (error) {
+      console.error('Error activating all items:', error);
+      toast.error('Failed to activate all items');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deactivateAllItems = async () => {
+    try {
+      setLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      const { error } = await supabase
+        .from('print_eligible_items')
+        .update({ is_active: false })
+        .eq('user_id', user?.id)
+        .eq('is_active', true);
+
+      if (error) throw error;
+
+      // Refresh the current page data
+      await fetchEligibleItems();
+      toast.success('All items deactivated successfully');
+    } catch (error) {
+      console.error('Error deactivating all items:', error);
+      toast.error('Failed to deactivate all items');
+    } finally {
+      setLoading(false);
+    }
+  };
+
 
   const totalPages = Math.ceil(totalItems / itemsPerPage);
 
@@ -321,6 +369,32 @@ export const PrintEligibleItems: React.FC = () => {
           </div>
         </CardHeader>
         <CardContent>
+          {/* Bulk Actions */}
+          <div className="flex gap-2 mb-4 p-3 bg-muted/50 rounded-lg">
+            <div className="flex items-center text-sm font-medium text-muted-foreground mr-4">
+              Bulk Actions:
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={activateAllItems}
+              disabled={loading}
+              className="text-green-600 hover:text-green-700 hover:bg-green-50"
+            >
+              <CheckCircle className="h-4 w-4 mr-2" />
+              Activate All
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={deactivateAllItems}
+              disabled={loading}
+              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+            >
+              <XCircle className="h-4 w-4 mr-2" />
+              Deactivate All
+            </Button>
+          </div>
           
           <div className="rounded-md border">
             <Table>
