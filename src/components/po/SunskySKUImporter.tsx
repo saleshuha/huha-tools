@@ -713,6 +713,16 @@ export const SunskySKUImporter: React.FC = () => {
 
     if (runInBg) {
       // True background processing using edge function
+      console.log('🚀 ENTERING BACKGROUND PROCESSING MODE');
+      console.log('Background processing config:', { 
+        exportSubCategory, 
+        exportCategory, 
+        selectedExportStatus, 
+        selectedExportColumns, 
+        exportPageSize,
+        apiKeysWithNames 
+      });
+      
       try {
         const backgroundExportConfig = {
           categoryId: exportSubCategory !== 'all' ? exportSubCategory : exportCategory,
@@ -3427,8 +3437,13 @@ export const SunskySKUImporter: React.FC = () => {
                 
                 {runInBackground && (
                   <Button 
-                    onClick={() => exportProductsByStatus(true)} 
-                   disabled={isExporting || isConcurrentExporting || !hasCredentials}
+                    onClick={() => {
+                      console.log('Run in Background button clicked!');
+                      console.log('hasCredentials:', hasCredentials);
+                      console.log('selectedExportAPIs:', selectedExportAPIs);
+                      exportProductsByStatus(true);
+                    }} 
+                    disabled={isExporting || isConcurrentExporting || !hasCredentials}
                     variant="secondary"
                   >
                     <Play className="h-4 w-4 mr-2" />
