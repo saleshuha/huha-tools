@@ -116,178 +116,143 @@ async function processModelNumbersBackground(supabaseClient: any, userId: string
       })
       .eq('id', jobId)
 
-    // Chunk model numbers across API keys
-    const chunkSize = Math.ceil(uniqueModelNumbers.length / activeKeys.length)
-    const chunks = []
-    
-    for (let i = 0; i < activeKeys.length; i++) {
-      const start = i * chunkSize
-      const end = Math.min(start + chunkSize, uniqueModelNumbers.length)
-      if (start < uniqueModelNumbers.length) {
-        chunks.push({
-          apiKey: activeKeys[i],
-          modelNumbers: uniqueModelNumbers.slice(start, end),
-          chunkIndex: i
-        })
-      }
-    }
-
+    // Process items sequentially instead of parallel to avoid coordination issues
     let totalProcessed = 0
     let totalSuccess = 0
     let totalErrors = 0
+    let currentApiKeyIndex = 0
 
-    // Process chunks in parallel
-    const processChunk = async (chunk: any) => {
-      const { apiKey, modelNumbers, chunkIndex } = chunk
-      let chunkSuccess = 0
-      let chunkErrors = 0
+    for (const modelNumber of uniqueModelNumbers) {
+      try {
+        // Use round-robin API key selection
+        const apiKey = activeKeys[currentApiKeyIndex % activeKeys.length]
+        currentApiKeyIndex++
 
-      for (const modelNumber of modelNumbers) {
-        try {
-          let productToImport = null
+        let productToImport = null
 
-          // Try direct lookup first
-          if (modelNumber.match(/^[A-Z0-9]{6,}$/i)) {
-            try {
-              const detailResponse = await callSunskyAPI('getProductDetails', {
-                itemNo: modelNumber,
-                apiId: apiKey.id
-              }, apiKey)
-              
-              if (detailResponse?.result === 'success' && detailResponse.data) {
-                productToImport = detailResponse.data
-              }
-            } catch (error) {
-              // Ignore "not found" errors, try search instead
+        // Try direct lookup first
+        if (modelNumber.match(/^[A-Z0-9]{6,}$/i)) {
+          try {
+            const detailResponse = await callSunskyAPI('getProductDetails', {
+              itemNo: modelNumber,
+              apiId: apiKey.id
+            }, apiKey)
+            
+            if (detailResponse?.result === 'success' && detailResponse.data) {
+              productToImport = detailResponse.data
             }
+          } catch (error) {
+            // Ignore "not found" errors, try search instead
           }
+        }
 
-          // Try search if no direct match
-          if (!productToImport) {
-            try {
-              const searchResponse = await callSunskyAPI('searchProducts', {
-                keyword: modelNumber,
-                page: 1,
-                pageSize: 10,
-                apiId: apiKey.id
-              }, apiKey)
+        // Try search if no direct match
+        if (!productToImport) {
+          try {
+            const searchResponse = await callSunskyAPI('searchProducts', {
+              keyword: modelNumber,
+              page: 1,
+              pageSize: 10,
+              apiId: apiKey.id
+            }, apiKey)
 
-              if (searchResponse?.result === 'success' && searchResponse.data?.products?.length > 0) {
-                const normalizedSearch = modelNumber.trim().toLowerCase().replace(/[-_\s]/g, '')
+            if (searchResponse?.result === 'success' && searchResponse.data?.products?.length > 0) {
+              const normalizedSearch = modelNumber.trim().toLowerCase().replace(/[-_\s]/g, '')
+              
+              for (const product of searchResponse.data.products) {
+                const normalizedItem = (product.itemNo || '').trim().toLowerCase().replace(/[-_\s]/g, '')
+                const normalizedName = (product.name || '').trim().toLowerCase().replace(/[-_\s]/g, '')
                 
-                for (const product of searchResponse.data.products) {
-                  const normalizedItem = (product.itemNo || '').trim().toLowerCase().replace(/[-_\s]/g, '')
-                  const normalizedName = (product.name || '').trim().toLowerCase().replace(/[-_\s]/g, '')
+                if (normalizedItem === normalizedSearch || 
+                    normalizedName.includes(normalizedSearch) ||
+                    normalizedSearch.includes(normalizedItem)) {
                   
-                  if (normalizedItem === normalizedSearch || 
-                      normalizedName.includes(normalizedSearch) ||
-                      normalizedSearch.includes(normalizedItem)) {
-                    
-                    const detailResponse = await callSunskyAPI('getProductDetails', {
-                      itemNo: product.itemNo,
-                      apiId: apiKey.id
-                    }, apiKey)
+                  const detailResponse = await callSunskyAPI('getProductDetails', {
+                    itemNo: product.itemNo,
+                    apiId: apiKey.id
+                  }, apiKey)
 
-                    if (detailResponse?.result === 'success' && detailResponse.data) {
-                      productToImport = detailResponse.data
-                      break
-                    }
+                  if (detailResponse?.result === 'success' && detailResponse.data) {
+                    productToImport = detailResponse.data
+                    break
                   }
                 }
               }
-            } catch (error) {
-              console.log(`Search failed for ${modelNumber}:`, error)
             }
+          } catch (error) {
+            console.log(`Search failed for ${modelNumber}:`, error)
           }
-          
-          if (productToImport) {
-            // Import SKU
-            const { error } = await supabaseClient
-              .from('sunsky_skus')
-              .upsert({
-                user_id: userId,
+        }
+        
+        if (productToImport) {
+          // Import SKU
+          const { error } = await supabaseClient
+            .from('sunsky_skus')
+            .upsert({
+              user_id: userId,
+              sku_code: productToImport.itemNo,
+              title: productToImport.name || '',
+              cost: productToImport.convertedPrice || parseFloat(productToImport.price || '0') || 0,
+              weight: productToImport.unitWeight ? parseFloat(productToImport.unitWeight) : 0,
+              currency: productToImport.convertedCurrency || 'USD',
+              country: userCountry, // Use user's actual country
+              product_data: productToImport
+            }, {
+              onConflict: 'user_id,sku_code',
+              ignoreDuplicates: false
+            })
+
+          if (!error) {
+            totalSuccess++
+            
+            // Update PO orders
+            await supabaseClient
+              .from('po_orders')
+              .update({
                 sku_code: productToImport.itemNo,
                 title: productToImport.name || '',
-                cost: productToImport.convertedPrice || parseFloat(productToImport.price || '0') || 0,
-                weight: productToImport.unitWeight ? parseFloat(productToImport.unitWeight) : 0,
-                currency: productToImport.convertedCurrency || 'USD',
-                country: userCountry, // Use user's actual country
-                product_data: productToImport
-              }, {
-                onConflict: 'user_id,sku_code',
-                ignoreDuplicates: false
+                unit_cost: productToImport.convertedPrice || parseFloat(productToImport.price || '0') || 0,
+                external_id: productToImport.itemNo,
+                external_id_type: 'sunsky'
               })
-
-            if (!error) {
-              chunkSuccess++
-              
-              // Update PO orders
-              await supabaseClient
-                .from('po_orders')
-                .update({
-                  sku_code: productToImport.itemNo,
-                  title: productToImport.name || '',
-                  unit_cost: productToImport.convertedPrice || parseFloat(productToImport.price || '0') || 0,
-                  external_id: productToImport.itemNo,
-                  external_id_type: 'sunsky'
-                })
-                .eq('user_id', userId)
-                .eq('model_number', modelNumber)
-            } else {
-              chunkErrors++
-              console.error(`Failed to upsert SKU ${productToImport.itemNo}:`, error)
-            }
+              .eq('user_id', userId)
+              .eq('model_number', modelNumber)
           } else {
-            // No product found
-            chunkErrors++
-            console.log(`No product found for model: ${modelNumber}`)
+            totalErrors++
+            console.error(`Failed to upsert SKU ${productToImport.itemNo}:`, error)
           }
-
-          totalProcessed++
-          
-          // Update job progress every 5 items or on final items
-          if (totalProcessed % 5 === 0 || totalProcessed === uniqueModelNumbers.length) {
-            await supabaseClient
-              .from('sunsky_import_jobs')
-              .update({
-                processed_items: totalProcessed,
-                success_count: totalSuccess + chunkSuccess,
-                error_count: totalErrors + chunkErrors,
-                updated_at: new Date().toISOString()
-              })
-              .eq('id', jobId)
-          }
-
-          // Small delay to avoid overwhelming the API
-          await new Promise(resolve => setTimeout(resolve, 100))
-
-        } catch (error) {
-          console.error(`Error processing ${modelNumber}:`, error.message || error)
-          // Log the specific error to help with debugging
-          if (error.message?.includes('NO_PERMISSION_DUE_TO_SIGNATURE')) {
-            console.error(`Signature error for ${modelNumber} - API authentication failed`)
-          } else if (error.message?.includes('HTTP error')) {
-            console.error(`HTTP error for ${modelNumber} - API request failed`)
-          } else {
-            console.error(`Unknown error for ${modelNumber}:`, error)
-          }
-          chunkErrors++
-          totalProcessed++
+        } else {
+          // No product found
+          totalErrors++
+          console.log(`No product found for model: ${modelNumber}`)
         }
-      }
 
-      return { chunkSuccess, chunkErrors }
+        totalProcessed++
+        
+        // Update job progress every 5 items or on final items
+        if (totalProcessed % 5 === 0 || totalProcessed === uniqueModelNumbers.length) {
+          await supabaseClient
+            .from('sunsky_import_jobs')
+            .update({
+              processed_items: totalProcessed,
+              success_count: totalSuccess,
+              error_count: totalErrors,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', jobId)
+        }
+
+        // Small delay to avoid overwhelming the API
+        await new Promise(resolve => setTimeout(resolve, 100))
+
+      } catch (error) {
+        console.error(`Error processing ${modelNumber}:`, error.message || error)
+        totalErrors++
+        totalProcessed++
+      }
     }
 
-    // Run all chunks in parallel
-    const results = await Promise.all(chunks.map(processChunk))
-    
-    // Calculate final totals
-    totalSuccess = results.reduce((sum, r) => sum + r.chunkSuccess, 0)
-    totalErrors = results.reduce((sum, r) => sum + r.chunkErrors, 0)
-    totalProcessed = uniqueModelNumbers.length // Ensure we have the correct total
-
-    // Force final progress update before completion
+    // Final progress update
     await supabaseClient
       .from('sunsky_import_jobs')
       .update({
