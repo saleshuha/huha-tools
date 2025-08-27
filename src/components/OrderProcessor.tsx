@@ -95,6 +95,9 @@ export function OrderProcessor() {
   // Load all imported orders from database, ordered by date
   useEffect(() => {
     const loadAllOrders = async () => {
+      console.log('Loading orders from database...');
+      setLoading(true);
+      
       const { data, error } = await supabase
         .from('order_imports')
         .select('*')
@@ -103,7 +106,9 @@ export function OrderProcessor() {
       
       if (error) {
         console.error('Error loading imported orders:', error);
+        setLoading(false);
       } else {
+        console.log(`Loaded ${data?.length || 0} orders from database`);
         const formattedOrders: OrderItem[] = (data || []).map((order: any) => ({
           orderId: order.order_id || '',
           orderStatus: order.order_status || '',
@@ -134,9 +139,14 @@ export function OrderProcessor() {
         
         setOrderData(formattedOrders);
         setAllOrders(formattedOrders);
+        
         if (formattedOrders.length > 0) {
+          console.log('Matching orders with inventory...');
           await matchOrdersWithInventory(formattedOrders);
         }
+        
+        setLoading(false);
+        console.log('Orders loading complete');
       }
     };
     
@@ -339,6 +349,7 @@ export function OrderProcessor() {
   };
 
   const matchOrdersWithInventory = async (orders: OrderItem[]) => {
+    console.log(`Starting to match ${orders.length} orders with inventory...`);
     const matches: MatchedItem[] = [];
     
     for (const order of orders) {
@@ -386,15 +397,6 @@ export function OrderProcessor() {
         }
       }
 
-      // Update match status in database
-      await updateOrderMatchStatus(
-        order.orderId, 
-        !!inventoryMatch, 
-        inventoryType, 
-        matchType, 
-        inventoryMatch?.id
-      );
-
       const match: MatchedItem = {
         orderItem: order,
         inventoryMatch,
@@ -405,6 +407,7 @@ export function OrderProcessor() {
       matches.push(match);
     }
     
+    console.log(`Found ${matches.filter(m => m.inventoryMatch).length} matches out of ${matches.length} orders`);
     setMatchedItems(matches);
     return matches;
   };
