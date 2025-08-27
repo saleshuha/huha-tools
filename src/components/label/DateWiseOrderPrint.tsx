@@ -37,6 +37,7 @@ export const DateWiseOrderPrint: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [dateRange, setDateRange] = useState<'today' | 'week' | 'month' | 'custom'>('today');
   const [endDate, setEndDate] = useState<Date>(new Date());
+  const [dateFilterType, setDateFilterType] = useState<'upload_date' | 'order_date'>('upload_date');
   const [orders, setOrders] = useState<OrderToProcess[]>([]);
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -65,7 +66,7 @@ export const DateWiseOrderPrint: React.FC = () => {
   useEffect(() => {
     fetchOrders();
     initializeQZ();
-  }, [selectedDate, dateRange, endDate, statusFilter]);
+  }, [selectedDate, dateRange, endDate, statusFilter, dateFilterType]);
 
   const initializeQZ = async () => {
     try {
@@ -124,13 +125,30 @@ export const DateWiseOrderPrint: React.FC = () => {
           break;
       }
 
-      // Fetch all orders from database for label processing
-      const { data, error } = await supabase
+      // Determine the date field to filter by based on selection
+      const dateField = dateFilterType === 'order_date' ? 'order_place_date' : 'created_at';
+      
+      // Build the query with dynamic date filtering
+      let query = supabase
         .from('order_imports')
         .select('id, order_id, asin, sku, item_title, item_quantity, order_place_date, order_status, has_inventory_match, source_file, created_at')
-        .gte('created_at', startDate.toISOString())
-        .lte('created_at', queryEndDate.toISOString())
         .order('created_at', { ascending: false });
+
+      // Apply date filtering based on selected type
+      if (dateFilterType === 'order_date') {
+        // Filter by order_place_date (only orders with valid order dates)
+        query = query
+          .not('order_place_date', 'is', null)
+          .gte('order_place_date', startDate.toISOString().split('T')[0])
+          .lte('order_place_date', queryEndDate.toISOString().split('T')[0]);
+      } else {
+        // Filter by created_at (upload date)
+        query = query
+          .gte('created_at', startDate.toISOString())
+          .lte('created_at', queryEndDate.toISOString());
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error('Error fetching orders:', error);
@@ -146,7 +164,9 @@ export const DateWiseOrderPrint: React.FC = () => {
         product_title: order.item_title || order.sku || order.asin || 'Unknown Product',
         quantity: order.item_quantity || 1,
         order_number: order.order_id || '',
-        order_date: format(new Date(order.created_at), 'MMM dd, yyyy HH:mm'),
+        order_date: dateFilterType === 'order_date' && order.order_place_date 
+          ? format(new Date(order.order_place_date), 'MMM dd, yyyy')
+          : format(new Date(order.created_at), 'MMM dd, yyyy HH:mm'),
         status: order.order_status || 'pending',
         has_match: order.has_inventory_match || false,
       }));
@@ -584,6 +604,19 @@ export const DateWiseOrderPrint: React.FC = () => {
       <CardContent className="space-y-4">
         {/* Date Selection */}
         <div className="grid grid-cols-1 gap-4">
+          <div>
+            <Label>Filter By</Label>
+            <Select value={dateFilterType} onValueChange={(value: any) => setDateFilterType(value)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="upload_date">Upload Date (when orders were imported)</SelectItem>
+                <SelectItem value="order_date">Order Date (when orders were placed)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
           <div>
             <Label>Date Range</Label>
             <Select value={dateRange} onValueChange={(value: any) => setDateRange(value)}>
