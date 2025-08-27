@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface BackgroundTask {
   id: string;
@@ -66,6 +67,52 @@ export function BackgroundTasksProvider({ children }: { children: React.ReactNod
   const taskIdCounter = useRef(0);
   const cancellationFlags = useRef<Map<string, boolean>>(new Map());
 
+  // Load persisted tasks from database on mount
+  useEffect(() => {
+    const loadPersistedTasks = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        // Load active tasks and recently completed tasks (last 24 hours)
+        const oneDayAgo = new Date();
+        oneDayAgo.setDate(oneDayAgo.getDate() - 1);
+
+        const { data, error } = await supabase
+          .from('background_tasks')
+          .select('*')
+          .eq('user_id', user.id)
+          .or(`status.in.(processing,pending),and(status.in.(completed,error,cancelled),created_at.gte.${oneDayAgo.toISOString()})`)
+          .order('created_at', { ascending: false })
+          .limit(20);
+
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          const persistedTasks: BackgroundTask[] = data.map(dbTask => ({
+            id: dbTask.id,
+            type: dbTask.type as BackgroundTask['type'],
+            name: `${dbTask.type} - ${(dbTask.metadata as any)?.exportType || 'Task'}`,
+            progress: dbTask.progress || 0,
+            status: dbTask.status as BackgroundTask['status'],
+            totalItems: dbTask.total_items || 0,
+            processedItems: dbTask.processed_items || 0,
+            startTime: new Date(dbTask.created_at),
+            endTime: dbTask.completed_at ? new Date(dbTask.completed_at) : undefined,
+            canCancel: dbTask.status === 'processing' || dbTask.status === 'pending',
+            metadata: (dbTask.metadata as any) || {}
+          }));
+
+          setTasks(persistedTasks);
+        }
+      } catch (error) {
+        console.error('Failed to load persisted tasks:', error);
+      }
+    };
+
+    loadPersistedTasks();
+  }, []);
+
   const addTask = useCallback((task: Omit<BackgroundTask, 'id' | 'startTime'>) => {
     const id = `task_${Date.now()}_${++taskIdCounter.current}`;
     const newTask: BackgroundTask = {
@@ -73,6 +120,27 @@ export function BackgroundTasksProvider({ children }: { children: React.ReactNod
       id,
       startTime: new Date(),
     };
+    
+    // Persist to database (async but don't wait)
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase.from('background_tasks').insert({
+            id: newTask.id,
+            user_id: user.id,
+            type: newTask.type,
+            status: newTask.status,
+            progress: newTask.progress,
+            total_items: newTask.totalItems,
+            processed_items: newTask.processedItems,
+            metadata: newTask.metadata || {}
+          });
+        }
+      } catch (error) {
+        console.error('Failed to persist task to database:', error);
+      }
+    })();
     
     setTasks(prev => [...prev, newTask]);
     return id;
@@ -82,11 +150,39 @@ export function BackgroundTasksProvider({ children }: { children: React.ReactNod
     setTasks(prev => prev.map(task => 
       task.id === id ? { ...task, ...updates } : task
     ));
+
+    // Update database (async but don't wait)
+    (async () => {
+      try {
+        const updateData: any = {};
+        if (updates.status) updateData.status = updates.status;
+        if (updates.progress !== undefined) updateData.progress = updates.progress;
+        if (updates.processedItems !== undefined) updateData.processed_items = updates.processedItems;
+        if (updates.endTime) updateData.completed_at = updates.endTime.toISOString();
+        if (updates.metadata) updateData.metadata = updates.metadata;
+
+        await supabase
+          .from('background_tasks')
+          .update(updateData)
+          .eq('id', id);
+      } catch (error) {
+        console.error('Failed to update task in database:', error);
+      }
+    })();
   }, []);
 
   const removeTask = useCallback((id: string) => {
     setTasks(prev => prev.filter(task => task.id !== id));
     cancellationFlags.current.delete(id);
+
+    // Remove from database (async but don't wait)
+    (async () => {
+      try {
+        await supabase.from('background_tasks').delete().eq('id', id);
+      } catch (error) {
+        console.error('Failed to remove task from database:', error);
+      }
+    })();
   }, []);
 
   const cancelTask = useCallback((id: string) => {
@@ -99,10 +195,28 @@ export function BackgroundTasksProvider({ children }: { children: React.ReactNod
   }, [updateTask]);
 
   const clearCompletedTasks = useCallback(() => {
+    const completedTaskIds = tasks
+      .filter(task => task.status === 'completed' || task.status === 'error')
+      .map(task => task.id);
+
     setTasks(prev => prev.filter(task => 
       task.status !== 'completed' && task.status !== 'error'
     ));
-  }, []);
+
+    // Remove completed tasks from database (async but don't wait)
+    if (completedTaskIds.length > 0) {
+      (async () => {
+        try {
+          await supabase
+            .from('background_tasks')
+            .delete()
+            .in('id', completedTaskIds);
+        } catch (error) {
+          console.error('Failed to remove completed tasks from database:', error);
+        }
+      })();
+    }
+  }, [tasks]);
 
   const activeTasks = tasks.filter(task => 
     task.status === 'pending' || task.status === 'processing'
