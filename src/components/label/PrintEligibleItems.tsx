@@ -102,7 +102,7 @@ export const PrintEligibleItems: React.FC = () => {
         .from('print_eligible_items')
         .insert([{
           identifier: newIdentifier.trim().toUpperCase(),
-          type: identifierType,
+          type: identifierType.toLowerCase(),
           is_active: true,
           user_id: user?.id
         }]);
@@ -136,7 +136,7 @@ export const PrintEligibleItems: React.FC = () => {
       
       const insertData = items.map(identifier => ({
         identifier,
-        type: identifierType,
+        type: identifierType.toLowerCase(),
         is_active: true,
         user_id: user?.id
       }));
