@@ -3453,9 +3453,8 @@ export const SunskySKUImporter: React.FC = () => {
                     console.log('🔥🔥🔥 RUN IN BACKGROUND BUTTON CLICKED!!!');
                     console.log('Button event triggered successfully');
                     console.log('runInBackground state:', runInBackground);
-                    console.log('Button disabled?:', isExporting || isConcurrentExporting || !hasCredentials);
-                    console.log('isExporting:', isExporting);
-                    console.log('isConcurrentExporting:', isConcurrentExporting); 
+                    console.log('Button disabled?:', !runInBackground || !hasCredentials);
+                    console.log('runInBackground:', runInBackground);
                     console.log('hasCredentials:', hasCredentials);
                     
                     try {
