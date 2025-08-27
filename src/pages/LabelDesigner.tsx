@@ -20,9 +20,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { LABEL_PRESETS, PrintSettings } from '@/types/label';
 import { Plus, Database, Eye, Download, Printer, FolderOpen } from 'lucide-react';
 import { toast } from 'sonner';
-
 const LabelDesignerContent: React.FC = () => {
-  const { document: labelDoc, dataset, createDocument, loadDocument, loadUserDocuments } = useLabelDoc();
+  const {
+    document: labelDoc,
+    dataset,
+    createDocument,
+    loadDocument,
+    loadUserDocuments
+  } = useLabelDoc();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showLoadDialog, setShowLoadDialog] = useState(false);
   const [userDocuments, setUserDocuments] = useState<any[]>([]);
@@ -39,26 +44,27 @@ const LabelDesignerContent: React.FC = () => {
     copies: 1,
     labelsPerPage: 4,
     margin: 10,
-    darkness: 10, // Default Zebra print darkness
+    darkness: 10 // Default Zebra print darkness
   });
-
   const handleCreateLabel = async () => {
     if (!newLabelName.trim()) {
       toast.error('Please enter a label name');
       return;
     }
-    
     let labelSize;
     if (isCustomSize) {
       if (customWidth <= 0 || customHeight <= 0) {
         toast.error('Please enter valid dimensions (greater than 0)');
         return;
       }
-      labelSize = { width: customWidth, height: customHeight, unit: 'mm' as const };
+      labelSize = {
+        width: customWidth,
+        height: customHeight,
+        unit: 'mm' as const
+      };
     } else {
       labelSize = LABEL_PRESETS[selectedPreset];
     }
-    
     await createDocument(newLabelName, labelSize);
     setShowCreateDialog(false);
     setNewLabelName('');
@@ -66,7 +72,6 @@ const LabelDesignerContent: React.FC = () => {
     setCustomWidth(100);
     setCustomHeight(50);
   };
-
   const handlePreview = async () => {
     if (!labelDoc) return;
     const html = PrintService.generateHTMLPreview(labelDoc, dataset);
@@ -76,7 +81,6 @@ const LabelDesignerContent: React.FC = () => {
       newWindow.document.close();
     }
   };
-
   const handleExportPDF = async () => {
     if (!labelDoc) return;
     try {
@@ -92,38 +96,30 @@ const LabelDesignerContent: React.FC = () => {
       toast.error('Failed to export PDF');
     }
   };
-
   const handleLoadDocuments = async () => {
     const docs = await loadUserDocuments();
     setUserDocuments(docs);
     setShowLoadDialog(true);
   };
-
   const handleLoadDocument = async (id: string) => {
     await loadDocument(id);
     setShowLoadDialog(false);
   };
-
-  return (
-    <div className="h-screen flex flex-col bg-background">
+  return <div className="h-screen flex flex-col bg-background">
       <div className="border-b bg-card p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <h1 className="text-2xl font-bold">Label Designer & Printer</h1>
-            {labelDoc && (
-              <div className="flex items-center gap-2">
+            {labelDoc && <div className="flex items-center gap-2">
                 <Badge variant="outline">{labelDoc.name}</Badge>
                 <Badge variant="secondary">
                   {labelDoc.size.width}×{labelDoc.size.height}mm
                 </Badge>
-                {dataset && (
-                  <Badge variant="secondary">
+                {dataset && <Badge variant="secondary">
                     <Database className="h-3 w-3 mr-1" />
                     {dataset.name} ({dataset.rowCount} rows)
-                  </Badge>
-                )}
-              </div>
-            )}
+                  </Badge>}
+              </div>}
           </div>
           <div className="flex items-center gap-2">
             <Dialog open={showLoadDialog} onOpenChange={setShowLoadDialog}>
@@ -138,26 +134,16 @@ const LabelDesignerContent: React.FC = () => {
                   <DialogTitle>Load Existing Label</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 pt-4">
-                  {userDocuments.length === 0 ? (
-                    <p className="text-muted-foreground">No saved labels found.</p>
-                  ) : (
-                    <div className="space-y-2 max-h-60 overflow-y-auto">
-                      {userDocuments.map((doc) => (
-                        <div
-                          key={doc.id}
-                          className="flex justify-between items-center p-3 border rounded-lg hover:bg-muted cursor-pointer"
-                          onClick={() => handleLoadDocument(doc.id)}
-                        >
+                  {userDocuments.length === 0 ? <p className="text-muted-foreground">No saved labels found.</p> : <div className="space-y-2 max-h-60 overflow-y-auto">
+                      {userDocuments.map(doc => <div key={doc.id} className="flex justify-between items-center p-3 border rounded-lg hover:bg-muted cursor-pointer" onClick={() => handleLoadDocument(doc.id)}>
                           <div>
                             <h4 className="font-medium">{doc.name}</h4>
                             <p className="text-sm text-muted-foreground">
                               {doc.width}×{doc.height}mm • {new Date(doc.updated_at).toLocaleDateString()}
                             </p>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                        </div>)}
+                    </div>}
                 </div>
               </DialogContent>
             </Dialog>
@@ -176,34 +162,25 @@ const LabelDesignerContent: React.FC = () => {
                 <div className="space-y-4 pt-4">
                   <div>
                     <Label>Label Name</Label>
-                    <Input
-                      value={newLabelName}
-                      onChange={(e) => setNewLabelName(e.target.value)}
-                      placeholder="Enter label name"
-                    />
+                    <Input value={newLabelName} onChange={e => setNewLabelName(e.target.value)} placeholder="Enter label name" />
                   </div>
                   <div>
                     <Label>Size Preset</Label>
-                    <Select 
-                      value={isCustomSize ? 'custom' : selectedPreset} 
-                      onValueChange={(value) => {
-                        if (value === 'custom') {
-                          setIsCustomSize(true);
-                        } else {
-                          setIsCustomSize(false);
-                          setSelectedPreset(value);
-                        }
-                      }}
-                    >
+                    <Select value={isCustomSize ? 'custom' : selectedPreset} onValueChange={value => {
+                    if (value === 'custom') {
+                      setIsCustomSize(true);
+                    } else {
+                      setIsCustomSize(false);
+                      setSelectedPreset(value);
+                    }
+                  }}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="bg-background border shadow-md z-50">
-                        {Object.entries(LABEL_PRESETS).map(([key, preset]) => (
-                          <SelectItem key={key} value={key}>
+                        {Object.entries(LABEL_PRESETS).map(([key, preset]) => <SelectItem key={key} value={key}>
                             {key} ({preset.width}×{preset.height}mm)
-                          </SelectItem>
-                        ))}
+                          </SelectItem>)}
                         <SelectItem value="custom">
                           Custom Size
                         </SelectItem>
@@ -211,32 +188,16 @@ const LabelDesignerContent: React.FC = () => {
                     </Select>
                   </div>
                   
-                  {isCustomSize && (
-                    <div className="grid grid-cols-2 gap-4">
+                  {isCustomSize && <div className="grid grid-cols-2 gap-4">
                       <div>
                         <Label>Width (mm)</Label>
-                        <Input
-                          type="number"
-                          value={customWidth}
-                          onChange={(e) => setCustomWidth(Number(e.target.value))}
-                          placeholder="Width"
-                          min="1"
-                          max="500"
-                        />
+                        <Input type="number" value={customWidth} onChange={e => setCustomWidth(Number(e.target.value))} placeholder="Width" min="1" max="500" />
                       </div>
                       <div>
                         <Label>Height (mm)</Label>
-                        <Input
-                          type="number"
-                          value={customHeight}
-                          onChange={(e) => setCustomHeight(Number(e.target.value))}
-                          placeholder="Height"
-                          min="1"
-                          max="500"
-                        />
+                        <Input type="number" value={customHeight} onChange={e => setCustomHeight(Number(e.target.value))} placeholder="Height" min="1" max="500" />
                       </div>
-                    </div>
-                  )}
+                    </div>}
                   <div className="flex justify-end gap-2">
                     <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
                       Cancel
@@ -246,14 +207,12 @@ const LabelDesignerContent: React.FC = () => {
                 </div>
               </DialogContent>
             </Dialog>
-            {labelDoc && (
-              <>
+            {labelDoc && <>
                 <Button variant="outline" size="sm" onClick={handlePreview}>
                   <Eye className="h-4 w-4 mr-2" />
                   Preview
                 </Button>
-              </>
-            )}
+              </>}
           </div>
         </div>
       </div>
@@ -272,29 +231,16 @@ const LabelDesignerContent: React.FC = () => {
         </Tabs>
         
         <div className="flex gap-4 min-h-0 flex-1">
-          <div className="flex-1">
-            <LabelWorkspace />
-          </div>
           
-          <div className="w-96 space-y-4">
-            <LabelToolbar />
-            <OrderLabelTemplates />
-            <LabelPropertiesPanel />
-            <InventoryDataMapper />
-            <DataPreviewPanel />
-          </div>
+          
+          
         </div>
       </div>
-    </div>
-  );
+    </div>;
 };
-
 const LabelDesigner: React.FC = () => {
-  return (
-    <SimpleLabelDocProvider>
+  return <SimpleLabelDocProvider>
       <LabelDesignerContent />
-    </SimpleLabelDocProvider>
-  );
+    </SimpleLabelDocProvider>;
 };
-
 export default LabelDesigner;
