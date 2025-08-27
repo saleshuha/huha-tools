@@ -3049,6 +3049,16 @@ export type Database = {
           table_name: string
         }[]
       }
+      get_job_item_stats: {
+        Args: { job_id_param: string }
+        Returns: {
+          completed: number
+          errors: number
+          pending: number
+          processing: number
+          total: number
+        }[]
+      }
       get_noon_sales_upload_summary: {
         Args: { country_filter?: string }
         Returns: {

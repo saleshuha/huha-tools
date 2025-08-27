@@ -184,7 +184,7 @@ export const SunskySKUImporter: React.FC = () => {
   const { addTask, updateTask, cancelTask, isTaskCancelled, runConcurrentExport } = useBackgroundTasks();
   const { profile } = useUserProfile();
   const { sunskySKUs, isLoading: skusLoading, fetchSKUs, totalCount, refreshSKUs, addSKUs } = useSKUManager();
-  const { jobs, isLoading: jobsLoading, createImportJob, fetchJobs } = useImportJobs();
+  const { jobs, isLoading: jobsLoading, createImportJob, resumeImportJob, retryFailedItems, fetchJobs } = useImportJobs();
   const { getPOModelNumbers } = usePOOrders();
   const { addExportEntry, updateExportEntry, exportHistory: savedExportHistory } = useExportHistory();
   const { 
@@ -2612,6 +2612,35 @@ export const SunskySKUImporter: React.FC = () => {
                                 >
                                   <XCircle className="h-4 w-4" />
                                 </Button>
+                              )}
+                              
+                              {job.status === 'failed' && (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      resumeImportJob(job.id);
+                                    }}
+                                    className="text-blue-600 hover:bg-blue-50"
+                                  >
+                                    <RefreshCw className="h-4 w-4" />
+                                    Resume
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      retryFailedItems(job.id);
+                                    }}
+                                    className="text-green-600 hover:bg-green-50"
+                                  >
+                                    <RotateCcw className="h-4 w-4" />
+                                    Retry Failed
+                                  </Button>
+                                </>
                               )}
                               
                               <div className="text-xs text-muted-foreground text-right">
