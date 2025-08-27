@@ -27,6 +27,10 @@ interface LabelDocContextType {
   
   // Canvas operations
   updateCanvasSize: (size: LabelSize) => void;
+  
+  // Alignment operations
+  alignElements: (alignment: 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom') => void;
+  distributeElements: (direction: 'horizontal' | 'vertical') => void;
 }
 
 const LabelDocContext = createContext<LabelDocContextType | null>(null);
@@ -314,6 +318,126 @@ export const SimpleLabelDocProvider: React.FC<{ children: React.ReactNode }> = (
     } : null);
   }, [document]);
 
+  const alignElements = useCallback((alignment: 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom') => {
+    if (!document || document.elements.length < 2) return;
+    
+    const elements = document.elements;
+    let referenceValue: number;
+    
+    // Calculate reference point based on alignment type
+    switch (alignment) {
+      case 'left':
+        referenceValue = Math.min(...elements.map(el => el.x));
+        break;
+      case 'right':
+        referenceValue = Math.max(...elements.map(el => el.x + el.width));
+        break;
+      case 'center':
+        const leftmost = Math.min(...elements.map(el => el.x));
+        const rightmost = Math.max(...elements.map(el => el.x + el.width));
+        referenceValue = (leftmost + rightmost) / 2;
+        break;
+      case 'top':
+        referenceValue = Math.min(...elements.map(el => el.y));
+        break;
+      case 'bottom':
+        referenceValue = Math.max(...elements.map(el => el.y + el.height));
+        break;
+      case 'middle':
+        const topmost = Math.min(...elements.map(el => el.y));
+        const bottommost = Math.max(...elements.map(el => el.y + el.height));
+        referenceValue = (topmost + bottommost) / 2;
+        break;
+      default:
+        return;
+    }
+    
+    // Apply alignment to all elements
+    const updatedElements = elements.map(element => {
+      let updates: Partial<LabelElement> = {};
+      
+      switch (alignment) {
+        case 'left':
+          updates.x = referenceValue;
+          break;
+        case 'right':
+          updates.x = referenceValue - element.width;
+          break;
+        case 'center':
+          updates.x = referenceValue - element.width / 2;
+          break;
+        case 'top':
+          updates.y = referenceValue;
+          break;
+        case 'bottom':
+          updates.y = referenceValue - element.height;
+          break;
+        case 'middle':
+          updates.y = referenceValue - element.height / 2;
+          break;
+      }
+      
+      return { ...element, ...updates };
+    });
+    
+    setDocument(prev => prev ? {
+      ...prev,
+      elements: updatedElements,
+      updatedAt: new Date().toISOString(),
+    } : null);
+    
+    toast.success(`Elements aligned ${alignment}`);
+  }, [document]);
+
+  const distributeElements = useCallback((direction: 'horizontal' | 'vertical') => {
+    if (!document || document.elements.length < 3) return;
+    
+    const elements = [...document.elements].sort((a, b) => 
+      direction === 'horizontal' ? a.x - b.x : a.y - b.y
+    );
+    
+    const first = elements[0];
+    const last = elements[elements.length - 1];
+    
+    if (direction === 'horizontal') {
+      const totalSpace = (last.x + last.width) - first.x;
+      const totalElementWidth = elements.reduce((sum, el) => sum + el.width, 0);
+      const spacing = (totalSpace - totalElementWidth) / (elements.length - 1);
+      
+      let currentX = first.x;
+      const updatedElements = elements.map(element => {
+        const updatedElement = { ...element, x: currentX };
+        currentX += element.width + spacing;
+        return updatedElement;
+      });
+      
+      setDocument(prev => prev ? {
+        ...prev,
+        elements: updatedElements,
+        updatedAt: new Date().toISOString(),
+      } : null);
+    } else {
+      const totalSpace = (last.y + last.height) - first.y;
+      const totalElementHeight = elements.reduce((sum, el) => sum + el.height, 0);
+      const spacing = (totalSpace - totalElementHeight) / (elements.length - 1);
+      
+      let currentY = first.y;
+      const updatedElements = elements.map(element => {
+        const updatedElement = { ...element, y: currentY };
+        currentY += element.height + spacing;
+        return updatedElement;
+      });
+      
+      setDocument(prev => prev ? {
+        ...prev,
+        elements: updatedElements,
+        updatedAt: new Date().toISOString(),
+      } : null);
+    }
+    
+    toast.success(`Elements distributed ${direction}ly`);
+  }, [document]);
+
   // Always provide context - no conditions that could fail
   const contextValue: LabelDocContextType = {
     document,
@@ -331,6 +455,8 @@ export const SimpleLabelDocProvider: React.FC<{ children: React.ReactNode }> = (
     deleteElement,
     selectElement,
     updateCanvasSize,
+    alignElements,
+    distributeElements,
   };
 
   // Auto-save when elements change

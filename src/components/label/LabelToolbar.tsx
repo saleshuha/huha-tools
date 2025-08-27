@@ -7,11 +7,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { Type, Square, Circle, QrCode, BarChart3, Save, Download, AlignLeft } from 'lucide-react';
+import { Type, Square, Circle, QrCode, BarChart3, Save, Download, AlignLeft, AlignCenter, AlignRight, AlignVerticalJustifyCenter, AlignHorizontalJustifyCenter, AlignVerticalJustifyStart, AlignVerticalJustifyEnd, AlignHorizontalSpaceAround, AlignVerticalSpaceAround } from 'lucide-react';
 import { toast } from 'sonner';
 
 export const LabelToolbar: React.FC = () => {
-  const { document, addElement, updateCanvasSize, saveDocument } = useLabelDoc();
+  const { document, addElement, updateCanvasSize, saveDocument, alignElements, distributeElements } = useLabelDoc();
 
   if (!document) return null;
 
@@ -226,6 +226,93 @@ export const LabelToolbar: React.FC = () => {
                 onChange={(e) => handleCustomSizeChange('height', e.target.value)}
                 className="h-8"
               />
+            </div>
+          </div>
+        </div>
+
+        <Separator />
+
+        {/* Alignment Tools */}
+        <div>
+          <Label className="text-sm font-medium mb-2 block">Alignment</Label>
+          <div className="space-y-2">
+            <div className="grid grid-cols-3 gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => alignElements('left')}
+                className="flex flex-col items-center gap-1 h-8 px-1"
+                disabled={!document || document.elements.length < 2}
+              >
+                <AlignLeft className="h-3 w-3" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => alignElements('center')}
+                className="flex flex-col items-center gap-1 h-8 px-1"
+                disabled={!document || document.elements.length < 2}
+              >
+                <AlignCenter className="h-3 w-3" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => alignElements('right')}
+                className="flex flex-col items-center gap-1 h-8 px-1"
+                disabled={!document || document.elements.length < 2}
+              >
+                <AlignRight className="h-3 w-3" />
+              </Button>
+            </div>
+            <div className="grid grid-cols-3 gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => alignElements('top')}
+                className="flex flex-col items-center gap-1 h-8 px-1"
+                disabled={!document || document.elements.length < 2}
+              >
+                <AlignVerticalJustifyStart className="h-3 w-3" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => alignElements('middle')}
+                className="flex flex-col items-center gap-1 h-8 px-1"
+                disabled={!document || document.elements.length < 2}
+              >
+                <AlignVerticalJustifyCenter className="h-3 w-3" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => alignElements('bottom')}
+                className="flex flex-col items-center gap-1 h-8 px-1"
+                disabled={!document || document.elements.length < 2}
+              >
+                <AlignVerticalJustifyEnd className="h-3 w-3" />
+              </Button>
+            </div>
+            <div className="grid grid-cols-2 gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => distributeElements('horizontal')}
+                className="flex flex-col items-center gap-1 h-8 px-1"
+                disabled={!document || document.elements.length < 3}
+              >
+                <AlignHorizontalSpaceAround className="h-3 w-3" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => distributeElements('vertical')}
+                className="flex flex-col items-center gap-1 h-8 px-1"
+                disabled={!document || document.elements.length < 3}
+              >
+                <AlignVerticalSpaceAround className="h-3 w-3" />
+              </Button>
             </div>
           </div>
         </div>
