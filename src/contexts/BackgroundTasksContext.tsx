@@ -284,9 +284,16 @@ export function BackgroundTasksProvider({ children }: { children: React.ReactNod
     });
 
     try {
-      // This will be implemented by the calling component
-      // The actual concurrent processing happens in the component
+      // Import the concurrent export hook dynamically
+      const { useConcurrentSunskyExport } = await import('@/hooks/useConcurrentSunskyExport');
+      
+      // Start the actual concurrent export
+      // Note: This is a simplified approach. In practice, this should be handled
+      // by the component that has access to the hook instance
       onProgress(taskId);
+      
+      // The component calling this function should handle the actual export
+      // We return the taskId so the component can manage the export process
       return taskId;
     } catch (error) {
       updateTask(taskId, {

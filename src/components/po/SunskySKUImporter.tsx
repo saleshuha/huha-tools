@@ -335,13 +335,16 @@ export const SunskySKUImporter: React.FC = () => {
             name: api.name 
           }));
 
+          // Check if this is a background task
+          const isBackgroundTask = currentExportTaskId !== null;
+
           // Save to export history
           await addExportEntry({
             export_type: 'status_export',
             filters: {
               status: selectedExportStatus,
-              category: exportCategory,
-              subCategory: exportSubCategory,
+              categoryId: exportSubCategory !== 'all' ? parseInt(exportSubCategory) : 
+                         (exportCategory !== 'all' ? parseInt(exportCategory) : undefined),
               categoryName,
               columns: selectedExportColumns,
               pageSize: exportPageSize,
@@ -353,11 +356,12 @@ export const SunskySKUImporter: React.FC = () => {
             metadata: {
               categories: categoryName,
               apiKeys: apiKeysWithNames.length,
-              concurrent: true
+              concurrent: true,
+              background: isBackgroundTask
             }
           });
 
-          // Generate Excel file for download
+          // Generate Excel file
           const filePath = await generateExcelFile({
             data: concurrentExportResults.products,
             categoriesMap: concurrentExportResults.categoriesMap,
@@ -368,23 +372,61 @@ export const SunskySKUImporter: React.FC = () => {
               apiKeys: apiKeysWithNames.length,
               pageSize: exportPageSize
             },
-            saveToStorage: false // For foreground, trigger download instead
+            saveToStorage: isBackgroundTask // Save to storage for background tasks, download for foreground
           });
 
-          // Set export results for display
-          setExportResults({
-            products: concurrentExportResults.products,
-            categories: concurrentExportResults.categoriesMap,
-            totalFound: concurrentExportResults.totalFound
-          });
+          // Update background task if this was a background export
+          if (isBackgroundTask && currentExportTaskId) {
+            updateTask(currentExportTaskId, {
+              status: 'completed',
+              progress: 100,
+              totalItems: concurrentExportResults.totalFound,
+              processedItems: concurrentExportResults.totalFound,
+              endTime: new Date(),
+              metadata: {
+                exportId: concurrentExportResults.exportId,
+                filePath: filePath || ''
+              }
+            });
 
-          toast({
-            title: "Export Complete",
-            description: `Successfully exported ${concurrentExportResults.totalFound} products using ${apiKeysWithNames.length} API keys concurrently.`
-          });
+            // Update export history with file path
+            if (filePath && savedExportHistory.length > 0) {
+              await updateExportEntry(savedExportHistory[0].id, { file_path: filePath });
+            }
+
+            setCurrentExportTaskId(null);
+
+            toast({
+              title: "Background Export Complete",
+              description: `Successfully exported ${concurrentExportResults.totalFound} products using ${apiKeysWithNames.length} API keys concurrently.`
+            });
+          } else {
+            // Handle foreground export - set results for display
+            setExportResults({
+              products: concurrentExportResults.products,
+              categories: concurrentExportResults.categoriesMap,
+              totalFound: concurrentExportResults.totalFound
+            });
+
+            toast({
+              title: "Export Complete",
+              description: `Successfully exported ${concurrentExportResults.totalFound} products using ${apiKeysWithNames.length} API keys concurrently.`
+            });
+          }
           
         } catch (error) {
           console.error('Error handling concurrent export results:', error);
+          
+          // Update background task with error if applicable
+          if (currentExportTaskId) {
+            updateTask(currentExportTaskId, {
+              status: 'error',
+              error: error instanceof Error ? error.message : 'Unknown error',
+              endTime: new Date()
+            });
+            setCurrentExportTaskId(null);
+          }
+          
           toast({
             title: "Export Processing Error",
             description: "Export completed but failed to process results",
@@ -395,7 +437,7 @@ export const SunskySKUImporter: React.FC = () => {
 
       handleConcurrentExportComplete();
     }
-  }, [concurrentExportResults, isExporting, isConcurrentExporting, exportCategory, categories, availableAPIs, selectedExportStatus, exportSubCategory, selectedExportColumns, exportPageSize, addExportEntry, toast]);
+  }, [concurrentExportResults, isExporting, isConcurrentExporting, exportCategory, categories, availableAPIs, selectedExportStatus, exportSubCategory, selectedExportColumns, exportPageSize, addExportEntry, updateTask, currentExportTaskId, savedExportHistory, updateExportEntry, toast]);
 
   // Save column preferences
   const saveColumnPreferences = async () => {
@@ -605,70 +647,25 @@ export const SunskySKUImporter: React.FC = () => {
       try {
         const taskId = await runConcurrentExport(
           exportConfig,
-          (progressData) => {
-            // Handle progress updates
-            setCurrentExportTaskId(progressData);
-          },
-          async (results) => {
-            // Handle completion
-            try {
-              // Save to export history
-              await addExportEntry({
-                export_type: 'status_export',
-                filters: exportConfig,
-                total_items: results.totalFound,
-                status: 'completed',
-                metadata: {
-                  categories: categoryName,
-                  apiKeys: apiKeysWithNames.length,
-                  duration: Date.now() - Date.now()
-                }
-              });
-
-              // Generate Excel and save to storage
-              const filePath = await generateExcelFile({
-                data: results.products,
-                categoriesMap: results.categoriesMap,
-                config: {
-                  status: selectedExportStatus,
-                  categoryName,
-                  columns: selectedExportColumns,
-                  apiKeys: apiKeysWithNames.length,
-                  pageSize: exportPageSize
-                },
-                saveToStorage: true
-              });
-
-              // Update export entry with file path if file was created
-              if (filePath) {
-                await updateExportEntry(savedExportHistory[0]?.id || 'temp', { file_path: filePath });
-              }
-
-              updateTask(taskId, {
-                status: 'completed',
-                progress: 100,
-                totalItems: results.totalFound,
-                processedItems: results.totalFound,
-                endTime: new Date(),
-                metadata: {
-                  ...exportConfig,
-                  exportId: results.exportId,
-                  filePath: filePath || ''
-                }
-              });
-
-              toast({
-                title: "Background Export Complete",
-                description: `Successfully exported ${results.totalFound} products using ${apiKeysWithNames.length} API keys concurrently.`
-              });
-            } catch (error) {
-              console.error('Error saving background export:', error);
-              updateTask(taskId, {
+          (progressTaskId) => {
+            // Handle progress updates - taskId from background context
+            setCurrentExportTaskId(progressTaskId);
+            
+            // Now start the actual concurrent export
+            startConcurrentExport(exportConfig).then(exportId => {
+              console.log('Background export started with ID:', exportId);
+            }).catch(error => {
+              console.error('Background export failed:', error);
+              updateTask(progressTaskId, {
                 status: 'error',
                 error: error.message,
                 endTime: new Date()
               });
-            }
+            });
+          },
+          async (results) => {
+            // This will be handled by the useEffect watching concurrentExportResults
+            console.log('Background export completion callback called');
           }
         );
         
