@@ -85,7 +85,8 @@ export const LabelWorkspace: React.FC = () => {
         dpi: 203 as const,
         copies: 1,
         labelsPerPage: 1,
-        margin: 0
+        margin: 0,
+        darkness: 10 // Default Zebra print darkness
       };
       
       const zplCode = PrintService.generateZPL(document, dataset, printSettings);

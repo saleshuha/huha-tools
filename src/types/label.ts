@@ -79,6 +79,7 @@ export interface PrintSettings {
   copies: number;
   labelsPerPage: number;
   margin: number;
+  darkness?: number; // Zebra printer darkness (0-30, default 10)
 }
 
 export const LABEL_PRESETS: Record<string, LabelSize> = {

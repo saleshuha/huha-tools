@@ -50,6 +50,7 @@ export const DateWiseOrderPrint: React.FC = () => {
     copies: 1,
     labelsPerPage: 1,
     margin: 0,
+    darkness: 10, // Default Zebra print darkness
   });
   const [useCustomPageSize, setUseCustomPageSize] = useState(false);
   const [customPageSize, setCustomPageSize] = useState({
@@ -698,11 +699,30 @@ export const DateWiseOrderPrint: React.FC = () => {
 
         {/* Print Settings */}
         <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-4">
             <div>
-              <Label className="text-sm font-medium">DPI</Label>
-              <Select value={printSettings.dpi.toString()} onValueChange={(value) => setPrintSettings(prev => ({...prev, dpi: Number(value) as 203 | 300}))}>
-                <SelectTrigger className="h-8">
+              <Label>Copies</Label>
+              <Input
+                type="number"
+                min="1"
+                max="100"
+                value={printSettings.copies}
+                onChange={(e) => setPrintSettings(prev => ({
+                  ...prev,
+                  copies: parseInt(e.target.value) || 1
+                }))}
+              />
+            </div>
+            <div>
+              <Label>DPI</Label>
+              <Select 
+                value={printSettings.dpi.toString()} 
+                onValueChange={(value) => setPrintSettings(prev => ({
+                  ...prev,
+                  dpi: parseInt(value) as 203 | 300
+                }))}
+              >
+                <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -712,14 +732,17 @@ export const DateWiseOrderPrint: React.FC = () => {
               </Select>
             </div>
             <div>
-              <Label className="text-sm font-medium">Copies</Label>
+              <Label>Darkness (0-30)</Label>
               <Input
                 type="number"
-                min="1"
-                max="10"
-                value={printSettings.copies}
-                onChange={(e) => setPrintSettings(prev => ({...prev, copies: Number(e.target.value)}))}
-                className="h-8"
+                min="0"
+                max="30"
+                value={printSettings.darkness || 10}
+                onChange={(e) => setPrintSettings(prev => ({
+                  ...prev,
+                  darkness: parseInt(e.target.value) || 10
+                }))}
+                placeholder="10"
               />
             </div>
           </div>

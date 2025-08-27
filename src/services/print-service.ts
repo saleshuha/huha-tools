@@ -68,6 +68,11 @@ export class PrintService {
       
       zpl += '^XA\n'; // Start of label
       
+      // Set print darkness (0-30, default 10)
+      if (settings.darkness !== undefined && settings.darkness >= 0 && settings.darkness <= 30) {
+        zpl += `~SD${settings.darkness.toString().padStart(2, '0')}\n`;
+      }
+      
       // Set label size
       zpl += `^LL${this.mmToDots(document.size.height, settings.dpi)}\n`;
       zpl += `^PW${this.mmToDots(document.size.width, settings.dpi)}\n`;

@@ -37,6 +37,7 @@ const LabelDesignerContent: React.FC = () => {
     copies: 1,
     labelsPerPage: 4,
     margin: 10,
+    darkness: 10, // Default Zebra print darkness
   });
 
   const handleCreateLabel = async () => {
