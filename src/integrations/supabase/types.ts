@@ -3133,6 +3133,27 @@ export type Database = {
           total_records: number
         }[]
       }
+      get_printable_orders: {
+        Args: {
+          date_filter_type?: string
+          end_date: string
+          start_date: string
+          status_filter?: string
+        }
+        Returns: {
+          asin: string
+          created_at: string
+          id: string
+          item_quantity: number
+          item_title: string
+          order_id: string
+          order_place_date: string
+          order_status: string
+          printable: boolean
+          sku: string
+          source_file: string
+        }[]
+      }
       get_procurement_unified_items: {
         Args: { country_filter?: string }
         Returns: {

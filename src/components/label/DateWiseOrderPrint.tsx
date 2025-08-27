@@ -30,6 +30,7 @@ interface OrderToProcess {
   order_date: string;
   status: string;
   has_match: boolean;
+  printable: boolean;
 }
 
 export const DateWiseOrderPrint: React.FC = () => {
@@ -42,6 +43,7 @@ export const DateWiseOrderPrint: React.FC = () => {
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [showOnlyPrintable, setShowOnlyPrintable] = useState(false);
   const [printSettings, setPrintSettings] = useState<PrintSettings>({
     format: 'zpl',
     paperSize: 'custom',
@@ -97,31 +99,20 @@ export const DateWiseOrderPrint: React.FC = () => {
   const matchWithOrders = async () => {
     try {
       setMatchingLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
       
-      if (!user) {
-        toast.error('You must be logged in to match items with orders');
-        return;
-      }
-
-      const { data, error } = await supabase.rpc('update_print_eligible_items_by_order_skus', {
-        user_id_param: user.id
-      });
-
-      if (error) throw error;
-
-      const result = data?.[0];
-      if (result) {
-        toast.success(
-          `Matching completed! Activated: ${result.updated_active_count} matching items, Deactivated: ${result.updated_inactive_count} non-matching items. Total order SKUs: ${result.total_unique_skus}`
-        );
-      } else {
-        toast.success('Matching completed!');
-      }
+      // Simply refresh the orders data to show updated printable status
+      await fetchOrders();
+      
+      const printableCount = orders.filter(order => order.printable).length;
+      const totalCount = orders.length;
+      
+      toast.success(
+        `Orders refreshed! ${printableCount} of ${totalCount} orders are printable with your current print eligible items.`
+      );
 
     } catch (error) {
-      console.error('Error matching items with orders:', error);
-      toast.error('Failed to match items with orders');
+      console.error('Error refreshing orders:', error);
+      toast.error('Failed to refresh orders');
     } finally {
       setMatchingLoading(false);
     }
@@ -160,30 +151,13 @@ export const DateWiseOrderPrint: React.FC = () => {
           break;
       }
 
-      // Determine the date field to filter by based on selection
-      const dateField = dateFilterType === 'order_date' ? 'order_place_date' : 'created_at';
-      
-      // Build the query with dynamic date filtering
-      let query = supabase
-        .from('order_imports')
-        .select('id, order_id, asin, sku, item_title, item_quantity, order_place_date, order_status, has_inventory_match, source_file, created_at')
-        .order('created_at', { ascending: false });
-
-      // Apply date filtering based on selected type
-      if (dateFilterType === 'order_date') {
-        // Filter by order_place_date (only orders with valid order dates)
-        query = query
-          .not('order_place_date', 'is', null)
-          .gte('order_place_date', startDate.toISOString().split('T')[0])
-          .lte('order_place_date', queryEndDate.toISOString().split('T')[0]);
-      } else {
-        // Filter by created_at (upload date)
-        query = query
-          .gte('created_at', startDate.toISOString())
-          .lte('created_at', queryEndDate.toISOString());
-      }
-
-      const { data, error } = await query;
+      // Use the new get_printable_orders function
+      const { data, error } = await supabase.rpc('get_printable_orders', {
+        start_date: startDate.toISOString(),
+        end_date: queryEndDate.toISOString(),
+        date_filter_type: dateFilterType === 'order_date' ? 'order_date' : 'created_at',
+        status_filter: statusFilter
+      });
 
       if (error) {
         console.error('Error fetching orders:', error);
@@ -203,7 +177,8 @@ export const DateWiseOrderPrint: React.FC = () => {
           ? format(new Date(order.order_place_date), 'MMM dd, yyyy')
           : format(new Date(order.created_at), 'MMM dd, yyyy HH:mm'),
         status: order.order_status || 'pending',
-        has_match: order.has_inventory_match || false,
+        has_match: false, // Not used anymore, replaced by printable
+        printable: order.printable || false,
       }));
 
       setOrders(formattedOrders);
@@ -217,6 +192,12 @@ export const DateWiseOrderPrint: React.FC = () => {
   };
 
   const handleOrderSelection = (orderId: string, checked: boolean) => {
+    const order = orders.find(o => o.id === orderId);
+    if (!order?.printable) {
+      toast.error('This order cannot be printed. The SKU is not in your print eligible items.');
+      return;
+    }
+    
     setSelectedOrders(prev => 
       checked 
         ? [...prev, orderId]
@@ -225,7 +206,13 @@ export const DateWiseOrderPrint: React.FC = () => {
   };
 
   const handleSelectAll = (checked: boolean) => {
-    setSelectedOrders(checked ? orders.map(order => order.id) : []);
+    const filteredOrders = getFilteredOrders();
+    const printableOrders = filteredOrders.filter(order => order.printable);
+    setSelectedOrders(checked ? printableOrders.map(order => order.id) : []);
+  };
+
+  const getFilteredOrders = () => {
+    return showOnlyPrintable ? orders.filter(order => order.printable) : orders;
   };
 
   const createDatasetFromOrders = (): LabelDataset => {
@@ -873,9 +860,9 @@ export const DateWiseOrderPrint: React.FC = () => {
         <div className="p-4 bg-muted/50 rounded-lg">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="font-medium">Match Print Eligible Items</h3>
+              <h3 className="font-medium">Refresh Order Printability</h3>
               <p className="text-sm text-muted-foreground">
-                Automatically activate print eligible items that match SKUs in your orders and deactivate the rest
+                Check which orders can be printed based on your current print eligible items
               </p>
             </div>
             <Button 
@@ -886,12 +873,12 @@ export const DateWiseOrderPrint: React.FC = () => {
               {matchingLoading ? (
                 <>
                   <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Matching...
+                  Refreshing...
                 </>
               ) : (
                 <>
                   <RefreshCw className="h-4 w-4 mr-2" />
-                  Match with Orders
+                  Refresh Orders
                 </>
               )}
             </Button>
@@ -905,25 +892,42 @@ export const DateWiseOrderPrint: React.FC = () => {
               <Badge variant="secondary">
                 {orders.length} orders found
               </Badge>
+              <Badge variant="default" className="bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400">
+                {orders.filter(o => o.printable).length} printable
+              </Badge>
               {selectedOrders.length > 0 && (
                 <Badge variant="default">
                   {selectedOrders.length} selected
                 </Badge>
               )}
             </div>
-            <Button variant="outline" size="sm" onClick={fetchOrders} disabled={loading}>
-              <Filter className="h-4 w-4 mr-1" />
-              Refresh
-            </Button>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="show-printable"
+                  checked={showOnlyPrintable}
+                  onCheckedChange={(checked) => setShowOnlyPrintable(!!checked)}
+                />
+                <Label htmlFor="show-printable" className="text-sm">
+                  Show only printable
+                </Label>
+              </div>
+              <Button variant="outline" size="sm" onClick={fetchOrders} disabled={loading}>
+                <Filter className="h-4 w-4 mr-1" />
+                Refresh
+              </Button>
+            </div>
           </div>
 
-          {orders.length > 0 && (
+          {getFilteredOrders().length > 0 && (
             <div className="flex items-center gap-2 p-2 bg-muted rounded">
               <Checkbox
-                checked={selectedOrders.length === orders.length}
+                checked={selectedOrders.length === getFilteredOrders().filter(o => o.printable).length && getFilteredOrders().filter(o => o.printable).length > 0}
                 onCheckedChange={handleSelectAll}
               />
-              <span className="text-sm">Select All ({orders.length} orders)</span>
+              <span className="text-sm">
+                Select All Printable ({getFilteredOrders().filter(o => o.printable).length} of {getFilteredOrders().length} orders)
+              </span>
             </div>
           )}
 
@@ -931,29 +935,47 @@ export const DateWiseOrderPrint: React.FC = () => {
             <div className="space-y-2">
               {loading ? (
                 <div className="text-center text-muted-foreground py-4">Loading orders...</div>
-              ) : orders.length === 0 ? (
+              ) : getFilteredOrders().length === 0 ? (
                 <div className="text-center text-muted-foreground py-4">
-                  No orders found for the selected date range
+                  {showOnlyPrintable ? "No printable orders found for the selected date range" : "No orders found for the selected date range"}
                 </div>
               ) : (
-                orders.map((order) => (
-                  <div key={order.id} className="flex items-start gap-3 p-3 border rounded-lg hover:bg-muted/50">
+                getFilteredOrders().map((order) => (
+                  <div key={order.id} className={cn(
+                    "flex items-start gap-3 p-3 border rounded-lg",
+                    order.printable ? "hover:bg-muted/50" : "opacity-50 bg-muted/20"
+                  )}>
                     <Checkbox
                       checked={selectedOrders.includes(order.id)}
                       onCheckedChange={(checked) => handleOrderSelection(order.id, !!checked)}
+                      disabled={!order.printable}
                     />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium text-sm truncate">{order.product_title}</span>
-                        <Badge variant="outline" className="text-xs">{order.status}</Badge>
-                      </div>
-                      <div className="text-xs text-muted-foreground space-y-1">
-                        {order.order_number && <div>Order: {order.order_number}</div>}
-                        {order.asin_code && <div>ASIN: {order.asin_code}</div>}
-                        {order.sku_code && <div>SKU: {order.sku_code}</div>}
-                        <div>Qty: {order.quantity} • {order.order_date}</div>
-                      </div>
-                    </div>
+                     <div className="flex-1 min-w-0">
+                       <div className="flex items-center gap-2 mb-1">
+                         <span className="font-medium text-sm truncate">{order.product_title}</span>
+                         <Badge variant="outline" className="text-xs">{order.status}</Badge>
+                         {order.printable ? (
+                           <Badge variant="default" className="text-xs bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400">
+                             Printable
+                           </Badge>
+                         ) : (
+                           <Badge variant="secondary" className="text-xs bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400">
+                             Not Printable
+                           </Badge>
+                         )}
+                       </div>
+                       <div className="text-xs text-muted-foreground space-y-1">
+                         {order.order_number && <div>Order: {order.order_number}</div>}
+                         {order.asin_code && <div>ASIN: {order.asin_code}</div>}
+                         {order.sku_code && <div>SKU: {order.sku_code}</div>}
+                         <div>Qty: {order.quantity} • {order.order_date}</div>
+                         {!order.printable && (
+                           <div className="text-red-600 dark:text-red-400 text-xs">
+                             SKU not in print eligible items
+                           </div>
+                         )}
+                       </div>
+                     </div>
                   </div>
                 ))
               )}
