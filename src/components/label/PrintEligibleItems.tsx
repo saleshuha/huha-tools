@@ -44,28 +44,40 @@ export const PrintEligibleItems: React.FC = () => {
       setLoading(true);
       const offset = (currentPage - 1) * itemsPerPage;
       
-      // First get the count
-      const { count } = await supabase
-        .from('print_eligible_items')
-        .select('*', { count: 'exact', head: true });
+      // Ensure we don't exceed the maximum limit
+      if (offset >= maxTotalItems) {
+        setEligibleItems([]);
+        setTotalItems(maxTotalItems);
+        return;
+      }
       
-      // Limit total items to 1000
-      const actualTotal = Math.min(count || 0, maxTotalItems);
-      setTotalItems(actualTotal);
-      
-      // Then get the data with pagination
+      // Get data with proper limit (max 1000 total records)
       const { data, error } = await supabase
         .from('print_eligible_items')
         .select('*')
         .order('created_at', { ascending: false })
-        .range(offset, offset + itemsPerPage - 1)
-        .limit(Math.min(itemsPerPage, maxTotalItems - offset));
+        .range(offset, Math.min(offset + itemsPerPage - 1, maxTotalItems - 1));
 
       if (error) throw error;
-      setEligibleItems(data?.map(item => ({
+      
+      const items = data?.map(item => ({
         ...item,
         type: item.type as 'ASIN' | 'SKU'
-      })) || []);
+      })) || [];
+      
+      setEligibleItems(items);
+      
+      // Get count only for the first page to avoid repeated count queries
+      if (currentPage === 1) {
+        const { count } = await supabase
+          .from('print_eligible_items')
+          .select('*', { count: 'exact', head: true });
+        
+        // Limit total items to maxTotalItems (1000)
+        const actualTotal = Math.min(count || 0, maxTotalItems);
+        setTotalItems(actualTotal);
+      }
+      
     } catch (error) {
       console.error('Error fetching eligible items:', error);
       toast.error('Failed to fetch eligible items');
@@ -97,6 +109,7 @@ export const PrintEligibleItems: React.FC = () => {
       toast.success('Item added successfully');
       setNewIdentifier('');
       setShowAddDialog(false);
+      setCurrentPage(1); // Reset to first page to see new item
       fetchEligibleItems();
     } catch (error) {
       console.error('Error adding item:', error);
@@ -134,6 +147,7 @@ export const PrintEligibleItems: React.FC = () => {
       toast.success(`Added ${items.length} items successfully`);
       setBulkIdentifiers('');
       setShowBulkDialog(false);
+      setCurrentPage(1); // Reset to first page to see new items
       fetchEligibleItems();
     } catch (error) {
       console.error('Error adding bulk items:', error);
@@ -170,8 +184,22 @@ export const PrintEligibleItems: React.FC = () => {
 
       if (error) throw error;
 
+      // Remove item from current list
       setEligibleItems(prev => prev.filter(item => item.id !== id));
-      setTotalItems(prev => prev - 1);
+      
+      // If on first page, refresh the count, otherwise just decrement
+      if (currentPage === 1) {
+        // Refresh count from database
+        const { count } = await supabase
+          .from('print_eligible_items')
+          .select('*', { count: 'exact', head: true });
+        
+        const actualTotal = Math.min(count || 0, maxTotalItems);
+        setTotalItems(actualTotal);
+      } else {
+        setTotalItems(prev => Math.max(0, prev - 1));
+      }
+      
       toast.success('Item deleted successfully');
     } catch (error) {
       console.error('Error deleting item:', error);
@@ -351,20 +379,80 @@ export const PrintEligibleItems: React.FC = () => {
                     />
                   </PaginationItem>
                   
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    const pageNum = i + 1;
-                    return (
-                      <PaginationItem key={pageNum}>
-                        <PaginationLink
-                          onClick={() => setCurrentPage(pageNum)}
-                          isActive={currentPage === pageNum}
-                          className="cursor-pointer"
-                        >
-                          {pageNum}
-                        </PaginationLink>
-                      </PaginationItem>
-                    );
-                  })}
+                  {(() => {
+                    const pages = [];
+                    const maxVisiblePages = 5;
+                    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+                    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+                    
+                    // Adjust start if we're near the end
+                    if (endPage - startPage + 1 < maxVisiblePages) {
+                      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+                    }
+
+                    // Add first page and ellipsis if needed
+                    if (startPage > 1) {
+                      pages.push(
+                        <PaginationItem key={1}>
+                          <PaginationLink
+                            onClick={() => setCurrentPage(1)}
+                            isActive={currentPage === 1}
+                            className="cursor-pointer"
+                          >
+                            1
+                          </PaginationLink>
+                        </PaginationItem>
+                      );
+                      
+                      if (startPage > 2) {
+                        pages.push(
+                          <PaginationItem key="ellipsis-start">
+                            <span className="px-4 py-2">...</span>
+                          </PaginationItem>
+                        );
+                      }
+                    }
+
+                    // Add pages in range
+                    for (let i = startPage; i <= endPage; i++) {
+                      pages.push(
+                        <PaginationItem key={i}>
+                          <PaginationLink
+                            onClick={() => setCurrentPage(i)}
+                            isActive={currentPage === i}
+                            className="cursor-pointer"
+                          >
+                            {i}
+                          </PaginationLink>
+                        </PaginationItem>
+                      );
+                    }
+
+                    // Add ellipsis and last page if needed
+                    if (endPage < totalPages) {
+                      if (endPage < totalPages - 1) {
+                        pages.push(
+                          <PaginationItem key="ellipsis-end">
+                            <span className="px-4 py-2">...</span>
+                          </PaginationItem>
+                        );
+                      }
+                      
+                      pages.push(
+                        <PaginationItem key={totalPages}>
+                          <PaginationLink
+                            onClick={() => setCurrentPage(totalPages)}
+                            isActive={currentPage === totalPages}
+                            className="cursor-pointer"
+                          >
+                            {totalPages}
+                          </PaginationLink>
+                        </PaginationItem>
+                      );
+                    }
+
+                    return pages;
+                  })()}
                   
                   <PaginationItem>
                     <PaginationNext 
