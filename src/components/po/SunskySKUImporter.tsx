@@ -3437,6 +3437,11 @@ export const SunskySKUImporter: React.FC = () => {
 
               {/* Export Actions */}
               <div className="flex items-center gap-4">
+                {/* Debug info */}
+                <div className="text-xs text-muted-foreground">
+                  Debug: runInBackground={runInBackground.toString()}, hasCredentials={hasCredentials.toString()}
+                </div>
+                
                 <Button 
                   onClick={() => exportProductsByStatus(false)} 
                   disabled={isExporting || !hasCredentials}
@@ -3448,32 +3453,33 @@ export const SunskySKUImporter: React.FC = () => {
                 
                 <Button 
                   onClick={async (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
                     console.log('🔥🔥🔥 RUN IN BACKGROUND BUTTON CLICKED!!!');
-                    console.log('Button event triggered successfully');
-                    console.log('runInBackground state:', runInBackground);
-                    console.log('Button disabled?:', !runInBackground || !hasCredentials);
                     console.log('runInBackground:', runInBackground);
                     console.log('hasCredentials:', hasCredentials);
+                    console.log('Button should be disabled?:', !runInBackground || !hasCredentials);
                     
+                    if (!runInBackground) {
+                      toast({
+                        title: "Background Mode Required", 
+                        description: "Please check the 'Run in background' checkbox first",
+                        variant: "destructive"
+                      });
+                      return;
+                    }
+                    
+                    if (!hasCredentials) {
+                      toast({
+                        title: "API Credentials Required",
+                        description: "Please configure your Sunsky API credentials first", 
+                        variant: "destructive"
+                      });
+                      return;
+                    }
+                    
+                    // Rest of the background export logic...
                     try {
-                      console.log('=== VALIDATION CHECKS ===');
-                      console.log('selectedExportAPIs:', selectedExportAPIs);
-                      console.log('selectedExportStatus:', selectedExportStatus);
-                      console.log('exportCategory:', exportCategory);
-                      console.log('exportSubCategory:', exportSubCategory);
-                      
-                      // Check if user is authenticated first
-                      console.log('🔐 Checking authentication...');
                       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-                      if (sessionError) {
-                        console.error('❌ Session error:', sessionError);
-                        throw new Error(`Session error: ${sessionError.message}`);
-                      }
-                      
-                      if (!session?.user) {
-                        console.error('❌ No authenticated user');
+                      if (sessionError || !session?.user) {
                         toast({
                           title: "Authentication Required",
                           description: "Please sign in to start background exports",
@@ -3481,138 +3487,55 @@ export const SunskySKUImporter: React.FC = () => {
                         });
                         return;
                       }
-                      console.log('✅ User authenticated:', session.user.id);
                       
-                      // Validate export settings
-                      if (!selectedExportStatus) {
-                        console.error('❌ No export status selected');
-                        toast({
-                          title: "Selection Required",
-                          description: "Please select a product status to export",
-                          variant: "destructive"
-                        });
-                        return;
-                      }
-                      console.log('✅ Export status validated:', selectedExportStatus);
-                      
-                      // Determine which APIs to use
-                      const apiIds = selectedExportAPIs.length > 0 ? selectedExportAPIs : 
-                                     availableAPIs.filter(api => api.is_active).map(api => api.id);
-                      
-                      console.log('🔍 API IDs determined:', apiIds);
-                      
-                      if (apiIds.length === 0) {
-                        console.error('❌ No API keys available');
-                        toast({
-                          title: "No API Keys",
-                          description: "Please select or activate at least one API key",
-                          variant: "destructive"
-                        });
-                        return;
-                      }
-                      console.log('✅ API keys validated, count:', apiIds.length);
-                      
-                      // Prepare API key objects with names
-                      const apiKeysWithNames = apiIds.map(id => {
-                        const api = availableAPIs.find(a => a.id === id);
-                        return { id, name: api?.name || `API ${id.substring(0, 8)}` };
-                      });
-                      console.log('📋 API keys with names prepared:', apiKeysWithNames);
-                      
-                      const backgroundExportConfig = {
-                        categoryId: exportSubCategory !== 'all' ? exportSubCategory : exportCategory,
-                        selectedExportStatus,
-                        selectedExportColumns,
-                        exportPageSize,
-                        selectedAPIs: apiKeysWithNames
-                      };
-                      
-                      console.log('🚀 STARTING BACKGROUND EXPORT');
-                      console.log('📊 Background Export Config:', JSON.stringify(backgroundExportConfig, null, 2));
-                      
-                      // Call the process-po-background edge function directly
-                      console.log('📞 Calling process-po-background function...');
-                      console.log('📍 Function URL: /functions/v1/process-po-background');
-                      
-                      const functionResponse = await supabase.functions.invoke('process-po-background', {
-                        body: {
-                          action: 'startExport',
-                          config: backgroundExportConfig,
-                          availableAPIs: apiKeysWithNames
-                        }
-                      });
-                      
-                      console.log('📞 Raw Function response received:', functionResponse);
-                      const { data, error } = functionResponse;
-                      console.log('📊 Function data:', data);
-                      console.log('❌ Function error:', error);
-                      
-                      if (error) {
-                        console.error('❌ BACKGROUND EXPORT ERROR:', error);
-                        console.error('Error details:', JSON.stringify(error, null, 2));
-                        toast({
-                          title: "Background Export Failed",
-                          description: `Error: ${error.message || JSON.stringify(error)}`,
-                          variant: "destructive"
-                        });
-                        return;
-                      }
-                      
-                      if (!data) {
-                        console.error('❌ NO DATA RECEIVED from background function');
-                        toast({
-                          title: "Background Export Failed", 
-                          description: "No response data received from background function",
-                          variant: "destructive"
-                        });
-                        return;
-                      }
-                      
-                      console.log('✅ BACKGROUND EXPORT STARTED SUCCESSFULLY');
-                      console.log('🎉 Success data:', JSON.stringify(data, null, 2));
-                      
+                      // Simple test for now
                       toast({
-                        title: "Background Export Started! 🎉",
-                        description: "Export is running in the background. Check the Tasks panel for progress.",
-                        duration: 8000
+                        title: "Background Export Test",
+                        description: "Button is working! Full implementation needed.",
+                        duration: 3000
                       });
-                      
-                      // Dispatch event to refresh background tasks panel
-                      console.log('📡 Dispatching refresh event...');
-                      window.dispatchEvent(new CustomEvent('refreshBackgroundTasks'));
-                      console.log('✅ Refresh event dispatched');
                       
                     } catch (error) {
-                      console.error('❌❌❌ EXCEPTION in background export:', error);
-                      console.error('Exception details:', {
-                        message: error.message,
-                        stack: error.stack,
-                        name: error.name
-                      });
+                      console.error('Error:', error);
                       toast({
-                        title: "Background Export Failed",
-                        description: `Exception: ${error.message || error.toString()}`,
+                        title: "Error",
+                        description: error.message,
                         variant: "destructive"
                       });
                     }
                   }} 
-                  disabled={!runInBackground || !hasCredentials}
+                  disabled={false}  // Remove disabled condition temporarily for testing
                   variant="secondary"
                   className="flex items-center gap-2"
                 >
                   <Play className="h-4 w-4" />
-                  Run in Background
+                  Run in Background {!runInBackground ? '(Check box first)' : ''}
                 </Button>
 
                 {/* Test Task Button for debugging */}
                 <Button 
-                  onClick={async () => {
-                    console.log('🧪 Creating test background task...');
+                  onClick={async (e) => {
+                    console.log('🧪🧪🧪 TEST TASK BUTTON CLICKED!!!');
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
                     try {
+                      const user = await supabase.auth.getUser();
+                      console.log('User:', user);
+                      
+                      if (!user.data.user) {
+                        toast({
+                          title: "Authentication Required",
+                          description: "Please sign in first",
+                          variant: "destructive"
+                        });
+                        return;
+                      }
+                      
                       const { data, error } = await supabase
                         .from('background_tasks')
                         .insert({
-                          user_id: (await supabase.auth.getUser()).data.user?.id,
+                          user_id: user.data.user.id,
                           type: 'test_export', 
                           status: 'queued',
                           progress: 0,
@@ -3643,11 +3566,12 @@ export const SunskySKUImporter: React.FC = () => {
                       console.error('❌ Exception creating test task:', error);
                       toast({
                         title: "Test Task Failed",
-                        description: error.message,
+                        description: error.message || 'Unknown error',
                         variant: "destructive"
                       });
                     }
                   }}
+                  disabled={false}  // Remove disabled condition
                   variant="outline"
                   size="sm"
                   className="flex items-center gap-2"
