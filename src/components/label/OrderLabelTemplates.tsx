@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Package, Tag, FileText, Barcode } from 'lucide-react';
-import { useLabelDoc } from '@/contexts/LabelDocContext';
+import { useLabelDoc } from '@/contexts/SimpleLabelDocContext';
 import { LabelElement } from '@/types/label';
 import { toast } from 'sonner';
 

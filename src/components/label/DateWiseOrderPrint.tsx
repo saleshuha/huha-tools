@@ -12,7 +12,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { CalendarIcon, Printer, Download, Eye, Filter, Copy } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { useLabelDoc } from '@/contexts/LabelDocContext';
+import { useLabelDoc } from '@/contexts/SimpleLabelDocContext';
 import { PrintService } from '@/services/print-service';
 import { LabelDataset, PrintSettings, LabelDoc, LabelElement } from '@/types/label';
 import { supabase } from '@/integrations/supabase/client';

@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Eye, ChevronLeft, ChevronRight } from 'lucide-react';
-import { useLabelDoc } from '@/contexts/LabelDocContext';
+import { useLabelDoc } from '@/contexts/SimpleLabelDocContext';
 
 export const DataPreviewPanel: React.FC = () => {
   const { dataset, document: labelDoc } = useLabelDoc();

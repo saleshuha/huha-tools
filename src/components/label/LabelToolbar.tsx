@@ -1,5 +1,5 @@
 import React from 'react';
-import { useLabelDoc } from '@/contexts/LabelDocContext';
+import { useLabelDoc } from '@/contexts/SimpleLabelDocContext';
 import { LABEL_PRESETS } from '@/types/label';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';

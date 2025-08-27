@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Search, RefreshCw, Database, Package } from 'lucide-react';
 import { useInventoryData } from '@/hooks/useInventoryData';
-import { useLabelDoc } from '@/contexts/LabelDocContext';
+import { useLabelDoc } from '@/contexts/SimpleLabelDocContext';
 import { toast } from 'sonner';
 
 export const InventoryDataMapper: React.FC = () => {

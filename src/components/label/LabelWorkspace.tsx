@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { useLabelDoc } from '@/contexts/LabelDocContext';
+import { useLabelDoc } from '@/contexts/SimpleLabelDocContext';
 import { LabelElement } from '@/types/label';
 import { mmToPx } from '@/utils/label-serializer';
 import { Card } from '@/components/ui/card';
