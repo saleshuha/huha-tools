@@ -3448,16 +3448,33 @@ export const SunskySKUImporter: React.FC = () => {
                 {runInBackground && (
                   <Button 
                     onClick={async () => {
-                      console.log('🔥 Run in Background button clicked!');
+      console.log('🔥 Run in Background button clicked!');
                       console.log('hasCredentials:', hasCredentials);
                       console.log('selectedExportAPIs:', selectedExportAPIs);
                       console.log('exportSubCategory:', exportSubCategory);
                       console.log('exportCategory:', exportCategory);
                       console.log('selectedExportStatus:', selectedExportStatus);
                       
+                      // Check if user is authenticated
+                      const { data: { session } } = await supabase.auth.getSession();
+                      if (!session?.user) {
+                        toast({
+                          title: "Authentication Required",
+                          description: "Please sign in to start background exports",
+                          variant: "destructive"
+                        });
+                        return;
+                      }
+                      
                       try {
                         await exportProductsByStatus(true);
                         console.log('✅ exportProductsByStatus completed');
+                        
+                        // Refresh background tasks panel
+                        if (typeof window !== 'undefined') {
+                          // Trigger a custom event to refresh background tasks
+                          window.dispatchEvent(new CustomEvent('refreshBackgroundTasks'));
+                        }
                       } catch (error) {
                         console.error('❌ exportProductsByStatus failed:', error);
                         toast({

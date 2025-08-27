@@ -3,6 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, user-agent',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
 interface SunskyCredential {
@@ -65,7 +66,7 @@ Deno.serve(async (req) => {
       const historyId = crypto.randomUUID()
       
       // Insert background task for tracking
-      await supabaseClient
+      const { error: taskError } = await supabaseClient
         .from('background_tasks')
         .insert({
           id: taskId,
@@ -83,8 +84,13 @@ Deno.serve(async (req) => {
           }
         })
       
+      if (taskError) {
+        console.error('Failed to create background task:', taskError)
+        throw new Error(`Failed to create background task: ${taskError.message}`)
+      }
+      
       // Insert export history for long-term tracking
-      await supabaseClient
+      const { error: historyError } = await supabaseClient
         .from('export_history')
         .insert({
           id: historyId,
@@ -99,6 +105,11 @@ Deno.serve(async (req) => {
             background: true
           }
         })
+      
+      if (historyError) {
+        console.error('Failed to create export history:', historyError)
+        throw new Error(`Failed to create export history: ${historyError.message}`)
+      }
       
       // Start background export without waiting
       EdgeRuntime.waitUntil(processSunskyExportBackground(supabaseClient, user.id, taskId, historyId, config, availableAPIs))
