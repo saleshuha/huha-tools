@@ -55,56 +55,61 @@ export const useConcurrentSunskyExport = () => {
     }
   };
 
-  const distributePages = (totalPages: number, apiKeys: Array<{ id: string; name: string }>) => {
-    const distribution: { [apiKeyId: string]: number[] } = {};
+  const distributePages = (estimatedPages: number, apiKeys: Array<{ id: string; name: string }>) => {
+    console.log('distributePages called with:', { estimatedPages, apiKeysCount: apiKeys.length });
     
-    // Initialize distribution for each API key
-    apiKeys.forEach(api => {
-      distribution[api.id] = [];
+    const distribution: { [apiKeyId: string]: { startPage: number; maxPages: number } } = {};
+    
+    // Use a reasonable maximum or the estimated pages, whichever is smaller
+    const effectiveMaxPages = Math.min(estimatedPages, 1000); // Cap at 1000 pages for safety
+    const pagesPerAPI = Math.ceil(effectiveMaxPages / apiKeys.length);
+    
+    console.log('Calculated:', { effectiveMaxPages, pagesPerAPI });
+    
+    // Distribute page ranges among API keys instead of individual pages
+    apiKeys.forEach((api, index) => {
+      const startPage = (index * pagesPerAPI) + 1;
+      distribution[api.id] = {
+        startPage: startPage,
+        maxPages: pagesPerAPI
+      };
+      console.log(`API ${api.name}: startPage=${startPage}, maxPages=${pagesPerAPI}`);
     });
-
-    // Distribute pages in round-robin fashion
-    for (let page = 1; page <= totalPages; page++) {
-      const apiIndex = (page - 1) % apiKeys.length;
-      const apiKey = apiKeys[apiIndex];
-      distribution[apiKey.id].push(page);
-    }
 
     return distribution;
   };
 
   const processAPIKeyPages = async (
     apiKey: { id: string; name: string },
-    pages: number[],
+    pageRange: { startPage: number; maxPages: number },
     config: ExportConfig,
     exportId: string,
     onProgress: (progress: ConcurrentExportProgress) => void
   ): Promise<any[]> => {
     const results: any[] = [];
-    let currentPageIndex = 0;
+    let currentPage = pageRange.startPage;
+    let pagesProcessed = 0;
 
-        const updateProgress = (status: ConcurrentExportProgress['status'], error?: string) => {
-          const progress: ConcurrentExportProgress = {
-            apiKeyId: apiKey.id,
-            apiKeyName: apiKey.name,
-            currentPage: currentPageIndex + 1, // Show current page being processed
-            totalPages: pages.length,
-            processedItems: results.length,
-            status,
-            error,
-            lastUpdate: new Date()
-          };
-          onProgress(progress);
-        };
+    const updateProgress = (status: ConcurrentExportProgress['status'], error?: string) => {
+      const progress: ConcurrentExportProgress = {
+        apiKeyId: apiKey.id,
+        apiKeyName: apiKey.name,
+        currentPage: pagesProcessed + 1,
+        totalPages: pageRange.maxPages,
+        processedItems: results.length,
+        status,
+        error,
+        lastUpdate: new Date()
+      };
+      onProgress(progress);
+    };
 
     updateProgress('processing');
 
     try {
-      while (currentPageIndex < pages.length && !cancellationRef.current[exportId]) {
-        const page = pages[currentPageIndex];
-        
+      while (pagesProcessed < pageRange.maxPages && !cancellationRef.current[exportId]) {
         const searchParams: any = {
-          page,
+          page: currentPage,
           pageSize: config.pageSize,
           status: config.status,
           lang: 'en'
@@ -115,32 +120,36 @@ export const useConcurrentSunskyExport = () => {
         }
 
         try {
-          updateProgress('processing'); // Update before each API call
+          updateProgress('processing');
           const response = await callSunskyAPI('searchProducts', searchParams, apiKey.id);
           
           if (response?.result === 'success' && response?.data?.products) {
             const pageProducts = response.data.products;
             results.push(...pageProducts);
             
-            updateProgress('processing'); // Update after successful call
+            updateProgress('processing');
             
             // Stop if we got fewer results than expected (end of data)
             if (pageProducts.length < config.pageSize) {
+              console.log(`API ${apiKey.name} reached end of data at page ${currentPage}`);
               break;
             }
           } else {
-            console.warn(`API ${apiKey.name} page ${page} returned no data or error`);
-            updateProgress('processing'); // Still update to show progress
+            console.warn(`API ${apiKey.name} page ${currentPage} returned no data or error`);
+            // If we get no data, we might have reached the end
+            break;
           }
         } catch (pageError) {
-          console.error(`API ${apiKey.name} page ${page} failed:`, pageError);
+          console.error(`API ${apiKey.name} page ${currentPage} failed:`, pageError);
           updateProgress('error', pageError.message);
-          // Continue with next page instead of failing completely
+          // Break on API errors to avoid infinite loops
+          break;
         }
 
-        currentPageIndex++;
+        currentPage++;
+        pagesProcessed++;
         
-        // Rate limiting delay - shorter for faster visual updates
+        // Rate limiting delay
         await new Promise(resolve => setTimeout(resolve, 100));
       }
 
@@ -201,28 +210,34 @@ export const useConcurrentSunskyExport = () => {
       const estimateResponse = await callSunskyAPI('searchProducts', estimateParams, config.apiKeys[0].id);
       
       let estimatedTotal = 0;
-      let totalPages = config.maxPages;
+      let estimatedPages = 50; // Default conservative estimate
       
       if (estimateResponse?.result === 'success' && estimateResponse?.data) {
         if (estimateResponse.data.totalResults) {
           estimatedTotal = estimateResponse.data.totalResults;
-          totalPages = Math.min(Math.ceil(estimatedTotal / config.pageSize), config.maxPages);
+          estimatedPages = Math.ceil(estimatedTotal / config.pageSize);
         } else if (estimateResponse.data.products?.length > 0) {
           // Conservative estimate if no total is provided
-          estimatedTotal = estimateResponse.data.products.length * Math.min(totalPages, 50);
+          const firstPageCount = estimateResponse.data.products.length;
+          if (firstPageCount === config.pageSize) {
+            estimatedPages = 100; // Conservative estimate for full first page
+          } else {
+            estimatedPages = 1; // Partial page suggests this might be all data
+          }
+          estimatedTotal = firstPageCount * estimatedPages;
         }
       }
 
-      setExportStatus(`Distributing ${totalPages} pages across ${config.apiKeys.length} API keys...`);
+      setExportStatus(`Distributing work across ${config.apiKeys.length} API keys (estimated ${estimatedPages} pages)...`);
       setOverallProgress(10);
 
-      // Distribute pages among API keys
-      const pageDistribution = distributePages(totalPages, config.apiKeys);
+      // Distribute page ranges among API keys
+      const pageDistribution = distributePages(estimatedPages, config.apiKeys);
       
       // Update initial progress with page counts
       const updatedProgress = initialProgress.map(progress => ({
         ...progress,
-        totalPages: pageDistribution[progress.apiKeyId]?.length || 0,
+        totalPages: pageDistribution[progress.apiKeyId]?.maxPages || 0,
         status: 'processing' as const
       }));
       setExportProgress(updatedProgress);
@@ -242,8 +257,10 @@ export const useConcurrentSunskyExport = () => {
         // Calculate overall progress based on completed pages across all APIs
         const totalPagesProcessed = Array.from(progressTracker.values())
           .reduce((sum, p) => sum + (p as ConcurrentExportProgress).currentPage, 0);
-        const totalPagesExpected = totalPages;
-        const overallPercent = Math.min(95, (totalPagesProcessed / totalPagesExpected) * 100);
+        const totalPagesExpected = config.apiKeys.reduce((sum, api) => 
+          sum + (pageDistribution[api.id]?.maxPages || 0), 0);
+        const overallPercent = totalPagesExpected > 0 ? 
+          Math.min(95, (totalPagesProcessed / totalPagesExpected) * 100) : 0;
         
         const totalProcessed = Array.from(progressTracker.values())
           .reduce((sum, p) => sum + (p as ConcurrentExportProgress).processedItems, 0);
@@ -259,7 +276,7 @@ export const useConcurrentSunskyExport = () => {
       const apiPromises = config.apiKeys.map(apiKey => 
         processAPIKeyPages(
           apiKey,
-          pageDistribution[apiKey.id] || [],
+          pageDistribution[apiKey.id] || { startPage: 1, maxPages: 0 },
           config,
           exportId,
           onApiProgress
