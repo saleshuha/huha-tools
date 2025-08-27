@@ -152,7 +152,8 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
     });
 
     const weeks = [];
-    for (let i = 0; i < 4; i++) {
+    // Show 2 previous weeks and 4 upcoming weeks
+    for (let i = -2; i < 4; i++) {
       const weekStart = new Date(now);
       weekStart.setDate(now.getDate() + (i * 7));
       weekStart.setHours(0, 0, 0, 0);
@@ -188,11 +189,16 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
         }
       }, 0);
       
+      const formatDate = (date: Date) => {
+        return `${date.getDate()}/${date.getMonth() + 1}`;
+      };
+      
       weeks.push({
-        label: `Week ${i + 1} (${weekStart.getDate()}-${weekStart.toLocaleDateString('en-US', { month: 'short' })})`,
+        label: `${formatDate(weekStart)} - ${formatDate(weekEnd)}`,
         orders: weekOrders.length,
         value: convertCurrency(weekValue, 'USD', displayCurrency),
-        orderNumbers: weekOrders.slice(0, 3).map(o => o.order_id || 'N/A')
+        isPast: i < 0,
+        isCurrentWeek: i === 0
       });
     }
     
@@ -474,24 +480,30 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
           <CardContent>
             <div className="space-y-3">
               {weeklyUpcomingPayments.map((week, index) => (
-                <div key={index} className="space-y-1">
-                  <div className="flex justify-between items-center">
+                <div key={index} className="flex justify-between items-center">
+                  <div className="flex flex-col">
                     <span className="text-sm font-medium">{week.label}</span>
-                    <div className="flex flex-col items-end">
-                      <Badge variant={week.orders > 0 ? 'destructive' : 'outline'} className="text-xs">
-                        {week.orders} orders
-                      </Badge>
-                      <span className="text-xs text-muted-foreground font-medium">
-                        {formatCurrency(week.value, displayCurrency)}
-                      </span>
-                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      {week.isPast ? 'Past week' : week.isCurrentWeek ? 'Current week' : 'Upcoming week'}
+                    </span>
                   </div>
-                  {week.orderNumbers.length > 0 && (
-                    <div className="text-xs text-muted-foreground">
-                      Orders: {week.orderNumbers.join(', ')}
-                      {week.orders > 3 && ` +${week.orders - 3} more`}
-                    </div>
-                  )}
+                  <div className="flex flex-col items-end">
+                    <Badge 
+                      variant={
+                        week.orders > 0 
+                          ? week.isPast 
+                            ? 'secondary' 
+                            : 'destructive' 
+                          : 'outline'
+                      } 
+                      className="text-xs"
+                    >
+                      {week.orders} orders
+                    </Badge>
+                    <span className="text-xs text-muted-foreground font-medium">
+                      {formatCurrency(week.value, displayCurrency)}
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>
