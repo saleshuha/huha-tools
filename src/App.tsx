@@ -14,6 +14,9 @@ import { BackgroundTasksProvider } from "@/contexts/BackgroundTasksContext";
 import { FloatingProgressIndicator } from "@/components/FloatingProgressIndicator";
 import { AppSidebar } from "@/components/AppSidebar";
 import { CountrySwitcher } from "@/components/CountrySwitcher";
+import { BackgroundTasksPanel } from "@/components/BackgroundTasksPanel";
+import { Button } from "@/components/ui/button";
+import { Activity } from "lucide-react";
 import Index from "./pages/Index";
 
 import ExcelMapperPage from "./pages/ExcelMapper";
@@ -123,6 +126,7 @@ const App = () => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showBackgroundTasks, setShowBackgroundTasks] = useState(false);
   const isNative = Capacitor.isNativePlatform();
 
   useEffect(() => {
@@ -204,7 +208,18 @@ const App = () => {
                     <div className="flex-1 flex justify-center">
                       <span className="text-sm font-medium text-foreground">اللَّهُمَّ صل عَلَى مُحَمَّدٍ وَعَلَى آلِ مُحَمَّدٍ</span>
                     </div>
-                    <CountrySwitcher />
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowBackgroundTasks(true)}
+                        className="flex items-center gap-2"
+                      >
+                        <Activity className="h-4 w-4" />
+                        Tasks
+                      </Button>
+                      <CountrySwitcher />
+                    </div>
                   </div>
                 </header>
                 <main className="flex-1">
@@ -269,6 +284,10 @@ const App = () => {
               </div>
             </div>
             <FloatingProgressIndicator />
+            <BackgroundTasksPanel 
+              isOpen={showBackgroundTasks} 
+              onClose={() => setShowBackgroundTasks(false)} 
+            />
             </SidebarProvider>
           </BrowserRouter>
           </BackgroundTasksProvider>
