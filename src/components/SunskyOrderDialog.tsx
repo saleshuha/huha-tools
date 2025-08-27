@@ -631,13 +631,29 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
 
     setLoading(true);
     try {
-      const items = orderItems
+      // Deduplicate items by itemNo and sum quantities
+      const itemsMap = new Map<string, { itemNo: string, qty: number, remark?: string }>();
+      
+      orderItems
         .filter(item => checkedItems.has(item.itemNo) && item.qty > 0)
-        .map(item => ({
-          itemNo: item.itemNo,
-          qty: item.qty,
-          remark: item.remark
-        }));
+        .forEach(item => {
+          const existing = itemsMap.get(item.itemNo);
+          if (existing) {
+            existing.qty += item.qty;
+            // Keep the first remark or combine them
+            if (item.remark && !existing.remark) {
+              existing.remark = item.remark;
+            }
+          } else {
+            itemsMap.set(item.itemNo, {
+              itemNo: item.itemNo,
+              qty: item.qty,
+              remark: item.remark
+            });
+          }
+        });
+      
+      const items = Array.from(itemsMap.values());
 
       const orderData = {
         ...orderOptions,
