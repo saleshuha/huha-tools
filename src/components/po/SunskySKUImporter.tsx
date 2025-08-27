@@ -3449,14 +3449,11 @@ export const SunskySKUImporter: React.FC = () => {
                 {runInBackground && (
                   <Button 
                     onClick={async () => {
-      console.log('🔥 Run in Background button clicked!');
+                      console.log('🔥 Run in Background button clicked!');
                       console.log('hasCredentials:', hasCredentials);
                       console.log('selectedExportAPIs:', selectedExportAPIs);
-                      console.log('exportSubCategory:', exportSubCategory);
-                      console.log('exportCategory:', exportCategory);
-                      console.log('selectedExportStatus:', selectedExportStatus);
                       
-                      // Check if user is authenticated
+                      // Check if user is authenticated first
                       const { data: { session } } = await supabase.auth.getSession();
                       if (!session?.user) {
                         toast({
@@ -3467,22 +3464,103 @@ export const SunskySKUImporter: React.FC = () => {
                         return;
                       }
                       
+                      // Validate export settings
+                      if (!selectedExportStatus) {
+                        toast({
+                          title: "Selection Required",
+                          description: "Please select a product status to export",
+                          variant: "destructive"
+                        });
+                        return;
+                      }
+                      
+                      // Determine which APIs to use
+                      const apiIds = selectedExportAPIs.length > 0 ? selectedExportAPIs : 
+                                     availableAPIs.filter(api => api.is_active).map(api => api.id);
+                      
+                      if (apiIds.length === 0) {
+                        toast({
+                          title: "No API Keys",
+                          description: "Please select or activate at least one API key",
+                          variant: "destructive"
+                        });
+                        return;
+                      }
+                      
+                      // Prepare API key objects with names
+                      const apiKeysWithNames = apiIds.map(id => {
+                        const api = availableAPIs.find(a => a.id === id);
+                        return { id, name: api?.name || `API ${id.substring(0, 8)}` };
+                      });
+                      
+                      const backgroundExportConfig = {
+                        categoryId: exportSubCategory !== 'all' ? exportSubCategory : exportCategory,
+                        selectedExportStatus,
+                        selectedExportColumns,
+                        exportPageSize,
+                        selectedAPIs: apiKeysWithNames
+                      };
+                      
+                      console.log('🚀 Starting background export with config:', backgroundExportConfig);
+                      
                       try {
-                        await exportProductsByStatus(true);
-                        console.log('✅ exportProductsByStatus completed');
+                        // Call the process-po-background edge function directly
+                        console.log('📞 Calling process-po-background function...');
+                        const response = await supabase.functions.invoke('process-po-background', {
+                          body: {
+                            action: 'startExport',
+                            config: backgroundExportConfig,
+                            availableAPIs: apiKeysWithNames
+                          }
+                        });
+                        
+                        console.log('📞 Function response:', response);
+                        const { data, error } = response;
+                        
+                        if (error) {
+                          console.error('❌ Background export error:', error);
+                          toast({
+                            title: "Background Export Failed",
+                            description: error.message || "Failed to start background processing",
+                            variant: "destructive"
+                          });
+                          return;
+                        }
+                        
+                        if (!data) {
+                          console.error('❌ No data received from background function');
+                          toast({
+                            title: "Background Export Failed", 
+                            description: "No response data received",
+                            variant: "destructive"
+                          });
+                          return;
+                        }
+                        
+                        console.log('✅ Background export started successfully:', data);
+                        toast({
+                          title: "Background Export Started",
+                          description: "Export is running in the background. Check the Tasks panel for progress.",
+                          duration: 5000
+                        });
+                        
+                        // Dispatch event to refresh background tasks panel
+                        window.dispatchEvent(new CustomEvent('refreshBackgroundTasks'));
+                        
                       } catch (error) {
-                        console.error('❌ exportProductsByStatus failed:', error);
+                        console.error('❌ Exception starting background export:', error);
                         toast({
                           title: "Background Export Failed",
-                          description: error.message || "Unknown error occurred",
+                          description: error.message || "An unexpected error occurred",
                           variant: "destructive"
                         });
                       }
                     }} 
                     disabled={isExporting || isConcurrentExporting || !hasCredentials}
                     variant="secondary"
+                    className="flex items-center gap-2"
                   >
-                    <Play className="h-4 w-4 mr-2" />
+                    <Play className="h-4 w-4" />
                     Run in Background
                   </Button>
                 )}
