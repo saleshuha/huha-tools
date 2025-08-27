@@ -33,7 +33,6 @@ export const PrintEligibleItems: React.FC = () => {
   const [totalItems, setTotalItems] = useState(0);
   
   const itemsPerPage = 20;
-  const maxTotalItems = 1000;
 
   useEffect(() => {
     fetchEligibleItems();
@@ -44,19 +43,12 @@ export const PrintEligibleItems: React.FC = () => {
       setLoading(true);
       const offset = (currentPage - 1) * itemsPerPage;
       
-      // Ensure we don't exceed the maximum limit
-      if (offset >= maxTotalItems) {
-        setEligibleItems([]);
-        setTotalItems(maxTotalItems);
-        return;
-      }
-      
-      // Get data with proper limit (max 1000 total records)
+      // Get data with pagination
       const { data, error } = await supabase
         .from('print_eligible_items')
         .select('*')
         .order('created_at', { ascending: false })
-        .range(offset, Math.min(offset + itemsPerPage - 1, maxTotalItems - 1));
+        .range(offset, offset + itemsPerPage - 1);
 
       if (error) throw error;
       
@@ -73,9 +65,7 @@ export const PrintEligibleItems: React.FC = () => {
           .from('print_eligible_items')
           .select('*', { count: 'exact', head: true });
         
-        // Limit total items to maxTotalItems (1000)
-        const actualTotal = Math.min(count || 0, maxTotalItems);
-        setTotalItems(actualTotal);
+        setTotalItems(count || 0);
       }
       
     } catch (error) {
@@ -194,8 +184,7 @@ export const PrintEligibleItems: React.FC = () => {
           .from('print_eligible_items')
           .select('*', { count: 'exact', head: true });
         
-        const actualTotal = Math.min(count || 0, maxTotalItems);
-        setTotalItems(actualTotal);
+        setTotalItems(count || 0);
       } else {
         setTotalItems(prev => Math.max(0, prev - 1));
       }
@@ -214,7 +203,7 @@ export const PrintEligibleItems: React.FC = () => {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>
-            Print Eligible Items ({totalItems}{totalItems >= maxTotalItems ? `/${maxTotalItems}` : ''})
+            Print Eligible Items ({totalItems})
           </CardTitle>
           <div className="flex gap-2">
             <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
