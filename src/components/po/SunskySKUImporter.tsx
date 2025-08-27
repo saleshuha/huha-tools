@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,11 +19,12 @@ import { Pagination, PaginationContent, PaginationItem, PaginationLink, Paginati
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useUserProfile } from "@/hooks/useUserProfile";
-import { useExportHistory } from "@/hooks/useExportHistory";
+import { useExportHistory, ExportHistoryEntry } from "@/hooks/useExportHistory";
 import { DateRange } from "react-day-picker";
 import { SunskyCredentialsManager } from "./SunskyCredentialsManager";
 import { useSKUManager } from "@/hooks/useSKUManager";
 import { useImportJobs } from "@/hooks/useImportJobs";
+import { ExportHistoryDialog } from "./ExportHistoryDialog";
 import type { ImportJob } from "@/hooks/useImportJobs";
 import { usePOOrders } from "@/hooks/usePOOrders";
 import { useParallelPOProcessor } from "./ParallelPOProcessor";
@@ -179,6 +180,13 @@ const getStatusBadgeVariant = (status?: number, isCategory = false): 'default' |
   }
 };
 
+// Utility function for formatting file sizes
+const formatBytes = (bytes: number) => {
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  return `${Math.round(bytes / Math.pow(1024, i) * 100) / 100} ${sizes[i]}`;
+};
+
 export const SunskySKUImporter: React.FC = () => {
   const { toast } = useToast();
   const { addTask, updateTask, cancelTask, isTaskCancelled, runConcurrentExport } = useBackgroundTasks();
@@ -250,6 +258,10 @@ export const SunskySKUImporter: React.FC = () => {
   const [selectedJob, setSelectedJob] = useState<ImportJob | null>(null);
   const [showJobDetailsDialog, setShowJobDetailsDialog] = useState(false);
   const [showClearAuthDialog, setShowClearAuthDialog] = useState(false);
+  
+  // Export history dialog
+  const [selectedExportEntry, setSelectedExportEntry] = useState<ExportHistoryEntry | null>(null);
+  const [showExportHistoryDialog, setShowExportHistoryDialog] = useState(false);
   
   // Pagination for import jobs
   const [jobsCurrentPage, setJobsCurrentPage] = useState(1);
@@ -1726,6 +1738,69 @@ export const SunskySKUImporter: React.FC = () => {
       setImportProgress(0);
     }
   };
+
+  // Export history dialog handlers
+  const handleExportHistoryDownload = useCallback(async (entry: ExportHistoryEntry) => {
+    if (!entry.file_path) {
+      toast({
+        title: "Error",
+        description: "No file available for download",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.storage
+        .from('exports')
+        .download(entry.file_path);
+
+      if (error) throw error;
+
+      // Create download link
+      const url = URL.createObjectURL(data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = entry.file_path.split('/').pop() || 'export.xlsx';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: "Download Started",
+        description: "Export file download has started"
+      });
+    } catch (error) {
+      console.error('Error downloading export file:', error);
+      toast({
+        title: "Download Failed",
+        description: "Failed to download export file",
+        variant: "destructive"
+      });
+    }
+  }, [toast]);
+
+  const handleExportHistoryRerun = useCallback(async (entry: ExportHistoryEntry) => {
+    setShowExportHistoryDialog(false);
+    
+    const filters = entry.filters || {};
+    
+    // Apply the filters from the history entry
+    if (filters.status) setSelectedExportStatus(filters.status);
+    if (filters.category) setExportCategory(filters.category);
+    if (filters.subCategory) setExportSubCategory(filters.subCategory);
+    if (filters.pageSize) setExportPageSize(filters.pageSize);
+    if (filters.columns) setSelectedExportColumns(filters.columns);
+    if (filters.apiKeys) {
+      setSelectedExportAPIs(filters.apiKeys.map((api: any) => api.id));
+    }
+
+    toast({
+      title: "Export Configuration Applied",
+      description: "Settings from history have been applied. Click 'Run in Background' to start the export."
+    });
+  }, []);
 
   // Search PO model numbers in Sunsky and import matching items with background processing
   const handleSearchPOModelNumbers = async () => {
@@ -3468,38 +3543,49 @@ export const SunskySKUImporter: React.FC = () => {
                       Export History
                     </CardTitle>
                     <CardDescription>
-                      Recent export activities (last 10)
+                      Recent export activities (last 10) - Click for details
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-2">
                       {savedExportHistory.map((entry) => (
-                        <div key={entry.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                        <div 
+                          key={entry.id} 
+                          className="flex items-center justify-between p-3 bg-muted/30 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                          onClick={() => {
+                            setSelectedExportEntry(entry);
+                            setShowExportHistoryDialog(true);
+                          }}
+                        >
                           <div className="flex items-center gap-3">
-                            <div className={`h-2 w-2 rounded-full ${
+                            <div className={`h-3 w-3 rounded-full ${
                               entry.status === 'completed' ? 'bg-green-500' :
+                              entry.status === 'processing' ? 'bg-blue-500 animate-pulse' :
                               entry.status === 'cancelled' ? 'bg-yellow-500' : 'bg-red-500'
                             }`} />
                              <div>
-                               <div className="font-medium text-sm">
-                                 {(entry.metadata as any)?.categories || 'Export'} - {entry.total_items} items
-                               </div>
-                               <div className="text-xs text-muted-foreground">
-                                 {new Date(entry.created_at).toLocaleString()}
-                                 {(entry.metadata as any)?.apiKeys > 1 && ` • ${(entry.metadata as any)?.apiKeys} API keys`}
-                               </div>
+                                <div className="font-medium text-sm">
+                                  {(entry.metadata as any)?.categoryName || 'Export'} - {entry.total_items.toLocaleString()} items
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {new Date(entry.created_at).toLocaleString()}
+                                  {(entry.metadata as any)?.apiKeys?.length > 0 && ` • ${(entry.metadata as any).apiKeys.length} API keys`}
+                                  {(entry.metadata as any)?.columns?.length > 0 && ` • ${(entry.metadata as any).columns.length} columns`}
+                                  {entry.file_path && ` • ${(entry.file_size ? formatBytes(entry.file_size) : 'File ready')}`}
+                                </div>
                              </div>
                           </div>
                           <div className="flex items-center gap-2">
                             <Badge variant={
                               entry.status === 'completed' ? 'default' :
-                              entry.status === 'cancelled' ? 'secondary' : 'destructive'
+                              entry.status === 'processing' ? 'secondary' :
+                              entry.status === 'cancelled' ? 'outline' : 'destructive'
                             }>
                               {entry.status}
                             </Badge>
                              {entry.error_message && (
-                               <Badge variant="outline" className="text-xs max-w-32 truncate">
-                                 {entry.error_message}
+                               <Badge variant="destructive" className="text-xs max-w-32 truncate">
+                                 Error
                                </Badge>
                              )}
                           </div>
@@ -3758,6 +3844,14 @@ export const SunskySKUImporter: React.FC = () => {
         onSuccess={clearAllSKUs}
         title="Clear All SKUs - Authentication Required"
         description="This action will permanently delete all imported SKUs. Please confirm your identity to proceed."
+      />
+
+      <ExportHistoryDialog
+        entry={selectedExportEntry}
+        isOpen={showExportHistoryDialog}
+        onClose={() => setShowExportHistoryDialog(false)}
+        onDownload={handleExportHistoryDownload}
+        onRerun={handleExportHistoryRerun}
       />
     </div>
   );
