@@ -705,20 +705,22 @@ export const SunskySKUImporter: React.FC = () => {
       // True background processing using edge function
       try {
         console.log('Starting true background export via edge function...');
+        console.log('Selected API Keys:', apiKeysWithNames);
         
-        const exportConfig = {
+        const backgroundExportConfig = {
           categoryId: exportSubCategory !== 'all' ? exportSubCategory : exportCategory,
           selectedExportStatus,
           selectedExportColumns,
-          exportPageSize
+          exportPageSize,
+          selectedAPIs: apiKeysWithNames // Include selected APIs in config
         };
 
         // Start background processing via edge function
         const { data, error } = await supabase.functions.invoke('process-po-background', {
           body: {
             action: 'startExport',
-            config: exportConfig,
-            availableAPIs: apiKeysWithNames
+            config: backgroundExportConfig,
+            availableAPIs: apiKeysWithNames // Only pass selected APIs
           }
         });
 

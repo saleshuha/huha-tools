@@ -69,12 +69,12 @@ Deno.serve(async (req) => {
           id: taskId,
           user_id: user.id,
           type: 'sunsky_export',
-          status: 'processing',
+          status: 'queued',
           progress: 0,
           processed_items: 0,
           metadata: {
             ...config,
-            availableAPIs,
+            selectedAPIs: availableAPIs,
             exportType: 'background',
             persistent: true,
             historyId: historyId
@@ -90,9 +90,9 @@ Deno.serve(async (req) => {
           background_task_id: taskId,
           export_type: 'sunsky_status_export',
           filters: config,
-          status: 'processing',
+          status: 'queued',
           metadata: {
-            availableAPIs: availableAPIs,
+            selectedAPIs: availableAPIs,
             concurrent: true,
             background: true
           }
@@ -583,6 +583,18 @@ async function callSunskyAPI(action: string, data: any, credentials: SunskyCrede
 async function processSunskyExportBackground(supabaseClient: any, userId: string, taskId: string, historyId: string, config: any, availableAPIs: any[]) {
   try {
     console.log(`Background export started for task ${taskId}`)
+    
+    // Update status to processing
+    await Promise.all([
+      supabaseClient
+        .from('background_tasks')
+        .update({ status: 'processing' })
+        .eq('id', taskId),
+      supabaseClient
+        .from('export_history')
+        .update({ status: 'processing' })
+        .eq('id', historyId)
+    ])
 
     // Get user's country from profile
     const { data: userProfile } = await supabaseClient
@@ -593,13 +605,15 @@ async function processSunskyExportBackground(supabaseClient: any, userId: string
 
     const userCountry = userProfile?.country || 'UAE'
 
-    // Get full API credentials from database (availableAPIs only has id and name)
-    const apiIds = availableAPIs.map(api => api.id)
+    // Get full API credentials from database - only for selected APIs
+    const selectedApiIds = availableAPIs.map(api => api.id)
+    console.log(`Fetching credentials for selected APIs: ${selectedApiIds.join(', ')}`)
+    
     const { data: fullCredentials, error: credError } = await supabaseClient
       .from('sunsky_credentials')
-      .select('id, api_key, api_secret')
+      .select('id, api_key, api_secret, name')
       .eq('user_id', userId)
-      .in('id', apiIds)
+      .in('id', selectedApiIds)
       .eq('is_active', true)
 
     if (credError || !fullCredentials || fullCredentials.length === 0) {
@@ -607,6 +621,7 @@ async function processSunskyExportBackground(supabaseClient: any, userId: string
     }
 
     console.log(`Found ${fullCredentials.length} API credentials for background export`)
+    console.log(`Using APIs: ${fullCredentials.map(c => c.name || c.id.substring(0, 8)).join(', ')}`)
 
     let allProducts: any[] = []
     let totalProcessed = 0
