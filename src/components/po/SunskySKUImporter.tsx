@@ -725,13 +725,26 @@ export const SunskySKUImporter: React.FC = () => {
       });
       
       try {
+        // Get current user from Supabase auth
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          toast({
+            title: "Authentication Error",
+            description: "Please log in to start background export",
+            variant: "destructive"
+          });
+          return;
+        }
+
+        console.log('User authenticated for background export:', user.id);
+
         // Create a background task record
         const taskData = {
           type: 'sunsky_export',
           status: 'queued',
           progress: 0,
           total_items: 0, // Will be updated during processing
-          user_id: profile?.id,
+          user_id: user.id, // Use the actual authenticated user ID
           metadata: {
             exportConfig,
             categoryName,
@@ -741,7 +754,7 @@ export const SunskySKUImporter: React.FC = () => {
           }
         };
 
-        console.log('Creating background task:', taskData);
+        console.log('Creating background task with data:', JSON.stringify(taskData, null, 2));
 
         const { data: task, error: taskError } = await supabase
           .from('background_tasks')
@@ -752,8 +765,18 @@ export const SunskySKUImporter: React.FC = () => {
         if (taskError) {
           console.error('Failed to create background task:', taskError);
           toast({
+            title: "Background Task Error", 
+            description: `Failed to create background task: ${taskError.message}`,
+            variant: "destructive"
+          });
+          return;
+        }
+
+        if (!task) {
+          console.error('Background task creation returned no data');
+          toast({
             title: "Background Task Error",
-            description: "Failed to create background task: " + taskError.message,
+            description: "Failed to create background task: No task data returned",
             variant: "destructive"
           });
           return;
