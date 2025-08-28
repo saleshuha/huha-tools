@@ -3452,11 +3452,10 @@ export const SunskySKUImporter: React.FC = () => {
                 </Button>
                 
                 <Button 
-                  onClick={async (e) => {
+                  onClick={() => {
                     console.log('🔥🔥🔥 RUN IN BACKGROUND BUTTON CLICKED!!!');
                     console.log('runInBackground:', runInBackground);
                     console.log('hasCredentials:', hasCredentials);
-                    console.log('Button should be disabled?:', !runInBackground || !hasCredentials);
                     
                     if (!runInBackground) {
                       toast({
@@ -3470,46 +3469,21 @@ export const SunskySKUImporter: React.FC = () => {
                     if (!hasCredentials) {
                       toast({
                         title: "API Credentials Required",
-                        description: "Please configure your Sunsky API credentials first", 
+                        description: "Please configure your API credentials first",
                         variant: "destructive"
                       });
                       return;
                     }
                     
-                    // Rest of the background export logic...
-                    try {
-                      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-                      if (sessionError || !session?.user) {
-                        toast({
-                          title: "Authentication Required",
-                          description: "Please sign in to start background exports",
-                          variant: "destructive"
-                        });
-                        return;
-                      }
-                      
-                      // Simple test for now
-                      toast({
-                        title: "Background Export Test",
-                        description: "Button is working! Full implementation needed.",
-                        duration: 3000
-                      });
-                      
-                    } catch (error) {
-                      console.error('Error:', error);
-                      toast({
-                        title: "Error",
-                        description: error.message,
-                        variant: "destructive"
-                      });
-                    }
+                    // Call the export function in background mode
+                    exportProductsByStatus(true);
                   }} 
-                  disabled={false}  // Remove disabled condition temporarily for testing
+                  disabled={isExporting || !hasCredentials || !runInBackground}
                   variant="secondary"
                   className="flex items-center gap-2"
                 >
                   <Play className="h-4 w-4" />
-                  Run in Background {!runInBackground ? '(Check box first)' : ''}
+                  Run in Background
                 </Button>
 
                 {/* Test Task Button for debugging */}
@@ -3520,58 +3494,47 @@ export const SunskySKUImporter: React.FC = () => {
                     e.stopPropagation();
                     
                     try {
-                      const user = await supabase.auth.getUser();
-                      console.log('User:', user);
+                      const testTask = {
+                        type: 'test_task',
+                        status: 'queued',
+                        progress: 0,
+                        total_items: 100,
+                        user_id: profile?.id,
+                        metadata: {
+                          message: 'Test task created at ' + new Date().toISOString(),
+                          test: true
+                        }
+                      };
                       
-                      if (!user.data.user) {
-                        toast({
-                          title: "Authentication Required",
-                          description: "Please sign in first",
-                          variant: "destructive"
-                        });
-                        return;
-                      }
+                      console.log('Inserting test task:', testTask);
                       
                       const { data, error } = await supabase
                         .from('background_tasks')
-                        .insert({
-                          user_id: user.data.user.id,
-                          type: 'test_export', 
-                          status: 'queued',
-                          progress: 0,
-                          total_items: 100,
-                          processed_items: 0,
-                          metadata: { test: true, created_by: 'test_button' }
-                        })
+                        .insert([testTask])
                         .select()
                         .single();
+                        
+                      if (error) throw error;
                       
-                      if (error) {
-                        console.error('❌ Test task creation failed:', error);
-                        toast({
-                          title: "Test Task Failed",
-                          description: error.message,
-                          variant: "destructive"
-                        });
-                      } else {
-                        console.log('✅ Test task created:', data);
-                        toast({
-                          title: "Test Task Created! 🧪",
-                          description: "Check the Tasks panel to see if it appears.",
-                          duration: 5000
-                        });
-                        window.dispatchEvent(new CustomEvent('refreshBackgroundTasks'));
-                      }
-                    } catch (error) {
-                      console.error('❌ Exception creating test task:', error);
+                      console.log('Test task created:', data);
+                      
+                      // Refresh the tasks list
+                      await fetchTasks();
+                      
                       toast({
-                        title: "Test Task Failed",
-                        description: error.message || 'Unknown error',
+                        title: "Test Task Created",
+                        description: `Test task ${data.id} created successfully`
+                      });
+                    } catch (error) {
+                      console.error('Failed to create test task:', error);
+                      toast({
+                        title: "Error",
+                        description: "Failed to create test task: " + (error as Error).message,
                         variant: "destructive"
                       });
                     }
                   }}
-                  disabled={false}  // Remove disabled condition
+                  disabled={tasksLoading}
                   variant="outline"
                   size="sm"
                   className="flex items-center gap-2"
