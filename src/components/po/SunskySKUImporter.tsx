@@ -705,7 +705,7 @@ export const SunskySKUImporter: React.FC = () => {
       categoryId: exportSubCategory !== 'all' ? parseInt(exportSubCategory) : 
                  (exportCategory !== 'all' ? parseInt(exportCategory) : undefined),
       pageSize: exportPageSize,
-        maxPages: Number.MAX_SAFE_INTEGER, // Unlimited pages
+      maxPages: Number.MAX_SAFE_INTEGER, // Unlimited pages
       columns: selectedExportColumns,
       apiKeys: apiKeysWithNames,
       statusText: getProductStatusText(selectedExportStatus),
@@ -713,7 +713,7 @@ export const SunskySKUImporter: React.FC = () => {
     };
 
     if (runInBg) {
-      // True background processing using edge function
+      // Background processing using the existing background tasks system
       console.log('🚀 ENTERING BACKGROUND PROCESSING MODE');
       console.log('Background processing config:', { 
         exportSubCategory, 
@@ -725,77 +725,81 @@ export const SunskySKUImporter: React.FC = () => {
       });
       
       try {
-        const backgroundExportConfig = {
-          categoryId: exportSubCategory !== 'all' ? exportSubCategory : exportCategory,
-          selectedExportStatus,
-          selectedExportColumns,
-          exportPageSize,
-          selectedAPIs: apiKeysWithNames // Include selected APIs in config
-        };
-        
-        console.log('Starting true background export via edge function...');
-        console.log('Selected API Keys:', apiKeysWithNames);
-        console.log('Background Export Config:', backgroundExportConfig);
-
-        // Start background processing via edge function
-        console.log('📞 About to invoke process-po-background function...');
-        const response = await supabase.functions.invoke('process-po-background', {
-          body: {
-            action: 'startExport',
-            config: backgroundExportConfig,
-            availableAPIs: apiKeysWithNames // Only pass selected APIs
+        // Create a background task record
+        const taskData = {
+          type: 'sunsky_export',
+          status: 'queued',
+          progress: 0,
+          total_items: 0, // Will be updated during processing
+          user_id: profile?.id,
+          metadata: {
+            exportConfig,
+            categoryName,
+            apiKeysCount: apiKeysWithNames.length,
+            statusText: getProductStatusText(selectedExportStatus),
+            startTime: new Date().toISOString()
           }
-        });
-        
-        console.log('📞 Function invoke response:', response);
-        const { data, error } = response;
+        };
 
-        if (error) {
-          console.error('❌ Failed to start background export:', error);
-          console.error('Error details:', {
-            message: error.message,
-            details: error.details,
-            hint: error.hint,
-            code: error.code
-          });
+        console.log('Creating background task:', taskData);
+
+        const { data: task, error: taskError } = await supabase
+          .from('background_tasks')
+          .insert([taskData])
+          .select()
+          .single();
+
+        if (taskError) {
+          console.error('Failed to create background task:', taskError);
           toast({
-            title: "Background Export Failed",
-            description: `${error.message || "Failed to start background processing"}${error.details ? ` (${error.details})` : ''}`,
+            title: "Background Task Error",
+            description: "Failed to create background task: " + taskError.message,
             variant: "destructive"
           });
           return;
         }
 
-        const { taskId, historyId } = data || {};
-        
-        if (!taskId || !historyId) {
-          toast({
-            title: "Background Export Error",
-            description: "Failed to get task identifiers",
-            variant: "destructive"
-          });
-          return;
-        }
+        console.log('Background task created:', task);
 
-        console.log('Background Export Started - Response:', { taskId, historyId });
+        // Start the background export using the concurrent export hook
+        console.log('Starting concurrent export for background task...');
+        
+        // Set the current export task ID to track this export
+        setCurrentExportTaskId(task.id);
+        
+        // Start the concurrent export which will handle the background processing
+        const exportId = await startConcurrentExport(exportConfig);
+        
+        // Update the task with the export ID
+        const currentMetadata = (task.metadata as any) || {};
+        await supabase
+          .from('background_tasks')
+          .update({ 
+            status: 'processing',
+            metadata: {
+              ...currentMetadata,
+              exportId: exportId,
+              processingStarted: new Date().toISOString()
+            }
+          })
+          .eq('id', task.id);
 
         // Refresh tasks immediately to show the new task
         await fetchTasks();
 
         toast({
           title: "Background Export Started",
-          description: "Export is running in the background. You can close the app and return later to check progress.",
+          description: `Export started in background using ${apiKeysWithNames.length} API keys. Task ID: ${task.id.substring(0, 8)}`,
           duration: 5000
         });
 
-        // The background task and export history are automatically tracked by the database
-        // The usePersistentBackgroundTasks hook will pick up the task and display it
+        console.log('Background export initiated successfully, Task ID:', task.id);
         
       } catch (error) {
         console.error('Error starting background export:', error);
         toast({
           title: "Background Export Failed",
-          description: "Failed to start background processing",
+          description: "Failed to start background processing: " + (error as Error).message,
           variant: "destructive"
         });
       }
@@ -3452,7 +3456,7 @@ export const SunskySKUImporter: React.FC = () => {
                 </Button>
                 
                 <Button 
-                  onClick={() => {
+                  onClick={async () => {
                     console.log('🔥🔥🔥 RUN IN BACKGROUND BUTTON CLICKED!!!');
                     console.log('runInBackground:', runInBackground);
                     console.log('hasCredentials:', hasCredentials);
@@ -3474,16 +3478,44 @@ export const SunskySKUImporter: React.FC = () => {
                       });
                       return;
                     }
+
+                    if (!selectedExportStatus) {
+                      toast({
+                        title: "Status Required",
+                        description: "Please select a product status to export",
+                        variant: "destructive"
+                      });
+                      return;
+                    }
+                    
+                    // Show starting toast
+                    toast({
+                      title: "Starting Background Export",
+                      description: "Initializing background export process...",
+                    });
                     
                     // Call the export function in background mode
-                    exportProductsByStatus(true);
+                    try {
+                      await exportProductsByStatus(true);
+                    } catch (error) {
+                      console.error('Background export error:', error);
+                      toast({
+                        title: "Export Error",
+                        description: "Failed to start background export: " + (error as Error).message,
+                        variant: "destructive"
+                      });
+                    }
                   }} 
-                  disabled={isExporting || !hasCredentials || !runInBackground}
+                  disabled={isExporting || isConcurrentExporting || !hasCredentials || !runInBackground || !selectedExportStatus}
                   variant="secondary"
                   className="flex items-center gap-2"
                 >
-                  <Play className="h-4 w-4" />
-                  Run in Background
+                  {isExporting || isConcurrentExporting ? (
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Play className="h-4 w-4" />
+                  )}
+                  {isExporting || isConcurrentExporting ? 'Processing...' : 'Run in Background'}
                 </Button>
 
                 {/* Test Task Button for debugging */}
