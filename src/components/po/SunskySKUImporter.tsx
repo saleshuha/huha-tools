@@ -654,253 +654,7 @@ export const SunskySKUImporter: React.FC = () => {
     }
   };
 
-  // Export by status functionality with concurrent API support
-  const exportProductsByStatus = async (runInBg: boolean = false) => {
-    console.log(`=== Export Debug ===`);
-    console.log(`runInBg: ${runInBg}`);
-    console.log(`selectedExportStatus: ${selectedExportStatus}`);
-    console.log(`selectedExportAPIs: ${JSON.stringify(selectedExportAPIs)}`);
-    console.log(`availableAPIs: ${JSON.stringify(availableAPIs.map(api => ({id: api.id, name: api.name, is_active: api.is_active})))}`);
-    
-    if (!selectedExportStatus) {
-      toast({
-        title: "Error",
-        description: "Please select a product status to export",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    // Determine which APIs to use
-    const apiIds = selectedExportAPIs.length > 0 ? selectedExportAPIs : 
-                   availableAPIs.filter(api => api.is_active).map(api => api.id);
-    
-    console.log(`Determined apiIds: ${JSON.stringify(apiIds)}`);
-    
-    if (apiIds.length === 0) {
-      toast({
-        title: "Error",
-        description: "No active API keys available",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    const categoryName = exportCategory !== 'all' ? 
-      (exportSubCategory !== 'all' ? 
-        subCategories.find(c => c.id.toString() === exportSubCategory)?.name || 'Unknown Subcategory' :
-        categories.find(c => c.id.toString() === exportCategory)?.name || 'Unknown Category'
-      ) : 'All Categories';
-
-    // Prepare API key objects with names
-    const apiKeysWithNames = apiIds.map(id => {
-      const api = availableAPIs.find(a => a.id === id);
-      return { id, name: api?.name || `API ${id.substring(0, 8)}` };
-    });
-    
-    console.log(`API Keys with Names: ${JSON.stringify(apiKeysWithNames)}`);
-
-    const exportConfig = {
-      status: selectedExportStatus,
-      categoryId: exportSubCategory !== 'all' ? parseInt(exportSubCategory) : 
-                 (exportCategory !== 'all' ? parseInt(exportCategory) : undefined),
-      pageSize: exportPageSize,
-      maxPages: Number.MAX_SAFE_INTEGER, // Unlimited pages
-      columns: selectedExportColumns,
-      apiKeys: apiKeysWithNames,
-      statusText: getProductStatusText(selectedExportStatus),
-      categoryName
-    };
-
-    if (runInBg) {
-      // Background processing using the existing background tasks system
-      console.log('🚀 ENTERING BACKGROUND PROCESSING MODE');
-      console.log('Background processing config:', { 
-        exportSubCategory, 
-        exportCategory, 
-        selectedExportStatus, 
-        selectedExportColumns, 
-        exportPageSize,
-        apiKeysWithNames 
-      });
-      
-      try {
-        // Get current user from Supabase auth
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          toast({
-            title: "Authentication Error",
-            description: "Please log in to start background export",
-            variant: "destructive"
-          });
-          return;
-        }
-
-        console.log('User authenticated for background export:', user.id);
-
-        // Create a background task record
-        const taskData = {
-          type: 'sunsky_export',
-          status: 'queued',
-          progress: 0,
-          total_items: 0, // Will be updated during processing
-          user_id: user.id, // Use the actual authenticated user ID
-          metadata: {
-            exportConfig,
-            categoryName,
-            apiKeysCount: apiKeysWithNames.length,
-            statusText: getProductStatusText(selectedExportStatus),
-            startTime: new Date().toISOString()
-          }
-        };
-
-        console.log('Creating background task with data:', JSON.stringify(taskData, null, 2));
-
-        const { data: task, error: taskError } = await supabase
-          .from('background_tasks')
-          .insert([taskData])
-          .select()
-          .single();
-
-        if (taskError) {
-          console.error('Failed to create background task:', taskError);
-          toast({
-            title: "Background Task Error", 
-            description: `Failed to create background task: ${taskError.message}`,
-            variant: "destructive"
-          });
-          return;
-        }
-
-        if (!task) {
-          console.error('Background task creation returned no data');
-          toast({
-            title: "Background Task Error",
-            description: "Failed to create background task: No task data returned",
-            variant: "destructive"
-          });
-          return;
-        }
-
-        console.log('Background task created:', task);
-
-        // Start the background export using the concurrent export hook
-        console.log('Starting concurrent export for background task...');
-        
-        // Set the current export task ID to track this export
-        setCurrentExportTaskId(task.id);
-        
-        // Start the concurrent export which will handle the background processing
-        const exportId = await startConcurrentExport(exportConfig, task.id);
-        
-        // Update the task with the export ID
-        const currentMetadata = (task.metadata as any) || {};
-        await supabase
-          .from('background_tasks')
-          .update({ 
-            status: 'processing',
-            metadata: {
-              ...currentMetadata,
-              exportId: exportId,
-              processingStarted: new Date().toISOString()
-            }
-          })
-          .eq('id', task.id);
-
-        // Refresh tasks immediately to show the new task
-        await fetchTasks();
-
-        toast({
-          title: "Background Export Started",
-          description: `Export started in background using ${apiKeysWithNames.length} API keys. Task ID: ${task.id.substring(0, 8)}`,
-          duration: 5000
-        });
-
-        console.log('Background export initiated successfully, Task ID:', task.id);
-        
-      } catch (error) {
-        console.error('Error starting background export:', error);
-        toast({
-          title: "Background Export Failed",
-          description: "Failed to start background processing: " + (error as Error).message,
-          variant: "destructive"
-        });
-      }
-      
-      return;
-    }
-
-    // Run in foreground with concurrent processing
-    try {
-      setIsExporting(true);
-      
-      const apiKeysWithNames = availableAPIs.filter(api => api.is_active).map(api => ({ 
-        id: api.id, 
-        name: api.name 
-      }));
-
-      if (apiKeysWithNames.length === 0) {
-        toast({
-          title: "No API Keys",
-          description: "Please add and activate at least one API key",
-          variant: "destructive"
-        });
-        setIsExporting(false);
-        return;
-      }
-
-      const categoryName = exportCategory === 'all' ? 'All Categories' : 
-        categories.find(c => c.id.toString() === exportCategory)?.name || 'Unknown';
-
-      const exportConfig = {
-        status: selectedExportStatus,
-        categoryId: exportSubCategory !== 'all' ? parseInt(exportSubCategory) : 
-                   (exportCategory !== 'all' ? parseInt(exportCategory) : undefined),
-        pageSize: exportPageSize,
-        maxPages: Number.MAX_SAFE_INTEGER, // Unlimited pages
-        columns: selectedExportColumns,
-        apiKeys: apiKeysWithNames
-      };
-
-      // Start concurrent export
-      try {
-        const exportId = await startConcurrentExport(exportConfig);
-        
-        // Wait for the concurrent export to complete and results to be available
-        // The hook manages its own state, so we need to wait for completion
-        console.log('Concurrent export completed with ID:', exportId);
-        
-        // The results are now available in the hook's state
-        // We'll handle the success in a useEffect that watches concurrentExportResults
-        
-      } catch (concurrentError) {
-        console.error('Concurrent export failed:', concurrentError);
-        throw concurrentError; // Re-throw to be caught by outer try-catch
-      }
-    } catch (error) {
-      console.error('Error during concurrent export:', error);
-      
-      // More specific error messages based on error type
-      let errorMessage = "Failed to complete concurrent export";
-      if (error.message) {
-        errorMessage = error.message;
-      } else if (typeof error === 'string') {
-        errorMessage = error;
-      }
-      
-      toast({
-        title: "Export Error",
-        description: errorMessage,
-        variant: "destructive"
-      });
-      
-      // Reset export state
-      setExportResults(null);
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
+  // Process Export functionality for concurrent processing
   const processExport = async (apiIds: string[], isBackground: boolean = false, taskId?: string) => {
     const updateProgress = (progress: number, status: string, totalItems?: number, processedItems?: number, estimatedTotal?: number) => {
       if (isBackground && taskId) {
@@ -3470,7 +3224,47 @@ export const SunskySKUImporter: React.FC = () => {
                 </div>
                 
                 <Button 
-                  onClick={() => exportProductsByStatus(false)} 
+                  onClick={() => {
+                    // Direct foreground export without the old function
+                    if (!hasCredentials) {
+                      toast({
+                        title: "API Credentials Required",
+                        description: "Please configure your API credentials first",
+                        variant: "destructive"
+                      });
+                      return;
+                    }
+                    
+                    if (!selectedExportStatus) {
+                      toast({
+                        title: "Status Required",
+                        description: "Please select a product status to export",
+                        variant: "destructive"
+                      });
+                      return;
+                    }
+
+                    // Use the concurrent export directly for foreground processing
+                    const apiIds = selectedExportAPIs.length > 0 ? selectedExportAPIs : 
+                                   availableAPIs.filter(api => api.is_active).map(api => api.id);
+                    
+                    const apiKeysWithNames = apiIds.map(id => {
+                      const api = availableAPIs.find(a => a.id === id);
+                      return { id, name: api?.name || `API ${id.substring(0, 8)}` };
+                    });
+
+                    const exportConfig = {
+                      status: selectedExportStatus,
+                      categoryId: exportSubCategory !== 'all' ? parseInt(exportSubCategory) : 
+                                 (exportCategory !== 'all' ? parseInt(exportCategory) : undefined),
+                      pageSize: exportPageSize,
+                      maxPages: Number.MAX_SAFE_INTEGER,
+                      columns: selectedExportColumns,
+                      apiKeys: apiKeysWithNames
+                    };
+
+                    startConcurrentExport(exportConfig);
+                  }}
                   disabled={isExporting || !hasCredentials}
                   className="flex-1"
                 >
@@ -3481,13 +3275,8 @@ export const SunskySKUImporter: React.FC = () => {
                 <Button 
                   onClick={async () => {
                     console.log('🔥🔥🔥 RUN IN BACKGROUND BUTTON CLICKED!!!');
-                    console.log('runInBackground:', runInBackground);
-                    console.log('hasCredentials:', hasCredentials);
-                    console.log('selectedExportStatus:', selectedExportStatus);
-                    console.log('selectedExportAPIs:', selectedExportAPIs);
                     
                     if (!runInBackground) {
-                      console.log('❌ Background mode not enabled');
                       toast({
                         title: "Background Mode Required", 
                         description: "Please check the 'Run in background' checkbox first",
@@ -3497,7 +3286,6 @@ export const SunskySKUImporter: React.FC = () => {
                     }
                     
                     if (!hasCredentials) {
-                      console.log('❌ No credentials');
                       toast({
                         title: "API Credentials Required",
                         description: "Please configure your API credentials first",
@@ -3507,7 +3295,6 @@ export const SunskySKUImporter: React.FC = () => {
                     }
 
                     if (!selectedExportStatus) {
-                      console.log('❌ No export status selected');
                       toast({
                         title: "Status Required",
                         description: "Please select a product status to export",
@@ -3515,39 +3302,176 @@ export const SunskySKUImporter: React.FC = () => {
                       });
                       return;
                     }
+
+                    // Set loading state
+                    setIsExporting(true);
                     
-                    console.log('✅ All validations passed, starting background export...');
-                    
-                    // Show starting toast
+                    // Show starting toast with progress
                     toast({
-                      title: "Starting Background Export",
-                      description: "Initializing background export process...",
+                      title: "🚀 Starting Background Export",
+                      description: "Creating background task and initializing export...",
+                      duration: 3000,
                     });
                     
-                    // Call the export function in background mode
                     try {
-                      console.log('🚀 About to call exportProductsByStatus(true)...');
-                      await exportProductsByStatus(true);
-                      console.log('✅ exportProductsByStatus completed successfully!');
-                    } catch (error) {
-                      console.error('❌ Background export error:', error);
+                      console.log('🚀 Starting background export process...');
+                      
+                      // Get authenticated user
+                      const { data: { user }, error: authError } = await supabase.auth.getUser();
+                      if (authError || !user) {
+                        throw new Error('Authentication required');
+                      }
+
+                      console.log('✅ User authenticated:', user.id);
+
+                      // Determine API configuration
+                      const apiIds = selectedExportAPIs.length > 0 ? selectedExportAPIs : 
+                                     availableAPIs.filter(api => api.is_active).map(api => api.id);
+                      
+                      if (apiIds.length === 0) {
+                        throw new Error('No active API keys available');
+                      }
+
+                      const categoryName = exportCategory !== 'all' ? 
+                        (exportSubCategory !== 'all' ? 
+                          subCategories.find(c => c.id.toString() === exportSubCategory)?.name || 'Unknown Subcategory' :
+                          categories.find(c => c.id.toString() === exportCategory)?.name || 'Unknown Category'
+                        ) : 'All Categories';
+
+                      const apiKeysWithNames = apiIds.map(id => {
+                        const api = availableAPIs.find(a => a.id === id);
+                        return { id, name: api?.name || `API ${id.substring(0, 8)}` };
+                      });
+
+                      console.log('📋 Export Configuration:', {
+                        status: selectedExportStatus,
+                        categoryName,
+                        apiKeysCount: apiKeysWithNames.length,
+                        columns: selectedExportColumns.length
+                      });
+
+                      // Create background task record
+                      const taskData = {
+                        type: 'sunsky_export',
+                        status: 'queued',
+                        progress: 0,
+                        total_items: 0,
+                        user_id: user.id,
+                        metadata: {
+                          exportConfig: {
+                            status: selectedExportStatus,
+                            categoryId: exportSubCategory !== 'all' ? parseInt(exportSubCategory) : 
+                                       (exportCategory !== 'all' ? parseInt(exportCategory) : undefined),
+                            pageSize: exportPageSize,
+                            maxPages: Number.MAX_SAFE_INTEGER,
+                            columns: selectedExportColumns,
+                            apiKeys: apiKeysWithNames,
+                            statusText: getProductStatusText(selectedExportStatus),
+                            categoryName
+                          },
+                          categoryName,
+                          statusText: getProductStatusText(selectedExportStatus),
+                          apiKeysCount: apiKeysWithNames.length,
+                          startTime: new Date().toISOString()
+                        }
+                      };
+
+                      console.log('💾 Creating background task...');
+                      const { data: task, error: taskError } = await supabase
+                        .from('background_tasks')
+                        .insert([taskData])
+                        .select()
+                        .single();
+
+                      if (taskError) {
+                        console.error('❌ Failed to create background task:', taskError);
+                        throw new Error(`Failed to create background task: ${taskError.message}`);
+                      }
+
+                      if (!task) {
+                        throw new Error('Failed to create background task: No data returned');
+                      }
+
+                      console.log('✅ Background task created:', task.id);
+
+                      // Update task to processing status
+                      await supabase
+                        .from('background_tasks')
+                        .update({ 
+                          status: 'processing',
+                          metadata: {
+                            ...(task.metadata as any || {}),
+                            processingStarted: new Date().toISOString()
+                          }
+                        })
+                        .eq('id', task.id);
+
+                      console.log('🚀 Task marked as processing, starting export...');
+
+                      // Start the concurrent export in the background
+                      const exportConfig = taskData.metadata.exportConfig;
+                      startConcurrentExport(exportConfig, task.id).then(() => {
+                        console.log('✅ Concurrent export completed for task:', task.id);
+                        // Refresh tasks to show completion
+                        fetchTasks();
+                      }).catch((error) => {
+                        console.error('❌ Concurrent export failed:', error);
+                        // Mark task as failed
+                        supabase
+                          .from('background_tasks')
+                          .update({ 
+                            status: 'failed',
+                            metadata: {
+                              ...(task.metadata as any || {}),
+                              error: error.message || 'Export failed',
+                              failedAt: new Date().toISOString()
+                            }
+                          })
+                          .eq('id', task.id);
+                      });
+
+                      // Refresh tasks to show new task
+                      await fetchTasks();
+
                       toast({
-                        title: "Export Error",
-                        description: "Failed to start background export: " + (error as Error).message,
+                        title: "✅ Background Export Started",
+                        description: `Export task created successfully! Using ${apiKeysWithNames.length} API keys. Check the Tasks tab for progress.`,
+                        duration: 5000
+                      });
+
+                      console.log('🎉 Background export initiated successfully, Task ID:', task.id);
+                      
+                    } catch (error) {
+                      console.error('💥 Background export error:', error);
+                      toast({
+                        title: "❌ Background Export Failed",
+                        description: error.message || "Failed to start background processing",
                         variant: "destructive"
                       });
+                    } finally {
+                      setIsExporting(false);
                     }
                   }}
                   disabled={isExporting || isConcurrentExporting || !hasCredentials || !runInBackground || !selectedExportStatus}
                   variant="secondary"
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-2 min-w-[200px]"
                 >
-                  {isExporting || isConcurrentExporting ? (
-                    <RefreshCw className="h-4 w-4 animate-spin" />
+                  {isExporting ? (
+                    <>
+                      <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Creating Task...
+                    </>
+                  ) : isConcurrentExporting ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                      Processing...
+                    </>
                   ) : (
-                    <Play className="h-4 w-4" />
+                    <>
+                      <Play className="h-4 w-4" />
+                      Run in Background
+                    </>
                   )}
-                  {isExporting || isConcurrentExporting ? 'Processing...' : 'Run in Background'}
                 </Button>
 
                 {/* Test Task Button for debugging */}

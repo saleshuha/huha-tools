@@ -290,6 +290,12 @@ export const useConcurrentSunskyExport = () => {
                 }
               })
               .eq('id', backgroundTaskId);
+              
+            console.log('📊 Background task updated:', {
+              taskId: backgroundTaskId,
+              progress: Math.round(overallPercent),
+              totalProcessed
+            });
           } catch (error) {
             console.error('Failed to update background task:', error);
           }
