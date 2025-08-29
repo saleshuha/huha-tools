@@ -791,7 +791,7 @@ export const SunskySKUImporter: React.FC = () => {
         setCurrentExportTaskId(task.id);
         
         // Start the concurrent export which will handle the background processing
-        const exportId = await startConcurrentExport(exportConfig);
+        const exportId = await startConcurrentExport(exportConfig, task.id);
         
         // Update the task with the export ID
         const currentMetadata = (task.metadata as any) || {};

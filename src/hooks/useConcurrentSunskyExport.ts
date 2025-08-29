@@ -167,13 +167,15 @@ export const useConcurrentSunskyExport = () => {
     return results;
   };
 
-  const startConcurrentExport = async (config: ExportConfig): Promise<string> => {
+  const startConcurrentExport = async (config: ExportConfig, backgroundTaskId?: string): Promise<string> => {
     const exportId = `export-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     
     setIsExporting(true);
     setExportResults(null);
     setOverallProgress(0);
     setExportStatus('Initializing concurrent export...');
+    
+    console.log('🚀 Starting concurrent export:', { exportId, backgroundTaskId });
     
     // Initialize cancellation flag
     cancellationRef.current[exportId] = false;
@@ -247,7 +249,7 @@ export const useConcurrentSunskyExport = () => {
       const progressTracker = new Map<string, ConcurrentExportProgress>();
       
       // Calculate overall progress more frequently
-      const onApiProgress = (progress: ConcurrentExportProgress) => {
+      const onApiProgress = async (progress: ConcurrentExportProgress) => {
         progressTracker.set(progress.apiKeyId, progress);
         
         // Update the progress array
@@ -267,7 +269,31 @@ export const useConcurrentSunskyExport = () => {
           .reduce((sum, p) => sum + (p as ConcurrentExportProgress).processedItems, 0);
         
         setOverallProgress(overallPercent);
-        setExportStatus(`Processing: ${totalProcessed} products found, ${totalPagesProcessed}/${totalPagesExpected} pages...`);
+        const statusText = `Processing: ${totalProcessed} products found, ${totalPagesProcessed}/${totalPagesExpected} pages...`;
+        setExportStatus(statusText);
+        
+        // Update background task if provided
+        if (backgroundTaskId) {
+          try {
+            await supabase
+              .from('background_tasks')
+              .update({ 
+                progress: Math.round(overallPercent),
+                total_items: totalProcessed,
+                status: 'processing',
+                metadata: {
+                  currentStatus: statusText,
+                  totalProcessed,
+                  totalPagesProcessed,
+                  totalPagesExpected,
+                  lastUpdate: new Date().toISOString()
+                }
+              })
+              .eq('id', backgroundTaskId);
+          } catch (error) {
+            console.error('Failed to update background task:', error);
+          }
+        }
       };
 
       // Start concurrent processing for each API key
@@ -319,12 +345,39 @@ export const useConcurrentSunskyExport = () => {
 
       setExportResults(finalResults);
       setOverallProgress(100);
-      setExportStatus(`Export completed! Found ${allProducts.length} products using ${config.apiKeys.length} API keys concurrently.`);
+      const completionMessage = `Export completed! Found ${allProducts.length} products using ${config.apiKeys.length} API keys concurrently.`;
+      setExportStatus(completionMessage);
 
-      toast({
-        title: "Concurrent Export Complete",
-        description: `Successfully exported ${allProducts.length} products using ${config.apiKeys.length} API keys simultaneously.`
-      });
+      // Update background task completion if provided
+      if (backgroundTaskId) {
+        try {
+          await supabase
+            .from('background_tasks')
+            .update({ 
+              progress: 100,
+              total_items: allProducts.length,
+              status: 'completed',
+              metadata: {
+                currentStatus: completionMessage,
+                totalProcessed: allProducts.length,
+                completedAt: new Date().toISOString(),
+                exportResults: {
+                  totalFound: allProducts.length,
+                  categoriesCount: categoriesMap.size
+                }
+              }
+            })
+            .eq('id', backgroundTaskId);
+          console.log('✅ Background task marked as completed:', backgroundTaskId);
+        } catch (error) {
+          console.error('Failed to complete background task:', error);
+        }
+      } else {
+        toast({
+          title: "Concurrent Export Complete",
+          description: `Successfully exported ${allProducts.length} products using ${config.apiKeys.length} API keys simultaneously.`
+        });
+      }
 
       return exportId;
 
@@ -333,11 +386,30 @@ export const useConcurrentSunskyExport = () => {
       setExportStatus('Export failed');
       setOverallProgress(0);
       
-      toast({
-        title: "Export Failed",
-        description: error.message || "Failed to export products",
-        variant: "destructive"
-      });
+      // Update background task failure if provided
+      if (backgroundTaskId) {
+        try {
+          await supabase
+            .from('background_tasks')
+            .update({ 
+              status: 'failed',
+              metadata: {
+                error: error.message || 'Export failed',
+                failedAt: new Date().toISOString()
+              }
+            })
+            .eq('id', backgroundTaskId);
+          console.log('❌ Background task marked as failed:', backgroundTaskId);
+        } catch (updateError) {
+          console.error('Failed to update background task failure:', updateError);
+        }
+      } else {
+        toast({
+          title: "Export Failed",
+          description: error.message || "Failed to export products",
+          variant: "destructive"
+        });
+      }
       
       throw error;
     } finally {
