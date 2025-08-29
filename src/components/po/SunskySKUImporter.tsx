@@ -3483,8 +3483,11 @@ export const SunskySKUImporter: React.FC = () => {
                     console.log('🔥🔥🔥 RUN IN BACKGROUND BUTTON CLICKED!!!');
                     console.log('runInBackground:', runInBackground);
                     console.log('hasCredentials:', hasCredentials);
+                    console.log('selectedExportStatus:', selectedExportStatus);
+                    console.log('selectedExportAPIs:', selectedExportAPIs);
                     
                     if (!runInBackground) {
+                      console.log('❌ Background mode not enabled');
                       toast({
                         title: "Background Mode Required", 
                         description: "Please check the 'Run in background' checkbox first",
@@ -3494,6 +3497,7 @@ export const SunskySKUImporter: React.FC = () => {
                     }
                     
                     if (!hasCredentials) {
+                      console.log('❌ No credentials');
                       toast({
                         title: "API Credentials Required",
                         description: "Please configure your API credentials first",
@@ -3503,6 +3507,7 @@ export const SunskySKUImporter: React.FC = () => {
                     }
 
                     if (!selectedExportStatus) {
+                      console.log('❌ No export status selected');
                       toast({
                         title: "Status Required",
                         description: "Please select a product status to export",
@@ -3510,6 +3515,8 @@ export const SunskySKUImporter: React.FC = () => {
                       });
                       return;
                     }
+                    
+                    console.log('✅ All validations passed, starting background export...');
                     
                     // Show starting toast
                     toast({
@@ -3519,16 +3526,18 @@ export const SunskySKUImporter: React.FC = () => {
                     
                     // Call the export function in background mode
                     try {
+                      console.log('🚀 About to call exportProductsByStatus(true)...');
                       await exportProductsByStatus(true);
+                      console.log('✅ exportProductsByStatus completed successfully!');
                     } catch (error) {
-                      console.error('Background export error:', error);
+                      console.error('❌ Background export error:', error);
                       toast({
                         title: "Export Error",
                         description: "Failed to start background export: " + (error as Error).message,
                         variant: "destructive"
                       });
                     }
-                  }} 
+                  }}
                   disabled={isExporting || isConcurrentExporting || !hasCredentials || !runInBackground || !selectedExportStatus}
                   variant="secondary"
                   className="flex items-center gap-2"
