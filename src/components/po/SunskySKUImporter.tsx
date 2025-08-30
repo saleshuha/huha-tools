@@ -1176,8 +1176,10 @@ export const SunskySKUImporter: React.FC = () => {
       console.log('🔍 Credentials check result:', { data, hasCredsResult });
       setHasCredentials(hasCredsResult);
       
-      // Load available APIs when checking credentials
-      await loadAvailableAPIs();
+      // Load available APIs when checking credentials - but only call if not already loading
+      if (availableAPIs.length === 0) {
+        await loadAvailableAPIs();
+      }
     } catch (error) {
       console.error('Error checking credentials:', error);
       setHasCredentials(false);
@@ -1906,14 +1908,14 @@ export const SunskySKUImporter: React.FC = () => {
       fetchSKUs(1);
       fetchJobs();
       loadColumnPreferences();
-      loadAvailableAPIs();
       fetchTasks(); // Load background tasks
     }
-  }, [profile?.id, fetchSKUs, fetchJobs, fetchTasks]);
+  }, [profile?.id]); // Remove functions from dependency array to prevent infinite loop
 
   useEffect(() => {
     console.log('🔍 Selected API effect:', { hasCredentials, selectedAPI });
     if (hasCredentials && selectedAPI) {
+      console.log('🚀 Calling loadCategories from selectedAPI effect with:', selectedAPI);
       loadCategories(selectedAPI);
       loadBrands(selectedAPI);
     }
@@ -1923,29 +1925,11 @@ export const SunskySKUImporter: React.FC = () => {
   useEffect(() => {
     console.log('🔍 Search API effect:', { hasCredentials, selectedSearchAPI });
     if (hasCredentials && selectedSearchAPI) {
-      console.log('Loading categories and brands for search API:', selectedSearchAPI);
+      console.log('🚀 Calling loadCategories from selectedSearchAPI effect with:', selectedSearchAPI);
       loadCategories(selectedSearchAPI);
       loadBrands(selectedSearchAPI);
     }
   }, [hasCredentials, selectedSearchAPI]);
-
-  // Also load categories when availableAPIs change and we have credentials
-  useEffect(() => {
-    console.log('🔍 Available APIs effect:', { 
-      hasCredentials, 
-      availableAPIsLength: availableAPIs.length, 
-      selectedSearchAPI,
-      firstActiveAPI: availableAPIs.find(api => api.is_active)?.id
-    });
-    if (hasCredentials && availableAPIs.length > 0 && !selectedSearchAPI) {
-      const defaultAPI = availableAPIs.find(api => api.is_active)?.id;
-      if (defaultAPI) {
-        console.log('Auto-loading categories for default API:', defaultAPI);
-        loadCategories(defaultAPI);
-        loadBrands(defaultAPI);
-      }
-    }
-  }, [hasCredentials, availableAPIs, selectedSearchAPI]);
 
   useEffect(() => {
     if (selectedCategory !== 'all' && selectedSearchAPI) {
@@ -3375,7 +3359,9 @@ export const SunskySKUImporter: React.FC = () => {
                         status: selectedExportStatus,
                         categoryName,
                         apiKeysCount: apiKeysWithNames.length,
-                        columns: selectedExportColumns.length
+                        columns: selectedExportColumns.length,
+                        exportCategory,
+                        exportSubCategory
                       });
 
                       // Create background task record
@@ -3420,7 +3406,7 @@ export const SunskySKUImporter: React.FC = () => {
                         throw new Error('Failed to create background task: No data returned');
                       }
 
-                      console.log('✅ Background task created:', task);
+                      console.log('✅ Background task created successfully:', task);
 
                       // Update task to processing status
                       console.log('🔄 Updating task to processing status...');
@@ -3440,7 +3426,7 @@ export const SunskySKUImporter: React.FC = () => {
                         throw new Error(`Failed to update task status: ${updateError.message}`);
                       }
 
-                      console.log('🚀 Task marked as processing, starting export...');
+                      console.log('🚀 Task marked as processing, starting concurrent export...');
 
                       // Show starting toast with progress
                       toast({
@@ -3452,14 +3438,18 @@ export const SunskySKUImporter: React.FC = () => {
                       // Start the concurrent export in the background
                       const exportConfig = taskData.metadata.exportConfig;
                       console.log('🎯 Starting concurrent export with config:', exportConfig);
+                      console.log('🎯 Starting concurrent export with task ID:', task.id);
                       
-                      // Don't await this - let it run in background
-                      startConcurrentExport(exportConfig, task.id).then(() => {
-                        console.log('✅ Concurrent export completed for task:', task.id);
+                      // Start the export - don't await this
+                      const exportPromise = startConcurrentExport(exportConfig, task.id);
+                      
+                      // Handle the export completion/failure
+                      exportPromise.then(() => {
+                        console.log('✅ Concurrent export completed successfully for task:', task.id);
                         // Refresh tasks to show completion
                         fetchTasks();
                       }).catch((error) => {
-                        console.error('❌ Concurrent export failed:', error);
+                        console.error('❌ Concurrent export failed for task:', task.id, error);
                         // Mark task as failed
                         supabase
                           .from('background_tasks')
@@ -3471,11 +3461,15 @@ export const SunskySKUImporter: React.FC = () => {
                               failedAt: new Date().toISOString()
                             }
                           })
-                          .eq('id', task.id);
+                          .eq('id', task.id)
+                          .then(() => {
+                            console.log('❌ Task marked as failed in database');
+                            fetchTasks(); // Refresh to show failed status
+                          });
                       });
 
-                      // Refresh tasks to show new task
-                      console.log('🔄 Refreshing tasks list...');
+                      // Refresh tasks to show new task immediately
+                      console.log('🔄 Refreshing tasks list to show new task...');
                       await fetchTasks();
 
                       console.log('🎉 Background export initiated successfully, Task ID:', task.id);
