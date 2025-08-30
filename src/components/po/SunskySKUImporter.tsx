@@ -1119,6 +1119,7 @@ export const SunskySKUImporter: React.FC = () => {
 
   // Load available APIs
   const loadAvailableAPIs = async () => {
+    console.log('🔍 Loading available APIs for user:', profile?.id);
     try {
       const { data, error } = await supabase
         .from('sunsky_credentials')
@@ -1134,18 +1135,23 @@ export const SunskySKUImporter: React.FC = () => {
         is_active: cred.is_active
       }));
       
+      console.log('🔍 Available APIs loaded:', apis);
       setAvailableAPIs(apis);
       
       // Set default selected API to first active one
       const defaultAPI = apis.find(api => api.is_active)?.id || apis[0]?.id || '';
+      console.log('🔍 Default API:', defaultAPI);
       if (defaultAPI) {
         if (!selectedAPI) {
+          console.log('🔍 Setting selectedAPI to:', defaultAPI);
           setSelectedAPI(defaultAPI);
         }
         if (!selectedSearchAPI) {
+          console.log('🔍 Setting selectedSearchAPI to:', defaultAPI);
           setSelectedSearchAPI(defaultAPI);
         }
         if (!selectedJobAPI) {
+          console.log('🔍 Setting selectedJobAPI to:', defaultAPI);
           setSelectedJobAPI(defaultAPI);
         }
       }
@@ -1156,6 +1162,7 @@ export const SunskySKUImporter: React.FC = () => {
 
   // Update credentials check to use any active API key
   const checkStatus = async () => {
+    console.log('🔍 Checking credentials status for user:', profile?.id);
     try {
       const { data, error } = await supabase
         .from('sunsky_credentials')
@@ -1165,7 +1172,9 @@ export const SunskySKUImporter: React.FC = () => {
         .limit(1);
       
       if (error) throw error;
-      setHasCredentials(!!data && data.length > 0);
+      const hasCredsResult = !!data && data.length > 0;
+      console.log('🔍 Credentials check result:', { data, hasCredsResult });
+      setHasCredentials(hasCredsResult);
       
       // Load available APIs when checking credentials
       await loadAvailableAPIs();
@@ -1887,6 +1896,11 @@ export const SunskySKUImporter: React.FC = () => {
   };
 
   useEffect(() => {
+    console.log('🔍 Profile effect triggered:', { 
+      profileId: profile?.id, 
+      hasCredentials, 
+      availableAPIsLength: availableAPIs.length 
+    });
     if (profile?.id) {
       checkCredentialsStatus();
       fetchSKUs(1);
@@ -1898,6 +1912,7 @@ export const SunskySKUImporter: React.FC = () => {
   }, [profile?.id, fetchSKUs, fetchJobs, fetchTasks]);
 
   useEffect(() => {
+    console.log('🔍 Selected API effect:', { hasCredentials, selectedAPI });
     if (hasCredentials && selectedAPI) {
       loadCategories(selectedAPI);
       loadBrands(selectedAPI);
@@ -1906,6 +1921,7 @@ export const SunskySKUImporter: React.FC = () => {
 
   // Load categories and brands when search API is selected
   useEffect(() => {
+    console.log('🔍 Search API effect:', { hasCredentials, selectedSearchAPI });
     if (hasCredentials && selectedSearchAPI) {
       console.log('Loading categories and brands for search API:', selectedSearchAPI);
       loadCategories(selectedSearchAPI);
@@ -1915,6 +1931,12 @@ export const SunskySKUImporter: React.FC = () => {
 
   // Also load categories when availableAPIs change and we have credentials
   useEffect(() => {
+    console.log('🔍 Available APIs effect:', { 
+      hasCredentials, 
+      availableAPIsLength: availableAPIs.length, 
+      selectedSearchAPI,
+      firstActiveAPI: availableAPIs.find(api => api.is_active)?.id
+    });
     if (hasCredentials && availableAPIs.length > 0 && !selectedSearchAPI) {
       const defaultAPI = availableAPIs.find(api => api.is_active)?.id;
       if (defaultAPI) {
