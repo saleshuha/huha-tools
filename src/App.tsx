@@ -182,114 +182,114 @@ const App = () => {
       <TooltipProvider>
         <CountryProvider>
           <BackgroundTasksProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-          <SidebarProvider>
-            <div className="min-h-screen flex w-full">
-              <AppSidebar />
-              <div className="flex-1 flex flex-col">
-                <header className="h-14 flex items-center border-b bg-background shadow-sm">
-                  <div className="flex items-center justify-between w-full gap-4 pl-6 pr-4">
-                    <div className="flex items-center gap-3">
-                      <SidebarTrigger className="bg-primary hover:bg-primary/90 text-primary-foreground border-primary" />
-                      <div className="bg-primary/10 rounded-md p-1.5">
-                        <img 
-                          src="/lovable-uploads/4f9a15c5-2d12-4ee0-b0bd-e982c5b4ece7.png" 
-                          alt="HuHa Logo" 
-                          className="h-6 w-6 object-contain"
-                        />
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <SidebarProvider>
+                <div className="min-h-screen flex w-full">
+                  <AppSidebar />
+                  <div className="flex-1 flex flex-col">
+                    <header className="h-14 flex items-center border-b bg-background shadow-sm">
+                      <div className="flex items-center justify-between w-full gap-4 pl-6 pr-4">
+                        <div className="flex items-center gap-3">
+                          <SidebarTrigger className="bg-primary hover:bg-primary/90 text-primary-foreground border-primary" />
+                          <div className="bg-primary/10 rounded-md p-1.5">
+                            <img 
+                              src="/lovable-uploads/4f9a15c5-2d12-4ee0-b0bd-e982c5b4ece7.png" 
+                              alt="HuHa Logo" 
+                              className="h-6 w-6 object-contain"
+                            />
+                          </div>
+                          <div className="flex flex-col">
+                            <h1 className="font-semibold text-base text-foreground tracking-wide">HuHa Product Management System</h1>
+                            <p className="text-[10px] text-muted-foreground font-medium leading-tight">Professional Inventory & Analytics Platform</p>
+                          </div>
+                        </div>
+                        <div className="flex-1 flex justify-center">
+                          <span className="text-sm font-medium text-foreground">اللَّهُمَّ صل عَلَى مُحَمَّدٍ وَعَلَى آلِ مُحَمَّدٍ</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowBackgroundTasks(true)}
+                            className="flex items-center gap-2"
+                          >
+                            <Activity className="h-4 w-4" />
+                            Tasks
+                          </Button>
+                          <CountrySwitcher />
+                        </div>
                       </div>
-                      <div className="flex flex-col">
-                        <h1 className="font-semibold text-base text-foreground tracking-wide">HuHa Product Management System</h1>
-                        <p className="text-[10px] text-muted-foreground font-medium leading-tight">Professional Inventory & Analytics Platform</p>
-                      </div>
-                    </div>
-                    <div className="flex-1 flex justify-center">
-                      <span className="text-sm font-medium text-foreground">اللَّهُمَّ صل عَلَى مُحَمَّدٍ وَعَلَى آلِ مُحَمَّدٍ</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setShowBackgroundTasks(true)}
-                        className="flex items-center gap-2"
-                      >
-                        <Activity className="h-4 w-4" />
-                        Tasks
-                      </Button>
-                      <CountrySwitcher />
-                    </div>
+                    </header>
+                    <main className="flex-1">
+                      <Routes>
+                        <Route path="/" element={<Index />} />
+                        
+                        {/* Tools Routes - Hide in native app */}
+                        {!isNative && (
+                          <>
+                            <Route path="/excel-mapper" element={<ExcelMapperPage />} />
+                            <Route path="/batch" element={<BatchProcessor />} />
+                            <Route path="/asin-sum" element={<AsinQtySum />} />
+                            <Route path="/zip-splitter" element={<ZipSplitter />} />
+                            <Route path="/file-merger" element={<FileMergerPage />} />
+                            <Route path="/bulk-column-editor" element={<BulkColumnEditor />} />
+                            <Route path="/excel-editor" element={<ExcelEditorPage />} />
+                            <Route path="/noon-file-cleaner" element={<NoonFileCleaner />} />
+                          </>
+                        )}
+
+                        {/* Main App Routes - Available in both web and mobile */}
+                        <Route path="/inventory" element={<Inventory />} />
+                        <Route path="/processed-orders" element={<ProcessedOrders />} />
+                        <Route path="/users" element={<UserManagementPage />} />
+                        <Route path="/replenishment" element={<ReplenishmentPage />} />
+                        <Route path="/po-tracker" element={<POTrackerPage />} />
+                        <Route path="/po-details/:poNumber" element={<PODetailsPage />} />
+                        <Route path="/add-sku" element={<AddSKUPageWrapper />} />
+                        <Route path="/sunsky-importer" element={<SunskySKUImporterPage />} />
+                        <Route path="/sunsky-order-tracking" element={<SunskyOrderTrackingPage />} />
+                        <Route path="/amazon-fulfillment" element={<AmazonFulfillmentTracker />} />
+                        <Route path="/label-designer" element={<LabelDesigner />} />
+
+                        {/* Desktop-only Routes - Hide in native app */}
+                        {!isNative && (
+                          <>
+                            <Route path="/amazon-vendor-central" element={<AmazonVendorCentral />} />
+                          </>
+                        )}
+
+                        {/* Noon & Payment Routes - Available in both web and mobile */}
+                        <Route path="/noon-sales-tracker" element={<NoonSalesTracker />} />
+                        <Route path="/noon-dashboard" element={<NoonDashboard />} />
+                        <Route path="/noon-stores" element={<NoonStores />} />
+                        <Route path="/noon-sales-data" element={<NoonSalesData />} />
+                        <Route path="/noon-fees-reports" element={<NoonFeesReports />} />
+                        <Route path="/noon-analytics" element={<NoonAnalytics />} />
+                        <Route path="/noon-order-analysis" element={<NoonOrderAnalysis />} />
+                        <Route path="/payment-reports" element={<PaymentReports />} />
+                        <Route path="/noon-sku-costs" element={<SKUCostManagement />} />
+                        <Route path="/sku-costs" element={<SKUCostManagement />} />
+                        <Route path="/carrefour-payments" element={<Navigate to="/stores" replace />} />
+                        <Route path="/stores" element={<StoreSelection />} />
+                        <Route path="/carrefour-payments/:storeId" element={<CarrefourSalesTracker />} />
+                        
+                        <Route path="/auth" element={<Navigate to="/" replace />} />
+                        
+                        {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                        <Route path="*" element={<NotFound />} />
+                      </Routes>
+                    </main>
                   </div>
-                </header>
-                <main className="flex-1">
-                  <Routes>
-                    <Route path="/" element={<Index />} />
-                    
-                    {/* Tools Routes - Hide in native app */}
-                    {!isNative && (
-                      <>
-                        <Route path="/excel-mapper" element={<ExcelMapperPage />} />
-                        <Route path="/batch" element={<BatchProcessor />} />
-                        <Route path="/asin-sum" element={<AsinQtySum />} />
-                        <Route path="/zip-splitter" element={<ZipSplitter />} />
-                        <Route path="/file-merger" element={<FileMergerPage />} />
-                        <Route path="/bulk-column-editor" element={<BulkColumnEditor />} />
-                        <Route path="/excel-editor" element={<ExcelEditorPage />} />
-                        <Route path="/noon-file-cleaner" element={<NoonFileCleaner />} />
-                      </>
-                    )}
-
-                    {/* Main App Routes - Available in both web and mobile */}
-                    <Route path="/inventory" element={<Inventory />} />
-                    <Route path="/processed-orders" element={<ProcessedOrders />} />
-                    <Route path="/users" element={<UserManagementPage />} />
-                    <Route path="/replenishment" element={<ReplenishmentPage />} />
-                    <Route path="/po-tracker" element={<POTrackerPage />} />
-                    <Route path="/po-details/:poNumber" element={<PODetailsPage />} />
-                    <Route path="/add-sku" element={<AddSKUPageWrapper />} />
-                    <Route path="/sunsky-importer" element={<SunskySKUImporterPage />} />
-                    <Route path="/sunsky-order-tracking" element={<SunskyOrderTrackingPage />} />
-                    <Route path="/amazon-fulfillment" element={<AmazonFulfillmentTracker />} />
-                    <Route path="/label-designer" element={<LabelDesigner />} />
-
-                    {/* Desktop-only Routes - Hide in native app */}
-                    {!isNative && (
-                      <>
-                        <Route path="/amazon-vendor-central" element={<AmazonVendorCentral />} />
-                      </>
-                    )}
-
-                    {/* Noon & Payment Routes - Available in both web and mobile */}
-                    <Route path="/noon-sales-tracker" element={<NoonSalesTracker />} />
-                    <Route path="/noon-dashboard" element={<NoonDashboard />} />
-                    <Route path="/noon-stores" element={<NoonStores />} />
-                    <Route path="/noon-sales-data" element={<NoonSalesData />} />
-                    <Route path="/noon-fees-reports" element={<NoonFeesReports />} />
-                    <Route path="/noon-analytics" element={<NoonAnalytics />} />
-                    <Route path="/noon-order-analysis" element={<NoonOrderAnalysis />} />
-                    <Route path="/payment-reports" element={<PaymentReports />} />
-                    <Route path="/noon-sku-costs" element={<SKUCostManagement />} />
-                    <Route path="/sku-costs" element={<SKUCostManagement />} />
-                    <Route path="/carrefour-payments" element={<Navigate to="/stores" replace />} />
-                    <Route path="/stores" element={<StoreSelection />} />
-                    <Route path="/carrefour-payments/:storeId" element={<CarrefourSalesTracker />} />
-                    
-                    <Route path="/auth" element={<Navigate to="/" replace />} />
-                    
-                    {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </main>
-              </div>
-            </div>
-            <FloatingProgressIndicator />
-            <BackgroundTasksPanel 
-              isOpen={showBackgroundTasks} 
-              onClose={() => setShowBackgroundTasks(false)} 
-            />
-            </SidebarProvider>
-          </BrowserRouter>
+                </div>
+                <FloatingProgressIndicator />
+                <BackgroundTasksPanel 
+                  isOpen={showBackgroundTasks} 
+                  onClose={() => setShowBackgroundTasks(false)} 
+                />
+              </SidebarProvider>
+            </BrowserRouter>
           </BackgroundTasksProvider>
         </CountryProvider>
       </TooltipProvider>
