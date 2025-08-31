@@ -362,69 +362,45 @@ export const SunskySKUImporter: React.FC = () => {
           // Check if this is a background task
           const isBackgroundTask = currentExportTaskId !== null;
 
-          // Save to export history
-          await addExportEntry({
-            export_type: 'status_export',
-            filters: {
-              status: selectedExportStatus,
-              categoryId: exportSubCategory !== 'all' ? parseInt(exportSubCategory) : 
-                         (exportCategory !== 'all' ? parseInt(exportCategory) : undefined),
-              categoryName,
-              columns: selectedExportColumns,
-              pageSize: exportPageSize,
-              maxPages: Number.MAX_SAFE_INTEGER,
-              apiKeys: apiKeysWithNames
-            },
-            total_items: concurrentExportResults.totalFound,
-            status: 'completed',
-            metadata: {
-              categories: categoryName,
-              apiKeys: apiKeysWithNames.length,
-              concurrent: true,
-              background: isBackgroundTask
-            }
-          });
-
-          // Generate Excel file
-          const filePath = await generateExcelFile({
-            data: concurrentExportResults.products,
-            categoriesMap: concurrentExportResults.categoriesMap,
-            config: {
-              status: selectedExportStatus,
-              categoryName,
-              columns: selectedExportColumns,
-              apiKeys: apiKeysWithNames.length,
-              pageSize: exportPageSize
-            },
-            saveToStorage: isBackgroundTask // Save to storage for background tasks, download for foreground
-          });
-
-          // Update background task if this was a background export
-          if (isBackgroundTask && currentExportTaskId) {
-            updateTask(currentExportTaskId, {
+          // For foreground tasks only, create export history (background tasks handle this in the hook)
+          if (!isBackgroundTask) {
+            // Save to export history only for foreground exports
+            await addExportEntry({
+              export_type: 'status_export',
+              filters: {
+                status: selectedExportStatus,
+                categoryId: exportSubCategory !== 'all' ? parseInt(exportSubCategory) : 
+                           (exportCategory !== 'all' ? parseInt(exportCategory) : undefined),
+                categoryName,
+                columns: selectedExportColumns,
+                pageSize: exportPageSize,
+                maxPages: Number.MAX_SAFE_INTEGER,
+                apiKeys: apiKeysWithNames
+              },
+              total_items: concurrentExportResults.totalFound,
               status: 'completed',
-              progress: 100,
-              totalItems: concurrentExportResults.totalFound,
-              processedItems: concurrentExportResults.totalFound,
-              endTime: new Date(),
               metadata: {
-                exportId: concurrentExportResults.exportId,
-                filePath: filePath || ''
+                categories: categoryName,
+                apiKeys: apiKeysWithNames.length,
+                concurrent: true,
+                background: false
               }
             });
 
-            // Update export history with file path
-            if (filePath && savedExportHistory.length > 0) {
-              await updateExportEntry(savedExportHistory[0].id, { file_path: filePath });
-            }
-
-            setCurrentExportTaskId(null);
-
-            toast({
-              title: "Background Export Complete",
-              description: `Successfully exported ${concurrentExportResults.totalFound} products using ${apiKeysWithNames.length} API keys concurrently.`
+            // Generate Excel file for foreground export
+            const filePath = await generateExcelFile({
+              data: concurrentExportResults.products,
+              categoriesMap: concurrentExportResults.categoriesMap,
+              config: {
+                status: selectedExportStatus,
+                categoryName,
+                columns: selectedExportColumns,
+                apiKeys: apiKeysWithNames.length,
+                pageSize: exportPageSize
+              },
+              saveToStorage: false // Download directly for foreground
             });
-          } else {
+
             // Handle foreground export - set results for display
             setExportResults({
               products: concurrentExportResults.products,
@@ -434,6 +410,14 @@ export const SunskySKUImporter: React.FC = () => {
 
             toast({
               title: "Export Complete",
+              description: `Successfully exported ${concurrentExportResults.totalFound} products using ${apiKeysWithNames.length} API keys concurrently.`
+            });
+          } else {
+            // For background tasks, just clear the task ID since the hook handles everything
+            setCurrentExportTaskId(null);
+
+            toast({
+              title: "Background Export Complete",
               description: `Successfully exported ${concurrentExportResults.totalFound} products using ${apiKeysWithNames.length} API keys concurrently.`
             });
           }
@@ -3706,32 +3690,47 @@ export const SunskySKUImporter: React.FC = () => {
                   <CardContent>
                     <div className="space-y-4">
                       {activeTasks.map((task) => (
-                        <div key={task.id} className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                          <div className="flex items-center justify-between mb-3">
-                            <div>
-                              <div className="font-medium">
-                                {task.type === 'sunsky_export' ? 'Sunsky Export' : task.type}
-                              </div>
-                              <div className="text-sm text-muted-foreground">
-                                Started {new Date(task.created_at).toLocaleString()}
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Badge variant="outline" className="bg-blue-100">
-                                {task.status}
-                              </Badge>
-                              {task.status === 'processing' && (
-                                <Button
-                                  size="sm"
-                                  variant="outline" 
-                                  onClick={() => cancelPersistentTask(task.id)}
-                                  className="text-red-600 hover:bg-red-50"
-                                >
-                                  <XCircle className="h-4 w-4" />
-                                </Button>
-                              )}
-                            </div>
-                          </div>
+                         <div key={task.id} className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                           <div className="flex items-center justify-between mb-3">
+                             <div>
+                               <div className="font-medium">
+                                 {task.type === 'sunsky_export' ? 'Sunsky Export' : task.type}
+                               </div>
+                               <div className="text-sm text-muted-foreground">
+                                 Started {new Date(task.created_at).toLocaleString()}
+                               </div>
+                             </div>
+                             <div className="flex items-center gap-2">
+                               <Badge variant="outline" className={
+                                 task.status === 'completed' ? 'bg-green-100 text-green-800' :
+                                 task.status === 'processing' ? 'bg-blue-100 text-blue-800' :
+                                 task.status === 'failed' ? 'bg-red-100 text-red-800' :
+                                 'bg-gray-100'
+                               }>
+                                 {task.status}
+                               </Badge>
+                               {task.status === 'completed' && (
+                                 <Button
+                                   size="sm"
+                                   variant="outline"
+                                   onClick={() => downloadResult(task)}
+                                   className="text-green-600 hover:bg-green-50"
+                                 >
+                                   <Download className="h-4 w-4" />
+                                 </Button>
+                               )}
+                               {task.status === 'processing' && (
+                                 <Button
+                                   size="sm"
+                                   variant="outline" 
+                                   onClick={() => cancelPersistentTask(task.id)}
+                                   className="text-red-600 hover:bg-red-50"
+                                 >
+                                   <XCircle className="h-4 w-4" />
+                                 </Button>
+                               )}
+                             </div>
+                           </div>
                           
                           {/* Progress Bar */}
                           {task.total_items > 0 && (

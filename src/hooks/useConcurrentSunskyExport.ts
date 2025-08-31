@@ -354,9 +354,124 @@ export const useConcurrentSunskyExport = () => {
       const completionMessage = `Export completed! Found ${allProducts.length} products using ${config.apiKeys.length} API keys concurrently.`;
       setExportStatus(completionMessage);
 
-      // Update background task completion if provided
+      // Create export history entry and file for background task
       if (backgroundTaskId) {
         try {
+          // Generate Excel file content
+          console.log('📊 Generating Excel file for background export...');
+          const XLSX = (await import('xlsx')).default;
+          
+          // Create workbook
+          const workbook = XLSX.utils.book_new();
+          
+          // Create main products sheet
+          const productsData = allProducts.map(product => {
+            const row: any = {};
+            config.columns.forEach(column => {
+              switch (column) {
+                case 'itemNo':
+                  row['Item Number'] = product.itemNo || product.sku || '';
+                  break;
+                case 'name':
+                  row['Product Name'] = product.name || product.title || '';
+                  break;
+                case 'brandName':
+                  row['Brand'] = product.brandName || '';
+                  break;
+                case 'price':
+                  row['Price'] = product.price || '';
+                  break;
+                case 'stock':
+                  row['Stock'] = product.stock || '';
+                  break;
+                case 'status':
+                  row['Status'] = product.status || '';
+                  break;
+                case 'leadTime':
+                  row['Lead Time'] = product.leadTime || '';
+                  break;
+                case 'warehouse':
+                  row['Warehouse'] = product.warehouse || '';
+                  break;
+                case 'moq':
+                  row['MOQ'] = product.moq || '';
+                  break;
+                default:
+                  row[column] = product[column] || '';
+              }
+            });
+            return row;
+          });
+
+          const productsSheet = XLSX.utils.json_to_sheet(productsData);
+          XLSX.utils.book_append_sheet(workbook, productsSheet, 'Products');
+
+          // Create summary sheet
+          const summaryData = [
+            ['Export Summary', ''],
+            ['Total Products', allProducts.length],
+            ['Categories', categoriesMap.size],
+            ['Export Date', new Date().toISOString()],
+            ['API Keys Used', config.apiKeys.length],
+            ['', ''],
+            ['Category Breakdown', ''],
+            ...Array.from(categoriesMap.entries()).map(([id, cat]) => [cat.name, cat.products.length])
+          ];
+          const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
+          XLSX.utils.book_append_sheet(workbook, summarySheet, 'Summary');
+
+          // Convert to buffer
+          const excelBuffer = XLSX.write(workbook, { type: 'array', bookType: 'xlsx' });
+          const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+          
+          // Create file name
+          const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+          const fileName = `sunsky-export-${timestamp}.xlsx`;
+          
+          // Create export history entry
+          console.log('📝 Creating export history entry...');
+          
+          // Get user ID
+          const { data: { user }, error: userError } = await supabase.auth.getUser();
+          if (userError || !user) {
+            throw new Error('Unable to get user for export history');
+          }
+          
+          const { data: historyEntry, error: historyError } = await supabase
+            .from('export_history')
+            .insert({
+              user_id: user.id,
+              export_type: 'status_export',
+              filters: {
+                status: config.status,
+                categoryId: config.categoryId,
+                categoryName: categoriesMap.has(config.categoryId || 0) ? categoriesMap.get(config.categoryId || 0)?.name : 'All Categories',
+                apiKeys: config.apiKeys,
+                columns: config.columns,
+                maxPages: config.maxPages,
+                pageSize: config.pageSize
+              },
+              total_items: allProducts.length,
+              status: 'completed',
+              file_path: fileName,
+              file_size: blob.size,
+              metadata: {
+                background: true,
+                categories: categoriesMap.size,
+                concurrent: true,
+                apiKeys: config.apiKeys.length
+              }
+            })
+            .select()
+            .single();
+
+          if (historyError) {
+            console.error('Failed to create export history:', historyError);
+          } else {
+            console.log('✅ Export history entry created:', historyEntry);
+          }
+
+          // Update background task with completion and file info
           await supabase
             .from('background_tasks')
             .update({ 
@@ -370,13 +485,42 @@ export const useConcurrentSunskyExport = () => {
                 exportResults: {
                   totalFound: allProducts.length,
                   categoriesCount: categoriesMap.size
+                },
+                fileName: fileName,
+                fileSize: blob.size,
+                exportHistoryId: historyEntry?.id,
+                downloadableResults: {
+                  products: allProducts,
+                  totalFound: allProducts.length,
+                  categories: Array.from(categoriesMap.entries()).map(([id, cat]) => ({
+                    id,
+                    name: cat.name,
+                    count: cat.products.length
+                  }))
                 }
               }
             })
             .eq('id', backgroundTaskId);
-          console.log('✅ Background task marked as completed:', backgroundTaskId);
+          
+          console.log('✅ Background task completed with file:', fileName);
+          
         } catch (error) {
-          console.error('Failed to complete background task:', error);
+          console.error('Failed to complete background task with file:', error);
+          // Still mark as completed even if file generation fails
+          await supabase
+            .from('background_tasks')
+            .update({ 
+              progress: 100,
+              total_items: allProducts.length,
+              status: 'completed',
+              metadata: {
+                currentStatus: completionMessage,
+                totalProcessed: allProducts.length,
+                completedAt: new Date().toISOString(),
+                error: `File generation failed: ${error.message}`
+              }
+            })
+            .eq('id', backgroundTaskId);
         }
       } else {
         toast({
