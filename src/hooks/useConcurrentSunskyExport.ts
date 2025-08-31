@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -577,6 +577,142 @@ export const useConcurrentSunskyExport = () => {
       description: "Export cancellation requested",
       variant: "destructive"
     });
+  }, [toast]);
+
+  // Reconnect to active background tasks on page load
+  useEffect(() => {
+    const reconnectToActiveTasks = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        // Find active export tasks
+        const { data: activeTasks, error } = await supabase
+          .from('background_tasks')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('type', 'concurrent_export')
+          .eq('status', 'processing')
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        if (error) {
+          console.error('Failed to check for active tasks:', error);
+          return;
+        }
+
+        if (activeTasks && activeTasks.length > 0) {
+          const activeTask = activeTasks[0];
+          console.log('🔄 Reconnecting to active export task:', activeTask.id);
+          
+          // Update state to show we're reconnecting to an active export
+          setIsExporting(true);
+          setOverallProgress(activeTask.progress || 0);
+          
+          const metadata = activeTask.metadata as any || {};
+          setExportStatus(metadata.currentStatus || 'Reconnecting to active export...');
+          
+          // Show progress if available
+          if (metadata.totalProcessed && metadata.totalPagesProcessed && metadata.totalPagesExpected) {
+            // Create a simple progress indicator
+            const mockProgress: ConcurrentExportProgress[] = [{
+              apiKeyId: 'reconnecting',
+              apiKeyName: 'Reconnecting...',
+              currentPage: metadata.totalPagesProcessed || 0,
+              totalPages: metadata.totalPagesExpected || 0,
+              processedItems: metadata.totalProcessed || 0,
+              status: 'processing',
+              lastUpdate: new Date()
+            }];
+            setExportProgress(mockProgress);
+          }
+
+          toast({
+            title: "Reconnected to Export",
+            description: "Found an ongoing background export. Progress will continue updating.",
+          });
+        }
+      } catch (error) {
+        console.error('Failed to reconnect to active tasks:', error);
+      }
+    };
+
+    reconnectToActiveTasks();
+  }, [toast]);
+
+  // Listen for background task updates
+  useEffect(() => {
+    const subscription = supabase
+      .channel('background_task_updates')
+      .on('postgres_changes', 
+        { 
+          event: 'UPDATE', 
+          schema: 'public', 
+          table: 'background_tasks',
+          filter: 'type=eq.concurrent_export'
+        },
+        (payload) => {
+          const task = payload.new;
+          const metadata = task.metadata as any || {};
+          
+          console.log('📊 Background task update received:', task.id);
+          
+          // Update progress if this task matches our current export
+          if (task.status === 'processing') {
+            setOverallProgress(task.progress || 0);
+            setExportStatus(metadata.currentStatus || 'Processing...');
+            
+            if (metadata.totalProcessed && metadata.totalPagesProcessed && metadata.totalPagesExpected) {
+              const mockProgress: ConcurrentExportProgress[] = [{
+                apiKeyId: 'background',
+                apiKeyName: 'Background Export',
+                currentPage: metadata.totalPagesProcessed || 0,
+                totalPages: metadata.totalPagesExpected || 0,
+                processedItems: metadata.totalProcessed || 0,
+                status: 'processing',
+                lastUpdate: new Date()
+              }];
+              setExportProgress(mockProgress);
+            }
+          } else if (task.status === 'completed') {
+            setIsExporting(false);
+            setOverallProgress(100);
+            setExportStatus(metadata.currentStatus || 'Export completed!');
+            
+            if (metadata.downloadableResults) {
+              const results: ExportResult = {
+                products: metadata.downloadableResults.products || [],
+                totalFound: metadata.downloadableResults.totalFound || 0,
+                categoriesMap: new Map(),
+                apiProgress: [],
+                exportId: task.id
+              };
+              setExportResults(results);
+            }
+
+            toast({
+              title: "Background Export Completed",
+              description: `Export finished with ${metadata.totalProcessed || 0} products`,
+            });
+          } else if (task.status === 'failed') {
+            setIsExporting(false);
+            setExportStatus('Export failed');
+            setOverallProgress(0);
+            setExportProgress([]);
+            
+            toast({
+              title: "Background Export Failed",
+              description: metadata.error || 'Export failed',
+              variant: "destructive"
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, [toast]);
 
   return {
