@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useBackgroundTasks, BackgroundTask, ThreadProgress } from '@/contexts/BackgroundTasksContext';
 import { usePersistentBackgroundTasks } from '@/hooks/usePersistentBackgroundTasks';
+import { BackgroundExportDownloadButton } from './BackgroundExportDownloadButton';
 import { formatDistanceToNow } from 'date-fns';
 
 interface BackgroundTasksPanelProps {
@@ -334,6 +335,16 @@ function TaskCard({
                 )}
               </div>
               <div className="flex gap-2">
+                {/* Download button for completed export tasks */}
+                {task.status === 'completed' && 
+                 (task.metadata as any)?.downloadableResults && 
+                 (task.name.includes('Export') || task.name.includes('export')) && (
+                  <BackgroundExportDownloadButton 
+                    taskId={task.id}
+                    taskMetadata={task.metadata}
+                    size="sm"
+                  />
+                )}
                 {onCancel && task.status === 'processing' && (
                   <Button variant="outline" size="sm" onClick={onCancel}>
                     Cancel

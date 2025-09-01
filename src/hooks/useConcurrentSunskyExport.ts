@@ -60,8 +60,8 @@ export const useConcurrentSunskyExport = () => {
     
     const distribution: { [apiKeyId: string]: { startPage: number; maxPages: number } } = {};
     
-    // Use a reasonable maximum or the estimated pages, whichever is smaller
-    const effectiveMaxPages = Math.min(estimatedPages, 1000); // Cap at 1000 pages for safety
+    // For unlimited exports, use the actual estimated pages without artificial caps
+    const effectiveMaxPages = estimatedPages; // Remove the 1000 page limit for true unlimited exports
     const pagesPerAPI = Math.ceil(effectiveMaxPages / apiKeys.length);
     
     console.log('Calculated:', { effectiveMaxPages, pagesPerAPI });
@@ -125,13 +125,19 @@ export const useConcurrentSunskyExport = () => {
           
           if ((response?.success === true || response?.result === 'success') && response?.data) {
             const pageProducts = response.data.products ?? response.data.result ?? [];
-            results.push(...pageProducts);
             
+            // Stop immediately if we get no products (end of data)
+            if (!pageProducts || pageProducts.length === 0) {
+              console.log(`API ${apiKey.name} reached end of data at page ${currentPage} (no products)`);
+              break;
+            }
+            
+            results.push(...pageProducts);
             updateProgress('processing');
             
             // Stop if we got fewer results than expected (end of data)
             if (pageProducts.length < config.pageSize) {
-              console.log(`API ${apiKey.name} reached end of data at page ${currentPage}`);
+              console.log(`API ${apiKey.name} reached end of data at page ${currentPage} (partial page: ${pageProducts.length})`);
               break;
             }
           } else {
@@ -149,8 +155,8 @@ export const useConcurrentSunskyExport = () => {
         currentPage++;
         pagesProcessed++;
         
-        // Rate limiting delay
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // Rate limiting delay - reduce for unlimited exports
+        await new Promise(resolve => setTimeout(resolve, 50)); // Reduced from 100ms
       }
 
       if (cancellationRef.current[exportId]) {
@@ -220,10 +226,11 @@ export const useConcurrentSunskyExport = () => {
           estimatedTotal = total;
           estimatedPages = Math.ceil(estimatedTotal / config.pageSize);
         } else if (estimateResponse.data.products?.length > 0) {
-          // Conservative estimate if no total is provided
+          // For unlimited exports, use a high estimate if no total is provided
           const firstPageCount = estimateResponse.data.products.length;
           if (firstPageCount === config.pageSize) {
-            estimatedPages = 100; // Conservative estimate for full first page
+            // For unlimited exports, start with a high estimate and let the API discovery handle the rest
+            estimatedPages = config.maxPages === Number.MAX_SAFE_INTEGER ? 10000 : 100;
           } else {
             estimatedPages = 1; // Partial page suggests this might be all data
           }
@@ -476,19 +483,14 @@ export const useConcurrentSunskyExport = () => {
             .from('background_tasks')
             .update({ 
               progress: 100,
-              total_items: allProducts.length,
               status: 'completed',
+              completed_at: new Date().toISOString(),
               metadata: {
-                currentStatus: completionMessage,
-                totalProcessed: allProducts.length,
-                completedAt: new Date().toISOString(),
-                exportResults: {
-                  totalFound: allProducts.length,
-                  categoriesCount: categoriesMap.size
-                },
-                fileName: fileName,
-                fileSize: blob.size,
-                exportHistoryId: historyEntry?.id,
+                background: true,
+                totalProducts: allProducts.length,
+                categoriesCount: categoriesMap.size,
+                concurrent: true,
+                unlimited: true,
                 downloadableResults: {
                   products: allProducts,
                   totalFound: allProducts.length,
@@ -496,13 +498,44 @@ export const useConcurrentSunskyExport = () => {
                     id,
                     name: cat.name,
                     count: cat.products.length
-                  }))
-                }
+                  })),
+                  filters: {
+                    status: config.status,
+                    categoryId: config.categoryId,
+                    categoryName: categoriesMap.has(config.categoryId || 0) ? categoriesMap.get(config.categoryId || 0)?.name : 'All Categories'
+                  },
+                  columns: config.columns
+                },
+                fileName,
+                fileSize: blob.size,
+                downloadReady: true,
+                generatedAt: new Date().toISOString()
               }
             })
             .eq('id', backgroundTaskId);
-          
-          console.log('✅ Background task completed with file:', fileName);
+
+          console.log('✅ Background export completed successfully:', {
+            taskId: backgroundTaskId,
+            totalProducts: allProducts.length,
+            fileName,
+            fileSize: blob.size
+          });
+
+          // Generate download link via edge function
+          try {
+            const { data: downloadData, error: downloadError } = await supabase.functions.invoke(
+              'generate-export-download', 
+              { body: { taskId: backgroundTaskId } }
+            );
+            
+            if (downloadError) {
+              console.error('Download generation failed:', downloadError);
+            } else {
+              console.log('✅ Download generation triggered successfully');
+            }
+          } catch (downloadErr) {
+            console.error('Failed to trigger download generation:', downloadErr);
+          }
           
         } catch (error) {
           console.error('Failed to complete background task with file:', error);
