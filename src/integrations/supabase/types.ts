@@ -1961,6 +1961,7 @@ export type Database = {
       }
       sku_inventory: {
         Row: {
+          asin: string | null
           bin_serial_number: string
           country: string
           created_at: string
@@ -1978,6 +1979,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          asin?: string | null
           bin_serial_number: string
           country?: string
           created_at?: string
@@ -1995,6 +1997,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          asin?: string | null
           bin_serial_number?: string
           country?: string
           created_at?: string

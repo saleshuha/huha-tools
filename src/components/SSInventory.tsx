@@ -22,6 +22,7 @@ import { DualQuantityEditor } from './DualQuantityEditor';
 import { StockHistoryDialog } from './StockHistoryDialog';
 import { MultiBinEditor } from './MultiBinEditor';
 import { SkuEditor } from './SkuEditor';
+import { AsinEditor } from './AsinEditor';
 import { SkuInventoryMetrics } from './SkuInventoryMetrics';
 import { BulkSkuUploadSku } from './BulkSkuUploadSku';
 import { InventoryDashboard } from './InventoryDashboard';
@@ -41,6 +42,7 @@ export function SSInventory() {
     updateQuantity,
     updateBinLocation,
     updateSku,
+    updateAsin,
     bulkUpdateSkus,
     refetch
   } = useSkuInventory();
@@ -76,7 +78,7 @@ export function SSInventory() {
   const [newItem, setNewItem] = useState<{
     skuNumber: string;
     binSerialNumber: string;
-    asin: string;
+    asin?: string;
     status: SkuInventoryItem['status'];
     quantity: number;
   }>({
@@ -169,19 +171,67 @@ export function SSInventory() {
       });
       return;
     }
-    await addItem({
-      ...newItem,
-      asin: newItem.asin,
-      dateAdded: new Date().toISOString()
-    });
-    setIsAddDialogOpen(false);
-    setNewItem({
-      skuNumber: '',
-      binSerialNumber: '',
-      asin: '',
-      status: 'in-stock',
-      quantity: 1
-    });
+
+    // Check for duplicate SKU
+    const existingSku = inventory.find(item => 
+      item.skuNumber.toLowerCase() === newItem.skuNumber.trim().toLowerCase()
+    );
+    if (existingSku) {
+      toast({
+        title: "Duplicate SKU",
+        description: "This SKU number already exists in your inventory",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Check for duplicate ASIN (if provided)
+    if (newItem.asin?.trim()) {
+      const existingAsin = inventory.find(item => 
+        item.asin && item.asin.toLowerCase() === newItem.asin?.trim().toLowerCase()
+      );
+      if (existingAsin) {
+        toast({
+          title: "Duplicate ASIN",
+          description: "This ASIN number already exists in your inventory",
+          variant: "destructive"
+        });
+        return;
+      }
+    }
+
+    try {
+      await addItem({
+        ...newItem,
+        asin: newItem.asin?.trim() || undefined,
+        dateAdded: new Date().toISOString()
+      });
+      setIsAddDialogOpen(false);
+      setNewItem({
+        skuNumber: '',
+        binSerialNumber: '',
+        asin: '',
+        status: 'in-stock',
+        quantity: 1
+      });
+    } catch (error: any) {
+      // Handle database-level constraint violations
+      if (error.message?.includes('duplicate key value') || 
+          error.message?.includes('unique constraint') ||
+          error.code === '23505') {
+        toast({
+          title: "Duplicate Entry",
+          description: "This SKU or ASIN already exists in your inventory",
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Error adding item",
+          description: error.message,
+          variant: "destructive"
+        });
+      }
+    }
   };
   const handleBulkAdd = async () => {
     if (!bulkText.trim()) {
@@ -664,7 +714,12 @@ export function SSInventory() {
                     setSelectedItems(newSelected);
                   }} />
                       </td>
-                      <td className="p-4 font-mono text-sm">{item.asin || '-'}</td>
+                      <td className="p-4 font-mono text-sm">
+                        <AsinEditor 
+                          currentAsin={item.asin || ''}
+                          onUpdate={(newAsin) => updateAsin(item.id, newAsin)}
+                        />
+                      </td>
                       <td className="p-4 font-mono text-sm">
                         <MultiBinEditor 
                           currentBinSerial={item.binSerialNumber}

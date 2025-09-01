@@ -8,6 +8,7 @@ export interface SkuInventoryItem {
   id: string;
   skuNumber: string;
   binSerialNumber: string;
+  asin?: string;
   status: 'in-stock' | 'sold' | 'reserved' | 'damaged' | 'ordered';
   dateAdded: string;
   dateSold?: string;
@@ -42,6 +43,7 @@ export function useSkuInventory() {
         id: item.id,
         skuNumber: item.sku_number,
         binSerialNumber: item.bin_serial_number,
+        asin: item.asin || undefined,
         status: item.status as "in-stock" | "sold" | "reserved" | "damaged" | "ordered",
         dateAdded: item.date_added,
         dateSold: item.date_sold || undefined,
@@ -75,6 +77,7 @@ export function useSkuInventory() {
           user_id: user.id,
           sku_number: item.skuNumber,
           bin_serial_number: item.binSerialNumber,
+          asin: item.asin || null,
           status: item.status,
           date_added: item.dateAdded,
           date_sold: item.dateSold || null,
@@ -93,6 +96,7 @@ export function useSkuInventory() {
         id: data.id,
         skuNumber: data.sku_number,
         binSerialNumber: data.bin_serial_number,
+        asin: data.asin || undefined,
         status: data.status as "in-stock" | "sold" | "reserved" | "damaged" | "ordered",
         dateAdded: data.date_added,
         dateSold: data.date_sold || undefined,
@@ -289,6 +293,7 @@ export function useSkuInventory() {
         user_id: user.id,
         sku_number: item.skuNumber,
         bin_serial_number: item.binSerialNumber,
+        asin: item.asin || null,
         status: item.status,
         date_added: item.dateAdded,
         date_sold: item.dateSold || null,
@@ -310,6 +315,7 @@ export function useSkuInventory() {
         id: item.id,
         skuNumber: item.sku_number,
         binSerialNumber: item.bin_serial_number,
+        asin: item.asin || undefined,
         status: item.status as "in-stock" | "sold" | "reserved" | "damaged" | "ordered",
         dateAdded: item.date_added,
         dateSold: item.date_sold || undefined,
@@ -448,6 +454,31 @@ export function useSkuInventory() {
     }
   };
 
+  const updateAsin = async (id: string, newAsin: string) => {
+    if (!selectedCountry) return;
+    
+    try {
+      const { error } = await supabase
+        .from('sku_inventory')
+        .update({ asin: newAsin || null, updated_at: new Date().toISOString() })
+        .eq('id', id)
+        .eq('country', selectedCountry);
+
+      if (error) throw error;
+
+      setInventory(prev => prev.map(item =>
+        item.id === id ? { ...item, asin: newAsin || undefined } : item
+      ));
+
+      toast({
+        title: "ASIN updated",
+        description: "ASIN number has been updated successfully",
+      });
+    } catch (error: any) {
+      throw error; // Re-throw for component to handle
+    }
+  };
+
   return {
     inventory,
     loading,
@@ -459,6 +490,7 @@ export function useSkuInventory() {
     updateQuantity,
     updateBinLocation,
     updateSku,
+    updateAsin,
     bulkUpdateSkus,
     refetch: loadInventory,
   };
