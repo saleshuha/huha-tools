@@ -76,11 +76,13 @@ export function SSInventory() {
   const [newItem, setNewItem] = useState<{
     skuNumber: string;
     binSerialNumber: string;
+    asin: string;
     status: SkuInventoryItem['status'];
     quantity: number;
   }>({
     skuNumber: '',
     binSerialNumber: '',
+    asin: '',
     status: 'in-stock',
     quantity: 1
   });
@@ -169,12 +171,14 @@ export function SSInventory() {
     }
     await addItem({
       ...newItem,
+      asin: newItem.asin,
       dateAdded: new Date().toISOString()
     });
     setIsAddDialogOpen(false);
     setNewItem({
       skuNumber: '',
       binSerialNumber: '',
+      asin: '',
       status: 'in-stock',
       quantity: 1
     });
@@ -341,6 +345,13 @@ export function SSInventory() {
                         ...newItem,
                         binSerialNumber: e.target.value
                       })} placeholder="Enter Bin/Serial Number..." />
+                      </div>
+                      <div>
+                        <Label htmlFor="asin">ASIN Number</Label>
+                        <Input id="asin" value={newItem.asin} onChange={e => setNewItem({
+                        ...newItem,
+                        asin: e.target.value
+                      })} placeholder="Enter ASIN Number..." />
                       </div>
                       <div>
                         <Label htmlFor="quantity">Quantity</Label>
@@ -653,7 +664,7 @@ export function SSInventory() {
                     setSelectedItems(newSelected);
                   }} />
                       </td>
-                      <td className="p-4 font-mono text-sm">{item.skuNumber}</td>
+                      <td className="p-4 font-mono text-sm">{item.asin || '-'}</td>
                       <td className="p-4 font-mono text-sm">
                         <MultiBinEditor 
                           currentBinSerial={item.binSerialNumber}
