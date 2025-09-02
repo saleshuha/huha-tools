@@ -164,10 +164,8 @@ export function NoonOrdersTable({ selectedStoreId, onStoreChange }: NoonOrdersTa
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Order #</TableHead>
-                    <TableHead>Purchase Item #</TableHead>
-                    <TableHead>Partner SKU</TableHead>
-                    <TableHead>Title</TableHead>
+                    <TableHead className="w-1/4">Order Information</TableHead>
+                    <TableHead className="w-2/5">Product Details</TableHead>
                     <TableHead>Quantity</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Country</TableHead>
@@ -177,15 +175,39 @@ export function NoonOrdersTable({ selectedStoreId, onStoreChange }: NoonOrdersTa
                 <TableBody>
                   {filteredOrders.map((order) => (
                     <TableRow key={order.id}>
-                      <TableCell className="font-mono text-sm">
-                        {order.order_nr}
+                      <TableCell>
+                        <div className="space-y-1">
+                          <div className="font-mono text-sm font-medium">
+                            Order: {order.order_nr}
+                          </div>
+                          <div className="font-mono text-xs text-muted-foreground">
+                            Item: {order.purchase_item_nr}
+                          </div>
+                        </div>
                       </TableCell>
-                      <TableCell className="font-mono text-sm">
-                        {order.purchase_item_nr}
-                      </TableCell>
-                      <TableCell>{order.partner_sku || 'N/A'}</TableCell>
-                      <TableCell className="max-w-xs truncate">
-                        {order.title || 'N/A'}
+                      <TableCell>
+                        <div className="space-y-1">
+                          <div className="font-medium text-sm truncate max-w-xs">
+                            {order.title || 'N/A'}
+                          </div>
+                          <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                            {order.partner_sku && (
+                              <Badge variant="outline" className="text-xs">
+                                Partner: {order.partner_sku}
+                              </Badge>
+                            )}
+                            {order.sku && (
+                              <Badge variant="outline" className="text-xs">
+                                SKU: {order.sku}
+                              </Badge>
+                            )}
+                            {order.brand_code && (
+                              <Badge variant="outline" className="text-xs">
+                                Brand: {order.brand_code}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
                       </TableCell>
                       <TableCell>{order.quantity}</TableCell>
                       <TableCell>
