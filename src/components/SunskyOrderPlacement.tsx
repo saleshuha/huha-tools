@@ -64,14 +64,30 @@ export function SunskyOrderPlacement({
   // Create a set of available Sunsky SKU codes for fast lookup
   const availableSunskySKUs = new Set(sunskySKUs.map(sku => sku.sku_code));
 
-  // Separate orders based on partner_sku availability in Sunsky
-  const readyOrders = allOrders.filter(order => 
-    availableSunskySKUs.has(order.partner_sku!)
-  );
+  // Debug logging
+  console.log('Debug - Available Sunsky SKUs:', Array.from(availableSunskySKUs));
+  console.log('Debug - All orders with partner SKUs:', allOrders.map(order => ({
+    order_nr: order.order_nr,
+    partner_sku: order.partner_sku,
+    partner_sku_type: typeof order.partner_sku,
+    partner_sku_length: order.partner_sku?.length
+  })));
+  console.log('Debug - Looking for EDA006625302C in Sunsky SKUs:', availableSunskySKUs.has('EDA006625302C'));
 
-  const manualReviewOrders = allOrders.filter(order => 
-    !availableSunskySKUs.has(order.partner_sku!)
-  );
+  // Separate orders based on partner_sku availability in Sunsky
+  const readyOrders = allOrders.filter(order => {
+    const hasMatch = availableSunskySKUs.has(order.partner_sku!);
+    if (order.partner_sku === 'EDA006625302C') {
+      console.log('Debug - EDA006625302C match result:', hasMatch);
+      console.log('Debug - Exact partner_sku value:', JSON.stringify(order.partner_sku));
+    }
+    return hasMatch;
+  });
+
+  const manualReviewOrders = allOrders.filter(order => {
+    const hasMatch = availableSunskySKUs.has(order.partner_sku!);
+    return !hasMatch;
+  });
 
   // Apply filters to both categories
   const filteredReadyOrders = readyOrders.filter(order => {
