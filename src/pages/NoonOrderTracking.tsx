@@ -3,6 +3,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { NoonOrdersUpload } from '@/components/NoonOrdersUpload';
 import { NoonOrdersTable } from '@/components/NoonOrdersTable';
 import { NoonStoreManagement } from '@/components/NoonStoreManagement';
+import { SunskyOrderPlacement } from '@/components/SunskyOrderPlacement';
+import { SunskyOrderTracking } from '@/components/SunskyOrderTracking';
 
 export default function NoonOrderTrackingPage() {
   const [activeTab, setActiveTab] = useState('orders');
@@ -31,10 +33,12 @@ export default function NoonOrderTrackingPage() {
       
       <div className="container mx-auto px-6 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-8">
+          <TabsList className="grid w-full grid-cols-5 mb-8">
             <TabsTrigger value="orders">Orders Management</TabsTrigger>
             <TabsTrigger value="upload">Upload Orders</TabsTrigger>
-            <TabsTrigger value="stores">Store & Sunsky Management</TabsTrigger>
+            <TabsTrigger value="stores">Store Management</TabsTrigger>
+            <TabsTrigger value="sunsky-place">Place Sunsky Orders</TabsTrigger>
+            <TabsTrigger value="sunsky-track">Track Sunsky Orders</TabsTrigger>
           </TabsList>
 
           <TabsContent value="orders" className="space-y-6">
@@ -55,8 +59,18 @@ export default function NoonOrderTrackingPage() {
             <NoonStoreManagement 
               selectedStoreId={selectedStoreId}
               onStoreChange={setSelectedStoreId}
-              onOrdersPlaced={() => setActiveTab('orders')}
             />
+          </TabsContent>
+
+          <TabsContent value="sunsky-place" className="space-y-6">
+            <SunskyOrderPlacement 
+              selectedStoreId={selectedStoreId}
+              onOrdersPlaced={() => setActiveTab('sunsky-track')}
+            />
+          </TabsContent>
+
+          <TabsContent value="sunsky-track" className="space-y-6">
+            <SunskyOrderTracking />
           </TabsContent>
         </Tabs>
       </div>
