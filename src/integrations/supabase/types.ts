@@ -1006,6 +1006,129 @@ export type Database = {
           },
         ]
       }
+      noon_orders: {
+        Row: {
+          brand_code: string | null
+          created_at: string
+          file_name: string | null
+          fulfillment_timestamp: string | null
+          id: string
+          id_warehouse_configuration: string | null
+          image_key: string | null
+          is_printed: boolean | null
+          is_reprintable: boolean | null
+          item_status: string | null
+          manifest_nr: string | null
+          mp_code: string | null
+          order_country_code: string | null
+          order_nr: string
+          order_received_at: string | null
+          order_status: string | null
+          parent_sku: string | null
+          partner_sku: string | null
+          pbarcodes: string | null
+          purchase_item_nr: string | null
+          quantity: number | null
+          shipment_created_at: string | null
+          shipment_created_by: string | null
+          shipment_nr: string | null
+          shipment_user: string | null
+          size: string | null
+          sku: string | null
+          sunsky_credentials_id: string | null
+          sunsky_error_message: string | null
+          sunsky_last_sync: string | null
+          sunsky_order_number: string | null
+          sunsky_order_status: number | null
+          sunsky_tracking_number: string | null
+          target_ready_at: string | null
+          title: string | null
+          title_ar: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          brand_code?: string | null
+          created_at?: string
+          file_name?: string | null
+          fulfillment_timestamp?: string | null
+          id?: string
+          id_warehouse_configuration?: string | null
+          image_key?: string | null
+          is_printed?: boolean | null
+          is_reprintable?: boolean | null
+          item_status?: string | null
+          manifest_nr?: string | null
+          mp_code?: string | null
+          order_country_code?: string | null
+          order_nr: string
+          order_received_at?: string | null
+          order_status?: string | null
+          parent_sku?: string | null
+          partner_sku?: string | null
+          pbarcodes?: string | null
+          purchase_item_nr?: string | null
+          quantity?: number | null
+          shipment_created_at?: string | null
+          shipment_created_by?: string | null
+          shipment_nr?: string | null
+          shipment_user?: string | null
+          size?: string | null
+          sku?: string | null
+          sunsky_credentials_id?: string | null
+          sunsky_error_message?: string | null
+          sunsky_last_sync?: string | null
+          sunsky_order_number?: string | null
+          sunsky_order_status?: number | null
+          sunsky_tracking_number?: string | null
+          target_ready_at?: string | null
+          title?: string | null
+          title_ar?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          brand_code?: string | null
+          created_at?: string
+          file_name?: string | null
+          fulfillment_timestamp?: string | null
+          id?: string
+          id_warehouse_configuration?: string | null
+          image_key?: string | null
+          is_printed?: boolean | null
+          is_reprintable?: boolean | null
+          item_status?: string | null
+          manifest_nr?: string | null
+          mp_code?: string | null
+          order_country_code?: string | null
+          order_nr?: string
+          order_received_at?: string | null
+          order_status?: string | null
+          parent_sku?: string | null
+          partner_sku?: string | null
+          pbarcodes?: string | null
+          purchase_item_nr?: string | null
+          quantity?: number | null
+          shipment_created_at?: string | null
+          shipment_created_by?: string | null
+          shipment_nr?: string | null
+          shipment_user?: string | null
+          size?: string | null
+          sku?: string | null
+          sunsky_credentials_id?: string | null
+          sunsky_error_message?: string | null
+          sunsky_last_sync?: string | null
+          sunsky_order_number?: string | null
+          sunsky_order_status?: number | null
+          sunsky_tracking_number?: string | null
+          target_ready_at?: string | null
+          title?: string | null
+          title_ar?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       noon_sales_data: {
         Row: {
           awb_nr: string | null
