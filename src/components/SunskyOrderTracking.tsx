@@ -48,14 +48,17 @@ export function SunskyOrderTracking() {
   const [orderDetails, setOrderDetails] = useState<any>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
 
-  // Filter placed orders
+  // Show all noon orders (both placed and pending)
+  const allNoonOrders = noonOrders;
   const placedOrders = noonOrders.filter(order => order.sunsky_order_number);
   
   // Search functionality
-  const filteredPlacedOrders = placedOrders.filter(order =>
+  const filteredNoonOrders = allNoonOrders.filter(order =>
     order.order_nr.toLowerCase().includes(searchTerm.toLowerCase()) ||
     order.sunsky_order_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    order.sku?.toLowerCase().includes(searchTerm.toLowerCase())
+    order.sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    order.partner_sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    order.title?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const filteredSunskyOrders = sunskyOrders.filter(order =>
@@ -198,18 +201,16 @@ export function SunskyOrderTracking() {
         <Card>
           <CardContent className="pt-6">
             <div className="text-center">
-              <div className="text-2xl font-bold">{placedOrders.length}</div>
-              <div className="text-sm text-muted-foreground">Total Placed Orders</div>
+              <div className="text-2xl font-bold">{allNoonOrders.length}</div>
+              <div className="text-sm text-muted-foreground">Total Noon Orders</div>
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
             <div className="text-center">
-              <div className="text-2xl font-bold">
-                {placedOrders.filter(o => o.sunsky_order_status === 1).length}
-              </div>
-              <div className="text-sm text-muted-foreground">Pending Orders</div>
+              <div className="text-2xl font-bold">{placedOrders.length}</div>
+              <div className="text-sm text-muted-foreground">Placed with Sunsky</div>
             </div>
           </CardContent>
         </Card>
@@ -245,39 +246,49 @@ export function SunskyOrderTracking() {
         <TabsContent value="overview" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Placed Orders Overview ({filteredPlacedOrders.length})</CardTitle>
+              <CardTitle>Noon Orders Overview ({filteredNoonOrders.length})</CardTitle>
             </CardHeader>
             <CardContent>
               {noonLoading ? (
                 <div className="text-center py-8 text-muted-foreground">
                   Loading orders...
                 </div>
-              ) : filteredPlacedOrders.length === 0 ? (
+              ) : filteredNoonOrders.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  No orders have been placed with Sunsky yet
+                  No noon orders found
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {filteredPlacedOrders.map((order) => (
+                  {filteredNoonOrders.map((order) => (
                     <div 
                       key={order.id} 
                       className="flex items-center justify-between p-4 border rounded-lg"
                     >
-                      <div className="grid grid-cols-6 gap-4 flex-1 text-sm">
+                      <div className="grid grid-cols-7 gap-4 flex-1 text-sm">
                         <div>
                           <div className="font-medium">{order.order_nr}</div>
-                          <div className="text-muted-foreground text-xs">{order.sku}</div>
+                          <div className="text-muted-foreground text-xs">{order.partner_sku || order.sku}</div>
+                        </div>
+                        <div>
+                          <div className="font-medium">Title</div>
+                          <div className="text-muted-foreground text-xs">{order.title}</div>
                         </div>
                         <div>
                           <div className="font-medium">Sunsky Order</div>
-                          <div className="text-muted-foreground">{order.sunsky_order_number}</div>
+                          <div className="text-muted-foreground">
+                            {order.sunsky_order_number ? (
+                              <span className="text-green-600">{order.sunsky_order_number}</span>
+                            ) : (
+                              <span className="text-yellow-600">Not Placed</span>
+                            )}
+                          </div>
                         </div>
                         <div>
                           <div className="font-medium">Quantity</div>
                           <div className="text-muted-foreground">{order.quantity}</div>
                         </div>
                         <div>
-                          <div className="font-medium">Status</div>
+                          <div className="font-medium">Order Status</div>
                           <div>{getStatusBadge(order.order_status || 'pending')}</div>
                         </div>
                         <div>
@@ -290,33 +301,42 @@ export function SunskyOrderTracking() {
                               </span>
                             ) : (
                               <span className="flex items-center gap-1">
-                                <Clock className="h-3 w-3 text-yellow-500" />
-                                Pending
+                                <Clock className="h-3 w-3 text-orange-500" />
+                                {order.sunsky_order_number ? 'Pending' : 'No Order'}
                               </span>
                             )}
                           </div>
                         </div>
                         <div>
+                          <div className="font-medium">Progress</div>
                           <Progress value={getOrderProgress(order.order_status || 'pending')} className="w-full" />
                         </div>
                       </div>
                       <div className="flex gap-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => handleViewOrderDetails(order)}
-                        >
-                          <Eye className="h-4 w-4 mr-2" />
-                          Details
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => handleSyncOrderStatus(order.id)}
-                        >
-                          <RefreshCw className="h-4 w-4 mr-2" />
-                          Sync
-                        </Button>
+                        {order.sunsky_order_number ? (
+                          <>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => handleViewOrderDetails(order)}
+                            >
+                              <Eye className="h-4 w-4 mr-2" />
+                              Details
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => handleSyncOrderStatus(order.id)}
+                            >
+                              <RefreshCw className="h-4 w-4 mr-2" />
+                              Sync
+                            </Button>
+                          </>
+                        ) : (
+                          <Badge variant="secondary" className="text-xs">
+                            Ready for Placement
+                          </Badge>
+                        )}
                       </div>
                     </div>
                   ))}
