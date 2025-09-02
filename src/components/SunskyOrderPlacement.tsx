@@ -10,10 +10,12 @@ import {
   AlertCircle,
   CheckCircle,
   Clock,
-  Filter
+  Filter,
+  AlertTriangle
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useNoonOrders } from '@/hooks/useNoonOrders';
+import { useSKUManager } from '@/hooks/useSKUManager';
 import { SunskyOrderDialog } from './SunskyOrderDialog';
 import { SunskyCredentialsSelector } from './SunskyCredentialsSelector';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -33,6 +35,12 @@ export function SunskyOrderPlacement({
     loading: ordersLoading, 
     updateOrderStatus 
   } = useNoonOrders();
+  
+  const { 
+    sunskySKUs, 
+    isLoading: skusLoading, 
+    fetchSKUs 
+  } = useSKUManager();
 
   // States
   const [showSunskyOrderDialog, setShowSunskyOrderDialog] = useState(false);
@@ -41,6 +49,11 @@ export function SunskyOrderPlacement({
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [storeFilter, setStoreFilter] = useState<string>('all');
 
+  // Load Sunsky SKUs on mount
+  useEffect(() => {
+    fetchSKUs(1, true);
+  }, [fetchSKUs]);
+
   // Filter orders that can be placed to Sunsky
   const allOrders = orders.filter(order => 
     order.sku && 
@@ -48,7 +61,26 @@ export function SunskyOrderPlacement({
     (selectedStoreId === '' || order.selected_store_id === selectedStoreId)
   );
 
-  const filteredOrders = allOrders.filter(order => {
+  // Create a set of available Sunsky SKU codes for fast lookup
+  const availableSunskySKUs = new Set(sunskySKUs.map(sku => sku.sku_code));
+
+  // Separate orders based on SKU availability
+  const readyOrders = allOrders.filter(order => 
+    availableSunskySKUs.has(order.sku)
+  );
+
+  const manualReviewOrders = allOrders.filter(order => 
+    !availableSunskySKUs.has(order.sku)
+  );
+
+  // Apply filters to both categories
+  const filteredReadyOrders = readyOrders.filter(order => {
+    const matchesStatus = statusFilter === 'all' || order.order_status === statusFilter;
+    const matchesStore = storeFilter === 'all' || order.selected_store_id === storeFilter;
+    return matchesStatus && matchesStore;
+  });
+
+  const filteredManualOrders = manualReviewOrders.filter(order => {
     const matchesStatus = statusFilter === 'all' || order.order_status === statusFilter;
     const matchesStore = storeFilter === 'all' || order.selected_store_id === storeFilter;
     return matchesStatus && matchesStore;
@@ -172,41 +204,45 @@ export function SunskyOrderPlacement({
         </CardContent>
       </Card>
 
-      {/* Orders List */}
+      {/* Ready for Sunsky Orders */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>
-              Available Orders ({filteredOrders.length})
+            <CardTitle className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-green-500" />
+              Ready for Sunsky ({filteredReadyOrders.length})
             </CardTitle>
             <div className="flex gap-2">
               <Button 
                 variant="outline" 
                 size="sm"
                 onClick={() => setSelectedOrders(
-                  selectedOrders.length === filteredOrders.length ? [] : filteredOrders
+                  selectedOrders.length === filteredReadyOrders.length ? [] : filteredReadyOrders
                 )}
               >
-                {selectedOrders.length === filteredOrders.length ? 'Deselect All' : 'Select All'}
+                {selectedOrders.length === filteredReadyOrders.length ? 'Deselect All' : 'Select All'}
               </Button>
             </div>
           </div>
+          <p className="text-sm text-muted-foreground">
+            Orders with partner SKUs that match available Sunsky SKUs
+          </p>
         </CardHeader>
         <CardContent>
-          {ordersLoading ? (
+          {ordersLoading || skusLoading ? (
             <div className="text-center py-8 text-muted-foreground">
-              Loading orders...
+              Loading orders and SKUs...
             </div>
-          ) : filteredOrders.length === 0 ? (
+          ) : filteredReadyOrders.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              No orders available to place with Sunsky
+              No orders ready for Sunsky placement
             </div>
           ) : (
             <div className="space-y-2">
               <div className="grid grid-cols-7 gap-4 text-sm font-medium text-muted-foreground border-b pb-2">
                 <div>Select</div>
                 <div>Order #</div>
-                <div>SKU</div>
+                <div>Partner SKU</div>
                 <div>Title</div>
                 <div>Quantity</div>
                 <div>Status</div>
@@ -214,10 +250,10 @@ export function SunskyOrderPlacement({
               </div>
               
               <div className="max-h-96 overflow-y-auto space-y-1">
-                {filteredOrders.map((order) => (
+                {filteredReadyOrders.map((order) => (
                   <div 
                     key={order.id} 
-                    className="grid grid-cols-7 gap-4 items-center p-3 border rounded-lg hover:bg-muted/50"
+                    className="grid grid-cols-7 gap-4 items-center p-3 border rounded-lg hover:bg-muted/50 bg-green-50/50"
                   >
                     <div>
                       <Checkbox 
@@ -232,7 +268,7 @@ export function SunskyOrderPlacement({
                       />
                     </div>
                     <div className="font-medium">{order.order_nr}</div>
-                    <div className="text-sm text-muted-foreground">{order.sku}</div>
+                    <div className="text-sm font-medium text-green-700">{order.sku}</div>
                     <div className="text-sm truncate" title={order.title}>
                       {order.title || order.sku}
                     </div>
@@ -243,6 +279,75 @@ export function SunskyOrderPlacement({
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Manual Review Required Orders */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-orange-500" />
+              Manual Review Required ({filteredManualOrders.length})
+            </CardTitle>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Orders with partner SKUs that don't match any available Sunsky SKUs
+          </p>
+        </CardHeader>
+        <CardContent>
+          {ordersLoading || skusLoading ? (
+            <div className="text-center py-8 text-muted-foreground">
+              Loading orders and SKUs...
+            </div>
+          ) : filteredManualOrders.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              No orders requiring manual review
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="grid grid-cols-6 gap-4 text-sm font-medium text-muted-foreground border-b pb-2">
+                <div>Order #</div>
+                <div>Partner SKU</div>
+                <div>Title</div>
+                <div>Quantity</div>
+                <div>Status</div>
+                <div>Store</div>
+              </div>
+              
+              <div className="max-h-64 overflow-y-auto space-y-1">
+                {filteredManualOrders.map((order) => (
+                  <div 
+                    key={order.id} 
+                    className="grid grid-cols-6 gap-4 items-center p-3 border rounded-lg bg-orange-50/50"
+                  >
+                    <div className="font-medium">{order.order_nr}</div>
+                    <div className="text-sm font-medium text-orange-700">{order.sku}</div>
+                    <div className="text-sm truncate" title={order.title}>
+                      {order.title || order.sku}
+                    </div>
+                    <div className="text-sm">{order.quantity}</div>
+                    <div>{getStatusBadge(order.order_status || 'pending')}</div>
+                    <div className="text-sm text-muted-foreground truncate">
+                      Store ID: {order.selected_store_id || 'Unknown'}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 p-4 bg-orange-100/50 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-5 w-5 text-orange-600 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-orange-800">Action Required</p>
+                    <p className="text-sm text-orange-700 mt-1">
+                      These orders cannot be automatically placed with Sunsky because their partner SKUs don't match any available Sunsky SKUs. 
+                      Please review and add the missing SKUs to your Sunsky catalog or place these orders manually.
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           )}
