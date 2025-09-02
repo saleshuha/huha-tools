@@ -176,23 +176,40 @@ export function SunskyOrderPlacement({
   };
 
   const handleSunskyOrderSuccess = async (orderNumber: string, selectedOrderIds: string[]) => {
-    // Update the orders with Sunsky order number
-    for (const orderId of selectedOrderIds) {
-      await updateOrderStatus(orderId, { 
-        sunsky_order_number: orderNumber,
-        sunsky_order_status: 1, // Pending
-        sunsky_credentials_id: selectedCredentialId
+    console.log('🚀 Sunsky order success callback:', { orderNumber, selectedOrderIds, selectedCredentialId });
+    
+    try {
+      // Update the orders with Sunsky order number
+      for (const orderId of selectedOrderIds) {
+        console.log('📝 Updating order:', orderId, 'with Sunsky order number:', orderNumber);
+        
+        const result = await updateOrderStatus(orderId, { 
+          sunsky_order_number: orderNumber,
+          sunsky_order_status: 1, // Pending
+          sunsky_credentials_id: selectedCredentialId,
+          sunsky_last_sync: new Date().toISOString(),
+          item_status: 'ordered'
+        });
+        
+        console.log('✅ Order update result for', orderId, ':', result);
+      }
+
+      setSelectedOrders([]);
+      setShowSunskyOrderDialog(false);
+      onOrdersPlaced?.();
+      
+      toast({
+        title: "Orders Placed Successfully",
+        description: `${selectedOrderIds.length} orders placed with Sunsky. Order number: ${orderNumber}`,
+      });
+    } catch (error) {
+      console.error('❌ Error updating orders after Sunsky placement:', error);
+      toast({
+        title: "Warning",
+        description: "Order placed with Sunsky but there was an issue updating the database. Please refresh to see the latest status.",
+        variant: "destructive"
       });
     }
-
-    setSelectedOrders([]);
-    setShowSunskyOrderDialog(false);
-    onOrdersPlaced?.();
-    
-    toast({
-      title: "Orders Placed Successfully",
-      description: `${selectedOrderIds.length} orders placed with Sunsky. Order number: ${orderNumber}`,
-    });
   };
 
   const getStatusBadge = (status: string) => {

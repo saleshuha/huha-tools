@@ -31,7 +31,8 @@ export function SunskyOrderTracking() {
   const { 
     orders: noonOrders, 
     loading: noonLoading, 
-    syncOrderStatus 
+    syncOrderStatus,
+    refreshOrders
   } = useNoonOrders();
   const { 
     orders: sunskyOrders, 

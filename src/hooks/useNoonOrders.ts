@@ -156,12 +156,20 @@ export function useNoonOrders() {
 
   const updateOrderStatus = async (orderId: string, updates: Partial<NoonOrder>) => {
     try {
-      const { error } = await supabase
+      console.log('🔄 Updating order:', orderId, 'with updates:', updates);
+      
+      const { data, error } = await supabase
         .from('noon_orders')
         .update(updates)
-        .eq('id', orderId);
+        .eq('id', orderId)
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Database update error:', error);
+        throw error;
+      }
+
+      console.log('✅ Database update successful:', data);
 
       setState(prev => ({
         ...prev,
