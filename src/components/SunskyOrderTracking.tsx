@@ -6,6 +6,7 @@ import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { 
   Truck, 
   Package, 
@@ -18,7 +19,8 @@ import {
   AlertCircle,
   MapPin,
   Calendar,
-  Hash
+  Hash,
+  Link
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useNoonOrders } from '@/hooks/useNoonOrders';
@@ -32,7 +34,8 @@ export function SunskyOrderTracking() {
     orders: noonOrders, 
     loading: noonLoading, 
     syncOrderStatus,
-    refreshOrders
+    refreshOrders,
+    updateOrderStatus
   } = useNoonOrders();
   const { 
     orders: sunskyOrders, 
@@ -48,6 +51,9 @@ export function SunskyOrderTracking() {
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [orderDetails, setOrderDetails] = useState<any>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
+  const [linkOrderDialog, setLinkOrderDialog] = useState(false);
+  const [selectedOrderToLink, setSelectedOrderToLink] = useState<any>(null);
+  const [sunskyOrderNumber, setSunskyOrderNumber] = useState('');
 
   // Show all noon orders (both placed and pending)
   const allNoonOrders = noonOrders;
@@ -126,6 +132,42 @@ export function SunskyOrderTracking() {
     }
   };
 
+  const handleLinkOrder = async () => {
+    if (!sunskyOrderNumber.trim()) {
+      toast({
+        title: "Missing Order Number",
+        description: "Please enter a Sunsky order number",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      await updateOrderStatus(selectedOrderToLink.id, {
+        sunsky_order_number: sunskyOrderNumber,
+        sunsky_order_status: 1,
+        item_status: 'ordered',
+        sunsky_last_sync: new Date().toISOString()
+      });
+
+      toast({
+        title: "Order Linked Successfully",
+        description: `Noon order ${selectedOrderToLink.order_nr} linked to Sunsky order ${sunskyOrderNumber}`,
+      });
+
+      setLinkOrderDialog(false);
+      setSunskyOrderNumber('');
+      setSelectedOrderToLink(null);
+      refreshOrders();
+    } catch (error) {
+      toast({
+        title: "Link Failed",
+        description: "Failed to link the order",
+        variant: "destructive"
+      });
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     const statusConfig = {
       'pending': { color: 'secondary', icon: Clock, text: 'Pending' },
@@ -166,6 +208,14 @@ export function SunskyOrderTracking() {
           <h2 className="text-2xl font-bold">Sunsky Order Tracking</h2>
         </div>
         <div className="flex items-center gap-4">
+          <Button 
+            onClick={refreshOrders} 
+            variant="outline" 
+            size="sm"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh Orders
+          </Button>
           <SunskyCredentialsSelector 
             selectedCredentialId={selectedCredentialId}
             onCredentialSelect={setSelectedCredentialId}
@@ -334,9 +384,22 @@ export function SunskyOrderTracking() {
                             </Button>
                           </>
                         ) : (
-                          <Badge variant="secondary" className="text-xs">
-                            Ready for Placement
-                          </Badge>
+                          <div className="flex gap-2">
+                            <Badge variant="secondary" className="text-xs">
+                              Ready for Placement
+                            </Badge>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => {
+                                setSelectedOrderToLink(order);
+                                setLinkOrderDialog(true);
+                              }}
+                            >
+                              <Link className="h-4 w-4 mr-2" />
+                              Link Order
+                            </Button>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -566,6 +629,47 @@ export function SunskyOrderTracking() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Link Order Dialog */}
+      <Dialog open={linkOrderDialog} onOpenChange={setLinkOrderDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Link Sunsky Order</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Noon Order</Label>
+              <div className="text-sm text-muted-foreground mt-1">
+                {selectedOrderToLink?.order_nr} - {selectedOrderToLink?.title}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="sunsky-order">Sunsky Order Number</Label>
+              <Input
+                id="sunsky-order"
+                placeholder="Enter Sunsky order number (e.g., 2509026448)"
+                value={sunskyOrderNumber}
+                onChange={(e) => setSunskyOrderNumber(e.target.value)}
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setLinkOrderDialog(false);
+                  setSunskyOrderNumber('');
+                  setSelectedOrderToLink(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleLinkOrder}>
+                Link Order
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
