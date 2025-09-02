@@ -19,6 +19,7 @@ import { useSKUManager } from '@/hooks/useSKUManager';
 import { SunskyOrderDialog } from './SunskyOrderDialog';
 import { SunskyCredentialsSelector } from './SunskyCredentialsSelector';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { supabase } from '@/integrations/supabase/client';
 
 interface SunskyOrderPlacementProps {
   selectedStoreId: string;
@@ -33,7 +34,8 @@ export function SunskyOrderPlacement({
   const { 
     orders, 
     loading: ordersLoading, 
-    updateOrderStatus 
+    updateOrderStatus,
+    refreshOrders 
   } = useNoonOrders();
   
   const { 
@@ -101,6 +103,39 @@ export function SunskyOrderPlacement({
     const matchesStore = storeFilter === 'all' || order.selected_store_id === storeFilter;
     return matchesStatus && matchesStore;
   });
+
+  const handleClearAllOrders = async () => {
+    if (!confirm('Are you sure you want to delete ALL orders? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { error } = await supabase
+        .from('noon_orders')
+        .delete()
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      // Refresh the orders list
+      await refreshOrders();
+      
+      toast({
+        title: "Success",
+        description: "All orders have been deleted successfully",
+      });
+    } catch (error) {
+      console.error('Error deleting orders:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete orders",
+        variant: "destructive"
+      });
+    }
+  };
 
   const handlePlaceOrdersToSunsky = async () => {
     if (selectedOrders.length === 0) {
@@ -181,6 +216,13 @@ export function SunskyOrderPlacement({
             selectedCredentialId={selectedCredentialId}
             onCredentialSelect={setSelectedCredentialId}
           />
+          <Button 
+            variant="outline"
+            onClick={handleClearAllOrders}
+            className="text-red-600 hover:text-red-700"
+          >
+            Clear All Orders
+          </Button>
           <Button 
             onClick={handlePlaceOrdersToSunsky}
             disabled={selectedOrders.length === 0 || !selectedCredentialId}
