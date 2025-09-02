@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { NoonOrdersUpload } from '@/components/NoonOrdersUpload';
 import { NoonOrdersTable } from '@/components/NoonOrdersTable';
+import { NoonStoreManagement } from '@/components/NoonStoreManagement';
 
 export default function NoonOrderTrackingPage() {
   const [activeTab, setActiveTab] = useState('orders');
@@ -30,9 +31,10 @@ export default function NoonOrderTrackingPage() {
       
       <div className="container mx-auto px-6 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-8">
+          <TabsList className="grid w-full grid-cols-3 mb-8">
             <TabsTrigger value="orders">Orders Management</TabsTrigger>
             <TabsTrigger value="upload">Upload Orders</TabsTrigger>
+            <TabsTrigger value="stores">Store & Sunsky Management</TabsTrigger>
           </TabsList>
 
           <TabsContent value="orders" className="space-y-6">
@@ -46,6 +48,14 @@ export default function NoonOrderTrackingPage() {
             <NoonOrdersUpload 
               selectedStoreId={selectedStoreId}
               onUploadComplete={() => setActiveTab('orders')}
+            />
+          </TabsContent>
+
+          <TabsContent value="stores" className="space-y-6">
+            <NoonStoreManagement 
+              selectedStoreId={selectedStoreId}
+              onStoreChange={setSelectedStoreId}
+              onOrdersPlaced={() => setActiveTab('orders')}
             />
           </TabsContent>
         </Tabs>
