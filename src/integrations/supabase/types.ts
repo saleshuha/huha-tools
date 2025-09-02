@@ -1035,6 +1035,7 @@ export type Database = {
           shipment_user: string | null
           size: string | null
           sku: string | null
+          store_id: string | null
           sunsky_credentials_id: string | null
           sunsky_error_message: string | null
           sunsky_last_sync: string | null
@@ -1075,6 +1076,7 @@ export type Database = {
           shipment_user?: string | null
           size?: string | null
           sku?: string | null
+          store_id?: string | null
           sunsky_credentials_id?: string | null
           sunsky_error_message?: string | null
           sunsky_last_sync?: string | null
@@ -1115,6 +1117,7 @@ export type Database = {
           shipment_user?: string | null
           size?: string | null
           sku?: string | null
+          store_id?: string | null
           sunsky_credentials_id?: string | null
           sunsky_error_message?: string | null
           sunsky_last_sync?: string | null
@@ -1127,7 +1130,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "noon_orders_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       noon_sales_data: {
         Row: {

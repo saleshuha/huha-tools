@@ -97,16 +97,22 @@ export function useNoonOrders() {
         throw new Error('User not authenticated');
       }
 
-      const ordersWithMetadata = orders.map(order => ({
-        ...order,
-        file_name: fileName,
-        user_id: order.user_id || user.id, // Use current user ID if not set
-        order_nr: order.order_nr || '', // Ensure order_nr is always present
-        order_country_code: order.order_country_code || 'UAE', // Default country
-        quantity: order.quantity || 1, // Default quantity
-        is_reprintable: order.is_reprintable || false,
-        is_printed: order.is_printed || false,
-      }));
+      const ordersWithMetadata = orders.map(order => {
+        // Extract user field if it exists and map to shipment_user
+        const { user: orderUser, ...orderData } = order as any;
+        return {
+          ...orderData,
+          file_name: fileName,
+          user_id: user.id, // Use authenticated user ID
+          order_nr: orderData.order_nr || '', // Ensure order_nr is always present
+          order_country_code: orderData.order_country_code || 'UAE', // Default country
+          quantity: orderData.quantity || 1, // Default quantity
+          is_reprintable: orderData.is_reprintable || false,
+          is_printed: orderData.is_printed || false,
+          // Fix field mapping - map 'user' field to 'shipment_user'
+          shipment_user: orderUser || orderData.shipment_user || null,
+        };
+      });
 
       const { data, error } = await supabase
         .from('noon_orders')

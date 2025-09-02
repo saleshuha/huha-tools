@@ -7,6 +7,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useNoonOrders } from '@/hooks/useNoonOrders';
+import { supabase } from '@/integrations/supabase/client';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import * as XLSX from 'xlsx';
 
 const EXPECTED_HEADERS = [
@@ -18,6 +20,12 @@ const EXPECTED_HEADERS = [
   'parent_sku', 'size', 'pbarcodes'
 ];
 
+interface Store {
+  id: string;
+  name: string;
+  country: string;
+}
+
 interface NoonOrdersUploadProps {
   onUploadComplete?: () => void;
 }
@@ -28,6 +36,28 @@ export function NoonOrdersUpload({ onUploadComplete }: NoonOrdersUploadProps) {
   const [fileName, setFileName] = useState<string>('');
   const [uploadProgress, setUploadProgress] = useState(0);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [stores, setStores] = useState<Store[]>([]);
+  const [selectedStore, setSelectedStore] = useState<string>('');
+
+  // Load stores on component mount
+  React.useEffect(() => {
+    const loadStores = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('stores')
+          .select('id, name, country')
+          .order('country', { ascending: true })
+          .order('name', { ascending: true });
+
+        if (error) throw error;
+        setStores(data || []);
+      } catch (error) {
+        console.error('Error loading stores:', error);
+      }
+    };
+
+    loadStores();
+  }, []);
 
   const parseFile = useCallback(async (file: File) => {
     return new Promise((resolve, reject) => {
@@ -162,10 +192,16 @@ export function NoonOrdersUpload({ onUploadComplete }: NoonOrdersUploadProps) {
 
     try {
       setUploadProgress(0);
-      await uploadOrders(preview, fileName);
+      // Add store_id to orders if selected
+      const ordersWithStore = preview.map(order => ({
+        ...order,
+        store_id: selectedStore || null
+      }));
+      await uploadOrders(ordersWithStore, fileName);
       setUploadProgress(100);
       setPreview(null);
       setFileName('');
+      setSelectedStore('');
       onUploadComplete?.();
     } catch (error) {
       console.error('Upload failed:', error);
@@ -177,6 +213,7 @@ export function NoonOrdersUpload({ onUploadComplete }: NoonOrdersUploadProps) {
     setFileName('');
     setValidationErrors([]);
     setUploadProgress(0);
+    setSelectedStore('');
   };
 
   return (
@@ -191,6 +228,27 @@ export function NoonOrdersUpload({ onUploadComplete }: NoonOrdersUploadProps) {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Store Selection */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Select Store (Optional)</label>
+          <Select value={selectedStore} onValueChange={setSelectedStore}>
+            <SelectTrigger>
+              <SelectValue placeholder="Choose a store..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">No Store Selected</SelectItem>
+              {stores.map((store) => (
+                <SelectItem key={store.id} value={store.id}>
+                  {store.name} ({store.country})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Select a store to associate with these orders. You can filter stores by country.
+          </p>
+        </div>
+
         {validationErrors.length > 0 && (
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
