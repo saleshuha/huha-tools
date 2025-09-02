@@ -302,13 +302,27 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
 
   const initializeOrderItems = () => {
     const items = selectedOrders.map(order => ({
-      itemNo: order.sunsky_sku?.sku_code || order.sku_code,
-      qty: order.quantity,
-      title: order.sunsky_sku?.title || order.title || order.sku_code,
-      remark: `PO: ${order.po_number}`
+      // Handle both PO orders and Noon orders
+      itemNo: order.partner_sku || order.sunsky_sku?.sku_code || order.sku_code,
+      qty: order.quantity || 1,
+      title: order.title || order.sunsky_sku?.title || order.partner_sku || order.sku_code,
+      remark: `Order: ${order.order_nr || order.po_number || order.id}`
     }));
-    setOrderItems(items);
-    setCheckedItems(new Set(items.map(item => item.itemNo)));
+    
+    // Filter out items without valid SKU codes
+    const validItems = items.filter(item => item.itemNo && item.itemNo.trim() !== '');
+    
+    if (validItems.length === 0) {
+      toast({
+        title: "No Valid Items Selected",
+        description: "Please ensure items have valid SKU codes and quantities greater than 0",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setOrderItems(validItems);
+    setCheckedItems(new Set(validItems.map(item => item.itemNo)));
   };
 
   const loadCountries = async () => {
