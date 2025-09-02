@@ -56,7 +56,7 @@ export function SunskyOrderPlacement({
 
   // Filter orders that can be placed to Sunsky
   const allOrders = orders.filter(order => 
-    order.sku && 
+    order.partner_sku && 
     !order.sunsky_order_number &&
     (selectedStoreId === '' || order.selected_store_id === selectedStoreId)
   );
@@ -64,13 +64,13 @@ export function SunskyOrderPlacement({
   // Create a set of available Sunsky SKU codes for fast lookup
   const availableSunskySKUs = new Set(sunskySKUs.map(sku => sku.sku_code));
 
-  // Separate orders based on SKU availability
+  // Separate orders based on partner_sku availability in Sunsky
   const readyOrders = allOrders.filter(order => 
-    availableSunskySKUs.has(order.sku)
+    availableSunskySKUs.has(order.partner_sku!)
   );
 
   const manualReviewOrders = allOrders.filter(order => 
-    !availableSunskySKUs.has(order.sku)
+    !availableSunskySKUs.has(order.partner_sku!)
   );
 
   // Apply filters to both categories
@@ -268,9 +268,9 @@ export function SunskyOrderPlacement({
                       />
                     </div>
                     <div className="font-medium">{order.order_nr}</div>
-                    <div className="text-sm font-medium text-green-700">{order.sku}</div>
+                    <div className="text-sm font-medium text-green-700">{order.partner_sku}</div>
                     <div className="text-sm truncate" title={order.title}>
-                      {order.title || order.sku}
+                      {order.title || order.partner_sku}
                     </div>
                     <div className="text-sm">{order.quantity}</div>
                     <div>{getStatusBadge(order.order_status || 'pending')}</div>
@@ -325,9 +325,9 @@ export function SunskyOrderPlacement({
                     className="grid grid-cols-6 gap-4 items-center p-3 border rounded-lg bg-orange-50/50"
                   >
                     <div className="font-medium">{order.order_nr}</div>
-                    <div className="text-sm font-medium text-orange-700">{order.sku}</div>
+                    <div className="text-sm font-medium text-orange-700">{order.partner_sku}</div>
                     <div className="text-sm truncate" title={order.title}>
-                      {order.title || order.sku}
+                      {order.title || order.partner_sku}
                     </div>
                     <div className="text-sm">{order.quantity}</div>
                     <div>{getStatusBadge(order.order_status || 'pending')}</div>
@@ -372,12 +372,12 @@ export function SunskyOrderPlacement({
                 </div>
                 <div className="text-sm text-muted-foreground">Total Items</div>
               </div>
-              <div>
-                <div className="text-2xl font-bold">
-                  {new Set(selectedOrders.map(order => order.sku)).size}
+                <div>
+                  <div className="text-2xl font-bold">
+                    {new Set(selectedOrders.map(order => order.partner_sku)).size}
+                  </div>
+                  <div className="text-sm text-muted-foreground">Unique Partner SKUs</div>
                 </div>
-                <div className="text-sm text-muted-foreground">Unique SKUs</div>
-              </div>
             </div>
           </CardContent>
         </Card>
