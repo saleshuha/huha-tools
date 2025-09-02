@@ -117,14 +117,31 @@ export function NoonOrdersUpload({ onUploadComplete }: NoonOrdersUploadProps) {
                   if ((header.includes('_at') || header.includes('_date')) && value) {
                     try {
                       if (typeof value === 'number') {
-                        // Excel date serial number
-                        const excelDate = new Date((value - 25569) * 86400 * 1000);
-                        value = excelDate.toISOString();
-                      } else if (typeof value === 'string') {
-                        value = new Date(value).toISOString();
+                        // Excel date serial number (days since January 1, 1900)
+                        // Excel incorrectly treats 1900 as a leap year, so we subtract 1 day
+                        const excelEpoch = new Date('1900-01-01');
+                        const daysOffset = value - 1; // Adjust for Excel's leap year bug
+                        const excelDate = new Date(excelEpoch.getTime() + daysOffset * 24 * 60 * 60 * 1000);
+                        
+                        // Validate the date is reasonable (between 1900 and 2100)
+                        if (excelDate.getFullYear() >= 1900 && excelDate.getFullYear() <= 2100) {
+                          value = excelDate.toISOString();
+                        } else {
+                          value = null; // Invalid date range
+                        }
+                      } else if (typeof value === 'string' && value.trim()) {
+                        const parsedDate = new Date(value);
+                        if (!isNaN(parsedDate.getTime())) {
+                          value = parsedDate.toISOString();
+                        } else {
+                          value = null; // Invalid date string
+                        }
+                      } else {
+                        value = null; // Empty or invalid value
                       }
                     } catch (e) {
-                      // Keep original value if date parsing fails
+                      console.warn(`Failed to parse date for ${header}:`, value);
+                      value = null; // Set to null on parsing error
                     }
                   }
                   
