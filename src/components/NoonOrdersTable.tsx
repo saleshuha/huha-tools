@@ -22,9 +22,10 @@ import { useNoonOrders, type NoonOrder } from '@/hooks/useNoonOrders';
 import { SunskyCredentialsSelector } from '@/components/SunskyCredentialsSelector';
 import { formatDistanceToNow } from 'date-fns';
 
-interface Store {
+interface NoonStore {
   id: string;
   name: string;
+  partner_id: string | null;
   country: string;
 }
 
@@ -69,15 +70,15 @@ export function NoonOrdersTable() {
   const [storeFilter, setStoreFilter] = useState('all');
   const [selectedCredentialId, setSelectedCredentialId] = useState<string>('');
   const [processingOrders, setProcessingOrders] = useState<Set<string>>(new Set());
-  const [stores, setStores] = useState<Store[]>([]);
+  const [stores, setStores] = useState<NoonStore[]>([]);
 
-  // Load stores on component mount
+  // Load noon stores on component mount
   useEffect(() => {
     const loadStores = async () => {
       try {
         const { data, error } = await supabase
-          .from('stores')
-          .select('id, name, country')
+          .from('noon_stores')
+          .select('id, name, partner_id, country')
           .order('country', { ascending: true })
           .order('name', { ascending: true });
 
@@ -106,8 +107,8 @@ export function NoonOrdersTable() {
     const matchesCountry = countryFilter === 'all' || order.order_country_code === countryFilter;
 
     const matchesStore = storeFilter === 'all' || 
-      (storeFilter === 'no-store' && !(order as any).store_id) ||
-      (storeFilter !== 'no-store' && (order as any).store_id === storeFilter);
+      (storeFilter === 'no-store' && !(order as any).noon_store_id) ||
+      (storeFilter !== 'no-store' && (order as any).noon_store_id === storeFilter);
     
     return matchesSearch && matchesStatus && matchesCountry && matchesStore;
   });
@@ -285,7 +286,7 @@ export function NoonOrdersTable() {
                   <TableCell className="font-mono">{order.order_nr}</TableCell>
                   <TableCell>
                     <span className="text-sm">
-                      {getStoreName((order as any).store_id)}
+                      {getStoreName((order as any).noon_store_id)}
                     </span>
                   </TableCell>
                   <TableCell>{order.partner_sku || 'N/A'}</TableCell>

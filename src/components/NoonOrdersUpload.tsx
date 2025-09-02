@@ -20,9 +20,10 @@ const EXPECTED_HEADERS = [
   'parent_sku', 'size', 'pbarcodes'
 ];
 
-interface Store {
+interface NoonStore {
   id: string;
   name: string;
+  partner_id: string | null;
   country: string;
 }
 
@@ -36,16 +37,16 @@ export function NoonOrdersUpload({ onUploadComplete }: NoonOrdersUploadProps) {
   const [fileName, setFileName] = useState<string>('');
   const [uploadProgress, setUploadProgress] = useState(0);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
-  const [stores, setStores] = useState<Store[]>([]);
+  const [stores, setStores] = useState<NoonStore[]>([]);
   const [selectedStore, setSelectedStore] = useState<string>('none');
 
-  // Load stores on component mount
+  // Load noon stores on component mount
   React.useEffect(() => {
     const loadStores = async () => {
       try {
         const { data, error } = await supabase
-          .from('stores')
-          .select('id, name, country')
+          .from('noon_stores')
+          .select('id, name, partner_id, country')
           .order('country', { ascending: true })
           .order('name', { ascending: true });
 
@@ -192,10 +193,10 @@ export function NoonOrdersUpload({ onUploadComplete }: NoonOrdersUploadProps) {
 
     try {
       setUploadProgress(0);
-      // Add store_id to orders if selected
+      // Add noon_store_id to orders if selected
       const ordersWithStore = preview.map(order => ({
         ...order,
-        store_id: selectedStore && selectedStore !== 'none' ? selectedStore : null
+        noon_store_id: selectedStore && selectedStore !== 'none' ? selectedStore : null
       }));
       await uploadOrders(ordersWithStore, fileName);
       setUploadProgress(100);

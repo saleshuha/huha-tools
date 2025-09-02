@@ -1020,6 +1020,7 @@ export type Database = {
           item_status: string | null
           manifest_nr: string | null
           mp_code: string | null
+          noon_store_id: string | null
           order_country_code: string | null
           order_nr: string
           order_received_at: string | null
@@ -1061,6 +1062,7 @@ export type Database = {
           item_status?: string | null
           manifest_nr?: string | null
           mp_code?: string | null
+          noon_store_id?: string | null
           order_country_code?: string | null
           order_nr: string
           order_received_at?: string | null
@@ -1102,6 +1104,7 @@ export type Database = {
           item_status?: string | null
           manifest_nr?: string | null
           mp_code?: string | null
+          noon_store_id?: string | null
           order_country_code?: string | null
           order_nr?: string
           order_received_at?: string | null
@@ -1131,6 +1134,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "noon_orders_noon_store_id_fkey"
+            columns: ["noon_store_id"]
+            isOneToOne: false
+            referencedRelation: "noon_stores"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "noon_orders_store_id_fkey"
             columns: ["store_id"]
@@ -1252,6 +1262,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      noon_stores: {
+        Row: {
+          country: string
+          created_at: string
+          id: string
+          name: string
+          partner_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          country?: string
+          created_at?: string
+          id?: string
+          name: string
+          partner_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          country?: string
+          created_at?: string
+          id?: string
+          name?: string
+          partner_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       order_imports: {
         Row: {
