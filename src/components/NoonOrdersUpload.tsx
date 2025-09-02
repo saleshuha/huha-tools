@@ -82,17 +82,23 @@ export function NoonOrdersUpload({ onUploadComplete, selectedStoreId }: NoonOrde
                     value = value === true || value === 'true' || value === 1 || value === '1';
                   } else if (header === 'quantity' && value !== null && value !== undefined && value !== '') {
                     value = parseInt(value) || 1;
-                  } else if ((header.includes('_at') || header.includes('_date')) && value) {
+                  } else if ((header.includes('_at') || header.includes('_date') || header.includes('_timestamp')) && value) {
                     try {
-                      if (typeof value === 'number') {
-                        // Excel date serial number
+                      if (typeof value === 'number' && value > 1000) {
+                        // Excel date serial number - convert to ISO string
                         const excelDate = new Date((value - 25569) * 86400 * 1000);
                         value = excelDate.toISOString();
-                      } else if (typeof value === 'string') {
-                        value = new Date(value).toISOString();
+                      } else if (typeof value === 'string' && value.trim() !== '') {
+                        // Try to parse string date
+                        const parsedDate = new Date(value);
+                        if (!isNaN(parsedDate.getTime())) {
+                          value = parsedDate.toISOString();
+                        }
                       }
                     } catch (e) {
-                      // Keep original value if date parsing fails
+                      // If date parsing fails, set to null instead of keeping invalid value
+                      console.warn(`Failed to parse date for ${header}:`, value);
+                      value = null;
                     }
                   }
                   
