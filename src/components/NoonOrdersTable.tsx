@@ -176,12 +176,26 @@ export function NoonOrdersTable({ selectedStoreId, onStoreChange }: NoonOrdersTa
                   {filteredOrders.map((order) => (
                     <TableRow key={order.id}>
                       <TableCell>
-                        <div className="space-y-1">
-                          <div className="font-mono text-sm font-medium">
-                            Order: {order.order_nr}
-                          </div>
-                          <div className="font-mono text-xs text-muted-foreground">
-                            Item: {order.purchase_item_nr}
+                        <div className="flex items-center gap-3">
+                          {order.image_key && (
+                            <div className="flex-shrink-0">
+                              <img
+                                src={`https://f.nooncdn.com/p/${order.image_key}.jpg`}
+                                alt={order.title || "Product image"}
+                                className="w-12 h-12 object-cover rounded border"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none';
+                                }}
+                              />
+                            </div>
+                          )}
+                          <div className="space-y-1">
+                            <div className="font-mono text-sm font-medium">
+                              Order: {order.order_nr}
+                            </div>
+                            <div className="font-mono text-xs text-muted-foreground">
+                              Item: {order.purchase_item_nr}
+                            </div>
                           </div>
                         </div>
                       </TableCell>
