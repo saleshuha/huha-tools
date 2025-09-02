@@ -44,8 +44,6 @@ export function SunskyOrderPlacement({
   const [selectedCredentialId, setSelectedCredentialId] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [storeFilter, setStoreFilter] = useState<string>('all');
-  const [sunskySkuChecks, setSunskySkuChecks] = useState<{[key: string]: boolean}>({});
-  const [checkingSkus, setCheckingSkus] = useState(false);
 
   // Filter orders that can be placed to Sunsky
   const allOrders = orders.filter(order => 
@@ -54,58 +52,9 @@ export function SunskyOrderPlacement({
     (selectedStoreId === '' || order.selected_store_id === selectedStoreId)
   );
 
-  // Check SKUs in Sunsky catalog via API
-  const checkSunskySkuAvailability = async (partnerSkus: string[]) => {
-    if (!selectedCredentialId || partnerSkus.length === 0) return;
-    
-    setCheckingSkus(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('sunsky-api', {
-        body: {
-          action: 'search_products',
-          credentials_id: selectedCredentialId,
-          search_skus: partnerSkus
-        }
-      });
-
-      if (error) throw error;
-      
-      // Update SKU checks with results
-      const checks = { ...sunskySkuChecks };
-      partnerSkus.forEach(sku => {
-        checks[sku] = data?.available_skus?.includes(sku) || false;
-      });
-      setSunskySkuChecks(checks);
-      
-    } catch (error) {
-      console.error('Error checking Sunsky SKU availability:', error);
-      toast({
-        title: "Error",
-        description: "Failed to check SKU availability in Sunsky catalog",
-        variant: "destructive"
-      });
-    } finally {
-      setCheckingSkus(false);
-    }
-  };
-
-  // Check SKUs when orders or credentials change
-  useEffect(() => {
-    const uniquePartnerSkus = [...new Set(allOrders.map(order => order.partner_sku!))];
-    if (uniquePartnerSkus.length > 0 && selectedCredentialId) {
-      checkSunskySkuAvailability(uniquePartnerSkus);
-    }
-  }, [allOrders.length, selectedCredentialId]);
-
-  // Separate orders based on Sunsky catalog availability
-  const readyOrders = allOrders.filter(order => 
-    sunskySkuChecks[order.partner_sku!] === true
-  );
-
-  const manualReviewOrders = allOrders.filter(order => 
-    sunskySkuChecks[order.partner_sku!] === false || 
-    sunskySkuChecks[order.partner_sku!] === undefined
-  );
+  // Initially show all orders as ready for Sunsky (we'll check availability when placing the order)
+  const readyOrders = allOrders;
+  const manualReviewOrders: any[] = []; // Empty initially - items will be moved here if unavailable during order placement
 
   // Apply filters to both categories
   const filteredReadyOrders = readyOrders.filter(order => {
@@ -172,7 +121,58 @@ export function SunskyOrderPlacement({
       return;
     }
 
-    setShowSunskyOrderDialog(true);
+    // Check SKU availability in real-time before placing the order
+    const uniquePartnerSkus = [...new Set(selectedOrders.map(order => order.partner_sku!))];
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('sunsky-api', {
+        body: {
+          action: 'search_products',
+          credentials_id: selectedCredentialId,
+          search_skus: uniquePartnerSkus
+        }
+      });
+
+      if (error) throw error;
+      
+      const availableSkus = data?.available_skus || [];
+      const validOrders = selectedOrders.filter(order => 
+        availableSkus.includes(order.partner_sku!)
+      );
+      const invalidOrders = selectedOrders.filter(order => 
+        !availableSkus.includes(order.partner_sku!)
+      );
+
+      if (invalidOrders.length > 0) {
+        const invalidSkus = invalidOrders.map(order => order.partner_sku).join(', ');
+        toast({
+          title: "Some SKUs Not Available",
+          description: `${invalidOrders.length} orders have unavailable SKUs: ${invalidSkus}. Only ${validOrders.length} orders will be processed.`,
+          variant: "destructive"
+        });
+      }
+
+      if (validOrders.length === 0) {
+        toast({
+          title: "No Valid Orders",
+          description: "All selected orders have SKUs that are not available in Sunsky catalog",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Update selected orders to only include valid ones
+      setSelectedOrders(validOrders);
+      setShowSunskyOrderDialog(true);
+      
+    } catch (error) {
+      console.error('Error checking Sunsky SKU availability:', error);
+      toast({
+        title: "Error",
+        description: "Failed to verify SKU availability. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleSunskyOrderSuccess = async (orderNumber: string, selectedOrderIds: string[]) => {
@@ -299,13 +299,13 @@ export function SunskyOrderPlacement({
             </div>
           </div>
                   <p className="text-sm text-muted-foreground">
-                    Orders with partner SKUs found in Sunsky catalog
+                    Orders with partner SKUs (availability will be verified when placing order)
                   </p>
         </CardHeader>
         <CardContent>
-          {ordersLoading || checkingSkus ? (
+          {ordersLoading ? (
             <div className="text-center py-8 text-muted-foreground">
-              {checkingSkus ? 'Checking SKU availability in Sunsky catalog...' : 'Loading orders...'}
+              Loading orders...
             </div>
           ) : filteredReadyOrders.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
@@ -369,17 +369,17 @@ export function SunskyOrderPlacement({
             </CardTitle>
           </div>
           <p className="text-sm text-muted-foreground">
-            Orders with partner SKUs not found in Sunsky catalog
+            Orders requiring manual review (will show here if SKUs are unavailable during order placement)
           </p>
         </CardHeader>
         <CardContent>
-          {ordersLoading || checkingSkus ? (
+          {ordersLoading ? (
             <div className="text-center py-8 text-muted-foreground">
-              {checkingSkus ? 'Checking SKU availability in Sunsky catalog...' : 'Loading orders...'}
+              Loading orders...
             </div>
-          ) : filteredManualOrders.length === 0 ? (
+          ) : manualReviewOrders.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              No orders requiring manual review
+              No orders requiring manual review (SKUs will be verified when placing orders)
             </div>
           ) : (
             <div className="space-y-2">
@@ -393,7 +393,7 @@ export function SunskyOrderPlacement({
               </div>
               
               <div className="max-h-64 overflow-y-auto space-y-1">
-                {filteredManualOrders.map((order) => (
+                {manualReviewOrders.map((order) => (
                   <div 
                     key={order.id} 
                     className="grid grid-cols-6 gap-4 items-center p-3 border rounded-lg bg-orange-50/50"
@@ -417,8 +417,8 @@ export function SunskyOrderPlacement({
                   <div>
                     <p className="text-sm font-medium text-orange-800">Action Required</p>
                     <p className="text-sm text-orange-700 mt-1">
-                      These orders cannot be automatically placed with Sunsky because their partner SKUs were not found in the Sunsky catalog. 
-                      Please verify the SKUs exist in Sunsky or contact your supplier to add them.
+                      Orders will appear here if their partner SKUs are not available in the Sunsky catalog during order placement. 
+                      SKU availability is verified in real-time when you place orders.
                     </p>
                   </div>
                 </div>
