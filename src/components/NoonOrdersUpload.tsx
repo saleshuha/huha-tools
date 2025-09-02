@@ -114,26 +114,28 @@ export function NoonOrdersUpload({ onUploadComplete }: NoonOrdersUploadProps) {
                   }
                   
                   // Convert date fields
-                  if ((header.includes('_at') || header.includes('_date')) && value !== null && value !== undefined && value !== '') {
+                  if ((header.includes('_at') || header.includes('_date') || header === 'fulfillment_timestamp') && value !== null && value !== undefined && value !== '') {
                     try {
                       if (typeof value === 'number') {
                         console.log(`Converting Excel date for ${header}:`, value);
                         // Excel date serial number conversion
-                        // Excel counts days since January 1, 1900, but treats 1900 as a leap year (it's not)
-                        // So we need to account for this bug
-                        let excelDate;
+                        // Days since January 1, 1900 (Excel's epoch)
+                        const excelEpoch = new Date(1900, 0, 1); // January 1, 1900
+                        const msPerDay = 24 * 60 * 60 * 1000;
+                        
+                        // Excel has a bug: it treats 1900 as a leap year (it's not)
+                        // So for dates after Feb 28, 1900, we need to subtract 1 day
+                        let adjustedDays = value;
                         if (value > 59) {
-                          // After Feb 28, 1900 - subtract 1 day for Excel's leap year bug
-                          excelDate = new Date(1900, 0, value - 1);
-                        } else {
-                          // Before Mar 1, 1900 - no adjustment needed
-                          excelDate = new Date(1900, 0, value);
+                          adjustedDays = value - 1;
                         }
+                        
+                        const excelDate = new Date(excelEpoch.getTime() + (adjustedDays - 1) * msPerDay);
                         
                         // Validate the date is reasonable (between 1900 and 2100)
                         if (excelDate.getFullYear() >= 1900 && excelDate.getFullYear() <= 2100 && !isNaN(excelDate.getTime())) {
                           value = excelDate.toISOString();
-                          console.log(`Converted Excel date to:`, value);
+                          console.log(`Converted Excel date ${header} from ${adjustedDays} to:`, value);
                         } else {
                           console.warn(`Invalid Excel date range for ${header}:`, value, excelDate);
                           value = null;
