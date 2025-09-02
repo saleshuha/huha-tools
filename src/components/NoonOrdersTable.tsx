@@ -1,305 +1,227 @@
 import React, { useState } from 'react';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { useNoonOrders } from '@/hooks/useNoonOrders';
+import { useNoonStores } from '@/hooks/useNoonStores';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { 
-  Package, 
-  Search, 
-  RefreshCw, 
-  ShoppingCart, 
-  Eye, 
-  ExternalLink,
-  Clock,
-  CheckCircle,
-  AlertCircle,
-  Truck
-} from 'lucide-react';
-import { useNoonOrders, type NoonOrder } from '@/hooks/useNoonOrders';
-import { SunskyCredentialsSelector } from '@/components/SunskyCredentialsSelector';
-import { formatDistanceToNow } from 'date-fns';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Package, Search, Filter, Plus, Eye } from 'lucide-react';
+import { AddStoreDialog } from '@/components/AddStoreDialog';
 
-const getSunskyStatusText = (status?: number) => {
-  switch (status) {
-    case 1: return 'Unpaid';
-    case 2: return 'Paid';
-    case 3: return 'Shipped';
-    case 4: return 'Cancelled';
-    case 5: return 'Delivered';
-    default: return 'Unknown';
-  }
-};
+interface NoonOrdersTableProps {
+  selectedStoreId?: string;
+  onStoreChange?: (storeId: string) => void;
+}
 
-const getSunskyStatusIcon = (status?: number) => {
-  switch (status) {
-    case 1: return <Clock className="h-4 w-4" />;
-    case 2: return <CheckCircle className="h-4 w-4" />;
-    case 3: return <Truck className="h-4 w-4" />;
-    case 4: return <AlertCircle className="h-4 w-4" />;
-    case 5: return <CheckCircle className="h-4 w-4" />;
-    default: return <AlertCircle className="h-4 w-4" />;
-  }
-};
-
-const getSunskyStatusVariant = (status?: number) => {
-  switch (status) {
-    case 1: return 'secondary';
-    case 2: return 'default';
-    case 3: return 'default';
-    case 4: return 'destructive';
-    case 5: return 'default';
-    default: return 'outline';
-  }
-};
-
-export function NoonOrdersTable() {
-  const { orders, loading, placeOrderWithSunsky, syncOrderStatus, refreshOrders } = useNoonOrders();
+export function NoonOrdersTable({ selectedStoreId, onStoreChange }: NoonOrdersTableProps) {
+  const { orders, loading } = useNoonOrders();
+  const { stores } = useNoonStores();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [selectedCredentialId, setSelectedCredentialId] = useState<string>('');
-  const [processingOrders, setProcessingOrders] = useState<Set<string>>(new Set());
+  const [showAddStore, setShowAddStore] = useState(false);
 
   const filteredOrders = orders.filter(order => {
     const matchesSearch = !searchTerm || 
-      order.order_nr.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.order_nr?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.purchase_item_nr?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       order.partner_sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       order.title?.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesStatus = statusFilter === 'all' || 
-      order.item_status === statusFilter ||
-      (statusFilter === 'pending' && !order.sunsky_order_number) ||
-      (statusFilter === 'placed' && order.sunsky_order_number);
+    const matchesStatus = statusFilter === 'all' || order.order_status === statusFilter;
     
-    return matchesSearch && matchesStatus;
+    const matchesStore = !selectedStoreId || order.selected_store_id === selectedStoreId;
+    
+    return matchesSearch && matchesStatus && matchesStore;
   });
 
-  const handlePlaceOrder = async (order: NoonOrder) => {
-    if (!selectedCredentialId) {
-      alert('Please select Sunsky credentials first');
-      return;
-    }
-
-    setProcessingOrders(prev => new Set(prev).add(order.id));
-    try {
-      await placeOrderWithSunsky(order.id, selectedCredentialId);
-    } finally {
-      setProcessingOrders(prev => {
-        const next = new Set(prev);
-        next.delete(order.id);
-        return next;
-      });
+  const getStatusColor = (status?: string) => {
+    switch (status) {
+      case 'delivered': return 'bg-green-100 text-green-800';
+      case 'shipped': return 'bg-blue-100 text-blue-800';
+      case 'processing': return 'bg-yellow-100 text-yellow-800';
+      case 'cancelled': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
     }
   };
 
-  const handleSyncStatus = async (order: NoonOrder) => {
-    setProcessingOrders(prev => new Set(prev).add(order.id));
-    try {
-      await syncOrderStatus(order.id);
-    } finally {
-      setProcessingOrders(prev => {
-        const next = new Set(prev);
-        next.delete(order.id);
-        return next;
-      });
-    }
-  };
+  if (loading) {
+    return (
+      <Card>
+        <CardContent className="flex items-center justify-center py-8">
+          <div className="text-center">
+            <Package className="mx-auto h-8 w-8 text-muted-foreground animate-pulse" />
+            <p className="mt-2 text-sm text-muted-foreground">Loading orders...</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Package className="h-5 w-5" />
-          Noon Orders Tracking
-        </CardTitle>
-        <CardDescription>
-          Track and manage your noon orders with Sunsky integration
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Controls */}
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="flex-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+    <div className="space-y-4">
+      {/* Store Management */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Package className="h-5 w-5" />
+                Store Management
+              </CardTitle>
+              <CardDescription>
+                Manage your Noon stores and their configurations
+              </CardDescription>
+            </div>
+            <Button onClick={() => setShowAddStore(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Store
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {stores.map(store => (
+              <div 
+                key={store.id} 
+                className={`p-4 border rounded-lg cursor-pointer transition-colors ${
+                  selectedStoreId === store.id 
+                    ? 'border-primary bg-primary/5' 
+                    : 'border-border hover:border-primary/50'
+                }`}
+                onClick={() => onStoreChange?.(store.id)}
+              >
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h3 className="font-medium">{store.name}</h3>
+                    <p className="text-sm text-muted-foreground">Partner ID: {store.partner_id}</p>
+                    <p className="text-xs text-muted-foreground">{store.country}</p>
+                  </div>
+                  <Badge variant={store.is_active ? 'default' : 'secondary'}>
+                    {store.is_active ? 'Active' : 'Inactive'}
+                  </Badge>
+                </div>
+              </div>
+            ))}
+            {stores.length === 0 && (
+              <div className="col-span-3 text-center py-8 text-muted-foreground">
+                No stores configured. Add your first store to get started.
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Orders Table */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Eye className="h-5 w-5" />
+                Orders ({filteredOrders.length})
+              </CardTitle>
+              <CardDescription>
+                View and manage your uploaded Noon orders
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {/* Filters */}
+          <div className="flex flex-col sm:flex-row gap-4 mb-6">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search orders, SKUs, titles..."
+                placeholder="Search orders, purchase items, SKUs..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
               />
             </div>
-          </div>
-          
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-48">
-              <SelectValue placeholder="Filter by status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Orders</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="placed">Placed</SelectItem>
-              <SelectItem value="ordered">Ordered</SelectItem>
-              <SelectItem value="shipped">Shipped</SelectItem>
-              <SelectItem value="delivered">Delivered</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Button variant="outline" onClick={refreshOrders} disabled={loading}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-        </div>
-
-        {/* Sunsky Credentials Selector */}
-        <div className="bg-muted p-4 rounded-lg">
-          <h4 className="font-medium mb-2">Sunsky Integration</h4>
-          <SunskyCredentialsSelector 
-            selectedCredentialId={selectedCredentialId}
-            onCredentialSelect={setSelectedCredentialId}
-          />
-        </div>
-
-        {/* Summary */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-card border rounded-lg p-3">
-            <div className="text-2xl font-bold">{orders.length}</div>
-            <div className="text-sm text-muted-foreground">Total Orders</div>
-          </div>
-          <div className="bg-card border rounded-lg p-3">
-            <div className="text-2xl font-bold">
-              {orders.filter(o => !o.sunsky_order_number).length}
+            <div className="flex gap-2">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-40">
+                  <Filter className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="processing">Processing</SelectItem>
+                  <SelectItem value="shipped">Shipped</SelectItem>
+                  <SelectItem value="delivered">Delivered</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <div className="text-sm text-muted-foreground">Pending</div>
           </div>
-          <div className="bg-card border rounded-lg p-3">
-            <div className="text-2xl font-bold">
-              {orders.filter(o => o.sunsky_order_number).length}
-            </div>
-            <div className="text-sm text-muted-foreground">Placed</div>
-          </div>
-          <div className="bg-card border rounded-lg p-3">
-            <div className="text-2xl font-bold">
-              {orders.filter(o => o.sunsky_order_status === 5).length}
-            </div>
-            <div className="text-sm text-muted-foreground">Delivered</div>
-          </div>
-        </div>
 
-        {/* Orders Table */}
-        <div className="border rounded-lg">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Order #</TableHead>
-                <TableHead>Partner SKU</TableHead>
-                <TableHead>Title</TableHead>
-                <TableHead>Qty</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Sunsky Order</TableHead>
-                <TableHead>Last Sync</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredOrders.map((order) => (
-                <TableRow key={order.id}>
-                  <TableCell className="font-mono">{order.order_nr}</TableCell>
-                  <TableCell>{order.partner_sku || 'N/A'}</TableCell>
-                  <TableCell>
-                    <div>
-                      <div className="truncate max-w-32" title={order.title}>
-                        {order.title || order.sku || 'N/A'}
-                      </div>
-                      {order.sku && (
-                        <div className="text-xs text-muted-foreground">SKU: {order.sku}</div>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>{order.quantity}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline">
-                      {order.item_status || order.order_status || 'Pending'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {order.sunsky_order_number ? (
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-1">
-                          {getSunskyStatusIcon(order.sunsky_order_status)}
-                          <Badge variant={getSunskyStatusVariant(order.sunsky_order_status)}>
-                            {getSunskyStatusText(order.sunsky_order_status)}
-                          </Badge>
-                        </div>
-                        <div className="text-xs text-muted-foreground font-mono">
-                          {order.sunsky_order_number}
-                        </div>
-                        {order.sunsky_tracking_number && (
-                          <div className="text-xs text-muted-foreground">
-                            Track: {order.sunsky_tracking_number}
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <Badge variant="secondary">Not Placed</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {order.sunsky_last_sync ? (
-                      <div className="text-xs text-muted-foreground">
-                        {formatDistanceToNow(new Date(order.sunsky_last_sync), { addSuffix: true })}
-                      </div>
-                    ) : (
-                      'Never'
-                    )}
-                    {order.sunsky_error_message && (
-                      <div className="text-xs text-red-600 mt-1">
-                        Error: {order.sunsky_error_message}
-                      </div>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
-                      {!order.sunsky_order_number ? (
-                        <Button
-                          size="sm"
-                          onClick={() => handlePlaceOrder(order)}
-                          disabled={!order.partner_sku || !selectedCredentialId || processingOrders.has(order.id)}
-                        >
-                          <ShoppingCart className="h-3 w-3 mr-1" />
-                          Place
-                        </Button>
-                      ) : (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleSyncStatus(order)}
-                          disabled={processingOrders.has(order.id)}
-                        >
-                          <RefreshCw className={`h-3 w-3 mr-1 ${processingOrders.has(order.id) ? 'animate-spin' : ''}`} />
-                          Sync
-                        </Button>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+          {/* Orders Table */}
+          {filteredOrders.length > 0 ? (
+            <div className="border rounded-lg overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Order #</TableHead>
+                    <TableHead>Purchase Item #</TableHead>
+                    <TableHead>Partner SKU</TableHead>
+                    <TableHead>Title</TableHead>
+                    <TableHead>Quantity</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Country</TableHead>
+                    <TableHead>Created</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredOrders.map((order) => (
+                    <TableRow key={order.id}>
+                      <TableCell className="font-mono text-sm">
+                        {order.order_nr}
+                      </TableCell>
+                      <TableCell className="font-mono text-sm">
+                        {order.purchase_item_nr}
+                      </TableCell>
+                      <TableCell>{order.partner_sku || 'N/A'}</TableCell>
+                      <TableCell className="max-w-xs truncate">
+                        {order.title || 'N/A'}
+                      </TableCell>
+                      <TableCell>{order.quantity}</TableCell>
+                      <TableCell>
+                        <Badge className={getStatusColor(order.order_status)}>
+                          {order.order_status || 'Pending'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{order.order_country_code}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {new Date(order.created_at).toLocaleDateString()}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <Package className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-medium text-muted-foreground mb-2">No orders found</h3>
+              <p className="text-sm text-muted-foreground">
+                {searchTerm || statusFilter !== 'all' 
+                  ? 'Try adjusting your search or filter criteria'
+                  : 'Upload your first orders to get started'
+                }
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-        {filteredOrders.length === 0 && (
-          <div className="text-center py-8 text-muted-foreground">
-            {orders.length === 0 ? (
-              'No orders found. Upload your first noon orders file to get started.'
-            ) : (
-              'No orders match your search criteria.'
-            )}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+      <AddStoreDialog 
+        open={showAddStore} 
+        onOpenChange={setShowAddStore}
+        onStoreAdded={() => setShowAddStore(false)}
+      />
+    </div>
   );
 }

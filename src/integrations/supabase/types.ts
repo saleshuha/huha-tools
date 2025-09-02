@@ -1020,6 +1020,7 @@ export type Database = {
           item_status: string | null
           manifest_nr: string | null
           mp_code: string | null
+          noon_store_id: string | null
           order_country_code: string | null
           order_nr: string
           order_received_at: string | null
@@ -1027,14 +1028,16 @@ export type Database = {
           parent_sku: string | null
           partner_sku: string | null
           pbarcodes: string | null
-          purchase_item_nr: string | null
+          purchase_item_nr: string
           quantity: number | null
+          selected_store_id: string | null
           shipment_created_at: string | null
           shipment_created_by: string | null
           shipment_nr: string | null
           shipment_user: string | null
           size: string | null
           sku: string | null
+          store_id: string | null
           sunsky_credentials_id: string | null
           sunsky_error_message: string | null
           sunsky_last_sync: string | null
@@ -1060,6 +1063,7 @@ export type Database = {
           item_status?: string | null
           manifest_nr?: string | null
           mp_code?: string | null
+          noon_store_id?: string | null
           order_country_code?: string | null
           order_nr: string
           order_received_at?: string | null
@@ -1067,14 +1071,16 @@ export type Database = {
           parent_sku?: string | null
           partner_sku?: string | null
           pbarcodes?: string | null
-          purchase_item_nr?: string | null
+          purchase_item_nr: string
           quantity?: number | null
+          selected_store_id?: string | null
           shipment_created_at?: string | null
           shipment_created_by?: string | null
           shipment_nr?: string | null
           shipment_user?: string | null
           size?: string | null
           sku?: string | null
+          store_id?: string | null
           sunsky_credentials_id?: string | null
           sunsky_error_message?: string | null
           sunsky_last_sync?: string | null
@@ -1100,6 +1106,7 @@ export type Database = {
           item_status?: string | null
           manifest_nr?: string | null
           mp_code?: string | null
+          noon_store_id?: string | null
           order_country_code?: string | null
           order_nr?: string
           order_received_at?: string | null
@@ -1107,14 +1114,16 @@ export type Database = {
           parent_sku?: string | null
           partner_sku?: string | null
           pbarcodes?: string | null
-          purchase_item_nr?: string | null
+          purchase_item_nr?: string
           quantity?: number | null
+          selected_store_id?: string | null
           shipment_created_at?: string | null
           shipment_created_by?: string | null
           shipment_nr?: string | null
           shipment_user?: string | null
           size?: string | null
           sku?: string | null
+          store_id?: string | null
           sunsky_credentials_id?: string | null
           sunsky_error_message?: string | null
           sunsky_last_sync?: string | null
@@ -1127,7 +1136,29 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "noon_orders_noon_store_id_fkey"
+            columns: ["noon_store_id"]
+            isOneToOne: false
+            referencedRelation: "noon_stores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "noon_orders_selected_store_id_fkey"
+            columns: ["selected_store_id"]
+            isOneToOne: false
+            referencedRelation: "noon_stores_config"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "noon_orders_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       noon_sales_data: {
         Row: {
@@ -1241,6 +1272,69 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      noon_stores: {
+        Row: {
+          country: string
+          created_at: string
+          id: string
+          name: string
+          partner_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          country?: string
+          created_at?: string
+          id?: string
+          name: string
+          partner_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          country?: string
+          created_at?: string
+          id?: string
+          name?: string
+          partner_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      noon_stores_config: {
+        Row: {
+          country: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          partner_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          country?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          partner_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          country?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          partner_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       order_imports: {
         Row: {

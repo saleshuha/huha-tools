@@ -20,9 +20,10 @@ const EXPECTED_HEADERS = [
 
 interface NoonOrdersUploadProps {
   onUploadComplete?: () => void;
+  selectedStoreId?: string;
 }
 
-export function NoonOrdersUpload({ onUploadComplete }: NoonOrdersUploadProps) {
+export function NoonOrdersUpload({ onUploadComplete, selectedStoreId }: NoonOrdersUploadProps) {
   const { uploadOrders, uploading } = useNoonOrders();
   const [preview, setPreview] = useState<any[] | null>(null);
   const [fileName, setFileName] = useState<string>('');
@@ -105,6 +106,9 @@ export function NoonOrdersUpload({ onUploadComplete }: NoonOrdersUploadProps) {
               if (!order.order_nr) {
                 errors.push(`Row ${index + 2}: Missing order_nr`);
               }
+              if (!order.purchase_item_nr) {
+                errors.push(`Row ${index + 2}: Missing purchase_item_nr`);
+              }
               if (!order.order_country_code) {
                 order.order_country_code = 'UAE'; // Default value
               }
@@ -162,7 +166,7 @@ export function NoonOrdersUpload({ onUploadComplete }: NoonOrdersUploadProps) {
 
     try {
       setUploadProgress(0);
-      await uploadOrders(preview, fileName);
+      await uploadOrders(preview, fileName, selectedStoreId);
       setUploadProgress(100);
       setPreview(null);
       setFileName('');
@@ -187,7 +191,7 @@ export function NoonOrdersUpload({ onUploadComplete }: NoonOrdersUploadProps) {
           Upload Noon Orders
         </CardTitle>
         <CardDescription>
-          Upload your noon orders from Excel or CSV file. Order numbers must be unique.
+          Upload your noon orders from Excel or CSV file. Purchase item numbers can be duplicated across different orders.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -247,16 +251,18 @@ export function NoonOrdersUpload({ onUploadComplete }: NoonOrdersUploadProps) {
             )}
 
             <div className="max-h-64 overflow-auto border rounded-lg">
-              <div className="grid grid-cols-4 gap-2 p-2 bg-muted text-sm font-medium">
+              <div className="grid grid-cols-5 gap-2 p-2 bg-muted text-sm font-medium">
                 <div>Order #</div>
+                <div>Purchase Item #</div>
                 <div>Partner SKU</div>
                 <div>Quantity</div>
                 <div>Status</div>
               </div>
               {preview.slice(0, 10).map((order, index) => (
-                <div key={index} className="grid grid-cols-4 gap-2 p-2 border-t text-sm">
-                  <div className="font-mono">{order.order_nr}</div>
-                  <div>{order.partner_sku || 'N/A'}</div>
+                <div key={index} className="grid grid-cols-5 gap-2 p-2 border-t text-sm">
+                  <div className="font-mono text-xs">{order.order_nr}</div>
+                  <div className="font-mono text-xs">{order.purchase_item_nr}</div>
+                  <div className="text-xs">{order.partner_sku || 'N/A'}</div>
                   <div>{order.quantity}</div>
                   <div>
                     <Badge variant="outline">{order.order_status || 'Pending'}</Badge>

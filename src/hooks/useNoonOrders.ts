@@ -9,7 +9,7 @@ export interface NoonOrder {
   order_status?: string;
   quantity: number;
   order_received_at?: string;
-  purchase_item_nr?: string;
+  purchase_item_nr: string; // Made required as per DB schema
   order_country_code: string;
   manifest_nr?: string;
   shipment_nr?: string;
@@ -40,6 +40,7 @@ export interface NoonOrder {
   sunsky_last_sync?: string;
   sunsky_error_message?: string;
   file_name?: string;
+  selected_store_id?: string;
   created_at: string;
   updated_at: string;
 }
@@ -87,7 +88,7 @@ export function useNoonOrders() {
     }
   };
 
-  const uploadOrders = async (orders: Partial<NoonOrder>[], fileName: string) => {
+  const uploadOrders = async (orders: Partial<NoonOrder>[], fileName: string, selectedStoreId?: string) => {
     setState(prev => ({ ...prev, uploading: true, error: null }));
     
     try {
@@ -102,20 +103,27 @@ export function useNoonOrders() {
         file_name: fileName,
         user_id: order.user_id || user.id, // Use current user ID if not set
         order_nr: order.order_nr || '', // Ensure order_nr is always present
+        purchase_item_nr: order.purchase_item_nr || '', // Ensure purchase_item_nr is always present
         order_country_code: order.order_country_code || 'UAE', // Default country
         quantity: order.quantity || 1, // Default quantity
         is_reprintable: order.is_reprintable || false,
         is_printed: order.is_printed || false,
+        selected_store_id: selectedStoreId || null,
+        // Map 'user' field to 'shipment_user' if it exists
+        shipment_user: (order as any).user || order.shipment_user,
       }));
+
+      // Remove the 'user' field if it exists since it's not a valid column
+      const cleanedOrders = ordersWithMetadata.map(({ ...rest }) => rest);
 
       const { data, error } = await supabase
         .from('noon_orders')
-        .insert(ordersWithMetadata)
+        .insert(cleanedOrders)
         .select();
 
       if (error) {
         if (error.code === '23505') { // Unique constraint violation
-          throw new Error('Some orders already exist. Duplicate order numbers are not allowed.');
+          throw new Error('Some orders with this combination of Order Number, Purchase Item Number already exist for your account.');
         }
         throw error;
       }
@@ -312,7 +320,8 @@ export function useNoonOrders() {
     loading: state.loading,
     error: state.error,
     uploading: state.uploading,
-    uploadOrders,
+    uploadOrders: (orders: Partial<NoonOrder>[], fileName: string, selectedStoreId?: string) => 
+      uploadOrders(orders, fileName, selectedStoreId),
     updateOrderStatus,
     placeOrderWithSunsky,
     syncOrderStatus,

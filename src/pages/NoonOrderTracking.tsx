@@ -5,6 +5,7 @@ import { NoonOrdersTable } from '@/components/NoonOrdersTable';
 
 export default function NoonOrderTrackingPage() {
   const [activeTab, setActiveTab] = useState('orders');
+  const [selectedStoreId, setSelectedStoreId] = useState<string>('');
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/5">
@@ -35,11 +36,15 @@ export default function NoonOrderTrackingPage() {
           </TabsList>
 
           <TabsContent value="orders" className="space-y-6">
-            <NoonOrdersTable />
+            <NoonOrdersTable 
+              selectedStoreId={selectedStoreId}
+              onStoreChange={setSelectedStoreId}
+            />
           </TabsContent>
 
           <TabsContent value="upload" className="space-y-6">
             <NoonOrdersUpload 
+              selectedStoreId={selectedStoreId}
               onUploadComplete={() => setActiveTab('orders')}
             />
           </TabsContent>
