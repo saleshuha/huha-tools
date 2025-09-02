@@ -109,16 +109,11 @@ export function useNoonOrders() {
         is_reprintable: order.is_reprintable || false,
         is_printed: order.is_printed || false,
         selected_store_id: selectedStoreId || null,
-        // Map 'user' field to 'shipment_user' if it exists
-        shipment_user: (order as any).user || order.shipment_user,
       }));
-
-      // Remove the 'user' field if it exists since it's not a valid column
-      const cleanedOrders = ordersWithMetadata.map(({ ...rest }) => rest);
 
       const { data, error } = await supabase
         .from('noon_orders')
-        .insert(cleanedOrders)
+        .insert(ordersWithMetadata)
         .select();
 
       if (error) {

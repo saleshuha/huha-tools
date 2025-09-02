@@ -70,7 +70,10 @@ export function NoonOrdersUpload({ onUploadComplete, selectedStoreId }: NoonOrde
             .map((row, index) => {
               const order: any = {};
               headers.forEach((header, i) => {
-                if (EXPECTED_HEADERS.includes(header)) {
+                // Map 'user' field to 'shipment_user' for database compatibility
+                const dbHeader = header === 'user' ? 'shipment_user' : header;
+                
+                if (EXPECTED_HEADERS.includes(header) || header === 'user') {
                   let value = row[i];
                   
                   // Convert boolean fields
@@ -98,7 +101,7 @@ export function NoonOrdersUpload({ onUploadComplete, selectedStoreId }: NoonOrde
                     }
                   }
                   
-                  order[header] = value || null;
+                  order[dbHeader] = value || null;
                 }
               });
 
