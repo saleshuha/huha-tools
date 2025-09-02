@@ -284,18 +284,60 @@ export function NoonOrdersUpload({ onUploadComplete }: NoonOrdersUploadProps) {
           </p>
         </div>
 
-        {validationErrors.length > 0 && (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              <div className="space-y-1">
-                {validationErrors.map((error, index) => (
-                  <div key={index}>{error}</div>
-                ))}
-              </div>
-            </AlertDescription>
-          </Alert>
-        )}
+        {/* Debug section to check existing orders and authentication */}
+        <div className="space-y-2">
+          <Button 
+            variant="outline" 
+            onClick={async () => {
+              try {
+                // Check authentication status
+                const { data: userData, error: userError } = await supabase.auth.getUser();
+                console.log('=== AUTHENTICATION STATUS ===');
+                console.log('User data:', userData?.user?.id);
+                console.log('Auth error:', userError);
+                
+                if (userData?.user) {
+                  // Check if there are ANY orders for this user
+                  const { data: userOrders, error: userOrdersError } = await supabase
+                    .from('noon_orders') 
+                    .select('id, order_nr, purchase_item_nr, user_id, created_at')
+                    .eq('user_id', userData.user.id);
+                    
+                  console.log('=== USER ORDERS ===');
+                  console.log('User orders:', userOrders);
+                  console.log('User orders error:', userOrdersError);
+                  console.log('User orders count:', userOrders?.length || 0);
+                  
+                  // Check if there are ANY orders in the database (might be from different users)
+                  const { data: allOrders, error: allOrdersError } = await supabase
+                    .from('noon_orders')
+                    .select('id, order_nr, purchase_item_nr, user_id, created_at')
+                    .limit(10);
+                    
+                  console.log('=== ALL ORDERS IN DATABASE ===');
+                  console.log('All orders:', allOrders);
+                  console.log('All orders error:', allOrdersError);
+                  console.log('Total orders count:', allOrders?.length || 0);
+                  
+                  // Check current session
+                  const { data: session } = await supabase.auth.getSession();
+                  console.log('=== SESSION INFO ===');
+                  console.log('Session:', session?.session ? 'Active' : 'None');
+                  console.log('Session user:', session?.session?.user?.id);
+                } else {
+                  console.log('=== NO USER AUTHENTICATED ===');
+                }
+              } catch (err) {
+                console.error('Debug check failed:', err);
+              }
+            }}
+          >
+            🔍 Debug: Check Orders & Auth
+          </Button>
+          <p className="text-xs text-muted-foreground">
+            Click to check console for detailed debugging information about orders and authentication
+          </p>
+        </div>
 
         {!preview ? (
           <div
