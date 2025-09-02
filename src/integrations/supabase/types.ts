@@ -1028,7 +1028,7 @@ export type Database = {
           parent_sku: string | null
           partner_sku: string | null
           pbarcodes: string | null
-          purchase_item_nr: string | null
+          purchase_item_nr: string
           quantity: number | null
           shipment_created_at: string | null
           shipment_created_by: string | null
@@ -1070,7 +1070,7 @@ export type Database = {
           parent_sku?: string | null
           partner_sku?: string | null
           pbarcodes?: string | null
-          purchase_item_nr?: string | null
+          purchase_item_nr: string
           quantity?: number | null
           shipment_created_at?: string | null
           shipment_created_by?: string | null
@@ -1112,7 +1112,7 @@ export type Database = {
           parent_sku?: string | null
           partner_sku?: string | null
           pbarcodes?: string | null
-          purchase_item_nr?: string | null
+          purchase_item_nr?: string
           quantity?: number | null
           shipment_created_at?: string | null
           shipment_created_by?: string | null

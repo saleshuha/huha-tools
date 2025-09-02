@@ -167,6 +167,9 @@ export function NoonOrdersUpload({ onUploadComplete }: NoonOrdersUploadProps) {
               if (!order.order_nr) {
                 errors.push(`Row ${index + 2}: Missing order_nr`);
               }
+              if (!order.purchase_item_nr) {
+                errors.push(`Row ${index + 2}: Missing purchase_item_nr`);
+              }
               if (!order.order_country_code) {
                 order.order_country_code = 'UAE'; // Default value
               }
@@ -256,7 +259,7 @@ export function NoonOrdersUpload({ onUploadComplete }: NoonOrdersUploadProps) {
           Upload Noon Orders
         </CardTitle>
         <CardDescription>
-          Upload your noon orders from Excel or CSV file. Order numbers must be unique.
+          Upload your noon orders from Excel or CSV file. Purchase Item Numbers must be unique.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -293,47 +296,6 @@ export function NoonOrdersUpload({ onUploadComplete }: NoonOrdersUploadProps) {
             </AlertDescription>
           </Alert>
         )}
-
-        {/* Debug section to check existing orders */}
-        <div className="space-y-2">
-          <Button 
-            variant="outline" 
-            onClick={async () => {
-              try {
-                // Check total orders in database (admin view)
-                const { data: adminData, error: adminError } = await supabase
-                  .from('noon_orders')
-                  .select('order_nr, user_id, created_at')
-                  .limit(5);
-                
-                // Check user-specific orders
-                const { data: userData, error: userError } = await supabase.auth.getUser();
-                
-                console.log('Current user:', userData?.user?.id);
-                console.log('All orders (admin view):', adminData);
-                console.log('Admin query error:', adminError);
-                
-                if (userData?.user) {
-                  const { data: userOrders, error: userOrdersError } = await supabase
-                    .from('noon_orders') 
-                    .select('order_nr, user_id, created_at')
-                    .eq('user_id', userData.user.id)
-                    .limit(5);
-                    
-                  console.log('User-specific orders:', userOrders);
-                  console.log('User orders error:', userOrdersError);
-                }
-              } catch (err) {
-                console.error('Debug check failed:', err);
-              }
-            }}
-          >
-            Debug: Check Existing Orders
-          </Button>
-          <p className="text-xs text-muted-foreground">
-            Click to check console for order debugging information
-          </p>
-        </div>
 
         {!preview ? (
           <div
@@ -379,14 +341,14 @@ export function NoonOrdersUpload({ onUploadComplete }: NoonOrdersUploadProps) {
 
             <div className="max-h-64 overflow-auto border rounded-lg">
               <div className="grid grid-cols-4 gap-2 p-2 bg-muted text-sm font-medium">
-                <div>Order #</div>
+                <div>Purchase Item #</div>
                 <div>Partner SKU</div>
                 <div>Quantity</div>
                 <div>Status</div>
               </div>
               {preview.slice(0, 10).map((order, index) => (
                 <div key={index} className="grid grid-cols-4 gap-2 p-2 border-t text-sm">
-                  <div className="font-mono">{order.order_nr}</div>
+                  <div className="font-mono">{order.purchase_item_nr}</div>
                   <div>{order.partner_sku || 'N/A'}</div>
                   <div>{order.quantity}</div>
                   <div>

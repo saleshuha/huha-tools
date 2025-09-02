@@ -9,7 +9,7 @@ export interface NoonOrder {
   order_status?: string;
   quantity: number;
   order_received_at?: string;
-  purchase_item_nr?: string;
+  purchase_item_nr: string;
   order_country_code: string;
   manifest_nr?: string;
   shipment_nr?: string;
@@ -121,7 +121,7 @@ export function useNoonOrders() {
 
       if (error) {
         if (error.code === '23505') { // Unique constraint violation
-          throw new Error('Some orders already exist. Duplicate order numbers are not allowed.');
+          throw new Error('Some orders with the same Purchase Item Number already exist. Duplicate Purchase Item Numbers are not allowed.');
         }
         throw error;
       }
