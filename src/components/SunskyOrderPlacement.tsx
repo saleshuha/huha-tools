@@ -38,23 +38,14 @@ export function SunskyOrderPlacement({
     refreshOrders 
   } = useNoonOrders();
   
-  const { 
-    sunskySKUs, 
-    isLoading: skusLoading, 
-    fetchSKUs 
-  } = useSKUManager();
-
   // States
   const [showSunskyOrderDialog, setShowSunskyOrderDialog] = useState(false);
   const [selectedOrders, setSelectedOrders] = useState<any[]>([]);
   const [selectedCredentialId, setSelectedCredentialId] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [storeFilter, setStoreFilter] = useState<string>('all');
-
-  // Load Sunsky SKUs on mount
-  useEffect(() => {
-    fetchSKUs(1, true);
-  }, [fetchSKUs]);
+  const [sunskySkuChecks, setSunskySkuChecks] = useState<{[key: string]: boolean}>({});
+  const [checkingSkus, setCheckingSkus] = useState(false);
 
   // Filter orders that can be placed to Sunsky
   const allOrders = orders.filter(order => 
@@ -63,33 +54,58 @@ export function SunskyOrderPlacement({
     (selectedStoreId === '' || order.selected_store_id === selectedStoreId)
   );
 
-  // Create a set of available Sunsky SKU codes for fast lookup
-  const availableSunskySKUs = new Set(sunskySKUs.map(sku => sku.sku_code));
+  // Check SKUs in Sunsky catalog via API
+  const checkSunskySkuAvailability = async (partnerSkus: string[]) => {
+    if (!selectedCredentialId || partnerSkus.length === 0) return;
+    
+    setCheckingSkus(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('sunsky-api', {
+        body: {
+          action: 'search_products',
+          credentials_id: selectedCredentialId,
+          search_skus: partnerSkus
+        }
+      });
 
-  // Debug logging
-  console.log('Debug - Available Sunsky SKUs:', Array.from(availableSunskySKUs));
-  console.log('Debug - All orders with partner SKUs:', allOrders.map(order => ({
-    order_nr: order.order_nr,
-    partner_sku: order.partner_sku,
-    partner_sku_type: typeof order.partner_sku,
-    partner_sku_length: order.partner_sku?.length
-  })));
-  console.log('Debug - Looking for EDA006625302C in Sunsky SKUs:', availableSunskySKUs.has('EDA006625302C'));
-
-  // Separate orders based on partner_sku availability in Sunsky
-  const readyOrders = allOrders.filter(order => {
-    const hasMatch = availableSunskySKUs.has(order.partner_sku!);
-    if (order.partner_sku === 'EDA006625302C') {
-      console.log('Debug - EDA006625302C match result:', hasMatch);
-      console.log('Debug - Exact partner_sku value:', JSON.stringify(order.partner_sku));
+      if (error) throw error;
+      
+      // Update SKU checks with results
+      const checks = { ...sunskySkuChecks };
+      partnerSkus.forEach(sku => {
+        checks[sku] = data?.available_skus?.includes(sku) || false;
+      });
+      setSunskySkuChecks(checks);
+      
+    } catch (error) {
+      console.error('Error checking Sunsky SKU availability:', error);
+      toast({
+        title: "Error",
+        description: "Failed to check SKU availability in Sunsky catalog",
+        variant: "destructive"
+      });
+    } finally {
+      setCheckingSkus(false);
     }
-    return hasMatch;
-  });
+  };
 
-  const manualReviewOrders = allOrders.filter(order => {
-    const hasMatch = availableSunskySKUs.has(order.partner_sku!);
-    return !hasMatch;
-  });
+  // Check SKUs when orders or credentials change
+  useEffect(() => {
+    const uniquePartnerSkus = [...new Set(allOrders.map(order => order.partner_sku!))];
+    if (uniquePartnerSkus.length > 0 && selectedCredentialId) {
+      checkSunskySkuAvailability(uniquePartnerSkus);
+    }
+  }, [allOrders.length, selectedCredentialId]);
+
+  // Separate orders based on Sunsky catalog availability
+  const readyOrders = allOrders.filter(order => 
+    sunskySkuChecks[order.partner_sku!] === true
+  );
+
+  const manualReviewOrders = allOrders.filter(order => 
+    sunskySkuChecks[order.partner_sku!] === false || 
+    sunskySkuChecks[order.partner_sku!] === undefined
+  );
 
   // Apply filters to both categories
   const filteredReadyOrders = readyOrders.filter(order => {
@@ -282,14 +298,14 @@ export function SunskyOrderPlacement({
               </Button>
             </div>
           </div>
-          <p className="text-sm text-muted-foreground">
-            Orders with partner SKUs that match available Sunsky SKUs
-          </p>
+                  <p className="text-sm text-muted-foreground">
+                    Orders with partner SKUs found in Sunsky catalog
+                  </p>
         </CardHeader>
         <CardContent>
-          {ordersLoading || skusLoading ? (
+          {ordersLoading || checkingSkus ? (
             <div className="text-center py-8 text-muted-foreground">
-              Loading orders and SKUs...
+              {checkingSkus ? 'Checking SKU availability in Sunsky catalog...' : 'Loading orders...'}
             </div>
           ) : filteredReadyOrders.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
@@ -353,13 +369,13 @@ export function SunskyOrderPlacement({
             </CardTitle>
           </div>
           <p className="text-sm text-muted-foreground">
-            Orders with partner SKUs that don't match any available Sunsky SKUs
+            Orders with partner SKUs not found in Sunsky catalog
           </p>
         </CardHeader>
         <CardContent>
-          {ordersLoading || skusLoading ? (
+          {ordersLoading || checkingSkus ? (
             <div className="text-center py-8 text-muted-foreground">
-              Loading orders and SKUs...
+              {checkingSkus ? 'Checking SKU availability in Sunsky catalog...' : 'Loading orders...'}
             </div>
           ) : filteredManualOrders.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
@@ -401,8 +417,8 @@ export function SunskyOrderPlacement({
                   <div>
                     <p className="text-sm font-medium text-orange-800">Action Required</p>
                     <p className="text-sm text-orange-700 mt-1">
-                      These orders cannot be automatically placed with Sunsky because their partner SKUs don't match any available Sunsky SKUs. 
-                      Please review and add the missing SKUs to your Sunsky catalog or place these orders manually.
+                      These orders cannot be automatically placed with Sunsky because their partner SKUs were not found in the Sunsky catalog. 
+                      Please verify the SKUs exist in Sunsky or contact your supplier to add them.
                     </p>
                   </div>
                 </div>
