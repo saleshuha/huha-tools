@@ -37,7 +37,7 @@ export function NoonOrdersUpload({ onUploadComplete }: NoonOrdersUploadProps) {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [stores, setStores] = useState<Store[]>([]);
-  const [selectedStore, setSelectedStore] = useState<string>('');
+  const [selectedStore, setSelectedStore] = useState<string>('none');
 
   // Load stores on component mount
   React.useEffect(() => {
@@ -195,13 +195,13 @@ export function NoonOrdersUpload({ onUploadComplete }: NoonOrdersUploadProps) {
       // Add store_id to orders if selected
       const ordersWithStore = preview.map(order => ({
         ...order,
-        store_id: selectedStore || null
+        store_id: selectedStore && selectedStore !== 'none' ? selectedStore : null
       }));
       await uploadOrders(ordersWithStore, fileName);
       setUploadProgress(100);
       setPreview(null);
       setFileName('');
-      setSelectedStore('');
+      setSelectedStore('none');
       onUploadComplete?.();
     } catch (error) {
       console.error('Upload failed:', error);
@@ -213,7 +213,7 @@ export function NoonOrdersUpload({ onUploadComplete }: NoonOrdersUploadProps) {
     setFileName('');
     setValidationErrors([]);
     setUploadProgress(0);
-    setSelectedStore('');
+    setSelectedStore('none');
   };
 
   return (
@@ -236,7 +236,7 @@ export function NoonOrdersUpload({ onUploadComplete }: NoonOrdersUploadProps) {
               <SelectValue placeholder="Choose a store..." />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">No Store Selected</SelectItem>
+              <SelectItem value="none">No Store Selected</SelectItem>
               {stores.map((store) => (
                 <SelectItem key={store.id} value={store.id}>
                   {store.name} ({store.country})
