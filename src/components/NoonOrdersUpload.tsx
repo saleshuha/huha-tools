@@ -114,34 +114,46 @@ export function NoonOrdersUpload({ onUploadComplete }: NoonOrdersUploadProps) {
                   }
                   
                   // Convert date fields
-                  if ((header.includes('_at') || header.includes('_date')) && value) {
+                  if ((header.includes('_at') || header.includes('_date')) && value !== null && value !== undefined && value !== '') {
                     try {
                       if (typeof value === 'number') {
-                        // Excel date serial number (days since January 1, 1900)
-                        // Excel incorrectly treats 1900 as a leap year, so we subtract 1 day
-                        const excelEpoch = new Date('1900-01-01');
-                        const daysOffset = value - 1; // Adjust for Excel's leap year bug
-                        const excelDate = new Date(excelEpoch.getTime() + daysOffset * 24 * 60 * 60 * 1000);
+                        console.log(`Converting Excel date for ${header}:`, value);
+                        // Excel date serial number conversion
+                        // Excel counts days since January 1, 1900, but treats 1900 as a leap year (it's not)
+                        // So we need to account for this bug
+                        let excelDate;
+                        if (value > 59) {
+                          // After Feb 28, 1900 - subtract 1 day for Excel's leap year bug
+                          excelDate = new Date(1900, 0, value - 1);
+                        } else {
+                          // Before Mar 1, 1900 - no adjustment needed
+                          excelDate = new Date(1900, 0, value);
+                        }
                         
                         // Validate the date is reasonable (between 1900 and 2100)
-                        if (excelDate.getFullYear() >= 1900 && excelDate.getFullYear() <= 2100) {
+                        if (excelDate.getFullYear() >= 1900 && excelDate.getFullYear() <= 2100 && !isNaN(excelDate.getTime())) {
                           value = excelDate.toISOString();
+                          console.log(`Converted Excel date to:`, value);
                         } else {
-                          value = null; // Invalid date range
+                          console.warn(`Invalid Excel date range for ${header}:`, value, excelDate);
+                          value = null;
                         }
                       } else if (typeof value === 'string' && value.trim()) {
+                        console.log(`Parsing string date for ${header}:`, value);
                         const parsedDate = new Date(value);
                         if (!isNaN(parsedDate.getTime())) {
                           value = parsedDate.toISOString();
+                          console.log(`Converted string date to:`, value);
                         } else {
-                          value = null; // Invalid date string
+                          console.warn(`Invalid date string for ${header}:`, value);
+                          value = null;
                         }
                       } else {
-                        value = null; // Empty or invalid value
+                        value = null;
                       }
                     } catch (e) {
-                      console.warn(`Failed to parse date for ${header}:`, value);
-                      value = null; // Set to null on parsing error
+                      console.error(`Failed to parse date for ${header}:`, value, e);
+                      value = null;
                     }
                   }
                   
