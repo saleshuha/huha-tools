@@ -1131,6 +1131,46 @@ serve(async (req) => {
         });
       }
 
+      case 'search_products': {
+        const { credentials_id, search_skus } = requestData;
+        
+        if (!search_skus || !Array.isArray(search_skus)) {
+          throw new Error('search_skus array is required');
+        }
+
+        const credentials = await getApiCredentials(user.id, credentials_id);
+        const availableSkus: string[] = [];
+        
+        // Check each SKU in the Sunsky catalog
+        for (const sku of search_skus) {
+          try {
+            const result = await makeSunskyRequest('/openapi/product!detail.do', {
+              lang: 'en',
+              itemNo: sku
+            }, credentials.key, credentials.secret, user.id);
+            
+            // If the API returns success and has data, the SKU exists
+            if (result.result === 'success' && result.data) {
+              availableSkus.push(sku);
+            }
+          } catch (error) {
+            // Handle rate limit responses properly
+            if (error instanceof Response && error.status === 429) {
+              return error;
+            }
+            console.log(`SKU ${sku} not found or error checking:`, error.message);
+            // Continue checking other SKUs
+          }
+        }
+
+        return new Response(JSON.stringify({
+          result: 'success',
+          available_skus: availableSkus
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
       case 'searchProducts': {
         const { apiId, filters } = requestData;
         const credentials = await getApiCredentials(user.id, apiId);
