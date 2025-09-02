@@ -82,22 +82,33 @@ export function NoonOrdersUpload({ onUploadComplete, selectedStoreId }: NoonOrde
                     value = value === true || value === 'true' || value === 1 || value === '1';
                   } else if (header === 'quantity' && value !== null && value !== undefined && value !== '') {
                     value = parseInt(value) || 1;
-                  } else if ((header.includes('_at') || header.includes('_date') || header.includes('_timestamp')) && value) {
+                  } else if ((header.includes('_at') || header.includes('_date') || header.includes('_timestamp')) && value !== null && value !== undefined && value !== '') {
                     try {
-                      if (typeof value === 'number' && value > 1000) {
-                        // Excel date serial number - convert to ISO string
+                      if (typeof value === 'number') {
+                        // Excel date serial number - convert to JavaScript date
+                        // Excel epoch starts from 1900-01-01, JavaScript from 1970-01-01
+                        // Excel serial number = days since 1900-01-01 (with leap year bug correction)
                         const excelDate = new Date((value - 25569) * 86400 * 1000);
-                        value = excelDate.toISOString();
-                      } else if (typeof value === 'string' && value.trim() !== '') {
-                        // Try to parse string date
-                        const parsedDate = new Date(value);
-                        if (!isNaN(parsedDate.getTime())) {
-                          value = parsedDate.toISOString();
+                        if (!isNaN(excelDate.getTime()) && excelDate.getFullYear() > 1900 && excelDate.getFullYear() < 2100) {
+                          value = excelDate.toISOString();
+                        } else {
+                          value = null;
                         }
+                      } else if (typeof value === 'string' && value.trim() !== '') {
+                        // Handle various string date formats including MM/DD/YYYY HH:MM
+                        const trimmedValue = value.trim();
+                        const parsedDate = new Date(trimmedValue);
+                        if (!isNaN(parsedDate.getTime()) && parsedDate.getFullYear() > 1900 && parsedDate.getFullYear() < 2100) {
+                          value = parsedDate.toISOString();
+                        } else {
+                          value = null;
+                        }
+                      } else {
+                        value = null;
                       }
                     } catch (e) {
                       // If date parsing fails, set to null instead of keeping invalid value
-                      console.warn(`Failed to parse date for ${header}:`, value);
+                      console.warn(`Failed to parse date for ${header}:`, value, e);
                       value = null;
                     }
                   }
