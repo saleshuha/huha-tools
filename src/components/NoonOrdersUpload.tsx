@@ -95,90 +95,107 @@ export function NoonOrdersUpload({ onUploadComplete }: NoonOrdersUploadProps) {
           }
 
           // Convert rows to objects
-          const orders = rows
-            .filter(row => row.some(cell => cell !== null && cell !== undefined && cell !== ''))
-            .map((row, index) => {
-              const order: any = {};
-              headers.forEach((header, i) => {
-                if (EXPECTED_HEADERS.includes(header)) {
-                  let value = row[i];
-                  
-                  // Convert boolean fields
-                  if (header === 'is_reprintable' || header === 'is_printed') {
-                    value = value === true || value === 'true' || value === 1 || value === '1';
-                  }
-                  
-                  // Convert numeric fields
-                  if (header === 'quantity' && value) {
-                    value = parseInt(value) || 1;
-                  }
-                  
-                  // Convert date fields
-                  if ((header.includes('_at') || header.includes('_date') || header === 'fulfillment_timestamp') && value !== null && value !== undefined && value !== '') {
-                    try {
-                      if (typeof value === 'number') {
-                        console.log(`Converting Excel date for ${header}:`, value);
-                        // Excel date serial number conversion
-                        // Days since January 1, 1900 (Excel's epoch)
-                        const excelEpoch = new Date(1900, 0, 1); // January 1, 1900
-                        const msPerDay = 24 * 60 * 60 * 1000;
-                        
-                        // Excel has a bug: it treats 1900 as a leap year (it's not)
-                        // So for dates after Feb 28, 1900, we need to subtract 1 day
-                        let adjustedDays = value;
-                        if (value > 59) {
-                          adjustedDays = value - 1;
-                        }
-                        
-                        const excelDate = new Date(excelEpoch.getTime() + (adjustedDays - 1) * msPerDay);
-                        
-                        // Validate the date is reasonable (between 1900 and 2100)
-                        if (excelDate.getFullYear() >= 1900 && excelDate.getFullYear() <= 2100 && !isNaN(excelDate.getTime())) {
-                          value = excelDate.toISOString();
-                          console.log(`Converted Excel date ${header} from ${adjustedDays} to:`, value);
-                        } else {
-                          console.warn(`Invalid Excel date range for ${header}:`, value, excelDate);
-                          value = null;
-                        }
-                      } else if (typeof value === 'string' && value.trim()) {
-                        console.log(`Parsing string date for ${header}:`, value);
-                        const parsedDate = new Date(value);
-                        if (!isNaN(parsedDate.getTime())) {
-                          value = parsedDate.toISOString();
-                          console.log(`Converted string date to:`, value);
-                        } else {
-                          console.warn(`Invalid date string for ${header}:`, value);
-                          value = null;
-                        }
-                      } else {
-                        value = null;
+              const orders = rows
+                .filter(row => row.some(cell => cell !== null && cell !== undefined && cell !== ''))
+                .map((row, index) => {
+                  const order: any = {};
+                  headers.forEach((header, i) => {
+                    if (EXPECTED_HEADERS.includes(header)) {
+                      let value = row[i];
+                      
+                      // Convert boolean fields
+                      if (header === 'is_reprintable' || header === 'is_printed') {
+                        value = value === true || value === 'true' || value === 1 || value === '1';
                       }
-                    } catch (e) {
-                      console.error(`Failed to parse date for ${header}:`, value, e);
-                      value = null;
+                      
+                      // Convert numeric fields
+                      if (header === 'quantity' && value) {
+                        value = parseInt(value) || 1;
+                      }
+                      
+                      // Convert date fields
+                      if ((header.includes('_at') || header.includes('_date') || header === 'fulfillment_timestamp') && value !== null && value !== undefined && value !== '') {
+                        try {
+                          if (typeof value === 'number') {
+                            console.log(`Converting Excel date for ${header}:`, value);
+                            // Excel date serial number conversion
+                            // Days since January 1, 1900 (Excel's epoch)
+                            const excelEpoch = new Date(1900, 0, 1); // January 1, 1900
+                            const msPerDay = 24 * 60 * 60 * 1000;
+                            
+                            // Excel has a bug: it treats 1900 as a leap year (it's not)
+                            // So for dates after Feb 28, 1900, we need to subtract 1 day
+                            let adjustedDays = value;
+                            if (value > 59) {
+                              adjustedDays = value - 1;
+                            }
+                            
+                            const excelDate = new Date(excelEpoch.getTime() + (adjustedDays - 1) * msPerDay);
+                            
+                            // Validate the date is reasonable (between 1900 and 2100)
+                            if (excelDate.getFullYear() >= 1900 && excelDate.getFullYear() <= 2100 && !isNaN(excelDate.getTime())) {
+                              value = excelDate.toISOString();
+                              console.log(`Converted Excel date ${header} from ${adjustedDays} to:`, value);
+                            } else {
+                              console.warn(`Invalid Excel date range for ${header}:`, value, excelDate);
+                              value = null;
+                            }
+                          } else if (typeof value === 'string' && value.trim()) {
+                            console.log(`Parsing string date for ${header}:`, value);
+                            const parsedDate = new Date(value);
+                            if (!isNaN(parsedDate.getTime())) {
+                              value = parsedDate.toISOString();
+                              console.log(`Converted string date to:`, value);
+                            } else {
+                              console.warn(`Invalid date string for ${header}:`, value);
+                              value = null;
+                            }
+                          } else {
+                            value = null;
+                          }
+                        } catch (e) {
+                          console.error(`Failed to parse date for ${header}:`, value, e);
+                          value = null;
+                        }
+                      }
+                      
+                      order[header] = value || null;
                     }
+                  });
+
+                  // Validate required fields
+                  if (!order.order_nr) {
+                    errors.push(`Row ${index + 2}: Missing order_nr`);
                   }
-                  
-                  order[header] = value || null;
-                }
-              });
+                  if (!order.purchase_item_nr) {
+                    errors.push(`Row ${index + 2}: Missing purchase_item_nr`);
+                  }
+                  if (!order.order_country_code) {
+                    order.order_country_code = 'UAE'; // Default value
+                  }
+                  if (!order.quantity) {
+                    order.quantity = 1; // Default value
+                  }
 
-              // Validate required fields
-              if (!order.order_nr) {
-                errors.push(`Row ${index + 2}: Missing order_nr`);
-              }
-              if (!order.purchase_item_nr) {
-                errors.push(`Row ${index + 2}: Missing purchase_item_nr`);
-              }
-              if (!order.order_country_code) {
-                order.order_country_code = 'UAE'; // Default value
-              }
-              if (!order.quantity) {
-                order.quantity = 1; // Default value
+                  return order;
+                });
+
+              // Check for duplicate purchase_item_nr within the uploaded data
+              const purchaseItemNumbers = orders.map(order => order.purchase_item_nr).filter(Boolean);
+              const duplicatePurchaseItems = purchaseItemNumbers.filter((item, index) => 
+                purchaseItemNumbers.indexOf(item) !== index
+              );
+              
+              if (duplicatePurchaseItems.length > 0) {
+                const uniqueDuplicates = [...new Set(duplicatePurchaseItems)];
+                errors.push(`Duplicate Purchase Item Numbers found in upload: ${uniqueDuplicates.join(', ')}`);
               }
 
-              return order;
-            });
+              console.log('=== UPLOAD VALIDATION ===');
+              console.log('Total orders parsed:', orders.length);
+              console.log('Purchase Item Numbers:', purchaseItemNumbers);
+              console.log('Duplicate Purchase Items:', duplicatePurchaseItems);
+              console.log('Validation errors:', errors);
 
           setValidationErrors(errors);
           resolve(orders);
