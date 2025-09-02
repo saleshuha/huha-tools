@@ -294,6 +294,47 @@ export function NoonOrdersUpload({ onUploadComplete }: NoonOrdersUploadProps) {
           </Alert>
         )}
 
+        {/* Debug section to check existing orders */}
+        <div className="space-y-2">
+          <Button 
+            variant="outline" 
+            onClick={async () => {
+              try {
+                // Check total orders in database (admin view)
+                const { data: adminData, error: adminError } = await supabase
+                  .from('noon_orders')
+                  .select('order_nr, user_id, created_at')
+                  .limit(5);
+                
+                // Check user-specific orders
+                const { data: userData, error: userError } = await supabase.auth.getUser();
+                
+                console.log('Current user:', userData?.user?.id);
+                console.log('All orders (admin view):', adminData);
+                console.log('Admin query error:', adminError);
+                
+                if (userData?.user) {
+                  const { data: userOrders, error: userOrdersError } = await supabase
+                    .from('noon_orders') 
+                    .select('order_nr, user_id, created_at')
+                    .eq('user_id', userData.user.id)
+                    .limit(5);
+                    
+                  console.log('User-specific orders:', userOrders);
+                  console.log('User orders error:', userOrdersError);
+                }
+              } catch (err) {
+                console.error('Debug check failed:', err);
+              }
+            }}
+          >
+            Debug: Check Existing Orders
+          </Button>
+          <p className="text-xs text-muted-foreground">
+            Click to check console for order debugging information
+          </p>
+        </div>
+
         {!preview ? (
           <div
             {...getRootProps()}
