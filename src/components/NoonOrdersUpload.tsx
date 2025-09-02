@@ -12,7 +12,7 @@ import * as XLSX from 'xlsx';
 const EXPECTED_HEADERS = [
   'order_nr', 'order_status', 'quantity', 'order_received_at', 'purchase_item_nr', 
   'order_country_code', 'manifest_nr', 'shipment_nr', 'fulfillment_timestamp', 
-  'shipment_created_by', 'user', 'shipment_created_at', 'id_warehouse_configuration', 
+  'shipment_created_by', 'shipment_user', 'shipment_created_at', 'id_warehouse_configuration', 
   'target_ready_at', 'item_status', 'is_reprintable', 'is_printed', 'mp_code', 
   'sku', 'partner_sku', 'title', 'title_ar', 'brand_code', 'image_key', 
   'parent_sku', 'size', 'pbarcodes'
@@ -70,10 +70,10 @@ export function NoonOrdersUpload({ onUploadComplete, selectedStoreId }: NoonOrde
             .map((row, index) => {
               const order: any = {};
               headers.forEach((header, i) => {
-                // Map 'user' field to 'shipment_user' for database compatibility
+                // Map CSV 'user' field to database 'shipment_user' field (represents Noon platform user)
                 const dbHeader = header === 'user' ? 'shipment_user' : header;
                 
-                if (EXPECTED_HEADERS.includes(header) || header === 'user') {
+                if (EXPECTED_HEADERS.includes(dbHeader) || header === 'user') {
                   let value = row[i];
                   
                   // Convert boolean fields
