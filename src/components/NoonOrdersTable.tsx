@@ -164,77 +164,112 @@ export function NoonOrdersTable({ selectedStoreId, onStoreChange }: NoonOrdersTa
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-1/4">Order Information</TableHead>
+                    <TableHead className="w-1/5">Order & Product</TableHead>
                     <TableHead className="w-2/5">Product Details</TableHead>
-                    <TableHead>Quantity</TableHead>
+                    <TableHead className="w-1/6">Timing Information</TableHead>
+                    <TableHead>Qty</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Country</TableHead>
-                    <TableHead>Created</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredOrders.map((order) => (
-                    <TableRow key={order.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          {order.image_key && (
-                            <div className="flex-shrink-0">
-                              <img
-                                src={`https://f.nooncdn.com/p/${order.image_key}.jpg`}
-                                alt={order.title || "Product image"}
-                                className="w-12 h-12 object-cover rounded border"
-                                onError={(e) => {
-                                  e.currentTarget.style.display = 'none';
-                                }}
-                              />
-                            </div>
-                          )}
-                          <div className="space-y-1">
-                            <div className="font-mono text-sm font-medium">
-                              Order: {order.order_nr}
-                            </div>
-                            <div className="font-mono text-xs text-muted-foreground">
-                              Item: {order.purchase_item_nr}
+                  {filteredOrders.map((order) => {
+                    const orderReceivedDate = order.order_received_at ? new Date(order.order_received_at) : null;
+                    const fulfillmentDate = order.fulfillment_timestamp ? new Date(order.fulfillment_timestamp) : null;
+                    const targetReadyDate = order.target_ready_at ? new Date(order.target_ready_at) : null;
+                    
+                    const calculateTimeRemaining = () => {
+                      if (!targetReadyDate) return 'No target date';
+                      const now = new Date();
+                      const diffMs = targetReadyDate.getTime() - now.getTime();
+                      const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+                      
+                      if (diffDays < 0) return `${Math.abs(diffDays)} days overdue`;
+                      if (diffDays === 0) return 'Due today';
+                      return `${diffDays} days remaining`;
+                    };
+
+                    return (
+                      <TableRow key={order.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            {order.image_key && (
+                              <div className="flex-shrink-0">
+                                <img
+                                  src={`https://f.nooncdn.com/p/${order.image_key}.jpg`}
+                                  alt={order.title || "Product image"}
+                                  className="w-16 h-16 object-cover rounded border"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                  }}
+                                />
+                              </div>
+                            )}
+                            <div className="space-y-1">
+                              <div className="font-mono text-sm font-medium">
+                                {order.order_nr}
+                              </div>
+                              <div className="font-mono text-xs text-muted-foreground">
+                                {order.purchase_item_nr}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="space-y-1">
-                          <div className="font-medium text-sm truncate max-w-xs">
-                            {order.title || 'N/A'}
+                        </TableCell>
+                        <TableCell>
+                          <div className="space-y-2">
+                            <div className="font-medium text-sm truncate max-w-xs">
+                              {order.title || 'N/A'}
+                            </div>
+                            <div className="flex flex-wrap gap-1 text-xs">
+                              {order.partner_sku && (
+                                <Badge variant="outline" className="text-xs">
+                                  Partner: {order.partner_sku}
+                                </Badge>
+                              )}
+                              {order.sku && (
+                                <Badge variant="outline" className="text-xs">
+                                  SKU: {order.sku}
+                                </Badge>
+                              )}
+                              {order.brand_code && (
+                                <Badge variant="outline" className="text-xs">
+                                  Brand: {order.brand_code}
+                                </Badge>
+                              )}
+                            </div>
                           </div>
-                          <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                            {order.partner_sku && (
-                              <Badge variant="outline" className="text-xs">
-                                Partner: {order.partner_sku}
-                              </Badge>
-                            )}
-                            {order.sku && (
-                              <Badge variant="outline" className="text-xs">
-                                SKU: {order.sku}
-                              </Badge>
-                            )}
-                            {order.brand_code && (
-                              <Badge variant="outline" className="text-xs">
-                                Brand: {order.brand_code}
-                              </Badge>
-                            )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="space-y-1 text-xs">
+                            <div>
+                              <span className="text-muted-foreground">Received:</span>
+                              <br />
+                              {orderReceivedDate ? orderReceivedDate.toLocaleDateString() : 'N/A'}
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Fulfillment:</span>
+                              <br />
+                              {fulfillmentDate ? fulfillmentDate.toLocaleDateString() : 'N/A'}
+                            </div>
+                            <div className={`font-medium ${
+                              calculateTimeRemaining().includes('overdue') ? 'text-red-600' : 
+                              calculateTimeRemaining().includes('today') ? 'text-yellow-600' : 
+                              'text-green-600'
+                            }`}>
+                              {calculateTimeRemaining()}
+                            </div>
                           </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>{order.quantity}</TableCell>
-                      <TableCell>
-                        <Badge className={getStatusColor(order.order_status)}>
-                          {order.order_status || 'Pending'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{order.order_country_code}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {new Date(order.created_at).toLocaleDateString()}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                        </TableCell>
+                        <TableCell className="text-center">{order.quantity}</TableCell>
+                        <TableCell>
+                          <Badge className={getStatusColor(order.order_status)}>
+                            {order.order_status || 'Pending'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{order.order_country_code}</TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
