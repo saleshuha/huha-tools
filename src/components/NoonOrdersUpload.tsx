@@ -7,8 +7,6 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useNoonOrders } from '@/hooks/useNoonOrders';
-import { supabase } from '@/integrations/supabase/client';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import * as XLSX from 'xlsx';
 
 const EXPECTED_HEADERS = [
@@ -20,13 +18,6 @@ const EXPECTED_HEADERS = [
   'parent_sku', 'size', 'pbarcodes'
 ];
 
-interface NoonStore {
-  id: string;
-  name: string;
-  partner_id: string | null;
-  country: string;
-}
-
 interface NoonOrdersUploadProps {
   onUploadComplete?: () => void;
 }
@@ -37,28 +28,6 @@ export function NoonOrdersUpload({ onUploadComplete }: NoonOrdersUploadProps) {
   const [fileName, setFileName] = useState<string>('');
   const [uploadProgress, setUploadProgress] = useState(0);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
-  const [stores, setStores] = useState<NoonStore[]>([]);
-  const [selectedStore, setSelectedStore] = useState<string>('none');
-
-  // Load noon stores on component mount
-  React.useEffect(() => {
-    const loadStores = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('noon_stores')
-          .select('id, name, partner_id, country')
-          .order('country', { ascending: true })
-          .order('name', { ascending: true });
-
-        if (error) throw error;
-        setStores(data || []);
-      } catch (error) {
-        console.error('Error loading stores:', error);
-      }
-    };
-
-    loadStores();
-  }, []);
 
   const parseFile = useCallback(async (file: File) => {
     return new Promise((resolve, reject) => {
@@ -95,107 +64,56 @@ export function NoonOrdersUpload({ onUploadComplete }: NoonOrdersUploadProps) {
           }
 
           // Convert rows to objects
-              const orders = rows
-                .filter(row => row.some(cell => cell !== null && cell !== undefined && cell !== ''))
-                .map((row, index) => {
-                  const order: any = {};
-                  headers.forEach((header, i) => {
-                    if (EXPECTED_HEADERS.includes(header)) {
-                      let value = row[i];
-                      
-                      // Convert boolean fields
-                      if (header === 'is_reprintable' || header === 'is_printed') {
-                        value = value === true || value === 'true' || value === 1 || value === '1';
+          const orders = rows
+            .filter(row => row.some(cell => cell !== null && cell !== undefined && cell !== ''))
+            .map((row, index) => {
+              const order: any = {};
+              headers.forEach((header, i) => {
+                if (EXPECTED_HEADERS.includes(header)) {
+                  let value = row[i];
+                  
+                  // Convert boolean fields
+                  if (header === 'is_reprintable' || header === 'is_printed') {
+                    value = value === true || value === 'true' || value === 1 || value === '1';
+                  }
+                  
+                  // Convert numeric fields
+                  if (header === 'quantity' && value) {
+                    value = parseInt(value) || 1;
+                  }
+                  
+                  // Convert date fields
+                  if ((header.includes('_at') || header.includes('_date')) && value) {
+                    try {
+                      if (typeof value === 'number') {
+                        // Excel date serial number
+                        const excelDate = new Date((value - 25569) * 86400 * 1000);
+                        value = excelDate.toISOString();
+                      } else if (typeof value === 'string') {
+                        value = new Date(value).toISOString();
                       }
-                      
-                      // Convert numeric fields
-                      if (header === 'quantity' && value) {
-                        value = parseInt(value) || 1;
-                      }
-                      
-                      // Convert date fields
-                      if ((header.includes('_at') || header.includes('_date') || header === 'fulfillment_timestamp') && value !== null && value !== undefined && value !== '') {
-                        try {
-                          if (typeof value === 'number') {
-                            console.log(`Converting Excel date for ${header}:`, value);
-                            // Excel date serial number conversion
-                            // Days since January 1, 1900 (Excel's epoch)
-                            const excelEpoch = new Date(1900, 0, 1); // January 1, 1900
-                            const msPerDay = 24 * 60 * 60 * 1000;
-                            
-                            // Excel has a bug: it treats 1900 as a leap year (it's not)
-                            // So for dates after Feb 28, 1900, we need to subtract 1 day
-                            let adjustedDays = value;
-                            if (value > 59) {
-                              adjustedDays = value - 1;
-                            }
-                            
-                            const excelDate = new Date(excelEpoch.getTime() + (adjustedDays - 1) * msPerDay);
-                            
-                            // Validate the date is reasonable (between 1900 and 2100)
-                            if (excelDate.getFullYear() >= 1900 && excelDate.getFullYear() <= 2100 && !isNaN(excelDate.getTime())) {
-                              value = excelDate.toISOString();
-                              console.log(`Converted Excel date ${header} from ${adjustedDays} to:`, value);
-                            } else {
-                              console.warn(`Invalid Excel date range for ${header}:`, value, excelDate);
-                              value = null;
-                            }
-                          } else if (typeof value === 'string' && value.trim()) {
-                            console.log(`Parsing string date for ${header}:`, value);
-                            const parsedDate = new Date(value);
-                            if (!isNaN(parsedDate.getTime())) {
-                              value = parsedDate.toISOString();
-                              console.log(`Converted string date to:`, value);
-                            } else {
-                              console.warn(`Invalid date string for ${header}:`, value);
-                              value = null;
-                            }
-                          } else {
-                            value = null;
-                          }
-                        } catch (e) {
-                          console.error(`Failed to parse date for ${header}:`, value, e);
-                          value = null;
-                        }
-                      }
-                      
-                      order[header] = value || null;
+                    } catch (e) {
+                      // Keep original value if date parsing fails
                     }
-                  });
+                  }
+                  
+                  order[header] = value || null;
+                }
+              });
 
-                  // Validate required fields
-                  if (!order.order_nr) {
-                    errors.push(`Row ${index + 2}: Missing order_nr`);
-                  }
-                  if (!order.purchase_item_nr) {
-                    errors.push(`Row ${index + 2}: Missing purchase_item_nr`);
-                  }
-                  if (!order.order_country_code) {
-                    order.order_country_code = 'UAE'; // Default value
-                  }
-                  if (!order.quantity) {
-                    order.quantity = 1; // Default value
-                  }
-
-                  return order;
-                });
-
-              // Check for duplicate purchase_item_nr within the uploaded data
-              const purchaseItemNumbers = orders.map(order => order.purchase_item_nr).filter(Boolean);
-              const duplicatePurchaseItems = purchaseItemNumbers.filter((item, index) => 
-                purchaseItemNumbers.indexOf(item) !== index
-              );
-              
-              if (duplicatePurchaseItems.length > 0) {
-                const uniqueDuplicates = [...new Set(duplicatePurchaseItems)];
-                errors.push(`Duplicate Purchase Item Numbers found in upload: ${uniqueDuplicates.join(', ')}`);
+              // Validate required fields
+              if (!order.order_nr) {
+                errors.push(`Row ${index + 2}: Missing order_nr`);
+              }
+              if (!order.order_country_code) {
+                order.order_country_code = 'UAE'; // Default value
+              }
+              if (!order.quantity) {
+                order.quantity = 1; // Default value
               }
 
-              console.log('=== UPLOAD VALIDATION ===');
-              console.log('Total orders parsed:', orders.length);
-              console.log('Purchase Item Numbers:', purchaseItemNumbers);
-              console.log('Duplicate Purchase Items:', duplicatePurchaseItems);
-              console.log('Validation errors:', errors);
+              return order;
+            });
 
           setValidationErrors(errors);
           resolve(orders);
@@ -244,16 +162,10 @@ export function NoonOrdersUpload({ onUploadComplete }: NoonOrdersUploadProps) {
 
     try {
       setUploadProgress(0);
-      // Add noon_store_id to orders if selected
-      const ordersWithStore = preview.map(order => ({
-        ...order,
-        noon_store_id: selectedStore && selectedStore !== 'none' ? selectedStore : null
-      }));
-      await uploadOrders(ordersWithStore, fileName);
+      await uploadOrders(preview, fileName);
       setUploadProgress(100);
       setPreview(null);
       setFileName('');
-      setSelectedStore('none');
       onUploadComplete?.();
     } catch (error) {
       console.error('Upload failed:', error);
@@ -265,7 +177,6 @@ export function NoonOrdersUpload({ onUploadComplete }: NoonOrdersUploadProps) {
     setFileName('');
     setValidationErrors([]);
     setUploadProgress(0);
-    setSelectedStore('none');
   };
 
   return (
@@ -276,85 +187,22 @@ export function NoonOrdersUpload({ onUploadComplete }: NoonOrdersUploadProps) {
           Upload Noon Orders
         </CardTitle>
         <CardDescription>
-          Upload your noon orders from Excel or CSV file. Purchase Item Numbers must be unique.
+          Upload your noon orders from Excel or CSV file. Order numbers must be unique.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Store Selection */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Select Store (Optional)</label>
-          <Select value={selectedStore} onValueChange={setSelectedStore}>
-            <SelectTrigger>
-              <SelectValue placeholder="Choose a store..." />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">No Store Selected</SelectItem>
-              {stores.map((store) => (
-                <SelectItem key={store.id} value={store.id}>
-                  {store.name} ({store.country})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-muted-foreground">
-            Select a store to associate with these orders. You can filter stores by country.
-          </p>
-        </div>
-
-        {/* Debug section to check existing orders and authentication */}
-        <div className="space-y-2">
-          <Button 
-            variant="outline" 
-            onClick={async () => {
-              try {
-                // Check authentication status
-                const { data: userData, error: userError } = await supabase.auth.getUser();
-                console.log('=== AUTHENTICATION STATUS ===');
-                console.log('User data:', userData?.user?.id);
-                console.log('Auth error:', userError);
-                
-                if (userData?.user) {
-                  // Check if there are ANY orders for this user
-                  const { data: userOrders, error: userOrdersError } = await supabase
-                    .from('noon_orders') 
-                    .select('id, order_nr, purchase_item_nr, user_id, created_at')
-                    .eq('user_id', userData.user.id);
-                    
-                  console.log('=== USER ORDERS ===');
-                  console.log('User orders:', userOrders);
-                  console.log('User orders error:', userOrdersError);
-                  console.log('User orders count:', userOrders?.length || 0);
-                  
-                  // Check if there are ANY orders in the database (might be from different users)
-                  const { data: allOrders, error: allOrdersError } = await supabase
-                    .from('noon_orders')
-                    .select('id, order_nr, purchase_item_nr, user_id, created_at')
-                    .limit(10);
-                    
-                  console.log('=== ALL ORDERS IN DATABASE ===');
-                  console.log('All orders:', allOrders);
-                  console.log('All orders error:', allOrdersError);
-                  console.log('Total orders count:', allOrders?.length || 0);
-                  
-                  // Check current session
-                  const { data: session } = await supabase.auth.getSession();
-                  console.log('=== SESSION INFO ===');
-                  console.log('Session:', session?.session ? 'Active' : 'None');
-                  console.log('Session user:', session?.session?.user?.id);
-                } else {
-                  console.log('=== NO USER AUTHENTICATED ===');
-                }
-              } catch (err) {
-                console.error('Debug check failed:', err);
-              }
-            }}
-          >
-            🔍 Debug: Check Orders & Auth
-          </Button>
-          <p className="text-xs text-muted-foreground">
-            Click to check console for detailed debugging information about orders and authentication
-          </p>
-        </div>
+        {validationErrors.length > 0 && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              <div className="space-y-1">
+                {validationErrors.map((error, index) => (
+                  <div key={index}>{error}</div>
+                ))}
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
 
         {!preview ? (
           <div
@@ -400,14 +248,14 @@ export function NoonOrdersUpload({ onUploadComplete }: NoonOrdersUploadProps) {
 
             <div className="max-h-64 overflow-auto border rounded-lg">
               <div className="grid grid-cols-4 gap-2 p-2 bg-muted text-sm font-medium">
-                <div>Purchase Item #</div>
+                <div>Order #</div>
                 <div>Partner SKU</div>
                 <div>Quantity</div>
                 <div>Status</div>
               </div>
               {preview.slice(0, 10).map((order, index) => (
                 <div key={index} className="grid grid-cols-4 gap-2 p-2 border-t text-sm">
-                  <div className="font-mono">{order.purchase_item_nr}</div>
+                  <div className="font-mono">{order.order_nr}</div>
                   <div>{order.partner_sku || 'N/A'}</div>
                   <div>{order.quantity}</div>
                   <div>

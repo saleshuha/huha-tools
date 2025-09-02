@@ -9,7 +9,7 @@ export interface NoonOrder {
   order_status?: string;
   quantity: number;
   order_received_at?: string;
-  purchase_item_nr: string;
+  purchase_item_nr?: string;
   order_country_code: string;
   manifest_nr?: string;
   shipment_nr?: string;
@@ -91,50 +91,22 @@ export function useNoonOrders() {
     setState(prev => ({ ...prev, uploading: true, error: null }));
     
     try {
-      console.log('=== UPLOAD PROCESS START ===');
-      console.log('Orders to upload:', orders.length);
-      console.log('File name:', fileName);
-      
       // Get current user
       const { data: { user }, error: userError } = await supabase.auth.getUser();
-      console.log('Auth check - User:', user?.id);
-      console.log('Auth check - Error:', userError);
-      
       if (userError || !user) {
         throw new Error('User not authenticated');
       }
 
-      const ordersWithMetadata = orders.map((order, index) => {
-        // Extract user field if it exists and map to shipment_user
-        const { user: orderUser, ...orderData } = order as any;
-        const finalOrder = {
-          ...orderData,
-          file_name: fileName,
-          user_id: user.id, // Use authenticated user ID
-          order_nr: orderData.order_nr || '', // Ensure order_nr is always present
-          purchase_item_nr: orderData.purchase_item_nr || '', // Ensure purchase_item_nr is always present
-          order_country_code: orderData.order_country_code || 'UAE', // Default country
-          quantity: orderData.quantity || 1, // Default quantity
-          is_reprintable: orderData.is_reprintable || false,
-          is_printed: orderData.is_printed || false,
-          // Fix field mapping - map 'user' field to 'shipment_user'
-          shipment_user: orderUser || orderData.shipment_user || null,
-        };
-        
-        console.log(`Order ${index + 1} - Purchase Item Nr:`, finalOrder.purchase_item_nr);
-        return finalOrder;
-      });
-
-      // Check for duplicates one more time before upload
-      const purchaseItemNrs = ordersWithMetadata.map(o => o.purchase_item_nr).filter(Boolean);
-      const duplicates = purchaseItemNrs.filter((item, index) => purchaseItemNrs.indexOf(item) !== index);
-      if (duplicates.length > 0) {
-        console.log('Duplicate purchase item numbers found:', duplicates);
-        throw new Error(`Duplicate Purchase Item Numbers in batch: ${[...new Set(duplicates)].join(', ')}`);
-      }
-
-      console.log('=== INSERTING TO DATABASE ===');
-      console.log('Final orders with metadata:', ordersWithMetadata);
+      const ordersWithMetadata = orders.map(order => ({
+        ...order,
+        file_name: fileName,
+        user_id: order.user_id || user.id, // Use current user ID if not set
+        order_nr: order.order_nr || '', // Ensure order_nr is always present
+        order_country_code: order.order_country_code || 'UAE', // Default country
+        quantity: order.quantity || 1, // Default quantity
+        is_reprintable: order.is_reprintable || false,
+        is_printed: order.is_printed || false,
+      }));
 
       const { data, error } = await supabase
         .from('noon_orders')
@@ -142,20 +114,11 @@ export function useNoonOrders() {
         .select();
 
       if (error) {
-        console.log('=== DATABASE ERROR ===');
-        console.log('Error code:', error.code);
-        console.log('Error message:', error.message);
-        console.log('Error details:', error.details);
-        console.log('Error hint:', error.hint);
-        
         if (error.code === '23505') { // Unique constraint violation
-          throw new Error('Some orders with the same Purchase Item Number already exist. Duplicate Purchase Item Numbers are not allowed.');
+          throw new Error('Some orders already exist. Duplicate order numbers are not allowed.');
         }
         throw error;
       }
-
-      console.log('=== UPLOAD SUCCESS ===');
-      console.log('Uploaded orders:', data?.length || 0);
 
       toast({
         title: "Success",
@@ -167,7 +130,7 @@ export function useNoonOrders() {
       
       return data;
     } catch (error) {
-      console.error('=== UPLOAD ERROR ===', error);
+      console.error('Error uploading noon orders:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to upload orders';
       
       setState(prev => ({

@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import React, { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,13 +20,6 @@ import {
 import { useNoonOrders, type NoonOrder } from '@/hooks/useNoonOrders';
 import { SunskyCredentialsSelector } from '@/components/SunskyCredentialsSelector';
 import { formatDistanceToNow } from 'date-fns';
-
-interface NoonStore {
-  id: string;
-  name: string;
-  partner_id: string | null;
-  country: string;
-}
 
 const getSunskyStatusText = (status?: number) => {
   switch (status) {
@@ -66,31 +58,8 @@ export function NoonOrdersTable() {
   const { orders, loading, placeOrderWithSunsky, syncOrderStatus, refreshOrders } = useNoonOrders();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [countryFilter, setCountryFilter] = useState('all');
-  const [storeFilter, setStoreFilter] = useState('all');
   const [selectedCredentialId, setSelectedCredentialId] = useState<string>('');
   const [processingOrders, setProcessingOrders] = useState<Set<string>>(new Set());
-  const [stores, setStores] = useState<NoonStore[]>([]);
-
-  // Load noon stores on component mount
-  useEffect(() => {
-    const loadStores = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('noon_stores')
-          .select('id, name, partner_id, country')
-          .order('country', { ascending: true })
-          .order('name', { ascending: true });
-
-        if (error) throw error;
-        setStores(data || []);
-      } catch (error) {
-        console.error('Error loading stores:', error);
-      }
-    };
-
-    loadStores();
-  }, []);
 
   const filteredOrders = orders.filter(order => {
     const matchesSearch = !searchTerm || 
@@ -103,24 +72,9 @@ export function NoonOrdersTable() {
       order.item_status === statusFilter ||
       (statusFilter === 'pending' && !order.sunsky_order_number) ||
       (statusFilter === 'placed' && order.sunsky_order_number);
-
-    const matchesCountry = countryFilter === 'all' || order.order_country_code === countryFilter;
-
-    const matchesStore = storeFilter === 'all' || 
-      (storeFilter === 'no-store' && !(order as any).noon_store_id) ||
-      (storeFilter !== 'no-store' && (order as any).noon_store_id === storeFilter);
     
-    return matchesSearch && matchesStatus && matchesCountry && matchesStore;
+    return matchesSearch && matchesStatus;
   });
-
-  // Get unique countries from orders
-  const countries = Array.from(new Set(orders.map(order => order.order_country_code)));
-
-  const getStoreName = (storeId: string | null) => {
-    if (!storeId) return 'No Store';
-    const store = stores.find(s => s.id === storeId);
-    return store ? `${store.name} (${store.country})` : 'Unknown Store';
-  };
 
   const handlePlaceOrder = async (order: NoonOrder) => {
     if (!selectedCredentialId) {
@@ -165,8 +119,8 @@ export function NoonOrdersTable() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Filters */}
-        <div className="flex flex-col lg:flex-row gap-4">
+        {/* Controls */}
+        <div className="flex flex-col sm:flex-row gap-4">
           <div className="flex-1">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -179,38 +133,9 @@ export function NoonOrdersTable() {
             </div>
           </div>
           
-          <Select value={countryFilter} onValueChange={setCountryFilter}>
-            <SelectTrigger className="w-36">
-              <SelectValue placeholder="Country" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Countries</SelectItem>
-              {countries.map(country => (
-                <SelectItem key={country} value={country}>{country}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select value={storeFilter} onValueChange={setStoreFilter}>
-            <SelectTrigger className="w-48">
-              <SelectValue placeholder="Store" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Stores</SelectItem>
-              <SelectItem value="no-store">No Store</SelectItem>
-              {stores
-                .filter(store => countryFilter === 'all' || store.country === countryFilter)
-                .map(store => (
-                  <SelectItem key={store.id} value={store.id}>
-                    {store.name} ({store.country})
-                  </SelectItem>
-                ))}
-            </SelectContent>
-          </Select>
-          
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-36">
-              <SelectValue placeholder="Status" />
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Filter by status" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Orders</SelectItem>
@@ -269,11 +194,9 @@ export function NoonOrdersTable() {
             <TableHeader>
               <TableRow>
                 <TableHead>Order #</TableHead>
-                <TableHead>Store</TableHead>
                 <TableHead>Partner SKU</TableHead>
                 <TableHead>Title</TableHead>
                 <TableHead>Qty</TableHead>
-                <TableHead>Country</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Sunsky Order</TableHead>
                 <TableHead>Last Sync</TableHead>
@@ -284,11 +207,6 @@ export function NoonOrdersTable() {
               {filteredOrders.map((order) => (
                 <TableRow key={order.id}>
                   <TableCell className="font-mono">{order.order_nr}</TableCell>
-                  <TableCell>
-                    <span className="text-sm">
-                      {getStoreName((order as any).noon_store_id)}
-                    </span>
-                  </TableCell>
                   <TableCell>{order.partner_sku || 'N/A'}</TableCell>
                   <TableCell>
                     <div>
@@ -301,9 +219,6 @@ export function NoonOrdersTable() {
                     </div>
                   </TableCell>
                   <TableCell>{order.quantity}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{order.order_country_code}</Badge>
-                  </TableCell>
                   <TableCell>
                     <Badge variant="outline">
                       {order.item_status || order.order_status || 'Pending'}
