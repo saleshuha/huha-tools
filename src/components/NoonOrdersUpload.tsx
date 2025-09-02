@@ -57,11 +57,12 @@ export function NoonOrdersUpload({ onUploadComplete, selectedStoreId }: NoonOrde
           const headers = jsonData[0] as string[];
           const rows = jsonData.slice(1) as any[][];
           
-          // Validate headers
+          // Validate headers - only check for critical headers, allow flexible uploads
           const errors: string[] = [];
-          const missingHeaders = EXPECTED_HEADERS.filter(h => !headers.includes(h));
-          if (missingHeaders.length > 0) {
-            errors.push(`Missing required headers: ${missingHeaders.join(', ')}`);
+          const criticalHeaders = ['order_nr', 'purchase_item_nr']; // Only require essential identifiers
+          const missingCriticalHeaders = criticalHeaders.filter(h => !headers.includes(h));
+          if (missingCriticalHeaders.length > 0) {
+            errors.push(`Missing critical headers: ${missingCriticalHeaders.join(', ')}`);
           }
 
           // Convert rows to objects
@@ -76,18 +77,12 @@ export function NoonOrdersUpload({ onUploadComplete, selectedStoreId }: NoonOrde
                 if (EXPECTED_HEADERS.includes(dbHeader) || header === 'user') {
                   let value = row[i];
                   
-                  // Convert boolean fields
+                  // Convert and preserve all field values, including empty ones
                   if (header === 'is_reprintable' || header === 'is_printed') {
                     value = value === true || value === 'true' || value === 1 || value === '1';
-                  }
-                  
-                  // Convert numeric fields
-                  if (header === 'quantity' && value) {
+                  } else if (header === 'quantity' && value !== null && value !== undefined && value !== '') {
                     value = parseInt(value) || 1;
-                  }
-                  
-                  // Convert date fields
-                  if ((header.includes('_at') || header.includes('_date')) && value) {
+                  } else if ((header.includes('_at') || header.includes('_date')) && value) {
                     try {
                       if (typeof value === 'number') {
                         // Excel date serial number
@@ -101,22 +96,25 @@ export function NoonOrdersUpload({ onUploadComplete, selectedStoreId }: NoonOrde
                     }
                   }
                   
-                  order[dbHeader] = value || null;
+                  // Store value as-is, including empty strings and nulls for future updates
+                  order[dbHeader] = value === undefined || value === '' ? null : value;
                 }
               });
 
-              // Validate required fields
+              // Validate only critical required fields - allow empty fields for future updates
               if (!order.order_nr) {
-                errors.push(`Row ${index + 2}: Missing order_nr`);
+                errors.push(`Row ${index + 2}: Missing order_nr (required for identification)`);
               }
               if (!order.purchase_item_nr) {
-                errors.push(`Row ${index + 2}: Missing purchase_item_nr`);
+                errors.push(`Row ${index + 2}: Missing purchase_item_nr (required for identification)`);
               }
+              
+              // Set defaults only for essential fields, leave others as null/empty if not provided
               if (!order.order_country_code) {
-                order.order_country_code = 'UAE'; // Default value
+                order.order_country_code = 'UAE'; // Default country for processing
               }
-              if (!order.quantity) {
-                order.quantity = 1; // Default value
+              if (!order.quantity && order.quantity !== 0) {
+                order.quantity = 1; // Default quantity for processing
               }
 
               return order;
@@ -194,7 +192,7 @@ export function NoonOrdersUpload({ onUploadComplete, selectedStoreId }: NoonOrde
           Upload Noon Orders
         </CardTitle>
         <CardDescription>
-          Upload your noon orders from Excel or CSV file. Purchase item numbers can be duplicated across different orders.
+          Upload your noon orders from Excel or CSV file. Empty fields are preserved for future updates with additional data.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

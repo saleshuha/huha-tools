@@ -101,13 +101,15 @@ export function useNoonOrders() {
       const ordersWithMetadata = orders.map(order => ({
         ...order,
         file_name: fileName,
-        user_id: order.user_id || user.id, // Use current user ID if not set
-        order_nr: order.order_nr || '', // Ensure order_nr is always present
-        purchase_item_nr: order.purchase_item_nr || '', // Ensure purchase_item_nr is always present
-        order_country_code: order.order_country_code || 'UAE', // Default country
-        quantity: order.quantity || 1, // Default quantity
-        is_reprintable: order.is_reprintable || false,
-        is_printed: order.is_printed || false,
+        user_id: order.user_id || user.id,
+        // Only set defaults for processing-critical fields, preserve empty values for others
+        order_nr: order.order_nr || '',
+        purchase_item_nr: order.purchase_item_nr || '',
+        order_country_code: order.order_country_code || 'UAE',
+        quantity: order.quantity !== undefined ? order.quantity : 1,
+        // Preserve boolean states as provided, or default to false only if undefined
+        is_reprintable: order.is_reprintable !== undefined ? order.is_reprintable : false,
+        is_printed: order.is_printed !== undefined ? order.is_printed : false,
         selected_store_id: selectedStoreId || null,
       }));
 
