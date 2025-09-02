@@ -721,7 +721,11 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
       if (data.result === 'success' && data.data?.number) {
         const orderNumber = data.data.number;
         const selectedOrderIds = selectedOrders
-          .filter(order => checkedItems.has(order.sunsky_sku?.sku_code || order.sku_code))
+          .filter(order => {
+            // Handle both noon orders and PO orders
+            const itemNo = order.partner_sku || order.sunsky_sku?.sku_code || order.sku_code;
+            return checkedItems.has(itemNo);
+          })
           .map(order => order.id);
         
         onOrderSuccess(orderNumber, selectedOrderIds);
