@@ -98,23 +98,28 @@ export const useAmazonOrders = () => {
 
     const totalOrders = ordersData.length;
     
-    // Calculate total value - convert all currencies to USD for consistent calculation
+    // Helper function to convert currency to USD with correct exchange rates
+    const convertToUSD = (amount: number, currency: string): number => {
+      if (!currency || currency === 'USD') return amount;
+      
+      // Use proper exchange rates
+      const exchangeRates: Record<string, number> = {
+        'AED': 0.272, // 1 AED = 0.272 USD
+        'SAR': 0.267, // 1 SAR = 0.267 USD
+        'USD': 1.0
+      };
+      
+      return amount * (exchangeRates[currency] || 1.0);
+    };
+    
+    // Calculate total value - keep in original currency, no conversion for display
     const totalValue = ordersData.reduce((sum, order) => {
       const cost = parseFloat(order.item_cost?.toString() || '0') || 0;
       const qty = parseInt(order.quantity?.toString() || '1') || 1;
       const orderValue = cost * qty;
       
-      // Convert to USD if not already in USD
-      if (order.currency === 'AED') {
-        // AED to USD conversion (using default rate if needed)
-        return sum + (orderValue * 0.27); // 1 AED = 0.27 USD
-      } else if (order.currency === 'SAR') {
-        // SAR to USD conversion
-        return sum + (orderValue * 0.27); // 1 SAR = 0.27 USD
-      } else {
-        // Already in USD or unknown currency, treat as USD
-        return sum + orderValue;
-      }
+      // Don't convert here - keep original values for accurate display
+      return sum + orderValue;
     }, 0);
     
     console.log('Total value calculated (all converted to USD):', totalValue);
@@ -140,20 +145,14 @@ export const useAmazonOrders = () => {
     });
     const pendingPayments = pendingOrders.length;
 
-    // Calculate pending orders value (convert to USD)
+    // Calculate pending orders value (keep in original currency)
     const pendingValue = pendingOrders.reduce((sum, order) => {
       const cost = parseFloat(order.item_cost?.toString() || '0') || 0;
       const qty = parseInt(order.quantity?.toString() || '1') || 1;
       const orderValue = cost * qty;
       
-      // Convert to USD if not already in USD
-      if (order.currency === 'AED') {
-        return sum + (orderValue * 0.27);
-      } else if (order.currency === 'SAR') {
-        return sum + (orderValue * 0.27);
-      } else {
-        return sum + orderValue;
-      }
+      // Keep original currency values for accurate display
+      return sum + orderValue;
     }, 0);
     
     console.log('Pending payments (Approved + Non-submitted):', pendingPayments);
@@ -187,20 +186,14 @@ export const useAmazonOrders = () => {
     });
     const overduePayments = overdueOrders.length;
 
-    // Calculate overdue orders value (convert to USD)
+    // Calculate overdue orders value (keep in original currency)
     const overdueValue = overdueOrders.reduce((sum, order) => {
       const cost = parseFloat(order.item_cost?.toString() || '0') || 0;
       const qty = parseInt(order.quantity?.toString() || '1') || 1;
       const orderValue = cost * qty;
       
-      // Convert to USD if not already in USD
-      if (order.currency === 'AED') {
-        return sum + (orderValue * 0.27);
-      } else if (order.currency === 'SAR') {
-        return sum + (orderValue * 0.27);
-      } else {
-        return sum + orderValue;
-      }
+      // Keep original currency values for accurate display
+      return sum + orderValue;
     }, 0);
     
     console.log('Overdue payments count:', overduePayments);
@@ -213,20 +206,14 @@ export const useAmazonOrders = () => {
     });
     const paidPayments = paidOrders.length;
 
-    // Calculate paid orders value (convert to USD)
+    // Calculate paid orders value (keep in original currency)
     const paidValue = paidOrders.reduce((sum, order) => {
       const cost = parseFloat(order.item_cost?.toString() || '0') || 0;
       const qty = parseInt(order.quantity?.toString() || '1') || 1;
       const orderValue = cost * qty;
       
-      // Convert to USD if not already in USD
-      if (order.currency === 'AED') {
-        return sum + (orderValue * 0.27);
-      } else if (order.currency === 'SAR') {
-        return sum + (orderValue * 0.27);
-      } else {
-        return sum + orderValue;
-      }
+      // Keep original currency values for accurate display
+      return sum + orderValue;
     }, 0);
     
     // Completed payments = orders with payment_status "completed" or status "Paid"
@@ -316,13 +303,13 @@ export const useAmazonOrders = () => {
 
     const finalMetrics = {
       totalOrders,
-      totalValue, // Keep in USD, conversion happens in UI
+      totalValue, // Keep in original currency, no conversion
       paidPayments,
-      paidValue, // Keep in USD, conversion happens in UI
+      paidValue, // Keep in original currency, no conversion
       pendingPayments,
-      pendingValue, // Keep in USD, conversion happens in UI
+      pendingValue, // Keep in original currency, no conversion
       overduePayments,
-      overdueValue, // Keep in USD, conversion happens in UI
+      overdueValue, // Keep in original currency, no conversion
       completedPayments,
       paidThroughDate,
       statusBreakdown,
