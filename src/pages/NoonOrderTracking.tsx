@@ -27,7 +27,7 @@ export default function NoonOrderTrackingPage() {
   const [filters, setFilters] = useState<FilterState>({
     search: '',
     status: 'all',
-    storeId: '',
+    storeId: 'all-stores',
     dateRange: 'all',
   });
 
@@ -59,7 +59,7 @@ export default function NoonOrderTrackingPage() {
       }
 
       // Store filter
-      if (filters.storeId && order.selected_store_id !== filters.storeId) {
+      if (filters.storeId && filters.storeId !== 'all-stores' && order.selected_store_id !== filters.storeId) {
         return false;
       }
 
@@ -175,7 +175,7 @@ export default function NoonOrderTrackingPage() {
                 <SelectValue placeholder="Select Store" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Stores</SelectItem>
+                <SelectItem value="all-stores">All Stores</SelectItem>
                 {stores.map((store) => (
                   <SelectItem key={store.id} value={store.id}>
                     {store.name} ({store.country})
@@ -189,7 +189,7 @@ export default function NoonOrderTrackingPage() {
                 <SelectValue placeholder="Sunsky Credentials" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Select Credentials</SelectItem>
+                <SelectItem value="select-credentials">Select Credentials</SelectItem>
                 {credentials.map((cred) => (
                   <SelectItem key={cred.id} value={cred.id}>
                     {cred.name} ({cred.country})

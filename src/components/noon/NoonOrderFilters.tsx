@@ -69,12 +69,12 @@ export function NoonOrderFilters({
     onFiltersChange({
       search: '',
       status: 'all',
-      storeId: '',
+      storeId: 'all-stores',
       dateRange: 'all',
     });
   };
 
-  const hasActiveFilters = filters.search || filters.status !== 'all' || filters.storeId || filters.dateRange !== 'all';
+  const hasActiveFilters = filters.search || filters.status !== 'all' || (filters.storeId && filters.storeId !== 'all-stores') || filters.dateRange !== 'all';
 
   return (
     <Card>
@@ -124,7 +124,7 @@ export function NoonOrderFilters({
                 <SelectValue placeholder="All Stores" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Stores</SelectItem>
+                <SelectItem value="all-stores">All Stores</SelectItem>
                 {stores.map((store) => (
                   <SelectItem key={store.id} value={store.id}>
                     {store.name} ({store.country})
@@ -181,7 +181,7 @@ export function NoonOrderFilters({
                     Status: {STATUS_OPTIONS.find(s => s.value === filters.status)?.label}
                   </Badge>
                 )}
-                {filters.storeId && (
+                {filters.storeId && filters.storeId !== 'all-stores' && (
                   <Badge variant="outline" className="text-xs">
                     Store: {stores.find(s => s.id === filters.storeId)?.name}
                   </Badge>
