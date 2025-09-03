@@ -154,6 +154,7 @@ export function useNoonOrders() {
           if (insertError) {
             if (insertError.code === '23505') {
               // Unique constraint violation - try to update existing order
+              console.log(`🔄 Duplicate found for order ${order.order_nr}-${order.purchase_item_nr}, attempting update...`);
               const { error: updateError } = await supabase
                 .from('noon_orders')
                 .update({
@@ -165,23 +166,25 @@ export function useNoonOrders() {
                 .eq('purchase_item_nr', order.purchase_item_nr);
 
               if (updateError) {
-                console.warn(`Failed to update order ${order.order_nr}: ${updateError.message}`);
-                errors.push(`${order.order_nr}: Update failed`);
+                console.warn(`❌ Failed to update order ${order.order_nr}: ${updateError.message}`);
+                errors.push(`${order.order_nr}-${order.purchase_item_nr}: Update failed - ${updateError.message}`);
                 errorCount++;
               } else {
+                console.log(`✅ Updated order ${order.order_nr}-${order.purchase_item_nr}`);
                 processedCount++;
               }
             } else {
-              console.error(`Failed to insert order ${order.order_nr}:`, insertError);
-              errors.push(`${order.order_nr}: ${insertError.message}`);
+              console.error(`❌ Failed to insert order ${order.order_nr}:`, insertError);
+              errors.push(`${order.order_nr}-${order.purchase_item_nr}: ${insertError.message}`);
               errorCount++;
             }
           } else {
+            console.log(`✅ Inserted new order ${order.order_nr}-${order.purchase_item_nr}`);
             processedCount++;
           }
         } catch (err) {
-          console.error(`Error processing order ${order.order_nr}:`, err);
-          errors.push(`${order.order_nr}: Processing failed`);
+          console.error(`❌ Error processing order ${order.order_nr}:`, err);
+          errors.push(`${order.order_nr}-${order.purchase_item_nr}: Processing failed`);
           errorCount++;
         }
       }
@@ -189,13 +192,20 @@ export function useNoonOrders() {
       // Final progress update
       onProgress?.(totalOrders, totalOrders, processedCount, errorCount);
 
+      console.log(`📊 Upload Summary: ${processedCount} processed, ${errorCount} failed, ${totalOrders} total`);
+      
+      if (errorCount > 0) {
+        console.log(`❌ Failed orders:`, errors);
+      }
+
       if (errorCount > 0 && processedCount === 0) {
-        throw new Error(`Failed to upload all orders. Errors: ${errors.join(', ')}`);
+        throw new Error(`Failed to upload all orders. Errors: ${errors.slice(0, 5).join(', ')}${errors.length > 5 ? '...' : ''}`);
       }
 
       toast({
         title: "Upload Complete",
         description: `${processedCount} orders processed successfully${errorCount > 0 ? `, ${errorCount} failed` : ''}`,
+        variant: errorCount > 0 ? (processedCount > 0 ? "default" : "destructive") : "default",
       });
 
       setState(prev => ({ ...prev, uploading: false }));
