@@ -62,6 +62,17 @@ export function useNoonOrders() {
   
   const { toast } = useToast();
 
+  // Real-time subscription
+  useEffect(() => {
+    const channel = supabase
+      .channel('noon-orders-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'noon_orders' }, () => {
+        fetchOrders();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
   const fetchOrders = async () => {
     setState(prev => ({ ...prev, loading: true, error: null }));
     
@@ -320,16 +331,27 @@ export function useNoonOrders() {
     fetchOrders();
   }, []);
 
+  const getOrdersByStatus = (status: string) => state.orders.filter(order => (order.order_status || 'uploaded') === status);
+  const findExceptions = () => state.orders.filter(order => order.order_status === 'exception' || !order.partner_sku || order.quantity <= 0 || order.sunsky_error_message);
+  const batchUpdateOrders = async (orderIds: string[], updates: Partial<NoonOrder>) => {
+    const { error } = await supabase.from('noon_orders').update(updates).in('id', orderIds);
+    if (error) throw error;
+    setState(prev => ({ ...prev, orders: prev.orders.map(order => orderIds.includes(order.id) ? { ...order, ...updates } : order) }));
+  };
+
   return {
     orders: state.orders,
     loading: state.loading,
     error: state.error,
     uploading: state.uploading,
-    uploadOrders: (orders: Partial<NoonOrder>[], fileName: string, selectedStoreId?: string) => 
-      uploadOrders(orders, fileName, selectedStoreId),
+    fetchOrders,
+    uploadOrders,
     updateOrderStatus,
     placeOrderWithSunsky,
     syncOrderStatus,
     refreshOrders: fetchOrders,
+    getOrdersByStatus,
+    findExceptions,
+    batchUpdateOrders,
   };
 }

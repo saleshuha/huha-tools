@@ -809,6 +809,36 @@ export type Database = {
         }
         Relationships: []
       }
+      noon_order_events: {
+        Row: {
+          created_at: string
+          event_data: Json | null
+          event_message: string
+          event_type: string
+          id: string
+          noon_order_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_data?: Json | null
+          event_message: string
+          event_type: string
+          id?: string
+          noon_order_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          event_data?: Json | null
+          event_message?: string
+          event_type?: string
+          id?: string
+          noon_order_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       noon_order_fees: {
         Row: {
           awb_nr: string | null
