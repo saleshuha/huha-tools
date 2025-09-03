@@ -7,7 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Package, Search, Filter, Plus, Eye, LayoutGrid, Calendar, ChevronDown, ChevronRight } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { Package, Search, Filter, Plus, Eye, LayoutGrid, Calendar, ChevronDown, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { AddStoreDialog } from '@/components/AddStoreDialog';
 
 interface NoonOrdersTableProps {
@@ -16,6 +17,8 @@ interface NoonOrdersTableProps {
 }
 
 type ViewMode = 'default' | 'sunsky-groups' | 'date-groups';
+type SortField = 'order_nr' | 'title' | 'order_status' | 'quantity' | 'order_received_at' | 'order_country_code';
+type SortDirection = 'asc' | 'desc' | null;
 
 export function NoonOrdersTable({ selectedStoreId, onStoreChange }: NoonOrdersTableProps) {
   const { orders, loading } = useNoonOrders();
@@ -25,26 +28,61 @@ export function NoonOrdersTable({ selectedStoreId, onStoreChange }: NoonOrdersTa
   const [showAddStore, setShowAddStore] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('default');
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [sortField, setSortField] = useState<SortField | null>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>(null);
 
-  const filteredOrders = orders.filter(order => {
-    const matchesSearch = !searchTerm || 
-      order.order_nr?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.purchase_item_nr?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.partner_sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.title?.toLowerCase().includes(searchTerm.toLowerCase());
+  const filteredAndSortedOrders = React.useMemo(() => {
+    let filtered = orders.filter(order => {
+      const matchesSearch = !searchTerm || 
+        order.order_nr?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.purchase_item_nr?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.partner_sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.title?.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesStatus = statusFilter === 'all' || order.order_status === statusFilter;
+      
+      const matchesStore = !selectedStoreId || order.selected_store_id === selectedStoreId;
+      
+      return matchesSearch && matchesStatus && matchesStore;
+    });
+
+    // Apply sorting
+    if (sortField && sortDirection) {
+      filtered.sort((a, b) => {
+        let aValue: any = a[sortField];
+        let bValue: any = b[sortField];
+        
+        // Handle different data types
+        if (sortField === 'order_received_at' && aValue && bValue) {
+          aValue = new Date(aValue).getTime();
+          bValue = new Date(bValue).getTime();
+        } else if (typeof aValue === 'string' && typeof bValue === 'string') {
+          aValue = aValue.toLowerCase();
+          bValue = bValue.toLowerCase();
+        } else if (typeof aValue === 'number' && typeof bValue === 'number') {
+          // Numbers are already comparable
+        } else {
+          // Convert to strings for comparison
+          aValue = String(aValue || '').toLowerCase();
+          bValue = String(bValue || '').toLowerCase();
+        }
+        
+        if (sortDirection === 'asc') {
+          return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+        } else {
+          return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
+        }
+      });
+    }
     
-    const matchesStatus = statusFilter === 'all' || order.order_status === statusFilter;
-    
-    const matchesStore = !selectedStoreId || order.selected_store_id === selectedStoreId;
-    
-    return matchesSearch && matchesStatus && matchesStore;
-  });
+    return filtered;
+  }, [orders, searchTerm, statusFilter, selectedStoreId, sortField, sortDirection]);
 
   // Group orders based on view mode
   const groupedOrders = React.useMemo(() => {
     if (viewMode === 'sunsky-groups') {
-      const groups = new Map<string, typeof filteredOrders>();
-      filteredOrders.forEach(order => {
+      const groups = new Map<string, typeof filteredAndSortedOrders>();
+      filteredAndSortedOrders.forEach(order => {
         const key = order.sunsky_order_number || 'No Sunsky Order';
         if (!groups.has(key)) groups.set(key, []);
         groups.get(key)!.push(order);
@@ -54,8 +92,8 @@ export function NoonOrdersTable({ selectedStoreId, onStoreChange }: NoonOrdersTa
         orders: orders.sort((a, b) => a.order_nr.localeCompare(b.order_nr))
       }));
     } else if (viewMode === 'date-groups') {
-      const groups = new Map<string, typeof filteredOrders>();
-      filteredOrders.forEach(order => {
+      const groups = new Map<string, typeof filteredAndSortedOrders>();
+      filteredAndSortedOrders.forEach(order => {
         const date = order.order_received_at || order.created_at;
         const key = date ? new Date(date).toDateString() : 'No Date';
         if (!groups.has(key)) groups.set(key, []);
@@ -68,8 +106,61 @@ export function NoonOrdersTable({ selectedStoreId, onStoreChange }: NoonOrdersTa
           orders: orders.sort((a, b) => a.order_nr.localeCompare(b.order_nr))
         }));
     }
-    return [{ groupKey: 'All Orders', orders: filteredOrders }];
-  }, [filteredOrders, viewMode]);
+    return [{ groupKey: 'All Orders', orders: filteredAndSortedOrders }];
+  }, [filteredAndSortedOrders, viewMode]);
+
+  // Helper function to calculate status distribution for progress bar
+  const getStatusDistribution = (orders: typeof filteredAndSortedOrders) => {
+    const statusCounts = orders.reduce((acc, order) => {
+      const status = order.order_status || 'uploaded';
+      acc[status] = (acc[status] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const total = orders.length;
+    const delivered = statusCounts.delivered || 0;
+    const shipped = statusCounts.shipped || 0;
+    const processing = statusCounts.processing || 0;
+    
+    return {
+      delivered: delivered,
+      shipped: shipped,
+      processing: processing,
+      pending: total - delivered - shipped - processing,
+      total: total,
+      deliveredPercent: total > 0 ? (delivered / total) * 100 : 0,
+      shippedPercent: total > 0 ? (shipped / total) * 100 : 0,
+      processingPercent: total > 0 ? (processing / total) * 100 : 0
+    };
+  };
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      // Cycle through: asc -> desc -> null
+      if (sortDirection === 'asc') {
+        setSortDirection('desc');
+      } else if (sortDirection === 'desc') {
+        setSortDirection(null);
+        setSortField(null);
+      }
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="h-3 w-3 text-muted-foreground" />;
+    }
+    if (sortDirection === 'asc') {
+      return <ArrowUp className="h-3 w-3 text-primary" />;
+    }
+    if (sortDirection === 'desc') {
+      return <ArrowDown className="h-3 w-3 text-primary" />;
+    }
+    return <ArrowUpDown className="h-3 w-3 text-muted-foreground" />;
+  };
 
   const toggleGroup = (groupKey: string) => {
     const newExpanded = new Set(expandedGroups);
@@ -175,7 +266,7 @@ export function NoonOrdersTable({ selectedStoreId, onStoreChange }: NoonOrdersTa
             <div>
               <CardTitle className="flex items-center gap-2">
                 <Eye className="h-5 w-5" />
-                Orders ({filteredOrders.length}{orders.length !== filteredOrders.length ? ` of ${orders.length}` : ''})
+                Orders ({filteredAndSortedOrders.length}{orders.length !== filteredAndSortedOrders.length ? ` of ${orders.length}` : ''})
               </CardTitle>
               <CardDescription>
                 View and manage your uploaded Noon orders
@@ -225,7 +316,7 @@ export function NoonOrdersTable({ selectedStoreId, onStoreChange }: NoonOrdersTa
           </div>
 
           {/* Orders Table */}
-          {filteredOrders.length > 0 ? (
+          {filteredAndSortedOrders.length > 0 ? (
             <div className="space-y-6">
               {groupedOrders.map((group, groupIndex) => (
                 <div key={group.groupKey} className="border rounded-lg overflow-hidden">
@@ -235,26 +326,75 @@ export function NoonOrdersTable({ selectedStoreId, onStoreChange }: NoonOrdersTa
                       className="bg-muted/30 px-4 py-3 border-b cursor-pointer hover:bg-muted/50 transition-colors"
                       onClick={() => toggleGroup(group.groupKey)}
                     >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          {expandedGroups.has(group.groupKey) ? (
-                            <ChevronDown className="h-4 w-4" />
-                          ) : (
-                            <ChevronRight className="h-4 w-4" />
-                          )}
-                          {viewMode === 'sunsky-groups' ? (
-                            <LayoutGrid className="h-4 w-4" />
-                          ) : (
-                            <Calendar className="h-4 w-4" />
-                          )}
-                          <span className="font-medium">{group.groupKey}</span>
-                          <Badge variant="outline" className="ml-2">
-                            {group.orders.length} {group.orders.length === 1 ? 'order' : 'orders'}
-                          </Badge>
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            {expandedGroups.has(group.groupKey) ? (
+                              <ChevronDown className="h-4 w-4" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4" />
+                            )}
+                            {viewMode === 'sunsky-groups' ? (
+                              <LayoutGrid className="h-4 w-4" />
+                            ) : (
+                              <Calendar className="h-4 w-4" />
+                            )}
+                            <span className="font-medium">{group.groupKey}</span>
+                            <Badge variant="outline" className="ml-2">
+                              {group.orders.length} {group.orders.length === 1 ? 'order' : 'orders'}
+                            </Badge>
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            Click to {expandedGroups.has(group.groupKey) ? 'collapse' : 'expand'}
+                          </span>
                         </div>
-                        <span className="text-xs text-muted-foreground">
-                          Click to {expandedGroups.has(group.groupKey) ? 'collapse' : 'expand'}
-                        </span>
+                        
+                        {/* Progress Bar */}
+                        {(() => {
+                          const distribution = getStatusDistribution(group.orders);
+                          return (
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-4 text-xs">
+                                <span className="flex items-center gap-1">
+                                  <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                                  Delivered: {distribution.delivered}
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                                  Shipped: {distribution.shipped}
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
+                                  Processing: {distribution.processing}
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <div className="w-2 h-2 rounded-full bg-gray-400"></div>
+                                  Pending: {distribution.pending}
+                                </span>
+                              </div>
+                              
+                              {/* Multi-colored progress bar */}
+                              <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden flex">
+                                <div 
+                                  className="h-full bg-green-500 transition-all duration-300"
+                                  style={{ width: `${distribution.deliveredPercent}%` }}
+                                ></div>
+                                <div 
+                                  className="h-full bg-blue-500 transition-all duration-300"
+                                  style={{ width: `${distribution.shippedPercent}%` }}
+                                ></div>
+                                <div 
+                                  className="h-full bg-yellow-500 transition-all duration-300"
+                                  style={{ width: `${distribution.processingPercent}%` }}
+                                ></div>
+                                <div 
+                                  className="h-full bg-gray-400 transition-all duration-300"
+                                  style={{ width: `${100 - distribution.deliveredPercent - distribution.shippedPercent - distribution.processingPercent}%` }}
+                                ></div>
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
                   )}
@@ -263,12 +403,60 @@ export function NoonOrdersTable({ selectedStoreId, onStoreChange }: NoonOrdersTa
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="w-1/5">Order & Product</TableHead>
-                        <TableHead className="w-2/5">Product Details</TableHead>
-                        <TableHead className="w-1/6">Target & Time Remaining</TableHead>
-                        <TableHead>Qty</TableHead>
-                        <TableHead className="w-1/4">Order Status & Integration</TableHead>
-                        <TableHead>Country</TableHead>
+                        <TableHead className="w-1/5">
+                          <button
+                            className="flex items-center gap-2 hover:bg-muted/50 p-1 rounded -ml-1 transition-colors"
+                            onClick={() => handleSort('order_nr')}
+                          >
+                            Order & Product
+                            {getSortIcon('order_nr')}
+                          </button>
+                        </TableHead>
+                        <TableHead className="w-2/5">
+                          <button
+                            className="flex items-center gap-2 hover:bg-muted/50 p-1 rounded -ml-1 transition-colors"
+                            onClick={() => handleSort('title')}
+                          >
+                            Product Details
+                            {getSortIcon('title')}
+                          </button>
+                        </TableHead>
+                        <TableHead className="w-1/6">
+                          <button
+                            className="flex items-center gap-2 hover:bg-muted/50 p-1 rounded -ml-1 transition-colors"
+                            onClick={() => handleSort('order_received_at')}
+                          >
+                            Target & Time Remaining
+                            {getSortIcon('order_received_at')}
+                          </button>
+                        </TableHead>
+                        <TableHead>
+                          <button
+                            className="flex items-center gap-2 hover:bg-muted/50 p-1 rounded -ml-1 transition-colors"
+                            onClick={() => handleSort('quantity')}
+                          >
+                            Qty
+                            {getSortIcon('quantity')}
+                          </button>
+                        </TableHead>
+                        <TableHead className="w-1/4">
+                          <button
+                            className="flex items-center gap-2 hover:bg-muted/50 p-1 rounded -ml-1 transition-colors"
+                            onClick={() => handleSort('order_status')}
+                          >
+                            Order Status & Integration
+                            {getSortIcon('order_status')}
+                          </button>
+                        </TableHead>
+                        <TableHead>
+                          <button
+                            className="flex items-center gap-2 hover:bg-muted/50 p-1 rounded -ml-1 transition-colors"
+                            onClick={() => handleSort('order_country_code')}
+                          >
+                            Country
+                            {getSortIcon('order_country_code')}
+                          </button>
+                        </TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
