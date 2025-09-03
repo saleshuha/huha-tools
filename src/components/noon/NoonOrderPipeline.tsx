@@ -128,19 +128,19 @@ function PipelineColumn({ stage, orders, onView }: PipelineColumnProps) {
   const Icon = stageConfig.icon;
 
   return (
-    <Card className="h-fit">
+    <Card className="h-fit min-w-0">
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-sm">
-          <Icon className="h-4 w-4" />
-          {stageConfig.label}
-          <Badge variant="secondary" className="ml-auto">
+          <Icon className="h-4 w-4 flex-shrink-0" />
+          <span className="truncate">{stageConfig.label}</span>
+          <Badge variant="secondary" className="ml-auto flex-shrink-0">
             {orders.length}
           </Badge>
         </CardTitle>
       </CardHeader>
       <CardContent className="pt-0">
         <SortableContext items={orders.map(o => o.id)} strategy={verticalListSortingStrategy}>
-          <div className="space-y-2 min-h-[200px]">
+          <div className="space-y-2 min-h-[200px] max-h-[400px] overflow-y-auto">
             {orders.map((order) => (
               <OrderCard 
                 key={order.id} 
@@ -175,15 +175,17 @@ export function NoonOrderPipeline({ orders, onOrderView }: NoonOrderPipelineProp
     
     Object.keys(PIPELINE_STAGES).forEach(stage => {
       grouped[stage] = orders.filter(order => {
-        // Map order status to pipeline stages
-        const status = order.order_status;
-        if (stage === 'uploaded' && (!status || status === 'pending')) return true;
+        // Map order status to pipeline stages with better defaults
+        const status = order.order_status || 'uploaded';
+        
+        if (stage === 'uploaded' && (status === 'uploaded' || !status || status === 'pending')) return true;
         if (stage === 'validated' && status === 'validated') return true;
         if (stage === 'ready_for_sunsky' && status === 'ready_for_sunsky') return true;
-        if (stage === 'placed' && status === 'placed') return true;
-        if (stage === 'shipped' && status === 'shipped') return true;
+        if (stage === 'placed' && (status === 'placed' || order.sunsky_order_number)) return true;
+        if (stage === 'shipped' && (status === 'shipped' || order.sunsky_tracking_number)) return true;
         if (stage === 'delivered' && status === 'delivered') return true;
-        if (stage === 'exception' && status === 'exception') return true;
+        if (stage === 'exception' && (status === 'exception' || order.sunsky_error_message)) return true;
+        
         return false;
       });
     });
@@ -257,7 +259,7 @@ export function NoonOrderPipeline({ orders, onOrderView }: NoonOrderPipelineProp
         <div>
           <h3 className="text-lg font-semibold">Order Pipeline</h3>
           <p className="text-sm text-muted-foreground">
-            Drag orders between stages to update their status
+            Orders automatically progress through stages - manual dragging also supported
           </p>
         </div>
         <div className="flex gap-2 text-sm text-muted-foreground">
@@ -267,15 +269,30 @@ export function NoonOrderPipeline({ orders, onOrderView }: NoonOrderPipelineProp
 
       {/* Pipeline Columns */}
       <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
-          {Object.entries(PIPELINE_STAGES).map(([stage, config]) => (
-            <PipelineColumn
-              key={stage}
-              stage={stage as keyof typeof PIPELINE_STAGES}
-              orders={ordersByStage[stage] || []}
-              onView={onOrderView}
-            />
-          ))}
+        <div className="flex flex-col space-y-4">
+          {/* First Row: Main Processing Stages */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {['uploaded', 'validated', 'ready_for_sunsky', 'placed'].map(stage => (
+              <PipelineColumn
+                key={stage}
+                stage={stage as keyof typeof PIPELINE_STAGES}
+                orders={ordersByStage[stage] || []}
+                onView={onOrderView}
+              />
+            ))}
+          </div>
+          
+          {/* Second Row: Final Stages */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {['shipped', 'delivered', 'exception'].map(stage => (
+              <PipelineColumn
+                key={stage}
+                stage={stage as keyof typeof PIPELINE_STAGES}
+                orders={ordersByStage[stage] || []}
+                onView={onOrderView}
+              />
+            ))}
+          </div>
         </div>
 
         <DragOverlay>

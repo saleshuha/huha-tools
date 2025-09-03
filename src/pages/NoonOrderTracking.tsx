@@ -13,7 +13,7 @@ import { NoonOrderPipeline } from '@/components/noon/NoonOrderPipeline';
 import { NoonOrderDetailDrawer } from '@/components/noon/NoonOrderDetailDrawer';
 import { NoonOrderFilters, FilterState } from '@/components/noon/NoonOrderFilters';
 import { NoonExceptions } from '@/components/noon/NoonExceptions';
-import { AutoProcessingIndicator } from '@/components/AutoProcessingIndicator';
+import { AutoProcessingStatus } from '@/components/AutoProcessingStatus';
 import { useNoonOrders, NoonOrder } from '@/hooks/useNoonOrders';
 import { useNoonStores } from '@/hooks/useNoonStores';
 import { useSunskyCredentials } from '@/hooks/useSunskyCredentials';
@@ -168,14 +168,8 @@ export default function NoonOrderTrackingPage() {
       </div>
       
         <div className="container mx-auto px-6 py-8">
-          {/* Auto-Processing Indicator */}
-          <AutoProcessingIndicator
-            totalOrders={orders.length}
-            uploadedOrders={getOrdersByStatus('uploaded').length}
-            readyOrders={getOrdersByStatus('ready_for_sunsky').length}
-            placedOrders={orders.filter(o => o.sunsky_order_number && !o.sunsky_tracking_number).length}
-            isProcessing={loading}
-          />
+          {/* Auto-Processing Status */}
+          <AutoProcessingStatus orders={orders} />
 
           {/* Shared Header Controls */}
         <div className="mb-6 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
