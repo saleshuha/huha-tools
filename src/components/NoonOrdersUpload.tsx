@@ -184,13 +184,17 @@ export function NoonOrdersUpload({ onUploadComplete, selectedStoreId }: NoonOrde
 
     try {
       setUploadProgress(0);
-      await uploadOrders(preview, fileName, selectedStoreId);
+      setValidationErrors([]); // Clear previous errors
+      const result = await uploadOrders(preview, fileName, selectedStoreId);
       setUploadProgress(100);
       setPreview(null);
       setFileName('');
       onUploadComplete?.();
     } catch (error) {
       console.error('Upload failed:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to upload orders';
+      setValidationErrors([errorMessage]);
+      setUploadProgress(0);
     }
   };
 
