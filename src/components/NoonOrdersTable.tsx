@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Package, Search, Filter, Plus, Eye, LayoutGrid, Calendar } from 'lucide-react';
+import { Package, Search, Filter, Plus, Eye, LayoutGrid, Calendar, ChevronDown, ChevronRight } from 'lucide-react';
 import { AddStoreDialog } from '@/components/AddStoreDialog';
 
 interface NoonOrdersTableProps {
@@ -24,6 +24,7 @@ export function NoonOrdersTable({ selectedStoreId, onStoreChange }: NoonOrdersTa
   const [statusFilter, setStatusFilter] = useState('all');
   const [showAddStore, setShowAddStore] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('default');
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
   const filteredOrders = orders.filter(order => {
     const matchesSearch = !searchTerm || 
@@ -69,6 +70,26 @@ export function NoonOrdersTable({ selectedStoreId, onStoreChange }: NoonOrdersTa
     }
     return [{ groupKey: 'All Orders', orders: filteredOrders }];
   }, [filteredOrders, viewMode]);
+
+  const toggleGroup = (groupKey: string) => {
+    const newExpanded = new Set(expandedGroups);
+    if (newExpanded.has(groupKey)) {
+      newExpanded.delete(groupKey);
+    } else {
+      newExpanded.add(groupKey);
+    }
+    setExpandedGroups(newExpanded);
+  };
+
+  // Auto-expand groups when switching to default view
+  React.useEffect(() => {
+    if (viewMode === 'default') {
+      setExpandedGroups(new Set(['All Orders']));
+    } else {
+      // For grouped views, start with all collapsed
+      setExpandedGroups(new Set());
+    }
+  }, [viewMode]);
 
   const getStatusColor = (status?: string) => {
     switch (status) {
@@ -210,9 +231,17 @@ export function NoonOrdersTable({ selectedStoreId, onStoreChange }: NoonOrdersTa
                 <div key={group.groupKey} className="border rounded-lg overflow-hidden">
                   {/* Group Header */}
                   {viewMode !== 'default' && (
-                    <div className="bg-muted/30 px-4 py-3 border-b">
+                    <div 
+                      className="bg-muted/30 px-4 py-3 border-b cursor-pointer hover:bg-muted/50 transition-colors"
+                      onClick={() => toggleGroup(group.groupKey)}
+                    >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
+                          {expandedGroups.has(group.groupKey) ? (
+                            <ChevronDown className="h-4 w-4" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4" />
+                          )}
                           {viewMode === 'sunsky-groups' ? (
                             <LayoutGrid className="h-4 w-4" />
                           ) : (
@@ -223,10 +252,14 @@ export function NoonOrdersTable({ selectedStoreId, onStoreChange }: NoonOrdersTa
                             {group.orders.length} {group.orders.length === 1 ? 'order' : 'orders'}
                           </Badge>
                         </div>
+                        <span className="text-xs text-muted-foreground">
+                          Click to {expandedGroups.has(group.groupKey) ? 'collapse' : 'expand'}
+                        </span>
                       </div>
                     </div>
                   )}
                   
+                  {(viewMode === 'default' || expandedGroups.has(group.groupKey)) && (
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -498,6 +531,7 @@ export function NoonOrdersTable({ selectedStoreId, onStoreChange }: NoonOrdersTa
                   })}
                 </TableBody>
               </Table>
+                  )}
             </div>
               ))}
             </div>
