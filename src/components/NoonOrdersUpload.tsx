@@ -190,17 +190,30 @@ export function NoonOrdersUpload({ onUploadComplete, selectedStoreId }: NoonOrde
 
     try {
       setUploadProgress(0);
+      setProcessingStats({ current: 0, total: preview.length, processed: 0, errors: 0 });
       setValidationErrors([]); // Clear previous errors
-      const result = await uploadOrders(preview, fileName, selectedStoreId);
+      
+      const result = await uploadOrders(
+        preview, 
+        fileName, 
+        selectedStoreId,
+        (current, total, processed, errors) => {
+          setProcessingStats({ current, total, processed, errors });
+          setUploadProgress(Math.round((current / total) * 100));
+        }
+      );
+      
       setUploadProgress(100);
       setPreview(null);
       setFileName('');
+      setProcessingStats(null);
       onUploadComplete?.();
     } catch (error) {
       console.error('Upload failed:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to upload orders';
       setValidationErrors([errorMessage]);
       setUploadProgress(0);
+      setProcessingStats(null);
     }
   };
 
@@ -276,7 +289,15 @@ export function NoonOrdersUpload({ onUploadComplete, selectedStoreId }: NoonOrde
             </div>
 
             {uploading && (
-              <Progress value={uploadProgress} className="w-full" />
+              <div className="space-y-2">
+                <Progress value={uploadProgress} className="w-full" />
+                {processingStats && (
+                  <div className="flex justify-between text-sm text-muted-foreground">
+                    <span>Processing {processingStats.current} of {processingStats.total} orders</span>
+                    <span>{processingStats.processed} processed, {processingStats.errors} errors</span>
+                  </div>
+                )}
+              </div>
             )}
 
             <div className="max-h-64 overflow-auto border rounded-lg">

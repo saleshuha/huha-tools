@@ -99,7 +99,12 @@ export function useNoonOrders() {
     }
   };
 
-  const uploadOrders = async (orders: Partial<NoonOrder>[], fileName: string, selectedStoreId?: string) => {
+  const uploadOrders = async (
+    orders: Partial<NoonOrder>[], 
+    fileName: string, 
+    selectedStoreId?: string,
+    onProgress?: (current: number, total: number, processed: number, errors: number) => void
+  ) => {
     setState(prev => ({ ...prev, uploading: true, error: null }));
     
     try {
@@ -127,9 +132,14 @@ export function useNoonOrders() {
       let processedCount = 0;
       let errorCount = 0;
       const errors: string[] = [];
+      const totalOrders = ordersWithMetadata.length;
 
       // Process orders one by one to handle conflicts gracefully
-      for (const order of ordersWithMetadata) {
+      for (let i = 0; i < ordersWithMetadata.length; i++) {
+        const order = ordersWithMetadata[i];
+        
+        // Update progress
+        onProgress?.(i + 1, totalOrders, processedCount, errorCount);
         try {
           // Try to insert new order
           const { error: insertError } = await supabase
@@ -170,6 +180,9 @@ export function useNoonOrders() {
           errorCount++;
         }
       }
+
+      // Final progress update
+      onProgress?.(totalOrders, totalOrders, processedCount, errorCount);
 
       if (errorCount > 0 && processedCount === 0) {
         throw new Error(`Failed to upload all orders. Errors: ${errors.join(', ')}`);
