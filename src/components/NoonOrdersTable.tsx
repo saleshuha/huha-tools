@@ -166,7 +166,7 @@ export function NoonOrdersTable({ selectedStoreId, onStoreChange }: NoonOrdersTa
                   <TableRow>
                     <TableHead className="w-1/5">Order & Product</TableHead>
                     <TableHead className="w-2/5">Product Details</TableHead>
-                    <TableHead className="w-1/6">Timing Information</TableHead>
+                    <TableHead className="w-1/6">Target & Time Remaining</TableHead>
                     <TableHead>Qty</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Country</TableHead>
@@ -176,17 +176,88 @@ export function NoonOrdersTable({ selectedStoreId, onStoreChange }: NoonOrdersTa
                   {filteredOrders.map((order) => {
                     const orderReceivedDate = order.order_received_at ? new Date(order.order_received_at) : null;
                     const fulfillmentDate = order.fulfillment_timestamp ? new Date(order.fulfillment_timestamp) : null;
-                    const targetReadyDate = order.target_ready_at ? new Date(order.target_ready_at) : null;
+                    
+                    const calculateTargetDate = () => {
+                      if (!orderReceivedDate || !fulfillmentDate) return null;
+                      
+                      // Calculate expected processing time (fulfillment - received)
+                      const processingTimeMs = fulfillmentDate.getTime() - orderReceivedDate.getTime();
+                      
+                      // If we have a target_ready_at, use it; otherwise calculate based on processing time
+                      if (order.target_ready_at) {
+                        return new Date(order.target_ready_at);
+                      }
+                      
+                      // Default: add processing time to received date, or use standard 2-day processing
+                      const standardProcessingTime = Math.max(processingTimeMs, 2 * 24 * 60 * 60 * 1000); // Minimum 2 days
+                      return new Date(orderReceivedDate.getTime() + standardProcessingTime);
+                    };
                     
                     const calculateTimeRemaining = () => {
-                      if (!targetReadyDate) return 'No target date';
-                      const now = new Date();
-                      const diffMs = targetReadyDate.getTime() - now.getTime();
-                      const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+                      const targetDate = calculateTargetDate();
+                      if (!targetDate) {
+                        if (!orderReceivedDate) return 'No receive date';
+                        // Default 2-day processing if no fulfillment date
+                        const defaultTarget = new Date(orderReceivedDate.getTime() + (2 * 24 * 60 * 60 * 1000));
+                        const now = new Date();
+                        const diffMs = defaultTarget.getTime() - now.getTime();
+                        
+                        if (diffMs < 0) {
+                          const overdueDays = Math.abs(Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+                          return `${overdueDays}d overdue`;
+                        }
+                        
+                        const remainingDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                        const remainingHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                        
+                        if (remainingDays > 0) {
+                          return `${remainingDays}d ${remainingHours}h left`;
+                        } else if (remainingHours > 0) {
+                          return `${remainingHours}h left`;
+                        } else {
+                          const remainingMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+                          return `${remainingMinutes}m left`;
+                        }
+                      }
                       
-                      if (diffDays < 0) return `${Math.abs(diffDays)} days overdue`;
-                      if (diffDays === 0) return 'Due today';
-                      return `${diffDays} days remaining`;
+                      const now = new Date();
+                      const diffMs = targetDate.getTime() - now.getTime();
+                      
+                      if (diffMs < 0) {
+                        const overdueDays = Math.abs(Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+                        const overdueHours = Math.abs(Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)));
+                        
+                        if (overdueDays > 0) {
+                          return `${overdueDays}d ${overdueHours}h overdue`;
+                        } else {
+                          return `${overdueHours}h overdue`;
+                        }
+                      }
+                      
+                      const remainingDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                      const remainingHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                      
+                      if (remainingDays > 0) {
+                        return `${remainingDays}d ${remainingHours}h left`;
+                      } else if (remainingHours > 0) {
+                        return `${remainingHours}h left`;
+                      } else {
+                        const remainingMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+                        return `${remainingMinutes}m left`;
+                      }
+                    };
+
+                    const getTimeRemainingColor = () => {
+                      const timeRemaining = calculateTimeRemaining();
+                      if (timeRemaining.includes('overdue')) return 'text-red-600 font-semibold';
+                      if (timeRemaining.includes('h left') && !timeRemaining.includes('d')) {
+                        // Less than 24 hours
+                        const hours = parseInt(timeRemaining.match(/(\d+)h/)?.[1] || '0');
+                        if (hours <= 6) return 'text-red-500 font-semibold';
+                        if (hours <= 12) return 'text-yellow-600 font-medium';
+                      }
+                      if (timeRemaining.includes('m left')) return 'text-red-600 font-bold animate-pulse';
+                      return 'text-green-600';
                     };
 
                     return (
@@ -244,20 +315,33 @@ export function NoonOrdersTable({ selectedStoreId, onStoreChange }: NoonOrdersTa
                             <div>
                               <span className="text-muted-foreground">Received:</span>
                               <br />
-                              {orderReceivedDate ? orderReceivedDate.toLocaleDateString() : 'N/A'}
+                              <span className="font-mono">
+                                {orderReceivedDate ? orderReceivedDate.toLocaleDateString() : 'N/A'}
+                              </span>
                             </div>
                             <div>
-                              <span className="text-muted-foreground">Fulfillment:</span>
+                              <span className="text-muted-foreground">Target Date:</span>
                               <br />
-                              {fulfillmentDate ? fulfillmentDate.toLocaleDateString() : 'N/A'}
+                              <span className="font-mono">
+                                {calculateTargetDate() ? calculateTargetDate()!.toLocaleDateString() : 'Calculating...'}
+                              </span>
                             </div>
-                            <div className={`font-medium ${
-                              calculateTimeRemaining().includes('overdue') ? 'text-red-600' : 
-                              calculateTimeRemaining().includes('today') ? 'text-yellow-600' : 
-                              'text-green-600'
-                            }`}>
-                              {calculateTimeRemaining()}
+                            <div>
+                              <span className="text-muted-foreground">Time Left:</span>
+                              <br />
+                              <span className={`font-mono font-medium ${getTimeRemainingColor()}`}>
+                                {calculateTimeRemaining()}
+                              </span>
                             </div>
+                            {fulfillmentDate && (
+                              <div className="pt-1 border-t border-border/50">
+                                <span className="text-muted-foreground">Fulfillment:</span>
+                                <br />
+                                <span className="font-mono text-xs">
+                                  {fulfillmentDate.toLocaleDateString()}
+                                </span>
+                              </div>
+                            )}
                           </div>
                         </TableCell>
                         <TableCell className="text-center">{order.quantity}</TableCell>
