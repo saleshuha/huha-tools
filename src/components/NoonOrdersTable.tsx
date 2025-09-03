@@ -340,6 +340,63 @@ export function NoonOrdersTable({ selectedStoreId, onStoreChange }: NoonOrdersTa
             </div>
           </div>
 
+          {/* Overall Metrics for Default View */}
+          {viewMode === 'default' && filteredAndSortedOrders.length > 0 && (
+            <div className="mb-6 p-4 bg-muted/30 rounded-lg">
+              {(() => {
+                const metrics = getOrderMetrics(filteredAndSortedOrders);
+                return (
+                  <div className="space-y-3">
+                    {/* Summary Stats */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                      <div className="bg-blue-50 p-2 rounded border">
+                        <div className="font-semibold text-blue-800">Total Orders</div>
+                        <div className="text-lg font-bold text-blue-900">{metrics.total}</div>
+                      </div>
+                      <div className="bg-purple-50 p-2 rounded border">
+                        <div className="font-semibold text-purple-800">Sunsky Placed</div>
+                        <div className="text-lg font-bold text-purple-900">{metrics.sunskyPlaced}</div>
+                      </div>
+                      <div className="bg-yellow-50 p-2 rounded border">
+                        <div className="font-semibold text-yellow-800">Pending Sunsky</div>
+                        <div className="text-lg font-bold text-yellow-900">{metrics.pendingToPlaceSunsky}</div>
+                      </div>
+                      <div className="bg-red-50 p-2 rounded border">
+                        <div className="font-semibold text-red-800">Breached</div>
+                        <div className="text-lg font-bold text-red-900">{metrics.breachOrders}</div>
+                      </div>
+                    </div>
+
+                    {/* Detailed Metrics */}
+                    <div className="flex items-center gap-3 text-xs flex-wrap">
+                      <span className="flex items-center gap-1">
+                        <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                        Sunsky Shipped: {metrics.sunskyShipped}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                        Sunsky Processing: {metrics.sunskyProcessed}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <div className="w-2 h-2 rounded-full bg-orange-500"></div>
+                        Noon Pending: {metrics.noonPending}
+                      </span>
+                    </div>
+                    
+                    {/* Multi-colored progress bar */}
+                    <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden flex">
+                      <div className="h-full bg-green-500 transition-all duration-300" style={{ width: `${metrics.sunskyShippedPercent}%` }}></div>
+                      <div className="h-full bg-blue-500 transition-all duration-300" style={{ width: `${metrics.sunskyProcessedPercent}%` }}></div>
+                      <div className="h-full bg-yellow-500 transition-all duration-300" style={{ width: `${metrics.pendingToPlaceSunskyPercent}%` }}></div>
+                      <div className="h-full bg-red-500 transition-all duration-300" style={{ width: `${metrics.breachOrdersPercent}%` }}></div>
+                      <div className="h-full bg-orange-500 transition-all duration-300" style={{ width: `${metrics.noonPendingPercent}%` }}></div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+
           {/* Orders Table */}
           {filteredAndSortedOrders.length > 0 ? (
             <div className="space-y-6">
