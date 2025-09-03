@@ -124,16 +124,12 @@ export function useNoonOrders() {
         selected_store_id: selectedStoreId || null,
       }));
 
-      // Check for existing orders
-      const orderKeys = ordersWithMetadata.map(order => ({
-        order_nr: order.order_nr,
-        purchase_item_nr: order.purchase_item_nr
-      }));
-
+      // Check for existing orders - use order_nr as key since there's a unique constraint on (user_id, order_nr)
       const { data: existingOrders, error: fetchError } = await supabase
         .from('noon_orders')
         .select('*')
-        .eq('user_id', user.id);
+        .eq('user_id', user.id)
+        .in('order_nr', ordersWithMetadata.map(order => order.order_nr));
 
       if (fetchError) throw fetchError;
 
