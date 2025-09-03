@@ -203,6 +203,7 @@ export function NoonOrdersUpload({ onUploadComplete, selectedStoreId }: NoonOrde
     setFileName('');
     setValidationErrors([]);
     setUploadProgress(0);
+    setProcessingStats(null);
   };
 
   return (
