@@ -109,28 +109,53 @@ export function NoonOrdersTable({ selectedStoreId, onStoreChange }: NoonOrdersTa
     return [{ groupKey: 'All Orders', orders: filteredAndSortedOrders }];
   }, [filteredAndSortedOrders, viewMode]);
 
-  // Helper function to calculate status distribution for progress bar
-  const getStatusDistribution = (orders: typeof filteredAndSortedOrders) => {
-    const statusCounts = orders.reduce((acc, order) => {
-      const status = order.order_status || 'uploaded';
-      acc[status] = (acc[status] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-
+  // Helper function to calculate order metrics for progress bar
+  const getOrderMetrics = (orders: typeof filteredAndSortedOrders) => {
     const total = orders.length;
-    const delivered = statusCounts.delivered || 0;
-    const shipped = statusCounts.shipped || 0;
-    const processing = statusCounts.processing || 0;
+    
+    const sunskyPlaced = orders.filter(order => order.sunsky_order_number).length;
+    const sunskyProcessed = orders.filter(order => order.sunsky_order_status === 2).length;
+    const sunskyShipped = orders.filter(order => order.sunsky_order_status === 3).length;
+    const pendingToPlaceSunsky = orders.filter(order => order.partner_sku && !order.sunsky_order_number).length;
+    const noonPending = orders.filter(order => !order.order_status || order.order_status === 'pending' || order.order_status === 'uploaded').length;
+    
+    // Calculate breach orders (orders past their fulfillment date)
+    const breachOrders = orders.filter(order => {
+      const orderReceivedDate = order.order_received_at ? new Date(order.order_received_at) : null;
+      const fulfillmentDate = order.fulfillment_timestamp ? new Date(order.fulfillment_timestamp) : null;
+      
+      if (!orderReceivedDate) return false;
+      
+      let targetDate: Date;
+      if (order.target_ready_at) {
+        targetDate = new Date(order.target_ready_at);
+      } else if (fulfillmentDate) {
+        const processingTimeMs = fulfillmentDate.getTime() - orderReceivedDate.getTime();
+        const standardProcessingTime = Math.max(processingTimeMs, 2 * 24 * 60 * 60 * 1000); // Minimum 2 days
+        targetDate = new Date(orderReceivedDate.getTime() + standardProcessingTime);
+      } else {
+        // Default 2-day processing
+        targetDate = new Date(orderReceivedDate.getTime() + (2 * 24 * 60 * 60 * 1000));
+      }
+      
+      return new Date() > targetDate;
+    }).length;
     
     return {
-      delivered: delivered,
-      shipped: shipped,
-      processing: processing,
-      pending: total - delivered - shipped - processing,
-      total: total,
-      deliveredPercent: total > 0 ? (delivered / total) * 100 : 0,
-      shippedPercent: total > 0 ? (shipped / total) * 100 : 0,
-      processingPercent: total > 0 ? (processing / total) * 100 : 0
+      total,
+      sunskyPlaced,
+      sunskyProcessed,
+      sunskyShipped,
+      pendingToPlaceSunsky,
+      noonPending,
+      breachOrders,
+      // Calculate percentages
+      sunskyPlacedPercent: total > 0 ? (sunskyPlaced / total) * 100 : 0,
+      sunskyProcessedPercent: total > 0 ? (sunskyProcessed / total) * 100 : 0,
+      sunskyShippedPercent: total > 0 ? (sunskyShipped / total) * 100 : 0,
+      pendingToPlaceSunskyPercent: total > 0 ? (pendingToPlaceSunsky / total) * 100 : 0,
+      noonPendingPercent: total > 0 ? (noonPending / total) * 100 : 0,
+      breachOrdersPercent: total > 0 ? (breachOrders / total) * 100 : 0
     };
   };
 
