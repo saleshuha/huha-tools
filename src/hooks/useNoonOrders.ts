@@ -73,6 +73,11 @@ export function useNoonOrders() {
     return () => { supabase.removeChannel(channel); };
   }, []);
 
+  // Initial fetch when component mounts
+  useEffect(() => {
+    fetchOrders();
+  }, []);
+
   const fetchOrders = async () => {
     setState(prev => ({ ...prev, loading: true, error: null }));
     

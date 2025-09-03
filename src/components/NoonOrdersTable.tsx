@@ -120,7 +120,7 @@ export function NoonOrdersTable({ selectedStoreId, onStoreChange }: NoonOrdersTa
             <div>
               <CardTitle className="flex items-center gap-2">
                 <Eye className="h-5 w-5" />
-                Orders ({filteredOrders.length})
+                Orders ({filteredOrders.length}{orders.length !== filteredOrders.length ? ` of ${orders.length}` : ''})
               </CardTitle>
               <CardDescription>
                 View and manage your uploaded Noon orders
