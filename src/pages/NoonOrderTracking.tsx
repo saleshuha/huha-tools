@@ -13,6 +13,7 @@ import { NoonOrderPipeline } from '@/components/noon/NoonOrderPipeline';
 import { NoonOrderDetailDrawer } from '@/components/noon/NoonOrderDetailDrawer';
 import { NoonOrderFilters, FilterState } from '@/components/noon/NoonOrderFilters';
 import { NoonExceptions } from '@/components/noon/NoonExceptions';
+import { AutoProcessingIndicator } from '@/components/AutoProcessingIndicator';
 import { useNoonOrders, NoonOrder } from '@/hooks/useNoonOrders';
 import { useNoonStores } from '@/hooks/useNoonStores';
 import { useSunskyCredentials } from '@/hooks/useSunskyCredentials';
@@ -31,7 +32,7 @@ export default function NoonOrderTrackingPage() {
     dateRange: 'all',
   });
 
-  const { orders, loading, refreshOrders, updateOrderStatus, syncOrderStatus, placeOrderWithSunsky } = useNoonOrders();
+  const { orders, loading, refreshOrders, updateOrderStatus, syncOrderStatus, placeOrderWithSunsky, getOrdersByStatus } = useNoonOrders();
   const { stores } = useNoonStores();
   const { credentials } = useSunskyCredentials();
   const { toast } = useToast();
@@ -166,8 +167,17 @@ export default function NoonOrderTrackingPage() {
         </div>
       </div>
       
-      <div className="container mx-auto px-6 py-8">
-        {/* Shared Header Controls */}
+        <div className="container mx-auto px-6 py-8">
+          {/* Auto-Processing Indicator */}
+          <AutoProcessingIndicator
+            totalOrders={orders.length}
+            uploadedOrders={getOrdersByStatus('uploaded').length}
+            readyOrders={getOrdersByStatus('ready_for_sunsky').length}
+            placedOrders={orders.filter(o => o.sunsky_order_number && !o.sunsky_tracking_number).length}
+            isProcessing={loading}
+          />
+
+          {/* Shared Header Controls */}
         <div className="mb-6 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
           <div className="flex items-center gap-4">
             <Select value={selectedStoreId} onValueChange={setSelectedStoreId}>
@@ -192,7 +202,7 @@ export default function NoonOrderTrackingPage() {
                 <SelectItem value="select-credentials">Select Credentials</SelectItem>
                 {credentials.map((cred) => (
                   <SelectItem key={cred.id} value={cred.id}>
-                    {cred.name} ({cred.country})
+                    {cred.name}
                   </SelectItem>
                 ))}
               </SelectContent>

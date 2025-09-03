@@ -327,6 +327,128 @@ export function useNoonOrders() {
     }
   };
 
+  // Auto-processing for uploaded orders
+  const processUploadedOrders = async () => {
+    const uploadedOrders = state.orders.filter(order => 
+      (order.order_status || 'uploaded') === 'uploaded' && 
+      order.partner_sku && 
+      order.quantity > 0
+    );
+
+    if (uploadedOrders.length === 0) return;
+
+    console.log(`🔄 Auto-processing ${uploadedOrders.length} uploaded orders`);
+
+    for (const order of uploadedOrders) {
+      try {
+        // Validate and move to ready_for_sunsky
+        await updateOrderStatus(order.id, {
+          order_status: 'ready_for_sunsky'
+        });
+      } catch (error) {
+        console.error(`Failed to process order ${order.id}:`, error);
+        await updateOrderStatus(order.id, {
+          order_status: 'exception',
+          sunsky_error_message: 'Auto-processing failed'
+        });
+      }
+    }
+  };
+
+  // Auto-place orders that are ready for Sunsky
+  const autoPlaceReadyOrders = async () => {
+    const readyOrders = state.orders.filter(order => 
+      order.order_status === 'ready_for_sunsky' && 
+      order.partner_sku && 
+      order.quantity > 0 && 
+      !order.sunsky_order_number
+    );
+
+    if (readyOrders.length === 0) return;
+
+    console.log(`🚀 Auto-placing ${readyOrders.length} ready orders with Sunsky`);
+
+    // Get first available credentials
+    const { data: credentials } = await supabase
+      .from('sunsky_credentials')
+      .select('id')
+      .eq('is_active', true)
+      .limit(1);
+
+    if (!credentials || credentials.length === 0) {
+      console.warn('No active Sunsky credentials found for auto-placement');
+      return;
+    }
+
+    const credentialsId = credentials[0].id;
+
+    for (const order of readyOrders) {
+      try {
+        await placeOrderWithSunsky(order.id, credentialsId);
+      } catch (error) {
+        console.error(`Failed to auto-place order ${order.id}:`, error);
+        await updateOrderStatus(order.id, {
+          order_status: 'exception',
+          sunsky_error_message: error instanceof Error ? error.message : 'Auto-placement failed'
+        });
+      }
+    }
+  };
+
+  // Auto-sync placed orders
+  const autoSyncPlacedOrders = async () => {
+    const placedOrders = state.orders.filter(order => 
+      order.sunsky_order_number && 
+      order.order_status !== 'delivered' &&
+      (!order.sunsky_last_sync || new Date(order.sunsky_last_sync) < new Date(Date.now() - 30 * 60 * 1000)) // Last synced > 30 min ago
+    );
+
+    if (placedOrders.length === 0) return;
+
+    console.log(`🔄 Auto-syncing ${placedOrders.length} placed orders`);
+
+    for (const order of placedOrders) {
+      try {
+        await syncOrderStatus(order.id);
+      } catch (error) {
+        console.error(`Failed to auto-sync order ${order.id}:`, error);
+      }
+    }
+  };
+
+  // Auto-processing effect
+  useEffect(() => {
+    if (state.orders.length === 0) return;
+    
+    const runAutoProcessing = async () => {
+      try {
+        await processUploadedOrders();
+        await autoPlaceReadyOrders();
+        await autoSyncPlacedOrders();
+      } catch (error) {
+        console.error('Auto-processing error:', error);
+      }
+    };
+
+    // Run auto-processing after a short delay when orders change
+    const timer = setTimeout(runAutoProcessing, 2000);
+    return () => clearTimeout(timer);
+  }, [state.orders]);
+
+  // Periodic auto-sync every 5 minutes
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      console.log('🕒 Running periodic auto-sync...');
+      try {
+        await autoSyncPlacedOrders();
+      } catch (error) {
+        console.error('Periodic sync error:', error);
+      }
+    }, 5 * 60 * 1000); // 5 minutes
+
+    return () => clearInterval(interval);
+  }, []);
+
   useEffect(() => {
     fetchOrders();
   }, []);

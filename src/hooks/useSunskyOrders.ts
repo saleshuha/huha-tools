@@ -470,6 +470,20 @@ export const useSunskyOrders = () => {
     }
   };
 
+  // Auto-sync effect - run every minute to check for new orders
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      console.log('🕒 Running periodic Sunsky order sync...');
+      try {
+        await fetchStoredOrders();
+      } catch (error) {
+        console.error('Periodic Sunsky sync error:', error);
+      }
+    }, 60 * 1000); // 1 minute
+
+    return () => clearInterval(interval);
+  }, []);
+
   // Load orders on mount
   useEffect(() => {
     fetchStoredOrders();
