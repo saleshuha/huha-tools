@@ -124,27 +124,123 @@ export function useNoonOrders() {
         selected_store_id: selectedStoreId || null,
       }));
 
-      const { data, error } = await supabase
-        .from('noon_orders')
-        .insert(ordersWithMetadata)
-        .select();
+      // Check for existing orders
+      const orderKeys = ordersWithMetadata.map(order => ({
+        order_nr: order.order_nr,
+        purchase_item_nr: order.purchase_item_nr
+      }));
 
-      if (error) {
-        if (error.code === '23505') { // Unique constraint violation
-          throw new Error('Some orders with this combination of Order Number, Purchase Item Number already exist for your account.');
+      const { data: existingOrders, error: fetchError } = await supabase
+        .from('noon_orders')
+        .select('*')
+        .eq('user_id', user.id);
+
+      if (fetchError) throw fetchError;
+
+      const existingOrdersMap = new Map();
+      existingOrders?.forEach(order => {
+        const key = `${order.order_nr}-${order.purchase_item_nr}`;
+        existingOrdersMap.set(key, order);
+      });
+
+      const ordersToInsert: any[] = [];
+      const ordersToUpdate: any[] = [];
+      let skippedCount = 0;
+
+      for (const order of ordersWithMetadata) {
+        const key = `${order.order_nr}-${order.purchase_item_nr}`;
+        const existingOrder = existingOrdersMap.get(key);
+
+        if (!existingOrder) {
+          // New order - add to insert list
+          ordersToInsert.push(order);
+        } else {
+          // Check if order has changes (excluding id, created_at, updated_at)
+          const fieldsToCompare = [
+            'order_status', 'quantity', 'order_received_at', 'order_country_code',
+            'manifest_nr', 'shipment_nr', 'fulfillment_timestamp', 'shipment_created_by',
+            'shipment_user', 'shipment_created_at', 'id_warehouse_configuration',
+            'target_ready_at', 'item_status', 'is_reprintable', 'is_printed',
+            'mp_code', 'sku', 'partner_sku', 'title', 'title_ar', 'brand_code',
+            'image_key', 'parent_sku', 'size', 'pbarcodes', 'file_name'
+          ];
+
+          const hasChanges = fieldsToCompare.some(field => {
+            const newValue = order[field];
+            const existingValue = existingOrder[field];
+            
+            // Handle null/undefined/empty string equivalency
+            const normalizeValue = (val: any) => {
+              if (val === null || val === undefined || val === '') return null;
+              return val;
+            };
+            
+            return normalizeValue(newValue) !== normalizeValue(existingValue);
+          });
+
+          if (hasChanges) {
+            // Order has changes - add to update list
+            ordersToUpdate.push({
+              ...order,
+              id: existingOrder.id // Keep existing ID for update
+            });
+          } else {
+            // Order is identical - skip
+            skippedCount++;
+          }
         }
-        throw error;
+      }
+
+      let insertedCount = 0;
+      let updatedCount = 0;
+
+      // Insert new orders
+      if (ordersToInsert.length > 0) {
+        const { data: insertedData, error: insertError } = await supabase
+          .from('noon_orders')
+          .insert(ordersToInsert)
+          .select();
+
+        if (insertError) throw insertError;
+        insertedCount = insertedData?.length || 0;
+      }
+
+      // Update existing orders
+      for (const order of ordersToUpdate) {
+        const { error: updateError } = await supabase
+          .from('noon_orders')
+          .update(order)
+          .eq('id', order.id);
+
+        if (updateError) {
+          console.error('Error updating order:', updateError);
+        } else {
+          updatedCount++;
+        }
+      }
+
+      const totalProcessed = insertedCount + updatedCount + skippedCount;
+      let description = '';
+      
+      if (insertedCount > 0) description += `${insertedCount} new orders added`;
+      if (updatedCount > 0) {
+        if (description) description += ', ';
+        description += `${updatedCount} orders updated`;
+      }
+      if (skippedCount > 0) {
+        if (description) description += ', ';
+        description += `${skippedCount} identical orders skipped`;
       }
 
       toast({
-        title: "Success",
-        description: `Uploaded ${data?.length || 0} noon orders successfully`,
+        title: "Upload Complete",
+        description: description || 'No changes detected',
       });
 
       setState(prev => ({ ...prev, uploading: false }));
       await fetchOrders();
       
-      return data;
+      return { inserted: insertedCount, updated: updatedCount, skipped: skippedCount };
     } catch (error) {
       console.error('Error uploading noon orders:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to upload orders';
