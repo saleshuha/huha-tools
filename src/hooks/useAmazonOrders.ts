@@ -112,14 +112,14 @@ export const useAmazonOrders = () => {
       return amount * (exchangeRates[currency] || 1.0);
     };
     
-    // Calculate total value - keep in original currency, no conversion for display
+    // Calculate total value - convert all to USD for consistent calculations
     const totalValue = ordersData.reduce((sum, order) => {
       const cost = parseFloat(order.item_cost?.toString() || '0') || 0;
       const qty = parseInt(order.quantity?.toString() || '1') || 1;
       const orderValue = cost * qty;
       
-      // Don't convert here - keep original values for accurate display
-      return sum + orderValue;
+      // Convert to USD for consistent calculations
+      return sum + convertToUSD(orderValue, order.currency || 'USD');
     }, 0);
     
     console.log('Total value calculated (all converted to USD):', totalValue);
@@ -145,14 +145,14 @@ export const useAmazonOrders = () => {
     });
     const pendingPayments = pendingOrders.length;
 
-    // Calculate pending orders value (keep in original currency)
+    // Calculate pending orders value (convert to USD)
     const pendingValue = pendingOrders.reduce((sum, order) => {
       const cost = parseFloat(order.item_cost?.toString() || '0') || 0;
       const qty = parseInt(order.quantity?.toString() || '1') || 1;
       const orderValue = cost * qty;
       
-      // Keep original currency values for accurate display
-      return sum + orderValue;
+      // Convert to USD for consistent calculations
+      return sum + convertToUSD(orderValue, order.currency || 'USD');
     }, 0);
     
     console.log('Pending payments (Approved + Non-submitted):', pendingPayments);
@@ -186,14 +186,14 @@ export const useAmazonOrders = () => {
     });
     const overduePayments = overdueOrders.length;
 
-    // Calculate overdue orders value (keep in original currency)
+    // Calculate overdue orders value (convert to USD)
     const overdueValue = overdueOrders.reduce((sum, order) => {
       const cost = parseFloat(order.item_cost?.toString() || '0') || 0;
       const qty = parseInt(order.quantity?.toString() || '1') || 1;
       const orderValue = cost * qty;
       
-      // Keep original currency values for accurate display
-      return sum + orderValue;
+      // Convert to USD for consistent calculations
+      return sum + convertToUSD(orderValue, order.currency || 'USD');
     }, 0);
     
     console.log('Overdue payments count:', overduePayments);
@@ -206,14 +206,14 @@ export const useAmazonOrders = () => {
     });
     const paidPayments = paidOrders.length;
 
-    // Calculate paid orders value (keep in original currency)
+    // Calculate paid orders value (convert to USD)
     const paidValue = paidOrders.reduce((sum, order) => {
       const cost = parseFloat(order.item_cost?.toString() || '0') || 0;
       const qty = parseInt(order.quantity?.toString() || '1') || 1;
       const orderValue = cost * qty;
       
-      // Keep original currency values for accurate display
-      return sum + orderValue;
+      // Convert to USD for consistent calculations
+      return sum + convertToUSD(orderValue, order.currency || 'USD');
     }, 0);
     
     // Completed payments = orders with payment_status "completed" or status "Paid"
