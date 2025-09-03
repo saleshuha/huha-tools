@@ -232,58 +232,6 @@ export function NoonOrdersTable({ selectedStoreId, onStoreChange }: NoonOrdersTa
 
   return (
     <div className="space-y-4">
-      {/* Store Management */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Package className="h-5 w-5" />
-                Store Management
-              </CardTitle>
-              <CardDescription>
-                Manage your Noon stores and their configurations
-              </CardDescription>
-            </div>
-            <Button onClick={() => setShowAddStore(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Store
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {stores.map(store => (
-              <div 
-                key={store.id} 
-                className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-                  selectedStoreId === store.id 
-                    ? 'border-primary bg-primary/5' 
-                    : 'border-border hover:border-primary/50'
-                }`}
-                onClick={() => onStoreChange?.(store.id)}
-              >
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className="font-medium">{store.name}</h3>
-                    <p className="text-sm text-muted-foreground">Partner ID: {store.partner_id}</p>
-                    <p className="text-xs text-muted-foreground">{store.country}</p>
-                  </div>
-                  <Badge variant={store.is_active ? 'default' : 'secondary'}>
-                    {store.is_active ? 'Active' : 'Inactive'}
-                  </Badge>
-                </div>
-              </div>
-            ))}
-            {stores.length === 0 && (
-              <div className="col-span-3 text-center py-8 text-muted-foreground">
-                No stores configured. Add your first store to get started.
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Orders Table */}
       <Card>
         <CardHeader>
