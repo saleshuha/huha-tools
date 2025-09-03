@@ -20,7 +20,7 @@ import { useSunskyCredentials } from '@/hooks/useSunskyCredentials';
 import { useToast } from '@/hooks/use-toast';
 
 export default function NoonOrderTrackingPage() {
-  const [activeTab, setActiveTab] = useState('pipeline');
+  const [activeTab, setActiveTab] = useState('orders');
   const [selectedStoreId, setSelectedStoreId] = useState<string>('');
   const [selectedCredentialsId, setSelectedCredentialsId] = useState<string>('');
   const [selectedOrder, setSelectedOrder] = useState<NoonOrder | null>(null);
@@ -213,39 +213,13 @@ export default function NoonOrderTrackingPage() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-6 mb-8">
-            <TabsTrigger value="pipeline">Pipeline</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-5 mb-8">
             <TabsTrigger value="orders">Orders Management</TabsTrigger>
             <TabsTrigger value="upload">Upload Orders</TabsTrigger>
             <TabsTrigger value="stores">Store Management</TabsTrigger>
             <TabsTrigger value="sunsky-place">Place Sunsky Orders</TabsTrigger>
             <TabsTrigger value="sunsky-track">Track Sunsky Orders</TabsTrigger>
           </TabsList>
-
-          <TabsContent value="pipeline" className="space-y-6">
-            <div className="space-y-4">
-              <NoonOrderFilters
-                filters={filters}
-                onFiltersChange={setFilters}
-                totalOrders={orders.length}
-                filteredOrders={filteredOrders.length}
-              />
-              
-              <NoonOrderPipeline
-                orders={filteredOrders}
-                onOrderView={handleOrderView}
-              />
-              
-              {exceptionOrders.length > 0 && (
-                <div className="mt-8">
-                  <NoonExceptions
-                    orders={exceptionOrders}
-                    onOrderView={handleOrderView}
-                  />
-                </div>
-              )}
-            </div>
-          </TabsContent>
 
           <TabsContent value="orders" className="space-y-6">
             <NoonOrdersTable 
