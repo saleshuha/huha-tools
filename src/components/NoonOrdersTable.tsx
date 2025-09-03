@@ -168,7 +168,7 @@ export function NoonOrdersTable({ selectedStoreId, onStoreChange }: NoonOrdersTa
                     <TableHead className="w-2/5">Product Details</TableHead>
                     <TableHead className="w-1/6">Target & Time Remaining</TableHead>
                     <TableHead>Qty</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead className="w-1/4">Order Status & Integration</TableHead>
                     <TableHead>Country</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -346,9 +346,85 @@ export function NoonOrdersTable({ selectedStoreId, onStoreChange }: NoonOrdersTa
                         </TableCell>
                         <TableCell className="text-center">{order.quantity}</TableCell>
                         <TableCell>
-                          <Badge className={getStatusColor(order.order_status)}>
-                            {order.order_status || 'Pending'}
-                          </Badge>
+                          <div className="space-y-2">
+                            {/* Noon Order Status */}
+                            <div className="flex items-center gap-2">
+                              <Badge className={getStatusColor(order.order_status)}>
+                                {order.order_status || 'Uploaded'}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">Noon</span>
+                            </div>
+                            
+                            {/* Sunsky Integration Status */}
+                            {order.sunsky_order_number ? (
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-1">
+                                  <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                                    {order.sunsky_order_number}
+                                  </Badge>
+                                  <span className="text-xs text-muted-foreground">Sunsky</span>
+                                </div>
+                                
+                                {/* Sunsky Order Status */}
+                                {order.sunsky_order_status && (
+                                  <div className="flex items-center gap-1">
+                                    <Badge 
+                                      variant="secondary" 
+                                      className={`text-xs ${
+                                        order.sunsky_order_status === 1 ? 'bg-yellow-100 text-yellow-800' :
+                                        order.sunsky_order_status === 2 ? 'bg-blue-100 text-blue-800' :
+                                        order.sunsky_order_status === 3 ? 'bg-green-100 text-green-800' :
+                                        'bg-gray-100 text-gray-600'
+                                      }`}
+                                    >
+                                      {order.sunsky_order_status === 1 ? 'Pending' :
+                                       order.sunsky_order_status === 2 ? 'Processing' :
+                                       order.sunsky_order_status === 3 ? 'Shipped' :
+                                       `Status ${order.sunsky_order_status}`}
+                                    </Badge>
+                                    <span className="text-xs text-muted-foreground">Status</span>
+                                  </div>
+                                )}
+                                
+                                {/* Sunsky Tracking Number */}
+                                {order.sunsky_tracking_number && (
+                                  <div className="flex items-center gap-1">
+                                    <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200 font-mono">
+                                      {order.sunsky_tracking_number}
+                                    </Badge>
+                                    <span className="text-xs text-muted-foreground">Track</span>
+                                  </div>
+                                )}
+                              </div>
+                            ) : order.partner_sku ? (
+                              <div className="text-xs text-muted-foreground">
+                                Ready for Sunsky
+                              </div>
+                            ) : (
+                              <div className="text-xs text-amber-600">
+                                Missing Partner SKU
+                              </div>
+                            )}
+                            
+                            {/* Error Messages */}
+                            {order.sunsky_error_message && (
+                              <div className="flex items-center gap-1">
+                                <Badge variant="destructive" className="text-xs">
+                                  Error
+                                </Badge>
+                                <span className="text-xs text-red-600 truncate max-w-32" title={order.sunsky_error_message}>
+                                  {order.sunsky_error_message}
+                                </span>
+                              </div>
+                            )}
+                            
+                            {/* Last Sync Time */}
+                            {order.sunsky_last_sync && (
+                              <div className="text-xs text-muted-foreground">
+                                Synced: {new Date(order.sunsky_last_sync).toLocaleTimeString()}
+                              </div>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>{order.order_country_code}</TableCell>
                       </TableRow>
