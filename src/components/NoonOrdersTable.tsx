@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Package, Search, Filter, Plus, Eye } from 'lucide-react';
+import { Package, Search, Filter, Plus, Eye, LayoutGrid, Calendar } from 'lucide-react';
 import { AddStoreDialog } from '@/components/AddStoreDialog';
 
 interface NoonOrdersTableProps {
@@ -15,12 +15,15 @@ interface NoonOrdersTableProps {
   onStoreChange?: (storeId: string) => void;
 }
 
+type ViewMode = 'default' | 'sunsky-groups' | 'date-groups';
+
 export function NoonOrdersTable({ selectedStoreId, onStoreChange }: NoonOrdersTableProps) {
   const { orders, loading } = useNoonOrders();
   const { stores } = useNoonStores();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [showAddStore, setShowAddStore] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('default');
 
   const filteredOrders = orders.filter(order => {
     const matchesSearch = !searchTerm || 
@@ -35,6 +38,37 @@ export function NoonOrdersTable({ selectedStoreId, onStoreChange }: NoonOrdersTa
     
     return matchesSearch && matchesStatus && matchesStore;
   });
+
+  // Group orders based on view mode
+  const groupedOrders = React.useMemo(() => {
+    if (viewMode === 'sunsky-groups') {
+      const groups = new Map<string, typeof filteredOrders>();
+      filteredOrders.forEach(order => {
+        const key = order.sunsky_order_number || 'No Sunsky Order';
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key)!.push(order);
+      });
+      return Array.from(groups.entries()).map(([key, orders]) => ({
+        groupKey: key,
+        orders: orders.sort((a, b) => a.order_nr.localeCompare(b.order_nr))
+      }));
+    } else if (viewMode === 'date-groups') {
+      const groups = new Map<string, typeof filteredOrders>();
+      filteredOrders.forEach(order => {
+        const date = order.order_received_at || order.created_at;
+        const key = date ? new Date(date).toDateString() : 'No Date';
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key)!.push(order);
+      });
+      return Array.from(groups.entries())
+        .sort(([a], [b]) => new Date(b).getTime() - new Date(a).getTime())
+        .map(([key, orders]) => ({
+          groupKey: key,
+          orders: orders.sort((a, b) => a.order_nr.localeCompare(b.order_nr))
+        }));
+    }
+    return [{ groupKey: 'All Orders', orders: filteredOrders }];
+  }, [filteredOrders, viewMode]);
 
   const getStatusColor = (status?: string) => {
     switch (status) {
@@ -129,7 +163,7 @@ export function NoonOrdersTable({ selectedStoreId, onStoreChange }: NoonOrdersTa
           </div>
         </CardHeader>
         <CardContent>
-          {/* Filters */}
+          {/* Filters and View Mode */}
           <div className="flex flex-col sm:flex-row gap-4 mb-6">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -141,6 +175,17 @@ export function NoonOrdersTable({ selectedStoreId, onStoreChange }: NoonOrdersTa
               />
             </div>
             <div className="flex gap-2">
+              <Select value={viewMode} onValueChange={(value) => setViewMode(value as ViewMode)}>
+                <SelectTrigger className="w-48">
+                  <LayoutGrid className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="View Mode" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="default">Default View</SelectItem>
+                  <SelectItem value="sunsky-groups">Group by Sunsky Orders</SelectItem>
+                  <SelectItem value="date-groups">Group by Order Date</SelectItem>
+                </SelectContent>
+              </Select>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="w-40">
                   <Filter className="h-4 w-4 mr-2" />
@@ -160,20 +205,41 @@ export function NoonOrdersTable({ selectedStoreId, onStoreChange }: NoonOrdersTa
 
           {/* Orders Table */}
           {filteredOrders.length > 0 ? (
-            <div className="border rounded-lg overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-1/5">Order & Product</TableHead>
-                    <TableHead className="w-2/5">Product Details</TableHead>
-                    <TableHead className="w-1/6">Target & Time Remaining</TableHead>
-                    <TableHead>Qty</TableHead>
-                    <TableHead className="w-1/4">Order Status & Integration</TableHead>
-                    <TableHead>Country</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredOrders.map((order) => {
+            <div className="space-y-6">
+              {groupedOrders.map((group, groupIndex) => (
+                <div key={group.groupKey} className="border rounded-lg overflow-hidden">
+                  {/* Group Header */}
+                  {viewMode !== 'default' && (
+                    <div className="bg-muted/30 px-4 py-3 border-b">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {viewMode === 'sunsky-groups' ? (
+                            <LayoutGrid className="h-4 w-4" />
+                          ) : (
+                            <Calendar className="h-4 w-4" />
+                          )}
+                          <span className="font-medium">{group.groupKey}</span>
+                          <Badge variant="outline" className="ml-2">
+                            {group.orders.length} {group.orders.length === 1 ? 'order' : 'orders'}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-1/5">Order & Product</TableHead>
+                        <TableHead className="w-2/5">Product Details</TableHead>
+                        <TableHead className="w-1/6">Target & Time Remaining</TableHead>
+                        <TableHead>Qty</TableHead>
+                        <TableHead className="w-1/4">Order Status & Integration</TableHead>
+                        <TableHead>Country</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {group.orders.map((order) => {
                     const orderReceivedDate = order.order_received_at ? new Date(order.order_received_at) : null;
                     const fulfillmentDate = order.fulfillment_timestamp ? new Date(order.fulfillment_timestamp) : null;
                     
@@ -432,6 +498,8 @@ export function NoonOrdersTable({ selectedStoreId, onStoreChange }: NoonOrdersTa
                   })}
                 </TableBody>
               </Table>
+            </div>
+              ))}
             </div>
           ) : (
             <div className="text-center py-12">
