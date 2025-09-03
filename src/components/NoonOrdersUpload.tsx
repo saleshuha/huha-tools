@@ -29,6 +29,12 @@ export function NoonOrdersUpload({ onUploadComplete, selectedStoreId }: NoonOrde
   const [fileName, setFileName] = useState<string>('');
   const [uploadProgress, setUploadProgress] = useState(0);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [processingStats, setProcessingStats] = useState<{
+    current: number;
+    total: number;
+    processed: number;
+    errors: number;
+  } | null>(null);
 
   const parseFile = useCallback(async (file: File) => {
     return new Promise((resolve, reject) => {
