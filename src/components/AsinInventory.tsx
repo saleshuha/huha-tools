@@ -1456,5 +1456,91 @@ export function AsinInventory() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Fetch Titles Progress Dialog */}
+        <Dialog open={isFetchTitlesDialogOpen} onOpenChange={setIsFetchTitlesDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Database className="w-5 h-5" />
+                Fetch Titles from Sunsky
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              {!fetchProgress.isLoading && fetchProgress.total === 0 && (
+                <div className="text-center py-4">
+                  <p className="text-muted-foreground mb-4">
+                    This will fetch titles for items that have SKU numbers but are missing titles.
+                  </p>
+                  <Button onClick={handleFetchTitlesWithProgress}>
+                    <Database className="w-4 h-4 mr-2" />
+                    Start Fetching
+                  </Button>
+                </div>
+              )}
+              
+              {fetchProgress.isLoading && (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Progress</span>
+                      <span>{fetchProgress.current} / {fetchProgress.total}</span>
+                    </div>
+                    <Progress 
+                      value={fetchProgress.total > 0 ? (fetchProgress.current / fetchProgress.total) * 100 : 0} 
+                      className="w-full" 
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="space-y-1">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Total Items:</span>
+                        <span className="font-medium">{fetchProgress.total}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Processed:</span>
+                        <span className="font-medium">{fetchProgress.current}</span>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex justify-between">
+                        <span className="text-green-600">Matched:</span>
+                        <span className="font-medium text-green-600">{fetchProgress.matched}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-blue-600">Added:</span>
+                        <span className="font-medium text-blue-600">{fetchProgress.added}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-red-600">Failed:</span>
+                        <span className="font-medium text-red-600">{fetchProgress.failed}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {!fetchProgress.isLoading && fetchProgress.total > 0 && (
+                <div className="text-center py-4">
+                  <div className="text-lg font-semibold mb-2">✅ Complete!</div>
+                  <div className="text-sm text-muted-foreground space-y-1">
+                    <p>Processed {fetchProgress.total} items</p>
+                    <p className="text-green-600">{fetchProgress.matched} titles found and {fetchProgress.added} updated</p>
+                    {fetchProgress.failed > 0 && <p className="text-red-600">{fetchProgress.failed} failed to fetch</p>}
+                  </div>
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => {
+                setIsFetchTitlesDialogOpen(false);
+                setFetchProgress({ isLoading: false, current: 0, total: 0, matched: 0, added: 0, failed: 0 });
+              }}>
+                {fetchProgress.isLoading ? 'Close' : 'Done'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
     </div>;
 }
