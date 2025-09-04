@@ -22,6 +22,7 @@ import { DualQuantityEditor } from './DualQuantityEditor';
 import { StockHistoryDialog } from './StockHistoryDialog';
 import { MultiBinEditor } from './MultiBinEditor';
 import { SkuEditor } from './SkuEditor';
+import { TitleEditor } from './TitleEditor';
 import { AsinEditor } from './AsinEditor';
 import { SkuInventoryMetrics } from './SkuInventoryMetrics';
 import { BulkSkuUploadSku } from './BulkSkuUploadSku';
@@ -42,6 +43,7 @@ export function SSInventory() {
     updateQuantity,
     updateBinLocation,
     updateSku,
+    updateTitle,
     updateAsin,
     bulkUpdateSkus,
     refetch
@@ -281,8 +283,8 @@ export function SSInventory() {
       ...filteredInventory.map(item => [
         item.skuNumber,  // SKU
         '',  // UPC (blank)
-        '',  // ASIN (blank for SKU inventory)
-        '',  // Title (blank)
+        item.asin || '',  // ASIN
+        item.title || '',  // Title
         selectedWarehouse?.code || '',  // Warehouse
         selectedWarehouse?.name || '',  // Warehouse name
         item.quantity.toString(),  // Available units
@@ -399,13 +401,20 @@ export function SSInventory() {
                         binSerialNumber: e.target.value
                       })} placeholder="Enter Bin/Serial Number..." />
                       </div>
-                      <div>
-                        <Label htmlFor="asin">ASIN Number</Label>
-                        <Input id="asin" value={newItem.asin} onChange={e => setNewItem({
-                        ...newItem,
-                        asin: e.target.value
-                      })} placeholder="Enter ASIN Number..." />
-                      </div>
+                       <div>
+                         <Label htmlFor="asin">ASIN Number</Label>
+                         <Input id="asin" value={newItem.asin} onChange={e => setNewItem({
+                         ...newItem,
+                         asin: e.target.value
+                       })} placeholder="Enter ASIN Number..." />
+                       </div>
+                       <div>
+                         <Label htmlFor="title">Title (Optional)</Label>
+                         <Input id="title" value={newItem.title} onChange={e => setNewItem({
+                         ...newItem,
+                         title: e.target.value
+                       })} placeholder="Enter title (optional)" />
+                       </div>
                       <div>
                         <Label htmlFor="quantity">Quantity</Label>
                         <Input id="quantity" type="number" min="1" value={newItem.quantity} onChange={e => setNewItem({
@@ -695,10 +704,11 @@ export function SSInventory() {
                     }
                   }} />
                     </th>
-                    <th className="p-4 text-left font-medium">ASIN Number</th>
-                    <th className="p-4 text-left font-medium">Bin/Serial Number</th>
-                    <th className="p-4 text-left font-medium">SKU Number</th>
-                    <th className="p-4 text-left font-medium">Status</th>
+                     <th className="p-4 text-left font-medium">ASIN Number</th>
+                     <th className="p-4 text-left font-medium">Bin/Serial Number</th>
+                     <th className="p-4 text-left font-medium">SKU Number</th>
+                     <th className="p-4 text-left font-medium">Title</th>
+                     <th className="p-4 text-left font-medium">Status</th>
                     <th className="p-4 text-left font-medium">Quantity</th>
                     <th className="p-4 text-left font-medium">Date Added</th>
                     <th className="p-4 text-left font-medium">Actions</th>
@@ -729,12 +739,18 @@ export function SSInventory() {
                           onUpdate={(newBinSerial, reason) => updateBinLocation(item.id, newBinSerial)}
                         />
                       </td>
-                      <td className="p-4">
-                        <SkuEditor 
-                          currentSku={item.skuNumber} 
-                          onUpdate={(newSku) => updateSku(item.id, newSku)} 
-                        />
-                      </td>
+                       <td className="p-4">
+                         <SkuEditor 
+                           currentSku={item.skuNumber} 
+                           onUpdate={(newSku) => updateSku(item.id, newSku)} 
+                         />
+                       </td>
+                       <td className="p-4">
+                         <TitleEditor 
+                           currentTitle={item.title} 
+                           onUpdate={(newTitle) => updateTitle(item.id, newTitle)} 
+                         />
+                       </td>
                       <td className="p-4">
                         <Badge variant={item.status === 'in-stock' ? 'default' : item.status === 'sold' ? 'secondary' : item.status === 'reserved' ? 'outline' : 'destructive'}>
                           {item.status.replace('-', ' ').toUpperCase()}

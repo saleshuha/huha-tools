@@ -21,6 +21,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { DualQuantityEditor } from './DualQuantityEditor';
 import { StockHistoryDialog } from './StockHistoryDialog';
 import { SkuEditor } from './SkuEditor';
+import { TitleEditor } from './TitleEditor';
 import { InventoryMetrics } from './InventoryMetrics';
 import { InventoryDashboard } from './InventoryDashboard';
 import { BulkSkuUpload } from './BulkSkuUpload';
@@ -411,7 +412,7 @@ export function AsinInventory() {
         item.sku || '',  // SKU
         '',  // UPC (blank)
         item.asin,  // ASIN
-        '',  // Title (blank)
+        item.title || '',  // Title
         selectedWarehouse?.code || '',  // Warehouse
         selectedWarehouse?.name || '',  // Warehouse name
         item.quantity.toString(),  // Available units
@@ -730,6 +731,13 @@ export function AsinInventory() {
                        })} placeholder="Enter SKU (optional)" />
                        </div>
                        <div>
+                         <Label htmlFor="title">Title (Optional)</Label>
+                         <Input id="title" value={newItem.title} onChange={e => setNewItem({
+                         ...newItem,
+                         title: e.target.value
+                       })} placeholder="Enter title (optional)" />
+                       </div>
+                       <div>
                          <Label htmlFor="quantity">Quantity</Label>
                          <Input id="quantity" type="number" min="1" value={newItem.quantity} onChange={e => setNewItem({
                          ...newItem,
@@ -1028,6 +1036,7 @@ export function AsinInventory() {
                      <th className="p-4 text-left font-medium">ASIN</th>
                      <th className="p-4 text-left font-medium">Serial Number</th>
                      <th className="p-4 text-left font-medium">SKU</th>
+                     <th className="p-4 text-left font-medium">Title</th>
                      <th className="p-4 text-left font-medium">Status</th>
                     <th className="p-4 text-left font-medium">Quantity</th>
                     <th className="p-4 text-left font-medium">Date Added</th>
@@ -1053,6 +1062,12 @@ export function AsinInventory() {
                          <SkuEditor 
                            currentSku={item.sku} 
                            onUpdate={(newSku) => updateSku(item.id, newSku)} 
+                         />
+                       </td>
+                       <td className="p-4">
+                         <TitleEditor 
+                           currentTitle={item.title} 
+                           onUpdate={(newTitle) => updateTitle(item.id, newTitle)} 
                          />
                        </td>
                        <td className="p-4">
