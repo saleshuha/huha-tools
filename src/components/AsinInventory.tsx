@@ -50,7 +50,9 @@ export function AsinInventory() {
   const {
     user
   } = useUserProfile();
-  const { runTitleFetch } = useBackgroundTasks();
+  const {
+    runTitleFetch
+  } = useBackgroundTasks();
   const [searchTerm, setSearchTerm] = useState('');
   const [searchMethod, setSearchMethod] = useState<'all' | 'asin' | 'sku' | 'serial' | 'title' | 'notes'>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -71,10 +73,14 @@ export function AsinInventory() {
   const [quickFilter, setQuickFilter] = useState<'all' | 'low-stock' | 'out-of-stock' | 'recent'>('all');
   const [dateFilterFrom, setDateFilterFrom] = useState<Date>();
   const [dateFilterTo, setDateFilterTo] = useState<Date>();
-  
+
   // Use warehouse management from hook
-  const { selectedWarehouse } = useWarehouseManager();
-  const { toast } = useToast();
+  const {
+    selectedWarehouse
+  } = useWarehouseManager();
+  const {
+    toast
+  } = useToast();
 
   // Form states
   const [newItem, setNewItem] = useState<{
@@ -99,7 +105,7 @@ export function AsinInventory() {
   // Calculate duplicate ASINs from original inventory data
   const duplicateData = useMemo(() => {
     const asinCounts = new Map<string, AsinInventoryItem[]>();
-    
+
     // Group original inventory by ASIN
     inventory.forEach(item => {
       if (!asinCounts.has(item.asin)) {
@@ -107,7 +113,7 @@ export function AsinInventory() {
       }
       asinCounts.get(item.asin)!.push(item);
     });
-    
+
     // Filter to only duplicates (more than 1 item per ASIN)
     const duplicates = new Map<string, AsinInventoryItem[]>();
     asinCounts.forEach((items, asin) => {
@@ -115,7 +121,6 @@ export function AsinInventory() {
         duplicates.set(asin, items);
       }
     });
-    
     return {
       duplicates,
       totalDuplicateASINs: duplicates.size,
@@ -131,7 +136,6 @@ export function AsinInventory() {
       console.log('Search Terms:', searchTerms);
       console.log('Search Method:', searchMethod);
       console.log('Total Inventory Items:', inventory.length);
-      
       filtered = filtered.filter(item => {
         if (searchMethod === 'all') {
           const matches = searchTerms.every(term => {
@@ -140,9 +144,8 @@ export function AsinInventory() {
             const skuMatch = item.sku && item.sku.toLowerCase().includes(term);
             const titleMatch = item.title && item.title.toLowerCase().includes(term);
             const notesMatch = item.notes && item.notes.toLowerCase().includes(term);
-            
             const termFound = asinMatch || serialMatch || skuMatch || titleMatch || notesMatch;
-            
+
             // Debug logging for specific searches
             if (term === 'oppo' || term === 'reno' || term === 'reno6') {
               console.log(`Searching for "${term}" in item:`, {
@@ -153,7 +156,6 @@ export function AsinInventory() {
                 termFound
               });
             }
-            
             return termFound;
           });
           return matches;
@@ -170,14 +172,11 @@ export function AsinInventory() {
         }
         return false;
       });
-      
       console.log('Filtered Results:', filtered.length);
-      
+
       // Additional debugging for title searches
       if (searchTerm.toLowerCase().includes('oppo') || searchTerm.toLowerCase().includes('reno')) {
-        const titlesWithSearchTerm = inventory.filter(item => 
-          item.title && item.title.toLowerCase().includes(searchTerm.toLowerCase())
-        );
+        const titlesWithSearchTerm = inventory.filter(item => item.title && item.title.toLowerCase().includes(searchTerm.toLowerCase()));
         console.log(`Items with "${searchTerm}" in title:`, titlesWithSearchTerm.length);
         if (titlesWithSearchTerm.length > 0) {
           console.log('Sample titles:', titlesWithSearchTerm.slice(0, 3).map(item => item.title));
@@ -195,14 +194,13 @@ export function AsinInventory() {
       filtered = filtered.filter(item => item.quantity > 0 && item.quantity <= 5);
     } else if (quickFilter === 'out-of-stock') {
       filtered = filtered.filter(item => item.quantity === 0);
-      
+
       // Apply date filter for out-of-stock items
       if (dateFilterFrom || dateFilterTo) {
         filtered = filtered.filter(item => {
           const itemDate = new Date(item.dateAdded);
           const fromDate = dateFilterFrom ? new Date(dateFilterFrom.setHours(0, 0, 0, 0)) : null;
           const toDate = dateFilterTo ? new Date(dateFilterTo.setHours(23, 59, 59, 999)) : null;
-          
           if (fromDate && toDate) {
             return itemDate >= fromDate && itemDate <= toDate;
           } else if (fromDate) {
@@ -219,34 +217,37 @@ export function AsinInventory() {
       filtered = filtered.filter(item => new Date(item.dateAdded) >= sevenDaysAgo);
     }
 
-  // Merge duplicate ASINs - combine quantities and serial numbers
-  const asinGroups = new Map();
-  filtered.forEach(item => {
-    const key = item.asin;
-    if (asinGroups.has(key)) {
-      const existing = asinGroups.get(key);
-      existing.quantity += item.quantity;
-      existing.serialNumber = existing.serialNumber + ', ' + item.serialNumber;
-      // Store all individual items for quantity operations
-      existing.individualItems = existing.individualItems || [existing];
-      existing.individualItems.push(item);
-      // Keep the most recent status (prioritize in-stock over sold)
-      if (item.status === 'in-stock' && existing.status !== 'in-stock') {
-        existing.status = item.status;
+    // Merge duplicate ASINs - combine quantities and serial numbers
+    const asinGroups = new Map();
+    filtered.forEach(item => {
+      const key = item.asin;
+      if (asinGroups.has(key)) {
+        const existing = asinGroups.get(key);
+        existing.quantity += item.quantity;
+        existing.serialNumber = existing.serialNumber + ', ' + item.serialNumber;
+        // Store all individual items for quantity operations
+        existing.individualItems = existing.individualItems || [existing];
+        existing.individualItems.push(item);
+        // Keep the most recent status (prioritize in-stock over sold)
+        if (item.status === 'in-stock' && existing.status !== 'in-stock') {
+          existing.status = item.status;
+        }
+        // Use the earliest date added
+        if (new Date(item.dateAdded) < new Date(existing.dateAdded)) {
+          existing.dateAdded = item.dateAdded;
+        }
+        // Combine notes if they exist
+        if (item.notes && !existing.notes?.includes(item.notes)) {
+          existing.notes = existing.notes ? existing.notes + '; ' + item.notes : item.notes;
+        }
+      } else {
+        asinGroups.set(key, {
+          ...item,
+          individualItems: [item]
+        });
       }
-      // Use the earliest date added
-      if (new Date(item.dateAdded) < new Date(existing.dateAdded)) {
-        existing.dateAdded = item.dateAdded;
-      }
-      // Combine notes if they exist
-      if (item.notes && !existing.notes?.includes(item.notes)) {
-        existing.notes = existing.notes ? existing.notes + '; ' + item.notes : item.notes;
-      }
-    } else {
-      asinGroups.set(key, { ...item, individualItems: [item] });
-    }
-  });
-    
+    });
+
     // Convert back to array
     filtered = Array.from(asinGroups.values());
 
@@ -280,44 +281,35 @@ export function AsinInventory() {
     }
 
     // Check for duplicate ASIN in current inventory
-    const duplicateAsin = inventory.find(item => 
-      item.asin.toLowerCase() === newItem.asin.toLowerCase().trim()
-    );
-
+    const duplicateAsin = inventory.find(item => item.asin.toLowerCase() === newItem.asin.toLowerCase().trim());
     if (duplicateAsin) {
       toast({
         title: "Duplicate ASIN",
         description: `ASIN "${newItem.asin}" already exists in inventory. Each ASIN must be unique.`,
-        variant: "destructive",
+        variant: "destructive"
       });
       return;
     }
 
     // Check for duplicate serial number in current inventory
-    const duplicateSerial = inventory.find(item => 
-      item.serialNumber.toLowerCase() === newItem.serialNumber.toLowerCase().trim()
-    );
-
+    const duplicateSerial = inventory.find(item => item.serialNumber.toLowerCase() === newItem.serialNumber.toLowerCase().trim());
     if (duplicateSerial) {
       toast({
         title: "Duplicate Serial Number",
         description: `Serial number "${newItem.serialNumber}" already exists in inventory. Each serial number must be unique.`,
-        variant: "destructive",
+        variant: "destructive"
       });
       return;
     }
 
     // Check for duplicate SKU in current inventory (if SKU is provided)
     if (newItem.sku && newItem.sku.trim()) {
-      const duplicateSku = inventory.find(item => 
-        item.sku && item.sku.toLowerCase() === newItem.sku.toLowerCase().trim()
-      );
-
+      const duplicateSku = inventory.find(item => item.sku && item.sku.toLowerCase() === newItem.sku.toLowerCase().trim());
       if (duplicateSku) {
         toast({
           title: "Duplicate SKU",
           description: `SKU "${newItem.sku}" already exists in inventory. Each SKU must be unique.`,
-          variant: "destructive",
+          variant: "destructive"
         });
         return;
       }
@@ -376,14 +368,11 @@ export function AsinInventory() {
     const seenAsins = new Set();
     const seenSerials = new Set();
     const seenSkus = new Set();
-
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
-      
+
       // Check for duplicate ASIN against existing inventory
-      const duplicateAsin = inventory.find(existing => 
-        existing.asin.toLowerCase() === item.asin.toLowerCase()
-      );
+      const duplicateAsin = inventory.find(existing => existing.asin.toLowerCase() === item.asin.toLowerCase());
       if (duplicateAsin) {
         validationErrors.push(`Row ${i + 1}: ASIN "${item.asin}" already exists in inventory`);
         continue;
@@ -397,9 +386,7 @@ export function AsinInventory() {
       seenAsins.add(item.asin.toLowerCase());
 
       // Check for duplicate serial number against existing inventory
-      const duplicateSerial = inventory.find(existing => 
-        existing.serialNumber.toLowerCase() === item.serialNumber.toLowerCase()
-      );
+      const duplicateSerial = inventory.find(existing => existing.serialNumber.toLowerCase() === item.serialNumber.toLowerCase());
       if (duplicateSerial) {
         validationErrors.push(`Row ${i + 1}: Serial number "${item.serialNumber}" already exists in inventory`);
         continue;
@@ -414,9 +401,7 @@ export function AsinInventory() {
 
       // Check for duplicate SKU (if provided)
       if (item.sku && item.sku.trim()) {
-        const duplicateSku = inventory.find(existing => 
-          existing.sku && existing.sku.toLowerCase() === item.sku.toLowerCase()
-        );
+        const duplicateSku = inventory.find(existing => existing.sku && existing.sku.toLowerCase() === item.sku.toLowerCase());
         if (duplicateSku) {
           validationErrors.push(`Row ${i + 1}: SKU "${item.sku}" already exists in inventory`);
           continue;
@@ -430,7 +415,6 @@ export function AsinInventory() {
         seenSkus.add(item.sku.toLowerCase());
       }
     }
-
     if (validationErrors.length > 0) {
       toast({
         title: "Validation Errors",
@@ -439,7 +423,6 @@ export function AsinInventory() {
       });
       return;
     }
-
     await bulkAdd(items);
     setBulkText('');
     setIsBulkDialogOpen(false);
@@ -449,19 +432,22 @@ export function AsinInventory() {
     });
   };
   const exportInventory = () => {
-    const csvData = [
-      ['SKU', 'UPC', 'ASIN', 'Title', 'Warehouse', 'Warehouse name', 'Available units', 'Status'],
-      ...filteredInventory.map(item => [
-        item.sku || '',  // SKU
-        '',  // UPC (blank)
-        item.asin,  // ASIN
-        item.title || '',  // Title
-        selectedWarehouse?.code || '',  // Warehouse
-        selectedWarehouse?.name || '',  // Warehouse name
-        item.quantity.toString(),  // Available units
-        'active'  // Status (active for all)
-      ])
-    ];
+    const csvData = [['SKU', 'UPC', 'ASIN', 'Title', 'Warehouse', 'Warehouse name', 'Available units', 'Status'], ...filteredInventory.map(item => [item.sku || '',
+    // SKU
+    '',
+    // UPC (blank)
+    item.asin,
+    // ASIN
+    item.title || '',
+    // Title
+    selectedWarehouse?.code || '',
+    // Warehouse
+    selectedWarehouse?.name || '',
+    // Warehouse name
+    item.quantity.toString(),
+    // Available units
+    'active' // Status (active for all)
+    ])];
     const csvContent = csvData.map(row => row.map(field => `"${field}"`).join(',')).join('\n');
     const blob = new Blob([csvContent], {
       type: 'text/csv;charset=utf-8;'
@@ -512,15 +498,12 @@ export function AsinInventory() {
       // Multiple items merged, distribute the quantity change
       const currentTotalQuantity = mergedItem.quantity;
       const quantityChange = newTotalQuantity - currentTotalQuantity;
-      
+
       // Sort individual items by quantity (descending) to handle reductions better
       const sortedItems = [...mergedItem.individualItems].sort((a, b) => b.quantity - a.quantity);
-      
       let remainingChange = quantityChange;
-      
       for (const item of sortedItems) {
         if (remainingChange === 0) break;
-        
         if (remainingChange > 0) {
           // Adding stock - add to the first item
           if (item === sortedItems[0]) {
@@ -538,7 +521,6 @@ export function AsinInventory() {
       }
     }
   };
-
   const handleRefresh = () => {
     refetch();
     toast({
@@ -546,23 +528,19 @@ export function AsinInventory() {
       description: "Inventory data refreshed"
     });
   };
-
   const handleFetchTitlesFromSunsky = async () => {
     // Get items with SKU Numbers but missing titles
-    const itemsNeedingTitles = inventory.filter(item => 
-      item.sku && item.sku.trim() && !item.title
-    );
-
+    const itemsNeedingTitles = inventory.filter(item => item.sku && item.sku.trim() && !item.title);
     if (itemsNeedingTitles.length === 0) {
       toast({
         title: "No Items to Update",
-        description: "All items either have titles or are missing SKU numbers",
+        description: "All items either have titles or are missing SKU numbers"
       });
       return;
     }
 
     // Start background task for title fetching
-    await runTitleFetch(itemsNeedingTitles, async (titleUpdates) => {
+    await runTitleFetch(itemsNeedingTitles, async titleUpdates => {
       // The background task will handle the API calls
       // When updates are ready, save them to the database
       if (titleUpdates.length > 0) {
@@ -575,7 +553,6 @@ export function AsinInventory() {
   const mergeDuplicates = useCallback(async () => {
     console.log('mergeDuplicates function called');
     console.log('duplicateData:', duplicateData);
-    
     if (duplicateData.duplicates.size === 0) {
       toast({
         title: "No Duplicates Found",
@@ -584,11 +561,9 @@ export function AsinInventory() {
       });
       return;
     }
-
     try {
       let mergedCount = 0;
       let deletedCount = 0;
-
       for (const [asin, items] of duplicateData.duplicates.entries()) {
         if (items.length <= 1) continue;
 
@@ -600,53 +575,43 @@ export function AsinInventory() {
         // Calculate merged data
         const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
         const combinedSerialNumbers = items.map(item => item.serialNumber).join(', ');
-        const combinedNotes = items
-          .map(item => item.notes)
-          .filter(note => note && note.trim())
-          .join('; ') || null;
+        const combinedNotes = items.map(item => item.notes).filter(note => note && note.trim()).join('; ') || null;
 
         // Update the primary item with merged data
-        const { error: updateError } = await supabase
-          .from('asin_inventory')
-          .update({
-            quantity: totalQuantity,
-            serialNumber: combinedSerialNumbers,
-            notes: combinedNotes,
-            status: items.some(item => item.status === 'in-stock') ? 'in-stock' : primaryItem.status
-          })
-          .eq('id', primaryItem.id);
-
+        const {
+          error: updateError
+        } = await supabase.from('asin_inventory').update({
+          quantity: totalQuantity,
+          serialNumber: combinedSerialNumbers,
+          notes: combinedNotes,
+          status: items.some(item => item.status === 'in-stock') ? 'in-stock' : primaryItem.status
+        }).eq('id', primaryItem.id);
         if (updateError) {
           console.error('Error updating primary item:', updateError);
           continue;
         }
 
         // Delete the duplicate items
-        const { error: deleteError } = await supabase
-          .from('asin_inventory')
-          .delete()
-          .in('id', itemsToDelete.map(item => item.id));
-
+        const {
+          error: deleteError
+        } = await supabase.from('asin_inventory').delete().in('id', itemsToDelete.map(item => item.id));
         if (deleteError) {
           console.error('Error deleting duplicate items:', deleteError);
           continue;
         }
-
         mergedCount++;
         deletedCount += itemsToDelete.length;
       }
 
       // Refresh the inventory data
       refetch();
-
       toast({
         title: "Duplicates Merged Successfully",
-        description: `Merged ${mergedCount} duplicate ASINs and removed ${deletedCount} duplicate entries`,
+        description: `Merged ${mergedCount} duplicate ASINs and removed ${deletedCount} duplicate entries`
       });
 
       // Close the dialog
       setIsDuplicateDialogOpen(false);
-
     } catch (error) {
       console.error('Error merging duplicates:', error);
       toast({
@@ -667,27 +632,17 @@ export function AsinInventory() {
       });
       return;
     }
-
     const csvData = [];
     csvData.push(['ASIN', 'Serial Number', 'SKU', 'Status', 'Quantity', 'Date Added', 'Notes', 'Duplicate Count']);
-    
     duplicateData.duplicates.forEach((items, asin) => {
       items.forEach(item => {
-        csvData.push([
-          item.asin,
-          item.serialNumber,
-          item.sku || '',
-          item.status,
-          item.quantity.toString(),
-          new Date(item.dateAdded).toLocaleDateString(),
-          item.notes || '',
-          items.length.toString()
-        ]);
+        csvData.push([item.asin, item.serialNumber, item.sku || '', item.status, item.quantity.toString(), new Date(item.dateAdded).toLocaleDateString(), item.notes || '', items.length.toString()]);
       });
     });
-
     const csvContent = csvData.map(row => row.map(field => `"${field}"`).join(',')).join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob([csvContent], {
+      type: 'text/csv;charset=utf-8;'
+    });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
@@ -696,13 +651,11 @@ export function AsinInventory() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-
     toast({
       title: "Export Complete",
-      description: `Exported ${duplicateData.totalDuplicateItems} duplicate items across ${duplicateData.totalDuplicateASINs} ASINs`,
+      description: `Exported ${duplicateData.totalDuplicateItems} duplicate items across ${duplicateData.totalDuplicateASINs} ASINs`
     });
   };
-
   if (loading) {
     return <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex flex-col items-center gap-4">
@@ -717,30 +670,7 @@ export function AsinInventory() {
         <InventoryMetrics showOnlyAsin={true} />
         
         {/* Duplicate ASIN Metrics Card */}
-        {duplicateData.totalDuplicateASINs > 0 && (
-          <Card 
-            className="border-2 border-orange-200 bg-gradient-to-r from-orange-50 to-yellow-50 hover:shadow-lg transition-all duration-200 cursor-pointer hover:border-orange-300"
-            onClick={() => setIsDuplicateDialogOpen(true)}
-          >
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-orange-100">
-                    <AlertTriangle className="w-6 h-6 text-orange-600" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-lg text-orange-800">Duplicate ASINs Found</CardTitle>
-                    <p className="text-sm text-orange-600">Click to view details and export</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-2xl font-bold text-orange-700">{duplicateData.totalDuplicateASINs}</div>
-                  <div className="text-sm text-orange-600">{duplicateData.totalDuplicateItems} total items</div>
-                </div>
-              </div>
-            </CardHeader>
-          </Card>
-        )}
+        {duplicateData.totalDuplicateASINs > 0}
       </div>
 
       {/* Prominent Search Bar */}
@@ -765,19 +695,7 @@ export function AsinInventory() {
                 </Select>
                 <div className="relative flex-1">
                   <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground w-6 h-6" />
-                  <Input 
-                    placeholder={
-                      searchMethod === 'all' ? "🔍 Search across all fields (use spaces for multiple terms)..." :
-                      searchMethod === 'asin' ? "📦 Search by ASIN..." :
-                      searchMethod === 'sku' ? "🏷️ Search by SKU..." :
-                      searchMethod === 'serial' ? "🔢 Search by Serial Number..." :
-                      searchMethod === 'title' ? "📝 Search by Title..." :
-                      "📋 Search by Notes..."
-                    } 
-                    value={searchTerm} 
-                    onChange={e => setSearchTerm(e.target.value)} 
-                    className="pl-14 h-16 text-xl font-medium shadow-lg border-2 border-primary/60 focus:border-primary ring-2 ring-primary/10 focus:ring-primary/20 bg-background/50" 
-                  />
+                  <Input placeholder={searchMethod === 'all' ? "🔍 Search across all fields (use spaces for multiple terms)..." : searchMethod === 'asin' ? "📦 Search by ASIN..." : searchMethod === 'sku' ? "🏷️ Search by SKU..." : searchMethod === 'serial' ? "🔢 Search by Serial Number..." : searchMethod === 'title' ? "📝 Search by Title..." : "📋 Search by Notes..."} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-14 h-16 text-xl font-medium shadow-lg border-2 border-primary/60 focus:border-primary ring-2 ring-primary/10 focus:ring-primary/20 bg-background/50" />
                 </div>
               </div>
             </div>
@@ -823,23 +741,23 @@ export function AsinInventory() {
                        <div>
                          <Label htmlFor="sku">SKU (Optional)</Label>
                          <Input id="sku" value={newItem.sku} onChange={e => setNewItem({
-                         ...newItem,
-                         sku: e.target.value
-                       })} placeholder="Enter SKU (optional)" />
+                        ...newItem,
+                        sku: e.target.value
+                      })} placeholder="Enter SKU (optional)" />
                        </div>
                        <div>
                          <Label htmlFor="title">Title (Optional)</Label>
                          <Input id="title" value={newItem.title} onChange={e => setNewItem({
-                         ...newItem,
-                         title: e.target.value
-                       })} placeholder="Enter title (optional)" />
+                        ...newItem,
+                        title: e.target.value
+                      })} placeholder="Enter title (optional)" />
                        </div>
                        <div>
                          <Label htmlFor="quantity">Quantity</Label>
                          <Input id="quantity" type="number" min="1" value={newItem.quantity} onChange={e => setNewItem({
-                         ...newItem,
-                         quantity: parseInt(e.target.value) || 1
-                       })} />
+                        ...newItem,
+                        quantity: parseInt(e.target.value) || 1
+                      })} />
                        </div>
                       <div>
                         <Label htmlFor="status">Status</Label>
@@ -917,16 +835,10 @@ export function AsinInventory() {
 
                 {/* DATA MANAGEMENT */}
                 {/* 4. Bulk SKU Update */}
-                <BulkSkuUpload 
-                  inventory={inventory}
-                  onSkuUpdate={bulkUpdateSkus}
-                />
+                <BulkSkuUpload inventory={inventory} onSkuUpdate={bulkUpdateSkus} />
 
                 {/* 5. Bulk Title Update */}
-                <BulkTitleUpload 
-                  inventory={inventory}
-                  onTitleUpdate={bulkUpdateTitles}
-                />
+                <BulkTitleUpload inventory={inventory} onTitleUpdate={bulkUpdateTitles} />
 
                 {/* 6. Fetch Titles from Sunsky */}
                 <Button size="lg" variant="outline" className="border-2 border-orange-300 hover:border-orange-400 hover:bg-orange-50 shadow-md" onClick={handleFetchTitlesFromSunsky}>
@@ -954,32 +866,10 @@ export function AsinInventory() {
             </div>
 
             {/* Quick Filters Row */}
-            <div className="flex flex-wrap items-center gap-3">
-              <Label className="text-base font-semibold flex items-center gap-2">
-                <Filter className="w-5 h-5" />
-                Quick Filters:
-              </Label>
-              <Button variant={quickFilter === 'all' ? 'default' : 'outline'} size="lg" onClick={() => setQuickFilter('all')} className="flex items-center gap-2">
-                <Package className="w-5 h-5" />
-                All Items
-              </Button>
-              <Button variant={quickFilter === 'low-stock' ? 'default' : 'outline'} size="lg" onClick={() => setQuickFilter('low-stock')} className="flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5" />
-                Low Stock
-              </Button>
-              <Button variant={quickFilter === 'out-of-stock' ? 'default' : 'outline'} size="lg" onClick={() => setQuickFilter('out-of-stock')} className="flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5" />
-                Out of Stock
-              </Button>
-              <Button variant={quickFilter === 'recent' ? 'default' : 'outline'} size="lg" onClick={() => setQuickFilter('recent')} className="flex items-center gap-2">
-                <Clock className="w-5 h-5" />
-                Recent (7 days)
-              </Button>
-            </div>
+            
 
             {/* Date Filter Section - Only show when out-of-stock filter is active */}
-            {quickFilter === 'out-of-stock' && (
-              <div className="flex flex-wrap items-center gap-4 p-4 bg-muted/30 rounded-lg border">
+            {quickFilter === 'out-of-stock' && <div className="flex flex-wrap items-center gap-4 p-4 bg-muted/30 rounded-lg border">
                 <Label className="text-base font-semibold flex items-center gap-2">
                   <CalendarIcon className="w-5 h-5" />
                   Date Filter:
@@ -989,25 +879,13 @@ export function AsinInventory() {
                     <Label className="text-sm font-medium whitespace-nowrap">From:</Label>
                     <Popover>
                       <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            "w-[160px] justify-start text-left font-normal",
-                            !dateFilterFrom && "text-muted-foreground"
-                          )}
-                        >
+                        <Button variant="outline" className={cn("w-[160px] justify-start text-left font-normal", !dateFilterFrom && "text-muted-foreground")}>
                           <CalendarIcon className="mr-2 h-4 w-4" />
                           {dateFilterFrom ? format(dateFilterFrom, "PPP") : <span>Pick a date</span>}
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={dateFilterFrom}
-                          onSelect={setDateFilterFrom}
-                          initialFocus
-                          className="p-3 pointer-events-auto"
-                        />
+                        <Calendar mode="single" selected={dateFilterFrom} onSelect={setDateFilterFrom} initialFocus className="p-3 pointer-events-auto" />
                       </PopoverContent>
                     </Popover>
                   </div>
@@ -1016,44 +894,26 @@ export function AsinInventory() {
                     <Label className="text-sm font-medium whitespace-nowrap">To:</Label>
                     <Popover>
                       <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            "w-[160px] justify-start text-left font-normal",
-                            !dateFilterTo && "text-muted-foreground"
-                          )}
-                        >
+                        <Button variant="outline" className={cn("w-[160px] justify-start text-left font-normal", !dateFilterTo && "text-muted-foreground")}>
                           <CalendarIcon className="mr-2 h-4 w-4" />
                           {dateFilterTo ? format(dateFilterTo, "PPP") : <span>Pick a date</span>}
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={dateFilterTo}
-                          onSelect={setDateFilterTo}
-                          initialFocus
-                          className="p-3 pointer-events-auto"
-                        />
+                        <Calendar mode="single" selected={dateFilterTo} onSelect={setDateFilterTo} initialFocus className="p-3 pointer-events-auto" />
                       </PopoverContent>
                     </Popover>
                   </div>
                   
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => {
-                      setDateFilterFrom(undefined);
-                      setDateFilterTo(undefined);
-                    }}
-                    className="text-muted-foreground hover:text-foreground"
-                  >
+                  <Button variant="outline" size="sm" onClick={() => {
+                setDateFilterFrom(undefined);
+                setDateFilterTo(undefined);
+              }} className="text-muted-foreground hover:text-foreground">
                     <X className="w-4 h-4 mr-2" />
                     Clear Dates
                   </Button>
                 </div>
-              </div>
-            )}
+              </div>}
 
             {/* Controls Row */}
             <div className="flex flex-wrap items-center gap-6">
@@ -1138,12 +998,12 @@ export function AsinInventory() {
                   <tr className="border-b">
                      <th className="w-12 p-3 text-left border-r">
                        <Checkbox checked={selectedItems.size === paginatedInventory.length && paginatedInventory.length > 0} onCheckedChange={checked => {
-                     if (checked) {
-                       setSelectedItems(new Set(paginatedInventory.map(item => item.id)));
-                     } else {
-                       setSelectedItems(new Set());
-                     }
-                   }} />
+                    if (checked) {
+                      setSelectedItems(new Set(paginatedInventory.map(item => item.id)));
+                    } else {
+                      setSelectedItems(new Set());
+                    }
+                  }} />
                      </th>
                       <th className="min-w-60 p-3 text-left font-medium border-r">Product Info</th>
                       <th className="w-28 p-3 text-left font-medium border-r">Serial Number</th>
@@ -1157,14 +1017,14 @@ export function AsinInventory() {
                   {paginatedInventory.map(item => <tr key={item.id} className="border-b hover:bg-muted/25 transition-colors">
                        <td className="p-3 border-r">
                          <Checkbox checked={selectedItems.has(item.id)} onCheckedChange={checked => {
-                     const newSelected = new Set(selectedItems);
-                     if (checked) {
-                       newSelected.add(item.id);
-                     } else {
-                       newSelected.delete(item.id);
-                     }
-                     setSelectedItems(newSelected);
-                   }} />
+                    const newSelected = new Set(selectedItems);
+                    if (checked) {
+                      newSelected.add(item.id);
+                    } else {
+                      newSelected.delete(item.id);
+                    }
+                    setSelectedItems(newSelected);
+                  }} />
                        </td>
                         <td className="p-3 border-r">
                           <div className="space-y-1">
@@ -1176,10 +1036,7 @@ export function AsinInventory() {
                             </div>
                             <div className="flex items-center gap-2">
                               <span className="text-xs text-muted-foreground">SKU:</span>
-                              <SkuEditor 
-                                currentSku={item.sku} 
-                                onUpdate={(newSku) => updateSku(item.id, newSku)} 
-                              />
+                              <SkuEditor currentSku={item.sku} onUpdate={newSku => updateSku(item.id, newSku)} />
                             </div>
                           </div>
                         </td>
@@ -1198,19 +1055,15 @@ export function AsinInventory() {
                         </div>
                       </td>
                       <td className="p-3 text-xs text-muted-foreground border-r">
-                        {new Date(item.dateAdded).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        {new Date(item.dateAdded).toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric'
+                  })}
                       </td>
                         <td className="p-3">
                           <div className="flex gap-2">
-                            <DualQuantityEditor 
-                              currentQuantity={item.quantity} 
-                              onUpdate={(newQuantity, reason) => handleQuantityUpdate(item, newQuantity, reason)}
-                            />
-                            <StockHistoryDialog 
-                              inventoryId={item.id} 
-                              itemIdentifier={`${item.asin} (${item.serialNumber})`} 
-                              inventoryType="asin"
-                            />
+                            <DualQuantityEditor currentQuantity={item.quantity} onUpdate={(newQuantity, reason) => handleQuantityUpdate(item, newQuantity, reason)} />
+                            <StockHistoryDialog inventoryId={item.id} itemIdentifier={`${item.asin} (${item.serialNumber})`} inventoryType="asin" />
                           </div>
                         </td>
                     </tr>)}
@@ -1249,10 +1102,7 @@ export function AsinInventory() {
                      </div>
                      <div>
                        <Label className="text-xs text-muted-foreground">SKU</Label>
-                       <SkuEditor 
-                         currentSku={item.sku} 
-                         onUpdate={(newSku) => updateSku(item.id, newSku)} 
-                       />
+                       <SkuEditor currentSku={item.sku} onUpdate={newSku => updateSku(item.id, newSku)} />
                      </div>
                     <div>
                       <Label className="text-xs text-muted-foreground">Quantity</Label>
@@ -1278,64 +1128,50 @@ export function AsinInventory() {
         </div>}
         
         {/* Pagination */}
-        {filteredInventory.length > itemsPerPage && (
-          <div className="flex items-center justify-between">
+        {filteredInventory.length > itemsPerPage && <div className="flex items-center justify-between">
             <div className="text-sm text-muted-foreground">
               Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, filteredInventory.length)} of {filteredInventory.length} items
             </div>
             <Pagination>
               <PaginationContent>
                 <PaginationItem>
-                  <PaginationPrevious 
-                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                    className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                  />
+                  <PaginationPrevious onClick={() => setCurrentPage(p => Math.max(1, p - 1))} className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"} />
                 </PaginationItem>
                 
-                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  let pageNum = i + 1;
-                  if (totalPages > 5) {
-                    if (currentPage <= 3) {
-                      pageNum = i + 1;
-                    } else if (currentPage >= totalPages - 2) {
-                      pageNum = totalPages - 4 + i;
-                    } else {
-                      pageNum = currentPage - 2 + i;
-                    }
-                  }
-                  
-                  return (
-                    <PaginationItem key={pageNum}>
-                      <PaginationLink
-                        onClick={() => setCurrentPage(pageNum)}
-                        isActive={currentPage === pageNum}
-                        className="cursor-pointer"
-                      >
+                {Array.from({
+            length: Math.min(5, totalPages)
+          }, (_, i) => {
+            let pageNum = i + 1;
+            if (totalPages > 5) {
+              if (currentPage <= 3) {
+                pageNum = i + 1;
+              } else if (currentPage >= totalPages - 2) {
+                pageNum = totalPages - 4 + i;
+              } else {
+                pageNum = currentPage - 2 + i;
+              }
+            }
+            return <PaginationItem key={pageNum}>
+                      <PaginationLink onClick={() => setCurrentPage(pageNum)} isActive={currentPage === pageNum} className="cursor-pointer">
                         {pageNum}
                       </PaginationLink>
-                    </PaginationItem>
-                  );
-                })}
+                    </PaginationItem>;
+          })}
                 
-                {totalPages > 5 && currentPage < totalPages - 2 && (
-                  <PaginationItem>
+                {totalPages > 5 && currentPage < totalPages - 2 && <PaginationItem>
                     <PaginationEllipsis />
-                  </PaginationItem>
-                )}
+                  </PaginationItem>}
                 
                 <PaginationItem>
-                  <PaginationNext 
-                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                    className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                  />
+                  <PaginationNext onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"} />
                 </PaginationItem>
               </PaginationContent>
             </Pagination>
             
-            <Select value={itemsPerPage.toString()} onValueChange={(value) => {
-              setItemsPerPage(Number(value));
-              setCurrentPage(1);
-            }}>
+            <Select value={itemsPerPage.toString()} onValueChange={value => {
+        setItemsPerPage(Number(value));
+        setCurrentPage(1);
+      }}>
               <SelectTrigger className="w-32">
                 <SelectValue />
               </SelectTrigger>
@@ -1345,8 +1181,7 @@ export function AsinInventory() {
                 <SelectItem value="100">100 per page</SelectItem>
               </SelectContent>
             </Select>
-          </div>
-        )}
+          </div>}
         
         {/* Duplicate ASIN Details Dialog */}
         <Dialog open={isDuplicateDialogOpen} onOpenChange={setIsDuplicateDialogOpen}>
@@ -1360,21 +1195,11 @@ export function AsinInventory() {
                 <Badge variant="outline" className="text-orange-600">
                   {duplicateData.totalDuplicateItems} Total Items
                 </Badge>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={exportDuplicates}
-                  className="flex items-center gap-2"
-                >
+                <Button variant="outline" size="sm" onClick={exportDuplicates} className="flex items-center gap-2">
                   <Download className="w-4 h-4" />
                   Export CSV
                 </Button>
-                <Button 
-                  variant="default" 
-                  size="sm" 
-                  onClick={mergeDuplicates}
-                  className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700"
-                >
+                <Button variant="default" size="sm" onClick={mergeDuplicates} className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700">
                   <RefreshCw className="w-4 h-4" />
                   Merge Duplicates
                 </Button>
@@ -1382,8 +1207,7 @@ export function AsinInventory() {
             </DialogHeader>
             
             <div className="space-y-4">
-              {Array.from(duplicateData.duplicates.entries()).map(([asin, items]) => (
-                <Card key={asin} className="border-l-4 border-l-orange-400">
+              {Array.from(duplicateData.duplicates.entries()).map(([asin, items]) => <Card key={asin} className="border-l-4 border-l-orange-400">
                   <CardHeader className="pb-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
@@ -1401,8 +1225,7 @@ export function AsinInventory() {
                   </CardHeader>
                   <CardContent className="pt-0">
                     <div className="space-y-2">
-                      {items.map((item, index) => (
-                        <div key={item.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                      {items.map((item, index) => <div key={item.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
                           <div className="flex items-center gap-4">
                             <Badge variant="outline" className="font-mono">
                               #{index + 1}
@@ -1414,20 +1237,16 @@ export function AsinInventory() {
                                   {item.serialNumber}
                                 </code>
                               </div>
-                              {item.sku && (
-                                <div className="flex items-center gap-2">
+                              {item.sku && <div className="flex items-center gap-2">
                                   <span className="text-sm text-muted-foreground">SKU:</span>
                                   <code className="bg-background px-2 py-1 rounded text-xs">
                                     {item.sku}
                                   </code>
-                                </div>
-                              )}
+                                </div>}
                             </div>
                           </div>
                           <div className="flex items-center gap-4">
-                            <Badge 
-                              variant={item.status === 'in-stock' ? 'default' : 'secondary'}
-                            >
+                            <Badge variant={item.status === 'in-stock' ? 'default' : 'secondary'}>
                               {item.status}
                             </Badge>
                             <div className="text-right">
@@ -1437,12 +1256,10 @@ export function AsinInventory() {
                               </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        </div>)}
                     </div>
                   </CardContent>
-                </Card>
-              ))}
+                </Card>)}
             </div>
             
             <DialogFooter>
