@@ -83,17 +83,45 @@ export function Inventory() {
       </div>;
   }
   if (currentView === 'orders') {
-    return <div className="min-h-screen bg-gradient-surface p-4 md:p-6">
-        <div className="w-full space-y-6">
-        <div className="flex items-start justify-between mb-8">
-          <Button variant="outline" onClick={() => setCurrentView('main')} className="group bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border-orange-200/50 dark:border-orange-800/50 hover:bg-orange-50 dark:hover:bg-orange-900/20 hover:border-orange-300 dark:hover:border-orange-700 transition-all duration-300 shadow-lg hover:shadow-xl">
-            <ArrowRight className="w-4 h-4 rotate-180 group-hover:-translate-x-1 transition-transform duration-300" />
-            Back to Menu
-          </Button>
+    return (
+      <div className="min-h-screen bg-gradient-emerald">
+        
+        {/* Enhanced Background Effects */}
+        <div className="relative overflow-hidden">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_40%,hsl(var(--emerald)/0.12),transparent_60%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_80%,hsl(var(--emerald-light)/0.08),transparent_50%)]" />
+          <div className="absolute top-0 left-0 w-2 h-full bg-gradient-to-b from-emerald via-emerald-light to-emerald-dark shadow-emerald-glow"></div>
         </div>
+        
+        {/* Enhanced Container with Proper Spacing */}
+        <div className="relative z-10 app-container space-y-8 py-8 animate-fade-in">
+          {/* Enhanced Header with Back Button */}
+          <div className="flex items-center justify-between mb-8">
+            <Button 
+              variant="ghost" 
+              onClick={() => setCurrentView('main')}
+              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-emerald hover:bg-emerald/10 transition-all duration-300 focus:ring-emerald"
+            >
+              <ArrowRight className="w-4 h-4 rotate-180" />
+              Back to Inventory
+            </Button>
+            
+            <div className="text-center">
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-emerald to-emerald-dark bg-clip-text text-transparent">
+                Order Processing
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                Process customer orders and update inventory
+              </p>
+            </div>
+            
+            <div className="w-20"></div> {/* Spacer for centering */}
+          </div>
+
           <OrderProcessor />
         </div>
-      </div>;
+      </div>
+    );
   }
   return <div className="min-h-screen bg-gradient-surface">
       <div className="w-full space-y-6">

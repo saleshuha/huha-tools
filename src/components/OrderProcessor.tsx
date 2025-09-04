@@ -643,42 +643,103 @@ export function OrderProcessor() {
 
   return (
     <div className="space-y-6">
-      <Card className="p-6">
-        <div className="space-y-4">
+      {/* Enhanced Card with Emerald Theme */}
+      <Card className="border-emerald/20 shadow-emerald-glow/10 bg-card/95 backdrop-blur-sm">
+        <div className="p-6 space-y-6">
+          {/* Enhanced Header */}
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold flex items-center gap-2">
-              <FileSpreadsheet className="w-5 h-5 text-primary" />
-              Order Processing
-            </h3>
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-gradient-emerald">
+                <Package className="w-5 h-5 text-emerald-foreground" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-foreground">
+                  Order Processing Hub
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  Manage and process customer orders efficiently
+                </p>
+              </div>
+            </div>
+            
+            {/* Analytics Cards */}
+            <div className="flex items-center gap-4 text-sm">
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald/10 border border-emerald/20">
+                <TrendingUp className="w-4 h-4 text-emerald" />
+                <span className="text-emerald font-medium">{analytics.totalOrders} Total</span>
+              </div>
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-success/10 border border-success/20">
+                <CheckSquare className="w-4 h-4 text-success" />
+                <span className="text-success font-medium">{analytics.processedOrdersCount} Processed</span>
+              </div>
+            </div>
           </div>
           
+          {/* Enhanced Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="process">Process Orders</TabsTrigger>
-              <TabsTrigger value="all-orders">All Orders ({filteredAllOrders.length}) {analytics.latestOrderDate && `- ${analytics.latestOrderDate}`}</TabsTrigger>
-              <TabsTrigger value="matched-orders">Matched Orders ({analytics.matchedOrdersCount})</TabsTrigger>
-              <TabsTrigger value="processed">Processed Orders ({analytics.processedOrdersCount})</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-4 bg-muted/50 p-1 rounded-lg">
+              <TabsTrigger 
+                value="process"
+                className="data-[state=active]:bg-emerald data-[state=active]:text-emerald-foreground data-[state=active]:shadow-sm font-medium transition-all duration-300"
+              >
+                <Package className="w-4 h-4 mr-2" />
+                Process Orders
+              </TabsTrigger>
+              <TabsTrigger 
+                value="all-orders"
+                className="data-[state=active]:bg-emerald data-[state=active]:text-emerald-foreground data-[state=active]:shadow-sm font-medium transition-all duration-300 text-xs"
+              >
+                <Clock className="w-4 h-4 mr-1" />
+                All Orders ({filteredAllOrders.length}) {analytics.latestOrderDate && `- ${analytics.latestOrderDate}`}
+              </TabsTrigger>
+              <TabsTrigger 
+                value="matched-orders"
+                className="data-[state=active]:bg-emerald data-[state=active]:text-emerald-foreground data-[state=active]:shadow-sm font-medium transition-all duration-300"
+              >
+                <Tag className="w-4 h-4 mr-2" />
+                Matched ({analytics.matchedOrdersCount})
+              </TabsTrigger>
+              <TabsTrigger 
+                value="processed"
+                className="data-[state=active]:bg-emerald data-[state=active]:text-emerald-foreground data-[state=active]:shadow-sm font-medium transition-all duration-300"
+              >
+                <CheckSquare className="w-4 h-4 mr-2" />
+                Processed ({analytics.processedOrdersCount})
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="process" className="space-y-4">
               <div className="space-y-4">
                 {orderData.length === 0 ? (
-                  <div {...getRootProps()} className={`border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center cursor-pointer transition-colors ${isDragActive ? 'border-primary bg-primary/5' : 'hover:border-muted-foreground/50'}`}>
+                  <div {...getRootProps()} className={`upload-zone ${isDragActive ? 'drag-over' : ''} bg-gradient-to-br from-emerald/5 via-card to-emerald/5 border-emerald/30 hover:border-emerald hover:shadow-emerald-glow/20`}>
                     <input {...getInputProps()} />
-                    <FileSpreadsheet className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                    <h4 className="text-lg font-medium mb-2">Upload Order File</h4>
-                    <p className="text-muted-foreground mb-2">
-                      Drop your Excel or CSV file here, or click to browse
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      Expected columns: Order ID, ASIN, SKU, Item Quantity, Item Title, etc.
-                    </p>
+                    <div className="flex flex-col items-center space-y-4">
+                      <div className="p-4 rounded-2xl bg-gradient-emerald shadow-emerald-glow/30">
+                        <FileSpreadsheet className="w-8 h-8 text-emerald-foreground" />
+                      </div>
+                      <div className="text-center space-y-2">
+                        <h4 className="text-lg font-semibold text-foreground">Upload Order File</h4>
+                        <p className="text-muted-foreground">
+                          Drop your Excel or CSV file here, or click to browse
+                        </p>
+                        <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <FileSpreadsheet className="w-3 h-3" />
+                            .xlsx
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <FileSpreadsheet className="w-3 h-3" />
+                            .csv
+                          </span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 ) : (
                   <div className="space-y-4">
                     <div className="flex items-center gap-4">
                       <div className="flex-1">
-                        <Label htmlFor="search">Search Orders</Label>
+                        <Label htmlFor="search" className="text-sm font-medium text-foreground">Search Orders</Label>
                         <div className="relative">
                           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
                           <Input 
@@ -686,7 +747,7 @@ export function OrderProcessor() {
                             placeholder="Search by Order ID, ASIN, SKU, or Title..." 
                             value={searchTerm} 
                             onChange={(e) => setSearchTerm(e.target.value)} 
-                            className="pl-10" 
+                            className="pl-10 border-border focus:border-emerald focus:ring-emerald/20 focus:ring-2 transition-all duration-300" 
                           />
                         </div>
                       </div>
@@ -697,6 +758,7 @@ export function OrderProcessor() {
                           setProcessedItems([]);
                         }} 
                         variant="outline"
+                        className="border-emerald/30 text-emerald hover:bg-emerald hover:text-emerald-foreground transition-all duration-300"
                       >
                         Clear Data
                       </Button>
@@ -739,33 +801,36 @@ export function OrderProcessor() {
                           <Button 
                             onClick={processSelectedItems}
                             disabled={selectedItems.size === 0 || loading}
-                            className="flex items-center gap-2"
+                            className="flex items-center gap-2 bg-gradient-emerald hover:shadow-emerald-glow/30 transition-all duration-300"
                           >
                             <CheckSquare className="w-4 h-4" />
                             Process Selected ({selectedItems.size})
                           </Button>
                         </div>
 
-                        <div className="rounded-lg border overflow-hidden">
+                        <div className="rounded-lg border border-emerald/20 overflow-hidden shadow-soft">
                           <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead className="w-12">Select</TableHead>
-                                <TableHead>Order ID</TableHead>
-                                <TableHead>Order Date</TableHead>
-                                <TableHead>ASIN/SKU</TableHead>
-                                <TableHead>Title</TableHead>
-                                <TableHead>Stock</TableHead>
-                                <TableHead>Order Qty</TableHead>
-                                <TableHead>Match Type</TableHead>
-                                <TableHead>Actions</TableHead>
+                            <TableHeader className="bg-emerald/5 sticky top-0">
+                              <TableRow className="border-emerald/20 hover:bg-emerald/10">
+                                <TableHead className="w-12 font-semibold text-emerald-dark">Select</TableHead>
+                                <TableHead className="font-semibold text-emerald-dark">Order ID</TableHead>
+                                <TableHead className="font-semibold text-emerald-dark">Order Date</TableHead>
+                                <TableHead className="font-semibold text-emerald-dark">ASIN/SKU</TableHead>
+                                <TableHead className="font-semibold text-emerald-dark">Title</TableHead>
+                                <TableHead className="font-semibold text-emerald-dark">Stock</TableHead>
+                                <TableHead className="font-semibold text-emerald-dark">Order Qty</TableHead>
+                                <TableHead className="font-semibold text-emerald-dark">Match Type</TableHead>
+                                <TableHead className="font-semibold text-emerald-dark">Actions</TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>
                               {paginatedMatches.map((match, index) => {
                                 const actualIndex = startIndex + index;
                                 return (
-                                  <TableRow key={`${match.orderItem.orderId}-${index}`}>
+                                  <TableRow 
+                                    key={`${match.orderItem.orderId}-${index}`}
+                                    className="hover:bg-emerald/5 transition-colors duration-200 even:bg-muted/30"
+                                  >
                                     <TableCell>
                                       <Checkbox
                                         checked={selectedItems.has(actualIndex)}
@@ -795,15 +860,15 @@ export function OrderProcessor() {
                                     <TableCell>
                                       <div className="space-y-1">
                                         {match.orderItem.asin && (
-                                          <div className="text-xs text-blue-600 dark:text-blue-400">
-                                            ASIN: {match.orderItem.asin}
-                                          </div>
-                                        )}
-                                        {match.orderItem.sku && (
-                                          <div className="text-xs text-green-600 dark:text-green-400">
-                                            SKU: {match.orderItem.sku}
-                                          </div>
-                                        )}
+                                           <div className="text-xs text-sky font-medium">
+                                             ASIN: {match.orderItem.asin}
+                                           </div>
+                                         )}
+                                         {match.orderItem.sku && (
+                                           <div className="text-xs text-emerald font-medium">
+                                             SKU: {match.orderItem.sku}
+                                           </div>
+                                         )}
                                       </div>
                                     </TableCell>
                                     <TableCell className="max-w-xs truncate" title={match.orderItem.itemTitle}>
@@ -811,17 +876,17 @@ export function OrderProcessor() {
                                     </TableCell>
                                     <TableCell>
                                       {match.inventoryMatch ? (
-                                        <Badge 
-                                          variant={match.inventoryMatch.quantity > 0 ? "default" : "destructive"}
-                                          className="text-xs"
-                                        >
-                                          {match.inventoryMatch.quantity}
-                                        </Badge>
-                                      ) : (
-                                        <Badge variant="secondary" className="text-xs">
-                                          No Match
-                                        </Badge>
-                                      )}
+                                         <Badge 
+                                           variant={match.inventoryMatch.quantity > 0 ? "default" : "destructive"}
+                                           className={`text-xs font-medium ${match.inventoryMatch.quantity > 0 ? 'bg-emerald text-emerald-foreground' : ''}`}
+                                         >
+                                           {match.inventoryMatch.quantity}
+                                         </Badge>
+                                       ) : (
+                                         <Badge variant="secondary" className="text-xs">
+                                           No Match
+                                         </Badge>
+                                       )}
                                     </TableCell>
                                     <TableCell>
                                       <Badge variant="outline" className="text-xs">
@@ -871,7 +936,7 @@ export function OrderProcessor() {
                               <PaginationItem>
                                 <PaginationPrevious 
                                   onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                                  className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                                  className={`${currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer hover:bg-emerald/10 hover:text-emerald"} transition-all duration-300`}
                                 />
                               </PaginationItem>
                               
@@ -882,7 +947,7 @@ export function OrderProcessor() {
                                     <PaginationLink
                                       onClick={() => setCurrentPage(pageNum)}
                                       isActive={currentPage === pageNum}
-                                      className="cursor-pointer"
+                                      className={`cursor-pointer transition-all duration-300 ${currentPage === pageNum ? 'bg-emerald text-emerald-foreground' : 'hover:bg-emerald/10 hover:text-emerald'}`}
                                     >
                                       {pageNum}
                                     </PaginationLink>
@@ -899,7 +964,7 @@ export function OrderProcessor() {
                               <PaginationItem>
                                 <PaginationNext 
                                   onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                                  className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                                  className={`${currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer hover:bg-emerald/10 hover:text-emerald"} transition-all duration-300`}
                                 />
                               </PaginationItem>
                             </PaginationContent>
