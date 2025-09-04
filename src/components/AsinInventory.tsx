@@ -1061,57 +1061,59 @@ export function AsinInventory() {
               <table className="w-full border-collapse">
                 <thead className="bg-muted/50">
                   <tr className="border-b">
-                    <th className="w-12 p-3 text-left border-r">
-                      <Checkbox checked={selectedItems.size === paginatedInventory.length && paginatedInventory.length > 0} onCheckedChange={checked => {
-                    if (checked) {
-                      setSelectedItems(new Set(paginatedInventory.map(item => item.id)));
-                    } else {
-                      setSelectedItems(new Set());
-                    }
-                  }} />
-                    </th>
-                     <th className="w-32 p-3 text-left font-medium border-r">ASIN</th>
-                     <th className="w-28 p-3 text-left font-medium border-r">Serial Number</th>
-                     <th className="w-24 p-3 text-left font-medium border-r">SKU</th>
-                     <th className="min-w-48 p-3 text-left font-medium border-r">Title</th>
-                     <th className="w-20 p-3 text-left font-medium border-r">Status</th>
-                    <th className="w-16 p-3 text-left font-medium border-r">Qty</th>
-                    <th className="w-24 p-3 text-left font-medium border-r">Date Added</th>
-                    <th className="w-20 p-3 text-left font-medium">Actions</th>
+                     <th className="w-12 p-3 text-left border-r">
+                       <Checkbox checked={selectedItems.size === paginatedInventory.length && paginatedInventory.length > 0} onCheckedChange={checked => {
+                     if (checked) {
+                       setSelectedItems(new Set(paginatedInventory.map(item => item.id)));
+                     } else {
+                       setSelectedItems(new Set());
+                     }
+                   }} />
+                     </th>
+                      <th className="min-w-60 p-3 text-left font-medium border-r">Product Info</th>
+                      <th className="w-28 p-3 text-left font-medium border-r">Serial Number</th>
+                      <th className="w-20 p-3 text-left font-medium border-r">Status</th>
+                     <th className="w-16 p-3 text-left font-medium border-r">Qty</th>
+                     <th className="w-24 p-3 text-left font-medium border-r">Date Added</th>
+                     <th className="w-32 p-3 text-left font-medium">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {paginatedInventory.map(item => <tr key={item.id} className="border-b hover:bg-muted/25 transition-colors">
-                      <td className="p-3 border-r">
-                        <Checkbox checked={selectedItems.has(item.id)} onCheckedChange={checked => {
-                    const newSelected = new Set(selectedItems);
-                    if (checked) {
-                      newSelected.add(item.id);
-                    } else {
-                      newSelected.delete(item.id);
-                    }
-                    setSelectedItems(newSelected);
-                  }} />
-                      </td>
-                       <td className="p-3 font-mono text-sm border-r">{item.asin}</td>
-                       <td className="p-3 font-mono text-sm border-r">{item.serialNumber}</td>
                        <td className="p-3 border-r">
-                         <SkuEditor 
-                           currentSku={item.sku} 
-                           onUpdate={(newSku) => updateSku(item.id, newSku)} 
-                         />
+                         <Checkbox checked={selectedItems.has(item.id)} onCheckedChange={checked => {
+                     const newSelected = new Set(selectedItems);
+                     if (checked) {
+                       newSelected.add(item.id);
+                     } else {
+                       newSelected.delete(item.id);
+                     }
+                     setSelectedItems(newSelected);
+                   }} />
                        </td>
-                       <td className="p-3 border-r">
-                         <TitleEditor 
-                           currentTitle={item.title} 
-                           onUpdate={(newTitle) => updateTitle(item.id, newTitle)} 
-                         />
+                        <td className="p-3 border-r">
+                          <div className="space-y-1">
+                            <div className="font-medium text-sm line-clamp-2">
+                              {item.title || 'No title'}
+                            </div>
+                            <div className="font-mono text-xs text-muted-foreground">
+                              ASIN: {item.asin}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-muted-foreground">SKU:</span>
+                              <SkuEditor 
+                                currentSku={item.sku} 
+                                onUpdate={(newSku) => updateSku(item.id, newSku)} 
+                              />
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-3 font-mono text-sm border-r">{item.serialNumber}</td>
+                        <td className="p-3 border-r">
+                         <Badge variant={item.status === 'in-stock' ? 'default' : item.status === 'sold' ? 'secondary' : item.status === 'reserved' ? 'outline' : 'destructive'} className="text-xs">
+                           {item.status === 'in-stock' ? 'IN' : item.status === 'sold' ? 'SOLD' : item.status === 'reserved' ? 'RES' : 'DAM'}
+                         </Badge>
                        </td>
-                       <td className="p-3 border-r">
-                        <Badge variant={item.status === 'in-stock' ? 'default' : item.status === 'sold' ? 'secondary' : item.status === 'reserved' ? 'outline' : 'destructive'} className="text-xs">
-                          {item.status === 'in-stock' ? 'IN' : item.status === 'sold' ? 'SOLD' : item.status === 'reserved' ? 'RES' : 'DAM'}
-                        </Badge>
-                      </td>
                       <td className="p-3 border-r">
                         <div className="flex items-center gap-1">
                           <span className={`font-semibold text-sm ${item.quantity === 0 ? 'text-red-500' : item.quantity <= 5 ? 'text-yellow-500' : 'text-green-500'}`}>
@@ -1123,19 +1125,19 @@ export function AsinInventory() {
                       <td className="p-3 text-xs text-muted-foreground border-r">
                         {new Date(item.dateAdded).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                       </td>
-                       <td className="p-3">
-                         <div className="flex gap-1">
-                           <DualQuantityEditor 
-                             currentQuantity={item.quantity} 
-                             onUpdate={(newQuantity, reason) => handleQuantityUpdate(item, newQuantity, reason)}
-                           />
-                           <StockHistoryDialog 
-                             inventoryId={item.id} 
-                             itemIdentifier={`${item.asin} (${item.serialNumber})`} 
-                             inventoryType="asin"
-                           />
-                         </div>
-                       </td>
+                        <td className="p-3">
+                          <div className="flex gap-2">
+                            <DualQuantityEditor 
+                              currentQuantity={item.quantity} 
+                              onUpdate={(newQuantity, reason) => handleQuantityUpdate(item, newQuantity, reason)}
+                            />
+                            <StockHistoryDialog 
+                              inventoryId={item.id} 
+                              itemIdentifier={`${item.asin} (${item.serialNumber})`} 
+                              inventoryType="asin"
+                            />
+                          </div>
+                        </td>
                     </tr>)}
                 </tbody>
               </table>
