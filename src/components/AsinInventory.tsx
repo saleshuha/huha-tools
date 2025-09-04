@@ -727,7 +727,7 @@ export function AsinInventory() {
                     } 
                     value={searchTerm} 
                     onChange={e => setSearchTerm(e.target.value)} 
-                    className="pl-12 pr-4 h-14 text-base border-0 bg-transparent focus:ring-0 focus:ring-offset-0 rounded-none placeholder:text-muted-foreground/60" 
+                    className="pl-12 pr-4 h-14 text-base border border-primary/80 bg-transparent focus:ring-0 focus:ring-offset-0 rounded-none placeholder:text-muted-foreground/60 focus:border-primary" 
                   />
                 </div>
                 {searchTerm && (
