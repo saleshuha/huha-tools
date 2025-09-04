@@ -15,7 +15,6 @@ import { useNoonOrders, NoonOrder } from '@/hooks/useNoonOrders';
 import { useNoonStores } from '@/hooks/useNoonStores';
 import { useSunskyCredentials } from '@/hooks/useSunskyCredentials';
 import { useToast } from '@/hooks/use-toast';
-
 export default function NoonOrderTrackingPage() {
   const [activeTab, setActiveTab] = useState('orders');
   const [selectedStoreId, setSelectedStoreId] = useState<string>('');
@@ -29,20 +28,34 @@ export default function NoonOrderTrackingPage() {
     search: '',
     status: 'all',
     storeId: 'all-stores',
-    dateRange: 'all',
+    dateRange: 'all'
   });
-
-  const { orders, loading, refreshOrders, updateOrderStatus, syncOrderStatus, placeOrderWithSunsky, getOrdersByStatus } = useNoonOrders();
-  const { stores } = useNoonStores();
-  const { credentials } = useSunskyCredentials();
-  const { toast } = useToast();
+  const {
+    orders,
+    loading,
+    refreshOrders,
+    updateOrderStatus,
+    syncOrderStatus,
+    placeOrderWithSunsky,
+    getOrdersByStatus
+  } = useNoonOrders();
+  const {
+    stores
+  } = useNoonStores();
+  const {
+    credentials
+  } = useSunskyCredentials();
+  const {
+    toast
+  } = useToast();
 
   // Debug logging and sample data for demonstration
   React.useEffect(() => {
     console.log('🔍 NoonOrderTracking Debug:', {
       ordersLength: orders?.length || 0,
       loading,
-      orders: orders?.slice(0, 2), // Log first 2 orders for debugging
+      orders: orders?.slice(0, 2),
+      // Log first 2 orders for debugging
       storesLength: stores?.length || 0,
       credentialsLength: credentials?.length || 0
     });
@@ -51,44 +64,40 @@ export default function NoonOrderTrackingPage() {
   // Create sample data for demonstration when no orders exist
   const sampleOrders = React.useMemo(() => {
     if (orders.length > 0) return orders;
-    
+
     // Return sample orders for demonstration
-    return [
-      {
-        id: 'sample-1',
-        order_nr: 'DEMO-001',
-        title: 'Sample Product - Wireless Headphones',
-        partner_sku: 'WH-001-BLK',
-        quantity: 2,
-        order_status: 'uploaded',
-        created_at: new Date().toISOString(),
-        selected_store_id: 'demo-store',
-        user_id: 'demo-user'
-      },
-      {
-        id: 'sample-2', 
-        order_nr: 'DEMO-002',
-        title: 'Sample Product - Phone Case',
-        partner_sku: 'PC-002-RED',
-        quantity: 1,
-        order_status: 'ready',
-        created_at: new Date().toISOString(),
-        selected_store_id: 'demo-store',
-        user_id: 'demo-user'
-      },
-      {
-        id: 'sample-3',
-        order_nr: 'DEMO-003', 
-        title: 'Sample Product - Laptop Stand',
-        partner_sku: 'LS-003-SLV',
-        quantity: 1,
-        order_status: 'placed',
-        sunsky_order_number: 'SK123456',
-        created_at: new Date().toISOString(),
-        selected_store_id: 'demo-store',
-        user_id: 'demo-user'
-      }
-    ] as NoonOrder[];
+    return [{
+      id: 'sample-1',
+      order_nr: 'DEMO-001',
+      title: 'Sample Product - Wireless Headphones',
+      partner_sku: 'WH-001-BLK',
+      quantity: 2,
+      order_status: 'uploaded',
+      created_at: new Date().toISOString(),
+      selected_store_id: 'demo-store',
+      user_id: 'demo-user'
+    }, {
+      id: 'sample-2',
+      order_nr: 'DEMO-002',
+      title: 'Sample Product - Phone Case',
+      partner_sku: 'PC-002-RED',
+      quantity: 1,
+      order_status: 'ready',
+      created_at: new Date().toISOString(),
+      selected_store_id: 'demo-store',
+      user_id: 'demo-user'
+    }, {
+      id: 'sample-3',
+      order_nr: 'DEMO-003',
+      title: 'Sample Product - Laptop Stand',
+      partner_sku: 'LS-003-SLV',
+      quantity: 1,
+      order_status: 'placed',
+      sunsky_order_number: 'SK123456',
+      created_at: new Date().toISOString(),
+      selected_store_id: 'demo-store',
+      user_id: 'demo-user'
+    }] as NoonOrder[];
   }, [orders]);
 
   // Filter orders based on current search and filters
@@ -98,13 +107,7 @@ export default function NoonOrderTrackingPage() {
       const searchQuery = searchTerm || filters.search;
       if (searchQuery) {
         const searchLower = searchQuery.toLowerCase();
-        const matches = [
-          order.order_nr,
-          order.purchase_item_nr,
-          order.partner_sku,
-          order.sku,
-          order.title,
-        ].some(field => field?.toLowerCase().includes(searchLower));
+        const matches = [order.order_nr, order.purchase_item_nr, order.partner_sku, order.sku, order.title].some(field => field?.toLowerCase().includes(searchLower));
         if (!matches) return false;
       }
 
@@ -123,7 +126,6 @@ export default function NoonOrderTrackingPage() {
       if (filters.dateRange !== 'all') {
         const orderDate = order.order_received_at ? new Date(order.order_received_at) : new Date(order.created_at);
         const now = new Date();
-        
         switch (filters.dateRange) {
           case 'today':
             if (orderDate.toDateString() !== now.toDateString()) return false;
@@ -142,7 +144,6 @@ export default function NoonOrderTrackingPage() {
             break;
         }
       }
-
       return true;
     });
   }, [sampleOrders, filters, searchTerm]);
@@ -158,7 +159,6 @@ export default function NoonOrderTrackingPage() {
       exception: 0,
       total: filteredOrders.length
     };
-
     filteredOrders.forEach(order => {
       const status = order.order_status || 'uploaded';
       if (metrics.hasOwnProperty(status)) {
@@ -167,29 +167,22 @@ export default function NoonOrderTrackingPage() {
         metrics.uploaded++; // Default fallback
       }
     });
-
     return metrics;
   }, [filteredOrders]);
 
   // Get exception orders
-  const exceptionOrders = filteredOrders.filter(order => 
-    order.order_status === 'exception' || 
-    !order.partner_sku || 
-    order.quantity <= 0 ||
-    order.sunsky_error_message
-  );
-
+  const exceptionOrders = filteredOrders.filter(order => order.order_status === 'exception' || !order.partner_sku || order.quantity <= 0 || order.sunsky_error_message);
   const handleLinkSunskyOrder = async (orderId: string) => {
     const orderNumber = prompt('Enter Sunsky order number:');
     if (orderNumber) {
       try {
-        await updateOrderStatus(orderId, { 
+        await updateOrderStatus(orderId, {
           sunsky_order_number: orderNumber,
-          order_status: 'placed' 
+          order_status: 'placed'
         });
         toast({
           title: 'Success',
-          description: 'Sunsky order linked successfully',
+          description: 'Sunsky order linked successfully'
         });
         setShowOrderDetail(false);
       } catch (error) {
@@ -197,160 +190,101 @@ export default function NoonOrderTrackingPage() {
         toast({
           title: 'Error',
           description: 'Failed to link Sunsky order',
-          variant: 'destructive',
+          variant: 'destructive'
         });
       }
     }
   };
-
   const handleSyncOrder = async (orderId: string) => {
     try {
       await syncOrderStatus(orderId);
       toast({
         title: 'Success',
-        description: 'Order synced with Sunsky',
+        description: 'Order synced with Sunsky'
       });
     } catch (error) {
       console.error('Error syncing order:', error);
       toast({
         title: 'Error',
         description: 'Failed to sync order',
-        variant: 'destructive',
+        variant: 'destructive'
       });
     }
   };
-
   const handleOrderView = (order: NoonOrder) => {
     setSelectedOrder(order);
     setShowOrderDetail(true);
   };
-
   const handleOrderMove = async (orderId: string, newStatus: string) => {
     try {
-      await updateOrderStatus(orderId, { order_status: newStatus });
+      await updateOrderStatus(orderId, {
+        order_status: newStatus
+      });
       toast({
         title: 'Success',
-        description: 'Order status updated successfully',
+        description: 'Order status updated successfully'
       });
     } catch (error) {
       console.error('Error updating order:', error);
       toast({
         title: 'Error',
         description: 'Failed to update order status',
-        variant: 'destructive',
+        variant: 'destructive'
       });
     }
   };
-
   const handleExport = () => {
     // Export functionality - would implement CSV/Excel export
     toast({
       title: 'Export',
-      description: 'Export functionality coming soon',
+      description: 'Export functionality coming soon'
     });
   };
-
   const handleShowAnalytics = () => {
     // Navigate to analytics view or show analytics modal
     toast({
       title: 'Analytics',
-      description: 'Analytics view coming soon',
+      description: 'Analytics view coming soon'
     });
   };
-
   const handleResolveException = async (orderId: string) => {
     try {
-      await updateOrderStatus(orderId, { 
+      await updateOrderStatus(orderId, {
         order_status: 'uploaded',
-        sunsky_error_message: null 
+        sunsky_error_message: null
       });
       toast({
         title: 'Success',
-        description: 'Exception resolved successfully',
+        description: 'Exception resolved successfully'
       });
     } catch (error) {
       console.error('Error resolving exception:', error);
       toast({
         title: 'Error',
         description: 'Failed to resolve exception',
-        variant: 'destructive',
+        variant: 'destructive'
       });
     }
   };
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/5">
+  return <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/5">
       {/* Enhanced Hero Header Section */}
       <div className="relative overflow-hidden border-b bg-gradient-to-r from-primary/10 via-primary/5 to-transparent">
         <div className="absolute inset-0 bg-grid-white/10 bg-[size:20px_20px] [mask-image:radial-gradient(white,transparent_70%)]" />
         <div className="absolute top-10 left-10 w-20 h-20 bg-primary/20 rounded-full blur-xl animate-float" />
         <div className="absolute bottom-10 right-10 w-32 h-32 bg-accent/20 rounded-full blur-xl animate-float-delayed" />
         
-        <div className="container relative mx-auto px-6 py-16">
-          <div className="mx-auto max-w-5xl text-center">
-            <div className="mb-6 inline-flex items-center rounded-full border bg-background/50 px-6 py-3 text-sm backdrop-blur-md shadow-soft animate-fade-in">
-              <div className="mr-3 h-2 w-2 rounded-full bg-emerald animate-pulse"></div>
-              Advanced Noon Orders Integration
-            </div>
-            <h1 className="mb-6 text-5xl font-bold tracking-tight bg-gradient-primary bg-clip-text text-transparent sm:text-6xl animate-slide-up">
-              Noon Orders Tracking
-            </h1>
-            <p className="mx-auto max-w-3xl text-xl text-muted-foreground leading-relaxed animate-slide-up" style={{ animationDelay: '200ms' }}>
-              Intelligent order management system with automated Sunsky integration, real-time tracking, and advanced analytics for seamless e-commerce operations
-            </p>
-            
-            {/* Quick Stats */}
-            <div className="mt-8 grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-2xl mx-auto animate-fade-in" style={{ animationDelay: '400ms' }}>
-              <div className="bg-background/30 backdrop-blur-sm rounded-lg p-3 border border-border/50">
-                <div className="text-lg font-bold text-foreground">{sampleOrders.length.toLocaleString()}</div>
-                <div className="text-xs text-muted-foreground">Total Orders {orders.length === 0 ? '(Demo)' : ''}</div>
-              </div>
-              <div className="bg-background/30 backdrop-blur-sm rounded-lg p-3 border border-border/50">
-                <div className="text-lg font-bold text-emerald">{statusMetrics.delivered.toLocaleString()}</div>
-                <div className="text-xs text-muted-foreground">Delivered</div>
-              </div>
-              <div className="bg-background/30 backdrop-blur-sm rounded-lg p-3 border border-border/50">
-                <div className="text-lg font-bold text-primary">{statusMetrics.placed.toLocaleString()}</div>
-                <div className="text-xs text-muted-foreground">In Progress</div>
-              </div>
-              <div className="bg-background/30 backdrop-blur-sm rounded-lg p-3 border border-border/50">
-                <div className="text-lg font-bold text-destructive">{exceptionOrders.length.toLocaleString()}</div>
-                <div className="text-xs text-muted-foreground">Issues</div>
-              </div>
-            </div>
-          </div>
-        </div>
+        
       </div>
 
       {/* Enhanced Toolbar */}
-      <TrackingToolbar
-        searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
-        selectedStore={selectedStoreId}
-        onStoreChange={setSelectedStoreId}
-        selectedCredentials={selectedCredentialsId}
-        onCredentialsChange={setSelectedCredentialsId}
-        viewMode={viewMode}
-        onViewModeChange={setViewMode}
-        onRefresh={refreshOrders}
-        onExport={handleExport}
-        onShowExceptions={() => setShowExceptions(true)}
-        onShowAnalytics={handleShowAnalytics}
-        loading={loading}
-        totalOrders={sampleOrders.length}
-        filteredOrders={filteredOrders.length}
-        exceptionCount={exceptionOrders.length}
-        stores={stores}
-        credentials={credentials}
-      />
+      <TrackingToolbar searchTerm={searchTerm} onSearchChange={setSearchTerm} selectedStore={selectedStoreId} onStoreChange={setSelectedStoreId} selectedCredentials={selectedCredentialsId} onCredentialsChange={setSelectedCredentialsId} viewMode={viewMode} onViewModeChange={setViewMode} onRefresh={refreshOrders} onExport={handleExport} onShowExceptions={() => setShowExceptions(true)} onShowAnalytics={handleShowAnalytics} loading={loading} totalOrders={sampleOrders.length} filteredOrders={filteredOrders.length} exceptionCount={exceptionOrders.length} stores={stores} credentials={credentials} />
 
       <div className="container mx-auto px-6 py-8 space-y-8">
         {/* Auto-Processing Status */}
         <AutoProcessingStatus orders={sampleOrders} />
 
         {/* Demo Notice */}
-        {orders.length === 0 && (
-          <div className="bg-gradient-to-r from-amber/20 to-orange/20 border border-amber/30 rounded-lg p-4 animate-fade-in">
+        {orders.length === 0 && <div className="bg-gradient-to-r from-amber/20 to-orange/20 border border-amber/30 rounded-lg p-4 animate-fade-in">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-amber/20 rounded-lg">
                 <svg className="h-5 w-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -364,8 +298,7 @@ export default function NoonOrderTrackingPage() {
                 </p>
               </div>
             </div>
-          </div>
-        )}
+          </div>}
 
         {/* Status Metrics Cards */}
         <StatusMetricsCards metrics={statusMetrics} className="animate-fade-in" />
@@ -390,40 +323,19 @@ export default function NoonOrderTrackingPage() {
           </TabsList>
 
           <TabsContent value="orders" className="space-y-6">
-            {viewMode === 'table' ? (
-              <NoonOrdersTable 
-                selectedStoreId={selectedStoreId}
-                onStoreChange={setSelectedStoreId}
-              />
-            ) : (
-              <EnhancedOrdersPipeline
-                orders={filteredOrders}
-                onOrderMove={handleOrderMove}
-                onOrderView={handleOrderView}
-                className="animate-fade-in"
-              />
-            )}
+            {viewMode === 'table' ? <NoonOrdersTable selectedStoreId={selectedStoreId} onStoreChange={setSelectedStoreId} /> : <EnhancedOrdersPipeline orders={filteredOrders} onOrderMove={handleOrderMove} onOrderView={handleOrderView} className="animate-fade-in" />}
           </TabsContent>
 
           <TabsContent value="upload" className="space-y-6">
-            <NoonOrdersUpload 
-              selectedStoreId={selectedStoreId}
-              onUploadComplete={() => setActiveTab('orders')}
-            />
+            <NoonOrdersUpload selectedStoreId={selectedStoreId} onUploadComplete={() => setActiveTab('orders')} />
           </TabsContent>
 
           <TabsContent value="stores" className="space-y-6">
-            <NoonStoreManagement 
-              selectedStoreId={selectedStoreId}
-              onStoreChange={setSelectedStoreId}
-            />
+            <NoonStoreManagement selectedStoreId={selectedStoreId} onStoreChange={setSelectedStoreId} />
           </TabsContent>
 
           <TabsContent value="sunsky-place" className="space-y-6">
-            <SunskyOrderPlacement 
-              selectedStoreId={selectedStoreId}
-              onOrdersPlaced={() => setActiveTab('sunsky-track')}
-            />
+            <SunskyOrderPlacement selectedStoreId={selectedStoreId} onOrdersPlaced={() => setActiveTab('sunsky-track')} />
           </TabsContent>
 
           <TabsContent value="sunsky-track" className="space-y-6">
@@ -433,21 +345,8 @@ export default function NoonOrderTrackingPage() {
       </div>
 
       {/* Enhanced Drawers */}
-      <NoonOrderDetailDrawer
-        order={selectedOrder}
-        open={showOrderDetail}
-        onOpenChange={setShowOrderDetail}
-        onLinkSunskyOrder={handleLinkSunskyOrder}
-        onSyncOrder={handleSyncOrder}
-      />
+      <NoonOrderDetailDrawer order={selectedOrder} open={showOrderDetail} onOpenChange={setShowOrderDetail} onLinkSunskyOrder={handleLinkSunskyOrder} onSyncOrder={handleSyncOrder} />
 
-      <ExceptionsDrawer
-        open={showExceptions}
-        onOpenChange={setShowExceptions}
-        exceptions={exceptionOrders}
-        onResolveException={handleResolveException}
-        onViewOrder={handleOrderView}
-      />
-    </div>
-  );
+      <ExceptionsDrawer open={showExceptions} onOpenChange={setShowExceptions} exceptions={exceptionOrders} onResolveException={handleResolveException} onViewOrder={handleOrderView} />
+    </div>;
 }
