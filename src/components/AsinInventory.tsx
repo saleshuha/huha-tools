@@ -287,6 +287,7 @@ export function AsinInventory() {
       asin: '',
       serialNumber: '',
       sku: '',
+      title: '',
       status: 'in-stock',
       quantity: 1,
       notes: ''

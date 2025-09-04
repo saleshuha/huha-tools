@@ -213,6 +213,7 @@ export function SSInventory() {
         skuNumber: '',
         binSerialNumber: '',
         asin: '',
+        title: '',
         status: 'in-stock',
         quantity: 1
       });
