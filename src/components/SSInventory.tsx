@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from './ui/pagination';
 import { Package, Plus, Search, Edit, Download, Upload, Check, X, RefreshCw, AlertTriangle, Printer, Hash, Mail, BarChart3, Filter, Grid3X3, List, SortAsc, SortDesc, Calendar as CalendarIcon, TrendingUp, TrendingDown, Eye, Archive, Zap, Clock, ShoppingCart, Trash2, Settings, FileText, Copy, Star, Edit3, Activity, Database } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from './ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu';
 import { Textarea } from './ui/textarea';
 import { useSkuInventory, SkuInventoryItem } from '@/hooks/useSkuInventory';
 import { useUserProfile } from '@/hooks/useUserProfile';
@@ -818,11 +819,11 @@ export function SSInventory() {
           </CardContent>
         </Card> : viewMode === 'table' ? <Card>
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full">
+            <div className="overflow-x-auto border rounded-lg">
+              <table className="w-full border-collapse">
                 <thead className="bg-muted/50">
                   <tr className="border-b">
-                    <th className="p-4 text-left">
+                    <th className="w-12 p-3 text-left border-r">
                       <Checkbox checked={selectedItems.size === paginatedInventory.length && paginatedInventory.length > 0} onCheckedChange={checked => {
                     if (checked) {
                       setSelectedItems(new Set(paginatedInventory.map(item => item.id)));
@@ -831,19 +832,19 @@ export function SSInventory() {
                     }
                   }} />
                     </th>
-                     <th className="p-4 text-left font-medium">ASIN Number</th>
-                     <th className="p-4 text-left font-medium">Bin/Serial Number</th>
-                     <th className="p-4 text-left font-medium">SKU Number</th>
-                     <th className="p-4 text-left font-medium">Title</th>
-                     <th className="p-4 text-left font-medium">Status</th>
-                    <th className="p-4 text-left font-medium">Quantity</th>
-                    <th className="p-4 text-left font-medium">Date Added</th>
-                    <th className="p-4 text-left font-medium">Actions</th>
+                     <th className="w-28 p-3 text-left font-medium border-r">ASIN</th>
+                     <th className="w-32 p-3 text-left font-medium border-r">Bin/Serial</th>
+                     <th className="w-24 p-3 text-left font-medium border-r">SKU</th>
+                     <th className="min-w-48 p-3 text-left font-medium border-r">Title</th>
+                     <th className="w-20 p-3 text-left font-medium border-r">Status</th>
+                    <th className="w-16 p-3 text-left font-medium border-r">Qty</th>
+                    <th className="w-24 p-3 text-left font-medium border-r">Date Added</th>
+                    <th className="w-20 p-3 text-left font-medium">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {paginatedInventory.map(item => <tr key={item.id} className="border-b hover:bg-muted/25 transition-colors">
-                      <td className="p-4">
+                      <td className="p-3 border-r">
                         <Checkbox checked={selectedItems.has(item.id)} onCheckedChange={checked => {
                     const newSelected = new Set(selectedItems);
                     if (checked) {
@@ -854,50 +855,88 @@ export function SSInventory() {
                     setSelectedItems(newSelected);
                   }} />
                       </td>
-                      <td className="p-4 font-mono text-sm">
+                      <td className="p-3 font-mono text-sm border-r">
                         <AsinEditor 
                           currentAsin={item.asin || ''}
                           onUpdate={(newAsin) => updateAsin(item.id, newAsin)}
                         />
                       </td>
-                      <td className="p-4 font-mono text-sm">
+                      <td className="p-3 font-mono text-sm border-r">
                         <MultiBinEditor 
                           currentBinSerial={item.binSerialNumber}
                           onUpdate={(newBinSerial, reason) => updateBinLocation(item.id, newBinSerial)}
                         />
                       </td>
-                       <td className="p-4">
+                       <td className="p-3 border-r">
                          <SkuEditor 
                            currentSku={item.skuNumber} 
                            onUpdate={(newSku) => updateSku(item.id, newSku)} 
                          />
                        </td>
-                       <td className="p-4">
+                       <td className="p-3 border-r">
                          <TitleEditor 
                            currentTitle={item.title} 
                            onUpdate={(newTitle) => updateTitle(item.id, newTitle)} 
                          />
                        </td>
-                      <td className="p-4">
-                        <Badge variant={item.status === 'in-stock' ? 'default' : item.status === 'sold' ? 'secondary' : item.status === 'reserved' ? 'outline' : 'destructive'}>
-                          {item.status.replace('-', ' ').toUpperCase()}
+                      <td className="p-3 border-r">
+                        <Badge variant={item.status === 'in-stock' ? 'default' : item.status === 'sold' ? 'secondary' : item.status === 'reserved' ? 'outline' : 'destructive'} className="text-xs">
+                          {item.status === 'in-stock' ? 'IN' : item.status === 'sold' ? 'SOLD' : item.status === 'reserved' ? 'RES' : 'DAM'}
                         </Badge>
                       </td>
-                      <td className="p-4">
-                        <div className="flex items-center gap-2">
-                          <span className={`font-semibold ${item.quantity === 0 ? 'text-red-500' : item.quantity <= 5 ? 'text-yellow-500' : 'text-green-500'}`}>
+                      <td className="p-3 border-r">
+                        <div className="flex items-center gap-1">
+                          <span className={`font-semibold text-sm ${item.quantity === 0 ? 'text-red-500' : item.quantity <= 5 ? 'text-yellow-500' : 'text-green-500'}`}>
                             {item.quantity}
                           </span>
-                          {item.quantity <= 5 && <AlertTriangle className="w-4 h-4 text-yellow-500" />}
+                          {item.quantity <= 5 && <AlertTriangle className="w-3 h-3 text-yellow-500" />}
                         </div>
                       </td>
-                      <td className="p-4 text-sm text-muted-foreground">
-                        {new Date(item.dateAdded).toLocaleDateString()}
+                      <td className="p-3 text-xs text-muted-foreground border-r">
+                        {new Date(item.dateAdded).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                       </td>
-                       <td className="p-4">
-                         <div className="flex items-center gap-2">
-                            <DualQuantityEditor currentQuantity={item.quantity} onUpdate={(newQuantity, reason) => updateQuantity(item.id, newQuantity, reason)} />
-                           <StockHistoryDialog inventoryId={item.id} itemIdentifier={`${item.skuNumber} (${item.binSerialNumber})`} inventoryType="sku" />
+                       <td className="p-3">
+                         <DropdownMenu>
+                           <DropdownMenuTrigger asChild>
+                             <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                               <Settings className="h-4 w-4" />
+                             </Button>
+                           </DropdownMenuTrigger>
+                           <DropdownMenuContent align="end" className="w-40">
+                             <DropdownMenuItem 
+                               onSelect={(e) => {
+                                 e.preventDefault();
+                                 // Open quantity editor dialog
+                                 const dialog = document.querySelector(`[data-quantity-trigger="${item.id}"]`) as HTMLButtonElement;
+                                 dialog?.click();
+                               }}
+                             >
+                               <TrendingUp className="mr-2 h-4 w-4" />
+                               Adjust Stock
+                             </DropdownMenuItem>
+                             <DropdownMenuItem 
+                               onSelect={(e) => {
+                                 e.preventDefault();
+                                 // Open history dialog
+                                 const dialog = document.querySelector(`[data-history-trigger="${item.id}"]`) as HTMLButtonElement;
+                                 dialog?.click();
+                               }}
+                             >
+                               <Clock className="mr-2 h-4 w-4" />
+                               History
+                             </DropdownMenuItem>
+                           </DropdownMenuContent>
+                         </DropdownMenu>
+                         <div className="hidden">
+                           <DualQuantityEditor 
+                             currentQuantity={item.quantity} 
+                             onUpdate={(newQuantity, reason) => updateQuantity(item.id, newQuantity, reason)}
+                           />
+                           <StockHistoryDialog 
+                             inventoryId={item.id} 
+                             itemIdentifier={`${item.skuNumber} (${item.binSerialNumber})`} 
+                             inventoryType="sku"
+                           />
                          </div>
                        </td>
                     </tr>)}
