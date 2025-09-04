@@ -3640,6 +3640,17 @@ export type Database = {
         Args: { user_id: string }
         Returns: boolean
       }
+      update_asin_inventory_status_by_sku: {
+        Args: {
+          new_status: Database["public"]["Enums"]["inventory_status"]
+          target_sku: string
+          target_user_id?: string
+        }
+        Returns: {
+          item_details: Json
+          updated_count: number
+        }[]
+      }
       update_print_eligible_items_by_order_skus: {
         Args: { user_id_param: string }
         Returns: {
