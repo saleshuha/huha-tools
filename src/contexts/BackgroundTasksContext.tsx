@@ -443,7 +443,7 @@ export function BackgroundTasksProvider({ children }: { children: React.ReactNod
     });
 
     let processed = 0;
-    const titleUpdates: any[] = [];
+    let successfulMatches = 0;
 
     try {
       // Process items in batches to avoid overwhelming the API
@@ -475,10 +475,12 @@ export function BackgroundTasksProvider({ children }: { children: React.ReactNod
             });
 
             if (!error && data?.result === 'success' && data?.data?.name) {
-              titleUpdates.push({
+              // Save the title immediately when matched
+              await onUpdate([{
                 asin: item.asin,
                 title: data.data.name
-              });
+              }]);
+              successfulMatches++;
             }
           } catch (error) {
             console.error(`Failed to fetch title for SKU ${item.sku}:`, error);
@@ -496,11 +498,6 @@ export function BackgroundTasksProvider({ children }: { children: React.ReactNod
         await new Promise(resolve => setTimeout(resolve, 100));
       }
 
-      // Update the inventory with fetched titles
-      if (titleUpdates.length > 0) {
-        await onUpdate(titleUpdates);
-      }
-
       updateTask(taskId, {
         status: 'completed',
         progress: 100,
@@ -508,15 +505,15 @@ export function BackgroundTasksProvider({ children }: { children: React.ReactNod
         endTime: new Date(),
         metadata: {
           totalProcessed: items.length,
-          successfulMatches: titleUpdates.length,
-          failedItems: items.length - titleUpdates.length,
-          details: `${titleUpdates.length} titles successfully fetched and updated`
+          successfulMatches: successfulMatches,
+          failedItems: items.length - successfulMatches,
+          details: `${successfulMatches} titles successfully fetched and updated`
         }
       });
 
       toast({
         title: "Title Fetch Completed",
-        description: `Successfully updated ${titleUpdates.length}/${items.length} titles from Sunsky`,
+        description: `Successfully updated ${successfulMatches}/${items.length} titles from Sunsky`,
       });
 
     } catch (error) {
