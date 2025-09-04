@@ -677,26 +677,67 @@ export function AsinInventory() {
       <Card className="border-0 shadow-xl bg-gradient-to-r from-card/80 to-card/60 backdrop-blur-md">
         <CardContent className="p-8">
           <div className="space-y-8">
-            {/* Enhanced Search Bar */}
+            {/* Modern Search Bar */}
             <div className="relative">
-              <div className="flex gap-2">
+              <div className="flex items-stretch gap-0 bg-background rounded-xl border border-border shadow-sm overflow-hidden hover:shadow-md transition-all duration-200">
                 <Select value={searchMethod} onValueChange={(value: 'all' | 'asin' | 'sku' | 'serial' | 'title' | 'notes') => setSearchMethod(value)}>
-                  <SelectTrigger className="w-40 h-16 text-base font-medium border-2 border-primary/60 focus:border-primary bg-background shadow-lg z-50">
-                    <SelectValue />
+                  <SelectTrigger className="w-48 h-14 border-0 border-r border-border bg-muted/30 hover:bg-muted/50 transition-colors rounded-none focus:ring-0 focus:ring-offset-0">
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                      <Filter className="w-4 h-4 text-muted-foreground" />
+                      <SelectValue />
+                    </div>
                   </SelectTrigger>
-                  <SelectContent className="bg-background border-2 shadow-xl z-50">
-                    <SelectItem value="all">🔍 All Fields</SelectItem>
-                    <SelectItem value="asin">📦 ASIN</SelectItem>
-                    <SelectItem value="sku">🏷️ SKU</SelectItem>
-                    <SelectItem value="serial">🔢 Serial Number</SelectItem>
-                    <SelectItem value="title">📝 Title</SelectItem>
-                    <SelectItem value="notes">📋 Notes</SelectItem>
+                  <SelectContent className="bg-background border shadow-xl">
+                    <SelectItem value="all" className="flex items-center gap-2">
+                      <Search className="w-4 h-4" />
+                      All Fields
+                    </SelectItem>
+                    <SelectItem value="asin" className="flex items-center gap-2">
+                      <Package className="w-4 h-4" />
+                      ASIN
+                    </SelectItem>
+                    <SelectItem value="sku" className="flex items-center gap-2">
+                      <Hash className="w-4 h-4" />
+                      SKU
+                    </SelectItem>
+                    <SelectItem value="serial" className="flex items-center gap-2">
+                      <Hash className="w-4 h-4" />
+                      Serial Number
+                    </SelectItem>
+                    <SelectItem value="title" className="flex items-center gap-2">
+                      <FileText className="w-4 h-4" />
+                      Title
+                    </SelectItem>
+                    <SelectItem value="notes" className="flex items-center gap-2">
+                      <Edit3 className="w-4 h-4" />
+                      Notes
+                    </SelectItem>
                   </SelectContent>
                 </Select>
                 <div className="relative flex-1">
-                  <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground w-6 h-6" />
-                  <Input placeholder={searchMethod === 'all' ? "🔍 Search across all fields (use spaces for multiple terms)..." : searchMethod === 'asin' ? "📦 Search by ASIN..." : searchMethod === 'sku' ? "🏷️ Search by SKU..." : searchMethod === 'serial' ? "🔢 Search by Serial Number..." : searchMethod === 'title' ? "📝 Search by Title..." : "📋 Search by Notes..."} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-14 h-16 text-xl font-medium shadow-lg border-2 border-primary/60 focus:border-primary ring-2 ring-primary/10 focus:ring-primary/20 bg-background/50" />
+                  <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5 z-10" />
+                  <Input 
+                    placeholder={
+                      searchMethod === 'all' ? "Search across all fields..." : 
+                      searchMethod === 'asin' ? "Search by ASIN..." : 
+                      searchMethod === 'sku' ? "Search by SKU..." : 
+                      searchMethod === 'serial' ? "Search by Serial Number..." : 
+                      searchMethod === 'title' ? "Search by Title..." : 
+                      "Search by Notes..."
+                    } 
+                    value={searchTerm} 
+                    onChange={e => setSearchTerm(e.target.value)} 
+                    className="pl-12 pr-4 h-14 text-base border-0 bg-transparent focus:ring-0 focus:ring-offset-0 rounded-none placeholder:text-muted-foreground/60" 
+                  />
                 </div>
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm('')}
+                    className="px-3 text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
               </div>
             </div>
 
