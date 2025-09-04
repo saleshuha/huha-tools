@@ -1380,10 +1380,8 @@ export function AsinInventory() {
                       <table className="w-full">
                         <thead className="bg-muted/50 border-b">
                           <tr>
-                            <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">ASIN</th>
+                            <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Product Info</th>
                             <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Serial #</th>
-                            <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">SKU</th>
-                            <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Title</th>
                             <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Quantity</th>
                             <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Status</th>
                             <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Date Added</th>
@@ -1394,35 +1392,43 @@ export function AsinInventory() {
                           {paginatedInventory.map((item) => (
                             <tr key={item.id} className="hover:bg-muted/30 transition-colors">
                               <td className="px-4 py-3">
-                                <div className="font-mono text-sm text-primary">{item.asin}</div>
+                                <div className="space-y-2 min-w-[280px]">
+                                  {/* Title */}
+                                  <div className="text-sm font-medium">
+                                    {item.title ? (
+                                      <TitleEditor
+                                        currentTitle={item.title}
+                                        onUpdate={(newTitle) => updateTitle(item.id, newTitle)}
+                                      />
+                                    ) : (
+                                      <span className="text-muted-foreground italic">No Title</span>
+                                    )}
+                                  </div>
+                                  
+                                  {/* ASIN */}
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant="outline" className="font-mono text-xs">
+                                      ASIN: {item.asin}
+                                    </Badge>
+                                  </div>
+                                  
+                                  {/* SKU */}
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs text-muted-foreground">SKU:</span>
+                                    {item.sku ? (
+                                      <SkuEditor
+                                        currentSku={item.sku}
+                                        onUpdate={(newSku) => updateSku(item.id, newSku)}
+                                      />
+                                    ) : (
+                                      <span className="text-xs text-muted-foreground italic">No SKU</span>
+                                    )}
+                                  </div>
+                                </div>
                               </td>
                               <td className="px-4 py-3">
                                 <div className="font-mono text-sm max-w-[120px] truncate" title={item.serialNumber}>
                                   {item.serialNumber}
-                                </div>
-                              </td>
-                              <td className="px-4 py-3">
-                                <div className="text-sm max-w-[100px] truncate">
-                                  {item.sku ? (
-                                    <SkuEditor
-                                      currentSku={item.sku}
-                                      onUpdate={(newSku) => updateSku(item.id, newSku)}
-                                    />
-                                  ) : (
-                                    <span className="text-muted-foreground italic">No SKU</span>
-                                  )}
-                                </div>
-                              </td>
-                              <td className="px-4 py-3">
-                                <div className="text-sm max-w-[200px] truncate">
-                                  {item.title ? (
-                                    <TitleEditor
-                                      currentTitle={item.title}
-                                      onUpdate={(newTitle) => updateTitle(item.id, newTitle)}
-                                    />
-                                  ) : (
-                                    <span className="text-muted-foreground italic">No Title</span>
-                                  )}
                                 </div>
                               </td>
                               <td className="px-4 py-3">
@@ -1473,7 +1479,7 @@ export function AsinInventory() {
                                 </div>
                               </td>
                               <td className="px-4 py-3">
-                                <div className="flex gap-2">
+                                <div className="flex gap-2 min-w-[140px]">
                                   <StockHistoryDialog 
                                     inventoryId={item.id} 
                                     itemIdentifier={item.asin} 
