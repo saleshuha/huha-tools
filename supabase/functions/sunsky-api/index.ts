@@ -1258,16 +1258,18 @@ serve(async (req) => {
       }
 
       case 'getProductDetails': {
-        const { apiId, itemNo } = requestData;
+        const { apiId, itemNo, skuCode } = requestData;
         const credentials = await getApiCredentials(user.id, apiId);
 
-        if (!itemNo) {
-          throw new Error('itemNo is required');
+        // Accept either itemNo or skuCode (they're the same thing)
+        const productId = itemNo || skuCode;
+        if (!productId) {
+          throw new Error('itemNo or skuCode is required');
         }
 
         const params = {
           lang: 'en',
-          itemNo
+          itemNo: productId
         };
 
         try {
