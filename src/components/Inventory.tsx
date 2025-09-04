@@ -84,13 +84,13 @@ export function Inventory() {
   }
   if (currentView === 'orders') {
     return (
-      <div className="min-h-screen bg-gradient-emerald">
+      <div className="min-h-screen bg-gradient-surface">
         
         {/* Enhanced Background Effects */}
         <div className="relative overflow-hidden">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_40%,hsl(var(--emerald)/0.12),transparent_60%)]" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_80%,hsl(var(--emerald-light)/0.08),transparent_50%)]" />
-          <div className="absolute top-0 left-0 w-2 h-full bg-gradient-to-b from-emerald via-emerald-light to-emerald-dark shadow-emerald-glow"></div>
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_40%,hsl(var(--primary)/0.12),transparent_60%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_80%,hsl(var(--primary-light)/0.08),transparent_50%)]" />
+          <div className="absolute top-0 left-0 w-2 h-full bg-gradient-to-b from-primary via-primary-light to-primary-dark shadow-glow"></div>
         </div>
         
         {/* Enhanced Container with Proper Spacing */}
@@ -100,14 +100,14 @@ export function Inventory() {
             <Button 
               variant="ghost" 
               onClick={() => setCurrentView('main')}
-              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-emerald hover:bg-emerald/10 transition-all duration-300 focus:ring-emerald"
+              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all duration-300 focus:ring-primary"
             >
               <ArrowRight className="w-4 h-4 rotate-180" />
               Back to Inventory
             </Button>
             
             <div className="text-center">
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-emerald to-emerald-dark bg-clip-text text-transparent">
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-primary-dark bg-clip-text text-transparent">
                 Order Processing
               </h1>
               <p className="text-sm text-muted-foreground">
