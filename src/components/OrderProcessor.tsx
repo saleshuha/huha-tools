@@ -710,268 +710,64 @@ export function OrderProcessor() {
 
             <TabsContent value="process" className="space-y-4">
               <div className="space-y-4">
-                {orderData.length === 0 ? (
-                  <div {...getRootProps()} className={`upload-zone ${isDragActive ? 'drag-over' : ''} bg-gradient-to-br from-primary/5 via-card to-primary/5 border-primary/30 hover:border-primary hover:shadow-glow/20`}>
-                    <input {...getInputProps()} />
-                    <div className="flex flex-col items-center space-y-4">
-                      <div className="p-4 rounded-2xl bg-gradient-primary shadow-glow/30">
-                        <FileSpreadsheet className="w-8 h-8 text-primary-foreground" />
-                      </div>
-                      <div className="text-center space-y-2">
-                        <h4 className="text-lg font-semibold text-foreground">Upload Order File</h4>
-                        <p className="text-muted-foreground">
-                          Drop your Excel or CSV file here, or click to browse
-                        </p>
-                        <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
-                          <span className="flex items-center gap-1">
-                            <FileSpreadsheet className="w-3 h-3" />
-                            .xlsx
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <FileSpreadsheet className="w-3 h-3" />
-                            .csv
-                          </span>
-                        </div>
+                <div {...getRootProps()} className={`upload-zone ${isDragActive ? 'drag-over' : ''} bg-gradient-to-br from-primary/5 via-card to-primary/5 border-primary/30 hover:border-primary hover:shadow-glow/20`}>
+                  <input {...getInputProps()} />
+                  <div className="flex flex-col items-center space-y-4">
+                    <div className="p-4 rounded-2xl bg-gradient-primary shadow-glow/30">
+                      <FileSpreadsheet className="w-8 h-8 text-primary-foreground" />
+                    </div>
+                    <div className="text-center space-y-2">
+                      <h4 className="text-lg font-semibold text-foreground">Upload Order File</h4>
+                      <p className="text-muted-foreground">
+                        Drop your Excel or CSV file here, or click to browse
+                      </p>
+                      <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <FileSpreadsheet className="w-3 h-3" />
+                          .xlsx
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <FileSpreadsheet className="w-3 h-3" />
+                          .csv
+                        </span>
                       </div>
                     </div>
                   </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-4">
-                      <div className="flex-1">
-                        <Label htmlFor="search" className="text-sm font-medium text-foreground">Search Orders</Label>
-                        <div className="relative">
-                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                          <Input 
-                            id="search" 
-                            placeholder="Search by Order ID, ASIN, SKU, or Title..." 
-                            value={searchTerm} 
-                            onChange={(e) => setSearchTerm(e.target.value)} 
-                            className="pl-10 border-border focus:border-primary focus:ring-primary/20 focus:ring-2 transition-all duration-300" 
-                          />
-                        </div>
-                      </div>
-                      <Button 
-                        onClick={() => {
-                          setOrderData([]);
-                          setMatchedItems([]);
-                          setProcessedItems([]);
-                        }} 
-                        variant="outline"
-                        className="border-primary/30 text-primary hover:bg-primary hover:text-primary-foreground transition-all duration-300"
-                      >
-                        Clear Data
-                      </Button>
+                </div>
+
+                {(loading || processingProgress > 0) && (
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>{processingProgress > 0 ? 'Processing orders...' : 'Loading...'}</span>
+                      {processingProgress > 0 && <span>{processingProgress}%</span>}
                     </div>
-
-                    {(loading || processingProgress > 0) && (
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span>{processingProgress > 0 ? 'Processing orders...' : 'Loading...'}</span>
-                          {processingProgress > 0 && <span>{processingProgress}%</span>}
-                        </div>
-                        <Progress value={processingProgress > 0 ? processingProgress : undefined} className="w-full" />
-                        {processingProgress > 0 && (
-                          <p className="text-xs text-center text-muted-foreground">
-                            Updating inventory and saving records...
-                          </p>
-                        )}
-                      </div>
+                    <Progress value={processingProgress > 0 ? processingProgress : undefined} className="w-full" />
+                    {processingProgress > 0 && (
+                      <p className="text-xs text-center text-muted-foreground">
+                        Updating inventory and saving records...
+                      </p>
                     )}
+                  </div>
+                )}
 
-                    {filteredMatches.length > 0 && (
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4">
-                            <Checkbox
-                              checked={selectAll}
-                              onCheckedChange={(checked) => {
-                                setSelectAll(!!checked);
-                                if (checked) {
-                                  setSelectedItems(new Set(Array.from({ length: filteredMatches.length }, (_, i) => i)));
-                                } else {
-                                  setSelectedItems(new Set());
-                                }
-                              }}
-                            />
-                            <span className="text-sm text-muted-foreground">
-                              Select All ({filteredMatches.length} items)
-                            </span>
-                          </div>
-                          <Button 
-                            onClick={processSelectedItems}
-                            disabled={selectedItems.size === 0 || loading}
-                            className="flex items-center gap-2 bg-gradient-primary hover:shadow-glow/30 transition-all duration-300"
-                          >
-                            <CheckSquare className="w-4 h-4" />
-                            Process Selected ({selectedItems.size})
-                          </Button>
-                        </div>
-
-                        <div className="rounded-lg border border-primary/20 overflow-hidden shadow-soft">
-                          <Table>
-                            <TableHeader className="bg-primary/5 sticky top-0">
-                              <TableRow className="border-primary/20 hover:bg-primary/10">
-                                <TableHead className="w-12 font-semibold text-primary-dark">Select</TableHead>
-                                <TableHead className="font-semibold text-primary-dark">Order ID</TableHead>
-                                <TableHead className="font-semibold text-primary-dark">Order Date</TableHead>
-                                <TableHead className="font-semibold text-primary-dark">ASIN/SKU</TableHead>
-                                <TableHead className="font-semibold text-primary-dark">Title</TableHead>
-                                <TableHead className="font-semibold text-primary-dark">Stock</TableHead>
-                                <TableHead className="font-semibold text-primary-dark">Order Qty</TableHead>
-                                <TableHead className="font-semibold text-primary-dark">Match Type</TableHead>
-                                <TableHead className="font-semibold text-primary-dark">Actions</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {paginatedMatches.map((match, index) => {
-                                const actualIndex = startIndex + index;
-                                return (
-                                  <TableRow 
-                                    key={`${match.orderItem.orderId}-${index}`}
-                                    className="hover:bg-primary/5 transition-colors duration-200 even:bg-muted/30"
-                                  >
-                                    <TableCell>
-                                      <Checkbox
-                                        checked={selectedItems.has(actualIndex)}
-                                        onCheckedChange={(checked) => {
-                                          const newSelected = new Set(selectedItems);
-                                          if (checked) {
-                                            newSelected.add(actualIndex);
-                                          } else {
-                                            newSelected.delete(actualIndex);
-                                          }
-                                          setSelectedItems(newSelected);
-                                        }}
-                                      />
-                                    </TableCell>
-                                    <TableCell className="font-mono text-xs">
-                                      {match.orderItem.orderId}
-                                    </TableCell>
-                                    <TableCell className="text-xs">
-                                      {match.orderItem.orderPlaceDate ? (
-                                        <div className="text-muted-foreground">
-                                          {new Date(match.orderItem.orderPlaceDate).toLocaleDateString()}
-                                        </div>
-                                      ) : (
-                                        <span className="text-muted-foreground">N/A</span>
-                                      )}
-                                    </TableCell>
-                                    <TableCell>
-                                      <div className="space-y-1">
-                                        {match.orderItem.asin && (
-                                           <div className="text-xs text-sky font-medium">
-                                             ASIN: {match.orderItem.asin}
-                                           </div>
-                                         )}
-                                         {match.orderItem.sku && (
-                                           <div className="text-xs text-primary font-medium">
-                                             SKU: {match.orderItem.sku}
-                                           </div>
-                                         )}
-                                      </div>
-                                    </TableCell>
-                                    <TableCell className="max-w-xs truncate" title={match.orderItem.itemTitle}>
-                                      {match.orderItem.itemTitle}
-                                    </TableCell>
-                                    <TableCell>
-                                      {match.inventoryMatch ? (
-                                         <Badge 
-                                           variant={match.inventoryMatch.quantity > 0 ? "default" : "destructive"}
-                                           className={`text-xs font-medium ${match.inventoryMatch.quantity > 0 ? 'bg-primary text-primary-foreground' : ''}`}
-                                         >
-                                           {match.inventoryMatch.quantity}
-                                         </Badge>
-                                       ) : (
-                                         <Badge variant="secondary" className="text-xs">
-                                           No Match
-                                         </Badge>
-                                       )}
-                                    </TableCell>
-                                    <TableCell>
-                                      <Badge variant="outline" className="text-xs">
-                                        {match.orderItem.itemQuantity}
-                                      </Badge>
-                                    </TableCell>
-                                    <TableCell>
-                                      {match.inventoryMatch ? (
-                                        <div className="space-y-1">
-                                          <Badge variant="default" className="text-xs">
-                                            {match.inventoryType?.toUpperCase()} Inventory
-                                          </Badge>
-                                          <div className="text-xs text-muted-foreground">
-                                            via {match.matchType?.toUpperCase()}
-                                          </div>
-                                        </div>
-                                      ) : (
-                                        <Badge variant="secondary" className="text-xs">
-                                          No Match
-                                        </Badge>
-                                      )}
-                                    </TableCell>
-                                    <TableCell>
-                                      <div className="flex items-center gap-1">
-                                        {match.inventoryMatch && (
-                                          <Button
-                                            variant="outline"
-                                            size="sm"
-                                            disabled={loading}
-                                            className="h-7 px-2 text-xs"
-                                          >
-                                            <Minus className="w-3 h-3" />
-                                          </Button>
-                                        )}
-                                      </div>
-                                    </TableCell>
-                                  </TableRow>
-                                );
-                              })}
-                            </TableBody>
-                          </Table>
-                        </div>
-
-                        {totalPages > 1 && (
-                          <Pagination>
-                            <PaginationContent>
-                              <PaginationItem>
-                                <PaginationPrevious 
-                                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                                  className={`${currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer hover:bg-primary/10 hover:text-primary"} transition-all duration-300`}
-                                />
-                              </PaginationItem>
-                              
-                              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                                const pageNum = Math.max(1, Math.min(totalPages - 4, currentPage - 2)) + i;
-                                return (
-                                  <PaginationItem key={pageNum}>
-                                    <PaginationLink
-                                      onClick={() => setCurrentPage(pageNum)}
-                                      isActive={currentPage === pageNum}
-                                      className={`cursor-pointer transition-all duration-300 ${currentPage === pageNum ? 'bg-primary text-primary-foreground' : 'hover:bg-primary/10 hover:text-primary'}`}
-                                    >
-                                      {pageNum}
-                                    </PaginationLink>
-                                  </PaginationItem>
-                                );
-                              })}
-                              
-                              {totalPages > 5 && currentPage < totalPages - 2 && (
-                                <PaginationItem>
-                                  <PaginationEllipsis />
-                                </PaginationItem>
-                              )}
-                              
-                              <PaginationItem>
-                                <PaginationNext 
-                                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                                  className={`${currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer hover:bg-primary/10 hover:text-primary"} transition-all duration-300`}
-                                />
-                              </PaginationItem>
-                            </PaginationContent>
-                          </Pagination>
-                        )}
-                      </div>
-                    )}
+                {orderData.length > 0 && (
+                  <div className="text-center p-6 bg-primary/5 rounded-lg border border-primary/20">
+                    <CheckSquare className="w-8 h-8 mx-auto mb-3 text-primary" />
+                    <h4 className="text-lg font-semibold text-foreground mb-2">Orders Uploaded Successfully</h4>
+                    <p className="text-muted-foreground mb-4">
+                      Your orders have been processed and are now available in the other tabs.
+                    </p>
+                    <Button 
+                      onClick={() => {
+                        setOrderData([]);
+                        setMatchedItems([]);
+                        setProcessedItems([]);
+                      }} 
+                      variant="outline"
+                      className="border-primary/30 text-primary hover:bg-primary hover:text-primary-foreground transition-all duration-300"
+                    >
+                      Upload Another File
+                    </Button>
                   </div>
                 )}
               </div>
