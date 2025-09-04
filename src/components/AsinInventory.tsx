@@ -681,9 +681,9 @@ export function AsinInventory() {
             <div className="relative">
               <div className="flex items-stretch gap-0 bg-background rounded-xl border-2 border-green-500 shadow-lg overflow-hidden hover:shadow-xl hover:border-green-600 transition-all duration-300">
                 <Select value={searchMethod} onValueChange={(value: 'all' | 'asin' | 'sku' | 'serial' | 'title' | 'notes') => setSearchMethod(value)}>
-                  <SelectTrigger className="w-48 h-14 border-0 border-r border-border bg-muted/30 hover:bg-muted/50 transition-colors rounded-none focus:ring-0 focus:ring-offset-0">
-                    <div className="flex items-center gap-2 text-sm font-medium">
-                      <Filter className="w-4 h-4 text-muted-foreground" />
+                  <SelectTrigger className="w-48 h-14 border-0 border-r-2 border-primary/20 bg-gradient-to-r from-primary/5 to-primary/10 hover:from-primary/10 hover:to-primary/15 transition-all duration-300 rounded-none focus:ring-0 focus:ring-offset-0 shadow-inner">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-primary">
+                      <Filter className="w-4 h-4 text-primary" />
                       <SelectValue />
                     </div>
                   </SelectTrigger>
@@ -727,13 +727,13 @@ export function AsinInventory() {
                     } 
                     value={searchTerm} 
                     onChange={e => setSearchTerm(e.target.value)} 
-                    className="pl-12 pr-4 h-14 text-base border-0 bg-transparent focus:ring-0 focus:ring-offset-0 rounded-none placeholder:text-muted-foreground/60" 
+                    className="pl-12 pr-4 h-14 text-base border-0 bg-gradient-to-r from-background to-muted/30 focus:from-muted/10 focus:to-muted/20 focus:ring-0 focus:ring-offset-0 rounded-none placeholder:text-muted-foreground/70 font-medium transition-all duration-300" 
                   />
                 </div>
                 {searchTerm && (
                   <button
                     onClick={() => setSearchTerm('')}
-                    className="px-3 text-muted-foreground hover:text-foreground transition-colors"
+                    className="px-4 bg-gradient-to-r from-destructive/10 to-destructive/20 hover:from-destructive/20 hover:to-destructive/30 text-destructive hover:text-destructive-foreground border-l-2 border-destructive/20 transition-all duration-300 rounded-none"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -749,7 +749,7 @@ export function AsinInventory() {
                   {/* Add New Item */}
                   <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                     <DialogTrigger asChild>
-                      <Button size="sm" variant="outline" className="border-2 border-primary bg-background hover:bg-green-500 hover:text-white hover:border-green-500 transition-all">
+                      <Button size="sm" variant="outline" className="border-2 border-primary bg-gradient-to-r from-primary/5 to-primary/10 hover:from-primary hover:to-primary/90 hover:text-primary-foreground hover:border-primary transition-all duration-300 shadow-md hover:shadow-lg font-semibold">
                         <Plus className="w-4 h-4 mr-2" />
                         Add New Item
                       </Button>
@@ -834,7 +834,7 @@ export function AsinInventory() {
                   {/* Bulk Add Items */}
                   <Dialog open={isBulkDialogOpen} onOpenChange={setIsBulkDialogOpen}>
                     <DialogTrigger asChild>
-                      <Button size="sm" variant="outline" className="border-2 border-primary bg-background hover:bg-green-500 hover:text-white hover:border-green-500 transition-all">
+                      <Button size="sm" variant="outline" className="border-2 border-primary bg-gradient-to-r from-primary/5 to-primary/10 hover:from-primary hover:to-primary/90 hover:text-primary-foreground hover:border-primary transition-all duration-300 shadow-md hover:shadow-lg font-semibold">
                         <Upload className="w-4 h-4 mr-2" />
                         Bulk Add Items
                       </Button>
