@@ -33,8 +33,8 @@ export function Inventory() {
               Back to Menu
             </Button>
             
-            <div className="text-center">
-              <div className="flex items-center justify-center gap-4 mb-4">
+            <div className="text-center mx-auto">
+              <div className="flex items-center justify-center gap-4 mb-2">
                 <div className="w-12 h-12 bg-gradient-to-br from-orange-500 via-amber-500 to-yellow-500 rounded-2xl flex items-center justify-center shadow-lg shadow-orange-500/25">
                   <Package className="w-7 h-7 text-white" />
                 </div>
@@ -121,8 +121,8 @@ export function Inventory() {
   return <div className="min-h-screen bg-gradient-surface">
       <div className="w-full space-y-6">
         {/* Header */}
-        <div className="text-center mb-12">
-          <div className="flex items-center justify-center gap-3 mb-6">
+        <div className="text-center mb-6">
+          <div className="flex items-center justify-center gap-3 mb-4">
             <div className="w-12 h-12 bg-gradient-to-br from-primary to-primary/60 rounded-2xl flex items-center justify-center shadow-lg">
               <Package className="w-7 h-7 text-white" />
             </div>
@@ -136,7 +136,7 @@ export function Inventory() {
         </div>
 
         {/* Cards Grid - All in one row */}
-        <div className="grid md:grid-cols-3 gap-6 px-8 mb-12">
+        <div className="grid md:grid-cols-3 gap-6 px-8 mb-6">
           {/* ASIN Inventory */}
           <Card className="relative overflow-hidden p-8 hover:shadow-xl transition-all duration-700 cursor-pointer group border-0 hover:scale-[1.02] bg-gradient-to-br from-white/90 via-white/70 to-white/50 dark:from-slate-800/90 dark:via-slate-800/70 dark:to-slate-800/50 backdrop-blur-xl" onClick={() => setCurrentView('asin')}>
             {/* Background Effects */}
