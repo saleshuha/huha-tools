@@ -271,7 +271,7 @@
 
   /* Global app container for consistent width across all pages */
   .app-container {
-    @apply w-full px-4 sm:px-6 lg:max-w-[1200px] xl:max-w-[1320px] 2xl:max-w-[1400px] mx-auto;
+    @apply w-full px-4 sm:px-6 lg:max-w-[1400px] xl:max-w-[1600px] 2xl:max-w-[1800px] mx-auto;
   }
 }
 
