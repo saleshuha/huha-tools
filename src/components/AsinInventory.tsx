@@ -681,35 +681,35 @@ export function AsinInventory() {
             <div className="relative">
               <div className="flex items-stretch gap-0 bg-background rounded-xl border-2 border-green-500 shadow-lg overflow-hidden hover:shadow-xl hover:border-green-600 transition-all duration-300">
                 <Select value={searchMethod} onValueChange={(value: 'all' | 'asin' | 'sku' | 'serial' | 'title' | 'notes') => setSearchMethod(value)}>
-                  <SelectTrigger className="w-48 h-14 border-0 border-r border-border bg-muted/30 hover:bg-muted/50 transition-colors rounded-none focus:ring-0 focus:ring-offset-0">
-                    <div className="flex items-center gap-2 text-sm font-medium">
-                      <Filter className="w-4 h-4 text-muted-foreground" />
+                  <SelectTrigger className="w-52 h-14 border-0 border-r border-border bg-muted/30 hover:bg-muted/50 transition-colors rounded-none focus:ring-0 focus:ring-offset-0">
+                    <div className="flex items-center gap-2 text-sm font-medium whitespace-nowrap">
+                      <Filter className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                       <SelectValue />
                     </div>
                   </SelectTrigger>
-                  <SelectContent className="bg-background border shadow-xl">
-                    <SelectItem value="all" className="flex items-center gap-2">
-                      <Search className="w-4 h-4" />
+                  <SelectContent className="bg-background border shadow-xl min-w-[208px]">
+                    <SelectItem value="all" className="flex items-center gap-2 whitespace-nowrap">
+                      <Search className="w-4 h-4 flex-shrink-0" />
                       All Fields
                     </SelectItem>
-                    <SelectItem value="asin" className="flex items-center gap-2">
-                      <Package className="w-4 h-4" />
+                    <SelectItem value="asin" className="flex items-center gap-2 whitespace-nowrap">
+                      <Package className="w-4 h-4 flex-shrink-0" />
                       ASIN
                     </SelectItem>
-                    <SelectItem value="sku" className="flex items-center gap-2">
-                      <Hash className="w-4 h-4" />
+                    <SelectItem value="sku" className="flex items-center gap-2 whitespace-nowrap">
+                      <Hash className="w-4 h-4 flex-shrink-0" />
                       SKU
                     </SelectItem>
-                    <SelectItem value="serial" className="flex items-center gap-2">
-                      <Hash className="w-4 h-4" />
+                    <SelectItem value="serial" className="flex items-center gap-2 whitespace-nowrap">
+                      <Hash className="w-4 h-4 flex-shrink-0" />
                       Serial Number
                     </SelectItem>
-                    <SelectItem value="title" className="flex items-center gap-2">
-                      <FileText className="w-4 h-4" />
+                    <SelectItem value="title" className="flex items-center gap-2 whitespace-nowrap">
+                      <FileText className="w-4 h-4 flex-shrink-0" />
                       Title
                     </SelectItem>
-                    <SelectItem value="notes" className="flex items-center gap-2">
-                      <Edit3 className="w-4 h-4" />
+                    <SelectItem value="notes" className="flex items-center gap-2 whitespace-nowrap">
+                      <Edit3 className="w-4 h-4 flex-shrink-0" />
                       Notes
                     </SelectItem>
                   </SelectContent>
