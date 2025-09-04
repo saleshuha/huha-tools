@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 export interface BackgroundTask {
   id: string;
-  type: 'sku-upload' | 'file-processing' | 'bulk-save' | 'sunsky-export';
+  type: 'sku-upload' | 'file-processing' | 'bulk-save' | 'sunsky-export' | 'title-fetch';
   name: string;
   progress: number;
   status: 'pending' | 'processing' | 'completed' | 'error' | 'cancelled';
@@ -56,6 +56,10 @@ interface BackgroundTasksContextType {
     config: any,
     onProgress: (progress: any) => void,
     onComplete: (results: any) => void
+  ) => Promise<string>;
+  runTitleFetch: (
+    items: any[],
+    onUpdate: (updates: any[]) => void
   ) => Promise<string>;
 }
 
@@ -419,6 +423,108 @@ export function BackgroundTasksProvider({ children }: { children: React.ReactNod
     }
   }, [addTask, updateTask]);
 
+  const runTitleFetch = useCallback(async (
+    items: any[],
+    onUpdate: (updates: any[]) => void
+  ): Promise<string> => {
+    const taskId = addTask({
+      type: 'title-fetch',
+      name: `Fetching titles for ${items.length} items from Sunsky`,
+      progress: 0,
+      status: 'processing',
+      totalItems: items.length,
+      processedItems: 0,
+      canCancel: true
+    });
+
+    let processed = 0;
+    const titleUpdates: any[] = [];
+
+    try {
+      // Process items in batches to avoid overwhelming the API
+      const batchSize = 5;
+      
+      for (let i = 0; i < items.length; i += batchSize) {
+        if (isTaskCancelled(taskId)) {
+          updateTask(taskId, { 
+            status: 'cancelled', 
+            endTime: new Date(),
+            error: 'Cancelled by user'
+          });
+          return taskId;
+        }
+
+        const batch = items.slice(i, i + batchSize);
+        const batchPromises = batch.map(async (item) => {
+          try {
+            const { data, error } = await supabase.functions.invoke('sunsky-api', {
+              body: { action: 'getProductDetails', skuCode: item.sku }
+            });
+
+            processed++;
+            const progress = (processed / items.length) * 100;
+            
+            updateTask(taskId, { 
+              progress,
+              processedItems: processed
+            });
+
+            if (!error && data?.result === 'success' && data?.data?.name) {
+              titleUpdates.push({
+                asin: item.asin,
+                title: data.data.name
+              });
+            }
+          } catch (error) {
+            console.error(`Failed to fetch title for SKU ${item.sku}:`, error);
+            processed++;
+            updateTask(taskId, { 
+              progress: (processed / items.length) * 100,
+              processedItems: processed
+            });
+          }
+        });
+
+        await Promise.all(batchPromises);
+        
+        // Small delay between batches to be API-friendly
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
+      // Update the inventory with fetched titles
+      if (titleUpdates.length > 0) {
+        await onUpdate(titleUpdates);
+      }
+
+      updateTask(taskId, {
+        status: 'completed',
+        progress: 100,
+        processedItems: items.length,
+        endTime: new Date()
+      });
+
+      toast({
+        title: "Title Fetch Completed",
+        description: `Successfully updated ${titleUpdates.length}/${items.length} titles from Sunsky`,
+      });
+
+    } catch (error) {
+      updateTask(taskId, {
+        status: 'error',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        endTime: new Date()
+      });
+
+      toast({
+        title: "Title Fetch Error",
+        description: "Failed to fetch titles from Sunsky. Check the progress panel for details.",
+        variant: "destructive"
+      });
+    }
+
+    return taskId;
+  }, [addTask, updateTask, isTaskCancelled, toast]);
+
   return (
     <BackgroundTasksContext.Provider value={{
       tasks,
@@ -430,6 +536,7 @@ export function BackgroundTasksProvider({ children }: { children: React.ReactNod
       clearCompletedTasks,
       runBackgroundUpload,
       runConcurrentExport,
+      runTitleFetch,
       isTaskCancelled
     }}>
       {children}

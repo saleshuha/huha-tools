@@ -28,6 +28,7 @@ import { BulkSkuUpload } from './BulkSkuUpload';
 import { BulkTitleUpload } from './BulkTitleUpload';
 import { SimpleWarehouseManager } from './SimpleWarehouseManager';
 import { useWarehouseManager } from '@/hooks/useWarehouseManager';
+import { useBackgroundTasks } from '@/contexts/BackgroundTasksContext';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 export function AsinInventory() {
@@ -49,6 +50,7 @@ export function AsinInventory() {
   const {
     user
   } = useUserProfile();
+  const { runTitleFetch } = useBackgroundTasks();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'dateAdded' | 'asin' | 'quantity' | 'status'>('dateAdded');
@@ -68,21 +70,10 @@ export function AsinInventory() {
   const [quickFilter, setQuickFilter] = useState<'all' | 'low-stock' | 'out-of-stock' | 'recent'>('all');
   const [dateFilterFrom, setDateFilterFrom] = useState<Date>();
   const [dateFilterTo, setDateFilterTo] = useState<Date>();
-  const [isFetchTitlesDialogOpen, setIsFetchTitlesDialogOpen] = useState(false);
-  const [fetchProgress, setFetchProgress] = useState({
-    isLoading: false,
-    current: 0,
-    total: 0,
-    matched: 0,
-    added: 0,
-    failed: 0
-  });
   
   // Use warehouse management from hook
   const { selectedWarehouse } = useWarehouseManager();
-  const {
-    toast
-  } = useToast();
+  const { toast } = useToast();
 
   // Form states
   const [newItem, setNewItem] = useState<{
@@ -514,109 +505,28 @@ export function AsinInventory() {
     });
   };
 
-  const handleFetchTitlesWithProgress = async () => {
-    try {
-      // Get items with SKU Numbers but missing titles
-      const itemsNeedingTitles = inventory.filter(item => 
-        item.sku && item.sku.trim() && !item.title
-      );
+  const handleFetchTitlesFromSunsky = async () => {
+    // Get items with SKU Numbers but missing titles
+    const itemsNeedingTitles = inventory.filter(item => 
+      item.sku && item.sku.trim() && !item.title
+    );
 
-      if (itemsNeedingTitles.length === 0) {
-        toast({
-          title: "No Items to Update",
-          description: "All items either have titles or are missing SKU numbers",
-        });
-        setIsFetchTitlesDialogOpen(false);
-        return;
-      }
-
-      setFetchProgress({
-        isLoading: true,
-        current: 0,
-        total: itemsNeedingTitles.length,
-        matched: 0,
-        added: 0,
-        failed: 0
+    if (itemsNeedingTitles.length === 0) {
+      toast({
+        title: "No Items to Update",
+        description: "All items either have titles or are missing SKU numbers",
       });
+      return;
+    }
 
-      const titleUpdates: { asin: string; title: string }[] = [];
-      let currentIndex = 0;
-      let matched = 0;
-      let failed = 0;
-
-      for (const item of itemsNeedingTitles) {
-        try {
-          const { data, error } = await supabase.functions.invoke('sunsky-api', {
-            body: {
-              action: 'getProductDetails',
-              skuCode: item.sku
-            }
-          });
-
-          currentIndex++;
-          
-          // Check if the API call succeeded and returned a title
-          if (error || data?.result === 'error' || !data?.data?.name) {
-            failed++;
-            console.log(`Failed to fetch title for SKU ${item.sku}:`, data?.message || error?.message || 'No title found');
-          } else {
-            matched++;
-            titleUpdates.push({
-              asin: item.asin,
-              title: data.data.name
-            });
-          }
-
-          setFetchProgress(prev => ({
-            ...prev,
-            current: currentIndex,
-            matched,
-            failed
-          }));
-
-          // Add small delay to avoid rate limiting
-          await new Promise(resolve => setTimeout(resolve, 500));
-        } catch (error) {
-          currentIndex++;
-          failed++;
-          setFetchProgress(prev => ({
-            ...prev,
-            current: currentIndex,
-            failed
-          }));
-        }
-      }
-
-      // Bulk update titles
-      let added = 0;
+    // Start background task for title fetching
+    await runTitleFetch(itemsNeedingTitles, async (titleUpdates) => {
+      // The background task will handle the API calls
+      // When updates are ready, save them to the database
       if (titleUpdates.length > 0) {
         await bulkUpdateTitles(titleUpdates);
-        added = titleUpdates.length;
       }
-
-      setFetchProgress(prev => ({
-        ...prev,
-        isLoading: false,
-        added
-      }));
-
-      toast({
-        title: "Titles Fetch Complete",
-        description: `Found ${matched} titles, updated ${added} items`,
-      });
-
-    } catch (error: any) {
-      console.error('Error fetching titles from Sunsky:', error);
-      setFetchProgress(prev => ({
-        ...prev,
-        isLoading: false
-      }));
-      toast({
-        title: "Error",
-        description: "Failed to fetch titles from Sunsky",
-        variant: "destructive",
-      });
-    }
+    });
   };
 
   // Merge duplicate ASINs function
@@ -940,7 +850,7 @@ export function AsinInventory() {
                 />
 
                 {/* 5. Fetch Titles from Sunsky */}
-                <Button size="lg" variant="outline" className="border-orange-300 hover:bg-orange-50" onClick={() => setIsFetchTitlesDialogOpen(true)}>
+                <Button size="lg" variant="outline" className="border-orange-300 hover:bg-orange-50" onClick={handleFetchTitlesFromSunsky}>
                   <Database className="w-5 h-5 mr-2" />
                   Fetch Titles from Sunsky
                 </Button>
@@ -1454,92 +1364,6 @@ export function AsinInventory() {
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsDuplicateDialogOpen(false)}>
                 Close
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* Fetch Titles Progress Dialog */}
-        <Dialog open={isFetchTitlesDialogOpen} onOpenChange={setIsFetchTitlesDialogOpen}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Database className="w-5 h-5" />
-                Fetch Titles from Sunsky
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              {!fetchProgress.isLoading && fetchProgress.total === 0 && (
-                <div className="text-center py-4">
-                  <p className="text-muted-foreground mb-4">
-                    This will fetch titles for items that have SKU numbers but are missing titles.
-                  </p>
-                  <Button onClick={handleFetchTitlesWithProgress}>
-                    <Database className="w-4 h-4 mr-2" />
-                    Start Fetching
-                  </Button>
-                </div>
-              )}
-              
-              {fetchProgress.isLoading && (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Progress</span>
-                      <span>{fetchProgress.current} / {fetchProgress.total}</span>
-                    </div>
-                    <Progress 
-                      value={fetchProgress.total > 0 ? (fetchProgress.current / fetchProgress.total) * 100 : 0} 
-                      className="w-full" 
-                    />
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div className="space-y-1">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Total Items:</span>
-                        <span className="font-medium">{fetchProgress.total}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Processed:</span>
-                        <span className="font-medium">{fetchProgress.current}</span>
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <div className="flex justify-between">
-                        <span className="text-green-600">Matched:</span>
-                        <span className="font-medium text-green-600">{fetchProgress.matched}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-blue-600">Added:</span>
-                        <span className="font-medium text-blue-600">{fetchProgress.added}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-red-600">Failed:</span>
-                        <span className="font-medium text-red-600">{fetchProgress.failed}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-              
-              {!fetchProgress.isLoading && fetchProgress.total > 0 && (
-                <div className="text-center py-4">
-                  <div className="text-lg font-semibold mb-2">✅ Complete!</div>
-                  <div className="text-sm text-muted-foreground space-y-1">
-                    <p>Processed {fetchProgress.total} items</p>
-                    <p className="text-green-600">{fetchProgress.matched} titles found and {fetchProgress.added} updated</p>
-                    {fetchProgress.failed > 0 && <p className="text-red-600">{fetchProgress.failed} failed to fetch</p>}
-                  </div>
-                </div>
-              )}
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => {
-                setIsFetchTitlesDialogOpen(false);
-                setFetchProgress({ isLoading: false, current: 0, total: 0, matched: 0, added: 0, failed: 0 });
-              }}>
-                {fetchProgress.isLoading ? 'Close' : 'Done'}
               </Button>
             </DialogFooter>
           </DialogContent>
