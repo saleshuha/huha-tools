@@ -701,167 +701,171 @@ export function AsinInventory() {
             </div>
 
             {/* Action Buttons Row - Organized by Usage */}
-            <div className="flex flex-wrap items-center gap-4">
-              <Label className="text-base font-semibold flex items-center gap-2">
-                <Settings className="w-5 h-5" />
-                Actions:
-              </Label>
-              <div className="flex flex-wrap gap-3">
-                {/* PRIMARY ACTIONS */}
-                {/* 1. Add New Item */}
-                <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button size="lg" className="bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary text-primary-foreground shadow-md">
-                      <Plus className="w-5 h-5 mr-2" />
-                      Add New Item
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-md">
-                    <DialogHeader>
-                      <DialogTitle className="flex items-center gap-2">
-                        <Plus className="w-5 h-5" />
-                        Add New ASIN Item
-                      </DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="asin">ASIN</Label>
-                        <Input id="asin" value={newItem.asin} onChange={e => setNewItem({
-                        ...newItem,
-                        asin: e.target.value
-                      })} placeholder="Enter ASIN..." />
-                      </div>
-                      <div>
-                        <Label htmlFor="serialNumber">Serial Number</Label>
-                        <Input id="serialNumber" value={newItem.serialNumber} onChange={e => setNewItem({
-                        ...newItem,
-                        serialNumber: e.target.value
-                      })} placeholder="Enter Serial Number..." />
-                      </div>
-                       <div>
-                         <Label htmlFor="sku">SKU (Optional)</Label>
-                         <Input id="sku" value={newItem.sku} onChange={e => setNewItem({
-                        ...newItem,
-                        sku: e.target.value
-                      })} placeholder="Enter SKU (optional)" />
-                       </div>
-                       <div>
-                         <Label htmlFor="title">Title (Optional)</Label>
-                         <Input id="title" value={newItem.title} onChange={e => setNewItem({
-                        ...newItem,
-                        title: e.target.value
-                      })} placeholder="Enter title (optional)" />
-                       </div>
-                       <div>
-                         <Label htmlFor="quantity">Quantity</Label>
-                         <Input id="quantity" type="number" min="1" value={newItem.quantity} onChange={e => setNewItem({
-                        ...newItem,
-                        quantity: parseInt(e.target.value) || 1
-                      })} />
-                       </div>
-                      <div>
-                        <Label htmlFor="status">Status</Label>
-                        <Select value={newItem.status} onValueChange={(value: AsinInventoryItem['status']) => setNewItem({
-                        ...newItem,
-                        status: value
-                      })}>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="in-stock">In Stock</SelectItem>
-                            <SelectItem value="sold">Sold</SelectItem>
-                            <SelectItem value="reserved">Reserved</SelectItem>
-                            <SelectItem value="damaged">Damaged</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label htmlFor="notes">Notes (Optional)</Label>
-                        <Textarea id="notes" value={newItem.notes} onChange={e => setNewItem({
-                        ...newItem,
-                        notes: e.target.value
-                      })} placeholder="Add any notes..." rows={2} />
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                        Cancel
+            <div className="space-y-6">
+              {/* Primary Actions Section */}
+              <div className="space-y-4">
+                <div className="flex flex-wrap gap-3">
+                  {/* Add New Item */}
+                  <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button size="sm" variant="outline" className="border border-border hover:bg-muted">
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add New Item
                       </Button>
-                      <Button onClick={handleAddItem}>Add Item</Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-md">
+                      <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                          <Plus className="w-5 h-5" />
+                          Add New ASIN Item
+                        </DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div>
+                          <Label htmlFor="asin">ASIN</Label>
+                          <Input id="asin" value={newItem.asin} onChange={e => setNewItem({
+                          ...newItem,
+                          asin: e.target.value
+                        })} placeholder="Enter ASIN..." />
+                        </div>
+                        <div>
+                          <Label htmlFor="serialNumber">Serial Number</Label>
+                          <Input id="serialNumber" value={newItem.serialNumber} onChange={e => setNewItem({
+                          ...newItem,
+                          serialNumber: e.target.value
+                        })} placeholder="Enter Serial Number..." />
+                        </div>
+                         <div>
+                           <Label htmlFor="sku">SKU (Optional)</Label>
+                           <Input id="sku" value={newItem.sku} onChange={e => setNewItem({
+                          ...newItem,
+                          sku: e.target.value
+                        })} placeholder="Enter SKU (optional)" />
+                         </div>
+                         <div>
+                           <Label htmlFor="title">Title (Optional)</Label>
+                           <Input id="title" value={newItem.title} onChange={e => setNewItem({
+                          ...newItem,
+                          title: e.target.value
+                        })} placeholder="Enter title (optional)" />
+                         </div>
+                         <div>
+                           <Label htmlFor="quantity">Quantity</Label>
+                           <Input id="quantity" type="number" min="1" value={newItem.quantity} onChange={e => setNewItem({
+                          ...newItem,
+                          quantity: parseInt(e.target.value) || 1
+                        })} />
+                         </div>
+                        <div>
+                          <Label htmlFor="status">Status</Label>
+                          <Select value={newItem.status} onValueChange={(value: AsinInventoryItem['status']) => setNewItem({
+                          ...newItem,
+                          status: value
+                        })}>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="in-stock">In Stock</SelectItem>
+                              <SelectItem value="sold">Sold</SelectItem>
+                              <SelectItem value="reserved">Reserved</SelectItem>
+                              <SelectItem value="damaged">Damaged</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label htmlFor="notes">Notes (Optional)</Label>
+                          <Textarea id="notes" value={newItem.notes} onChange={e => setNewItem({
+                          ...newItem,
+                          notes: e.target.value
+                        })} placeholder="Add any notes..." rows={2} />
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                          Cancel
+                        </Button>
+                        <Button onClick={handleAddItem}>Add Item</Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
 
-                {/* 2. Bulk Add Items */}
-                <Dialog open={isBulkDialogOpen} onOpenChange={setIsBulkDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button size="lg" variant="outline" className="border-2 border-secondary hover:border-secondary/70 hover:bg-secondary/10 shadow-md">
-                      <Upload className="w-5 h-5 mr-2" />
-                      Bulk Add Items
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-2xl">
-                    <DialogHeader>
-                      <DialogTitle>Bulk Add ASIN Items</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                       <div>
-                         <Label htmlFor="bulkText">
-                           Paste tab-separated data (ASIN, Serial Number, SKU, Status, Quantity, Notes)
-                         </Label>
-                         <Textarea id="bulkText" value={bulkText} onChange={e => setBulkText(e.target.value)} placeholder="B123456789	SN001	SKU123	in-stock	5	Optional notes&#10;B987654321	SN002	SKU456	sold	1	Another item" rows={8} className="font-mono text-sm" />
-                       </div>
-                       <div className="text-sm text-muted-foreground">
-                         <p><strong>Format:</strong> Each line should contain tab-separated values</p>
-                         <p><strong>Order:</strong> ASIN → Serial Number → SKU → Status → Quantity → Notes</p>
-                         <p><strong>Status options:</strong> in-stock, sold, reserved, damaged</p>
-                       </div>
-                    </div>
-                    <DialogFooter>
-                      <Button variant="outline" onClick={() => setIsBulkDialogOpen(false)}>
-                        Cancel
+                  {/* Bulk Add Items */}
+                  <Dialog open={isBulkDialogOpen} onOpenChange={setIsBulkDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button size="sm" variant="outline" className="border border-border hover:bg-muted">
+                        <Upload className="w-4 h-4 mr-2" />
+                        Bulk Add Items
                       </Button>
-                      <Button onClick={handleBulkAdd}>Add Items</Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-2xl">
+                      <DialogHeader>
+                        <DialogTitle>Bulk Add ASIN Items</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                         <div>
+                           <Label htmlFor="bulkText">
+                             Paste tab-separated data (ASIN, Serial Number, SKU, Status, Quantity, Notes)
+                           </Label>
+                           <Textarea id="bulkText" value={bulkText} onChange={e => setBulkText(e.target.value)} placeholder="B123456789	SN001	SKU123	in-stock	5	Optional notes&#10;B987654321	SN002	SKU456	sold	1	Another item" rows={8} className="font-mono text-sm" />
+                         </div>
+                         <div className="text-sm text-muted-foreground">
+                           <p><strong>Format:</strong> Each line should contain tab-separated values</p>
+                           <p><strong>Order:</strong> ASIN → Serial Number → SKU → Status → Quantity → Notes</p>
+                           <p><strong>Status options:</strong> in-stock, sold, reserved, damaged</p>
+                         </div>
+                      </div>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsBulkDialogOpen(false)}>
+                          Cancel
+                        </Button>
+                        <Button onClick={handleBulkAdd}>Add Items</Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
 
-                {/* 3. Refresh */}
-                <Button size="lg" variant="outline" className="border-2 border-accent hover:border-accent/70 hover:bg-accent/10 shadow-md" onClick={handleRefresh}>
-                  <RefreshCw className="w-5 h-5 mr-2" />
-                  Refresh
-                </Button>
+                  {/* Bulk SKU Update */}
+                  <BulkSkuUpload inventory={inventory} onSkuUpdate={bulkUpdateSkus} />
 
-                {/* DATA MANAGEMENT */}
-                {/* 4. Bulk SKU Update */}
-                <BulkSkuUpload inventory={inventory} onSkuUpdate={bulkUpdateSkus} />
+                  {/* Bulk Title Update */}
+                  <BulkTitleUpload inventory={inventory} onTitleUpdate={bulkUpdateTitles} />
+                </div>
+              </div>
 
-                {/* 5. Bulk Title Update */}
-                <BulkTitleUpload inventory={inventory} onTitleUpdate={bulkUpdateTitles} />
+              {/* Settings Section */}
+              <div className="space-y-4">
+                <Label className="text-base font-semibold flex items-center gap-2">
+                  <Settings className="w-5 h-5" />
+                  Settings:
+                </Label>
+                <div className="flex flex-wrap gap-3">
+                  {/* Fetch Titles from Source */}
+                  <Button size="sm" variant="outline" className="border border-border hover:bg-muted" onClick={handleFetchTitlesFromSunsky}>
+                    <Database className="w-4 h-4 mr-2" />
+                    Fetch Titles from Source
+                  </Button>
 
-                {/* 6. Fetch Titles from Sunsky */}
-                <Button size="lg" variant="outline" className="border-2 border-orange-300 hover:border-orange-400 hover:bg-orange-50 shadow-md" onClick={handleFetchTitlesFromSunsky}>
-                  <Database className="w-5 h-5 mr-2" />
-                  Fetch Titles from Sunsky
-                </Button>
+                  {/* Warehouse Settings */}
+                  <SimpleWarehouseManager />
 
-                {/* SETTINGS */}
-                {/* 7. Warehouse Settings */}
-                <SimpleWarehouseManager />
+                  {/* Export */}
+                  <Button size="sm" variant="outline" className="border border-border hover:bg-muted" onClick={exportInventory}>
+                    <Download className="w-4 h-4 mr-2" />
+                    Export
+                  </Button>
 
-                {/* EXPORT & REPORTS */}
-                {/* 8. Export */}
-                <Button size="lg" variant="outline" className="border-2 border-blue-300 hover:border-blue-400 hover:bg-blue-50 shadow-md" onClick={exportInventory}>
-                  <Download className="w-5 h-5 mr-2" />
-                  Export
-                </Button>
+                  {/* Email Export */}
+                  <Button size="sm" variant="outline" className="border border-border hover:bg-muted" onClick={emailInventory}>
+                    <Mail className="w-4 h-4 mr-2" />
+                    Email Export
+                  </Button>
 
-                {/* 9. Email Report */}
-                <Button size="lg" variant="outline" className="border-2 border-purple-300 hover:border-purple-400 hover:bg-purple-50 shadow-md" onClick={emailInventory}>
-                  <Mail className="w-5 h-5 mr-2" />
-                  Email Report
-                </Button>
+                  {/* Refresh */}
+                  <Button size="sm" variant="outline" className="border border-border hover:bg-muted" onClick={handleRefresh}>
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Refresh
+                  </Button>
+                </div>
               </div>
             </div>
 
