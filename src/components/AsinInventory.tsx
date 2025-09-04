@@ -555,13 +555,15 @@ export function AsinInventory() {
 
           currentIndex++;
           
-          if (error || !data?.title) {
+          // Check if the API call succeeded and returned a title
+          if (error || data?.result === 'error' || !data?.data?.name) {
             failed++;
+            console.log(`Failed to fetch title for SKU ${item.sku}:`, data?.message || error?.message || 'No title found');
           } else {
             matched++;
             titleUpdates.push({
               asin: item.asin,
-              title: data.title
+              title: data.data.name
             });
           }
 
