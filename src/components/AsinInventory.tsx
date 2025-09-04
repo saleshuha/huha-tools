@@ -674,7 +674,7 @@ export function AsinInventory() {
       </div>
 
       {/* Prominent Search Bar */}
-      <Card className="border-2 border-primary/20 shadow-xl bg-gradient-to-r from-card/80 to-card/60 backdrop-blur-md">
+      <Card className="border-2 border-primary shadow-xl bg-gradient-to-r from-card/80 to-card/60 backdrop-blur-md">
         <CardContent className="p-6">
           <div className="space-y-6">
             {/* Modern Search Bar */}
