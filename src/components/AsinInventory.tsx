@@ -687,32 +687,44 @@ export function AsinInventory() {
                       <SelectValue />
                     </div>
                   </SelectTrigger>
-                  <SelectContent className="bg-background border shadow-xl min-w-[208px]">
-                    <SelectItem value="all" className="flex items-center gap-2 whitespace-nowrap">
-                      <Search className="w-4 h-4 flex-shrink-0" />
-                      All Fields
-                    </SelectItem>
-                    <SelectItem value="asin" className="flex items-center gap-2 whitespace-nowrap">
-                      <Package className="w-4 h-4 flex-shrink-0" />
-                      ASIN
-                    </SelectItem>
-                    <SelectItem value="sku" className="flex items-center gap-2 whitespace-nowrap">
-                      <Hash className="w-4 h-4 flex-shrink-0" />
-                      SKU
-                    </SelectItem>
-                    <SelectItem value="serial" className="flex items-center gap-2 whitespace-nowrap">
-                      <Hash className="w-4 h-4 flex-shrink-0" />
-                      Serial Number
-                    </SelectItem>
-                    <SelectItem value="title" className="flex items-center gap-2 whitespace-nowrap">
-                      <FileText className="w-4 h-4 flex-shrink-0" />
-                      Title
-                    </SelectItem>
-                    <SelectItem value="notes" className="flex items-center gap-2 whitespace-nowrap">
-                      <Edit3 className="w-4 h-4 flex-shrink-0" />
-                      Notes
-                    </SelectItem>
-                  </SelectContent>
+                   <SelectContent className="bg-background border shadow-xl min-w-[208px]">
+                     <SelectItem value="all">
+                       <div className="flex items-center gap-2 whitespace-nowrap">
+                         <Search className="w-4 h-4 flex-shrink-0" />
+                         <span>All Fields</span>
+                       </div>
+                     </SelectItem>
+                     <SelectItem value="asin">
+                       <div className="flex items-center gap-2 whitespace-nowrap">
+                         <Package className="w-4 h-4 flex-shrink-0" />
+                         <span>ASIN</span>
+                       </div>
+                     </SelectItem>
+                     <SelectItem value="sku">
+                       <div className="flex items-center gap-2 whitespace-nowrap">
+                         <Hash className="w-4 h-4 flex-shrink-0" />
+                         <span>SKU</span>
+                       </div>
+                     </SelectItem>
+                     <SelectItem value="serial">
+                       <div className="flex items-center gap-2 whitespace-nowrap">
+                         <Hash className="w-4 h-4 flex-shrink-0" />
+                         <span>Serial Number</span>
+                       </div>
+                     </SelectItem>
+                     <SelectItem value="title">
+                       <div className="flex items-center gap-2 whitespace-nowrap">
+                         <FileText className="w-4 h-4 flex-shrink-0" />
+                         <span>Title</span>
+                       </div>
+                     </SelectItem>
+                     <SelectItem value="notes">
+                       <div className="flex items-center gap-2 whitespace-nowrap">
+                         <Edit3 className="w-4 h-4 flex-shrink-0" />
+                         <span>Notes</span>
+                       </div>
+                     </SelectItem>
+                   </SelectContent>
                 </Select>
                 <div className="relative flex-1">
                   <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5 z-10" />
