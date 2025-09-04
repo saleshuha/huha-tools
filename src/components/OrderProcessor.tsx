@@ -754,55 +754,82 @@ export function OrderProcessor() {
             </TabsContent>
 
             <TabsContent value="all-orders" className="space-y-4">
-              <div className="flex flex-col sm:flex-row gap-4 mb-4">
-                <div className="flex-1">
-                  <Label>Filter by Order Date</Label>
-                  <Input 
-                    type="date" 
-                    value={orderDateFilter}
-                    onChange={(e) => setOrderDateFilter(e.target.value)}
-                    placeholder="Order date filter"
-                    className="w-full"
-                  />
+              {/* Enhanced Filter Section */}
+              <Card className="p-4 bg-gradient-to-r from-primary/5 via-card to-accent/5 border-primary/20">
+                <div className="flex items-center gap-2 mb-4">
+                  <Search className="w-4 h-4 text-primary" />
+                  <h4 className="font-semibold text-foreground">Filter Orders</h4>
+                  <Badge variant="secondary" className="ml-auto text-xs">
+                    {filteredAllOrders.length} results
+                  </Badge>
                 </div>
-                <div className="flex-1">
-                  <Label>Filter by Upload Date</Label>
-                  <Input 
-                    type="date" 
-                    value={uploadDateFilter}
-                    onChange={(e) => setUploadDateFilter(e.target.value)}
-                    placeholder="Upload date filter"
-                    className="w-full"
-                  />
+                
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium flex items-center gap-2">
+                      <Clock className="w-3 h-3" />
+                      Order Date
+                    </Label>
+                    <Input 
+                      type="date" 
+                      value={orderDateFilter}
+                      onChange={(e) => setOrderDateFilter(e.target.value)}
+                      className="bg-background/80 border-primary/20 focus:border-primary"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium flex items-center gap-2">
+                      <FileSpreadsheet className="w-3 h-3" />
+                      Upload Date
+                    </Label>
+                    <Input 
+                      type="date" 
+                      value={uploadDateFilter}
+                      onChange={(e) => setUploadDateFilter(e.target.value)}
+                      className="bg-background/80 border-primary/20 focus:border-primary"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium flex items-center gap-2">
+                      <Tag className="w-3 h-3" />
+                      Status
+                    </Label>
+                    <Select value={orderStatusFilter} onValueChange={setOrderStatusFilter}>
+                      <SelectTrigger className="bg-background/80 border-primary/20 focus:border-primary">
+                        <SelectValue placeholder="All Statuses" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background border-primary/20 z-50">
+                        <SelectItem value="all">All Statuses</SelectItem>
+                        {uniqueStatuses.map((status) => (
+                          <SelectItem key={status} value={status}>
+                            {status}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="flex items-end">
+                    <Button 
+                      variant="outline" 
+                      onClick={clearFilters}
+                      className="w-full border-primary/30 text-primary hover:bg-primary hover:text-primary-foreground transition-all duration-300"
+                    >
+                      <Minus className="w-4 h-4 mr-2" />
+                      Clear All
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <Label>Filter by Status</Label>
-                  <Select value={orderStatusFilter} onValueChange={setOrderStatusFilter}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="All Statuses" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Statuses</SelectItem>
-                      {uniqueStatuses.map((status) => (
-                        <SelectItem key={status} value={status}>
-                          {status}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex items-end">
-                  <Button variant="outline" onClick={clearFilters}>
-                    Clear Filters
-                  </Button>
-                </div>
-              </div>
+              </Card>
 
               {allOrders.length > 0 ? (
                 <div className="rounded-lg border overflow-hidden">
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead className="w-16">Serial #</TableHead>
                         <TableHead>Order ID</TableHead>
                         <TableHead>Order Date</TableHead>
                         <TableHead>ASIN/SKU</TableHead>
@@ -814,6 +841,9 @@ export function OrderProcessor() {
                     <TableBody>
                       {filteredAllOrders.slice(0, 50).map((order, index) => (
                         <TableRow key={`${order.orderId}-${index}`}>
+                          <TableCell className="text-xs font-medium text-muted-foreground">
+                            {index + 1}
+                          </TableCell>
                           <TableCell className="font-mono text-xs">{order.orderId}</TableCell>
                           <TableCell className="text-xs">
                             {order.orderPlaceDate ? (
@@ -873,6 +903,7 @@ export function OrderProcessor() {
                   <Table>
                      <TableHeader>
                        <TableRow>
+                         <TableHead className="w-16">Serial #</TableHead>
                          <TableHead>Order ID</TableHead>
                          <TableHead>Order Date</TableHead>
                          <TableHead>ASIN/SKU</TableHead>
@@ -884,6 +915,9 @@ export function OrderProcessor() {
                      <TableBody>
                        {matchedOrders.slice(0, 50).map((order, index) => (
                          <TableRow key={`${order.orderId}-${index}`}>
+                           <TableCell className="text-xs font-medium text-muted-foreground">
+                             {index + 1}
+                           </TableCell>
                            <TableCell className="font-mono text-xs">{order.orderId}</TableCell>
                            <TableCell className="text-xs">
                              {order.orderPlaceDate ? (
@@ -943,6 +977,7 @@ export function OrderProcessor() {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead className="w-16">Serial #</TableHead>
                         <TableHead>Order Number</TableHead>
                         <TableHead>ASIN/SKU</TableHead>
                         <TableHead>Title</TableHead>
@@ -954,6 +989,9 @@ export function OrderProcessor() {
                     <TableBody>
                       {processedOrders.slice(0, 50).map((order, index) => (
                         <TableRow key={`${order.order_number}-${index}`}>
+                          <TableCell className="text-xs font-medium text-muted-foreground">
+                            {index + 1}
+                          </TableCell>
                           <TableCell className="font-mono text-xs">{order.order_number}</TableCell>
                           <TableCell>
                             <div className="space-y-1">
