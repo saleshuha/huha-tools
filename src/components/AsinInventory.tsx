@@ -1111,7 +1111,7 @@ export function AsinInventory() {
                         <td className="p-3 font-mono text-sm border-r">{item.serialNumber}</td>
                         <td className="p-3 border-r">
                          <Badge variant={item.status === 'in-stock' ? 'default' : item.status === 'sold' ? 'secondary' : item.status === 'reserved' ? 'outline' : 'destructive'} className="text-xs">
-                           {item.status === 'in-stock' ? 'IN' : item.status === 'sold' ? 'SOLD' : item.status === 'reserved' ? 'RES' : 'DAM'}
+                           {item.status === 'in-stock' ? 'In Stock' : item.status === 'sold' ? 'Sold' : item.status === 'reserved' ? 'Reserved' : 'Damaged'}
                          </Badge>
                        </td>
                       <td className="p-3 border-r">
