@@ -5,13 +5,10 @@ import { Package, Archive, ArrowRight, FileSpreadsheet } from 'lucide-react';
 import { AsinInventory } from './AsinInventory';
 import { SSInventory } from './SSInventory';
 import { OrderProcessor } from './OrderProcessor';
-
 type InventoryView = 'main' | 'asin' | 'ss' | 'orders';
-
 export function Inventory() {
   console.log('Inventory component loaded, current view:', 'main');
   const [currentView, setCurrentView] = useState<InventoryView>('main');
-
   if (currentView === 'asin') {
     return <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 relative overflow-hidden">
         {/* Enhanced Background Effects */}
@@ -24,17 +21,10 @@ export function Inventory() {
         <div className="relative z-10 w-full space-y-8 p-4 md:p-8">
           {/* Enhanced Header with Back Button */}
           <div className="flex items-start justify-between mb-8">
-            <Button 
-              variant="outline" 
-              onClick={() => setCurrentView('main')} 
-              className="group bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border-orange-200/50 dark:border-orange-800/50 hover:bg-orange-50 dark:hover:bg-orange-900/20 hover:border-orange-300 dark:hover:border-orange-700 transition-all duration-300 shadow-lg hover:shadow-xl"
-            >
-              <ArrowRight className="w-4 h-4 rotate-180 group-hover:-translate-x-1 transition-transform duration-300" />
-              Back to Menu
-            </Button>
             
-            <div className="text-center mx-auto">
-              <div className="flex items-center justify-center gap-4 mb-2">
+            
+            <div className="text-center">
+              <div className="flex items-center justify-center gap-4 mb-4">
                 <div className="w-12 h-12 bg-gradient-to-br from-orange-500 via-amber-500 to-yellow-500 rounded-2xl flex items-center justify-center shadow-lg shadow-orange-500/25">
                   <Package className="w-7 h-7 text-white" />
                 </div>
@@ -55,7 +45,6 @@ export function Inventory() {
         </div>
       </div>;
   }
-
   if (currentView === 'ss') {
     return <div className="min-h-screen bg-gradient-to-br from-slate-50 via-orange-50/30 to-amber-50/20 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 relative overflow-hidden">
         {/* Enhanced Background Effects */}
@@ -68,11 +57,7 @@ export function Inventory() {
         <div className="relative z-10 w-full space-y-8 p-4 md:p-8">
           {/* Enhanced Header with Back Button */}
           <div className="flex items-start justify-between mb-8">
-            <Button 
-              variant="outline" 
-              onClick={() => setCurrentView('main')} 
-              className="group bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border-orange-200/50 dark:border-orange-800/50 hover:bg-orange-50 dark:hover:bg-orange-900/20 hover:border-orange-300 dark:hover:border-orange-700 transition-all duration-300 shadow-lg hover:shadow-xl"
-            >
+            <Button variant="outline" onClick={() => setCurrentView('main')} className="group bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border-orange-200/50 dark:border-orange-800/50 hover:bg-orange-50 dark:hover:bg-orange-900/20 hover:border-orange-300 dark:hover:border-orange-700 transition-all duration-300 shadow-lg hover:shadow-xl">
               <ArrowRight className="w-4 h-4 rotate-180 group-hover:-translate-x-1 transition-transform duration-300" />
               Back to Menu
             </Button>
@@ -99,16 +84,11 @@ export function Inventory() {
         </div>
       </div>;
   }
-
   if (currentView === 'orders') {
     return <div className="min-h-screen bg-gradient-surface p-4 md:p-6">
         <div className="w-full space-y-6">
         <div className="flex items-start justify-between mb-8">
-          <Button 
-            variant="outline" 
-            onClick={() => setCurrentView('main')} 
-            className="group bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border-orange-200/50 dark:border-orange-800/50 hover:bg-orange-50 dark:hover:bg-orange-900/20 hover:border-orange-300 dark:hover:border-orange-700 transition-all duration-300 shadow-lg hover:shadow-xl"
-          >
+          <Button variant="outline" onClick={() => setCurrentView('main')} className="group bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border-orange-200/50 dark:border-orange-800/50 hover:bg-orange-50 dark:hover:bg-orange-900/20 hover:border-orange-300 dark:hover:border-orange-700 transition-all duration-300 shadow-lg hover:shadow-xl">
             <ArrowRight className="w-4 h-4 rotate-180 group-hover:-translate-x-1 transition-transform duration-300" />
             Back to Menu
           </Button>
@@ -117,12 +97,11 @@ export function Inventory() {
         </div>
       </div>;
   }
-
   return <div className="min-h-screen bg-gradient-surface">
       <div className="w-full space-y-6">
         {/* Header */}
-        <div className="text-center mb-6">
-          <div className="flex items-center justify-center gap-3 mb-4">
+        <div className="text-center mb-12">
+          <div className="flex items-center justify-center gap-3 mb-6">
             <div className="w-12 h-12 bg-gradient-to-br from-primary to-primary/60 rounded-2xl flex items-center justify-center shadow-lg">
               <Package className="w-7 h-7 text-white" />
             </div>
@@ -136,7 +115,7 @@ export function Inventory() {
         </div>
 
         {/* Cards Grid - All in one row */}
-        <div className="grid md:grid-cols-3 gap-6 px-8 mb-6">
+        <div className="grid md:grid-cols-3 gap-6 px-8 mb-12">
           {/* ASIN Inventory */}
           <Card className="relative overflow-hidden p-8 hover:shadow-xl transition-all duration-700 cursor-pointer group border-0 hover:scale-[1.02] bg-gradient-to-br from-white/90 via-white/70 to-white/50 dark:from-slate-800/90 dark:via-slate-800/70 dark:to-slate-800/50 backdrop-blur-xl" onClick={() => setCurrentView('asin')}>
             {/* Background Effects */}
