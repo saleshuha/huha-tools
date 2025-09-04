@@ -1,19 +1,16 @@
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { RefreshCw } from 'lucide-react';
 import { NoonOrdersUpload } from '@/components/NoonOrdersUpload';
 import { NoonOrdersTable } from '@/components/NoonOrdersTable';
 import { NoonStoreManagement } from '@/components/NoonStoreManagement';
 import { SunskyOrderPlacement } from '@/components/SunskyOrderPlacement';
 import { SunskyOrderTracking } from '@/components/SunskyOrderTracking';
-import { NoonOrderPipeline } from '@/components/noon/NoonOrderPipeline';
 import { NoonOrderDetailDrawer } from '@/components/noon/NoonOrderDetailDrawer';
-import { NoonOrderFilters, FilterState } from '@/components/noon/NoonOrderFilters';
-import { NoonExceptions } from '@/components/noon/NoonExceptions';
 import { AutoProcessingStatus } from '@/components/AutoProcessingStatus';
+import { TrackingToolbar } from '@/components/noon/tracking/TrackingToolbar';
+import { StatusMetricsCards } from '@/components/noon/tracking/StatusMetricsCards';
+import { ExceptionsDrawer } from '@/components/noon/tracking/ExceptionsDrawer';
+import { EnhancedOrdersPipeline } from '@/components/noon/tracking/EnhancedOrdersPipeline';
 import { useNoonOrders, NoonOrder } from '@/hooks/useNoonOrders';
 import { useNoonStores } from '@/hooks/useNoonStores';
 import { useSunskyCredentials } from '@/hooks/useSunskyCredentials';
@@ -25,7 +22,10 @@ export default function NoonOrderTrackingPage() {
   const [selectedCredentialsId, setSelectedCredentialsId] = useState<string>('');
   const [selectedOrder, setSelectedOrder] = useState<NoonOrder | null>(null);
   const [showOrderDetail, setShowOrderDetail] = useState(false);
-  const [filters, setFilters] = useState<FilterState>({
+  const [showExceptions, setShowExceptions] = useState(false);
+  const [viewMode, setViewMode] = useState<'table' | 'pipeline'>('table');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filters, setFilters] = useState({
     search: '',
     status: 'all',
     storeId: 'all-stores',
@@ -37,12 +37,13 @@ export default function NoonOrderTrackingPage() {
   const { credentials } = useSunskyCredentials();
   const { toast } = useToast();
 
-  // Filter orders based on current filters
+  // Filter orders based on current search and filters
   const filteredOrders = React.useMemo(() => {
     return orders.filter(order => {
-      // Search filter
-      if (filters.search) {
-        const searchLower = filters.search.toLowerCase();
+      // Search filter - combine toolbar search with filters search
+      const searchQuery = searchTerm || filters.search;
+      if (searchQuery) {
+        const searchLower = searchQuery.toLowerCase();
         const matches = [
           order.order_nr,
           order.purchase_item_nr,
@@ -64,7 +65,7 @@ export default function NoonOrderTrackingPage() {
         return false;
       }
 
-      // Date range filter (simplified - could be enhanced)
+      // Date range filter
       if (filters.dateRange !== 'all') {
         const orderDate = order.order_received_at ? new Date(order.order_received_at) : new Date(order.created_at);
         const now = new Date();
@@ -90,7 +91,31 @@ export default function NoonOrderTrackingPage() {
 
       return true;
     });
-  }, [orders, filters]);
+  }, [orders, filters, searchTerm]);
+
+  // Calculate status metrics
+  const statusMetrics = React.useMemo(() => {
+    const metrics = {
+      uploaded: 0,
+      ready: 0,
+      placed: 0,
+      shipped: 0,
+      delivered: 0,
+      exception: 0,
+      total: filteredOrders.length
+    };
+
+    filteredOrders.forEach(order => {
+      const status = order.order_status || 'uploaded';
+      if (metrics.hasOwnProperty(status)) {
+        (metrics as any)[status]++;
+      } else {
+        metrics.uploaded++; // Default fallback
+      }
+    });
+
+    return metrics;
+  }, [filteredOrders]);
 
   // Get exception orders
   const exceptionOrders = filteredOrders.filter(order => 
@@ -146,86 +171,165 @@ export default function NoonOrderTrackingPage() {
     setShowOrderDetail(true);
   };
 
+  const handleOrderMove = async (orderId: string, newStatus: string) => {
+    try {
+      await updateOrderStatus(orderId, { order_status: newStatus });
+      toast({
+        title: 'Success',
+        description: 'Order status updated successfully',
+      });
+    } catch (error) {
+      console.error('Error updating order:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update order status',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleExport = () => {
+    // Export functionality - would implement CSV/Excel export
+    toast({
+      title: 'Export',
+      description: 'Export functionality coming soon',
+    });
+  };
+
+  const handleShowAnalytics = () => {
+    // Navigate to analytics view or show analytics modal
+    toast({
+      title: 'Analytics',
+      description: 'Analytics view coming soon',
+    });
+  };
+
+  const handleResolveException = async (orderId: string) => {
+    try {
+      await updateOrderStatus(orderId, { 
+        order_status: 'uploaded',
+        sunsky_error_message: null 
+      });
+      toast({
+        title: 'Success',
+        description: 'Exception resolved successfully',
+      });
+    } catch (error) {
+      console.error('Error resolving exception:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to resolve exception',
+        variant: 'destructive',
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/5">
-      {/* Hero Header Section */}
+      {/* Enhanced Hero Header Section */}
       <div className="relative overflow-hidden border-b bg-gradient-to-r from-primary/10 via-primary/5 to-transparent">
         <div className="absolute inset-0 bg-grid-white/10 bg-[size:20px_20px] [mask-image:radial-gradient(white,transparent_70%)]" />
-        <div className="container relative mx-auto px-6 py-12">
-          <div className="mx-auto max-w-4xl text-center">
-            <div className="mb-4 inline-flex items-center rounded-full border bg-background/50 px-4 py-2 text-sm backdrop-blur-sm">
-              <span className="mr-2 h-2 w-2 rounded-full bg-blue-500"></span>
-              Noon Orders Integration
+        <div className="absolute top-10 left-10 w-20 h-20 bg-primary/20 rounded-full blur-xl animate-float" />
+        <div className="absolute bottom-10 right-10 w-32 h-32 bg-accent/20 rounded-full blur-xl animate-float-delayed" />
+        
+        <div className="container relative mx-auto px-6 py-16">
+          <div className="mx-auto max-w-5xl text-center">
+            <div className="mb-6 inline-flex items-center rounded-full border bg-background/50 px-6 py-3 text-sm backdrop-blur-md shadow-soft animate-fade-in">
+              <div className="mr-3 h-2 w-2 rounded-full bg-emerald animate-pulse"></div>
+              Advanced Noon Orders Integration
             </div>
-            <h1 className="mb-4 text-4xl font-bold tracking-tight bg-gradient-primary bg-clip-text text-transparent sm:text-5xl">
+            <h1 className="mb-6 text-5xl font-bold tracking-tight bg-gradient-primary bg-clip-text text-transparent sm:text-6xl animate-slide-up">
               Noon Orders Tracking
             </h1>
-            <p className="mx-auto max-w-2xl text-xl text-muted-foreground">
-              Upload and manage your noon orders with automated Sunsky integration for seamless order fulfillment
+            <p className="mx-auto max-w-3xl text-xl text-muted-foreground leading-relaxed animate-slide-up" style={{ animationDelay: '200ms' }}>
+              Intelligent order management system with automated Sunsky integration, real-time tracking, and advanced analytics for seamless e-commerce operations
             </p>
+            
+            {/* Quick Stats */}
+            <div className="mt-8 grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-2xl mx-auto animate-fade-in" style={{ animationDelay: '400ms' }}>
+              <div className="bg-background/30 backdrop-blur-sm rounded-lg p-3 border border-border/50">
+                <div className="text-lg font-bold text-foreground">{orders.length.toLocaleString()}</div>
+                <div className="text-xs text-muted-foreground">Total Orders</div>
+              </div>
+              <div className="bg-background/30 backdrop-blur-sm rounded-lg p-3 border border-border/50">
+                <div className="text-lg font-bold text-emerald">{statusMetrics.delivered.toLocaleString()}</div>
+                <div className="text-xs text-muted-foreground">Delivered</div>
+              </div>
+              <div className="bg-background/30 backdrop-blur-sm rounded-lg p-3 border border-border/50">
+                <div className="text-lg font-bold text-primary">{statusMetrics.placed.toLocaleString()}</div>
+                <div className="text-xs text-muted-foreground">In Progress</div>
+              </div>
+              <div className="bg-background/30 backdrop-blur-sm rounded-lg p-3 border border-border/50">
+                <div className="text-lg font-bold text-destructive">{exceptionOrders.length.toLocaleString()}</div>
+                <div className="text-xs text-muted-foreground">Issues</div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
-      
-        <div className="container mx-auto px-6 py-8">
-          {/* Auto-Processing Status */}
-          <AutoProcessingStatus orders={orders} />
 
-          {/* Shared Header Controls */}
-        <div className="mb-6 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Select value={selectedStoreId} onValueChange={setSelectedStoreId}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="Select Store" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all-stores">All Stores</SelectItem>
-                {stores.map((store) => (
-                  <SelectItem key={store.id} value={store.id}>
-                    {store.name} ({store.country})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+      {/* Enhanced Toolbar */}
+      <TrackingToolbar
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        selectedStore={selectedStoreId}
+        onStoreChange={setSelectedStoreId}
+        selectedCredentials={selectedCredentialsId}
+        onCredentialsChange={setSelectedCredentialsId}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        onRefresh={refreshOrders}
+        onExport={handleExport}
+        onShowExceptions={() => setShowExceptions(true)}
+        onShowAnalytics={handleShowAnalytics}
+        loading={loading}
+        totalOrders={orders.length}
+        filteredOrders={filteredOrders.length}
+        exceptionCount={exceptionOrders.length}
+        stores={stores}
+        credentials={credentials}
+      />
 
-            <Select value={selectedCredentialsId} onValueChange={setSelectedCredentialsId}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="Sunsky Credentials" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="select-credentials">Select Credentials</SelectItem>
-                {credentials.map((cred) => (
-                  <SelectItem key={cred.id} value={cred.id}>
-                    {cred.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+      <div className="container mx-auto px-6 py-8 space-y-8">
+        {/* Auto-Processing Status */}
+        <AutoProcessingStatus orders={orders} />
 
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={refreshOrders} disabled={loading}>
-              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
-            <Badge variant="secondary">{filteredOrders.length} orders</Badge>
-          </div>
-        </div>
+        {/* Status Metrics Cards */}
+        <StatusMetricsCards metrics={statusMetrics} className="animate-fade-in" />
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-5 mb-8">
-            <TabsTrigger value="orders">Orders Management</TabsTrigger>
-            <TabsTrigger value="upload">Upload Orders</TabsTrigger>
-            <TabsTrigger value="stores">Store Management</TabsTrigger>
-            <TabsTrigger value="sunsky-place">Place Sunsky Orders</TabsTrigger>
-            <TabsTrigger value="sunsky-track">Track Sunsky Orders</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-5 mb-8 bg-card border border-border/50 shadow-soft">
+            <TabsTrigger value="orders" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              Orders Management
+            </TabsTrigger>
+            <TabsTrigger value="upload" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              Upload Orders
+            </TabsTrigger>
+            <TabsTrigger value="stores" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              Store Management
+            </TabsTrigger>
+            <TabsTrigger value="sunsky-place" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              Place Sunsky Orders
+            </TabsTrigger>
+            <TabsTrigger value="sunsky-track" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              Track Sunsky Orders
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="orders" className="space-y-6">
-            <NoonOrdersTable 
-              selectedStoreId={selectedStoreId}
-              onStoreChange={setSelectedStoreId}
-            />
+            {viewMode === 'table' ? (
+              <NoonOrdersTable 
+                selectedStoreId={selectedStoreId}
+                onStoreChange={setSelectedStoreId}
+              />
+            ) : (
+              <EnhancedOrdersPipeline
+                orders={filteredOrders}
+                onOrderMove={handleOrderMove}
+                onOrderView={handleOrderView}
+                className="animate-fade-in"
+              />
+            )}
           </TabsContent>
 
           <TabsContent value="upload" className="space-y-6">
@@ -253,16 +357,24 @@ export default function NoonOrderTrackingPage() {
             <SunskyOrderTracking />
           </TabsContent>
         </Tabs>
-
-        {/* Order Detail Drawer */}
-        <NoonOrderDetailDrawer
-          order={selectedOrder}
-          open={showOrderDetail}
-          onOpenChange={setShowOrderDetail}
-          onLinkSunskyOrder={handleLinkSunskyOrder}
-          onSyncOrder={handleSyncOrder}
-        />
       </div>
+
+      {/* Enhanced Drawers */}
+      <NoonOrderDetailDrawer
+        order={selectedOrder}
+        open={showOrderDetail}
+        onOpenChange={setShowOrderDetail}
+        onLinkSunskyOrder={handleLinkSunskyOrder}
+        onSyncOrder={handleSyncOrder}
+      />
+
+      <ExceptionsDrawer
+        open={showExceptions}
+        onOpenChange={setShowExceptions}
+        exceptions={exceptionOrders}
+        onResolveException={handleResolveException}
+        onViewOrder={handleOrderView}
+      />
     </div>
   );
 }
