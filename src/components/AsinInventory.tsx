@@ -782,17 +782,18 @@ export function AsinInventory() {
               </div>
             </div>
 
-            {/* Action Buttons Row */}
+            {/* Action Buttons Row - Organized by Usage */}
             <div className="flex flex-wrap items-center gap-4">
               <Label className="text-base font-semibold flex items-center gap-2">
                 <Settings className="w-5 h-5" />
                 Actions:
               </Label>
               <div className="flex flex-wrap gap-3">
+                {/* PRIMARY ACTIONS */}
                 {/* 1. Add New Item */}
                 <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button size="lg" className="bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 text-white">
+                    <Button size="lg" className="bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary text-primary-foreground shadow-md">
                       <Plus className="w-5 h-5 mr-2" />
                       Add New Item
                     </Button>
@@ -877,7 +878,7 @@ export function AsinInventory() {
                 {/* 2. Bulk Add Items */}
                 <Dialog open={isBulkDialogOpen} onOpenChange={setIsBulkDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button size="lg" variant="outline" className="border-2 hover:border-primary/50">
+                    <Button size="lg" variant="outline" className="border-2 border-secondary hover:border-secondary/70 hover:bg-secondary/10 shadow-md">
                       <Upload className="w-5 h-5 mr-2" />
                       Bulk Add Items
                     </Button>
@@ -908,43 +909,46 @@ export function AsinInventory() {
                   </DialogContent>
                 </Dialog>
 
-                {/* 3. Bulk SKU Update */}
+                {/* 3. Refresh */}
+                <Button size="lg" variant="outline" className="border-2 border-accent hover:border-accent/70 hover:bg-accent/10 shadow-md" onClick={handleRefresh}>
+                  <RefreshCw className="w-5 h-5 mr-2" />
+                  Refresh
+                </Button>
+
+                {/* DATA MANAGEMENT */}
+                {/* 4. Bulk SKU Update */}
                 <BulkSkuUpload 
                   inventory={inventory}
                   onSkuUpdate={bulkUpdateSkus}
                 />
 
-                {/* 4. Bulk Title Update */}
+                {/* 5. Bulk Title Update */}
                 <BulkTitleUpload 
                   inventory={inventory}
                   onTitleUpdate={bulkUpdateTitles}
                 />
 
-                {/* 5. Fetch Titles from Sunsky */}
-                <Button size="lg" variant="outline" className="border-orange-300 hover:bg-orange-50" onClick={handleFetchTitlesFromSunsky}>
+                {/* 6. Fetch Titles from Sunsky */}
+                <Button size="lg" variant="outline" className="border-2 border-orange-300 hover:border-orange-400 hover:bg-orange-50 shadow-md" onClick={handleFetchTitlesFromSunsky}>
                   <Database className="w-5 h-5 mr-2" />
                   Fetch Titles from Sunsky
                 </Button>
 
-                {/* 6. Warehouse Settings */}
+                {/* SETTINGS */}
+                {/* 7. Warehouse Settings */}
                 <SimpleWarehouseManager />
 
-                {/* 7. Export */}
-                <Button size="lg" variant="outline" className="border-primary/30 hover:bg-primary/5" onClick={exportInventory}>
+                {/* EXPORT & REPORTS */}
+                {/* 8. Export */}
+                <Button size="lg" variant="outline" className="border-2 border-blue-300 hover:border-blue-400 hover:bg-blue-50 shadow-md" onClick={exportInventory}>
                   <Download className="w-5 h-5 mr-2" />
                   Export
                 </Button>
 
-                {/* 8. Email Report */}
-                <Button size="lg" variant="outline" className="border-purple-300 hover:bg-purple-50" onClick={emailInventory}>
+                {/* 9. Email Report */}
+                <Button size="lg" variant="outline" className="border-2 border-purple-300 hover:border-purple-400 hover:bg-purple-50 shadow-md" onClick={emailInventory}>
                   <Mail className="w-5 h-5 mr-2" />
                   Email Report
-                </Button>
-
-                {/* 9. Refresh */}
-                <Button size="lg" variant="outline" className="border-blue-300 hover:bg-blue-50" onClick={handleRefresh}>
-                  <RefreshCw className="w-5 h-5 mr-2" />
-                  Refresh
                 </Button>
               </div>
             </div>
