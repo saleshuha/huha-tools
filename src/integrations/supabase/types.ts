@@ -30,6 +30,7 @@ export type Database = {
           serial_number: string
           sku: string | null
           status: Database["public"]["Enums"]["inventory_status"]
+          title: string | null
           updated_at: string
           user_id: string
         }
@@ -48,6 +49,7 @@ export type Database = {
           serial_number: string
           sku?: string | null
           status?: Database["public"]["Enums"]["inventory_status"]
+          title?: string | null
           updated_at?: string
           user_id: string
         }
@@ -66,6 +68,7 @@ export type Database = {
           serial_number?: string
           sku?: string | null
           status?: Database["public"]["Enums"]["inventory_status"]
+          title?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -2222,6 +2225,7 @@ export type Database = {
           restock_quantity: number | null
           sku_number: string
           status: string
+          title: string | null
           updated_at: string
           user_id: string
         }
@@ -2240,6 +2244,7 @@ export type Database = {
           restock_quantity?: number | null
           sku_number: string
           status?: string
+          title?: string | null
           updated_at?: string
           user_id: string
         }
@@ -2258,6 +2263,7 @@ export type Database = {
           restock_quantity?: number | null
           sku_number?: string
           status?: string
+          title?: string | null
           updated_at?: string
           user_id?: string
         }

@@ -38,7 +38,10 @@ export function AsinInventory() {
     restockItem,
     updateQuantity,
     updateSku,
+    updateTitle,
     bulkUpdateSkus,
+    bulkUpdateTitles,
+    fetchTitlesFromSunsky,
     refetch
   } = useAsinInventory();
   const {
@@ -75,6 +78,7 @@ export function AsinInventory() {
     asin: string;
     serialNumber: string;
     sku: string;
+    title: string;
     status: AsinInventoryItem['status'];
     quantity: number;
     notes: string;
@@ -82,6 +86,7 @@ export function AsinInventory() {
     asin: '',
     serialNumber: '',
     sku: '',
+    title: '',
     status: 'in-stock',
     quantity: 1,
     notes: ''

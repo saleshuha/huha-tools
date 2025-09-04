@@ -79,12 +79,14 @@ export function SSInventory() {
     skuNumber: string;
     binSerialNumber: string;
     asin?: string;
+    title: string;
     status: SkuInventoryItem['status'];
     quantity: number;
   }>({
     skuNumber: '',
     binSerialNumber: '',
     asin: '',
+    title: '',
     status: 'in-stock',
     quantity: 1
   });

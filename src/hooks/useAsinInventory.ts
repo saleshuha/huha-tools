@@ -9,6 +9,7 @@ export interface AsinInventoryItem {
   asin: string;
   serialNumber: string;
   sku?: string;
+  title?: string;
   status: 'in-stock' | 'sold' | 'reserved' | 'damaged' | 'ordered';
   dateAdded: string;
   dateSold?: string;
@@ -45,6 +46,7 @@ export function useAsinInventory() {
         asin: item.asin,
         serialNumber: item.serial_number,
         sku: item.sku || undefined,
+        title: item.title || undefined,
         status: item.status,
         dateAdded: item.date_added,
         dateSold: item.date_sold || undefined,
@@ -94,6 +96,7 @@ export function useAsinInventory() {
           asin: item.asin,
           serial_number: item.serialNumber,
           sku: item.sku || null,
+          title: item.title || null,
           status: item.status,
           date_added: item.dateAdded,
           date_sold: item.dateSold || null,
@@ -114,6 +117,7 @@ export function useAsinInventory() {
         asin: data.asin,
         serialNumber: data.serial_number,
         sku: data.sku,
+        title: data.title || undefined,
         status: data.status,
         dateAdded: data.date_added,
         dateSold: data.date_sold || undefined,
@@ -455,6 +459,152 @@ export function useAsinInventory() {
     }
   };
 
+  // Update title for an item
+  const updateTitle = async (id: string, newTitle: string) => {
+    if (!profile) return;
+
+    try {
+      const { error } = await supabase
+        .from('asin_inventory')
+        .update({ title: newTitle.trim() || null })
+        .eq('id', id)
+        .eq('user_id', profile.id);
+
+      if (error) throw error;
+
+      setInventory(prev => prev.map(item => 
+        item.id === id ? { ...item, title: newTitle.trim() || undefined } : item
+      ));
+
+      toast({
+        title: "Title Updated",
+        description: `Title has been updated successfully.`,
+      });
+    } catch (error) {
+      console.error('Error updating title:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update title",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Bulk update titles for multiple items by ASIN
+  const bulkUpdateTitles = async (asinTitlePairs: { asin: string; title: string }[]) => {
+    if (!profile) return;
+
+    try {
+      const updates = [];
+      
+      for (const pair of asinTitlePairs) {
+        const { error } = await supabase
+          .from('asin_inventory')
+          .update({ title: pair.title.trim() || null })
+          .eq('asin', pair.asin)
+          .eq('user_id', profile.id);
+
+        if (error) throw error;
+        updates.push(pair);
+      }
+
+      // Update local state
+      setInventory(prev => prev.map(item => {
+        const update = asinTitlePairs.find(pair => pair.asin === item.asin);
+        return update ? { ...item, title: update.title.trim() || undefined } : item;
+      }));
+
+      toast({
+        title: "Titles Updated",
+        description: `Successfully updated ${updates.length} inventory items`,
+      });
+    } catch (error) {
+      console.error('Error bulk updating titles:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update titles",
+        variant: "destructive",
+      });
+      throw error;
+    }
+  };
+
+  // Fetch titles from Sunsky using SKUs
+  const fetchTitlesFromSunsky = async () => {
+    if (!profile) return;
+
+    try {
+      // Get items with SKUs but missing titles
+      const itemsNeedingTitles = inventory.filter(item => 
+        item.sku && item.sku.trim() && !item.title
+      );
+
+      if (itemsNeedingTitles.length === 0) {
+        toast({
+          title: "No Items to Update",
+          description: "All items either have titles or are missing SKUs",
+        });
+        return;
+      }
+
+      toast({
+        title: "Fetching Titles...",
+        description: `Fetching titles for ${itemsNeedingTitles.length} items from Sunsky`,
+      });
+
+      const titleUpdates: { asin: string; title: string }[] = [];
+
+      for (const item of itemsNeedingTitles) {
+        try {
+          const { data, error } = await supabase.functions.invoke('sunsky-api', {
+            body: {
+              action: 'getProductDetails',
+              skuCode: item.sku
+            }
+          });
+
+          if (error) {
+            console.warn(`Failed to fetch title for SKU ${item.sku}:`, error);
+            continue;
+          }
+
+          if (data?.title) {
+            titleUpdates.push({
+              asin: item.asin,
+              title: data.title
+            });
+          }
+
+          // Add small delay to avoid rate limiting
+          await new Promise(resolve => setTimeout(resolve, 500));
+        } catch (error) {
+          console.warn(`Error fetching title for SKU ${item.sku}:`, error);
+        }
+      }
+
+      if (titleUpdates.length > 0) {
+        await bulkUpdateTitles(titleUpdates);
+        toast({
+          title: "Titles Fetched Successfully",
+          description: `Updated titles for ${titleUpdates.length} out of ${itemsNeedingTitles.length} items`,
+        });
+      } else {
+        toast({
+          title: "No Titles Found",
+          description: "Could not retrieve titles from Sunsky for any items",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      console.error('Error fetching titles from Sunsky:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch titles from Sunsky",
+        variant: "destructive",
+      });
+    }
+  };
+
   return {
     inventory,
     loading,
@@ -466,7 +616,10 @@ export function useAsinInventory() {
     updateQuantity,
     updateBin,
     updateSku,
+    updateTitle,
     bulkUpdateSkus,
+    bulkUpdateTitles,
+    fetchTitlesFromSunsky,
     refetch: loadInventory,
   };
 }
