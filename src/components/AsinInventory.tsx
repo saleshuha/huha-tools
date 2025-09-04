@@ -608,13 +608,7 @@ export function AsinInventory() {
     }
   };
 
-  const handleFetchTitlesFromSunsky = () => {
-    runTitleFetch();
-    toast({
-      title: "Title Fetch Started",
-      description: "Background task started to fetch titles from Sunsky API for items with SKUs but missing titles",
-    });
-  };
+  // This function is no longer needed as the logic is implemented directly in the button click handler
 
   const mergeDuplicates = useCallback(async () => {
     if (duplicateData.duplicates.size === 0) {
@@ -1115,7 +1109,24 @@ export function AsinInventory() {
                       Email Report
                     </Button>
                     <Button 
-                      onClick={() => runTitleFetch()}
+                      onClick={() => {
+                        const itemsWithMissingTitles = inventory.filter(item => item.sku && !item.title);
+                        if (itemsWithMissingTitles.length > 0) {
+                          runTitleFetch(itemsWithMissingTitles, (updates) => {
+                            console.log('Title updates received:', updates);
+                            refetch(); // Refresh inventory after titles are updated
+                          });
+                          toast({
+                            title: "Title Fetch Started",
+                            description: `Fetching titles for ${itemsWithMissingTitles.length} items from Sunsky API`,
+                          });
+                        } else {
+                          toast({
+                            title: "No Items to Update",
+                            description: "All items already have titles or no SKUs to lookup",
+                          });
+                        }
+                      }}
                       variant="outline" 
                       className="w-full"
                     >
@@ -1394,9 +1405,8 @@ export function AsinInventory() {
                                 <div className="text-sm max-w-[100px] truncate">
                                   {item.sku ? (
                                     <SkuEditor
-                                      itemId={item.id}
                                       currentSku={item.sku}
-                                      onSkuUpdate={(id, newSku) => updateSku(id, newSku)}
+                                      onUpdate={(newSku) => updateSku(item.id, newSku)}
                                     />
                                   ) : (
                                     <span className="text-muted-foreground italic">No SKU</span>
@@ -1407,9 +1417,8 @@ export function AsinInventory() {
                                 <div className="text-sm max-w-[200px] truncate">
                                   {item.title ? (
                                     <TitleEditor
-                                      itemId={item.id}
                                       currentTitle={item.title}
-                                      onTitleUpdate={(id, newTitle) => updateTitle(id, newTitle)}
+                                      onUpdate={(newTitle) => updateTitle(item.id, newTitle)}
                                     />
                                   ) : (
                                     <span className="text-muted-foreground italic">No Title</span>
@@ -1418,9 +1427,8 @@ export function AsinInventory() {
                               </td>
                               <td className="px-4 py-3">
                                 <DualQuantityEditor
-                                  itemId={item.id}
                                   currentQuantity={item.quantity}
-                                  onQuantityUpdate={handleQuantityUpdate}
+                                  onUpdate={(newQuantity, reason) => handleQuantityUpdate(item.id, newQuantity, reason)}
                                 />
                               </td>
                               <td className="px-4 py-3">
@@ -1466,7 +1474,11 @@ export function AsinInventory() {
                               </td>
                               <td className="px-4 py-3">
                                 <div className="flex gap-2">
-                                  <StockHistoryDialog itemId={item.id} />
+                                  <StockHistoryDialog 
+                                    inventoryId={item.id} 
+                                    itemIdentifier={item.asin} 
+                                    inventoryType="asin" 
+                                  />
                                   <Button
                                     variant="ghost"
                                     size="sm"
@@ -1537,7 +1549,11 @@ export function AsinInventory() {
                                 <Copy className="w-3 h-3 mr-1" />
                                 Copy
                               </Button>
-                              <StockHistoryDialog itemId={item.id} />
+                              <StockHistoryDialog 
+                                inventoryId={item.id} 
+                                itemIdentifier={item.asin} 
+                                inventoryType="asin" 
+                              />
                             </div>
                           </div>
                         </CardContent>
