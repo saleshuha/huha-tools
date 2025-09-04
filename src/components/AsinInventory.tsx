@@ -129,17 +129,33 @@ export function AsinInventory() {
     if (searchTerm) {
       const searchTerms = searchTerm.toLowerCase().split(' ').filter(term => term.length > 0);
       console.log('Search Terms:', searchTerms);
+      console.log('Search Method:', searchMethod);
       console.log('Total Inventory Items:', inventory.length);
       
       filtered = filtered.filter(item => {
         if (searchMethod === 'all') {
-          const matches = searchTerms.every(term => 
-            item.asin.toLowerCase().includes(term) || 
-            item.serialNumber.toLowerCase().includes(term) || 
-            (item.sku && item.sku.toLowerCase().includes(term)) ||
-            (item.title && item.title.toLowerCase().includes(term)) ||
-            (item.notes && item.notes.toLowerCase().includes(term))
-          );
+          const matches = searchTerms.every(term => {
+            const asinMatch = item.asin.toLowerCase().includes(term);
+            const serialMatch = item.serialNumber.toLowerCase().includes(term);
+            const skuMatch = item.sku && item.sku.toLowerCase().includes(term);
+            const titleMatch = item.title && item.title.toLowerCase().includes(term);
+            const notesMatch = item.notes && item.notes.toLowerCase().includes(term);
+            
+            const termFound = asinMatch || serialMatch || skuMatch || titleMatch || notesMatch;
+            
+            // Debug logging for specific searches
+            if (term === 'oppo' || term === 'reno' || term === 'reno6') {
+              console.log(`Searching for "${term}" in item:`, {
+                asin: item.asin,
+                title: item.title?.substring(0, 50) + '...',
+                asinMatch,
+                titleMatch,
+                termFound
+              });
+            }
+            
+            return termFound;
+          });
           return matches;
         } else if (searchMethod === 'asin') {
           return searchTerms.every(term => item.asin.toLowerCase().includes(term));
@@ -156,6 +172,17 @@ export function AsinInventory() {
       });
       
       console.log('Filtered Results:', filtered.length);
+      
+      // Additional debugging for title searches
+      if (searchTerm.toLowerCase().includes('oppo') || searchTerm.toLowerCase().includes('reno')) {
+        const titlesWithSearchTerm = inventory.filter(item => 
+          item.title && item.title.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+        console.log(`Items with "${searchTerm}" in title:`, titlesWithSearchTerm.length);
+        if (titlesWithSearchTerm.length > 0) {
+          console.log('Sample titles:', titlesWithSearchTerm.slice(0, 3).map(item => item.title));
+        }
+      }
     }
 
     // Apply status filter
