@@ -267,27 +267,28 @@ export function AsinInventory() {
       filtered = filtered.filter(item => item.quantity > 0 && item.quantity <= 5);
     } else if (quickFilter === 'out-of-stock') {
       filtered = filtered.filter(item => item.quantity === 0);
-
-      if (dateFilterFrom || dateFilterTo) {
-        filtered = filtered.filter(item => {
-          const itemDate = new Date(item.dateAdded);
-          const fromDate = dateFilterFrom ? new Date(dateFilterFrom.setHours(0, 0, 0, 0)) : null;
-          const toDate = dateFilterTo ? new Date(dateFilterTo.setHours(23, 59, 59, 999)) : null;
-
-          if (fromDate && toDate) {
-            return itemDate >= fromDate && itemDate <= toDate;
-          } else if (fromDate) {
-            return itemDate >= fromDate;
-          } else if (toDate) {
-            return itemDate <= toDate;
-          }
-          return true;
-        });
-      }
     } else if (quickFilter === 'recent') {
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
       filtered = filtered.filter(item => new Date(item.dateAdded) >= sevenDaysAgo);
+    }
+
+    // Apply date filter (independent of quick filter)
+    if (dateFilterFrom || dateFilterTo) {
+      filtered = filtered.filter(item => {
+        const itemDate = new Date(item.dateAdded);
+        const fromDate = dateFilterFrom ? new Date(dateFilterFrom.setHours(0, 0, 0, 0)) : null;
+        const toDate = dateFilterTo ? new Date(dateFilterTo.setHours(23, 59, 59, 999)) : null;
+
+        if (fromDate && toDate) {
+          return itemDate >= fromDate && itemDate <= toDate;
+        } else if (fromDate) {
+          return itemDate >= fromDate;
+        } else if (toDate) {
+          return itemDate <= toDate;
+        }
+        return true;
+      });
     }
 
     // Merge duplicate ASINs - combine quantities and serial numbers
