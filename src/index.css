@@ -268,6 +268,11 @@
   .auto-fit-columns {
     grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   }
+
+  /* Global app container for consistent width across all pages */
+  .app-container {
+    @apply w-full px-4 sm:px-6 lg:max-w-[1200px] xl:max-w-[1320px] 2xl:max-w-[1400px] mx-auto;
+  }
 }
 
 /* Loading animation for analytics */

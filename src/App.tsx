@@ -224,7 +224,8 @@ const App = () => {
                       </div>
                     </header>
                     <main className="flex-1">
-                      <Routes>
+                      <div className="app-container">
+                        <Routes>
                         <Route path="/" element={<Index />} />
                         
                         {/* Tools Routes - Hide in native app */}
@@ -281,7 +282,8 @@ const App = () => {
                         
                         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                         <Route path="*" element={<NotFound />} />
-                      </Routes>
+                        </Routes>
+                      </div>
                     </main>
                   </div>
                 </div>
