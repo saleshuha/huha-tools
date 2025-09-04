@@ -26,6 +26,7 @@ import { TitleEditor } from './TitleEditor';
 import { AsinEditor } from './AsinEditor';
 import { SkuInventoryMetrics } from './SkuInventoryMetrics';
 import { BulkSkuUploadSku } from './BulkSkuUploadSku';
+import { BulkTitleUploadSku } from './BulkTitleUploadSku';
 import { InventoryDashboard } from './InventoryDashboard';
 import { WarehouseManager } from './WarehouseManager';
 import { SimpleWarehouseManager } from './SimpleWarehouseManager';
@@ -46,6 +47,8 @@ export function SSInventory() {
     updateTitle,
     updateAsin,
     bulkUpdateSkus,
+    bulkUpdateTitles,
+    fetchTitlesFromSunsky,
     refetch
   } = useSkuInventory();
   const {
@@ -489,22 +492,34 @@ export function SSInventory() {
                   onSkuUpdate={bulkUpdateSkus}
                 />
 
-                {/* 4. Warehouse Settings */}
+                {/* 4. Bulk Title Update */}
+                <BulkTitleUploadSku 
+                  inventory={inventory}
+                  onTitleUpdate={bulkUpdateTitles}
+                />
+
+                {/* 5. Fetch Titles from Sunsky */}
+                <Button size="lg" variant="outline" className="border-orange-300 hover:bg-orange-50" onClick={fetchTitlesFromSunsky}>
+                  <Database className="w-5 h-5 mr-2" />
+                  Fetch Titles from Sunsky
+                </Button>
+
+                {/* 6. Warehouse Settings */}
                 <SimpleWarehouseManager />
 
-                {/* 5. Export */}
+                {/* 7. Export */}
                 <Button size="lg" variant="outline" className="border-primary/30 hover:bg-primary/5" onClick={exportInventory}>
                   <Download className="w-5 h-5 mr-2" />
                   Export
                 </Button>
 
-                {/* 6. Email Report */}
+                {/* 8. Email Report */}
                 <Button size="lg" variant="outline" className="border-purple-300 hover:bg-purple-50" onClick={emailInventory}>
                   <Mail className="w-5 h-5 mr-2" />
                   Email Report
                 </Button>
 
-                {/* 7. Refresh */}
+                {/* 9. Refresh */}
                 <Button size="lg" variant="outline" className="border-blue-300 hover:bg-blue-50" onClick={handleRefresh}>
                   <RefreshCw className="w-5 h-5 mr-2" />
                   Refresh

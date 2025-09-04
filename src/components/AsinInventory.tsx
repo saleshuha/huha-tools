@@ -12,7 +12,7 @@ import { Calendar } from './ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { useToast } from '@/hooks/use-toast';
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from './ui/pagination';
-import { Package, Plus, Search, Edit, Download, Upload, Check, X, RefreshCw, AlertTriangle, Printer, Hash, Mail, BarChart3, Filter, Grid3X3, List, SortAsc, SortDesc, Calendar as CalendarIcon, TrendingUp, TrendingDown, Eye, Archive, Zap, Clock, ShoppingCart, Trash2, Settings, FileText, Copy, Star, Edit3, Activity } from 'lucide-react';
+import { Package, Plus, Search, Edit, Download, Upload, Check, X, RefreshCw, AlertTriangle, Printer, Hash, Mail, BarChart3, Filter, Grid3X3, List, SortAsc, SortDesc, Calendar as CalendarIcon, TrendingUp, TrendingDown, Eye, Archive, Zap, Clock, ShoppingCart, Trash2, Settings, FileText, Copy, Star, Edit3, Activity, Database } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from './ui/dialog';
 import { Textarea } from './ui/textarea';
 import { useAsinInventory, AsinInventoryItem } from '@/hooks/useAsinInventory';
@@ -25,6 +25,7 @@ import { TitleEditor } from './TitleEditor';
 import { InventoryMetrics } from './InventoryMetrics';
 import { InventoryDashboard } from './InventoryDashboard';
 import { BulkSkuUpload } from './BulkSkuUpload';
+import { BulkTitleUpload } from './BulkTitleUpload';
 import { SimpleWarehouseManager } from './SimpleWarehouseManager';
 import { useWarehouseManager } from '@/hooks/useWarehouseManager';
 import { format } from 'date-fns';
@@ -818,22 +819,34 @@ export function AsinInventory() {
                   onSkuUpdate={bulkUpdateSkus}
                 />
 
-                {/* 4. Warehouse Settings */}
+                {/* 4. Bulk Title Update */}
+                <BulkTitleUpload 
+                  inventory={inventory}
+                  onTitleUpdate={bulkUpdateTitles}
+                />
+
+                {/* 5. Fetch Titles from Sunsky */}
+                <Button size="lg" variant="outline" className="border-orange-300 hover:bg-orange-50" onClick={fetchTitlesFromSunsky}>
+                  <Database className="w-5 h-5 mr-2" />
+                  Fetch Titles from Sunsky
+                </Button>
+
+                {/* 6. Warehouse Settings */}
                 <SimpleWarehouseManager />
 
-                {/* 5. Export */}
+                {/* 7. Export */}
                 <Button size="lg" variant="outline" className="border-primary/30 hover:bg-primary/5" onClick={exportInventory}>
                   <Download className="w-5 h-5 mr-2" />
                   Export
                 </Button>
 
-                {/* 6. Email Report */}
+                {/* 8. Email Report */}
                 <Button size="lg" variant="outline" className="border-purple-300 hover:bg-purple-50" onClick={emailInventory}>
                   <Mail className="w-5 h-5 mr-2" />
                   Email Report
                 </Button>
 
-                {/* 7. Refresh */}
+                {/* 9. Refresh */}
                 <Button size="lg" variant="outline" className="border-blue-300 hover:bg-blue-50" onClick={handleRefresh}>
                   <RefreshCw className="w-5 h-5 mr-2" />
                   Refresh
