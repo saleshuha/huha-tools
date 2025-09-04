@@ -23,6 +23,11 @@ export interface BackgroundTask {
     exportHistoryId?: string;
     exportId?: string;
     filePath?: string;
+    // Title fetch metadata
+    totalProcessed?: number;
+    successfulMatches?: number;
+    failedItems?: number;
+    details?: string;
   };
 }
 
@@ -500,7 +505,13 @@ export function BackgroundTasksProvider({ children }: { children: React.ReactNod
         status: 'completed',
         progress: 100,
         processedItems: items.length,
-        endTime: new Date()
+        endTime: new Date(),
+        metadata: {
+          totalProcessed: items.length,
+          successfulMatches: titleUpdates.length,
+          failedItems: items.length - titleUpdates.length,
+          details: `${titleUpdates.length} titles successfully fetched and updated`
+        }
       });
 
       toast({

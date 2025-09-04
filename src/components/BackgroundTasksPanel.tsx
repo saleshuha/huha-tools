@@ -304,6 +304,33 @@ function TaskCard({
                 <p className="text-sm text-red-800">{task.error}</p>
               </div>
             )}
+
+            {/* Show detailed results for completed title-fetch tasks */}
+            {task.status === 'completed' && task.name.includes('Fetching titles') && task.metadata && (
+              <div className="bg-green-50 border border-green-200 rounded-md p-3 mb-4">
+                <h6 className="text-sm font-medium text-green-800 mb-2">Results Summary:</h6>
+                <div className="grid grid-cols-3 gap-4 text-sm text-green-700">
+                  <div>
+                    <span className="font-medium">Total Items:</span>
+                    <br />
+                    <span className="text-lg">{(task.metadata as any).totalProcessed || task.totalItems}</span>
+                  </div>
+                  <div>
+                    <span className="font-medium">Successfully Matched:</span>
+                    <br />
+                    <span className="text-lg text-green-600">{(task.metadata as any).successfulMatches || 0}</span>
+                  </div>
+                  <div>
+                    <span className="font-medium">Failed/Not Found:</span>
+                    <br />
+                    <span className="text-lg text-red-600">{(task.metadata as any).failedItems || 0}</span>
+                  </div>
+                </div>
+                {(task.metadata as any).details && (
+                  <p className="text-sm text-green-700 mt-2">{(task.metadata as any).details}</p>
+                )}
+              </div>
+            )}
             
             {task.threads && task.threads.length > 0 && (
               <div className="space-y-2">
