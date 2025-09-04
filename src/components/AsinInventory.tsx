@@ -674,12 +674,12 @@ export function AsinInventory() {
       </div>
 
       {/* Prominent Search Bar */}
-      <Card className="border-2 border-input shadow-xl bg-gradient-to-r from-card/80 to-card/60 backdrop-blur-md">
+      <Card className="border-2 border-input border-l-4 border-l-primary shadow-xl bg-gradient-to-r from-card/80 to-card/60 backdrop-blur-md">
         <CardContent className="p-6">
           <div className="space-y-6">
             {/* Modern Search Bar */}
             <div className="relative">
-              <div className="flex items-stretch gap-0 bg-background rounded-xl border-2 border-primary/30 shadow-lg overflow-hidden hover:shadow-xl hover:border-primary/50 transition-all duration-300">
+              <div className="flex items-stretch gap-0 bg-background rounded-xl border-2 border-green-500 shadow-lg overflow-hidden hover:shadow-xl hover:border-green-600 transition-all duration-300">
                 <Select value={searchMethod} onValueChange={(value: 'all' | 'asin' | 'sku' | 'serial' | 'title' | 'notes') => setSearchMethod(value)}>
                   <SelectTrigger className="w-48 h-14 border-0 border-r border-border bg-muted/30 hover:bg-muted/50 transition-colors rounded-none focus:ring-0 focus:ring-offset-0">
                     <div className="flex items-center gap-2 text-sm font-medium">
