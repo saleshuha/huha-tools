@@ -750,26 +750,6 @@ export function OrderProcessor() {
                   </div>
                 )}
 
-                {orderData.length > 0 && (
-                  <div className="text-center p-6 bg-primary/5 rounded-lg border border-primary/20">
-                    <CheckSquare className="w-8 h-8 mx-auto mb-3 text-primary" />
-                    <h4 className="text-lg font-semibold text-foreground mb-2">Orders Uploaded Successfully</h4>
-                    <p className="text-muted-foreground mb-4">
-                      Your orders have been processed and are now available in the other tabs.
-                    </p>
-                    <Button 
-                      onClick={() => {
-                        setOrderData([]);
-                        setMatchedItems([]);
-                        setProcessedItems([]);
-                      }} 
-                      variant="outline"
-                      className="border-primary/30 text-primary hover:bg-primary hover:text-primary-foreground transition-all duration-300"
-                    >
-                      Upload Another File
-                    </Button>
-                  </div>
-                )}
               </div>
             </TabsContent>
 
