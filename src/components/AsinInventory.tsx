@@ -708,7 +708,7 @@ export function AsinInventory() {
                   {/* Add New Item */}
                   <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                     <DialogTrigger asChild>
-                      <Button size="sm" variant="outline" className="border border-primary hover:bg-green-50 hover:border-green-500">
+                      <Button size="sm" variant="outline" className="border-2 border-primary bg-background hover:bg-green-500 hover:text-white hover:border-green-500 transition-all">
                         <Plus className="w-4 h-4 mr-2" />
                         Add New Item
                       </Button>
@@ -793,7 +793,7 @@ export function AsinInventory() {
                   {/* Bulk Add Items */}
                   <Dialog open={isBulkDialogOpen} onOpenChange={setIsBulkDialogOpen}>
                     <DialogTrigger asChild>
-                      <Button size="sm" variant="outline" className="border border-primary hover:bg-green-50 hover:border-green-500">
+                      <Button size="sm" variant="outline" className="border-2 border-primary bg-background hover:bg-green-500 hover:text-white hover:border-green-500 transition-all">
                         <Upload className="w-4 h-4 mr-2" />
                         Bulk Add Items
                       </Button>
@@ -840,7 +840,7 @@ export function AsinInventory() {
                 </Label>
                 <div className="flex flex-wrap gap-3">
                   {/* Fetch Titles from Source */}
-                  <Button size="sm" variant="outline" className="border border-primary hover:bg-green-50 hover:border-green-500" onClick={handleFetchTitlesFromSunsky}>
+                  <Button size="sm" variant="outline" className="border-2 border-primary bg-background hover:bg-green-500 hover:text-white hover:border-green-500 transition-all" onClick={handleFetchTitlesFromSunsky}>
                     <Database className="w-4 h-4 mr-2" />
                     Fetch Titles from Source
                   </Button>
@@ -849,19 +849,19 @@ export function AsinInventory() {
                   <SimpleWarehouseManager />
 
                   {/* Export */}
-                  <Button size="sm" variant="outline" className="border border-primary hover:bg-green-50 hover:border-green-500" onClick={exportInventory}>
+                  <Button size="sm" variant="outline" className="border-2 border-primary bg-background hover:bg-green-500 hover:text-white hover:border-green-500 transition-all" onClick={exportInventory}>
                     <Download className="w-4 h-4 mr-2" />
                     Export
                   </Button>
 
                   {/* Email Export */}
-                  <Button size="sm" variant="outline" className="border border-primary hover:bg-green-50 hover:border-green-500" onClick={emailInventory}>
+                  <Button size="sm" variant="outline" className="border-2 border-primary bg-background hover:bg-green-500 hover:text-white hover:border-green-500 transition-all" onClick={emailInventory}>
                     <Mail className="w-4 h-4 mr-2" />
                     Email Export
                   </Button>
 
                   {/* Refresh */}
-                  <Button size="sm" variant="outline" className="border border-primary hover:bg-green-50 hover:border-green-500" onClick={handleRefresh}>
+                  <Button size="sm" variant="outline" className="border-2 border-primary bg-background hover:bg-green-500 hover:text-white hover:border-green-500 transition-all" onClick={handleRefresh}>
                     <RefreshCw className="w-4 h-4 mr-2" />
                     Refresh
                   </Button>

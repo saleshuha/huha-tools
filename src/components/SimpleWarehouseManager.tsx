@@ -88,7 +88,7 @@ export function SimpleWarehouseManager() {
         if (!open) resetForm();
       }}>
         <DialogTrigger asChild>
-          <Button size="sm" variant="outline" className="border border-primary hover:bg-green-50 hover:border-green-500">
+          <Button size="sm" variant="outline" className="border-2 border-primary bg-background hover:bg-green-500 hover:text-white hover:border-green-500 transition-all">
             <Warehouse className="w-4 h-4 mr-2" />
             Warehouse Settings
           </Button>
