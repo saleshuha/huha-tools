@@ -20,9 +20,7 @@ export function Inventory() {
         
         <div className="relative z-10 w-full space-y-8 p-4 md:p-8">
           {/* Enhanced Header with Back Button */}
-          <div className="flex items-start justify-between mb-8">
-            
-            
+          <div className="flex items-center justify-center mb-8">
             <div className="text-center">
               <div className="flex items-center justify-center gap-4 mb-4">
                 <div className="w-12 h-12 bg-gradient-to-br from-orange-500 via-amber-500 to-yellow-500 rounded-2xl flex items-center justify-center shadow-lg shadow-orange-500/25">
