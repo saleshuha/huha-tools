@@ -37,9 +37,63 @@ export default function NoonOrderTrackingPage() {
   const { credentials } = useSunskyCredentials();
   const { toast } = useToast();
 
+  // Debug logging and sample data for demonstration
+  React.useEffect(() => {
+    console.log('🔍 NoonOrderTracking Debug:', {
+      ordersLength: orders?.length || 0,
+      loading,
+      orders: orders?.slice(0, 2), // Log first 2 orders for debugging
+      storesLength: stores?.length || 0,
+      credentialsLength: credentials?.length || 0
+    });
+  }, [orders, loading, stores, credentials]);
+
+  // Create sample data for demonstration when no orders exist
+  const sampleOrders = React.useMemo(() => {
+    if (orders.length > 0) return orders;
+    
+    // Return sample orders for demonstration
+    return [
+      {
+        id: 'sample-1',
+        order_nr: 'DEMO-001',
+        title: 'Sample Product - Wireless Headphones',
+        partner_sku: 'WH-001-BLK',
+        quantity: 2,
+        order_status: 'uploaded',
+        created_at: new Date().toISOString(),
+        selected_store_id: 'demo-store',
+        user_id: 'demo-user'
+      },
+      {
+        id: 'sample-2', 
+        order_nr: 'DEMO-002',
+        title: 'Sample Product - Phone Case',
+        partner_sku: 'PC-002-RED',
+        quantity: 1,
+        order_status: 'ready',
+        created_at: new Date().toISOString(),
+        selected_store_id: 'demo-store',
+        user_id: 'demo-user'
+      },
+      {
+        id: 'sample-3',
+        order_nr: 'DEMO-003', 
+        title: 'Sample Product - Laptop Stand',
+        partner_sku: 'LS-003-SLV',
+        quantity: 1,
+        order_status: 'placed',
+        sunsky_order_number: 'SK123456',
+        created_at: new Date().toISOString(),
+        selected_store_id: 'demo-store',
+        user_id: 'demo-user'
+      }
+    ] as NoonOrder[];
+  }, [orders]);
+
   // Filter orders based on current search and filters
   const filteredOrders = React.useMemo(() => {
-    return orders.filter(order => {
+    return sampleOrders.filter(order => {
       // Search filter - combine toolbar search with filters search
       const searchQuery = searchTerm || filters.search;
       if (searchQuery) {
@@ -91,7 +145,7 @@ export default function NoonOrderTrackingPage() {
 
       return true;
     });
-  }, [orders, filters, searchTerm]);
+  }, [sampleOrders, filters, searchTerm]);
 
   // Calculate status metrics
   const statusMetrics = React.useMemo(() => {
@@ -248,8 +302,8 @@ export default function NoonOrderTrackingPage() {
             {/* Quick Stats */}
             <div className="mt-8 grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-2xl mx-auto animate-fade-in" style={{ animationDelay: '400ms' }}>
               <div className="bg-background/30 backdrop-blur-sm rounded-lg p-3 border border-border/50">
-                <div className="text-lg font-bold text-foreground">{orders.length.toLocaleString()}</div>
-                <div className="text-xs text-muted-foreground">Total Orders</div>
+                <div className="text-lg font-bold text-foreground">{sampleOrders.length.toLocaleString()}</div>
+                <div className="text-xs text-muted-foreground">Total Orders {orders.length === 0 ? '(Demo)' : ''}</div>
               </div>
               <div className="bg-background/30 backdrop-blur-sm rounded-lg p-3 border border-border/50">
                 <div className="text-lg font-bold text-emerald">{statusMetrics.delivered.toLocaleString()}</div>
@@ -283,7 +337,7 @@ export default function NoonOrderTrackingPage() {
         onShowExceptions={() => setShowExceptions(true)}
         onShowAnalytics={handleShowAnalytics}
         loading={loading}
-        totalOrders={orders.length}
+        totalOrders={sampleOrders.length}
         filteredOrders={filteredOrders.length}
         exceptionCount={exceptionOrders.length}
         stores={stores}
@@ -292,7 +346,26 @@ export default function NoonOrderTrackingPage() {
 
       <div className="container mx-auto px-6 py-8 space-y-8">
         {/* Auto-Processing Status */}
-        <AutoProcessingStatus orders={orders} />
+        <AutoProcessingStatus orders={sampleOrders} />
+
+        {/* Demo Notice */}
+        {orders.length === 0 && (
+          <div className="bg-gradient-to-r from-amber/20 to-orange/20 border border-amber/30 rounded-lg p-4 animate-fade-in">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-amber/20 rounded-lg">
+                <svg className="h-5 w-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="font-semibold text-amber-800 dark:text-amber-200">Demo Mode Active</h3>
+                <p className="text-sm text-amber-700 dark:text-amber-300">
+                  Your orders database is empty. Showing sample data to demonstrate the enhanced UI. Upload orders via the "Upload Orders" tab to see your actual data.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Status Metrics Cards */}
         <StatusMetricsCards metrics={statusMetrics} className="animate-fade-in" />
