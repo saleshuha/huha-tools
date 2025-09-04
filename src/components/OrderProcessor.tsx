@@ -19,7 +19,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { LabelPrintDialog } from '@/components/inventory/LabelPrintDialog';
 import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
-
 interface OrderItem {
   orderId: string;
   orderStatus: string;
@@ -48,14 +47,12 @@ interface OrderItem {
   shippedDate: string;
   uploadDate?: string; // Add upload date for filtering
 }
-
 interface MatchedItem {
   orderItem: OrderItem;
   inventoryMatch?: AsinInventoryItem | SkuInventoryItem;
   inventoryType?: 'asin' | 'sku';
   matchType?: 'asin' | 'sku';
 }
-
 interface ProcessedItem extends MatchedItem {
   processedAt: string;
   action: 'subtract' | 'add';
@@ -63,7 +60,6 @@ interface ProcessedItem extends MatchedItem {
   previousQuantity: number;
   newQuantity: number;
 }
-
 export function OrderProcessor() {
   const [orderData, setOrderData] = useState<OrderItem[]>([]);
   const [matchedItems, setMatchedItems] = useState<MatchedItem[]>([]);
@@ -77,40 +73,41 @@ export function OrderProcessor() {
   const [dbResults, setDbResults] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState('process');
   const [processingProgress, setProcessingProgress] = useState(0);
-  
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(50);
-  
+
   // Filter state
   const [orderDateFilter, setOrderDateFilter] = useState('');
   const [uploadDateFilter, setUploadDateFilter] = useState('');
   const [orderStatusFilter, setOrderStatusFilter] = useState('all');
-
   const {
     inventory: asinInventory,
     updateQuantity: updateAsinQuantity
   } = useAsinInventory();
-  
   const {
     inventory: skuInventory,
     updateQuantity: updateSkuQuantity
   } = useSkuInventory();
-  
-  const { toast } = useToast();
+  const {
+    toast
+  } = useToast();
 
   // Load all imported orders from database, ordered by date
   useEffect(() => {
     const loadAllOrders = async () => {
       console.log('Loading orders from database...');
       setLoading(true);
-      
-      const { data, error } = await supabase
-        .from('order_imports')
-        .select('*')
-        .order('order_place_date', { ascending: false, nullsFirst: false })
-        .order('created_at', { ascending: false });
-      
+      const {
+        data,
+        error
+      } = await supabase.from('order_imports').select('*').order('order_place_date', {
+        ascending: false,
+        nullsFirst: false
+      }).order('created_at', {
+        ascending: false
+      });
       if (error) {
         console.error('Error loading imported orders:', error);
         setLoading(false);
@@ -144,60 +141,56 @@ export function OrderProcessor() {
           shippedDate: order.shipped_date || '',
           uploadDate: order.created_at ? new Date(order.created_at).toISOString().split('T')[0] : ''
         }));
-        
         setOrderData(formattedOrders);
         setAllOrders(formattedOrders);
-        
         if (formattedOrders.length > 0) {
           console.log('Matching orders with inventory...');
           await matchOrdersWithInventory(formattedOrders);
         }
-        
         setLoading(false);
         console.log('Orders loading complete');
       }
     };
-    
     loadAllOrders();
   }, []);
 
   // Load processed orders from database
   useEffect(() => {
     const loadProcessedOrders = async () => {
-      const { data, error } = await supabase
-        .from('processed_orders')
-        .select('*')
-        .order('processed_at', { ascending: false });
-      
+      const {
+        data,
+        error
+      } = await supabase.from('processed_orders').select('*').order('processed_at', {
+        ascending: false
+      });
       if (error) {
         console.error('Error loading processed orders:', error);
       } else {
         setDbResults(data || []);
       }
     };
-    
     loadProcessedOrders();
   }, []);
 
   // Save all orders to database during file upload with duplicate prevention
   const saveOrdersToDatabase = async (orders: OrderItem[], fileName: string) => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: {
+        user
+      }
+    } = await supabase.auth.getUser();
     if (!user) return;
 
     // Check for existing order IDs to prevent duplicates
     const orderIds = orders.map(order => order.orderId).filter(id => id);
-    const { data: existingOrders } = await supabase
-      .from('order_imports')
-      .select('order_id')
-      .eq('user_id', user.id)
-      .in('order_id', orderIds);
-
+    const {
+      data: existingOrders
+    } = await supabase.from('order_imports').select('order_id').eq('user_id', user.id).in('order_id', orderIds);
     const existingOrderIds = new Set((existingOrders || []).map(o => o.order_id));
-    
+
     // Filter out duplicate orders
     const newOrders = orders.filter(order => !existingOrderIds.has(order.orderId));
     const duplicateCount = orders.length - newOrders.length;
-
     if (duplicateCount > 0) {
       toast({
         title: "Duplicate Orders Detected",
@@ -205,16 +198,17 @@ export function OrderProcessor() {
         variant: "default"
       });
     }
-
     if (newOrders.length === 0) {
       toast({
         title: "No New Orders",
         description: "All orders in the file already exist in the database.",
         variant: "default"
       });
-      return { newCount: 0, duplicateCount };
+      return {
+        newCount: 0,
+        duplicateCount
+      };
     }
-
     const orderRecords = newOrders.map(order => ({
       user_id: user.id,
       order_id: order.orderId,
@@ -244,45 +238,43 @@ export function OrderProcessor() {
       shipped_date: order.shippedDate,
       source_file: fileName
     }));
-
-    const { error } = await supabase
-      .from('order_imports')
-      .insert(orderRecords);
-    
+    const {
+      error
+    } = await supabase.from('order_imports').insert(orderRecords);
     if (error) {
       console.error('Error saving orders to database:', error);
       throw error;
     }
-
-    return { newCount: newOrders.length, duplicateCount };
+    return {
+      newCount: newOrders.length,
+      duplicateCount
+    };
   };
 
   // Update order match status in database
   const updateOrderMatchStatus = async (orderId: string, hasMatch: boolean, matchType?: string, matchFieldType?: string, inventoryId?: string) => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: {
+        user
+      }
+    } = await supabase.auth.getUser();
     if (!user) return;
-
-    const { error } = await supabase
-      .from('order_imports')
-      .update({
-        has_inventory_match: hasMatch,
-        inventory_match_type: matchType || null,
-        match_field_type: matchFieldType || null,
-        inventory_id: inventoryId || null,
-        updated_at: new Date().toISOString()
-      })
-      .eq('user_id', user.id)
-      .eq('order_id', orderId);
-    
+    const {
+      error
+    } = await supabase.from('order_imports').update({
+      has_inventory_match: hasMatch,
+      inventory_match_type: matchType || null,
+      match_field_type: matchFieldType || null,
+      inventory_id: inventoryId || null,
+      updated_at: new Date().toISOString()
+    }).eq('user_id', user.id).eq('order_id', orderId);
     if (error) {
       console.error('Error updating order match status:', error);
     }
   };
-
   const onDrop = async (acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
     if (!file) return;
-    
     setLoading(true);
     try {
       let data: any[] = [];
@@ -299,7 +291,6 @@ export function OrderProcessor() {
         const worksheet = workbook.Sheets[workbook.SheetNames[0]];
         data = XLSX.utils.sheet_to_json(worksheet);
       }
-
       const formattedOrders: OrderItem[] = data.map((row: any) => ({
         orderId: row['Order ID'] || '',
         orderStatus: row['Order Status'] || '',
@@ -327,22 +318,17 @@ export function OrderProcessor() {
         trackingId: row['Tracking ID'] || '',
         shippedDate: row['Shipped Date'] || ''
       }));
-
       setOrderData(formattedOrders);
       setAllOrders(formattedOrders);
       setFileName(file.name);
-      
+
       // Save all orders to database first with duplicate prevention
       const saveResult = await saveOrdersToDatabase(formattedOrders, file.name);
-      
       const matches = await matchOrdersWithInventory(formattedOrders);
-
       const matchedCount = matches.filter(m => m.inventoryMatch).length;
       toast({
         title: "Orders Upload Complete",
-        description: saveResult 
-          ? `Added ${saveResult.newCount} new orders (${saveResult.duplicateCount} duplicates skipped). Found ${matchedCount} inventory matches.`
-          : `Processed ${formattedOrders.length} orders. Found ${matchedCount} inventory matches.`
+        description: saveResult ? `Added ${saveResult.newCount} new orders (${saveResult.duplicateCount} duplicates skipped). Found ${matchedCount} inventory matches.` : `Processed ${formattedOrders.length} orders. Found ${matchedCount} inventory matches.`
       });
     } catch (error) {
       console.error('Error processing file:', error);
@@ -355,11 +341,9 @@ export function OrderProcessor() {
       setLoading(false);
     }
   };
-
   const matchOrdersWithInventory = async (orders: OrderItem[]) => {
     console.log(`Starting to match ${orders.length} orders with inventory...`);
     const matches: MatchedItem[] = [];
-    
     for (const order of orders) {
       let inventoryMatch: AsinInventoryItem | SkuInventoryItem | undefined;
       let inventoryType: 'asin' | 'sku' | undefined;
@@ -404,48 +388,43 @@ export function OrderProcessor() {
           matchType = 'asin';
         }
       }
-
       const match: MatchedItem = {
         orderItem: order,
         inventoryMatch,
         inventoryType,
         matchType
       };
-      
       matches.push(match);
     }
-    
     console.log(`Found ${matches.filter(m => m.inventoryMatch).length} matches out of ${matches.length} orders`);
     setMatchedItems(matches);
     return matches;
   };
-
   const processSelectedItems = async () => {
     if (selectedItems.size === 0) return;
-    
     setLoading(true);
     setProcessingProgress(0);
-    
     try {
       const itemsToProcess = Array.from(selectedItems).map(index => matchedItems[index]);
       const processed: ProcessedItem[] = [];
       const total = itemsToProcess.length;
 
       // Save processing records to database
-      const { data: { user } } = await supabase.auth.getUser();
-      
+      const {
+        data: {
+          user
+        }
+      } = await supabase.auth.getUser();
       for (let i = 0; i < itemsToProcess.length; i++) {
         const match = itemsToProcess[i];
         if (!match.inventoryMatch || !match.inventoryType) continue;
-        
+
         // Update progress
-        const progress = Math.floor(((i + 1) / total) * 100);  
+        const progress = Math.floor((i + 1) / total * 100);
         setProcessingProgress(progress);
-        
         const previousQuantity = match.inventoryMatch.quantity;
         const quantityChange = -match.orderItem.itemQuantity;
         const newQuantity = Math.max(0, previousQuantity + quantityChange);
-        
         if (match.inventoryType === 'asin') {
           await updateAsinQuantity(match.inventoryMatch.id, newQuantity, `Order processing: Removed ${Math.abs(quantityChange)} units`);
         } else {
@@ -470,7 +449,6 @@ export function OrderProcessor() {
             processed_at: new Date().toISOString()
           });
         }
-
         const processedItem: ProcessedItem = {
           ...match,
           processedAt: new Date().toISOString(),
@@ -479,25 +457,22 @@ export function OrderProcessor() {
           previousQuantity,
           newQuantity
         };
-
         processed.push(processedItem);
       }
-
       setProcessedItems(prev => [...prev, ...processed]);
       setSelectedItems(new Set());
       setSelectAll(false);
       setProcessingProgress(100);
 
       // Refresh processed orders from database
-      const { data: refreshedProcessed } = await supabase
-        .from('processed_orders')
-        .select('*')
-        .order('processed_at', { ascending: false });
-      
+      const {
+        data: refreshedProcessed
+      } = await supabase.from('processed_orders').select('*').order('processed_at', {
+        ascending: false
+      });
       if (refreshedProcessed) {
         setDbResults(refreshedProcessed);
       }
-
       toast({
         title: "Orders Processed",
         description: `Successfully processed ${processed.length} orders and updated inventory.`
@@ -514,8 +489,11 @@ export function OrderProcessor() {
       setTimeout(() => setProcessingProgress(0), 2000);
     }
   };
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+  const {
+    getRootProps,
+    getInputProps,
+    isDragActive
+  } = useDropzone({
     onDrop,
     accept: {
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
@@ -525,28 +503,20 @@ export function OrderProcessor() {
     multiple: false
   });
 
-  
   // Filter logic for search in Process Orders tab
   const filteredMatches = useMemo(() => {
     if (!searchTerm) return matchedItems.filter(m => m.inventoryMatch);
-    
     return matchedItems.filter(match => {
       if (!match.inventoryMatch) return false;
-      
       const searchLower = searchTerm.toLowerCase();
-      return (
-        match.orderItem.orderId.toLowerCase().includes(searchLower) ||
-        match.orderItem.asin?.toLowerCase().includes(searchLower) ||
-        match.orderItem.sku?.toLowerCase().includes(searchLower) ||
-        match.orderItem.itemTitle?.toLowerCase().includes(searchLower)
-      );
+      return match.orderItem.orderId.toLowerCase().includes(searchLower) || match.orderItem.asin?.toLowerCase().includes(searchLower) || match.orderItem.sku?.toLowerCase().includes(searchLower) || match.orderItem.itemTitle?.toLowerCase().includes(searchLower);
     });
   }, [matchedItems, searchTerm]);
 
   // Filter logic for all orders
   const filteredAllOrders = useMemo(() => {
     let filtered = allOrders;
-    
+
     // Apply order date filter
     if (orderDateFilter) {
       filtered = filtered.filter(order => {
@@ -555,19 +525,18 @@ export function OrderProcessor() {
         return orderDate === orderDateFilter;
       });
     }
-    
+
     // Apply upload date filter (from database created_at)
     if (uploadDateFilter) {
       filtered = filtered.filter(order => {
         return order.uploadDate === uploadDateFilter;
       });
     }
-    
+
     // Apply status filter
     if (orderStatusFilter !== 'all') {
       filtered = filtered.filter(order => order.orderStatus === orderStatusFilter);
     }
-    
     return filtered;
   }, [allOrders, orderDateFilter, uploadDateFilter, orderStatusFilter]);
 
@@ -621,16 +590,12 @@ export function OrderProcessor() {
   const totalPages = Math.ceil(filteredMatches.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedMatches = filteredMatches.slice(startIndex, startIndex + itemsPerPage);
-
   const analytics = useMemo(() => {
-    const latestOrderDate = allOrders.length > 0 
-      ? allOrders.reduce((latest, order) => {
-          const orderDate = new Date(order.orderPlaceDate);
-          const latestDate = new Date(latest);
-          return orderDate > latestDate ? order.orderPlaceDate : latest;
-        }, allOrders[0].orderPlaceDate)
-      : '';
-    
+    const latestOrderDate = allOrders.length > 0 ? allOrders.reduce((latest, order) => {
+      const orderDate = new Date(order.orderPlaceDate);
+      const latestDate = new Date(latest);
+      return orderDate > latestDate ? order.orderPlaceDate : latest;
+    }, allOrders[0].orderPlaceDate) : '';
     return {
       totalOrders: allOrders.length,
       matchedOrdersCount: matchedOrders.length,
@@ -640,136 +605,204 @@ export function OrderProcessor() {
       latestOrderDate: latestOrderDate ? new Date(latestOrderDate).toLocaleDateString() : ''
     };
   }, [allOrders, matchedOrders, unmatchedOrders, processedOrders]);
-
-  return (
-    <div className="space-y-6">
-      {/* Enhanced Card with Primary Theme */}
-      <Card className="border-primary/20 shadow-glow/10 bg-card/95 backdrop-blur-sm">
-        <div className="p-6 space-y-6">
-          {/* Enhanced Header */}
+  return <div className="space-y-6">
+      <Card className="p-6">
+        <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-gradient-primary">
-                <Package className="w-5 h-5 text-primary-foreground" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-foreground">
-                  Order Processing Hub
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  Manage and process customer orders efficiently
-                </p>
-              </div>
-            </div>
-            
-            {/* Analytics Cards */}
-            <div className="flex items-center gap-4 text-sm">
-              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/10 border border-primary/20">
-                <TrendingUp className="w-4 h-4 text-primary" />
-                <span className="text-primary font-medium">{analytics.totalOrders} Total</span>
-              </div>
-              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-success/10 border border-success/20">
-                <CheckSquare className="w-4 h-4 text-success" />
-                <span className="text-success font-medium">{analytics.processedOrdersCount} Processed</span>
-              </div>
-            </div>
+            <h3 className="text-lg font-semibold flex items-center gap-2">
+              <FileSpreadsheet className="w-5 h-5 text-primary" />
+              Order Processing
+            </h3>
           </div>
           
-          {/* Enhanced Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-4 bg-muted/50 p-1 rounded-lg">
-              <TabsTrigger 
-                value="process"
-                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm font-medium transition-all duration-300"
-              >
-                <Package className="w-4 h-4 mr-2" />
-                Process Orders
-              </TabsTrigger>
-              <TabsTrigger 
-                value="all-orders"
-                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm font-medium transition-all duration-300 text-xs"
-              >
-                <Clock className="w-4 h-4 mr-1" />
-                All Orders ({filteredAllOrders.length}) {analytics.latestOrderDate && `- ${analytics.latestOrderDate}`}
-              </TabsTrigger>
-              <TabsTrigger 
-                value="matched-orders"
-                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm font-medium transition-all duration-300"
-              >
-                <Tag className="w-4 h-4 mr-2" />
-                Matched ({analytics.matchedOrdersCount})
-              </TabsTrigger>
-              <TabsTrigger 
-                value="processed"
-                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm font-medium transition-all duration-300"
-              >
-                <CheckSquare className="w-4 h-4 mr-2" />
-                Processed ({analytics.processedOrdersCount})
-              </TabsTrigger>
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="process">Process Orders</TabsTrigger>
+              <TabsTrigger value="all-orders">All Orders ({filteredAllOrders.length}) {analytics.latestOrderDate && `- ${analytics.latestOrderDate}`}</TabsTrigger>
+              <TabsTrigger value="matched-orders">Matched Orders ({analytics.matchedOrdersCount})</TabsTrigger>
+              <TabsTrigger value="processed">Processed Orders ({analytics.processedOrdersCount})</TabsTrigger>
             </TabsList>
 
             <TabsContent value="process" className="space-y-4">
               <div className="space-y-4">
-                <div {...getRootProps()} className={`upload-zone ${isDragActive ? 'drag-over' : ''} bg-gradient-to-br from-primary/5 via-card to-primary/5 border-primary/30 hover:border-primary hover:shadow-glow/20`}>
-                  <input {...getInputProps()} />
-                  <div className="flex flex-col items-center space-y-4">
-                    <div className="p-4 rounded-2xl bg-gradient-primary shadow-glow/30">
-                      <FileSpreadsheet className="w-8 h-8 text-primary-foreground" />
-                    </div>
-                    <div className="text-center space-y-2">
-                      <h4 className="text-lg font-semibold text-foreground">Upload Order File</h4>
-                      <p className="text-muted-foreground">
-                        Drop your Excel or CSV file here, or click to browse
-                      </p>
-                      <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <FileSpreadsheet className="w-3 h-3" />
-                          .xlsx
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <FileSpreadsheet className="w-3 h-3" />
-                          .csv
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {(loading || processingProgress > 0) && (
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>{processingProgress > 0 ? 'Processing orders...' : 'Loading...'}</span>
-                      {processingProgress > 0 && <span>{processingProgress}%</span>}
-                    </div>
-                    <Progress value={processingProgress > 0 ? processingProgress : undefined} className="w-full" />
-                    {processingProgress > 0 && (
-                      <p className="text-xs text-center text-muted-foreground">
-                        Updating inventory and saving records...
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {orderData.length > 0 && (
-                  <div className="text-center p-6 bg-primary/5 rounded-lg border border-primary/20">
-                    <CheckSquare className="w-8 h-8 mx-auto mb-3 text-primary" />
-                    <h4 className="text-lg font-semibold text-foreground mb-2">Orders Uploaded Successfully</h4>
-                    <p className="text-muted-foreground mb-4">
-                      Your orders have been processed and are now available in the other tabs.
+                {orderData.length === 0 ? <div {...getRootProps()} className={`border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center cursor-pointer transition-colors ${isDragActive ? 'border-primary bg-primary/5' : 'hover:border-muted-foreground/50'}`}>
+                    <input {...getInputProps()} />
+                    <FileSpreadsheet className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                    <h4 className="text-lg font-medium mb-2">Upload Order File</h4>
+                    <p className="text-muted-foreground mb-2">
+                      Drop your Excel or CSV file here, or click to browse
                     </p>
-                    <Button 
-                      onClick={() => {
-                        setOrderData([]);
-                        setMatchedItems([]);
-                        setProcessedItems([]);
-                      }} 
-                      variant="outline"
-                      className="border-primary/30 text-primary hover:bg-primary hover:text-primary-foreground transition-all duration-300"
-                    >
-                      Upload Another File
-                    </Button>
-                  </div>
-                )}
+                    <p className="text-sm text-muted-foreground">
+                      Expected columns: Order ID, ASIN, SKU, Item Quantity, Item Title, etc.
+                    </p>
+                  </div> : <div className="space-y-4">
+                    <div className="flex items-center gap-4">
+                      <div className="flex-1">
+                        <Label htmlFor="search">Search Orders</Label>
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                          <Input id="search" placeholder="Search by Order ID, ASIN, SKU, or Title..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10" />
+                        </div>
+                      </div>
+                      <Button onClick={() => {
+                    setOrderData([]);
+                    setMatchedItems([]);
+                    setProcessedItems([]);
+                  }} variant="outline">
+                        Clear Data
+                      </Button>
+                    </div>
+
+                    {(loading || processingProgress > 0) && <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span>{processingProgress > 0 ? 'Processing orders...' : 'Loading...'}</span>
+                          {processingProgress > 0 && <span>{processingProgress}%</span>}
+                        </div>
+                        <Progress value={processingProgress > 0 ? processingProgress : undefined} className="w-full" />
+                        {processingProgress > 0 && <p className="text-xs text-center text-muted-foreground">
+                            Updating inventory and saving records...
+                          </p>}
+                      </div>}
+
+                    {filteredMatches.length > 0 && <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <Checkbox checked={selectAll} onCheckedChange={checked => {
+                        setSelectAll(!!checked);
+                        if (checked) {
+                          setSelectedItems(new Set(Array.from({
+                            length: filteredMatches.length
+                          }, (_, i) => i)));
+                        } else {
+                          setSelectedItems(new Set());
+                        }
+                      }} />
+                            <span className="text-sm text-muted-foreground">
+                              Select All ({filteredMatches.length} items)
+                            </span>
+                          </div>
+                          <Button onClick={processSelectedItems} disabled={selectedItems.size === 0 || loading} className="flex items-center gap-2">
+                            <CheckSquare className="w-4 h-4" />
+                            Process Selected ({selectedItems.size})
+                          </Button>
+                        </div>
+
+                        <div className="rounded-lg border overflow-hidden">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="w-12">Select</TableHead>
+                                
+                                <TableHead>Order Date</TableHead>
+                                <TableHead>ASIN/SKU</TableHead>
+                                <TableHead>Title</TableHead>
+                                <TableHead>Stock</TableHead>
+                                <TableHead>Order Qty</TableHead>
+                                <TableHead>Match Type</TableHead>
+                                <TableHead>Actions</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {paginatedMatches.map((match, index) => {
+                          const actualIndex = startIndex + index;
+                          return <TableRow key={`${match.orderItem.orderId}-${index}`}>
+                                    <TableCell>
+                                      <Checkbox checked={selectedItems.has(actualIndex)} onCheckedChange={checked => {
+                                const newSelected = new Set(selectedItems);
+                                if (checked) {
+                                  newSelected.add(actualIndex);
+                                } else {
+                                  newSelected.delete(actualIndex);
+                                }
+                                setSelectedItems(newSelected);
+                              }} />
+                                    </TableCell>
+                                    <TableCell className="font-mono text-xs">
+                                      {match.orderItem.orderId}
+                                    </TableCell>
+                                    <TableCell className="text-xs">
+                                      {match.orderItem.orderPlaceDate ? <div className="text-muted-foreground">
+                                          {new Date(match.orderItem.orderPlaceDate).toLocaleDateString()}
+                                        </div> : <span className="text-muted-foreground">N/A</span>}
+                                    </TableCell>
+                                    <TableCell>
+                                      <div className="space-y-1">
+                                        {match.orderItem.asin && <div className="text-xs text-blue-600 dark:text-blue-400">
+                                            ASIN: {match.orderItem.asin}
+                                          </div>}
+                                        {match.orderItem.sku && <div className="text-xs text-green-600 dark:text-green-400">
+                                            SKU: {match.orderItem.sku}
+                                          </div>}
+                                      </div>
+                                    </TableCell>
+                                    <TableCell className="max-w-xs truncate" title={match.orderItem.itemTitle}>
+                                      {match.orderItem.itemTitle}
+                                    </TableCell>
+                                    <TableCell>
+                                      {match.inventoryMatch ? <Badge variant={match.inventoryMatch.quantity > 0 ? "default" : "destructive"} className="text-xs">
+                                          {match.inventoryMatch.quantity}
+                                        </Badge> : <Badge variant="secondary" className="text-xs">
+                                          No Match
+                                        </Badge>}
+                                    </TableCell>
+                                    <TableCell>
+                                      <Badge variant="outline" className="text-xs">
+                                        {match.orderItem.itemQuantity}
+                                      </Badge>
+                                    </TableCell>
+                                    <TableCell>
+                                      {match.inventoryMatch ? <div className="space-y-1">
+                                          <Badge variant="default" className="text-xs">
+                                            {match.inventoryType?.toUpperCase()} Inventory
+                                          </Badge>
+                                          <div className="text-xs text-muted-foreground">
+                                            via {match.matchType?.toUpperCase()}
+                                          </div>
+                                        </div> : <Badge variant="secondary" className="text-xs">
+                                          No Match
+                                        </Badge>}
+                                    </TableCell>
+                                    <TableCell>
+                                      <div className="flex items-center gap-1">
+                                        {match.inventoryMatch && <Button variant="outline" size="sm" disabled={loading} className="h-7 px-2 text-xs">
+                                            <Minus className="w-3 h-3" />
+                                          </Button>}
+                                      </div>
+                                    </TableCell>
+                                  </TableRow>;
+                        })}
+                            </TableBody>
+                          </Table>
+                        </div>
+
+                        {totalPages > 1 && <Pagination>
+                            <PaginationContent>
+                              <PaginationItem>
+                                <PaginationPrevious onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))} className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"} />
+                              </PaginationItem>
+                              
+                              {Array.from({
+                        length: Math.min(5, totalPages)
+                      }, (_, i) => {
+                        const pageNum = Math.max(1, Math.min(totalPages - 4, currentPage - 2)) + i;
+                        return <PaginationItem key={pageNum}>
+                                    <PaginationLink onClick={() => setCurrentPage(pageNum)} isActive={currentPage === pageNum} className="cursor-pointer">
+                                      {pageNum}
+                                    </PaginationLink>
+                                  </PaginationItem>;
+                      })}
+                              
+                              {totalPages > 5 && currentPage < totalPages - 2 && <PaginationItem>
+                                  <PaginationEllipsis />
+                                </PaginationItem>}
+                              
+                              <PaginationItem>
+                                <PaginationNext onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))} className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"} />
+                              </PaginationItem>
+                            </PaginationContent>
+                          </Pagination>}
+                      </div>}
+                  </div>}
               </div>
             </TabsContent>
 
@@ -777,23 +810,11 @@ export function OrderProcessor() {
               <div className="flex flex-col sm:flex-row gap-4 mb-4">
                 <div className="flex-1">
                   <Label>Filter by Order Date</Label>
-                  <Input 
-                    type="date" 
-                    value={orderDateFilter}
-                    onChange={(e) => setOrderDateFilter(e.target.value)}
-                    placeholder="Order date filter"
-                    className="w-full"
-                  />
+                  <Input type="date" value={orderDateFilter} onChange={e => setOrderDateFilter(e.target.value)} placeholder="Order date filter" className="w-full" />
                 </div>
                 <div className="flex-1">
                   <Label>Filter by Upload Date</Label>
-                  <Input 
-                    type="date" 
-                    value={uploadDateFilter}
-                    onChange={(e) => setUploadDateFilter(e.target.value)}
-                    placeholder="Upload date filter"
-                    className="w-full"
-                  />
+                  <Input type="date" value={uploadDateFilter} onChange={e => setUploadDateFilter(e.target.value)} placeholder="Upload date filter" className="w-full" />
                 </div>
                 <div className="flex-1">
                   <Label>Filter by Status</Label>
@@ -803,11 +824,9 @@ export function OrderProcessor() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Statuses</SelectItem>
-                      {uniqueStatuses.map((status) => (
-                        <SelectItem key={status} value={status}>
+                      {uniqueStatuses.map(status => <SelectItem key={status} value={status}>
                           {status}
-                        </SelectItem>
-                      ))}
+                        </SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
@@ -818,8 +837,7 @@ export function OrderProcessor() {
                 </div>
               </div>
 
-              {allOrders.length > 0 ? (
-                <div className="rounded-lg border overflow-hidden">
+              {allOrders.length > 0 ? <div className="rounded-lg border overflow-hidden">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -832,30 +850,21 @@ export function OrderProcessor() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredAllOrders.slice(0, 50).map((order, index) => (
-                        <TableRow key={`${order.orderId}-${index}`}>
+                      {filteredAllOrders.slice(0, 50).map((order, index) => <TableRow key={`${order.orderId}-${index}`}>
                           <TableCell className="font-mono text-xs">{order.orderId}</TableCell>
                           <TableCell className="text-xs">
-                            {order.orderPlaceDate ? (
-                              <div className="text-muted-foreground">
+                            {order.orderPlaceDate ? <div className="text-muted-foreground">
                                 {new Date(order.orderPlaceDate).toLocaleDateString()}
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground">N/A</span>
-                            )}
+                              </div> : <span className="text-muted-foreground">N/A</span>}
                           </TableCell>
                           <TableCell>
                             <div className="space-y-1">
-                              {order.asin && (
-                                <div className="text-xs text-blue-600 dark:text-blue-400">
+                              {order.asin && <div className="text-xs text-blue-600 dark:text-blue-400">
                                   ASIN: {order.asin}
-                                </div>
-                              )}
-                              {order.sku && (
-                                <div className="text-xs text-green-600 dark:text-green-400">
+                                </div>}
+                              {order.sku && <div className="text-xs text-green-600 dark:text-green-400">
                                   SKU: {order.sku}
-                                </div>
-                              )}
+                                </div>}
                             </div>
                           </TableCell>
                           <TableCell className="max-w-xs truncate">{order.itemTitle}</TableCell>
@@ -869,27 +878,20 @@ export function OrderProcessor() {
                               {order.orderStatus}
                             </Badge>
                           </TableCell>
-                        </TableRow>
-                      ))}
+                        </TableRow>)}
                     </TableBody>
                   </Table>
-                   {filteredAllOrders.length > 50 && (
-                     <div className="p-4 text-center text-sm text-muted-foreground border-t">
+                   {filteredAllOrders.length > 50 && <div className="p-4 text-center text-sm text-muted-foreground border-t">
                        Showing first 50 records out of {filteredAllOrders.length} total
-                     </div>
-                   )}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
+                     </div>}
+                </div> : <div className="text-center py-8 text-muted-foreground">
                   <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
                   <p>No orders uploaded yet.</p>
-                </div>
-              )}
+                </div>}
             </TabsContent>
 
             <TabsContent value="matched-orders" className="space-y-4">
-              {matchedOrders.length > 0 ? (
-                <div className="rounded-lg border overflow-hidden">
+              {matchedOrders.length > 0 ? <div className="rounded-lg border overflow-hidden">
                   <Table>
                      <TableHeader>
                        <TableRow>
@@ -902,30 +904,21 @@ export function OrderProcessor() {
                        </TableRow>
                      </TableHeader>
                      <TableBody>
-                       {matchedOrders.slice(0, 50).map((order, index) => (
-                         <TableRow key={`${order.orderId}-${index}`}>
+                       {matchedOrders.slice(0, 50).map((order, index) => <TableRow key={`${order.orderId}-${index}`}>
                            <TableCell className="font-mono text-xs">{order.orderId}</TableCell>
                            <TableCell className="text-xs">
-                             {order.orderPlaceDate ? (
-                               <div className="text-muted-foreground">
+                             {order.orderPlaceDate ? <div className="text-muted-foreground">
                                  {new Date(order.orderPlaceDate).toLocaleDateString()}
-                               </div>
-                             ) : (
-                               <span className="text-muted-foreground">N/A</span>
-                             )}
+                               </div> : <span className="text-muted-foreground">N/A</span>}
                            </TableCell>
                            <TableCell>
                              <div className="space-y-1">
-                               {order.asin && (
-                                 <div className="text-xs text-blue-600 dark:text-blue-400">
+                               {order.asin && <div className="text-xs text-blue-600 dark:text-blue-400">
                                    ASIN: {order.asin}
-                                 </div>
-                               )}
-                               {order.sku && (
-                                 <div className="text-xs text-green-600 dark:text-green-400">
+                                 </div>}
+                               {order.sku && <div className="text-xs text-green-600 dark:text-green-400">
                                    SKU: {order.sku}
-                                 </div>
-                               )}
+                                 </div>}
                              </div>
                            </TableCell>
                            <TableCell className="max-w-xs truncate">{order.itemTitle}</TableCell>
@@ -939,27 +932,20 @@ export function OrderProcessor() {
                                Matched
                              </Badge>
                            </TableCell>
-                         </TableRow>
-                       ))}
+                         </TableRow>)}
                      </TableBody>
                   </Table>
-                  {matchedOrders.length > 50 && (
-                    <div className="p-4 text-center text-sm text-muted-foreground border-t">
+                  {matchedOrders.length > 50 && <div className="p-4 text-center text-sm text-muted-foreground border-t">
                       Showing first 50 records out of {matchedOrders.length} total
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
+                    </div>}
+                </div> : <div className="text-center py-8 text-muted-foreground">
                   <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
                   <p>No matched orders yet.</p>
-                </div>
-              )}
+                </div>}
             </TabsContent>
 
             <TabsContent value="processed" className="space-y-4">
-              {processedOrders.length > 0 ? (
-                <div className="rounded-lg border overflow-hidden">
+              {processedOrders.length > 0 ? <div className="rounded-lg border overflow-hidden">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -972,21 +958,16 @@ export function OrderProcessor() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {processedOrders.slice(0, 50).map((order, index) => (
-                        <TableRow key={`${order.order_number}-${index}`}>
+                      {processedOrders.slice(0, 50).map((order, index) => <TableRow key={`${order.order_number}-${index}`}>
                           <TableCell className="font-mono text-xs">{order.order_number}</TableCell>
                           <TableCell>
                             <div className="space-y-1">
-                              {order.asin && (
-                                <div className="text-xs text-blue-600 dark:text-blue-400">
+                              {order.asin && <div className="text-xs text-blue-600 dark:text-blue-400">
                                   ASIN: {order.asin}
-                                </div>
-                              )}
-                              {order.sku && (
-                                <div className="text-xs text-green-600 dark:text-green-400">
+                                </div>}
+                              {order.sku && <div className="text-xs text-green-600 dark:text-green-400">
                                   SKU: {order.sku}
-                                </div>
-                              )}
+                                </div>}
                             </div>
                           </TableCell>
                           <TableCell className="max-w-xs truncate">{order.item_title}</TableCell>
@@ -1005,26 +986,19 @@ export function OrderProcessor() {
                               {new Date(order.processed_at).toLocaleString()}
                             </div>
                           </TableCell>
-                        </TableRow>
-                      ))}
+                        </TableRow>)}
                     </TableBody>
                   </Table>
-                  {processedOrders.length > 50 && (
-                    <div className="p-4 text-center text-sm text-muted-foreground border-t">
+                  {processedOrders.length > 50 && <div className="p-4 text-center text-sm text-muted-foreground border-t">
                       Showing first 50 records out of {processedOrders.length} total
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
+                    </div>}
+                </div> : <div className="text-center py-8 text-muted-foreground">
                   <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
                   <p>No processed orders yet.</p>
-                </div>
-              )}
+                </div>}
             </TabsContent>
           </Tabs>
         </div>
       </Card>
-    </div>
-  );
+    </div>;
 }
