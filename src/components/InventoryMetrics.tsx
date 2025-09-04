@@ -36,6 +36,7 @@ interface InventoryStats {
   skuTotalUnits: number;
   skuSoldUnits: number;
   missingSku: number;
+  missingTitles: number;
 }
 interface InventoryMetricsProps {
   showOnlyAsin?: boolean;
@@ -60,10 +61,11 @@ export function InventoryMetrics({
     asinSoldUnits: 0,
     skuTotalUnits: 0,
     skuSoldUnits: 0,
-    missingSku: 0
+    missingSku: 0,
+    missingTitles: 0
   });
   const [loading, setLoading] = useState(true);
-  const [selectedMetric, setSelectedMetric] = useState<'active' | 'instock' | 'outofstock' | 'sold' | 'recently-added' | 'missing-sku' | null>(null);
+  const [selectedMetric, setSelectedMetric] = useState<'active' | 'instock' | 'outofstock' | 'sold' | 'recently-added' | 'missing-sku' | 'missing-titles' | null>(null);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [exportLoading, setExportLoading] = useState(false);
@@ -111,6 +113,9 @@ export function InventoryMetrics({
         // Calculate items with missing SKU
         const missingSku = asinItems.filter(item => !item.sku || item.sku.trim() === '').length;
         
+        // Calculate items with missing titles
+        const missingTitles = asinItems.filter(item => !item.title || item.title.trim() === '').length;
+        
         setStats({
           activeItems,
           inStockItems,
@@ -120,7 +125,8 @@ export function InventoryMetrics({
           asinSoldUnits,
           skuTotalUnits: 0,
           skuSoldUnits: 0,
-          missingSku
+          missingSku,
+          missingTitles
         });
       } else if (showOnlySku) {
         // Load only SKU data
@@ -165,7 +171,8 @@ export function InventoryMetrics({
           asinSoldUnits: 0,
           skuTotalUnits,
           skuSoldUnits,
-          missingSku: 0
+          missingSku: 0,
+          missingTitles: 0
         });
       } else {
         // Load both ASIN and SKU data
@@ -207,6 +214,9 @@ export function InventoryMetrics({
         // Calculate items with missing SKU (only for ASIN)
         const missingSku = asinItems.filter(item => !item.sku || item.sku.trim() === '').length;
         
+        // Calculate items with missing titles (only for ASIN)
+        const missingTitles = asinItems.filter(item => !item.title || item.title.trim() === '').length;
+        
         setStats({
           activeItems,
           inStockItems,
@@ -216,7 +226,8 @@ export function InventoryMetrics({
           asinSoldUnits,
           skuTotalUnits,
           skuSoldUnits,
-          missingSku
+          missingSku,
+          missingTitles
         });
       }
     } catch (error: any) {
@@ -424,6 +435,40 @@ export function InventoryMetrics({
     await loadDetailedItems(metric);
   };
 
+  const loadMissingTitleItems = async () => {
+    try {
+      if (showOnlyAsin || !showOnlySku) {
+        // Load ASIN data with missing titles
+        const { data: asinData } = await supabase
+          .from('asin_inventory')
+          .select('*')
+          .eq('country', selectedCountry)
+          .or('title.is.null,title.eq.');
+        
+        const allItems = (asinData || []).map(item => ({
+          ...item,
+          type: 'asin' as const,
+          identifier: `${item.asin} (${item.serial_number})`
+        }));
+        
+        setInventoryItems(allItems);
+      } else {
+        setInventoryItems([]);
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error loading missing title items",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleMissingTitlesClick = async () => {
+    setSelectedMetric('missing-titles');
+    await loadMissingTitleItems();
+  };
+
   const handleMissingSkuClick = async () => {
     setSelectedMetric('missing-sku');
     await loadMissingSkuItems();
@@ -474,10 +519,10 @@ export function InventoryMetrics({
       {/* Date Filter for Sold Units - Show only in ASIN mode */}
       {showOnlyAsin}
 
-      <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 mb-3">
+      <div className="grid gap-1 grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 mb-3">
         {/* Active Items */}
         <Card 
-          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-24 flex flex-col border-l-4 border-l-primary"
+          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-20 flex flex-col border-l-4 border-l-primary"
           onClick={() => handleMetricClick('active')}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
@@ -485,91 +530,91 @@ export function InventoryMetrics({
               <CardTitle className="text-xs font-medium text-muted-foreground truncate">
                 {showOnlyAsin ? 'Active ASIN' : showOnlySku ? 'Active SKU' : 'Active Items'}
               </CardTitle>
-              <div className="text-xl font-bold text-primary mt-1">{stats.activeItems}</div>
+              <div className="text-lg font-bold text-primary mt-1">{stats.activeItems}</div>
             </div>
-            <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
-              <Activity className="h-4 w-4 text-primary" />
+            <div className="w-6 h-6 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
+              <Activity className="h-3 w-3 text-primary" />
             </div>
           </CardHeader>
-          <CardContent className="pt-0 pb-2 flex-shrink-0">
+          <CardContent className="pt-0 pb-1 flex-shrink-0">
             <p className="text-xs text-muted-foreground truncate">Total inventory</p>
           </CardContent>
         </Card>
 
         {/* In Stock */}
         <Card 
-          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-24 flex flex-col border-l-4 border-l-green-500"
+          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-20 flex flex-col border-l-4 border-l-green-500"
           onClick={() => handleMetricClick('instock')}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
             <div className="flex flex-col justify-center min-w-0 flex-1">
               <CardTitle className="text-xs font-medium text-muted-foreground truncate">In Stock</CardTitle>
-              <div className="text-xl font-bold text-green-600 mt-1">{stats.inStockItems}</div>
+              <div className="text-lg font-bold text-green-600 mt-1">{stats.inStockItems}</div>
             </div>
-            <div className="w-8 h-8 bg-green-500/10 rounded-full flex items-center justify-center flex-shrink-0">
-              <CheckCircle className="h-4 w-4 text-green-600" />
+            <div className="w-6 h-6 bg-green-500/10 rounded-full flex items-center justify-center flex-shrink-0">
+              <CheckCircle className="h-3 w-3 text-green-600" />
             </div>
           </CardHeader>
-          <CardContent className="pt-0 pb-2 flex-shrink-0">
+          <CardContent className="pt-0 pb-1 flex-shrink-0">
             <p className="text-xs text-muted-foreground truncate">Available items</p>
           </CardContent>
         </Card>
 
         {/* Out of Stock */}
         <Card 
-          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-24 flex flex-col border-l-4 border-l-red-500"
+          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-20 flex flex-col border-l-4 border-l-red-500"
           onClick={() => handleMetricClick('outofstock')}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
             <div className="flex flex-col justify-center min-w-0 flex-1">
               <CardTitle className="text-xs font-medium text-muted-foreground truncate">Out of Stock</CardTitle>
-              <div className="text-xl font-bold text-red-600 mt-1">{stats.outOfStockItems}</div>
+              <div className="text-lg font-bold text-red-600 mt-1">{stats.outOfStockItems}</div>
             </div>
-            <div className="w-8 h-8 bg-red-500/10 rounded-full flex items-center justify-center flex-shrink-0">
-              <XCircle className="h-4 w-4 text-red-600" />
+            <div className="w-6 h-6 bg-red-500/10 rounded-full flex items-center justify-center flex-shrink-0">
+              <XCircle className="h-3 w-3 text-red-600" />
             </div>
           </CardHeader>
-          <CardContent className="pt-0 pb-2 flex-shrink-0">
+          <CardContent className="pt-0 pb-1 flex-shrink-0">
             <p className="text-xs text-muted-foreground truncate">Need restock</p>
           </CardContent>
         </Card>
 
         {/* Recently Added Items */}
         <Card 
-          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-24 flex flex-col border-l-4 border-l-blue-500"
+          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-20 flex flex-col border-l-4 border-l-blue-500"
           onClick={() => handleMetricClick('recently-added')}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
             <div className="flex flex-col justify-center min-w-0 flex-1">
               <CardTitle className="text-xs font-medium text-muted-foreground truncate">Recently Added</CardTitle>
-              <div className="text-xl font-bold text-blue-600 mt-1">{stats.recentlyAdded}</div>
+              <div className="text-lg font-bold text-blue-600 mt-1">{stats.recentlyAdded}</div>
             </div>
-            <div className="w-8 h-8 bg-blue-500/10 rounded-full flex items-center justify-center flex-shrink-0">
-              <Plus className="h-4 w-4 text-blue-600" />
+            <div className="w-6 h-6 bg-blue-500/10 rounded-full flex items-center justify-center flex-shrink-0">
+              <Plus className="h-3 w-3 text-blue-600" />
             </div>
           </CardHeader>
-          <CardContent className="pt-0 pb-2 flex-shrink-0">
+          <CardContent className="pt-0 pb-1 flex-shrink-0">
             <p className="text-xs text-muted-foreground truncate">Last 7 days</p>
           </CardContent>
         </Card>
 
         {/* Total Units */}
         <Card 
-          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-24 flex flex-col border-l-4 border-l-purple-500"
+          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-20 flex flex-col border-l-4 border-l-purple-500"
           onClick={() => setShowSoldModal(true)}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
             <div className="flex flex-col justify-center min-w-0 flex-1">
               <CardTitle className="text-xs font-medium text-muted-foreground truncate">Total Units</CardTitle>
-              <div className="text-xl font-bold text-purple-600 mt-1">
+              <div className="text-lg font-bold text-purple-600 mt-1">
                 {showOnlyAsin ? stats.asinTotalUnits : showOnlySku ? stats.skuTotalUnits : stats.asinTotalUnits + stats.skuTotalUnits}
               </div>
             </div>
-            <div className="w-8 h-8 bg-purple-500/10 rounded-full flex items-center justify-center flex-shrink-0">
-              <BarChart3 className="h-4 w-4 text-purple-600" />
+            <div className="w-6 h-6 bg-purple-500/10 rounded-full flex items-center justify-center flex-shrink-0">
+              <BarChart3 className="h-3 w-3 text-purple-600" />
             </div>
           </CardHeader>
-          <CardContent className="pt-0 pb-2 flex-shrink-0">
+          <CardContent className="pt-0 pb-1 flex-shrink-0">
             <p className="text-xs text-muted-foreground truncate">Inventory count</p>
           </CardContent>
         </Card>
@@ -577,20 +622,41 @@ export function InventoryMetrics({
         {/* Missing SKU - Only show when viewing ASIN or combined view */}
         {(!showOnlySku) && (
           <Card 
-            className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-24 flex flex-col border-l-4 border-l-orange-500"
+            className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-20 flex flex-col border-l-4 border-l-orange-500"
             onClick={handleMissingSkuClick}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
               <div className="flex flex-col justify-center min-w-0 flex-1">
                 <CardTitle className="text-xs font-medium text-muted-foreground truncate">Missing SKU</CardTitle>
-                <div className="text-xl font-bold text-orange-600 mt-1">{stats.missingSku}</div>
+                <div className="text-lg font-bold text-orange-600 mt-1">{stats.missingSku}</div>
               </div>
-              <div className="w-8 h-8 bg-orange-500/10 rounded-full flex items-center justify-center flex-shrink-0">
-                <FileText className="h-4 w-4 text-orange-600" />
+              <div className="w-6 h-6 bg-orange-500/10 rounded-full flex items-center justify-center flex-shrink-0">
+                <FileText className="h-3 w-3 text-orange-600" />
               </div>
             </CardHeader>
-            <CardContent className="pt-0 pb-2 flex-shrink-0">
+            <CardContent className="pt-0 pb-1 flex-shrink-0">
               <p className="text-xs text-muted-foreground truncate">ASIN without SKU</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Missing Titles - Only show when viewing ASIN or combined view */}
+        {(!showOnlySku) && (
+          <Card 
+            className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-20 flex flex-col border-l-4 border-l-yellow-500"
+            onClick={handleMissingTitlesClick}
+          >
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
+              <div className="flex flex-col justify-center min-w-0 flex-1">
+                <CardTitle className="text-xs font-medium text-muted-foreground truncate">Missing Title</CardTitle>
+                <div className="text-lg font-bold text-yellow-600 mt-1">{stats.missingTitles}</div>
+              </div>
+              <div className="w-6 h-6 bg-yellow-500/10 rounded-full flex items-center justify-center flex-shrink-0">
+                <FileText className="h-3 w-3 text-yellow-600" />
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0 pb-1 flex-shrink-0">
+              <p className="text-xs text-muted-foreground truncate">ASIN without Title</p>
             </CardContent>
           </Card>
         )}
@@ -608,6 +674,7 @@ export function InventoryMetrics({
               {selectedMetric === 'outofstock' && 'Out of Stock Items'}
               {selectedMetric === 'recently-added' && 'Recently Added Items'}
               {selectedMetric === 'missing-sku' && 'Items with Missing SKU'}
+              {selectedMetric === 'missing-titles' && 'Items with Missing Titles'}
               <Badge variant="outline" className="ml-2">
                 {filteredItems.length} items
               </Badge>
