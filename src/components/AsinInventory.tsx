@@ -68,6 +68,15 @@ export function AsinInventory() {
   const [quickFilter, setQuickFilter] = useState<'all' | 'low-stock' | 'out-of-stock' | 'recent'>('all');
   const [dateFilterFrom, setDateFilterFrom] = useState<Date>();
   const [dateFilterTo, setDateFilterTo] = useState<Date>();
+  const [isFetchTitlesDialogOpen, setIsFetchTitlesDialogOpen] = useState(false);
+  const [fetchProgress, setFetchProgress] = useState({
+    isLoading: false,
+    current: 0,
+    total: 0,
+    matched: 0,
+    added: 0,
+    failed: 0
+  });
   
   // Use warehouse management from hook
   const { selectedWarehouse } = useWarehouseManager();
@@ -499,11 +508,114 @@ export function AsinInventory() {
 
   const handleRefresh = () => {
     refetch();
-      toast({
-        title: "Refreshed",
-        description: "Inventory data refreshed"
+    toast({
+      title: "Refreshed",
+      description: "Inventory data refreshed"
+    });
+  };
+
+  const handleFetchTitlesWithProgress = async () => {
+    try {
+      // Get items with SKU Numbers but missing titles
+      const itemsNeedingTitles = inventory.filter(item => 
+        item.sku && item.sku.trim() && !item.title
+      );
+
+      if (itemsNeedingTitles.length === 0) {
+        toast({
+          title: "No Items to Update",
+          description: "All items either have titles or are missing SKU numbers",
+        });
+        setIsFetchTitlesDialogOpen(false);
+        return;
+      }
+
+      setFetchProgress({
+        isLoading: true,
+        current: 0,
+        total: itemsNeedingTitles.length,
+        matched: 0,
+        added: 0,
+        failed: 0
       });
-    };
+
+      const titleUpdates: { asin: string; title: string }[] = [];
+      let currentIndex = 0;
+      let matched = 0;
+      let failed = 0;
+
+      for (const item of itemsNeedingTitles) {
+        try {
+          const { data, error } = await supabase.functions.invoke('sunsky-api', {
+            body: {
+              action: 'getProductDetails',
+              skuCode: item.sku
+            }
+          });
+
+          currentIndex++;
+          
+          if (error || !data?.title) {
+            failed++;
+          } else {
+            matched++;
+            titleUpdates.push({
+              asin: item.asin,
+              title: data.title
+            });
+          }
+
+          setFetchProgress(prev => ({
+            ...prev,
+            current: currentIndex,
+            matched,
+            failed
+          }));
+
+          // Add small delay to avoid rate limiting
+          await new Promise(resolve => setTimeout(resolve, 500));
+        } catch (error) {
+          currentIndex++;
+          failed++;
+          setFetchProgress(prev => ({
+            ...prev,
+            current: currentIndex,
+            failed
+          }));
+        }
+      }
+
+      // Bulk update titles
+      let added = 0;
+      if (titleUpdates.length > 0) {
+        await bulkUpdateTitles(titleUpdates);
+        added = titleUpdates.length;
+      }
+
+      setFetchProgress(prev => ({
+        ...prev,
+        isLoading: false,
+        added
+      }));
+
+      toast({
+        title: "Titles Fetch Complete",
+        description: `Found ${matched} titles, updated ${added} items`,
+      });
+
+    } catch (error: any) {
+      console.error('Error fetching titles from Sunsky:', error);
+      setFetchProgress(prev => ({
+        ...prev,
+        isLoading: false
+      }));
+      toast({
+        title: "Error",
+        description: "Failed to fetch titles from Sunsky",
+        variant: "destructive",
+      });
+    }
+  };
 
   // Merge duplicate ASINs function
   const mergeDuplicates = useCallback(async () => {
@@ -826,7 +938,7 @@ export function AsinInventory() {
                 />
 
                 {/* 5. Fetch Titles from Sunsky */}
-                <Button size="lg" variant="outline" className="border-orange-300 hover:bg-orange-50" onClick={fetchTitlesFromSunsky}>
+                <Button size="lg" variant="outline" className="border-orange-300 hover:bg-orange-50" onClick={() => setIsFetchTitlesDialogOpen(true)}>
                   <Database className="w-5 h-5 mr-2" />
                   Fetch Titles from Sunsky
                 </Button>
