@@ -258,7 +258,7 @@ export function BulkTitleUpload({ inventory, onTitleUpdate }: BulkTitleUploadPro
       if (!open) resetData();
     }}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="border-2 hover:border-primary/50">
+        <Button size="sm" variant="outline" className="border border-primary hover:bg-green-50 hover:border-green-500">
           <BookOpen className="w-4 h-4 mr-2" />
           Bulk Title Update
         </Button>
