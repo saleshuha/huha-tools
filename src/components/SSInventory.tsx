@@ -14,7 +14,6 @@ import { useToast } from '@/hooks/use-toast';
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from './ui/pagination';
 import { Package, Plus, Search, Edit, Download, Upload, Check, X, RefreshCw, AlertTriangle, Printer, Hash, Mail, BarChart3, Filter, Grid3X3, List, SortAsc, SortDesc, Calendar as CalendarIcon, TrendingUp, TrendingDown, Eye, Archive, Zap, Clock, ShoppingCart, Trash2, Settings, FileText, Copy, Star, Edit3, Activity, Database } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from './ui/dialog';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu';
 import { Textarea } from './ui/textarea';
 import { useSkuInventory, SkuInventoryItem } from '@/hooks/useSkuInventory';
 import { useUserProfile } from '@/hooks/useUserProfile';
@@ -896,38 +895,7 @@ export function SSInventory() {
                         {new Date(item.dateAdded).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                       </td>
                        <td className="p-3">
-                         <DropdownMenu>
-                           <DropdownMenuTrigger asChild>
-                             <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                               <Settings className="h-4 w-4" />
-                             </Button>
-                           </DropdownMenuTrigger>
-                           <DropdownMenuContent align="end" className="w-40">
-                             <DropdownMenuItem 
-                               onSelect={(e) => {
-                                 e.preventDefault();
-                                 // Open quantity editor dialog
-                                 const dialog = document.querySelector(`[data-quantity-trigger="${item.id}"]`) as HTMLButtonElement;
-                                 dialog?.click();
-                               }}
-                             >
-                               <TrendingUp className="mr-2 h-4 w-4" />
-                               Adjust Stock
-                             </DropdownMenuItem>
-                             <DropdownMenuItem 
-                               onSelect={(e) => {
-                                 e.preventDefault();
-                                 // Open history dialog
-                                 const dialog = document.querySelector(`[data-history-trigger="${item.id}"]`) as HTMLButtonElement;
-                                 dialog?.click();
-                               }}
-                             >
-                               <Clock className="mr-2 h-4 w-4" />
-                               History
-                             </DropdownMenuItem>
-                           </DropdownMenuContent>
-                         </DropdownMenu>
-                         <div className="hidden">
+                         <div className="flex gap-1">
                            <DualQuantityEditor 
                              currentQuantity={item.quantity} 
                              onUpdate={(newQuantity, reason) => updateQuantity(item.id, newQuantity, reason)}
