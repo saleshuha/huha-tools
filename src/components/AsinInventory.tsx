@@ -52,6 +52,7 @@ export function AsinInventory() {
   } = useUserProfile();
   const { runTitleFetch } = useBackgroundTasks();
   const [searchTerm, setSearchTerm] = useState('');
+  const [searchMethod, setSearchMethod] = useState<'all' | 'asin' | 'sku' | 'serial' | 'title' | 'notes'>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'dateAdded' | 'asin' | 'quantity' | 'status'>('dateAdded');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
@@ -131,13 +132,27 @@ export function AsinInventory() {
       console.log('Total Inventory Items:', inventory.length);
       
       filtered = filtered.filter(item => {
-        const matches = searchTerms.every(term => 
-          item.asin.toLowerCase().includes(term) || 
-          item.serialNumber.toLowerCase().includes(term) || 
-          (item.sku && item.sku.toLowerCase().includes(term)) ||
-          (item.notes && item.notes.toLowerCase().includes(term))
-        );
-        return matches;
+        if (searchMethod === 'all') {
+          const matches = searchTerms.every(term => 
+            item.asin.toLowerCase().includes(term) || 
+            item.serialNumber.toLowerCase().includes(term) || 
+            (item.sku && item.sku.toLowerCase().includes(term)) ||
+            (item.title && item.title.toLowerCase().includes(term)) ||
+            (item.notes && item.notes.toLowerCase().includes(term))
+          );
+          return matches;
+        } else if (searchMethod === 'asin') {
+          return searchTerms.every(term => item.asin.toLowerCase().includes(term));
+        } else if (searchMethod === 'sku') {
+          return item.sku && searchTerms.every(term => item.sku.toLowerCase().includes(term));
+        } else if (searchMethod === 'serial') {
+          return searchTerms.every(term => item.serialNumber.toLowerCase().includes(term));
+        } else if (searchMethod === 'title') {
+          return item.title && searchTerms.every(term => item.title.toLowerCase().includes(term));
+        } else if (searchMethod === 'notes') {
+          return item.notes && searchTerms.every(term => item.notes.toLowerCase().includes(term));
+        }
+        return false;
       });
       
       console.log('Filtered Results:', filtered.length);
@@ -707,8 +722,37 @@ export function AsinInventory() {
           <div className="space-y-8">
             {/* Enhanced Search Bar */}
             <div className="relative">
-              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground w-6 h-6" />
-              <Input placeholder="🔍 Advanced search: ASIN, Serial Number, SKU, Notes (use spaces for multiple terms)..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-14 h-16 text-xl font-medium shadow-lg border-2 border-primary/60 focus:border-primary ring-2 ring-primary/10 focus:ring-primary/20 bg-background/50" />
+              <div className="flex gap-2">
+                <Select value={searchMethod} onValueChange={(value: 'all' | 'asin' | 'sku' | 'serial' | 'title' | 'notes') => setSearchMethod(value)}>
+                  <SelectTrigger className="w-40 h-16 text-base font-medium border-2 border-primary/60 focus:border-primary bg-background shadow-lg z-50">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border-2 shadow-xl z-50">
+                    <SelectItem value="all">🔍 All Fields</SelectItem>
+                    <SelectItem value="asin">📦 ASIN</SelectItem>
+                    <SelectItem value="sku">🏷️ SKU</SelectItem>
+                    <SelectItem value="serial">🔢 Serial Number</SelectItem>
+                    <SelectItem value="title">📝 Title</SelectItem>
+                    <SelectItem value="notes">📋 Notes</SelectItem>
+                  </SelectContent>
+                </Select>
+                <div className="relative flex-1">
+                  <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground w-6 h-6" />
+                  <Input 
+                    placeholder={
+                      searchMethod === 'all' ? "🔍 Search across all fields (use spaces for multiple terms)..." :
+                      searchMethod === 'asin' ? "📦 Search by ASIN..." :
+                      searchMethod === 'sku' ? "🏷️ Search by SKU..." :
+                      searchMethod === 'serial' ? "🔢 Search by Serial Number..." :
+                      searchMethod === 'title' ? "📝 Search by Title..." :
+                      "📋 Search by Notes..."
+                    } 
+                    value={searchTerm} 
+                    onChange={e => setSearchTerm(e.target.value)} 
+                    className="pl-14 h-16 text-xl font-medium shadow-lg border-2 border-primary/60 focus:border-primary ring-2 ring-primary/10 focus:ring-primary/20 bg-background/50" 
+                  />
+                </div>
+              </div>
             </div>
 
             {/* Action Buttons Row */}
