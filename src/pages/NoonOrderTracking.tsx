@@ -276,9 +276,6 @@ export default function NoonOrderTrackingPage() {
         
       </div>
 
-      {/* Enhanced Toolbar */}
-      <TrackingToolbar searchTerm={searchTerm} onSearchChange={setSearchTerm} selectedStore={selectedStoreId} onStoreChange={setSelectedStoreId} selectedCredentials={selectedCredentialsId} onCredentialsChange={setSelectedCredentialsId} viewMode={viewMode} onViewModeChange={setViewMode} onRefresh={refreshOrders} onExport={handleExport} onShowExceptions={() => setShowExceptions(true)} onShowAnalytics={handleShowAnalytics} loading={loading} totalOrders={sampleOrders.length} filteredOrders={filteredOrders.length} exceptionCount={exceptionOrders.length} stores={stores} credentials={credentials} />
-
       <div className="container mx-auto px-6 py-8 space-y-8">
         {/* Auto-Processing Status */}
         <AutoProcessingStatus orders={sampleOrders} />
@@ -302,6 +299,9 @@ export default function NoonOrderTrackingPage() {
 
         {/* Status Metrics Cards */}
         <StatusMetricsCards metrics={statusMetrics} className="animate-fade-in" />
+
+        {/* Enhanced Toolbar */}
+        <TrackingToolbar searchTerm={searchTerm} onSearchChange={setSearchTerm} selectedStore={selectedStoreId} onStoreChange={setSelectedStoreId} selectedCredentials={selectedCredentialsId} onCredentialsChange={setSelectedCredentialsId} viewMode={viewMode} onViewModeChange={setViewMode} onRefresh={refreshOrders} onExport={handleExport} onShowExceptions={() => setShowExceptions(true)} onShowAnalytics={handleShowAnalytics} loading={loading} totalOrders={sampleOrders.length} filteredOrders={filteredOrders.length} exceptionCount={exceptionOrders.length} stores={stores} credentials={credentials} />
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-5 mb-8 bg-card border border-border/50 shadow-soft">
