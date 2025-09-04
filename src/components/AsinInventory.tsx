@@ -1137,7 +1137,7 @@ export function AsinInventory() {
                        </td>
                         <td className="p-3 border-r">
                           <div className="space-y-1">
-                            <div className="font-medium text-sm line-clamp-2">
+                            <div className="font-medium text-sm max-w-xs break-words">
                               {item.title || 'No title'}
                             </div>
                             <div className="font-mono text-xs text-muted-foreground">
