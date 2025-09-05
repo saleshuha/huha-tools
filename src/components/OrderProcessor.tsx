@@ -71,6 +71,7 @@ export function OrderProcessor() {
   const [allOrders, setAllOrders] = useState<OrderItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [allOrdersSearchTerm, setAllOrdersSearchTerm] = useState('');
   const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
   const [selectAll, setSelectAll] = useState(false);
   const [fileName, setFileName] = useState<string>('');
@@ -547,6 +548,18 @@ export function OrderProcessor() {
   const filteredAllOrders = useMemo(() => {
     let filtered = allOrders;
     
+    // Apply search filter
+    if (allOrdersSearchTerm) {
+      const searchLower = allOrdersSearchTerm.toLowerCase();
+      filtered = filtered.filter(order => 
+        order.orderId.toLowerCase().includes(searchLower) ||
+        order.asin?.toLowerCase().includes(searchLower) ||
+        order.sku?.toLowerCase().includes(searchLower) ||
+        order.itemTitle?.toLowerCase().includes(searchLower) ||
+        order.orderStatus?.toLowerCase().includes(searchLower)
+      );
+    }
+    
     // Apply order date filter
     if (orderDateFilter) {
       filtered = filtered.filter(order => {
@@ -569,10 +582,11 @@ export function OrderProcessor() {
     }
     
     return filtered;
-  }, [allOrders, orderDateFilter, uploadDateFilter, orderStatusFilter]);
+  }, [allOrders, allOrdersSearchTerm, orderDateFilter, uploadDateFilter, orderStatusFilter]);
 
   // Clear all filters
   const clearFilters = () => {
+    setAllOrdersSearchTerm('');
     setOrderDateFilter('');
     setUploadDateFilter('');
     setOrderStatusFilter('all');
@@ -754,14 +768,27 @@ export function OrderProcessor() {
             </TabsContent>
 
             <TabsContent value="all-orders" className="space-y-4">
-              {/* Enhanced Filter Section */}
+              {/* Enhanced Search and Filter Section */}
               <Card className="p-4 bg-gradient-to-r from-primary/5 via-card to-accent/5 border-primary/20">
                 <div className="flex items-center gap-2 mb-4">
                   <Search className="w-4 h-4 text-primary" />
-                  <h4 className="font-semibold text-foreground">Filter Orders</h4>
+                  <h4 className="font-semibold text-foreground">Search & Filter Orders</h4>
                   <Badge variant="secondary" className="ml-auto text-xs">
                     {filteredAllOrders.length} results
                   </Badge>
+                </div>
+                
+                {/* Search Bar */}
+                <div className="mb-4">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search by Order ID, ASIN, SKU, Title, or Status..."
+                      value={allOrdersSearchTerm}
+                      onChange={(e) => setAllOrdersSearchTerm(e.target.value)}
+                      className="pl-10 bg-background/80 border-primary/20 focus:border-primary"
+                    />
+                  </div>
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
