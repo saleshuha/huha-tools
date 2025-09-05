@@ -27,6 +27,7 @@ import FileMergerPage from "./pages/FileMerger";
 import Inventory from "./pages/Inventory";
 import UserManagementPage from "./pages/UserManagement";
 import ReplenishmentPage from "./pages/Replenishment";
+import OrderProcessingPage from "./pages/OrderProcessing";
 import POTrackerPage from "./pages/POTracker";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
@@ -245,6 +246,7 @@ const App = () => {
                         {/* Main App Routes - Available in both web and mobile */}
                         <Route path="/inventory" element={<Inventory />} />
                         <Route path="/processed-orders" element={<ProcessedOrders />} />
+                        <Route path="/order-processing" element={<OrderProcessingPage />} />
                         <Route path="/users" element={<UserManagementPage />} />
                         <Route path="/replenishment" element={<ReplenishmentPage />} />
                         <Route path="/po-tracker" element={<POTrackerPage />} />
