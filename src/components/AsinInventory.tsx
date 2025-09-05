@@ -193,35 +193,7 @@ export function AsinInventory() {
       });
     }
 
-    // Apply quick filter
-    if (quickFilter === 'low-stock') {
-      filtered = filtered.filter(item => item.quantity > 0 && item.quantity <= 5);
-    } else if (quickFilter === 'out-of-stock') {
-      filtered = filtered.filter(item => item.quantity === 0);
-
-      // Apply date filter for out-of-stock items
-      if (dateFilterFrom || dateFilterTo) {
-        filtered = filtered.filter(item => {
-          const itemDate = new Date(item.dateAdded);
-          const fromDate = dateFilterFrom ? new Date(dateFilterFrom.setHours(0, 0, 0, 0)) : null;
-          const toDate = dateFilterTo ? new Date(dateFilterTo.setHours(23, 59, 59, 999)) : null;
-          if (fromDate && toDate) {
-            return itemDate >= fromDate && itemDate <= toDate;
-          } else if (fromDate) {
-            return itemDate >= fromDate;
-          } else if (toDate) {
-            return itemDate <= toDate;
-          }
-          return true;
-        });
-      }
-    } else if (quickFilter === 'recent') {
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-      filtered = filtered.filter(item => new Date(item.dateAdded) >= sevenDaysAgo);
-    }
-
-    // Merge duplicate ASINs - combine quantities and serial numbers
+    // Merge duplicate ASINs FIRST - combine quantities and serial numbers
     const asinGroups = new Map();
     filtered.forEach(item => {
       const key = item.asin;
@@ -254,6 +226,34 @@ export function AsinInventory() {
 
     // Convert back to array
     filtered = Array.from(asinGroups.values());
+
+    // Apply quick filter on merged data
+    if (quickFilter === 'low-stock') {
+      filtered = filtered.filter(item => item.quantity > 0 && item.quantity <= 5);
+    } else if (quickFilter === 'out-of-stock') {
+      filtered = filtered.filter(item => item.quantity === 0);
+
+      // Apply date filter for out-of-stock items
+      if (dateFilterFrom || dateFilterTo) {
+        filtered = filtered.filter(item => {
+          const itemDate = new Date(item.dateAdded);
+          const fromDate = dateFilterFrom ? new Date(dateFilterFrom.setHours(0, 0, 0, 0)) : null;
+          const toDate = dateFilterTo ? new Date(dateFilterTo.setHours(23, 59, 59, 999)) : null;
+          if (fromDate && toDate) {
+            return itemDate >= fromDate && itemDate <= toDate;
+          } else if (fromDate) {
+            return itemDate >= fromDate;
+          } else if (toDate) {
+            return itemDate <= toDate;
+          }
+          return true;
+        });
+      }
+    } else if (quickFilter === 'recent') {
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      filtered = filtered.filter(item => new Date(item.dateAdded) >= sevenDaysAgo);
+    }
 
     // Apply sorting
     filtered.sort((a, b) => {
