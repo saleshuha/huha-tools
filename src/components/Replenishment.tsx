@@ -258,7 +258,7 @@ export function Replenishment() {
     try {
       console.log('Loading sold units for country:', selectedCountry);
       
-      // Get all ASIN inventory items (both sold and current) to calculate total sold units per ASIN
+      // Get all ASIN inventory items to calculate total sold units per ASIN
       const { data: allAsinData, error: asinError } = await supabase
         .from('asin_inventory')
         .select('id, asin, serial_number, sku, title, quantity, status, date_sold, date_added, restock_quantity')
@@ -267,7 +267,7 @@ export function Replenishment() {
       
       if (asinError) throw asinError;
       
-      // Group by ASIN and calculate total sold units
+      // Group by ASIN and calculate statistics
       const asinSoldMap = new Map();
       
       (allAsinData || []).forEach(item => {
@@ -278,17 +278,27 @@ export function Replenishment() {
             sku: item.sku,
             title: item.title,
             first_added_date: item.date_added,
+            total_units_added: 0,
             total_units_sold: 0,
+            current_stock: 0,
             last_sold_date: null,
-            sold_items: []
+            sold_items: [],
+            all_items: []
           });
         }
         
         const asinData = asinSoldMap.get(key);
+        asinData.all_items.push(item);
+        asinData.total_units_added += 1;
         
         // Update first added date if this item was added earlier
         if (new Date(item.date_added) < new Date(asinData.first_added_date)) {
           asinData.first_added_date = item.date_added;
+        }
+        
+        // Count current stock (items that are in-stock)
+        if (item.status === 'in-stock') {
+          asinData.current_stock += item.quantity || 1;
         }
         
         // If item is sold, add to total sold count
@@ -303,26 +313,29 @@ export function Replenishment() {
         }
       });
       
-      // Convert to array and filter out ASINs with no sold units
-      const soldItems = Array.from(asinSoldMap.values())
-        .filter(item => item.total_units_sold > 0)
+      // Convert to array - show ALL ASINs, not just ones with sold units
+      const allAsinItems = Array.from(asinSoldMap.values())
         .map(item => ({
           id: `asin-${item.asin}`,
           asin: item.asin,
           sku: item.sku,
           title: item.title,
+          total_units_added: item.total_units_added,
           total_units_sold: item.total_units_sold,
+          current_stock: item.current_stock,
           first_added_date: item.first_added_date,
           last_sold_date: item.last_sold_date,
           days_from_first_added_to_last_sold: item.last_sold_date && item.first_added_date ? 
             Math.floor((new Date(item.last_sold_date).getTime() - new Date(item.first_added_date).getTime()) / (1000 * 60 * 60 * 24)) : null,
-          sold_items_count: item.sold_items.length
+          sold_items_count: item.sold_items.length,
+          sell_through_rate: item.total_units_added > 0 ? ((item.total_units_sold / item.total_units_added) * 100).toFixed(1) : 0
         }))
         .sort((a, b) => b.total_units_sold - a.total_units_sold); // Sort by most sold units first
       
-      setSoldUnits(soldItems);
-      console.log('Loaded aggregated sold units:', soldItems.length);
-      console.log('Sample sold units data:', soldItems.slice(0, 3));
+      setSoldUnits(allAsinItems);
+      console.log('Loaded all ASIN inventory data:', allAsinItems.length);
+      console.log('Total items added:', allAsinItems.reduce((sum, item) => sum + item.total_units_added, 0));
+      console.log('Total items sold:', allAsinItems.reduce((sum, item) => sum + item.total_units_sold, 0));
     } catch (error) {
       console.error('Error loading sold units:', error);
       toast({
@@ -2327,17 +2340,19 @@ export function Replenishment() {
                       <Button 
                         onClick={() => {
                           // Export sold units data as CSV
-                          const headers = ['ASIN', 'SKU', 'Title', 'Total Units Sold', 'First Added Date', 'Last Sold Date', 'Days from First Added to Last Sold'];
+                          const headers = ['ASIN', 'SKU', 'Title', 'Total Units Added', 'Total Units Sold', 'Current Stock', 'Sell Through Rate %', 'First Added Date', 'Last Sold Date'];
                           const csvRows = [
                             headers,
                             ...soldUnits.map(item => [
                               item.asin || '',
                               item.sku || '',
                               (item.title || '').replace(/,/g, ';'), // Replace commas to avoid CSV issues
+                              item.total_units_added?.toString() || '0',
                               item.total_units_sold?.toString() || '0',
+                              item.current_stock?.toString() || '0',
+                              item.sell_through_rate?.toString() || '0',
                               item.first_added_date ? format(new Date(item.first_added_date), 'yyyy-MM-dd') : '',
-                              item.last_sold_date ? format(new Date(item.last_sold_date), 'yyyy-MM-dd HH:mm:ss') : '',
-                              item.days_from_first_added_to_last_sold?.toString() || 'N/A'
+                              item.last_sold_date ? format(new Date(item.last_sold_date), 'yyyy-MM-dd HH:mm:ss') : ''
                             ])
                           ];
                           const csvContent = csvRows.map(row => row.join(',')).join('\n');
@@ -2364,7 +2379,7 @@ export function Replenishment() {
 
                   <div className="mb-4">
                     <h4 className="text-sm font-medium text-muted-foreground">
-                      Total ASINs with sold units: {soldUnits.length} | Total units sold: {soldUnits.reduce((sum, item) => sum + item.total_units_sold, 0)}
+                      Total ASINs: {soldUnits.length} | Total units added: {soldUnits.reduce((sum, item) => sum + item.total_units_added, 0)} | Total units sold: {soldUnits.reduce((sum, item) => sum + item.total_units_sold, 0)} | Current stock: {soldUnits.reduce((sum, item) => sum + item.current_stock, 0)}
                     </h4>
                   </div>
 
@@ -2381,15 +2396,17 @@ export function Replenishment() {
                             <TableHead>ASIN</TableHead>
                             <TableHead>SKU</TableHead>
                             <TableHead>Title</TableHead>
-                            <TableHead>Total Units Sold</TableHead>
+                            <TableHead>Total Added</TableHead>
+                            <TableHead>Total Sold</TableHead>
+                            <TableHead>Current Stock</TableHead>
+                            <TableHead>Sell Rate %</TableHead>
                             <TableHead>First Added</TableHead>
                             <TableHead>Last Sold</TableHead>
-                            <TableHead>Days from Added to Last Sold</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {soldUnits.length > 0 ? soldUnits.map(item => (
-                            <TableRow key={item.id} className="hover:bg-green-50/50">
+                            <TableRow key={item.id} className="hover:bg-blue-50/50">
                               <TableCell className="font-medium">{item.asin}</TableCell>
                               <TableCell>
                                 {item.sku ? (
@@ -2404,11 +2421,32 @@ export function Replenishment() {
                                 {item.title || <span className="text-muted-foreground text-xs">No title</span>}
                               </TableCell>
                               <TableCell>
+                                <Badge variant="secondary" className="text-sm">
+                                  {item.total_units_added}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
                                 <Badge 
-                                  variant={item.total_units_sold >= 10 ? "default" : item.total_units_sold >= 5 ? "secondary" : "outline"}
+                                  variant={item.total_units_sold >= 10 ? "default" : item.total_units_sold >= 5 ? "secondary" : item.total_units_sold > 0 ? "outline" : "destructive"}
                                   className="text-sm font-semibold"
                                 >
-                                  {item.total_units_sold} units
+                                  {item.total_units_sold}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <Badge 
+                                  variant={item.current_stock === 0 ? "destructive" : item.current_stock <= 5 ? "secondary" : "default"}
+                                  className="text-sm"
+                                >
+                                  {item.current_stock}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <Badge 
+                                  variant={parseFloat(item.sell_through_rate) >= 80 ? "default" : parseFloat(item.sell_through_rate) >= 50 ? "secondary" : parseFloat(item.sell_through_rate) > 0 ? "outline" : "destructive"}
+                                  className="text-sm"
+                                >
+                                  {item.sell_through_rate}%
                                 </Badge>
                               </TableCell>
                               <TableCell>
@@ -2429,28 +2467,16 @@ export function Replenishment() {
                                     </div>
                                   </div>
                                 ) : (
-                                  <span className="text-muted-foreground text-xs">N/A</span>
-                                )}
-                              </TableCell>
-                              <TableCell>
-                                {item.days_from_first_added_to_last_sold !== null ? (
-                                  <Badge 
-                                    variant={item.days_from_first_added_to_last_sold <= 7 ? "default" : item.days_from_first_added_to_last_sold <= 30 ? "secondary" : "outline"}
-                                    className="text-xs"
-                                  >
-                                    {item.days_from_first_added_to_last_sold} days
-                                  </Badge>
-                                ) : (
-                                  <span className="text-muted-foreground text-xs">N/A</span>
+                                  <span className="text-muted-foreground text-xs">Never sold</span>
                                 )}
                               </TableCell>
                             </TableRow>
                           )) : (
                             <TableRow>
-                              <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                                <TrendingUp className="w-12 h-12 mx-auto mb-4 opacity-50 text-green-500" />
-                                <p className="text-lg font-medium">No sold units found</p>
-                                <p className="text-sm">ASINs with sold units will appear here aggregated by total sold quantity</p>
+                              <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                                <TrendingUp className="w-12 h-12 mx-auto mb-4 opacity-50 text-blue-500" />
+                                <p className="text-lg font-medium">No ASIN inventory found</p>
+                                <p className="text-sm">All ASIN inventory items will appear here with sales statistics</p>
                               </TableCell>
                             </TableRow>
                           )}
