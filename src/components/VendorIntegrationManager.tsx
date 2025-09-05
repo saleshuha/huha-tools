@@ -13,6 +13,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useVendorIntegration } from '@/hooks/useVendorIntegration';
 import { useCountry } from '@/contexts/CountryContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Plus, Key, Upload, Download, Trash2, Send, CheckCircle, XCircle, Clock, Inbox, TestTube, RefreshCw, Shield, Copy, FileText, Settings } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -70,6 +71,11 @@ export function VendorIntegrationManager() {
 
   const [sshKeyGenerated, setSshKeyGenerated] = useState(false);
   const [sshKeyUploaded, setSshKeyUploaded] = useState(false);
+  const [generatedKeys, setGeneratedKeys] = useState<{
+    private_key: string;
+    public_key: string;
+  } | null>(null);
+  const [generatingKeys, setGeneratingKeys] = useState(false);
 
   useEffect(() => {
     loadIntegrations(selectedCountry);
@@ -167,8 +173,12 @@ export function VendorIntegrationManager() {
     setEditingIntegration(integration.id);
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (error) {
+      console.error('Failed to copy to clipboard:', error);
+    }
   };
 
   const handleGenerateFeed = async (integrationId: string) => {
@@ -204,6 +214,31 @@ export function VendorIntegrationManager() {
     const diagnosis = await diagnoseIntegration();
     if (diagnosis) {
       alert(JSON.stringify(diagnosis, null, 2));
+    }
+  };
+
+  const generateSSHKeys = async () => {
+    setGeneratingKeys(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-ssh-keys');
+      
+      if (error) {
+        throw error;
+      }
+
+      if (data?.success && data?.keys) {
+        setGeneratedKeys(data.keys);
+        setSshKeyGenerated(true);
+        return true;
+      } else {
+        throw new Error(data?.error || 'Failed to generate SSH keys');
+      }
+    } catch (error) {
+      console.error('SSH key generation failed:', error);
+      alert('Failed to generate SSH keys. Please try again.');
+      return false;
+    } finally {
+      setGeneratingKeys(false);
     }
   };
 
@@ -316,19 +351,24 @@ export function VendorIntegrationManager() {
               <Button variant="outline" onClick={() => setShowSetupDialog(false)}>
                 Cancel
               </Button>
-              <Button onClick={() => {
-                if (formData.transport_method === 'SFTP') {
-                  setShowSSHInstructions(true);
-                  setSshKeyGenerated(true);
-                  setSetupStep(2);
-                } else {
-                  setSetupStep(2);
-                }
-              }}>
+              <Button 
+                onClick={async () => {
+                  if (formData.transport_method === 'SFTP') {
+                    const success = await generateSSHKeys();
+                    if (success) {
+                      setShowSSHInstructions(true);
+                      setSetupStep(2);
+                    }
+                  } else {
+                    setSetupStep(2);
+                  }
+                }}
+                disabled={generatingKeys}
+              >
                 {formData.transport_method === 'SFTP' ? (
                   <>
                     <Key className="w-4 h-4 mr-2" />
-                    Generate SSH Keys
+                    {generatingKeys ? 'Generating SSH Keys...' : 'Generate SSH Keys'}
                   </>
                 ) : (
                   <>
@@ -363,21 +403,23 @@ export function VendorIntegrationManager() {
                 </ul>
               </div>
 
-              <div className="bg-muted/50 p-4 rounded-lg">
-                <h4 className="font-medium mb-3">Copy your private key:</h4>
-                <div className="bg-black p-3 rounded text-green-400 font-mono text-sm">
-                  cat ~/.ssh/amazon_vendor_key
+              {generatedKeys && (
+                <div className="bg-muted/50 p-4 rounded-lg">
+                  <h4 className="font-medium mb-3">Generated Private Key:</h4>
+                  <div className="bg-black p-3 rounded text-green-400 font-mono text-xs break-all max-h-40 overflow-y-auto">
+                    {generatedKeys.private_key}
+                  </div>
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="mt-2"
+                    onClick={() => copyToClipboard(generatedKeys.private_key)}
+                  >
+                    <Copy className="w-4 h-4 mr-2" />
+                    Copy Private Key
+                  </Button>
                 </div>
-                <Button 
-                  size="sm" 
-                  variant="outline" 
-                  className="mt-2"
-                  onClick={() => copyToClipboard('cat ~/.ssh/amazon_vendor_key')}
-                >
-                  <Copy className="w-4 h-4 mr-2" />
-                  Copy Command
-                </Button>
-              </div>
+              )}
 
               <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200/50">
                 <p className="text-sm text-blue-700 dark:text-blue-300 mb-3">
@@ -465,21 +507,23 @@ export function VendorIntegrationManager() {
               </ol>
             </div>
 
-            <div className="bg-muted/50 p-4 rounded-lg">
-              <h4 className="font-medium mb-3">Copy your PUBLIC key to upload:</h4>
-              <div className="bg-black p-3 rounded text-green-400 font-mono text-sm">
-                cat ~/.ssh/amazon_vendor_key.pub
+            {generatedKeys && (
+              <div className="bg-muted/50 p-4 rounded-lg">
+                <h4 className="font-medium mb-3">Copy your PUBLIC key to upload to Amazon:</h4>
+                <div className="bg-black p-3 rounded text-green-400 font-mono text-xs break-all max-h-32 overflow-y-auto">
+                  {generatedKeys.public_key}
+                </div>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="mt-2"
+                  onClick={() => copyToClipboard(generatedKeys.public_key)}
+                >
+                  <Copy className="w-4 h-4 mr-2" />
+                  Copy Public Key
+                </Button>
               </div>
-              <Button 
-                size="sm" 
-                variant="outline" 
-                className="mt-2"
-                onClick={() => copyToClipboard('cat ~/.ssh/amazon_vendor_key.pub')}
-              >
-                <Copy className="w-4 h-4 mr-2" />
-                Copy Command
-              </Button>
-            </div>
+            )}
 
             <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg border border-yellow-200/50">
               <h4 className="font-medium mb-2 text-yellow-700 dark:text-yellow-300">⏳ What happens next:</h4>
