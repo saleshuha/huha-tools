@@ -306,16 +306,7 @@ export function AsinInventory() {
       return;
     }
 
-    // Check for duplicate serial number in current inventory
-    const duplicateSerial = inventory.find(item => item.serialNumber.toLowerCase() === newItem.serialNumber.toLowerCase().trim());
-    if (duplicateSerial) {
-      toast({
-        title: "Duplicate Serial Number",
-        description: `Serial number "${newItem.serialNumber}" already exists in inventory. Each serial number must be unique.`,
-        variant: "destructive"
-      });
-      return;
-    }
+    // Serial number duplicates are now allowed
 
     // Check for duplicate SKU in current inventory (if SKU is provided)
     if (newItem.sku && newItem.sku.trim()) {
@@ -400,19 +391,7 @@ export function AsinInventory() {
       }
       seenAsins.add(item.asin.toLowerCase());
 
-      // Check for duplicate serial number against existing inventory
-      const duplicateSerial = inventory.find(existing => existing.serialNumber.toLowerCase() === item.serialNumber.toLowerCase());
-      if (duplicateSerial) {
-        validationErrors.push(`Row ${i + 1}: Serial number "${item.serialNumber}" already exists in inventory`);
-        continue;
-      }
-
-      // Check for duplicate serial number within bulk data
-      if (seenSerials.has(item.serialNumber.toLowerCase())) {
-        validationErrors.push(`Row ${i + 1}: Serial number "${item.serialNumber}" appears multiple times in bulk data`);
-        continue;
-      }
-      seenSerials.add(item.serialNumber.toLowerCase());
+      // Serial number duplicates are now allowed
 
       // Check for duplicate SKU (if provided)
       if (item.sku && item.sku.trim()) {
