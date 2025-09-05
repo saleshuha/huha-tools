@@ -56,7 +56,7 @@ export function AsinInventory() {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchMethod, setSearchMethod] = useState<'all' | 'asin' | 'sku' | 'serial' | 'title' | 'notes'>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<'dateAdded' | 'asin' | 'quantity' | 'status'>('dateAdded');
+  const [sortBy, setSortBy] = useState<'dateAdded' | 'asin' | 'quantity' | 'status' | 'title' | 'serialNumber'>('dateAdded');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -259,10 +259,21 @@ export function AsinInventory() {
     filtered.sort((a, b) => {
       let aValue: any = a[sortBy];
       let bValue: any = b[sortBy];
+      
       if (sortBy === 'dateAdded') {
         aValue = new Date(aValue).getTime();
         bValue = new Date(bValue).getTime();
+      } else if (sortBy === 'title') {
+        aValue = (aValue || '').toLowerCase();
+        bValue = (bValue || '').toLowerCase();
+      } else if (sortBy === 'serialNumber') {
+        aValue = aValue.toLowerCase();
+        bValue = bValue.toLowerCase();
+      } else if (sortBy === 'asin') {
+        aValue = aValue.toLowerCase();
+        bValue = bValue.toLowerCase();
       }
+      
       if (sortOrder === 'asc') {
         return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
       } else {
@@ -1066,11 +1077,96 @@ export function AsinInventory() {
                     }
                   }} />
                      </th>
-                      <th className="min-w-60 p-3 text-left font-medium border-r">Product Info</th>
-                      <th className="w-28 p-3 text-left font-medium border-r">Serial Number</th>
-                      <th className="w-20 p-3 text-left font-medium border-r">Status</th>
-                     <th className="w-16 p-3 text-left font-medium border-r">Qty</th>
-                     <th className="w-24 p-3 text-left font-medium border-r">Date Added</th>
+                      <th className="min-w-60 p-3 text-left font-medium border-r">
+                        <button 
+                          className="flex items-center gap-2 hover:text-primary transition-colors"
+                          onClick={() => {
+                            if (sortBy === 'title') {
+                              setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                            } else {
+                              setSortBy('title');
+                              setSortOrder('asc');
+                            }
+                          }}
+                        >
+                          Product Info
+                          {sortBy === 'title' && (
+                            sortOrder === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />
+                          )}
+                        </button>
+                      </th>
+                      <th className="w-28 p-3 text-left font-medium border-r">
+                        <button 
+                          className="flex items-center gap-2 hover:text-primary transition-colors"
+                          onClick={() => {
+                            if (sortBy === 'serialNumber') {
+                              setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                            } else {
+                              setSortBy('serialNumber');
+                              setSortOrder('asc');
+                            }
+                          }}
+                        >
+                          Serial Number
+                          {sortBy === 'serialNumber' && (
+                            sortOrder === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />
+                          )}
+                        </button>
+                      </th>
+                      <th className="w-20 p-3 text-left font-medium border-r">
+                        <button 
+                          className="flex items-center gap-2 hover:text-primary transition-colors"
+                          onClick={() => {
+                            if (sortBy === 'status') {
+                              setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                            } else {
+                              setSortBy('status');
+                              setSortOrder('asc');
+                            }
+                          }}
+                        >
+                          Status
+                          {sortBy === 'status' && (
+                            sortOrder === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />
+                          )}
+                        </button>
+                      </th>
+                     <th className="w-16 p-3 text-left font-medium border-r">
+                       <button 
+                         className="flex items-center gap-2 hover:text-primary transition-colors"
+                         onClick={() => {
+                           if (sortBy === 'quantity') {
+                             setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                           } else {
+                             setSortBy('quantity');
+                             setSortOrder('desc');
+                           }
+                         }}
+                       >
+                         Qty
+                         {sortBy === 'quantity' && (
+                           sortOrder === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />
+                         )}
+                       </button>
+                     </th>
+                     <th className="w-24 p-3 text-left font-medium border-r">
+                       <button 
+                         className="flex items-center gap-2 hover:text-primary transition-colors"
+                         onClick={() => {
+                           if (sortBy === 'dateAdded') {
+                             setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                           } else {
+                             setSortBy('dateAdded');
+                             setSortOrder('desc');
+                           }
+                         }}
+                       >
+                         Date Added
+                         {sortBy === 'dateAdded' && (
+                           sortOrder === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />
+                         )}
+                       </button>
+                     </th>
                      <th className="w-32 p-3 text-left font-medium">Actions</th>
                   </tr>
                 </thead>
