@@ -5,7 +5,7 @@ import { Package, Archive, ArrowRight, FileSpreadsheet } from 'lucide-react';
 import { AsinInventory } from './AsinInventory';
 import { SSInventory } from './SSInventory';
 import { OrderProcessor } from './OrderProcessor';
-type InventoryView = 'main' | 'asin' | 'ss' | 'orders';
+type InventoryView = 'main' | 'asin' | 'ss';
 export function Inventory() {
   console.log('Inventory component loaded, current view:', 'main');
   const [currentView, setCurrentView] = useState<InventoryView>('main');
@@ -82,47 +82,6 @@ export function Inventory() {
         </div>
       </div>;
   }
-  if (currentView === 'orders') {
-    return (
-      <div className="min-h-screen bg-gradient-surface">
-        
-        {/* Enhanced Background Effects */}
-        <div className="relative overflow-hidden">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_40%,hsl(var(--primary)/0.12),transparent_60%)]" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_80%,hsl(var(--primary-light)/0.08),transparent_50%)]" />
-          <div className="absolute top-0 left-0 w-2 h-full bg-gradient-to-b from-primary via-primary-light to-primary-dark shadow-glow"></div>
-        </div>
-        
-        {/* Enhanced Container with Proper Spacing */}
-        <div className="relative z-10 app-container space-y-8 py-8 animate-fade-in">
-          {/* Enhanced Header with Back Button */}
-          <div className="flex items-center justify-between mb-8">
-            <Button 
-              variant="ghost" 
-              onClick={() => setCurrentView('main')}
-              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all duration-300 focus:ring-primary"
-            >
-              <ArrowRight className="w-4 h-4 rotate-180" />
-              Back to Inventory
-            </Button>
-            
-            <div className="text-center">
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-primary-dark bg-clip-text text-transparent">
-                Order Processing
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                Process customer orders and update inventory
-              </p>
-            </div>
-            
-            <div className="w-20"></div> {/* Spacer for centering */}
-          </div>
-
-          <OrderProcessor />
-        </div>
-      </div>
-    );
-  }
   return <div className="min-h-screen bg-gradient-surface">
       <div className="w-full space-y-6">
         {/* Header */}
@@ -141,7 +100,7 @@ export function Inventory() {
         </div>
 
         {/* Cards Grid - All in one row */}
-        <div className="grid md:grid-cols-3 gap-6 px-8 mb-12">
+        <div className="grid md:grid-cols-2 gap-8 px-8 mb-12 max-w-4xl mx-auto">
           {/* ASIN Inventory */}
           <Card className="relative overflow-hidden p-8 hover:shadow-xl transition-all duration-700 cursor-pointer group border-0 hover:scale-[1.02] bg-gradient-to-br from-white/90 via-white/70 to-white/50 dark:from-slate-800/90 dark:via-slate-800/70 dark:to-slate-800/50 backdrop-blur-xl" onClick={() => setCurrentView('asin')}>
             {/* Background Effects */}
@@ -278,73 +237,6 @@ export function Inventory() {
             </div>
           </Card>
 
-          {/* Order Processing */}
-          <Card className="relative overflow-hidden p-8 hover:shadow-xl transition-all duration-700 cursor-pointer group border-0 hover:scale-[1.02] bg-gradient-to-br from-white/90 via-white/70 to-white/50 dark:from-slate-800/90 dark:via-slate-800/70 dark:to-slate-800/50 backdrop-blur-xl" onClick={() => setCurrentView('orders')}>
-            {/* Background Effects */}
-            <div className="absolute inset-0">
-              <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 via-teal-500/5 to-cyan-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
-              <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-br from-emerald-400/20 to-teal-400/20 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
-              <div className="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-cyan-400/20 to-emerald-400/20 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
-            </div>
-            
-            <div className="relative z-10 text-center space-y-6">
-              {/* Enhanced Icon */}
-              <div className="relative mx-auto w-fit">
-                <div className="absolute -inset-3 bg-gradient-to-r from-emerald-600 to-teal-600 rounded-3xl blur-lg opacity-0 group-hover:opacity-30 transition-opacity duration-700"></div>
-                <div className="relative w-20 h-20 bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 rounded-3xl flex items-center justify-center mx-auto group-hover:rotate-12 group-hover:scale-110 transition-all duration-700 shadow-xl shadow-emerald-500/25 group-hover:shadow-emerald-500/50">
-                  <FileSpreadsheet className="w-10 h-10 text-white drop-shadow-lg" />
-                  <div className="absolute inset-0 rounded-3xl bg-gradient-to-t from-white/20 to-transparent"></div>
-                </div>
-              </div>
-              
-              {/* Enhanced Title */}
-              <div className="space-y-3">
-                <h2 className="text-2xl font-black bg-gradient-to-r from-slate-900 via-emerald-800 to-slate-900 dark:from-white dark:via-emerald-200 dark:to-white bg-clip-text text-transparent">
-                  Order Processing
-                </h2>
-                <div className="flex items-center justify-center gap-2">
-                  <div className="w-8 h-0.5 bg-gradient-to-r from-transparent via-emerald-500 to-transparent"></div>
-                  <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></div>
-                  <div className="w-8 h-0.5 bg-gradient-to-r from-emerald-500 via-transparent to-emerald-500"></div>
-                </div>
-              </div>
-              
-              {/* Enhanced Description */}
-              <p className="text-slate-600 dark:text-slate-300 leading-relaxed text-base font-medium h-12 flex items-center justify-center">
-                Automated order fulfillment with intelligent matching
-              </p>
-              
-              {/* Feature Highlights */}
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300">
-                  <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></div>
-                  <span className="font-semibold">Auto match</span>
-                </div>
-                <div className="flex items-center gap-2 text-teal-700 dark:text-teal-300">
-                  <div className="w-1.5 h-1.5 bg-teal-500 rounded-full"></div>
-                  <span className="font-semibold">Bulk process</span>
-                </div>
-                <div className="flex items-center gap-2 text-cyan-700 dark:text-cyan-300">
-                  <div className="w-1.5 h-1.5 bg-cyan-500 rounded-full"></div>
-                  <span className="font-semibold">Real-time</span>
-                </div>
-                <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300">
-                  <div className="w-1.5 h-1.5 bg-emerald-600 rounded-full"></div>
-                  <span className="font-semibold">Alerts</span>
-                </div>
-              </div>
-              
-              {/* Enhanced CTA */}
-              <div className="pt-3">
-                <div className="flex items-center justify-center gap-2 text-emerald-600 dark:text-emerald-400 group-hover:gap-4 transition-all duration-500 font-bold">
-                  <span>Process Orders</span>
-                  <div className="w-6 h-6 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full flex items-center justify-center group-hover:translate-x-1 group-hover:rotate-90 transition-all duration-500">
-                    <ArrowRight className="w-3 h-3 text-white" />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </Card>
         </div>
 
         
