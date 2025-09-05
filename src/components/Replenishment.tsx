@@ -2384,8 +2384,11 @@ export function Replenishment() {
                       />
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-sm whitespace-nowrap bg-blue-50 text-blue-700 border-blue-200">
+                      <Badge variant="outline" className="text-sm whitespace-nowrap bg-green-50 text-green-700 border-green-200">
                         {filteredSoldUnits.length} items
+                      </Badge>
+                      <Badge variant="outline" className="text-sm whitespace-nowrap bg-blue-50 text-blue-700 border-blue-200">
+                        {filteredSoldUnits.reduce((sum, item) => sum + item.total_units_sold, 0)} total sold
                       </Badge>
                       {filteredSoldUnits.length > 0 && (
                         <Button 
@@ -2397,7 +2400,7 @@ export function Replenishment() {
                               ...filteredSoldUnits.map(item => [
                                 item.asin || '',
                                 item.sku || '',
-                                (item.title || '').replace(/,/g, ';'), // Replace commas to avoid CSV issues
+                                (item.title || '').replace(/,/g, ';'),
                                 item.total_units_added?.toString() || '0',
                                 item.total_units_sold?.toString() || '0',
                                 item.current_stock?.toString() || '0',
@@ -2429,9 +2432,62 @@ export function Replenishment() {
                     </div>
                   </div>
 
-                  <div className="text-xs text-muted-foreground p-2 bg-muted/30 rounded-lg">
-                    <strong>Summary:</strong> {soldUnits.length} ASINs | {soldUnits.reduce((sum, item) => sum + item.total_units_added, 0)} added | {soldUnits.reduce((sum, item) => sum + item.total_units_sold, 0)} sold | {soldUnits.reduce((sum, item) => sum + item.current_stock, 0)} in stock
+                  {/* Enhanced Summary Statistics */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="p-3 bg-green-50/50 rounded-lg border border-green-200">
+                      <div className="text-sm font-medium text-green-800">Total Units Sold</div>
+                      <div className="text-2xl font-bold text-green-900">{soldUnits.reduce((sum, item) => sum + item.total_units_sold, 0)}</div>
+                      <div className="text-xs text-green-600">From first day till now</div>
+                    </div>
+                    <div className="p-3 bg-blue-50/50 rounded-lg border border-blue-200">
+                      <div className="text-sm font-medium text-blue-800">Units Added</div>
+                      <div className="text-2xl font-bold text-blue-900">{soldUnits.reduce((sum, item) => sum + item.total_units_added, 0)}</div>
+                      <div className="text-xs text-blue-600">Total inventory added</div>
+                    </div>
+                    <div className="p-3 bg-purple-50/50 rounded-lg border border-purple-200">
+                      <div className="text-sm font-medium text-purple-800">Current Stock</div>
+                      <div className="text-2xl font-bold text-purple-900">{soldUnits.reduce((sum, item) => sum + item.current_stock, 0)}</div>
+                      <div className="text-xs text-purple-600">Units in inventory</div>
+                    </div>
+                    <div className="p-3 bg-orange-50/50 rounded-lg border border-orange-200">
+                      <div className="text-sm font-medium text-orange-800">Active ASINs</div>
+                      <div className="text-2xl font-bold text-orange-900">{soldUnits.length}</div>
+                      <div className="text-xs text-orange-600">Total products tracked</div>
+                    </div>
                   </div>
+
+                  {/* Sort Controls */}
+                  {filteredSoldUnits.length > 0 && (
+                    <div className="flex items-center gap-4 p-3 bg-muted/30 rounded-lg">
+                      <span className="text-sm font-medium">Sort by:</span>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant={soldUnitsSortField === 'total_units_sold' ? 'default' : 'outline'}
+                          onClick={() => handleSoldUnitsSort('total_units_sold')}
+                          className="text-xs"
+                        >
+                          Units Sold {soldUnitsSortField === 'total_units_sold' && (soldUnitsSortDirection === 'desc' ? '↓' : '↑')}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant={soldUnitsSortField === 'sell_through_rate' ? 'default' : 'outline'}
+                          onClick={() => handleSoldUnitsSort('sell_through_rate')}
+                          className="text-xs"
+                        >
+                          Sell Rate {soldUnitsSortField === 'sell_through_rate' && (soldUnitsSortDirection === 'desc' ? '↓' : '↑')}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant={soldUnitsSortField === 'last_sold_date' ? 'default' : 'outline'}
+                          onClick={() => handleSoldUnitsSort('last_sold_date')}
+                          className="text-xs"
+                        >
+                          Last Sold {soldUnitsSortField === 'last_sold_date' && (soldUnitsSortDirection === 'desc' ? '↓' : '↑')}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
 
                   {soldUnitsLoading ? (
                     <div className="flex items-center justify-center py-8">
@@ -2439,169 +2495,139 @@ export function Replenishment() {
                       Loading sold units data...
                     </div>
                   ) : (
-                    <div className="space-y-2 max-h-96 overflow-y-auto border rounded-lg">
-                      <Table>
-                        <TableHeader className="sticky top-0 bg-background z-10">
-                          <TableRow>
-                            <TableHead 
-                              className="cursor-pointer hover:bg-muted/50 transition-colors"
-                              onClick={() => handleSoldUnitsSort('asin')}
-                            >
-                              <div className="flex items-center gap-1">
-                                Item Details
-                                {soldUnitsSortField === 'asin' && (
-                                  soldUnitsSortDirection === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
-                                )}
-                              </div>
-                            </TableHead>
-                            <TableHead 
-                              className="cursor-pointer hover:bg-muted/50 transition-colors"
-                              onClick={() => handleSoldUnitsSort('total_units_added')}
-                            >
-                              <div className="flex items-center gap-1">
-                                Total Added
-                                {soldUnitsSortField === 'total_units_added' && (
-                                  soldUnitsSortDirection === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
-                                )}
-                              </div>
-                            </TableHead>
-                            <TableHead 
-                              className="cursor-pointer hover:bg-muted/50 transition-colors"
-                              onClick={() => handleSoldUnitsSort('total_units_sold')}
-                            >
-                              <div className="flex items-center gap-1">
-                                Total Sold
-                                {soldUnitsSortField === 'total_units_sold' && (
-                                  soldUnitsSortDirection === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
-                                )}
-                              </div>
-                            </TableHead>
-                            <TableHead 
-                              className="cursor-pointer hover:bg-muted/50 transition-colors"
-                              onClick={() => handleSoldUnitsSort('current_stock')}
-                            >
-                              <div className="flex items-center gap-1">
-                                Stock
-                                {soldUnitsSortField === 'current_stock' && (
-                                  soldUnitsSortDirection === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
-                                )}
-                              </div>
-                            </TableHead>
-                            <TableHead 
-                              className="cursor-pointer hover:bg-muted/50 transition-colors"
-                              onClick={() => handleSoldUnitsSort('sell_through_rate')}
-                            >
-                              <div className="flex items-center gap-1">
-                                Rate %
-                                {soldUnitsSortField === 'sell_through_rate' && (
-                                  soldUnitsSortDirection === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
-                                )}
-                              </div>
-                            </TableHead>
-                            <TableHead 
-                              className="cursor-pointer hover:bg-muted/50 transition-colors"
-                              onClick={() => handleSoldUnitsSort('first_added_date')}
-                            >
-                              <div className="flex items-center gap-1">
-                                First Added
-                                {soldUnitsSortField === 'first_added_date' && (
-                                  soldUnitsSortDirection === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
-                                )}
-                              </div>
-                            </TableHead>
-                            <TableHead 
-                              className="cursor-pointer hover:bg-muted/50 transition-colors"
-                              onClick={() => handleSoldUnitsSort('last_sold_date')}
-                            >
-                              <div className="flex items-center gap-1">
-                                Last Sold
-                                {soldUnitsSortField === 'last_sold_date' && (
-                                  soldUnitsSortDirection === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
-                                )}
-                              </div>
-                            </TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {filteredSoldUnits.length > 0 ? filteredSoldUnits.map(item => (
-                            <TableRow key={item.id} className="hover:bg-blue-50/50">
-                              <TableCell className="max-w-xs">
-                                <div className="space-y-1">
-                                  <div className="font-medium text-sm">{item.asin}</div>
-                                  {item.sku && (
-                                    <Badge variant="outline" className="text-xs">
-                                      {item.sku}
+                    <div className="space-y-2 max-h-96 overflow-y-auto">
+                      {filteredSoldUnits.length > 0 ? filteredSoldUnits.map(item => (
+                        <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg bg-gradient-to-r from-green-50/30 to-blue-50/30 hover:from-green-50/50 hover:to-blue-50/50 transition-all border-green-200/50 hover:border-green-300/70">
+                          <div className="flex items-center gap-4 flex-1">
+                            <div className="p-2 rounded-lg bg-green-500/20">
+                              <TrendingUp className="w-4 h-4 text-green-700" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium text-foreground truncate">{item.asin}</p>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    {item.sku && (
+                                      <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                                        SKU: {item.sku}
+                                      </Badge>
+                                    )}
+                                    <Badge 
+                                      variant={item.total_units_sold >= 10 ? "default" : item.total_units_sold >= 5 ? "secondary" : item.total_units_sold > 0 ? "outline" : "destructive"}
+                                      className="text-xs font-medium"
+                                    >
+                                      {item.total_units_sold} sold
                                     </Badge>
-                                  )}
+                                    <Badge 
+                                      variant={parseFloat(item.sell_through_rate) >= 80 ? "default" : parseFloat(item.sell_through_rate) >= 50 ? "secondary" : "outline"}
+                                      className="text-xs"
+                                    >
+                                      {item.sell_through_rate}% rate
+                                    </Badge>
+                                  </div>
                                   {item.title && (
-                                    <div className="text-xs text-muted-foreground truncate" title={item.title}>
+                                    <p className="text-sm text-muted-foreground mt-1 truncate" title={item.title}>
                                       {item.title}
-                                    </div>
+                                    </p>
                                   )}
                                 </div>
-                              </TableCell>
-                              <TableCell>
-                                <Badge variant="secondary" className="text-sm">
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-4 ml-4">
+                            <div className="text-right">
+                              <div className="flex items-center gap-2 text-sm">
+                                <span className="text-muted-foreground">Added:</span>
+                                <Badge variant="secondary" className="text-xs">
                                   {item.total_units_added}
                                 </Badge>
-                              </TableCell>
-                              <TableCell>
-                                <Badge 
-                                  variant={item.total_units_sold >= 10 ? "default" : item.total_units_sold >= 5 ? "secondary" : item.total_units_sold > 0 ? "outline" : "destructive"}
-                                  className="text-sm font-semibold"
-                                >
-                                  {item.total_units_sold}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>
+                              </div>
+                              <div className="flex items-center gap-2 text-sm mt-1">
+                                <span className="text-muted-foreground">Stock:</span>
                                 <Badge 
                                   variant={item.current_stock === 0 ? "destructive" : item.current_stock <= 5 ? "secondary" : "default"}
-                                  className="text-sm"
+                                  className="text-xs"
                                 >
                                   {item.current_stock}
                                 </Badge>
-                              </TableCell>
-                              <TableCell>
-                                <Badge 
-                                  variant={parseFloat(item.sell_through_rate) >= 80 ? "default" : parseFloat(item.sell_through_rate) >= 50 ? "secondary" : parseFloat(item.sell_through_rate) > 0 ? "outline" : "destructive"}
-                                  className="text-sm"
-                                >
-                                  {item.sell_through_rate}%
-                                </Badge>
-                              </TableCell>
-                              <TableCell>
-                                {item.first_added_date ? (
-                                  <div className="text-sm">
-                                    {format(new Date(item.first_added_date), 'MMM dd, yyyy')}
-                                  </div>
-                                ) : (
-                                  <span className="text-muted-foreground text-xs">N/A</span>
-                                )}
-                              </TableCell>
-                              <TableCell>
-                                {item.last_sold_date ? (
-                                  <div className="text-sm">
-                                    {format(new Date(item.last_sold_date), 'MMM dd')}
-                                    <div className="text-xs text-muted-foreground">
-                                      {format(new Date(item.last_sold_date), 'HH:mm')}
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <span className="text-muted-foreground text-xs">Never</span>
-                                )}
-                              </TableCell>
-                            </TableRow>
-                          )) : (
-                            <TableRow>
-                              <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                                <TrendingUp className="w-12 h-12 mx-auto mb-4 opacity-50 text-blue-500" />
-                                <p className="text-lg font-medium">No ASIN inventory found</p>
-                                <p className="text-sm">All ASIN inventory items will appear here with sales statistics</p>
-                              </TableCell>
-                            </TableRow>
-                          )}
-                        </TableBody>
-                      </Table>
+                              </div>
+                            </div>
+                            
+                            <div className="text-right text-xs text-muted-foreground">
+                              <div>First Added:</div>
+                              <div className="font-medium">
+                                {item.first_added_date ? format(new Date(item.first_added_date), 'MMM dd, yyyy') : 'N/A'}
+                              </div>
+                              <div className="mt-1">Last Sold:</div>
+                              <div className="font-medium">
+                                {item.last_sold_date ? format(new Date(item.last_sold_date), 'MMM dd') : 'Never'}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )) : (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <TrendingUp className="w-12 h-12 mx-auto mb-4 opacity-50 text-green-500" />
+                          <p className="text-lg font-medium">No sold units found</p>
+                          <p className="text-sm">
+                            {soldUnitsSearchTerm.trim() ? 
+                              'No items match your search criteria' : 
+                              'All ASIN inventory items with sales history will appear here'
+                            }
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Export Summary */}
+                  {filteredSoldUnits.length > 0 && (
+                    <div className="pt-4 border-t">
+                      <div className="flex items-center justify-between">
+                        <div className="text-xs text-muted-foreground">
+                          Showing {filteredSoldUnits.length} of {soldUnits.length} ASINs • 
+                          Total sold since beginning: <strong>{soldUnits.reduce((sum, item) => sum + item.total_units_sold, 0)} units</strong>
+                        </div>
+                        <Button 
+                          onClick={() => {
+                            // Export with enhanced data
+                            const headers = ['ASIN', 'SKU', 'Title', 'Total Added', 'Total Sold', 'Current Stock', 'Sell Rate %', 'First Added', 'Last Sold', 'Days Active'];
+                            const csvRows = [
+                              headers,
+                              ...filteredSoldUnits.map(item => [
+                                item.asin || '',
+                                item.sku || '',
+                                (item.title || '').replace(/,/g, ';'),
+                                item.total_units_added?.toString() || '0',
+                                item.total_units_sold?.toString() || '0',
+                                item.current_stock?.toString() || '0',
+                                item.sell_through_rate?.toString() || '0',
+                                item.first_added_date ? format(new Date(item.first_added_date), 'yyyy-MM-dd') : '',
+                                item.last_sold_date ? format(new Date(item.last_sold_date), 'yyyy-MM-dd') : 'Never',
+                                item.first_added_date ? Math.floor((new Date().getTime() - new Date(item.first_added_date).getTime()) / (1000 * 60 * 60 * 24)) : '0'
+                              ])
+                            ];
+                            const csvContent = csvRows.map(row => row.join(',')).join('\n');
+                            
+                            const blob = new Blob([csvContent], { type: 'text/csv' });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `sold-units-complete-history-${selectedCountry}-${new Date().toISOString().split('T')[0]}.csv`;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            URL.revokeObjectURL(url);
+                          }}
+                          variant="outline" 
+                          size="sm" 
+                          className="gap-2"
+                        >
+                          <Download className="w-4 h-4" />
+                          Export Complete History
+                        </Button>
+                      </div>
                     </div>
                   )}
                 </TabsContent>
