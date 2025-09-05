@@ -240,7 +240,7 @@ export function Replenishment() {
   const [filters, setFilters] = useState({
     search: '',
     itemType: 'all' as 'all' | 'ASIN' | 'SKU',
-    stockStatus: 'all' as 'all' | 'in-stock' | 'out-of-stock' | 'low-stock' | 'critical',
+    stockStatus: 'all' as 'all' | 'in-stock' | 'sold',
     orderStatus: 'all' as 'all' | 'ordered' | 'not-ordered' | 'overdue',
     dateRange: {
       lastSoldFrom: null as Date | null,
@@ -338,12 +338,12 @@ export function Replenishment() {
         }
         
         // Count current stock (items that are in-stock)
-        if (item.status === 'in-stock') {
+        if (item.status === 'in-stock' || (item.quantity > 0 && item.status !== 'sold')) {
           asinData.current_stock += item.quantity || 1;
         }
         
-        // If item is sold, add to total sold count
-        if (item.status === 'sold') {
+        // If item is sold or has quantity 0 (treat as sold), add to total sold count
+        if (item.status === 'sold' || item.quantity === 0) {
           asinData.total_units_sold += 1; // Each sold item counts as 1 unit
           asinData.sold_items.push(item);
           
@@ -680,10 +680,8 @@ export function Replenishment() {
     if (filters.stockStatus !== 'all') {
       filtered = filtered.filter(item => {
         switch (filters.stockStatus) {
-          case 'in-stock': return item.quantity > 5;
-          case 'low-stock': return item.quantity > 0 && item.quantity <= 5;
-          case 'critical': return item.quantity <= 2;
-          case 'out-of-stock': return item.quantity === 0;
+          case 'in-stock': return item.quantity > 0;
+          case 'sold': return item.quantity === 0;
           default: return true;
         }
       });
