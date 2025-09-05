@@ -1994,13 +1994,13 @@ export function Replenishment() {
                     <ShoppingCart className="w-4 h-4" />
                     Ready to Order ({pendingItems.length})
                   </TabsTrigger>
-                  <TabsTrigger value="out-of-stock" className="flex items-center gap-2 data-[state=active]:bg-destructive data-[state=active]:text-destructive-foreground">
-                    <AlertTriangle className="w-4 h-4" />
-                    Out of Stock ({outOfStockItems.length})
-                  </TabsTrigger>
                   <TabsTrigger value="ordered" className="flex items-center gap-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white">
                     <Truck className="w-4 h-4" />
                     Ordered ({orderedItems.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="out-of-stock" className="flex items-center gap-2 data-[state=active]:bg-destructive data-[state=active]:text-destructive-foreground">
+                    <AlertTriangle className="w-4 h-4" />
+                    Out of Stock ({outOfStockItems.length})
                   </TabsTrigger>
                 </TabsList>
 
