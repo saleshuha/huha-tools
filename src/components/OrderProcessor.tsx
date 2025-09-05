@@ -838,12 +838,24 @@ export function OrderProcessor() {
                         <TableHead>Status</TableHead>
                       </TableRow>
                     </TableHeader>
-                    <TableBody>
-                      {filteredAllOrders.slice(0, 50).map((order, index) => (
-                        <TableRow key={`${order.orderId}-${index}`}>
-                          <TableCell className="text-xs font-medium text-muted-foreground">
-                            {index + 1}
-                          </TableCell>
+                     <TableBody>
+                      {filteredAllOrders.slice(0, 50).map((order, index) => {
+                        const matchedItem = matchedItems.find(m => m.orderItem.orderId === order.orderId);
+                        let inventorySerialNumber = 'N/A';
+                        
+                        if (matchedItem?.inventoryMatch) {
+                          if (matchedItem.inventoryType === 'asin') {
+                            inventorySerialNumber = (matchedItem.inventoryMatch as AsinInventoryItem).serialNumber;
+                          } else if (matchedItem.inventoryType === 'sku') {
+                            inventorySerialNumber = (matchedItem.inventoryMatch as SkuInventoryItem).binSerialNumber;
+                          }
+                        }
+                        
+                        return (
+                          <TableRow key={`${order.orderId}-${index}`}>
+                            <TableCell className="text-xs font-medium text-muted-foreground">
+                              {inventorySerialNumber}
+                            </TableCell>
                           <TableCell className="font-mono text-xs">{order.orderId}</TableCell>
                           <TableCell className="text-xs">
                             {order.orderPlaceDate ? (
@@ -880,7 +892,8 @@ export function OrderProcessor() {
                             </Badge>
                           </TableCell>
                         </TableRow>
-                      ))}
+                        );
+                      })}
                     </TableBody>
                   </Table>
                    {filteredAllOrders.length > 50 && (
@@ -912,12 +925,24 @@ export function OrderProcessor() {
                          <TableHead>Match Status</TableHead>
                        </TableRow>
                      </TableHeader>
-                     <TableBody>
-                       {matchedOrders.slice(0, 50).map((order, index) => (
-                         <TableRow key={`${order.orderId}-${index}`}>
-                           <TableCell className="text-xs font-medium text-muted-foreground">
-                             {index + 1}
-                           </TableCell>
+                      <TableBody>
+                        {matchedOrders.slice(0, 50).map((order, index) => {
+                          const matchedItem = matchedItems.find(m => m.orderItem.orderId === order.orderId);
+                          let inventorySerialNumber = 'N/A';
+                          
+                          if (matchedItem?.inventoryMatch) {
+                            if (matchedItem.inventoryType === 'asin') {
+                              inventorySerialNumber = (matchedItem.inventoryMatch as AsinInventoryItem).serialNumber;
+                            } else if (matchedItem.inventoryType === 'sku') {
+                              inventorySerialNumber = (matchedItem.inventoryMatch as SkuInventoryItem).binSerialNumber;
+                            }
+                          }
+                          
+                          return (
+                            <TableRow key={`${order.orderId}-${index}`}>
+                              <TableCell className="text-xs font-medium text-muted-foreground">
+                                {inventorySerialNumber}
+                              </TableCell>
                            <TableCell className="font-mono text-xs">{order.orderId}</TableCell>
                            <TableCell className="text-xs">
                              {order.orderPlaceDate ? (
@@ -952,9 +977,10 @@ export function OrderProcessor() {
                              <Badge variant="default" className="text-xs">
                                Matched
                              </Badge>
-                           </TableCell>
-                         </TableRow>
-                       ))}
+                            </TableCell>
+                          </TableRow>
+                          );
+                        })}
                      </TableBody>
                   </Table>
                   {matchedOrders.length > 50 && (
@@ -986,12 +1012,28 @@ export function OrderProcessor() {
                         <TableHead>Processed At</TableHead>
                       </TableRow>
                     </TableHeader>
-                    <TableBody>
-                      {processedOrders.slice(0, 50).map((order, index) => (
-                        <TableRow key={`${order.order_number}-${index}`}>
-                          <TableCell className="text-xs font-medium text-muted-foreground">
-                            {index + 1}
-                          </TableCell>
+                     <TableBody>
+                      {processedOrders.slice(0, 50).map((order, index) => {
+                        // Find inventory item by inventory_id if available
+                        let inventorySerialNumber = 'N/A';
+                        
+                        if (order.inventory_id) {
+                          const asinItem = asinInventory.find(item => item.id === order.inventory_id);
+                          if (asinItem) {
+                            inventorySerialNumber = asinItem.serialNumber;
+                          } else {
+                            const skuItem = skuInventory.find(item => item.id === order.inventory_id);
+                            if (skuItem) {
+                              inventorySerialNumber = skuItem.binSerialNumber;
+                            }
+                          }
+                        }
+                        
+                        return (
+                          <TableRow key={`${order.order_number}-${index}`}>
+                            <TableCell className="text-xs font-medium text-muted-foreground">
+                              {inventorySerialNumber}
+                            </TableCell>
                           <TableCell className="font-mono text-xs">{order.order_number}</TableCell>
                           <TableCell>
                             <div className="space-y-1">
@@ -1024,7 +1066,8 @@ export function OrderProcessor() {
                             </div>
                           </TableCell>
                         </TableRow>
-                      ))}
+                        );
+                      })}
                     </TableBody>
                   </Table>
                   {processedOrders.length > 50 && (
