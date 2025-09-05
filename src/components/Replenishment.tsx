@@ -183,6 +183,10 @@ export function Replenishment() {
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [outOfStockItems, setOutOfStockItems] = useState<RestockItem[]>([]);
   
+  // Sold units state
+  const [soldUnits, setSoldUnits] = useState<any[]>([]);
+  const [soldUnitsLoading, setSoldUnitsLoading] = useState(false);
+  
   // Sunsky order dialog state
   const [sunskyDialogOpen, setSunskyDialogOpen] = useState(false);
   const [sunskyOrderItems, setSunskyOrderItems] = useState<any[]>([]);
@@ -248,7 +252,51 @@ export function Replenishment() {
   const [forecastLoading, setForecastLoading] = useState(false);
   const [forecastError, setForecastError] = useState<string | null>(null);
 
-  // Load restock items needing attention (excludes already ordered items)
+  // Load sold units data
+  const loadSoldUnits = async () => {
+    setSoldUnitsLoading(true);
+    try {
+      console.log('Loading sold units for country:', selectedCountry);
+      
+      // Get ASIN inventory items that have been sold
+      const { data: soldAsinData, error: asinError } = await supabase
+        .from('asin_inventory')
+        .select('id, asin, serial_number, sku, title, quantity, status, date_sold, date_added, restock_quantity')
+        .eq('country', selectedCountry)
+        .eq('status', 'sold')
+        .is('date_sold', false)
+        .order('date_sold', { ascending: false });
+      
+      if (asinError) throw asinError;
+      
+      // Process sold ASIN items
+      const soldItems = (soldAsinData || []).map(item => ({
+        id: item.id,
+        asin: item.asin,
+        serial_number: item.serial_number,
+        sku: item.sku,
+        title: item.title,
+        quantity_sold: item.restock_quantity || 1, // Use restock_quantity as sold quantity
+        status: item.status,
+        date_sold: item.date_sold,
+        date_added: item.date_added,
+        days_from_added_to_sold: item.date_sold && item.date_added ? 
+          Math.floor((new Date(item.date_sold).getTime() - new Date(item.date_added).getTime()) / (1000 * 60 * 60 * 24)) : null
+      }));
+      
+      setSoldUnits(soldItems);
+      console.log('Loaded sold units:', soldItems.length);
+    } catch (error) {
+      console.error('Error loading sold units:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load sold units data",
+        variant: "destructive",
+      });
+    } finally {
+      setSoldUnitsLoading(false);
+    }
+  };
   const loadRestockItems = async () => {
     try {
       console.log('Loading restock items for country:', selectedCountry);
@@ -908,6 +956,7 @@ export function Replenishment() {
     try {
       // Load all inventory data comprehensively
       await loadAllInventoryItems();
+      await loadSoldUnits(); // Load sold units data
 
       // Load analytics data in parallel without blocking the UI
       Promise.all([calculateSalesData(), loadAnalytics(selectedCountry)]).catch(error => {
@@ -1991,7 +2040,7 @@ export function Replenishment() {
             </CardHeader>
             <CardContent>
               <Tabs defaultValue="critical" className="w-full">
-                <TabsList className="grid w-full grid-cols-3 bg-gradient-subtle rounded-xl shadow-elegant">
+                <TabsList className="grid w-full grid-cols-4 bg-gradient-subtle rounded-xl shadow-elegant">
                   <TabsTrigger value="critical" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                     <ShoppingCart className="w-4 h-4" />
                     Ready to Order ({pendingItems.length})
@@ -2003,6 +2052,10 @@ export function Replenishment() {
                   <TabsTrigger value="ordered" className="flex items-center gap-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white">
                     <Truck className="w-4 h-4" />
                     Ordered ({orderedItems.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="sold-units" className="flex items-center gap-2 data-[state=active]:bg-green-600 data-[state=active]:text-white">
+                    <TrendingUp className="w-4 h-4" />
+                    Sold Units
                   </TabsTrigger>
                 </TabsList>
 
@@ -2226,6 +2279,214 @@ export function Replenishment() {
                       </div>}
                   </div>
                 </TabsContent>
+
+                {/* Sold Units Tab */}
+                <TabsContent value="sold-units" className="space-y-4 mt-6">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm text-muted-foreground">
+                      ASIN units that have been sold with detailed information
+                    </div>
+                  </div>
+
+                  <div className="border rounded-lg overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>ASIN</TableHead>
+                          <TableHead>Serial Number</TableHead>
+                          <TableHead>SKU</TableHead>
+                          <TableHead>Title</TableHead>
+                          <TableHead>Date Sold</TableHead>
+                          <TableHead>Date Added</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {soldUnitsLoading ? (
+                          <TableRow>
+                            <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                              <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-4" />
+                              <p>Loading sold units data...</p>
+                            </TableCell>
+                          </TableRow>
+                        ) : soldUnits.length > 0 ? soldUnits.map(item => (
+                          <TableRow key={item.id} className="hover:bg-green-50/50">
+                            <TableCell className="font-medium">{item.asin}</TableCell>
+                            <TableCell>{item.serial_number}</TableCell>
+                            <TableCell>
+                              {item.sku ? (
+                                <Badge variant="outline" className="text-xs">
+                                  {item.sku}
+                                </Badge>
+                              ) : (
+                                <span className="text-muted-foreground text-xs">No SKU</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="max-w-xs truncate" title={item.title}>
+                              {item.title || <span className="text-muted-foreground text-xs">No title</span>}
+                            </TableCell>
+                            <TableCell>
+                              {item.date_sold ? (
+                                <div className="text-sm">
+                                  {format(new Date(item.date_sold), 'MMM dd, yyyy')}
+                                  <div className="text-xs text-muted-foreground">
+                                    {format(new Date(item.date_sold), 'HH:mm')}
+                                  </div>
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground text-xs">N/A</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {item.date_added ? (
+                                <div className="text-sm">
+                                  {format(new Date(item.date_added), 'MMM dd, yyyy')}
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground text-xs">N/A</span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        )) : (
+                          <TableRow>
+                            <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                              <TrendingUp className="w-12 h-12 mx-auto mb-4 opacity-50 text-green-500" />
+                              <p className="text-lg font-medium">No sold units found</p>
+                              <p className="text-sm">Sold ASIN inventory items will appear here</p>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </TabsContent>
+                <TabsContent value="sold-units" className="space-y-4 mt-6">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm text-muted-foreground">
+                      ASIN units that have been sold with detailed information
+                    </div>
+                    {soldUnits.length > 0 && (
+                      <Button 
+                        onClick={() => {
+                          const csvContent = [
+                            ['ASIN', 'Serial Number', 'SKU', 'Title', 'Quantity Sold', 'Date Sold', 'Date Added', 'Days to Sell'],
+                            ...soldUnits.map(item => [
+                              item.asin,
+                              item.serial_number,
+                              item.sku || 'N/A',
+                              item.title || 'N/A',
+                              item.quantity_sold.toString(),
+                              item.date_sold ? format(new Date(item.date_sold), 'yyyy-MM-dd') : 'N/A',
+                              item.date_added ? format(new Date(item.date_added), 'yyyy-MM-dd') : 'N/A',
+                              item.days_from_added_to_sold?.toString() || 'N/A'
+                            ])
+                          ].map(row => row.join(',')).join('\n');
+                          
+                          const blob = new Blob([csvContent], { type: 'text/csv' });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `sold-units-${selectedCountry}-${new Date().toISOString().split('T')[0]}.csv`;
+                          document.body.appendChild(a);
+                          a.click();
+                          document.body.removeChild(a);
+                          URL.revokeObjectURL(url);
+                        }} 
+                        size="sm" 
+                        variant="outline" 
+                        className="gap-2"
+                      >
+                        <Download className="w-4 h-4" />
+                        Export Sold Units
+                      </Button>
+                    )}
+                  </div>
+
+                  {soldUnitsLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <RefreshCw className="w-6 h-6 animate-spin mr-2" />
+                      Loading sold units data...
+                    </div>
+                  ) : (
+                    <div className="border rounded-lg overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>ASIN</TableHead>
+                            <TableHead>Serial Number</TableHead>
+                            <TableHead>SKU</TableHead>
+                            <TableHead>Title</TableHead>
+                            <TableHead>Qty Sold</TableHead>
+                            <TableHead>Date Sold</TableHead>
+                            <TableHead>Date Added</TableHead>
+                            <TableHead>Days to Sell</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {soldUnits.length > 0 ? soldUnits.map(item => (
+                            <TableRow key={item.id} className="hover:bg-green-50/50">
+                              <TableCell className="font-medium">{item.asin}</TableCell>
+                              <TableCell>{item.serial_number}</TableCell>
+                              <TableCell>
+                                {item.sku ? (
+                                  <Badge variant="outline" className="text-xs">
+                                    {item.sku}
+                                  </Badge>
+                                ) : (
+                                  <span className="text-muted-foreground text-xs">No SKU</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="max-w-xs truncate" title={item.title}>
+                                {item.title || <span className="text-muted-foreground text-xs">No title</span>}
+                              </TableCell>
+                              <TableCell>
+                                {item.date_sold ? (
+                                  <div className="text-sm">
+                                    {format(new Date(item.date_sold), 'MMM dd, yyyy')}
+                                    <div className="text-xs text-muted-foreground">
+                                      {format(new Date(item.date_sold), 'HH:mm')}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <span className="text-muted-foreground text-xs">N/A</span>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {item.date_added ? (
+                                  <div className="text-sm">
+                                    {format(new Date(item.date_added), 'MMM dd, yyyy')}
+                                  </div>
+                                ) : (
+                                  <span className="text-muted-foreground text-xs">N/A</span>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {item.days_from_added_to_sold !== null ? (
+                                  <Badge 
+                                    variant={item.days_from_added_to_sold <= 7 ? "default" : item.days_from_added_to_sold <= 30 ? "secondary" : "outline"}
+                                    className="text-xs"
+                                  >
+                                    {item.days_from_added_to_sold} days
+                                  </Badge>
+                                ) : (
+                                  <span className="text-muted-foreground text-xs">N/A</span>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          )) : (
+                            <TableRow>
+                              <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                                <TrendingUp className="w-12 h-12 mx-auto mb-4 opacity-50 text-green-500" />
+                                <p className="text-lg font-medium">No sold units found</p>
+                                <p className="text-sm">Sold ASIN inventory items will appear here</p>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </TabsContent>
+
               </Tabs>
             </CardContent>
           </Card>
