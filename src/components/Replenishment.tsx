@@ -20,7 +20,7 @@ import { InventoryAnalytics } from './InventoryAnalytics';
 import { format } from 'date-fns';
 import Papa from 'papaparse';
 import { cn } from '@/lib/utils';
-import { TrendingUp, TrendingDown, AlertTriangle, Package, Download, RefreshCw, Search, BarChart3, Clock, ShoppingCart, Activity, DollarSign, Database, PieChart, LineChart, CalendarIcon, CheckCircle, XCircle, Eye, Truck, ArrowRight, Target, Zap, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Settings, Gauge, Star, Minus, Timer } from 'lucide-react';
+import { TrendingUp, TrendingDown, AlertTriangle, Package, Download, RefreshCw, Search, BarChart3, Clock, ShoppingCart, Activity, DollarSign, Database, PieChart, LineChart, CalendarIcon, CheckCircle, XCircle, Eye, Truck, ArrowRight, Target, Zap, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Settings, Gauge, Star, Minus, Timer, ChevronUp, ChevronDown } from 'lucide-react';
 import { Checkbox } from './ui/checkbox';
 import { LineChart as RechartsLineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, AreaChart, Area, BarChart as RechartsBarChart, Bar, PieChart as RechartsPieChart, Cell, Pie, Legend } from 'recharts';
 import { SunskyOrderDialog } from './SunskyOrderDialog';
@@ -183,9 +183,50 @@ export function Replenishment() {
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [outOfStockItems, setOutOfStockItems] = useState<RestockItem[]>([]);
   
+  
   // Sold units state
   const [soldUnits, setSoldUnits] = useState<any[]>([]);
   const [soldUnitsLoading, setSoldUnitsLoading] = useState(false);
+  const [soldUnitsSearchTerm, setSoldUnitsSearchTerm] = useState('');
+  const [soldUnitsSortField, setSoldUnitsSortField] = useState<string>('total_units_sold');
+  const [soldUnitsSortDirection, setSoldUnitsSortDirection] = useState<'asc' | 'desc'>('desc');
+
+  // Filtered and sorted sold units
+  const filteredSoldUnits = soldUnits
+    .filter(item => {
+      if (!soldUnitsSearchTerm.trim()) return true;
+      const searchLower = soldUnitsSearchTerm.toLowerCase();
+      return (
+        item.asin?.toLowerCase().includes(searchLower) ||
+        item.sku?.toLowerCase().includes(searchLower) ||
+        item.title?.toLowerCase().includes(searchLower)
+      );
+    })
+    .sort((a, b) => {
+      const aValue = a[soldUnitsSortField];
+      const bValue = b[soldUnitsSortField];
+      
+      if (aValue === null || aValue === undefined) return 1;
+      if (bValue === null || bValue === undefined) return -1;
+      
+      const modifier = soldUnitsSortDirection === 'desc' ? -1 : 1;
+      
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        return aValue.localeCompare(bValue) * modifier;
+      }
+      
+      return (aValue > bValue ? 1 : -1) * modifier;
+    });
+
+  // Handle sold units sorting
+  const handleSoldUnitsSort = (field: string) => {
+    if (soldUnitsSortField === field) {
+      setSoldUnitsSortDirection(soldUnitsSortDirection === 'desc' ? 'asc' : 'desc');
+    } else {
+      setSoldUnitsSortField(field);
+      setSoldUnitsSortDirection('desc');
+    }
+  };
   
   // Sunsky order dialog state
   const [sunskyDialogOpen, setSunskyDialogOpen] = useState(false);
@@ -2332,55 +2373,64 @@ export function Replenishment() {
 
                 {/* Sold Units Tab */}
                 <TabsContent value="sold-units" className="space-y-4 mt-6">
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm text-muted-foreground">
-                      ASIN units that have been sold - aggregated by ASIN showing total units sold from first added date
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                      <Input 
+                        placeholder="Search ASIN, SKU, or title..." 
+                        value={soldUnitsSearchTerm} 
+                        onChange={e => setSoldUnitsSearchTerm(e.target.value)} 
+                        className="pl-10" 
+                      />
                     </div>
-                    {soldUnits.length > 0 && (
-                      <Button 
-                        onClick={() => {
-                          // Export sold units data as CSV
-                          const headers = ['ASIN', 'SKU', 'Title', 'Total Units Added', 'Total Units Sold', 'Current Stock', 'Sell Through Rate %', 'First Added Date', 'Last Sold Date'];
-                          const csvRows = [
-                            headers,
-                            ...soldUnits.map(item => [
-                              item.asin || '',
-                              item.sku || '',
-                              (item.title || '').replace(/,/g, ';'), // Replace commas to avoid CSV issues
-                              item.total_units_added?.toString() || '0',
-                              item.total_units_sold?.toString() || '0',
-                              item.current_stock?.toString() || '0',
-                              item.sell_through_rate?.toString() || '0',
-                              item.first_added_date ? format(new Date(item.first_added_date), 'yyyy-MM-dd') : '',
-                              item.last_sold_date ? format(new Date(item.last_sold_date), 'yyyy-MM-dd HH:mm:ss') : ''
-                            ])
-                          ];
-                          const csvContent = csvRows.map(row => row.join(',')).join('\n');
-                          
-                          const blob = new Blob([csvContent], { type: 'text/csv' });
-                          const url = URL.createObjectURL(blob);
-                          const a = document.createElement('a');
-                          a.href = url;
-                          a.download = `asin-sold-units-summary-${selectedCountry}-${new Date().toISOString().split('T')[0]}.csv`;
-                          document.body.appendChild(a);
-                          a.click();
-                          document.body.removeChild(a);
-                          URL.revokeObjectURL(url);
-                        }} 
-                        size="sm" 
-                        variant="outline" 
-                        className="gap-2"
-                      >
-                        <Download className="w-4 h-4" />
-                        Export ASIN Summary
-                      </Button>
-                    )}
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-sm whitespace-nowrap bg-blue-50 text-blue-700 border-blue-200">
+                        {filteredSoldUnits.length} items
+                      </Badge>
+                      {filteredSoldUnits.length > 0 && (
+                        <Button 
+                          onClick={() => {
+                            // Export sold units data as CSV
+                            const headers = ['ASIN', 'SKU', 'Title', 'Total Units Added', 'Total Units Sold', 'Current Stock', 'Sell Through Rate %', 'First Added Date', 'Last Sold Date'];
+                            const csvRows = [
+                              headers,
+                              ...filteredSoldUnits.map(item => [
+                                item.asin || '',
+                                item.sku || '',
+                                (item.title || '').replace(/,/g, ';'), // Replace commas to avoid CSV issues
+                                item.total_units_added?.toString() || '0',
+                                item.total_units_sold?.toString() || '0',
+                                item.current_stock?.toString() || '0',
+                                item.sell_through_rate?.toString() || '0',
+                                item.first_added_date ? format(new Date(item.first_added_date), 'yyyy-MM-dd') : '',
+                                item.last_sold_date ? format(new Date(item.last_sold_date), 'yyyy-MM-dd HH:mm:ss') : ''
+                              ])
+                            ];
+                            const csvContent = csvRows.map(row => row.join(',')).join('\n');
+                            
+                            const blob = new Blob([csvContent], { type: 'text/csv' });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `asin-sold-units-summary-${selectedCountry}-${new Date().toISOString().split('T')[0]}.csv`;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            URL.revokeObjectURL(url);
+                          }} 
+                          size="sm" 
+                          variant="outline" 
+                          className="gap-2"
+                        >
+                          <Download className="w-4 h-4" />
+                          Export
+                        </Button>
+                      )}
+                    </div>
                   </div>
 
-                  <div className="mb-4">
-                    <h4 className="text-sm font-medium text-muted-foreground">
-                      Total ASINs: {soldUnits.length} | Total units added: {soldUnits.reduce((sum, item) => sum + item.total_units_added, 0)} | Total units sold: {soldUnits.reduce((sum, item) => sum + item.total_units_sold, 0)} | Current stock: {soldUnits.reduce((sum, item) => sum + item.current_stock, 0)}
-                    </h4>
+                  <div className="text-xs text-muted-foreground p-2 bg-muted/30 rounded-lg">
+                    <strong>Summary:</strong> {soldUnits.length} ASINs | {soldUnits.reduce((sum, item) => sum + item.total_units_added, 0)} added | {soldUnits.reduce((sum, item) => sum + item.total_units_sold, 0)} sold | {soldUnits.reduce((sum, item) => sum + item.current_stock, 0)} in stock
                   </div>
 
                   {soldUnitsLoading ? (
@@ -2389,36 +2439,106 @@ export function Replenishment() {
                       Loading sold units data...
                     </div>
                   ) : (
-                    <div className="border rounded-lg overflow-hidden">
+                    <div className="space-y-2 max-h-96 overflow-y-auto border rounded-lg">
                       <Table>
-                        <TableHeader>
+                        <TableHeader className="sticky top-0 bg-background z-10">
                           <TableRow>
-                            <TableHead>ASIN</TableHead>
-                            <TableHead>SKU</TableHead>
-                            <TableHead>Title</TableHead>
-                            <TableHead>Total Added</TableHead>
-                            <TableHead>Total Sold</TableHead>
-                            <TableHead>Current Stock</TableHead>
-                            <TableHead>Sell Rate %</TableHead>
-                            <TableHead>First Added</TableHead>
-                            <TableHead>Last Sold</TableHead>
+                            <TableHead 
+                              className="cursor-pointer hover:bg-muted/50 transition-colors"
+                              onClick={() => handleSoldUnitsSort('asin')}
+                            >
+                              <div className="flex items-center gap-1">
+                                Item Details
+                                {soldUnitsSortField === 'asin' && (
+                                  soldUnitsSortDirection === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
+                                )}
+                              </div>
+                            </TableHead>
+                            <TableHead 
+                              className="cursor-pointer hover:bg-muted/50 transition-colors"
+                              onClick={() => handleSoldUnitsSort('total_units_added')}
+                            >
+                              <div className="flex items-center gap-1">
+                                Total Added
+                                {soldUnitsSortField === 'total_units_added' && (
+                                  soldUnitsSortDirection === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
+                                )}
+                              </div>
+                            </TableHead>
+                            <TableHead 
+                              className="cursor-pointer hover:bg-muted/50 transition-colors"
+                              onClick={() => handleSoldUnitsSort('total_units_sold')}
+                            >
+                              <div className="flex items-center gap-1">
+                                Total Sold
+                                {soldUnitsSortField === 'total_units_sold' && (
+                                  soldUnitsSortDirection === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
+                                )}
+                              </div>
+                            </TableHead>
+                            <TableHead 
+                              className="cursor-pointer hover:bg-muted/50 transition-colors"
+                              onClick={() => handleSoldUnitsSort('current_stock')}
+                            >
+                              <div className="flex items-center gap-1">
+                                Stock
+                                {soldUnitsSortField === 'current_stock' && (
+                                  soldUnitsSortDirection === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
+                                )}
+                              </div>
+                            </TableHead>
+                            <TableHead 
+                              className="cursor-pointer hover:bg-muted/50 transition-colors"
+                              onClick={() => handleSoldUnitsSort('sell_through_rate')}
+                            >
+                              <div className="flex items-center gap-1">
+                                Rate %
+                                {soldUnitsSortField === 'sell_through_rate' && (
+                                  soldUnitsSortDirection === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
+                                )}
+                              </div>
+                            </TableHead>
+                            <TableHead 
+                              className="cursor-pointer hover:bg-muted/50 transition-colors"
+                              onClick={() => handleSoldUnitsSort('first_added_date')}
+                            >
+                              <div className="flex items-center gap-1">
+                                First Added
+                                {soldUnitsSortField === 'first_added_date' && (
+                                  soldUnitsSortDirection === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
+                                )}
+                              </div>
+                            </TableHead>
+                            <TableHead 
+                              className="cursor-pointer hover:bg-muted/50 transition-colors"
+                              onClick={() => handleSoldUnitsSort('last_sold_date')}
+                            >
+                              <div className="flex items-center gap-1">
+                                Last Sold
+                                {soldUnitsSortField === 'last_sold_date' && (
+                                  soldUnitsSortDirection === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
+                                )}
+                              </div>
+                            </TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {soldUnits.length > 0 ? soldUnits.map(item => (
+                          {filteredSoldUnits.length > 0 ? filteredSoldUnits.map(item => (
                             <TableRow key={item.id} className="hover:bg-blue-50/50">
-                              <TableCell className="font-medium">{item.asin}</TableCell>
-                              <TableCell>
-                                {item.sku ? (
-                                  <Badge variant="outline" className="text-xs">
-                                    {item.sku}
-                                  </Badge>
-                                ) : (
-                                  <span className="text-muted-foreground text-xs">No SKU</span>
-                                )}
-                              </TableCell>
-                              <TableCell className="max-w-xs truncate" title={item.title}>
-                                {item.title || <span className="text-muted-foreground text-xs">No title</span>}
+                              <TableCell className="max-w-xs">
+                                <div className="space-y-1">
+                                  <div className="font-medium text-sm">{item.asin}</div>
+                                  {item.sku && (
+                                    <Badge variant="outline" className="text-xs">
+                                      {item.sku}
+                                    </Badge>
+                                  )}
+                                  {item.title && (
+                                    <div className="text-xs text-muted-foreground truncate" title={item.title}>
+                                      {item.title}
+                                    </div>
+                                  )}
+                                </div>
                               </TableCell>
                               <TableCell>
                                 <Badge variant="secondary" className="text-sm">
@@ -2461,19 +2581,19 @@ export function Replenishment() {
                               <TableCell>
                                 {item.last_sold_date ? (
                                   <div className="text-sm">
-                                    {format(new Date(item.last_sold_date), 'MMM dd, yyyy')}
+                                    {format(new Date(item.last_sold_date), 'MMM dd')}
                                     <div className="text-xs text-muted-foreground">
                                       {format(new Date(item.last_sold_date), 'HH:mm')}
                                     </div>
                                   </div>
                                 ) : (
-                                  <span className="text-muted-foreground text-xs">Never sold</span>
+                                  <span className="text-muted-foreground text-xs">Never</span>
                                 )}
                               </TableCell>
                             </TableRow>
                           )) : (
                             <TableRow>
-                              <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                              <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                                 <TrendingUp className="w-12 h-12 mx-auto mb-4 opacity-50 text-blue-500" />
                                 <p className="text-lg font-medium">No ASIN inventory found</p>
                                 <p className="text-sm">All ASIN inventory items will appear here with sales statistics</p>
