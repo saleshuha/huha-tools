@@ -186,7 +186,11 @@ export function AsinInventory() {
 
     // Apply status filter
     if (statusFilter !== 'all') {
-      filtered = filtered.filter(item => item.status === statusFilter);
+      filtered = filtered.filter(item => {
+        // Treat 'ordered' items as 'sold'
+        const effectiveStatus = item.status === 'ordered' ? 'sold' : item.status;
+        return effectiveStatus === statusFilter;
+      });
     }
 
     // Apply quick filter
@@ -1099,8 +1103,8 @@ export function AsinInventory() {
                         </td>
                         <td className="p-3 font-mono text-sm border-r">{item.serialNumber}</td>
                         <td className="p-3 border-r">
-                         <Badge variant={item.status === 'in-stock' ? 'default' : item.status === 'sold' ? 'secondary' : item.status === 'reserved' ? 'outline' : 'destructive'} className="text-xs">
-                           {item.status === 'in-stock' ? 'In Stock' : item.status === 'sold' ? 'Sold' : item.status === 'reserved' ? 'Reserved' : 'Damaged'}
+                         <Badge variant={item.status === 'in-stock' ? 'default' : (item.status === 'sold' || item.status === 'ordered') ? 'secondary' : item.status === 'reserved' ? 'outline' : 'destructive'} className="text-xs">
+                           {item.status === 'in-stock' ? 'In Stock' : (item.status === 'sold' || item.status === 'ordered') ? 'Sold' : item.status === 'reserved' ? 'Reserved' : 'Damaged'}
                          </Badge>
                        </td>
                       <td className="p-3 border-r">
@@ -1143,9 +1147,9 @@ export function AsinInventory() {
                   }
                   setSelectedItems(newSelected);
                 }} />
-                      <Badge variant={item.status === 'in-stock' ? 'default' : item.status === 'sold' ? 'secondary' : item.status === 'reserved' ? 'outline' : 'destructive'}>
-                        {item.status.replace('-', ' ').toUpperCase()}
-                      </Badge>
+                       <Badge variant={item.status === 'in-stock' ? 'default' : (item.status === 'sold' || item.status === 'ordered') ? 'secondary' : item.status === 'reserved' ? 'outline' : 'destructive'}>
+                         {item.status === 'ordered' ? 'SOLD' : item.status.replace('-', ' ').toUpperCase()}
+                       </Badge>
                     </div>
                   </div>
                   <div className="space-y-2">
