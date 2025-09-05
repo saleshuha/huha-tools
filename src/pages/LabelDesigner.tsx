@@ -106,18 +106,22 @@ const LabelDesignerContent: React.FC = () => {
 
   return (
     <div className="h-screen flex flex-col bg-background">
-      <div className="border-b bg-card p-4">
+      <div className="border-b-2 border-border bg-card/50 backdrop-blur-sm p-6 shadow-sm">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold">Label Designer & Printer</h1>
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent">
+              Label Designer & Printer
+            </h1>
             {labelDoc && (
-              <div className="flex items-center gap-2">
-                <Badge variant="outline">{labelDoc.name}</Badge>
-                <Badge variant="secondary">
+              <div className="flex items-center gap-3">
+                <Badge variant="outline" className="border-primary/20 bg-primary/5 text-primary font-medium">
+                  {labelDoc.name}
+                </Badge>
+                <Badge variant="secondary" className="bg-muted/80 border border-border">
                   {labelDoc.size.width}×{labelDoc.size.height}mm
                 </Badge>
                 {dataset && (
-                  <Badge variant="secondary">
+                  <Badge variant="secondary" className="bg-accent/20 border border-accent/30 text-accent-foreground">
                     <Database className="h-3 w-3 mr-1" />
                     {dataset.name} ({dataset.rowCount} rows)
                   </Badge>
@@ -125,31 +129,31 @@ const LabelDesignerContent: React.FC = () => {
               </div>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <Dialog open={showLoadDialog} onOpenChange={setShowLoadDialog}>
               <DialogTrigger asChild>
-                <Button variant="outline" size="sm" onClick={handleLoadDocuments}>
+                <Button variant="outline" size="sm" onClick={handleLoadDocuments} className="border-2 border-primary/20 hover:border-primary/40 hover:bg-primary/5">
                   <FolderOpen className="h-4 w-4 mr-2" />
                   Load Label
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="border-2 border-border bg-background/95 backdrop-blur-sm">
                 <DialogHeader>
-                  <DialogTitle>Load Existing Label</DialogTitle>
+                  <DialogTitle className="text-xl font-semibold text-foreground">Load Existing Label</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 pt-4">
                   {userDocuments.length === 0 ? (
-                    <p className="text-muted-foreground">No saved labels found.</p>
+                    <p className="text-muted-foreground text-center py-8">No saved labels found.</p>
                   ) : (
                     <div className="space-y-2 max-h-60 overflow-y-auto">
                       {userDocuments.map((doc) => (
                         <div
                           key={doc.id}
-                          className="flex justify-between items-center p-3 border rounded-lg hover:bg-muted cursor-pointer"
+                          className="flex justify-between items-center p-4 border-2 border-border rounded-lg hover:bg-accent/50 hover:border-accent cursor-pointer transition-all duration-200"
                           onClick={() => handleLoadDocument(doc.id)}
                         >
                           <div>
-                            <h4 className="font-medium">{doc.name}</h4>
+                            <h4 className="font-medium text-foreground">{doc.name}</h4>
                             <p className="text-sm text-muted-foreground">
                               {doc.width}×{doc.height}mm • {new Date(doc.updated_at).toLocaleDateString()}
                             </p>
@@ -164,26 +168,27 @@ const LabelDesignerContent: React.FC = () => {
             
             <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
               <DialogTrigger asChild>
-                <Button size="sm">
+                <Button size="sm" className="bg-primary hover:bg-primary/90 border-2 border-primary">
                   <Plus className="h-4 w-4 mr-2" />
                   New Label
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="border-2 border-border bg-background/95 backdrop-blur-sm">
                 <DialogHeader>
-                  <DialogTitle>Create New Label</DialogTitle>
+                  <DialogTitle className="text-xl font-semibold text-foreground">Create New Label</DialogTitle>
                 </DialogHeader>
-                <div className="space-y-4 pt-4">
+                <div className="space-y-6 pt-4">
                   <div>
-                    <Label>Label Name</Label>
+                    <Label className="text-sm font-medium text-foreground mb-2 block">Label Name</Label>
                     <Input
                       value={newLabelName}
                       onChange={(e) => setNewLabelName(e.target.value)}
                       placeholder="Enter label name"
+                      className="border-2 border-input focus:border-primary"
                     />
                   </div>
                   <div>
-                    <Label>Size Preset</Label>
+                    <Label className="text-sm font-medium text-foreground mb-2 block">Size Preset</Label>
                     <Select 
                       value={isCustomSize ? 'custom' : selectedPreset} 
                       onValueChange={(value) => {
@@ -195,16 +200,16 @@ const LabelDesignerContent: React.FC = () => {
                         }
                       }}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="border-2 border-input focus:border-primary">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className="bg-background border shadow-md z-50">
+                      <SelectContent className="bg-background border-2 border-border shadow-lg z-50">
                         {Object.entries(LABEL_PRESETS).map(([key, preset]) => (
-                          <SelectItem key={key} value={key}>
+                          <SelectItem key={key} value={key} className="hover:bg-accent">
                             {key} ({preset.width}×{preset.height}mm)
                           </SelectItem>
                         ))}
-                        <SelectItem value="custom">
+                        <SelectItem value="custom" className="hover:bg-accent">
                           Custom Size
                         </SelectItem>
                       </SelectContent>
@@ -214,7 +219,7 @@ const LabelDesignerContent: React.FC = () => {
                   {isCustomSize && (
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <Label>Width (mm)</Label>
+                        <Label className="text-sm font-medium text-foreground mb-2 block">Width (mm)</Label>
                         <Input
                           type="number"
                           value={customWidth}
@@ -222,10 +227,11 @@ const LabelDesignerContent: React.FC = () => {
                           placeholder="Width"
                           min="1"
                           max="500"
+                          className="border-2 border-input focus:border-primary"
                         />
                       </div>
                       <div>
-                        <Label>Height (mm)</Label>
+                        <Label className="text-sm font-medium text-foreground mb-2 block">Height (mm)</Label>
                         <Input
                           type="number"
                           value={customHeight}
@@ -233,55 +239,81 @@ const LabelDesignerContent: React.FC = () => {
                           placeholder="Height"
                           min="1"
                           max="500"
+                          className="border-2 border-input focus:border-primary"
                         />
                       </div>
                     </div>
                   )}
-                  <div className="flex justify-end gap-2">
-                    <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+                  <div className="flex justify-end gap-3 pt-4">
+                    <Button variant="outline" onClick={() => setShowCreateDialog(false)} className="border-2 border-border hover:bg-muted">
                       Cancel
                     </Button>
-                    <Button onClick={handleCreateLabel}>Create</Button>
+                    <Button onClick={handleCreateLabel} className="bg-primary hover:bg-primary/90 border-2 border-primary">
+                      Create
+                    </Button>
                   </div>
                 </div>
               </DialogContent>
             </Dialog>
             {labelDoc && (
-              <>
-                <Button variant="outline" size="sm" onClick={handlePreview}>
-                  <Eye className="h-4 w-4 mr-2" />
-                  Preview
-                </Button>
-              </>
+              <Button variant="outline" size="sm" onClick={handlePreview} className="border-2 border-accent/30 hover:border-accent hover:bg-accent/10 text-accent-foreground">
+                <Eye className="h-4 w-4 mr-2" />
+                Preview
+              </Button>
             )}
           </div>
         </div>
       </div>
-      <div className="flex flex-col gap-4 p-4">
+      <div className="flex flex-col gap-6 p-6 bg-gradient-to-br from-background to-muted/20">
         <Tabs defaultValue="orders" className="flex-1">
-          <TabsList className="grid w-fit grid-cols-3 mb-4">
-            <TabsTrigger value="orders">Order Printing</TabsTrigger>
-            <TabsTrigger value="eligible">Print Eligible Items</TabsTrigger>
-            <TabsTrigger value="designer">Label Designer</TabsTrigger>
+          <TabsList className="grid w-fit grid-cols-3 mb-6 bg-muted/50 border-2 border-border p-1 rounded-lg">
+            <TabsTrigger 
+              value="orders" 
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md font-medium transition-all duration-200 hover:bg-accent/50"
+            >
+              Order Printing
+            </TabsTrigger>
+            <TabsTrigger 
+              value="eligible" 
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md font-medium transition-all duration-200 hover:bg-accent/50"
+            >
+              Print Eligible Items
+            </TabsTrigger>
+            <TabsTrigger 
+              value="designer" 
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md font-medium transition-all duration-200 hover:bg-accent/50"
+            >
+              Label Designer
+            </TabsTrigger>
           </TabsList>
-          <TabsContent value="orders">
+          <TabsContent value="orders" className="border-2 border-border rounded-lg bg-card/50 p-6 shadow-sm">
             <DateWiseOrderPrint />
           </TabsContent>
-          <TabsContent value="eligible">
+          <TabsContent value="eligible" className="border-2 border-border rounded-lg bg-card/50 p-6 shadow-sm">
             <PrintEligibleItems />
           </TabsContent>
-          <TabsContent value="designer">
-            <div className="flex gap-4 min-h-0 flex-1">
-              <div className="flex-1">
+          <TabsContent value="designer" className="border-2 border-border rounded-lg bg-card/50 p-6 shadow-sm">
+            <div className="flex gap-6 min-h-0 flex-1">
+              <div className="flex-1 border-2 border-border rounded-lg bg-background/50 p-4">
                 <LabelWorkspace />
               </div>
               
               <div className="w-96 space-y-4">
-                <LabelToolbar />
-                <OrderLabelTemplates />
-                <LabelPropertiesPanel />
-                <InventoryDataMapper />
-                <DataPreviewPanel />
+                <div className="border-2 border-border rounded-lg bg-card/50 p-4">
+                  <LabelToolbar />
+                </div>
+                <div className="border-2 border-border rounded-lg bg-card/50 p-4">
+                  <OrderLabelTemplates />
+                </div>
+                <div className="border-2 border-border rounded-lg bg-card/50 p-4">
+                  <LabelPropertiesPanel />
+                </div>
+                <div className="border-2 border-border rounded-lg bg-card/50 p-4">
+                  <InventoryDataMapper />
+                </div>
+                <div className="border-2 border-border rounded-lg bg-card/50 p-4">
+                  <DataPreviewPanel />
+                </div>
               </div>
             </div>
           </TabsContent>
