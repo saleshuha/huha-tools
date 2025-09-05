@@ -681,7 +681,7 @@ export function Replenishment() {
       filtered = filtered.filter(item => {
         switch (filters.stockStatus) {
           case 'in-stock': return item.quantity > 0;
-          case 'sold': return item.quantity === 0;
+          case 'sold': return item.status === 'sold' || item.quantity === 0;
           default: return true;
         }
       });
