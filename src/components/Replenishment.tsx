@@ -1989,7 +1989,7 @@ export function Replenishment() {
             </CardHeader>
             <CardContent>
               <Tabs defaultValue="critical" className="w-full">
-                <TabsList className="grid w-full grid-cols-4 bg-gradient-subtle rounded-xl shadow-elegant">
+                <TabsList className="grid w-full grid-cols-3 bg-gradient-subtle rounded-xl shadow-elegant">
                   <TabsTrigger value="critical" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                     <ShoppingCart className="w-4 h-4" />
                     Ready to Order ({pendingItems.length})
