@@ -258,34 +258,71 @@ export function Replenishment() {
     try {
       console.log('Loading sold units for country:', selectedCountry);
       
-      // Get ASIN inventory items that have been sold
-      const { data: soldAsinData, error: asinError } = await supabase
+      // Get all ASIN inventory items (both sold and current) to calculate total sold units per ASIN
+      const { data: allAsinData, error: asinError } = await supabase
         .from('asin_inventory')
         .select('id, asin, serial_number, sku, title, quantity, status, date_sold, date_added, restock_quantity')
         .eq('country', selectedCountry)
-        .eq('status', 'sold')
-        .is('date_sold', false)
-        .order('date_sold', { ascending: false });
+        .order('date_added', { ascending: true });
       
       if (asinError) throw asinError;
       
-      // Process sold ASIN items
-      const soldItems = (soldAsinData || []).map(item => ({
-        id: item.id,
-        asin: item.asin,
-        serial_number: item.serial_number,
-        sku: item.sku,
-        title: item.title,
-        quantity_sold: item.restock_quantity || 1, // Use restock_quantity as sold quantity
-        status: item.status,
-        date_sold: item.date_sold,
-        date_added: item.date_added,
-        days_from_added_to_sold: item.date_sold && item.date_added ? 
-          Math.floor((new Date(item.date_sold).getTime() - new Date(item.date_added).getTime()) / (1000 * 60 * 60 * 24)) : null
-      }));
+      // Group by ASIN and calculate total sold units
+      const asinSoldMap = new Map();
+      
+      (allAsinData || []).forEach(item => {
+        const key = item.asin;
+        if (!asinSoldMap.has(key)) {
+          asinSoldMap.set(key, {
+            asin: item.asin,
+            sku: item.sku,
+            title: item.title,
+            first_added_date: item.date_added,
+            total_units_sold: 0,
+            last_sold_date: null,
+            sold_items: []
+          });
+        }
+        
+        const asinData = asinSoldMap.get(key);
+        
+        // Update first added date if this item was added earlier
+        if (new Date(item.date_added) < new Date(asinData.first_added_date)) {
+          asinData.first_added_date = item.date_added;
+        }
+        
+        // If item is sold, add to total sold count
+        if (item.status === 'sold') {
+          asinData.total_units_sold += 1; // Each sold item counts as 1 unit
+          asinData.sold_items.push(item);
+          
+          // Update last sold date
+          if (item.date_sold && (!asinData.last_sold_date || new Date(item.date_sold) > new Date(asinData.last_sold_date))) {
+            asinData.last_sold_date = item.date_sold;
+          }
+        }
+      });
+      
+      // Convert to array and filter out ASINs with no sold units
+      const soldItems = Array.from(asinSoldMap.values())
+        .filter(item => item.total_units_sold > 0)
+        .map(item => ({
+          id: `asin-${item.asin}`,
+          asin: item.asin,
+          sku: item.sku,
+          title: item.title,
+          total_units_sold: item.total_units_sold,
+          first_added_date: item.first_added_date,
+          last_sold_date: item.last_sold_date,
+          days_from_first_added_to_last_sold: item.last_sold_date && item.first_added_date ? 
+            Math.floor((new Date(item.last_sold_date).getTime() - new Date(item.first_added_date).getTime()) / (1000 * 60 * 60 * 24)) : null,
+          sold_items_count: item.sold_items.length
+        }))
+        .sort((a, b) => b.total_units_sold - a.total_units_sold); // Sort by most sold units first
       
       setSoldUnits(soldItems);
-      console.log('Loaded sold units:', soldItems.length);
+      console.log('Loaded aggregated sold units:', soldItems.length);
+      console.log('Sample sold units data:', soldItems.slice(0, 3));
     } catch (error) {
       console.error('Error loading sold units:', error);
       toast({
@@ -2284,108 +2321,32 @@ export function Replenishment() {
                 <TabsContent value="sold-units" className="space-y-4 mt-6">
                   <div className="flex items-center justify-between">
                     <div className="text-sm text-muted-foreground">
-                      ASIN units that have been sold with detailed information
-                    </div>
-                  </div>
-
-                  <div className="border rounded-lg overflow-hidden">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>ASIN</TableHead>
-                          <TableHead>Serial Number</TableHead>
-                          <TableHead>SKU</TableHead>
-                          <TableHead>Title</TableHead>
-                          <TableHead>Date Sold</TableHead>
-                          <TableHead>Date Added</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {soldUnitsLoading ? (
-                          <TableRow>
-                            <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                              <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-4" />
-                              <p>Loading sold units data...</p>
-                            </TableCell>
-                          </TableRow>
-                        ) : soldUnits.length > 0 ? soldUnits.map(item => (
-                          <TableRow key={item.id} className="hover:bg-green-50/50">
-                            <TableCell className="font-medium">{item.asin}</TableCell>
-                            <TableCell>{item.serial_number}</TableCell>
-                            <TableCell>
-                              {item.sku ? (
-                                <Badge variant="outline" className="text-xs">
-                                  {item.sku}
-                                </Badge>
-                              ) : (
-                                <span className="text-muted-foreground text-xs">No SKU</span>
-                              )}
-                            </TableCell>
-                            <TableCell className="max-w-xs truncate" title={item.title}>
-                              {item.title || <span className="text-muted-foreground text-xs">No title</span>}
-                            </TableCell>
-                            <TableCell>
-                              {item.date_sold ? (
-                                <div className="text-sm">
-                                  {format(new Date(item.date_sold), 'MMM dd, yyyy')}
-                                  <div className="text-xs text-muted-foreground">
-                                    {format(new Date(item.date_sold), 'HH:mm')}
-                                  </div>
-                                </div>
-                              ) : (
-                                <span className="text-muted-foreground text-xs">N/A</span>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              {item.date_added ? (
-                                <div className="text-sm">
-                                  {format(new Date(item.date_added), 'MMM dd, yyyy')}
-                                </div>
-                              ) : (
-                                <span className="text-muted-foreground text-xs">N/A</span>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        )) : (
-                          <TableRow>
-                            <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                              <TrendingUp className="w-12 h-12 mx-auto mb-4 opacity-50 text-green-500" />
-                              <p className="text-lg font-medium">No sold units found</p>
-                              <p className="text-sm">Sold ASIN inventory items will appear here</p>
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </TabsContent>
-                <TabsContent value="sold-units" className="space-y-4 mt-6">
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm text-muted-foreground">
-                      ASIN units that have been sold with detailed information
+                      ASIN units that have been sold - aggregated by ASIN showing total units sold from first added date
                     </div>
                     {soldUnits.length > 0 && (
                       <Button 
                         onClick={() => {
-                          const csvContent = [
-                            ['ASIN', 'Serial Number', 'SKU', 'Title', 'Quantity Sold', 'Date Sold', 'Date Added', 'Days to Sell'],
+                          // Export sold units data as CSV
+                          const headers = ['ASIN', 'SKU', 'Title', 'Total Units Sold', 'First Added Date', 'Last Sold Date', 'Days from First Added to Last Sold'];
+                          const csvRows = [
+                            headers,
                             ...soldUnits.map(item => [
-                              item.asin,
-                              item.serial_number,
-                              item.sku || 'N/A',
-                              item.title || 'N/A',
-                              item.quantity_sold.toString(),
-                              item.date_sold ? format(new Date(item.date_sold), 'yyyy-MM-dd') : 'N/A',
-                              item.date_added ? format(new Date(item.date_added), 'yyyy-MM-dd') : 'N/A',
-                              item.days_from_added_to_sold?.toString() || 'N/A'
+                              item.asin || '',
+                              item.sku || '',
+                              (item.title || '').replace(/,/g, ';'), // Replace commas to avoid CSV issues
+                              item.total_units_sold?.toString() || '0',
+                              item.first_added_date ? format(new Date(item.first_added_date), 'yyyy-MM-dd') : '',
+                              item.last_sold_date ? format(new Date(item.last_sold_date), 'yyyy-MM-dd HH:mm:ss') : '',
+                              item.days_from_first_added_to_last_sold?.toString() || 'N/A'
                             ])
-                          ].map(row => row.join(',')).join('\n');
+                          ];
+                          const csvContent = csvRows.map(row => row.join(',')).join('\n');
                           
                           const blob = new Blob([csvContent], { type: 'text/csv' });
                           const url = URL.createObjectURL(blob);
                           const a = document.createElement('a');
                           a.href = url;
-                          a.download = `sold-units-${selectedCountry}-${new Date().toISOString().split('T')[0]}.csv`;
+                          a.download = `asin-sold-units-summary-${selectedCountry}-${new Date().toISOString().split('T')[0]}.csv`;
                           document.body.appendChild(a);
                           a.click();
                           document.body.removeChild(a);
@@ -2396,9 +2357,15 @@ export function Replenishment() {
                         className="gap-2"
                       >
                         <Download className="w-4 h-4" />
-                        Export Sold Units
+                        Export ASIN Summary
                       </Button>
                     )}
+                  </div>
+
+                  <div className="mb-4">
+                    <h4 className="text-sm font-medium text-muted-foreground">
+                      Total ASINs with sold units: {soldUnits.length} | Total units sold: {soldUnits.reduce((sum, item) => sum + item.total_units_sold, 0)}
+                    </h4>
                   </div>
 
                   {soldUnitsLoading ? (
@@ -2412,20 +2379,18 @@ export function Replenishment() {
                         <TableHeader>
                           <TableRow>
                             <TableHead>ASIN</TableHead>
-                            <TableHead>Serial Number</TableHead>
                             <TableHead>SKU</TableHead>
                             <TableHead>Title</TableHead>
-                            <TableHead>Qty Sold</TableHead>
-                            <TableHead>Date Sold</TableHead>
-                            <TableHead>Date Added</TableHead>
-                            <TableHead>Days to Sell</TableHead>
+                            <TableHead>Total Units Sold</TableHead>
+                            <TableHead>First Added</TableHead>
+                            <TableHead>Last Sold</TableHead>
+                            <TableHead>Days from Added to Last Sold</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {soldUnits.length > 0 ? soldUnits.map(item => (
                             <TableRow key={item.id} className="hover:bg-green-50/50">
                               <TableCell className="font-medium">{item.asin}</TableCell>
-                              <TableCell>{item.serial_number}</TableCell>
                               <TableCell>
                                 {item.sku ? (
                                   <Badge variant="outline" className="text-xs">
@@ -2439,11 +2404,28 @@ export function Replenishment() {
                                 {item.title || <span className="text-muted-foreground text-xs">No title</span>}
                               </TableCell>
                               <TableCell>
-                                {item.date_sold ? (
+                                <Badge 
+                                  variant={item.total_units_sold >= 10 ? "default" : item.total_units_sold >= 5 ? "secondary" : "outline"}
+                                  className="text-sm font-semibold"
+                                >
+                                  {item.total_units_sold} units
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                {item.first_added_date ? (
                                   <div className="text-sm">
-                                    {format(new Date(item.date_sold), 'MMM dd, yyyy')}
+                                    {format(new Date(item.first_added_date), 'MMM dd, yyyy')}
+                                  </div>
+                                ) : (
+                                  <span className="text-muted-foreground text-xs">N/A</span>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {item.last_sold_date ? (
+                                  <div className="text-sm">
+                                    {format(new Date(item.last_sold_date), 'MMM dd, yyyy')}
                                     <div className="text-xs text-muted-foreground">
-                                      {format(new Date(item.date_sold), 'HH:mm')}
+                                      {format(new Date(item.last_sold_date), 'HH:mm')}
                                     </div>
                                   </div>
                                 ) : (
@@ -2451,21 +2433,12 @@ export function Replenishment() {
                                 )}
                               </TableCell>
                               <TableCell>
-                                {item.date_added ? (
-                                  <div className="text-sm">
-                                    {format(new Date(item.date_added), 'MMM dd, yyyy')}
-                                  </div>
-                                ) : (
-                                  <span className="text-muted-foreground text-xs">N/A</span>
-                                )}
-                              </TableCell>
-                              <TableCell>
-                                {item.days_from_added_to_sold !== null ? (
+                                {item.days_from_first_added_to_last_sold !== null ? (
                                   <Badge 
-                                    variant={item.days_from_added_to_sold <= 7 ? "default" : item.days_from_added_to_sold <= 30 ? "secondary" : "outline"}
+                                    variant={item.days_from_first_added_to_last_sold <= 7 ? "default" : item.days_from_first_added_to_last_sold <= 30 ? "secondary" : "outline"}
                                     className="text-xs"
                                   >
-                                    {item.days_from_added_to_sold} days
+                                    {item.days_from_first_added_to_last_sold} days
                                   </Badge>
                                 ) : (
                                   <span className="text-muted-foreground text-xs">N/A</span>
@@ -2474,10 +2447,10 @@ export function Replenishment() {
                             </TableRow>
                           )) : (
                             <TableRow>
-                              <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                              <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                                 <TrendingUp className="w-12 h-12 mx-auto mb-4 opacity-50 text-green-500" />
                                 <p className="text-lg font-medium">No sold units found</p>
-                                <p className="text-sm">Sold ASIN inventory items will appear here</p>
+                                <p className="text-sm">ASINs with sold units will appear here aggregated by total sold quantity</p>
                               </TableCell>
                             </TableRow>
                           )}
