@@ -22,9 +22,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { LABEL_PRESETS, PrintSettings } from '@/types/label';
 import { Plus, Database, Eye, Download, Printer, FolderOpen } from 'lucide-react';
 import { toast } from 'sonner';
-
 const LabelDesignerContent: React.FC = () => {
-  const { document: labelDoc, dataset, createDocument, loadDocument, loadUserDocuments } = useLabelDoc();
+  const {
+    document: labelDoc,
+    dataset,
+    createDocument,
+    loadDocument,
+    loadUserDocuments
+  } = useLabelDoc();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showLoadDialog, setShowLoadDialog] = useState(false);
   const [userDocuments, setUserDocuments] = useState<any[]>([]);
@@ -42,26 +47,27 @@ const LabelDesignerContent: React.FC = () => {
     copies: 1,
     labelsPerPage: 4,
     margin: 10,
-    darkness: 10, // Default Zebra print darkness
+    darkness: 10 // Default Zebra print darkness
   });
-
   const handleCreateLabel = async () => {
     if (!newLabelName.trim()) {
       toast.error('Please enter a label name');
       return;
     }
-    
     let labelSize;
     if (isCustomSize) {
       if (customWidth <= 0 || customHeight <= 0) {
         toast.error('Please enter valid dimensions (greater than 0)');
         return;
       }
-      labelSize = { width: customWidth, height: customHeight, unit: 'mm' as const };
+      labelSize = {
+        width: customWidth,
+        height: customHeight,
+        unit: 'mm' as const
+      };
     } else {
       labelSize = LABEL_PRESETS[selectedPreset];
     }
-    
     await createDocument(newLabelName, labelSize);
     setShowCreateDialog(false);
     setNewLabelName('');
@@ -69,7 +75,6 @@ const LabelDesignerContent: React.FC = () => {
     setCustomWidth(100);
     setCustomHeight(50);
   };
-
   const handlePreview = async () => {
     if (!labelDoc) return;
     const html = PrintService.generateHTMLPreview(labelDoc, dataset);
@@ -79,7 +84,6 @@ const LabelDesignerContent: React.FC = () => {
       newWindow.document.close();
     }
   };
-
   const handleExportPDF = async () => {
     if (!labelDoc) return;
     try {
@@ -95,20 +99,16 @@ const LabelDesignerContent: React.FC = () => {
       toast.error('Failed to export PDF');
     }
   };
-
   const handleLoadDocuments = async () => {
     const docs = await loadUserDocuments();
     setUserDocuments(docs);
     setShowLoadDialog(true);
   };
-
   const handleLoadDocument = async (id: string) => {
     await loadDocument(id);
     setShowLoadDialog(false);
   };
-
-  return (
-    <div className="h-screen flex flex-col bg-gradient-to-br from-background via-background to-muted/10">
+  return <div className="h-screen flex flex-col bg-gradient-to-br from-background via-background to-muted/10">
       {/* Enhanced Header with Better Organization */}
       <div className="border-b-2 border-border/50 bg-gradient-to-r from-card/80 to-card/60 backdrop-blur-md shadow-lg">
         <div className="p-6">
@@ -129,12 +129,7 @@ const LabelDesignerContent: React.FC = () => {
             <div className="flex items-center gap-3">
               <Dialog open={showLoadDialog} onOpenChange={setShowLoadDialog}>
                 <DialogTrigger asChild>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={handleLoadDocuments} 
-                    className="border-2 border-primary/30 hover:border-primary/50 hover:bg-primary/5 text-primary font-medium shadow-sm"
-                  >
+                  <Button variant="outline" size="sm" onClick={handleLoadDocuments} className="border-2 border-primary/30 hover:border-primary/50 hover:bg-primary/5 text-primary font-medium shadow-sm">
                     <FolderOpen className="h-4 w-4 mr-2" />
                     Load Label
                   </Button>
@@ -144,30 +139,20 @@ const LabelDesignerContent: React.FC = () => {
                     <DialogTitle className="text-xl font-semibold text-foreground">Load Existing Label</DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4 pt-4">
-                    {userDocuments.length === 0 ? (
-                      <div className="text-center py-12">
+                    {userDocuments.length === 0 ? <div className="text-center py-12">
                         <FolderOpen className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
                         <p className="text-muted-foreground">No saved labels found.</p>
                         <p className="text-sm text-muted-foreground/70 mt-1">Create a new label to get started</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-3 max-h-60 overflow-y-auto">
-                        {userDocuments.map((doc) => (
-                          <div
-                            key={doc.id}
-                            className="flex justify-between items-center p-4 border-2 border-border rounded-xl hover:bg-accent/30 hover:border-accent/50 cursor-pointer transition-all duration-200 hover:shadow-sm"
-                            onClick={() => handleLoadDocument(doc.id)}
-                          >
+                      </div> : <div className="space-y-3 max-h-60 overflow-y-auto">
+                        {userDocuments.map(doc => <div key={doc.id} className="flex justify-between items-center p-4 border-2 border-border rounded-xl hover:bg-accent/30 hover:border-accent/50 cursor-pointer transition-all duration-200 hover:shadow-sm" onClick={() => handleLoadDocument(doc.id)}>
                             <div>
                               <h4 className="font-medium text-foreground">{doc.name}</h4>
                               <p className="text-sm text-muted-foreground">
                                 {doc.width}×{doc.height}mm • {new Date(doc.updated_at).toLocaleDateString()}
                               </p>
                             </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                          </div>)}
+                      </div>}
                   </div>
                 </DialogContent>
               </Dialog>
@@ -187,38 +172,28 @@ const LabelDesignerContent: React.FC = () => {
                   <div className="space-y-6 pt-6">
                     <div className="space-y-3">
                       <Label className="text-sm font-semibold text-foreground">Label Name</Label>
-                      <Input
-                        value={newLabelName}
-                        onChange={(e) => setNewLabelName(e.target.value)}
-                        placeholder="Enter a descriptive name for your label"
-                        className="border-2 border-input focus:border-primary/60 focus:ring-2 focus:ring-primary/20 h-11"
-                      />
+                      <Input value={newLabelName} onChange={e => setNewLabelName(e.target.value)} placeholder="Enter a descriptive name for your label" className="border-2 border-input focus:border-primary/60 focus:ring-2 focus:ring-primary/20 h-11" />
                     </div>
                     <div className="space-y-3">
                       <Label className="text-sm font-semibold text-foreground">Size Preset</Label>
-                      <Select 
-                        value={isCustomSize ? 'custom' : selectedPreset} 
-                        onValueChange={(value) => {
-                          if (value === 'custom') {
-                            setIsCustomSize(true);
-                          } else {
-                            setIsCustomSize(false);
-                            setSelectedPreset(value);
-                          }
-                        }}
-                      >
+                      <Select value={isCustomSize ? 'custom' : selectedPreset} onValueChange={value => {
+                      if (value === 'custom') {
+                        setIsCustomSize(true);
+                      } else {
+                        setIsCustomSize(false);
+                        setSelectedPreset(value);
+                      }
+                    }}>
                         <SelectTrigger className="border-2 border-input focus:border-primary/60 h-11">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent className="bg-background border-2 border-border shadow-lg z-50">
-                          {Object.entries(LABEL_PRESETS).map(([key, preset]) => (
-                            <SelectItem key={key} value={key} className="hover:bg-accent/50">
+                          {Object.entries(LABEL_PRESETS).map(([key, preset]) => <SelectItem key={key} value={key} className="hover:bg-accent/50">
                               <div className="flex items-center justify-between w-full">
                                 <span className="font-medium">{key}</span>
                                 <span className="text-muted-foreground text-sm">({preset.width}×{preset.height}mm)</span>
                               </div>
-                            </SelectItem>
-                          ))}
+                            </SelectItem>)}
                           <SelectItem value="custom" className="hover:bg-accent/50 border-t border-border mt-2 pt-2">
                             <span className="font-medium text-primary">Custom Size</span>
                           </SelectItem>
@@ -226,34 +201,16 @@ const LabelDesignerContent: React.FC = () => {
                       </Select>
                     </div>
                     
-                    {isCustomSize && (
-                      <div className="grid grid-cols-2 gap-4 p-4 border-2 border-dashed border-primary/30 rounded-xl bg-primary/5">
+                    {isCustomSize && <div className="grid grid-cols-2 gap-4 p-4 border-2 border-dashed border-primary/30 rounded-xl bg-primary/5">
                         <div className="space-y-2">
                           <Label className="text-sm font-semibold text-foreground">Width (mm)</Label>
-                          <Input
-                            type="number"
-                            value={customWidth}
-                            onChange={(e) => setCustomWidth(Number(e.target.value))}
-                            placeholder="Width"
-                            min="1"
-                            max="500"
-                            className="border-2 border-input focus:border-primary/60 h-10"
-                          />
+                          <Input type="number" value={customWidth} onChange={e => setCustomWidth(Number(e.target.value))} placeholder="Width" min="1" max="500" className="border-2 border-input focus:border-primary/60 h-10" />
                         </div>
                         <div className="space-y-2">
                           <Label className="text-sm font-semibold text-foreground">Height (mm)</Label>
-                          <Input
-                            type="number"
-                            value={customHeight}
-                            onChange={(e) => setCustomHeight(Number(e.target.value))}
-                            placeholder="Height"
-                            min="1"
-                            max="500"
-                            className="border-2 border-input focus:border-primary/60 h-10"
-                          />
+                          <Input type="number" value={customHeight} onChange={e => setCustomHeight(Number(e.target.value))} placeholder="Height" min="1" max="500" className="border-2 border-input focus:border-primary/60 h-10" />
                         </div>
-                      </div>
-                    )}
+                      </div>}
                     <div className="flex justify-end gap-3 pt-6 border-t border-border">
                       <Button variant="outline" onClick={() => setShowCreateDialog(false)} className="border-2 border-border hover:bg-muted/50">
                         Cancel
@@ -266,91 +223,57 @@ const LabelDesignerContent: React.FC = () => {
                 </DialogContent>
               </Dialog>
               
-              {labelDoc && (
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={handlePreview} 
-                  className="border-2 border-accent/40 hover:border-accent hover:bg-accent/10 text-accent-foreground font-medium shadow-sm"
-                >
+              {labelDoc && <Button variant="outline" size="sm" onClick={handlePreview} className="border-2 border-accent/40 hover:border-accent hover:bg-accent/10 text-accent-foreground font-medium shadow-sm">
                   <Eye className="h-4 w-4 mr-2" />
                   Preview
-                </Button>
-              )}
+                </Button>}
             </div>
           </div>
           
           {/* Status Bar */}
-          {labelDoc && (
-            <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-muted/30 to-muted/20 rounded-xl border-2 border-border/30">
+          {labelDoc && <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-muted/30 to-muted/20 rounded-xl border-2 border-border/30">
               <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary font-semibold px-3 py-1">
                 {labelDoc.name}
               </Badge>
               <Badge variant="secondary" className="bg-muted/60 border-2 border-border/50 font-medium">
                 {labelDoc.size.width}×{labelDoc.size.height}mm
               </Badge>
-              {dataset && (
-                <Badge variant="secondary" className="bg-accent/20 border-2 border-accent/30 text-accent-foreground font-medium">
+              {dataset && <Badge variant="secondary" className="bg-accent/20 border-2 border-accent/30 text-accent-foreground font-medium">
                   <Database className="h-3 w-3 mr-1" />
                   {dataset.name} ({dataset.rowCount} rows)
-                </Badge>
-              )}
-            </div>
-          )}
+                </Badge>}
+            </div>}
         </div>
       </div>
 
       {/* Main Content Area */}
       <div className="flex flex-col gap-8 p-8 flex-1 min-h-0">
         {/* Enhanced Stepper */}
-        <div className="bg-gradient-to-r from-card/50 to-card/30 rounded-xl p-6 border-2 border-border/40 shadow-sm">
-          <StepperIndicator 
-            currentStep={
-              activeTab === 'designer' && !dataset ? 1 :
-              activeTab === 'designer' && !labelDoc ? 2 :
-              activeTab === 'designer' ? 3 :
-              4
-            }
-            hasDataset={!!dataset}
-            hasTemplate={!!labelDoc}
-          />
-        </div>
+        
 
         {/* Enhanced Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 min-h-0">
           <div className="mb-8">
             <TabsList className="grid w-full max-w-4xl mx-auto grid-cols-4 bg-gradient-to-r from-muted/60 to-muted/40 border-2 border-border/50 p-2 rounded-xl shadow-sm h-14">
-              <TabsTrigger 
-                value="amazon-orders" 
-                className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/90 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg font-semibold transition-all duration-300 hover:bg-accent/30 rounded-lg h-10 text-sm"
-              >
+              <TabsTrigger value="amazon-orders" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/90 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg font-semibold transition-all duration-300 hover:bg-accent/30 rounded-lg h-10 text-sm">
                 <div className="flex items-center gap-2">
                   <span className="hidden sm:inline">📦</span>
                   Amazon Orders
                 </div>
               </TabsTrigger>
-              <TabsTrigger 
-                value="noon-orders" 
-                className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/90 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg font-semibold transition-all duration-300 hover:bg-accent/30 rounded-lg h-10 text-sm"
-              >
+              <TabsTrigger value="noon-orders" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/90 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg font-semibold transition-all duration-300 hover:bg-accent/30 rounded-lg h-10 text-sm">
                 <div className="flex items-center gap-2">
                   <span className="hidden sm:inline">🌙</span>
                   Noon Orders
                 </div>
               </TabsTrigger>
-              <TabsTrigger 
-                value="eligible" 
-                className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/90 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg font-semibold transition-all duration-300 hover:bg-accent/30 rounded-lg h-10 text-sm"
-              >
+              <TabsTrigger value="eligible" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/90 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg font-semibold transition-all duration-300 hover:bg-accent/30 rounded-lg h-10 text-sm">
                 <div className="flex items-center gap-2">
                   <span className="hidden sm:inline">✅</span>
                   Eligible Items
                 </div>
               </TabsTrigger>
-              <TabsTrigger 
-                value="designer" 
-                className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/90 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg font-semibold transition-all duration-300 hover:bg-accent/30 rounded-lg h-10 text-sm"
-              >
+              <TabsTrigger value="designer" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/90 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg font-semibold transition-all duration-300 hover:bg-accent/30 rounded-lg h-10 text-sm">
                 <div className="flex items-center gap-2">
                   <span className="hidden sm:inline">🎨</span>
                   Designer
@@ -468,16 +391,11 @@ const LabelDesignerContent: React.FC = () => {
           </TabsContent>
         </Tabs>
       </div>
-    </div>
-  );
+    </div>;
 };
-
 const LabelDesigner: React.FC = () => {
-  return (
-    <SimpleLabelDocProvider>
+  return <SimpleLabelDocProvider>
       <LabelDesignerContent />
-    </SimpleLabelDocProvider>
-  );
+    </SimpleLabelDocProvider>;
 };
-
 export default LabelDesigner;
