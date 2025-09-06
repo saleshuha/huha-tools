@@ -108,233 +108,360 @@ const LabelDesignerContent: React.FC = () => {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-background">
-      <div className="border-b-2 border-border bg-card/50 backdrop-blur-sm p-6 shadow-sm">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent">
-              Label Designer & Printer
-            </h1>
-            {labelDoc && (
-              <div className="flex items-center gap-3">
-                <Badge variant="outline" className="border-primary/20 bg-primary/5 text-primary font-medium">
-                  {labelDoc.name}
-                </Badge>
-                <Badge variant="secondary" className="bg-muted/80 border border-border">
-                  {labelDoc.size.width}×{labelDoc.size.height}mm
-                </Badge>
-                {dataset && (
-                  <Badge variant="secondary" className="bg-accent/20 border border-accent/30 text-accent-foreground">
-                    <Database className="h-3 w-3 mr-1" />
-                    {dataset.name} ({dataset.rowCount} rows)
-                  </Badge>
-                )}
+    <div className="h-screen flex flex-col bg-gradient-to-br from-background via-background to-muted/10">
+      {/* Enhanced Header with Better Organization */}
+      <div className="border-b-2 border-border/50 bg-gradient-to-r from-card/80 to-card/60 backdrop-blur-md shadow-lg">
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-md">
+                  <Printer className="h-5 w-5 text-primary-foreground" />
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold bg-gradient-to-r from-primary via-primary/90 to-primary/70 bg-clip-text text-transparent">
+                    Label Designer & Printer
+                  </h1>
+                  <p className="text-sm text-muted-foreground mt-1">Create, design and print professional labels</p>
+                </div>
               </div>
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-            <Dialog open={showLoadDialog} onOpenChange={setShowLoadDialog}>
-              <DialogTrigger asChild>
-                <Button variant="outline" size="sm" onClick={handleLoadDocuments} className="border-2 border-primary/20 hover:border-primary/40 hover:bg-primary/5">
-                  <FolderOpen className="h-4 w-4 mr-2" />
-                  Load Label
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="border-2 border-border bg-background/95 backdrop-blur-sm">
-                <DialogHeader>
-                  <DialogTitle className="text-xl font-semibold text-foreground">Load Existing Label</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 pt-4">
-                  {userDocuments.length === 0 ? (
-                    <p className="text-muted-foreground text-center py-8">No saved labels found.</p>
-                  ) : (
-                    <div className="space-y-2 max-h-60 overflow-y-auto">
-                      {userDocuments.map((doc) => (
-                        <div
-                          key={doc.id}
-                          className="flex justify-between items-center p-4 border-2 border-border rounded-lg hover:bg-accent/50 hover:border-accent cursor-pointer transition-all duration-200"
-                          onClick={() => handleLoadDocument(doc.id)}
-                        >
-                          <div>
-                            <h4 className="font-medium text-foreground">{doc.name}</h4>
-                            <p className="text-sm text-muted-foreground">
-                              {doc.width}×{doc.height}mm • {new Date(doc.updated_at).toLocaleDateString()}
-                            </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <Dialog open={showLoadDialog} onOpenChange={setShowLoadDialog}>
+                <DialogTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handleLoadDocuments} 
+                    className="border-2 border-primary/30 hover:border-primary/50 hover:bg-primary/5 text-primary font-medium shadow-sm"
+                  >
+                    <FolderOpen className="h-4 w-4 mr-2" />
+                    Load Label
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="border-2 border-border bg-background/95 backdrop-blur-sm max-w-md">
+                  <DialogHeader>
+                    <DialogTitle className="text-xl font-semibold text-foreground">Load Existing Label</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 pt-4">
+                    {userDocuments.length === 0 ? (
+                      <div className="text-center py-12">
+                        <FolderOpen className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
+                        <p className="text-muted-foreground">No saved labels found.</p>
+                        <p className="text-sm text-muted-foreground/70 mt-1">Create a new label to get started</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3 max-h-60 overflow-y-auto">
+                        {userDocuments.map((doc) => (
+                          <div
+                            key={doc.id}
+                            className="flex justify-between items-center p-4 border-2 border-border rounded-xl hover:bg-accent/30 hover:border-accent/50 cursor-pointer transition-all duration-200 hover:shadow-sm"
+                            onClick={() => handleLoadDocument(doc.id)}
+                          >
+                            <div>
+                              <h4 className="font-medium text-foreground">{doc.name}</h4>
+                              <p className="text-sm text-muted-foreground">
+                                {doc.width}×{doc.height}mm • {new Date(doc.updated_at).toLocaleDateString()}
+                              </p>
+                            </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </DialogContent>
-            </Dialog>
-            
-            <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-              <DialogTrigger asChild>
-                <Button size="sm" className="bg-primary hover:bg-primary/90 border-2 border-primary">
-                  <Plus className="h-4 w-4 mr-2" />
-                  New Label
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="border-2 border-border bg-background/95 backdrop-blur-sm">
-                <DialogHeader>
-                  <DialogTitle className="text-xl font-semibold text-foreground">Create New Label</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-6 pt-4">
-                  <div>
-                    <Label className="text-sm font-medium text-foreground mb-2 block">Label Name</Label>
-                    <Input
-                      value={newLabelName}
-                      onChange={(e) => setNewLabelName(e.target.value)}
-                      placeholder="Enter label name"
-                      className="border-2 border-input focus:border-primary"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium text-foreground mb-2 block">Size Preset</Label>
-                    <Select 
-                      value={isCustomSize ? 'custom' : selectedPreset} 
-                      onValueChange={(value) => {
-                        if (value === 'custom') {
-                          setIsCustomSize(true);
-                        } else {
-                          setIsCustomSize(false);
-                          setSelectedPreset(value);
-                        }
-                      }}
-                    >
-                      <SelectTrigger className="border-2 border-input focus:border-primary">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-background border-2 border-border shadow-lg z-50">
-                        {Object.entries(LABEL_PRESETS).map(([key, preset]) => (
-                          <SelectItem key={key} value={key} className="hover:bg-accent">
-                            {key} ({preset.width}×{preset.height}mm)
-                          </SelectItem>
                         ))}
-                        <SelectItem value="custom" className="hover:bg-accent">
-                          Custom Size
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
+                      </div>
+                    )}
                   </div>
-                  
-                  {isCustomSize && (
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label className="text-sm font-medium text-foreground mb-2 block">Width (mm)</Label>
-                        <Input
-                          type="number"
-                          value={customWidth}
-                          onChange={(e) => setCustomWidth(Number(e.target.value))}
-                          placeholder="Width"
-                          min="1"
-                          max="500"
-                          className="border-2 border-input focus:border-primary"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-sm font-medium text-foreground mb-2 block">Height (mm)</Label>
-                        <Input
-                          type="number"
-                          value={customHeight}
-                          onChange={(e) => setCustomHeight(Number(e.target.value))}
-                          placeholder="Height"
-                          min="1"
-                          max="500"
-                          className="border-2 border-input focus:border-primary"
-                        />
-                      </div>
+                </DialogContent>
+              </Dialog>
+              
+              <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+                <DialogTrigger asChild>
+                  <Button size="sm" className="bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary/80 border-2 border-primary shadow-md font-medium">
+                    <Plus className="h-4 w-4 mr-2" />
+                    New Label
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="border-2 border-border bg-background/95 backdrop-blur-sm max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle className="text-xl font-semibold text-foreground">Create New Label</DialogTitle>
+                    <p className="text-sm text-muted-foreground">Design a new label template for your printing needs</p>
+                  </DialogHeader>
+                  <div className="space-y-6 pt-6">
+                    <div className="space-y-3">
+                      <Label className="text-sm font-semibold text-foreground">Label Name</Label>
+                      <Input
+                        value={newLabelName}
+                        onChange={(e) => setNewLabelName(e.target.value)}
+                        placeholder="Enter a descriptive name for your label"
+                        className="border-2 border-input focus:border-primary/60 focus:ring-2 focus:ring-primary/20 h-11"
+                      />
                     </div>
-                  )}
-                  <div className="flex justify-end gap-3 pt-4">
-                    <Button variant="outline" onClick={() => setShowCreateDialog(false)} className="border-2 border-border hover:bg-muted">
-                      Cancel
-                    </Button>
-                    <Button onClick={handleCreateLabel} className="bg-primary hover:bg-primary/90 border-2 border-primary">
-                      Create
-                    </Button>
+                    <div className="space-y-3">
+                      <Label className="text-sm font-semibold text-foreground">Size Preset</Label>
+                      <Select 
+                        value={isCustomSize ? 'custom' : selectedPreset} 
+                        onValueChange={(value) => {
+                          if (value === 'custom') {
+                            setIsCustomSize(true);
+                          } else {
+                            setIsCustomSize(false);
+                            setSelectedPreset(value);
+                          }
+                        }}
+                      >
+                        <SelectTrigger className="border-2 border-input focus:border-primary/60 h-11">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-background border-2 border-border shadow-lg z-50">
+                          {Object.entries(LABEL_PRESETS).map(([key, preset]) => (
+                            <SelectItem key={key} value={key} className="hover:bg-accent/50">
+                              <div className="flex items-center justify-between w-full">
+                                <span className="font-medium">{key}</span>
+                                <span className="text-muted-foreground text-sm">({preset.width}×{preset.height}mm)</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                          <SelectItem value="custom" className="hover:bg-accent/50 border-t border-border mt-2 pt-2">
+                            <span className="font-medium text-primary">Custom Size</span>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    {isCustomSize && (
+                      <div className="grid grid-cols-2 gap-4 p-4 border-2 border-dashed border-primary/30 rounded-xl bg-primary/5">
+                        <div className="space-y-2">
+                          <Label className="text-sm font-semibold text-foreground">Width (mm)</Label>
+                          <Input
+                            type="number"
+                            value={customWidth}
+                            onChange={(e) => setCustomWidth(Number(e.target.value))}
+                            placeholder="Width"
+                            min="1"
+                            max="500"
+                            className="border-2 border-input focus:border-primary/60 h-10"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-sm font-semibold text-foreground">Height (mm)</Label>
+                          <Input
+                            type="number"
+                            value={customHeight}
+                            onChange={(e) => setCustomHeight(Number(e.target.value))}
+                            placeholder="Height"
+                            min="1"
+                            max="500"
+                            className="border-2 border-input focus:border-primary/60 h-10"
+                          />
+                        </div>
+                      </div>
+                    )}
+                    <div className="flex justify-end gap-3 pt-6 border-t border-border">
+                      <Button variant="outline" onClick={() => setShowCreateDialog(false)} className="border-2 border-border hover:bg-muted/50">
+                        Cancel
+                      </Button>
+                      <Button onClick={handleCreateLabel} className="bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary/80 border-2 border-primary shadow-sm">
+                        Create Label
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              </DialogContent>
-            </Dialog>
-            {labelDoc && (
-              <Button variant="outline" size="sm" onClick={handlePreview} className="border-2 border-accent/30 hover:border-accent hover:bg-accent/10 text-accent-foreground">
-                <Eye className="h-4 w-4 mr-2" />
-                Preview
-              </Button>
-            )}
+                </DialogContent>
+              </Dialog>
+              
+              {labelDoc && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handlePreview} 
+                  className="border-2 border-accent/40 hover:border-accent hover:bg-accent/10 text-accent-foreground font-medium shadow-sm"
+                >
+                  <Eye className="h-4 w-4 mr-2" />
+                  Preview
+                </Button>
+              )}
+            </div>
           </div>
+          
+          {/* Status Bar */}
+          {labelDoc && (
+            <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-muted/30 to-muted/20 rounded-xl border-2 border-border/30">
+              <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary font-semibold px-3 py-1">
+                {labelDoc.name}
+              </Badge>
+              <Badge variant="secondary" className="bg-muted/60 border-2 border-border/50 font-medium">
+                {labelDoc.size.width}×{labelDoc.size.height}mm
+              </Badge>
+              {dataset && (
+                <Badge variant="secondary" className="bg-accent/20 border-2 border-accent/30 text-accent-foreground font-medium">
+                  <Database className="h-3 w-3 mr-1" />
+                  {dataset.name} ({dataset.rowCount} rows)
+                </Badge>
+              )}
+            </div>
+          )}
         </div>
       </div>
-      <div className="flex flex-col gap-6 p-6 bg-gradient-to-br from-background to-muted/20">
-        <StepperIndicator 
-          currentStep={
-            activeTab === 'designer' && !dataset ? 1 :
-            activeTab === 'designer' && !labelDoc ? 2 :
-            activeTab === 'designer' ? 3 :
-            4
-          }
-          hasDataset={!!dataset}
-          hasTemplate={!!labelDoc}
-        />
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
-          <TabsList className="grid w-fit grid-cols-4 mb-6 bg-muted/50 border-2 border-border p-1 rounded-lg">
-            <TabsTrigger 
-              value="amazon-orders" 
-              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md font-medium transition-all duration-200 hover:bg-accent/50"
-            >
-              Amazon Order Printing
-            </TabsTrigger>
-            <TabsTrigger 
-              value="noon-orders" 
-              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md font-medium transition-all duration-200 hover:bg-accent/50"
-            >
-              Noon Order Printing
-            </TabsTrigger>
-            <TabsTrigger 
-              value="eligible" 
-              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md font-medium transition-all duration-200 hover:bg-accent/50"
-            >
-              Print Eligible Items
-            </TabsTrigger>
-            <TabsTrigger 
-              value="designer" 
-              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md font-medium transition-all duration-200 hover:bg-accent/50"
-            >
-              Label Designer
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent value="amazon-orders" className="border-2 border-border rounded-lg bg-card/50 p-6 shadow-sm">
-            <DateWiseOrderPrint />
+
+      {/* Main Content Area */}
+      <div className="flex flex-col gap-8 p-8 flex-1 min-h-0">
+        {/* Enhanced Stepper */}
+        <div className="bg-gradient-to-r from-card/50 to-card/30 rounded-xl p-6 border-2 border-border/40 shadow-sm">
+          <StepperIndicator 
+            currentStep={
+              activeTab === 'designer' && !dataset ? 1 :
+              activeTab === 'designer' && !labelDoc ? 2 :
+              activeTab === 'designer' ? 3 :
+              4
+            }
+            hasDataset={!!dataset}
+            hasTemplate={!!labelDoc}
+          />
+        </div>
+
+        {/* Enhanced Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 min-h-0">
+          <div className="mb-8">
+            <TabsList className="grid w-full max-w-4xl mx-auto grid-cols-4 bg-gradient-to-r from-muted/60 to-muted/40 border-2 border-border/50 p-2 rounded-xl shadow-sm h-14">
+              <TabsTrigger 
+                value="amazon-orders" 
+                className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/90 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg font-semibold transition-all duration-300 hover:bg-accent/30 rounded-lg h-10 text-sm"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="hidden sm:inline">📦</span>
+                  Amazon Orders
+                </div>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="noon-orders" 
+                className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/90 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg font-semibold transition-all duration-300 hover:bg-accent/30 rounded-lg h-10 text-sm"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="hidden sm:inline">🌙</span>
+                  Noon Orders
+                </div>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="eligible" 
+                className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/90 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg font-semibold transition-all duration-300 hover:bg-accent/30 rounded-lg h-10 text-sm"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="hidden sm:inline">✅</span>
+                  Eligible Items
+                </div>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="designer" 
+                className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/90 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg font-semibold transition-all duration-300 hover:bg-accent/30 rounded-lg h-10 text-sm"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="hidden sm:inline">🎨</span>
+                  Designer
+                </div>
+              </TabsTrigger>
+            </TabsList>
+          </div>
+
+          {/* Tab Content with Enhanced Styling */}
+          <TabsContent value="amazon-orders" className="border-2 border-border/50 rounded-xl bg-gradient-to-br from-card/60 to-card/40 p-8 shadow-lg min-h-0 flex-1">
+            <div className="h-full">
+              <DateWiseOrderPrint />
+            </div>
           </TabsContent>
-          <TabsContent value="noon-orders" className="border-2 border-border rounded-lg bg-card/50 p-6 shadow-sm">
-            <NoonOrderPrint />
+          
+          <TabsContent value="noon-orders" className="border-2 border-border/50 rounded-xl bg-gradient-to-br from-card/60 to-card/40 p-8 shadow-lg min-h-0 flex-1">
+            <div className="h-full">
+              <NoonOrderPrint />
+            </div>
           </TabsContent>
-          <TabsContent value="eligible" className="border-2 border-border rounded-lg bg-card/50 p-6 shadow-sm">
-            <PrintEligibleItems />
+          
+          <TabsContent value="eligible" className="border-2 border-border/50 rounded-xl bg-gradient-to-br from-card/60 to-card/40 p-8 shadow-lg min-h-0 flex-1">
+            <div className="h-full">
+              <PrintEligibleItems />
+            </div>
           </TabsContent>
-          <TabsContent value="designer" className="border-2 border-border rounded-lg bg-card/50 p-6 shadow-sm">
-            <div className="flex gap-6 min-h-0 flex-1">
-              <div className="flex-1 border-2 border-border rounded-lg bg-background/50 p-4">
-                <LabelWorkspace />
+          
+          <TabsContent value="designer" className="border-2 border-border/50 rounded-xl bg-gradient-to-br from-card/60 to-card/40 p-8 shadow-lg min-h-0 flex-1">
+            <div className="flex gap-8 min-h-0 flex-1 h-full">
+              {/* Main Canvas Area */}
+              <div className="flex-1 border-2 border-border/60 rounded-xl bg-gradient-to-br from-background/80 to-background/60 shadow-inner">
+                <div className="h-full p-6">
+                  <LabelWorkspace />
+                </div>
               </div>
               
-              <div className="w-96 space-y-4">
-                <div className="border-2 border-border rounded-lg bg-card/50 p-4">
-                  <LabelToolbar />
+              {/* Enhanced Control Panel */}
+              <div className="w-96 space-y-5 overflow-y-auto max-h-full">
+                {/* Step 1: Design Tools */}
+                <div className="border-2 border-border/60 rounded-xl bg-gradient-to-br from-card/70 to-card/50 shadow-md">
+                  <div className="p-4 border-b-2 border-border/30 bg-gradient-to-r from-primary/10 to-primary/5">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary/80 text-primary-foreground font-bold text-sm flex items-center justify-center shadow-sm">
+                        1
+                      </div>
+                      <h3 className="font-semibold text-foreground">Design Tools</h3>
+                    </div>
+                  </div>
+                  <div className="p-4">
+                    <LabelToolbar />
+                  </div>
                 </div>
-                <div className="border-2 border-border rounded-lg bg-card/50 p-4">
-                  <OrderLabelTemplates />
+
+                {/* Step 2: Quick Templates */}
+                <div className="border-2 border-border/60 rounded-xl bg-gradient-to-br from-card/70 to-card/50 shadow-md">
+                  <div className="p-4 border-b-2 border-border/30 bg-gradient-to-r from-accent/10 to-accent/5">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent to-accent/80 text-accent-foreground font-bold text-sm flex items-center justify-center shadow-sm">
+                        2
+                      </div>
+                      <h3 className="font-semibold text-foreground">Quick Templates</h3>
+                    </div>
+                  </div>
+                  <div className="p-4">
+                    <OrderLabelTemplates />
+                  </div>
                 </div>
-                <div className="border-2 border-border rounded-lg bg-card/50 p-4">
-                  <LabelPropertiesPanel />
+
+                {/* Step 3: Element Properties */}
+                <div className="border-2 border-border/60 rounded-xl bg-gradient-to-br from-card/70 to-card/50 shadow-md">
+                  <div className="p-4 border-b-2 border-border/30 bg-gradient-to-r from-secondary/10 to-secondary/5">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-secondary to-secondary/80 text-secondary-foreground font-bold text-sm flex items-center justify-center shadow-sm">
+                        3
+                      </div>
+                      <h3 className="font-semibold text-foreground">Element Properties</h3>
+                    </div>
+                  </div>
+                  <div className="p-4">
+                    <LabelPropertiesPanel />
+                  </div>
                 </div>
-                <div className="border-2 border-border rounded-lg bg-card/50 p-4">
-                  <InventoryDataMapper />
+
+                {/* Step 4: Data Mapping */}
+                <div className="border-2 border-border/60 rounded-xl bg-gradient-to-br from-card/70 to-card/50 shadow-md">
+                  <div className="p-4 border-b-2 border-border/30 bg-gradient-to-r from-primary/10 to-primary/5">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary/80 text-primary-foreground font-bold text-sm flex items-center justify-center shadow-sm">
+                        4
+                      </div>
+                      <h3 className="font-semibold text-foreground">Data Source</h3>
+                    </div>
+                  </div>
+                  <div className="p-4">
+                    <InventoryDataMapper />
+                  </div>
                 </div>
-                <div className="border-2 border-border rounded-lg bg-card/50 p-4">
-                  <DataPreviewPanel />
+
+                {/* Step 5: Data Preview */}
+                <div className="border-2 border-border/60 rounded-xl bg-gradient-to-br from-card/70 to-card/50 shadow-md">
+                  <div className="p-4 border-b-2 border-border/30 bg-gradient-to-r from-accent/10 to-accent/5">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent to-accent/80 text-accent-foreground font-bold text-sm flex items-center justify-center shadow-sm">
+                        5
+                      </div>
+                      <h3 className="font-semibold text-foreground">Data Preview</h3>
+                    </div>
+                  </div>
+                  <div className="p-4">
+                    <DataPreviewPanel />
+                  </div>
                 </div>
               </div>
             </div>
