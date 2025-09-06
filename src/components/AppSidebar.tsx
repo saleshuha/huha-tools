@@ -1,4 +1,4 @@
-import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, Wrench, LogOut, Home, Users, TrendingUp, Merge, Edit3, Database, CreditCard, Upload, BarChart3, DollarSign, Store, ShoppingCart, Globe, ExternalLink, Eye, Trash2, Settings, Tag, FileSpreadsheet } from "lucide-react"
+import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, Wrench, LogOut, Home, Users, TrendingUp, Merge, Edit3, Database, CreditCard, Upload, BarChart3, DollarSign, Store, ShoppingCart, Globe, ExternalLink, Eye, Trash2, Settings, Tag, FileSpreadsheet, Truck } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
 import { useState } from "react"
 import { Capacitor } from "@capacitor/core"
@@ -399,6 +399,31 @@ export function AppSidebar() {
                     {!isCollapsed && (
                       <span className="font-semibold text-sm">
                         Source Product Importer
+                      </span>
+                    )}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              {/* Source Order Tracking */}
+              <SidebarMenuItem>
+                <SidebarMenuButton 
+                  asChild
+                  className={`group relative w-full rounded-xl transition-all duration-200 ${
+                    isActive("/sunsky-order-tracking")
+                      ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
+                      : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
+                  }`}
+                >
+                  <NavLink 
+                    to="/sunsky-order-tracking" 
+                    end
+                    className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
+                  >
+                    <Truck className="h-5 w-5 flex-shrink-0" />
+                    {!isCollapsed && (
+                      <span className="font-semibold text-sm">
+                        Source Order Tracking
                       </span>
                     )}
                   </NavLink>

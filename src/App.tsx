@@ -254,6 +254,7 @@ const App = () => {
                         <Route path="/add-sku" element={<AddSKUPageWrapper />} />
                          <Route path="/sunsky-importer" element={<SunskySKUImporterPage />} />
                          <Route path="/sunsky-order-tracking" element={<SunskyOrderTrackingPage />} />
+                         <Route path="/source-order-tracking" element={<SunskyOrderTrackingPage />} />
                          <Route path="/noon-order-tracking" element={<NoonOrderTrackingPage />} />
                          <Route path="/amazon-fulfillment" element={<AmazonFulfillmentTracker />} />
                          <Route path="/label-designer" element={<LabelDesigner />} />
