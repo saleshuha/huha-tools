@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -13,7 +14,6 @@ import {
 import { useSunskyOrders } from '@/hooks/useSunskyOrders';
 
 interface DelayedItemsTabProps {
-  onViewOrder: (orderNumber: string) => void;
   onTrackingClick?: (url: string) => void;
   formatDate: (dateString: string | null) => string;
   getStatusBadge: (status: string | number, isDelayed?: boolean) => JSX.Element;
@@ -23,11 +23,11 @@ type SortField = 'order_number' | 'title' | 'item_status' | 'days_in_status' | '
 type SortDirection = 'asc' | 'desc';
 
 export function DelayedItemsTab({ 
-  onViewOrder, 
   onTrackingClick, 
   formatDate, 
   getStatusBadge 
 }: DelayedItemsTabProps) {
+  const navigate = useNavigate();
   const { getSlowItems } = useSunskyOrders();
   const [slowItems, setSlowItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -350,7 +350,7 @@ export function DelayedItemsTab({
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => onViewOrder(item.order_number)}
+                            onClick={() => navigate(`/sunsky-order-details/${item.order_number}`)}
                           >
                             View Order
                           </Button>

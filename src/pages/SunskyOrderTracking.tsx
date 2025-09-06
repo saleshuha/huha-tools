@@ -783,7 +783,6 @@ export default function SunskyOrderTrackingPage() {
 
             <TabsContent value="delayed" className="mt-6">
               <DelayedItemsTab
-                onViewOrder={toggleOrderExpansion}
                 onTrackingClick={handleTrackingClick}
                 formatDate={formatDate}
                 getStatusBadge={getStatusBadge}
