@@ -775,7 +775,7 @@ export function OrderProcessor() {
                 className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm font-medium transition-all duration-300 text-xs"
               >
                 <Clock className="w-4 h-4 mr-1" />
-                All Orders ({filteredAllOrders.length}) {analytics.latestOrderDate && `- ${analytics.latestOrderDate}`}
+                All Orders ({filteredAllOrders.length})
               </TabsTrigger>
               <TabsTrigger 
                 value="matched-orders"
