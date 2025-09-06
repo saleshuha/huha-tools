@@ -1,5 +1,6 @@
 import { AsinInventory } from './AsinInventory';
 import { Package } from 'lucide-react';
+import { HuhaHeader01 } from '@/components/ui/huha-header-01';
 
 export function Inventory() {
   console.log('Inventory component loaded, current view:', 'main');
@@ -15,21 +16,12 @@ export function Inventory() {
       
       <div className="relative z-10 w-full space-y-8 p-4 md:p-8">
         {/* Enhanced Header */}
-        <div className="flex items-center justify-center mb-8">
-          <div className="text-center">
-            <div className="flex items-center justify-center gap-4 mb-4">
-              <div className="w-12 h-12 bg-gradient-primary rounded-2xl flex items-center justify-center shadow-lg shadow-glow">
-                <Package className="w-7 h-7 text-white" />
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-primary via-sky to-cyan bg-clip-text text-transparent">
-                  Instock Inventory Management
-                </h1>
-                <p className="text-slate-600 dark:text-slate-400">Advanced Amazon ASIN tracking and analytics</p>
-              </div>
-            </div>
-          </div>
-        </div>
+        <HuhaHeader01
+          icon={<Package className="w-5 h-5 text-primary-foreground" />}
+          title="Instock Inventory Management"
+          subtitle="Advanced Amazon ASIN tracking and analytics"
+          className="mb-8"
+        />
         
         {/* Enhanced Content Container */}
         <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-xl rounded-3xl border border-white/20 dark:border-slate-700/30 shadow-2xl shadow-blue-500/10">
