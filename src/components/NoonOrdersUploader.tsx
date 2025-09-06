@@ -97,6 +97,31 @@ export function NoonOrdersUploader() {
             return;
           }
 
+          // Helper function to convert Excel serial date to ISO string
+          const convertExcelDate = (value: any): string | null => {
+            if (!value) return null;
+            
+            // If it's already a string that looks like a date, return it
+            if (typeof value === 'string' && (value.includes('-') || value.includes('/'))) {
+              return value;
+            }
+            
+            // If it's a number (Excel serial date), convert it
+            if (typeof value === 'number') {
+              // Excel epoch starts at January 1, 1900
+              // But Excel treats 1900 as a leap year (which it wasn't), so we need to account for that
+              const excelEpoch = new Date(1899, 11, 30); // December 30, 1899
+              const days = Math.floor(value);
+              const fractionalDay = value - days;
+              const milliseconds = Math.round(fractionalDay * 24 * 60 * 60 * 1000);
+              
+              const date = new Date(excelEpoch.getTime() + days * 24 * 60 * 60 * 1000 + milliseconds);
+              return date.toISOString();
+            }
+            
+            return null;
+          };
+
           // Parse rows into objects
           const orders = rows.map((row, index) => {
             const order: any = {};
@@ -108,7 +133,10 @@ export function NoonOrdersUploader() {
                 if (header === 'quantity' && value) {
                   value = parseInt(value) || 1;
                 } else if (['is_reprintable', 'is_printed'].includes(header) && value) {
-                  value = value.toString().toLowerCase() === 'true';
+                  value = value.toString().toLowerCase() === 'true' || value === 1;
+                } else if (['order_received_at', 'fulfillment_timestamp', 'shipment_created_at', 'target_ready_at'].includes(header)) {
+                  // Convert date fields from Excel serial format to ISO string
+                  value = convertExcelDate(value);
                 } else if (value && typeof value === 'string') {
                   value = value.trim();
                 }
