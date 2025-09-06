@@ -226,62 +226,125 @@ export function NoonOrdersUploader() {
   };
 
   return (
-    <div className="space-y-6">
-      <Tabs defaultValue="orders" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="orders" className="flex items-center gap-2">
-            <Package className="h-4 w-4" />
-            Processing Orders
-          </TabsTrigger>
-          <TabsTrigger value="stores" className="flex items-center gap-2">
-            <Store className="h-4 w-4" />
-            Store Management
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="orders" className="space-y-4">
-          {/* Upload Section */}
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-muted-foreground">
-              {selectedStoreId && stores.length > 0 ? (
-                <span>Selected Store: {stores.find(s => s.id === selectedStoreId)?.name || 'Loading...'}</span>
-              ) : selectedStoreId && stores.length === 0 ? (
-                <span>Selected Store: Loading...</span>
-              ) : (
-                <span>No store selected - go to Store Management tab to select a store</span>
-              )}
+    <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
+      {/* Enhanced Background Effects */}
+      <div className="fixed inset-0 pointer-events-none">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_40%,hsl(var(--primary)/0.08),transparent_60%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_80%,hsl(var(--emerald)/0.06),transparent_50%)]" />
+        <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-primary via-emerald to-sky shadow-glow"></div>
+      </div>
+      
+      <Tabs defaultValue="orders" className="w-full relative z-10">
+        <div className="bg-card/80 backdrop-blur-sm border-b border-border/60">
+          <div className="app-container py-4">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-primary via-emerald to-sky bg-clip-text text-transparent">
+                  🌙 Noon Orders Processing
+                </h1>
+                <p className="text-muted-foreground mt-1">
+                  Upload and manage Noon order files with advanced processing
+                </p>
+              </div>
             </div>
-            <Button 
-              onClick={handleFileSelect}
-              disabled={uploading || !selectedStoreId}
-              className="flex items-center gap-2"
-            >
-              <Upload className="h-4 w-4" />
-              {uploading ? 'Uploading...' : 'Upload Orders File'}
-            </Button>
+            
+            <TabsList className="grid w-full max-w-md grid-cols-2 bg-muted/50 p-1 h-auto">
+              <TabsTrigger 
+                value="orders" 
+                className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all duration-200"
+              >
+                <Package className="h-4 w-4" />
+                Processing Orders
+              </TabsTrigger>
+              <TabsTrigger 
+                value="stores" 
+                className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all duration-200"
+              >
+                <Store className="h-4 w-4" />
+                Store Management
+              </TabsTrigger>
+            </TabsList>
           </div>
+        </div>
 
-          {/* Processing Orders Table */}
-          <NoonProcessingOrdersTable selectedStoreId={selectedStoreId} />
-        </TabsContent>
+        <div className="app-container py-8 space-y-6">
+          <TabsContent value="orders" className="space-y-6 mt-0">
+            {/* Enhanced Control Bar */}
+            <Card className="border-0 shadow-lg bg-gradient-to-r from-card via-card/95 to-card backdrop-blur-sm">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-6">
+                    {/* Store Selection */}
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-primary/10">
+                        <Store className="h-5 w-5 text-primary" />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-sm font-medium text-foreground">Active Store</label>
+                        <NoonStoreManagement 
+                          selectedStoreId={selectedStoreId}
+                          onStoreChange={setSelectedStoreId}
+                        />
+                      </div>
+                    </div>
 
-        <TabsContent value="stores" className="space-y-4">
-          {/* Store Management */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Store className="h-5 w-5" />
-                Noon Store Management
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <NoonStoreManagement 
-                selectedStoreId={selectedStoreId}
-                onStoreChange={setSelectedStoreId}
-              />
-            </CardContent>
-          </Card>
-        </TabsContent>
+                    {/* Store Info */}
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50 border border-border/50">
+                      <div className="text-sm text-muted-foreground">
+                        {selectedStoreId && stores.length > 0 ? (
+                          <span className="text-foreground font-medium">
+                            {stores.find(s => s.id === selectedStoreId)?.name || 'Loading...'}
+                          </span>
+                        ) : selectedStoreId && stores.length === 0 ? (
+                          <span>Loading store...</span>
+                        ) : (
+                          <span>No store selected</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Upload Button */}
+                  <Button 
+                    onClick={handleFileSelect}
+                    disabled={uploading || !selectedStoreId}
+                    className="bg-gradient-to-r from-primary to-primary-dark hover:from-primary-dark hover:to-primary shadow-lg hover:shadow-primary/25 transition-all duration-200"
+                    size="lg"
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    {uploading ? 'Uploading...' : 'Upload Orders File'}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Processing Orders Table */}
+            <NoonProcessingOrdersTable selectedStoreId={selectedStoreId} />
+          </TabsContent>
+
+          <TabsContent value="stores" className="space-y-6 mt-0">
+            {/* Store Management */}
+            <Card className="border-0 shadow-lg bg-gradient-to-br from-card via-card/95 to-card backdrop-blur-sm">
+              <CardHeader className="border-b border-border/50 bg-gradient-to-r from-muted/30 to-muted/10">
+                <CardTitle className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-primary/10">
+                    <Store className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <div className="text-lg font-semibold text-foreground">Noon Store Management</div>
+                    <div className="text-sm text-muted-foreground">Configure and manage your Noon store connections</div>
+                  </div>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-8">
+                <NoonStoreManagement 
+                  selectedStoreId={selectedStoreId}
+                  onStoreChange={setSelectedStoreId}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </div>
       </Tabs>
     </div>
   );

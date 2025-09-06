@@ -166,39 +166,51 @@ export function NoonProcessingOrdersTable({ selectedStoreId }: { selectedStoreId
   }
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="border-0 shadow-lg bg-gradient-to-br from-card via-card/95 to-card backdrop-blur-sm">
+      <CardHeader className="border-b border-border/50 bg-gradient-to-r from-muted/30 to-muted/10">
         <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <Package className="h-5 w-5" />
-            Processing Orders ({orders.length})
+          <CardTitle className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-primary/10">
+              <Package className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <div className="text-lg font-semibold text-foreground">
+                Processing Orders ({orders.length})
+              </div>
+              <div className="text-sm text-muted-foreground">
+                Manage and track your uploaded Noon orders
+              </div>
+            </div>
           </CardTitle>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" className="shadow-sm border-border/60 hover:bg-muted/50">
                   <Settings2 className="h-4 w-4 mr-2" />
                   Columns
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-56">
-                <div className="space-y-2">
-                  <h4 className="font-medium text-sm">Toggle Columns</h4>
-                  {ALL_COLUMNS.map((column) => (
-                    <div key={column.key} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={column.key}
-                        checked={visibleColumns.includes(column.key)}
-                        onCheckedChange={() => toggleColumn(column.key)}
-                      />
-                      <label
-                        htmlFor={column.key}
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                      >
-                        {column.label}
-                      </label>
-                    </div>
-                  ))}
+              <PopoverContent className="w-56 bg-card/95 backdrop-blur-sm border-border/60 shadow-xl z-50">
+                <div className="space-y-3">
+                  <h4 className="font-medium text-sm text-foreground">Toggle Columns</h4>
+                  <div className="space-y-2">
+                    {ALL_COLUMNS.map((column) => (
+                      <div key={column.key} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={column.key}
+                          checked={visibleColumns.includes(column.key)}
+                          onCheckedChange={() => toggleColumn(column.key)}
+                          className="border-border/60"
+                        />
+                        <label
+                          htmlFor={column.key}
+                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-foreground"
+                        >
+                          {column.label}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </PopoverContent>
             </Popover>
@@ -207,7 +219,7 @@ export function NoonProcessingOrdersTable({ selectedStoreId }: { selectedStoreId
                 variant="outline" 
                 size="sm" 
                 onClick={clearAllOrders}
-                className="text-destructive hover:text-destructive"
+                className="text-destructive hover:text-destructive border-destructive/20 hover:bg-destructive/5 shadow-sm"
               >
                 <Trash2 className="h-4 w-4 mr-2" />
                 Clear All
@@ -216,40 +228,44 @@ export function NoonProcessingOrdersTable({ selectedStoreId }: { selectedStoreId
           </div>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Search */}
+      <CardContent className="p-6 space-y-4">
+        {/* Enhanced Search */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
           <Input
             placeholder="Search orders by number, item, SKU, or title..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
+            className="pl-10 border-border/60 bg-background/50 focus:bg-background transition-colors"
           />
         </div>
 
         {filteredOrders.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
+          <div className="text-center py-12 text-muted-foreground">
             {orders.length === 0 ? (
-              <div className="space-y-2">
-                <FileText className="h-12 w-12 mx-auto opacity-50" />
-                <p>No processing orders uploaded yet</p>
-                <p className="text-sm">Upload a file above to see orders here</p>
+              <div className="space-y-4">
+                <div className="p-6 rounded-full bg-gradient-to-br from-muted/30 to-muted/10 w-24 h-24 mx-auto flex items-center justify-center">
+                  <FileText className="h-12 w-12 text-muted-foreground/60" />
+                </div>
+                <div>
+                  <p className="text-lg font-medium text-foreground">No processing orders uploaded yet</p>
+                  <p className="text-sm">Upload a file above to see orders here</p>
+                </div>
               </div>
             ) : (
               <p>No orders found matching your search</p>
             )}
           </div>
         ) : (
-          <div className="border rounded-lg overflow-hidden">
+          <div className="border border-border/60 rounded-lg overflow-hidden bg-card/50 backdrop-blur-sm">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b bg-muted/50">
+                  <tr className="border-b border-border/40 bg-gradient-to-r from-muted/40 to-muted/20">
                     {visibleColumns.map((columnKey) => {
                       const column = ALL_COLUMNS.find(col => col.key === columnKey);
                       return (
-                        <th key={columnKey} className="text-left p-3 text-sm font-medium">
+                        <th key={columnKey} className="text-left p-4 text-sm font-semibold text-foreground">
                           {column?.label}
                         </th>
                       );
@@ -258,33 +274,33 @@ export function NoonProcessingOrdersTable({ selectedStoreId }: { selectedStoreId
                 </thead>
                 <tbody>
                   {filteredOrders.map((order, index) => (
-                    <tr key={order.id} className={`border-b ${index % 2 === 0 ? 'bg-background' : 'bg-muted/25'}`}>
+                    <tr key={order.id} className={`border-b border-border/30 transition-colors hover:bg-muted/20 ${index % 2 === 0 ? 'bg-background/30' : 'bg-muted/10'}`}>
                       {visibleColumns.map((columnKey) => (
-                        <td key={columnKey} className="p-3 text-sm">
+                        <td key={columnKey} className="p-4 text-sm">
                           {(() => {
                             switch (columnKey) {
                               case 'order_nr':
-                                return <span className="font-mono">{order.order_nr}</span>;
+                                return <span className="font-mono font-medium text-foreground">{order.order_nr}</span>;
                               case 'purchase_item_nr':
                                 return <span className="font-mono text-muted-foreground">{order.purchase_item_nr}</span>;
                               case 'sku':
-                                return <span className="font-mono">{order.sku || 'N/A'}</span>;
+                                return <span className="font-mono text-foreground">{order.sku || 'N/A'}</span>;
                               case 'title':
                                 return (
-                                  <span className="max-w-[200px] truncate block" title={order.title}>
+                                  <span className="max-w-[200px] truncate block text-foreground" title={order.title}>
                                     {order.title || 'N/A'}
                                   </span>
                                 );
                               case 'quantity':
-                                return order.quantity;
+                                return <span className="font-medium">{order.quantity}</span>;
                               case 'order_status':
                                 return (
-                                  <Badge variant={getStatusBadgeVariant(order.order_status)}>
+                                  <Badge variant={getStatusBadgeVariant(order.order_status)} className="shadow-sm">
                                     {order.order_status || 'Unknown'}
                                   </Badge>
                                 );
                               case 'order_country_code':
-                                return <span className="uppercase">{order.order_country_code}</span>;
+                                return <span className="uppercase font-medium">{order.order_country_code}</span>;
                               case 'order_received_at':
                                 return <span className="text-muted-foreground">{formatDateTime(order.order_received_at)}</span>;
                               case 'file_upload_date':
