@@ -2756,9 +2756,7 @@ export type Database = {
       }
       sunsky_credentials: {
         Row: {
-          api_key: string
           api_key_encrypted: string | null
-          api_secret: string
           api_secret_encrypted: string | null
           created_at: string
           id: string
@@ -2770,9 +2768,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          api_key: string
           api_key_encrypted?: string | null
-          api_secret: string
           api_secret_encrypted?: string | null
           created_at?: string
           id?: string
@@ -2784,9 +2780,7 @@ export type Database = {
           user_id: string
         }
         Update: {
-          api_key?: string
           api_key_encrypted?: string | null
-          api_secret?: string
           api_secret_encrypted?: string | null
           created_at?: string
           id?: string
