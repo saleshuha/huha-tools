@@ -197,19 +197,16 @@ export default function SunskyOrderTrackingPage() {
     setSlowItems(items);
   };
 
+  // Load slow items on mount
+  useEffect(() => {
+    loadSlowItems();
+  }, []);
+
   useEffect(() => {
     // Always fetch all available orders from Sunsky (not filtered by PO linkage) 
     fetchStoredOrders(showOnlyPOLinked);
     loadSlowItems();
   }, [showOnlyPOLinked]);
-
-  // Auto-sync orders on credential change
-  useEffect(() => {
-    if (selectedCredentialId && !syncing) {
-      // Auto-sync when credential is selected
-      syncOrdersFromAPI(selectedCredentialId);
-    }
-  }, [selectedCredentialId]);
 
   // Toggle order expansion and fetch items if missing using correct credential
   const toggleOrderExpansion = async (orderNumber: string) => {
