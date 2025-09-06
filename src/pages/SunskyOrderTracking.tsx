@@ -88,6 +88,7 @@ export default function SunskyOrderTrackingPage() {
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
   const [slowItems, setSlowItems] = useState<SlowItem[]>([]);
   const [showOnlyPOLinked, setShowOnlyPOLinked] = useState(false);
+  const [fetchAllOrders, setFetchAllOrders] = useState(false);
   const [loadingLabels, setLoadingLabels] = useState<Set<string>>(new Set());
   const [orderLabels, setOrderLabels] = useState<Map<string, any[]>>(new Map());
   const [selectedCredentialId, setSelectedCredentialId] = useState<string | null>(null);
@@ -132,9 +133,18 @@ export default function SunskyOrderTrackingPage() {
   };
 
   useEffect(() => {
+    // Always fetch all available orders from Sunsky (not filtered by PO linkage) 
     fetchStoredOrders(showOnlyPOLinked);
     loadSlowItems();
   }, [showOnlyPOLinked]);
+
+  // Auto-sync orders on credential change
+  useEffect(() => {
+    if (selectedCredentialId && !syncing) {
+      // Auto-sync when credential is selected
+      syncOrdersFromAPI(selectedCredentialId);
+    }
+  }, [selectedCredentialId]);
 
   // Toggle order expansion and fetch items if missing using correct credential
   const toggleOrderExpansion = async (orderNumber: string) => {
@@ -244,20 +254,21 @@ export default function SunskyOrderTrackingPage() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-2">
-                📦 Sunsky Order Tracking
+                📦 Sunsky Order Tracking (Global)
               </h1>
               <p className="text-muted-foreground text-lg">
-                Track your Sunsky orders and monitor item delivery status for {selectedCountry}
+                Track ALL Sunsky orders and monitor item delivery status for {selectedCountry}
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-2">
               <Button 
                 onClick={() => syncOrdersFromAPI(selectedCredentialId)}
                 disabled={syncing || !selectedCredentialId}
-                variant="outline"
+                variant="default"
+                className="bg-gradient-primary hover:bg-gradient-primary/90"
               >
                 <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
-                Sync Sunsky Orders
+                Sync All Orders
               </Button>
               <SunskyCredentialsSelector
                 selectedCredentialId={selectedCredentialId}
@@ -268,16 +279,20 @@ export default function SunskyOrderTrackingPage() {
 
           {/* Progress bar for syncing */}
           {syncing && (
-            <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <div className="mb-4 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200 shadow-sm">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-blue-700">
-                  Syncing orders from Sunsky API...
+                <span className="text-sm font-medium text-blue-700 flex items-center gap-2">
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  Fetching ALL orders from Sunsky API...
                 </span>
-                <span className="text-sm text-blue-600">
+                <span className="text-sm text-blue-600 font-mono">
                   {progressCurrent}/{progressTotal} ({progressPercent}%)
                 </span>
               </div>
               <Progress value={progressPercent} className="h-2" />
+              <p className="text-xs text-blue-600 mt-1">
+                This will fetch all orders from your Sunsky account, not just app-related orders
+              </p>
             </div>
           )}
 
@@ -395,13 +410,13 @@ export default function SunskyOrderTrackingPage() {
               <option value="api_error">API Error</option>
             </select>
             <div className="flex items-center gap-2">
-              <label className="text-sm font-medium">Filter:</label>
+              <label className="text-sm font-medium">View:</label>
               <select
-                value={showOnlyPOLinked ? 'po-linked' : 'all-app-orders'}
+                value={showOnlyPOLinked ? 'po-linked' : 'all-orders'}
                 onChange={(e) => setShowOnlyPOLinked(e.target.value === 'po-linked')}
                 className="px-3 py-2 border border-input rounded-md bg-background text-sm"
               >
-                <option value="all-app-orders">All App Orders ({orders.length})</option>
+                <option value="all-orders">All Sunsky Orders ({orders.length})</option>
                 <option value="po-linked">PO-Linked Only</option>
               </select>
             </div>
@@ -411,7 +426,15 @@ export default function SunskyOrderTrackingPage() {
         {/* Orders List */}
         <Card>
           <CardHeader>
-            <CardTitle>Sunsky Orders ({filteredOrders.length})</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <Package className="h-5 w-5" />
+              All Sunsky Orders ({filteredOrders.length})
+              {!selectedCredentialId && (
+                <Badge variant="outline" className="text-orange-600 border-orange-300">
+                  Select credentials to sync
+                </Badge>
+              )}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             {loading ? (
@@ -422,8 +445,24 @@ export default function SunskyOrderTrackingPage() {
             ) : filteredOrders.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No orders found</p>
-                <p className="text-sm">Try syncing orders from Sunsky or adjust your filters</p>
+                <p className="font-medium">No Sunsky orders found</p>
+                {!selectedCredentialId ? (
+                  <div className="mt-4 p-4 bg-orange-50 rounded-lg border border-orange-200 max-w-md mx-auto">
+                    <p className="text-sm text-orange-700 font-medium">Select Sunsky credentials above to sync orders</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-sm">No orders synced yet from Sunsky</p>
+                    <Button 
+                      onClick={() => syncOrdersFromAPI(selectedCredentialId)}
+                      disabled={syncing}
+                      className="mt-2"
+                    >
+                      <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+                      Fetch All Orders from Sunsky
+                    </Button>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="space-y-4">
