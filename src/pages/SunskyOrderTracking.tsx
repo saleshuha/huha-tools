@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSunskyOrders } from '@/hooks/useSunskyOrders';
 import { useCountry } from '@/contexts/CountryContext';
@@ -7,13 +7,18 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { 
   ExternalLink, Search, RefreshCw, ChevronDown, ChevronUp,
-  Package, Clock, Truck, CheckCircle, AlertTriangle, AlertCircle, Eye
+  Package, Clock, Truck, CheckCircle, AlertTriangle, AlertCircle, Eye,
+  Filter, Calendar, TrendingUp, Users
 } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { SunskyCredentialsSelector } from '@/components/SunskyCredentialsSelector';
-import { calculateOrderProgress, calculateItemsProgress } from '@/utils/sunsky-progress';
+import { SegmentedProgress } from '@/components/sunsky/SegmentedProgress';
+import { ItemStatusBadge } from '@/components/sunsky/ItemStatusBadge';
+import { calculateOrderProgress, calculateItemsProgress, getDaysInStatus, isItemDelayed } from '@/utils/sunsky-progress';
 
 // Status configurations for orders and items with Sunsky numeric status mapping
 const statusColors = {
@@ -91,9 +96,14 @@ export default function SunskyOrderTrackingPage() {
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
   const [slowItems, setSlowItems] = useState<SlowItem[]>([]);
   const [showOnlyPOLinked, setShowOnlyPOLinked] = useState(false);
+  const [showInFlightOnly, setShowInFlightOnly] = useState(false);
   const [loadingLabels, setLoadingLabels] = useState<Set<string>>(new Set());
   const [orderLabels, setOrderLabels] = useState<Map<string, any[]>>(new Map());
   const [selectedCredentialId, setSelectedCredentialId] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<'updated' | 'created' | 'status' | 'value'>('updated');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
 
   const { selectedCountry } = useCountry();
   const {
@@ -110,23 +120,74 @@ export default function SunskyOrderTrackingPage() {
     getSlowItems
   } = useSunskyOrders();
 
-  // Filter orders based on search and status with proper status mapping
-  const filteredOrders = orders.filter(order => {
-    const matchesSearch = !searchTerm || 
-      order.number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.tracking_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.items?.some(item => 
-        item.sku_code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.title?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    
-    const readableStatus = getReadableStatus(order.status || 'pending');
-    const matchesStatus = selectedStatus === 'all' || 
-                         readableStatus === selectedStatus ||
-                         order.status === selectedStatus;
-    
-    return matchesSearch && matchesStatus;
-  });
+  // Filter and sort orders with enhanced logic
+  const filteredAndSortedOrders = useMemo(() => {
+    let filtered = orders.filter(order => {
+      const matchesSearch = !searchTerm || 
+        order.number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.tracking_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.items?.some(item => 
+          item.sku_code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          item.title?.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+      
+      const readableStatus = getReadableStatus(order.status || 'pending');
+      const matchesStatus = selectedStatus === 'all' || 
+                           readableStatus === selectedStatus ||
+                           order.status === selectedStatus;
+
+      // In-flight filter (exclude delivered orders)
+      const isInFlight = readableStatus !== 'delivered';
+      const matchesInFlight = !showInFlightOnly || isInFlight;
+
+      return matchesSearch && matchesStatus && matchesInFlight;
+    });
+
+    // Sort orders
+    filtered.sort((a, b) => {
+      let aValue: any, bValue: any;
+
+      switch (sortBy) {
+        case 'updated':
+          aValue = new Date(a.updated_at || a.created_at).getTime();
+          bValue = new Date(b.updated_at || b.created_at).getTime();
+          break;
+        case 'created':
+          aValue = new Date(a.gmt_created || a.created_at).getTime();
+          bValue = new Date(b.gmt_created || b.created_at).getTime();
+          break;
+        case 'status':
+          const aProgress = calculateOrderProgress(a.status);
+          const bProgress = calculateOrderProgress(b.status);
+          aValue = aProgress.currentStep;
+          bValue = bProgress.currentStep;
+          break;
+        case 'value':
+          aValue = a.total || 0;
+          bValue = b.total || 0;
+          break;
+        default:
+          return 0;
+      }
+
+      if (sortDirection === 'asc') {
+        return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+      } else {
+        return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
+      }
+    });
+
+    return filtered;
+  }, [orders, searchTerm, selectedStatus, showInFlightOnly, sortBy, sortDirection]);
+
+  // Pagination
+  const paginatedOrders = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return filteredAndSortedOrders.slice(startIndex, endIndex);
+  }, [filteredAndSortedOrders, currentPage, itemsPerPage]);
+
+  const totalPages = Math.ceil(filteredAndSortedOrders.length / itemsPerPage);
 
   // Load slow items
   const loadSlowItems = async () => {
@@ -247,6 +308,10 @@ export default function SunskyOrderTrackingPage() {
     delivered: orders.filter(o => getReadableStatus(o.status || 'pending') === 'delivered').length,
     totalValue: orders.reduce((sum, order) => sum + (order.total || 0), 0)
   };
+
+  const delayedCount = filteredAndSortedOrders.filter(order => 
+    order.items?.some(item => isItemDelayed(item))
+  ).length;
 
   return (
     <div className="min-h-screen bg-gradient-surface">
@@ -430,7 +495,10 @@ export default function SunskyOrderTrackingPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Package className="h-5 w-5" />
-              All Sunsky Orders ({filteredOrders.length})
+              Sunsky Orders ({filteredAndSortedOrders.length})
+              {delayedCount > 0 && (
+                <Badge variant="destructive">{delayedCount} with delayed items</Badge>
+              )}
               {!selectedCredentialId && (
                 <Badge variant="outline" className="text-orange-600 border-orange-300">
                   Select credentials to sync

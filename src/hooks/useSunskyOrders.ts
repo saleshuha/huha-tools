@@ -67,6 +67,17 @@ export const useSunskyOrders = () => {
 
   const { toast } = useToast();
 
+  // Get order by number from current state
+  const getOrderByNumber = (orderNumber: string): SunskyOrder | undefined => {
+    return state.orders.find(order => order.number === orderNumber);
+  };
+
+  // Get credential name mapping (placeholder for future implementation)
+  const getCredentialName = (credentialId: string): string | null => {
+    // This could be enhanced to fetch credential names from the database
+    return null;
+  };
+
   // Fetch ALL synced orders from database (not just app-placed ones)
   const fetchStoredOrders = async (showOnlyPOLinked: boolean = false) => {
     setState(prev => ({ ...prev, loading: true, error: null }));
@@ -321,7 +332,26 @@ export const useSunskyOrders = () => {
   };
 
   // Get order details with items - fetch if missing items with correct credential
-  const getOrderDetails = async (orderNumber: string, silent: boolean = false, apiId?: string) => {
+  const getOrderDetails = async (
+    orderNumber: string, 
+    silent: boolean = false, 
+    apiId?: string,
+    options: { forceRefreshDelivered?: boolean } = {}
+  ) => {
+    const { forceRefreshDelivered = false } = options;
+    
+    // Check if order is delivered and should skip refresh
+    const existingOrder = getOrderByNumber(orderNumber);
+    if (existingOrder && (existingOrder.status === 'delivered' || existingOrder.status === '6') && !forceRefreshDelivered) {
+      if (!silent) {
+        toast({
+          title: "Order Delivered",
+          description: "This order is delivered. Use 'Force Refresh' to update anyway.",
+        });
+      }
+      return;
+    }
+
     try {
       console.log(`Fetching order details for ${orderNumber} with credential ${apiId}`);
       
@@ -348,9 +378,12 @@ export const useSunskyOrders = () => {
           }
         } else {
           if (!silent) {
+            const wasDeliveredSkip = existingOrder?.status === 'delivered' && forceRefreshDelivered;
             toast({
-              title: 'Success',
-              description: 'Order details updated',
+              title: wasDeliveredSkip ? 'Force Refresh Complete' : 'Success',
+              description: wasDeliveredSkip 
+                ? `Delivered order ${orderNumber} forcefully refreshed`
+                : 'Order details updated',
             });
           }
         }
@@ -444,5 +477,7 @@ export const useSunskyOrders = () => {
     getOrderDetails,
     getOrderLabels,
     getSlowItems,
+    getOrderByNumber,
+    getCredentialName,
   };
 };
