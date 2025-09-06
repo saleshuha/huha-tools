@@ -197,30 +197,30 @@ export function AppSidebar() {
     <Sidebar collapsible="icon" className="border-r border-sidebar-border bg-sidebar">
       <SidebarContent className="overflow-hidden">
         <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/80 font-semibold px-4 py-3 text-sm">
+          <SidebarGroupLabel className="text-sidebar-foreground/70 font-medium px-3 py-2 text-xs uppercase tracking-wide">
             {!isCollapsed && "HuHa Dashboard"}
           </SidebarGroupLabel>
-          <SidebarGroupContent className="px-3">
+          <SidebarGroupContent className="px-2">
             <SidebarMenu className="space-y-1">
               {/* Navigation items */}
               {navigationItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton 
                     asChild
-                    className={`group relative w-full rounded-xl transition-all duration-200 ${
+                    className={`group relative w-full rounded-md transition-all duration-150 ${
                       isActive(item.url)
-                        ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
-                        : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
+                        ? "bg-primary text-primary-foreground shadow-sm" 
+                        : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                     }`}
                   >
                     <NavLink 
                       to={item.url} 
                       end
-                      className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
+                      className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-md"
                     >
-                      <item.icon className="h-5 w-5 flex-shrink-0" />
+                      <item.icon className="h-4 w-4 flex-shrink-0" />
                       {!isCollapsed && (
-                        <span className="font-semibold text-sm">
+                        <span className="font-medium text-sm">
                           {item.title}
                         </span>
                       )}
@@ -233,20 +233,20 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   asChild
-                  className={`group relative w-full rounded-xl transition-all duration-200 ${
+                  className={`group relative w-full rounded-md transition-all duration-150 ${
                     isActive("/inventory")
-                      ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
-                      : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
+                      ? "bg-primary text-primary-foreground shadow-sm" 
+                      : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                   }`}
                 >
                   <NavLink 
                     to="/inventory" 
                     end
-                    className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
+                    className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-md"
                   >
-                    <Database className="h-5 w-5 flex-shrink-0" />
+                    <Database className="h-4 w-4 flex-shrink-0" />
                     {!isCollapsed && (
-                      <span className="font-semibold text-sm">
+                      <span className="font-medium text-sm">
                         Instock Inventory
                       </span>
                     )}
@@ -258,20 +258,20 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   asChild
-                  className={`group relative w-full rounded-xl transition-all duration-200 ${
+                  className={`group relative w-full rounded-md transition-all duration-150 ${
                     isActive("/order-processing")
-                      ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
-                      : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
+                      ? "bg-primary text-primary-foreground shadow-sm" 
+                      : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                   }`}
                 >
                   <NavLink 
                     to="/order-processing" 
                     end
-                    className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
+                    className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-md"
                   >
-                    <FileSpreadsheet className="h-5 w-5 flex-shrink-0" />
+                    <FileSpreadsheet className="h-4 w-4 flex-shrink-0" />
                     {!isCollapsed && (
-                      <span className="font-semibold text-sm">
+                      <span className="font-medium text-sm">
                         DF Order Processing
                       </span>
                     )}
@@ -283,20 +283,20 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   asChild
-                  className={`group relative w-full rounded-xl transition-all duration-200 ${
+                  className={`group relative w-full rounded-md transition-all duration-150 ${
                     isActive("/replenishment")
-                      ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
-                      : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
+                      ? "bg-primary text-primary-foreground shadow-sm" 
+                      : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                   }`}
                 >
                   <NavLink 
                     to="/replenishment" 
                     end
-                    className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
+                    className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-md"
                   >
-                    <TrendingUp className="h-5 w-5 flex-shrink-0" />
+                    <TrendingUp className="h-4 w-4 flex-shrink-0" />
                     {!isCollapsed && (
-                      <span className="font-semibold text-sm">
+                      <span className="font-medium text-sm">
                         Sales & Replenishment
                       </span>
                     )}
@@ -308,20 +308,20 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   asChild
-                  className={`group relative w-full rounded-xl transition-all duration-200 ${
+                  className={`group relative w-full rounded-md transition-all duration-150 ${
                     isActive("/label-designer")
-                      ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
-                      : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
+                      ? "bg-primary text-primary-foreground shadow-sm" 
+                      : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                   }`}
                 >
                   <NavLink 
                     to="/label-designer" 
                     end
-                    className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
+                    className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-md"
                   >
-                    <Tag className="h-5 w-5 flex-shrink-0" />
+                    <Tag className="h-4 w-4 flex-shrink-0" />
                     {!isCollapsed && (
-                      <span className="font-semibold text-sm">
+                      <span className="font-medium text-sm">
                         Label Designer
                       </span>
                     )}
@@ -333,20 +333,20 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   asChild
-                  className={`group relative w-full rounded-xl transition-all duration-200 ${
+                  className={`group relative w-full rounded-md transition-all duration-150 ${
                     isActive("/po-tracker")
-                      ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
-                      : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
+                      ? "bg-primary text-primary-foreground shadow-sm" 
+                      : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                   }`}
                 >
                   <NavLink 
                     to="/po-tracker" 
                     end
-                    className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
+                    className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-md"
                   >
-                    <ShoppingCart className="h-5 w-5 flex-shrink-0" />
+                    <ShoppingCart className="h-4 w-4 flex-shrink-0" />
                     {!isCollapsed && (
-                      <span className="font-semibold text-sm">
+                      <span className="font-medium text-sm">
                         PO - SS Stock Tracker
                       </span>
                     )}

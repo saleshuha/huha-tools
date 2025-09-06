@@ -6,40 +6,40 @@
 
 @layer base {
   :root {
-    /* Clean professional background */
-    --background: 210 20% 98%;
-    --foreground: 210 15% 20%;
+    /* Base Colors - FreshUI Theme */
+    --background: 0 0% 100%;
+    --foreground: 210 11% 15%;
 
     /* Clean white surfaces */
     --card: 0 0% 100%;
-    --card-foreground: 210 15% 20%;
+    --card-foreground: 210 11% 15%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 210 15% 20%;
+    --popover-foreground: 210 11% 15%;
 
-    /* Orange amber primary */
-    --primary: 38 92% 49%;
+    /* Primary Colors - Fresh Blue */
+    --primary: 210 100% 50%;
     --primary-foreground: 0 0% 100%;
-    --primary-light: 38 92% 60%;
-    --primary-dark: 38 92% 40%;
+    --primary-light: 210 100% 60%;
+    --primary-dark: 210 100% 40%;
 
-    /* Clean gray secondary */
-    --secondary: 210 16% 93%;
-    --secondary-foreground: 210 15% 25%;
+    /* Secondary Colors - Light Gray */
+    --secondary: 210 17% 95%;
+    --secondary-foreground: 210 11% 15%;
 
-    /* Subtle muted tones */
-    --muted: 210 14% 96%;
-    --muted-foreground: 210 10% 55%;
+    /* Muted Colors */
+    --muted: 210 17% 95%;
+    --muted-foreground: 210 11% 46%;
 
-    /* Clean green accent */
-    --accent: 142 76% 50%;
-    --accent-foreground: 0 0% 100%;
+    /* Accent Colors */
+    --accent: 210 17% 92%;
+    --accent-foreground: 210 11% 15%;
 
     /* Enhanced color palette */
-    --emerald: 142 76% 50%;
+    --emerald: 142 76% 40%;
     --emerald-foreground: 0 0% 100%;
-    --emerald-light: 142 76% 60%;
-    --emerald-dark: 142 76% 40%;
+    --emerald-light: 142 76% 50%;
+    --emerald-dark: 142 76% 30%;
 
     --sky: 199 89% 48%;
     --sky-foreground: 0 0% 100%;
@@ -57,7 +57,7 @@
     --teal-dark: 173 58% 29%;
 
     /* Clean status colors */
-    --success: 142 76% 50%;
+    --success: 138 76% 40%;
     --success-foreground: 0 0% 100%;
     
     --warning: 38 92% 50%;
@@ -66,17 +66,17 @@
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    /* Clean borders */
-    --border: 214 32% 91%;
-    --input: 214 32% 97%;
-    --ring: 38 92% 49%;
+    /* UI Component Colors - FreshUI */
+    --border: 210 17% 90%;
+    --input: 210 17% 95%;
+    --ring: 210 100% 50%;
 
-    --radius: 0.75rem;
+    --radius: 0.375rem;
     
-    /* Beautiful gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-light)));
-    --gradient-accent: linear-gradient(135deg, hsl(var(--accent)), hsl(var(--emerald-light)));
-    --gradient-surface: linear-gradient(145deg, hsl(var(--background)), hsl(var(--muted)));
+    /* Gradients - FreshUI Clean */
+    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(210 100% 45%));
+    --gradient-accent: linear-gradient(135deg, hsl(var(--accent)), hsl(210 20% 90%));
+    --gradient-surface: linear-gradient(180deg, hsl(var(--background)), hsl(210 20% 98%));
     --gradient-emerald: linear-gradient(135deg, hsl(var(--emerald)), hsl(var(--emerald-light)));
     --gradient-sky: linear-gradient(135deg, hsl(var(--sky)), hsl(var(--sky-light)));
     --gradient-cyan: linear-gradient(135deg, hsl(var(--cyan)), hsl(var(--cyan-light)));
@@ -84,98 +84,98 @@
     --gradient-ocean: linear-gradient(135deg, hsl(var(--sky)), hsl(var(--cyan)));
     --gradient-nature: linear-gradient(135deg, hsl(var(--emerald)), hsl(var(--teal)));
     
-    /* Enhanced shadows with color tints */
-    --shadow-soft: 0 1px 3px 0 hsl(210 15% 15% / 0.1), 0 1px 2px -1px hsl(210 15% 15% / 0.1);
-    --shadow-medium: 0 4px 6px -1px hsl(210 15% 15% / 0.1), 0 2px 4px -2px hsl(210 15% 15% / 0.1);
-    --shadow-strong: 0 10px 15px -3px hsl(210 15% 15% / 0.1), 0 4px 6px -4px hsl(210 15% 15% / 0.1);
-    --shadow-glow: 0 0 40px hsl(var(--primary) / 0.15);
-    --shadow-accent-glow: 0 0 40px hsl(var(--accent) / 0.15);
-    --shadow-emerald-glow: 0 0 40px hsl(var(--emerald) / 0.15);
-    --shadow-sky-glow: 0 0 40px hsl(var(--sky) / 0.15);
-    --shadow-cyan-glow: 0 0 40px hsl(var(--cyan) / 0.15);
+    /* Shadows - FreshUI Subtle */
+    --shadow-soft: 0 1px 2px 0 hsl(210 25% 25% / 0.05);
+    --shadow-medium: 0 1px 3px 0 hsl(210 25% 25% / 0.1), 0 1px 2px 0 hsl(210 25% 25% / 0.06);
+    --shadow-strong: 0 4px 6px -1px hsl(210 25% 25% / 0.1), 0 2px 4px -1px hsl(210 25% 25% / 0.06);
+    --shadow-glow: 0 0 20px hsl(var(--primary) / 0.1);
+    --shadow-accent-glow: 0 0 20px hsl(var(--accent) / 0.1);
+    --shadow-emerald-glow: 0 0 20px hsl(var(--emerald) / 0.1);
+    --shadow-sky-glow: 0 0 20px hsl(var(--sky) / 0.1);
+    --shadow-cyan-glow: 0 0 20px hsl(var(--cyan) / 0.1);
     
     /* Smooth animations */
-    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-bounce: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    --transition-smooth: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-bounce: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
 
-    /* Sidebar colors */
-    --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 210 15% 25%;
-    --sidebar-primary: 38 92% 49%;
+    /* Sidebar colors - FreshUI */
+    --sidebar-background: 210 17% 98%;
+    --sidebar-foreground: 210 11% 15%;
+    --sidebar-primary: 210 100% 50%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 210 16% 93%;
-    --sidebar-accent-foreground: 210 15% 25%;
-    --sidebar-border: 214 32% 91%;
-    --sidebar-ring: 38 92% 49%;
+    --sidebar-accent: 210 17% 95%;
+    --sidebar-accent-foreground: 210 11% 15%;
+    --sidebar-border: 210 17% 92%;
+    --sidebar-ring: 210 100% 50%;
   }
 
   .dark {
-    /* Clean dark theme */
-    --background: 210 20% 11%;
-    --foreground: 210 15% 95%;
+    /* Base Colors - FreshUI Dark */
+    --background: 210 25% 8%;
+    --foreground: 210 11% 91%;
 
-    --card: 210 20% 13%;
-    --card-foreground: 210 15% 95%;
+    --card: 210 25% 10%;
+    --card-foreground: 210 11% 91%;
 
-    --popover: 210 20% 13%;
-    --popover-foreground: 210 15% 95%;
+    --popover: 210 25% 10%;
+    --popover-foreground: 210 11% 91%;
 
-    --primary: 38 92% 55%;
-    --primary-foreground: 210 20% 11%;
-    --primary-light: 38 92% 65%;
-    --primary-dark: 38 92% 45%;
+    --primary: 210 100% 55%;
+    --primary-foreground: 0 0% 0%;
+    --primary-light: 210 100% 65%;
+    --primary-dark: 210 100% 45%;
 
-    --secondary: 210 20% 18%;
-    --secondary-foreground: 210 15% 95%;
+    --secondary: 210 25% 12%;
+    --secondary-foreground: 210 11% 91%;
 
-    --muted: 210 15% 21%;
-    --muted-foreground: 210 10% 70%;
+    --muted: 210 25% 12%;
+    --muted-foreground: 210 11% 54%;
 
-    --accent: 142 76% 55%;
-    --accent-foreground: 210 20% 11%;
+    --accent: 210 25% 15%;
+    --accent-foreground: 210 11% 91%;
 
     /* Enhanced dark theme colors */
-    --emerald: 142 76% 55%;
-    --emerald-foreground: 210 20% 11%;
-    --emerald-light: 142 76% 65%;
-    --emerald-dark: 142 76% 45%;
+    --emerald: 142 76% 45%;
+    --emerald-foreground: 0 0% 100%;
+    --emerald-light: 142 76% 55%;
+    --emerald-dark: 142 76% 35%;
 
-    --sky: 199 89% 58%;
-    --sky-foreground: 210 20% 11%;
-    --sky-light: 199 89% 68%;
-    --sky-dark: 199 89% 48%;
+    --sky: 199 89% 53%;
+    --sky-foreground: 0 0% 0%;
+    --sky-light: 199 89% 63%;
+    --sky-dark: 199 89% 43%;
 
-    --cyan: 188 94% 52%;
-    --cyan-foreground: 210 20% 11%;
-    --cyan-light: 188 94% 62%;
-    --cyan-dark: 188 94% 42%;
+    --cyan: 188 94% 47%;
+    --cyan-foreground: 0 0% 0%;
+    --cyan-light: 188 94% 57%;
+    --cyan-dark: 188 94% 37%;
 
-    --teal: 173 58% 49%;
-    --teal-foreground: 210 20% 11%;
-    --teal-light: 173 58% 59%;
-    --teal-dark: 173 58% 39%;
+    --teal: 173 58% 44%;
+    --teal-foreground: 0 0% 100%;
+    --teal-light: 173 58% 54%;
+    --teal-dark: 173 58% 34%;
 
-    --success: 142 76% 55%;
-    --success-foreground: 210 20% 11%;
+    --success: 138 76% 45%;
+    --success-foreground: 0 0% 100%;
     
     --warning: 38 92% 55%;
-    --warning-foreground: 210 20% 11%;
+    --warning-foreground: 0 0% 0%;
     
     --destructive: 0 84% 65%;
-    --destructive-foreground: 210 20% 11%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 210 15% 25%;
-    --input: 210 15% 21%;
-    --ring: 38 92% 55%;
+    --border: 210 25% 15%;
+    --input: 210 25% 15%;
+    --ring: 210 100% 55%;
 
-    --sidebar-background: 210 20% 13%;
-    --sidebar-foreground: 210 15% 95%;
-    --sidebar-primary: 38 92% 55%;
-    --sidebar-primary-foreground: 210 20% 11%;
-    --sidebar-accent: 210 20% 18%;
-    --sidebar-accent-foreground: 210 15% 95%;
-    --sidebar-border: 210 15% 25%;
-    --sidebar-ring: 38 92% 55%;
+    --sidebar-background: 210 25% 6%;
+    --sidebar-foreground: 210 11% 91%;
+    --sidebar-primary: 210 100% 55%;
+    --sidebar-primary-foreground: 0 0% 0%;
+    --sidebar-accent: 210 25% 12%;
+    --sidebar-accent-foreground: 210 11% 91%;
+    --sidebar-border: 210 25% 15%;
+    --sidebar-ring: 210 100% 55%;
   }
 }
 
@@ -185,8 +185,11 @@
   }
 
   body {
+    font-family: "Inter", "Roboto", "Open Sans", system-ui, -apple-system, sans-serif;
     @apply bg-background text-foreground antialiased;
     min-height: 100vh;
+    line-height: 1.5;
+    font-weight: 400;
   }
   
   /* Custom scrollbars */
@@ -209,69 +212,97 @@
 }
 
 @layer components {
-  /* Clean containers */
-  .glass-container {
-    @apply bg-card border border-border rounded-lg shadow-soft hover:shadow-medium transition-all duration-300;
+  /* FreshUI Panel Components */
+  .panel {
+    @apply bg-card border border-border rounded-md shadow-soft;
   }
-  
-  /* Upload zones */
+
+  .panel-header {
+    @apply px-4 py-3 border-b border-border bg-muted/30;
+  }
+
+  .panel-content {
+    @apply p-4;
+  }
+
+  .toolbar {
+    @apply bg-background border-b border-border px-4 py-2 flex items-center gap-3;
+  }
+
+  /* FreshUI Upload zones */
   .upload-zone {
-    @apply border-2 border-dashed border-border rounded-lg p-8
-           transition-all duration-300 hover:border-primary hover:bg-primary/5
+    @apply border-2 border-dashed border-border rounded-md p-6
+           transition-all duration-200 hover:border-primary hover:bg-primary/5
            bg-card;
   }
   
   .upload-zone.drag-over {
-    @apply border-primary bg-primary/10 shadow-medium scale-[1.02];
+    @apply border-primary bg-primary/10 shadow-medium;
   }
   
   .upload-zone.has-file {
     @apply border-success bg-success/5;
   }
   
-  /* Column cards */
+  /* FreshUI Data tables */
+  .data-table {
+    @apply bg-card border border-border rounded-md overflow-hidden;
+  }
+
+  .data-table-header {
+    @apply bg-muted/50 border-b border-border;
+  }
+  
+  /* FreshUI Column cards */
   .column-card {
-    @apply bg-card rounded-lg p-4 border border-border shadow-soft
-           transition-all duration-300 hover:shadow-medium hover:border-primary
-           hover:scale-[1.02];
+    @apply bg-card rounded-md p-3 border border-border shadow-soft
+           transition-all duration-200 hover:shadow-medium hover:border-primary/50;
   }
   
   .column-card.dragging {
-    @apply opacity-60 scale-95 rotate-3 shadow-strong;
+    @apply opacity-60 scale-95 shadow-strong;
   }
   
   .column-card.drag-target {
-    @apply border-accent bg-accent/10 scale-105;
+    @apply border-accent bg-accent/10;
   }
   
   .column-card.mapped {
     @apply border-success bg-success/10;
   }
   
-  /* Mapping indicators */
-  .mapping-line {
-    @apply absolute bg-gradient-to-r from-primary to-accent h-0.5 rounded-full;
-  }
-  
-  /* Clean buttons */
-  .btn-primary {
-    @apply bg-gradient-primary text-primary-foreground font-semibold
-           hover:shadow-medium transform hover:scale-105 transition-all duration-200;
-  }
-  
-  .btn-accent {
-    @apply bg-gradient-accent text-accent-foreground font-semibold
-           hover:shadow-medium transform hover:scale-105 transition-all duration-200;
+  /* FreshUI Buttons */
+  .btn-fresh {
+    @apply bg-primary text-primary-foreground border-0 px-3 py-2 rounded-md
+           font-medium text-sm transition-all duration-150 shadow-soft
+           hover:bg-primary/90 hover:shadow-medium;
   }
 
-  /* Grid utilities for responsive design */
+  .btn-fresh-outline {
+    @apply bg-transparent text-primary border border-primary px-3 py-2 rounded-md
+           font-medium text-sm transition-all duration-150
+           hover:bg-primary/10;
+  }
+
+  .btn-fresh-secondary {
+    @apply bg-secondary text-secondary-foreground border-0 px-3 py-2 rounded-md
+           font-medium text-sm transition-all duration-150 shadow-soft
+           hover:bg-secondary/80;
+  }
+
+  /* Glass container - cleaner version */
+  .glass-container {
+    @apply bg-card/95 backdrop-blur-sm border border-border rounded-md shadow-soft;
+  }
+
+  /* FreshUI Grid utilities */
   .auto-fit-columns {
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   }
 
-  /* Global app container for consistent width across all pages */
+  /* FreshUI App container */
   .app-container {
-    @apply w-full px-4 sm:px-6 lg:max-w-[1400px] xl:max-w-[1600px] 2xl:max-w-[1800px] mx-auto;
+    @apply w-full px-3 sm:px-4 lg:max-w-[1400px] xl:max-w-[1600px] 2xl:max-w-[1800px] mx-auto;
   }
 }
 
