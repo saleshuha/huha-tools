@@ -22,6 +22,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { LABEL_PRESETS, PrintSettings } from '@/types/label';
 import { Plus, Database, Eye, Download, Printer, FolderOpen } from 'lucide-react';
 import { toast } from 'sonner';
+import { HuhaHeader01 } from '@/components/ui/huha-header-01';
 const LabelDesignerContent: React.FC = () => {
   const {
     document: labelDoc,
@@ -108,143 +109,142 @@ const LabelDesignerContent: React.FC = () => {
     await loadDocument(id);
     setShowLoadDialog(false);
   };
+  const headerActions = [
+    {
+      label: 'Load Label',
+      icon: <FolderOpen className="h-4 w-4 mr-2" />,
+      onClick: handleLoadDocuments,
+      variant: 'outline' as const,
+      className: "border-2 border-primary/30 hover:border-primary/50 hover:bg-primary/5 text-primary font-medium shadow-sm"
+    },
+    {
+      label: 'New Label',
+      icon: <Plus className="h-4 w-4 mr-2" />,
+      onClick: () => setShowCreateDialog(true),
+      variant: 'default' as const,
+      className: "bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary/80 border-2 border-primary shadow-md font-medium"
+    },
+    ...(labelDoc ? [{
+      label: 'Preview',
+      icon: <Eye className="h-4 w-4 mr-2" />,
+      onClick: handlePreview,
+      variant: 'outline' as const,
+      className: "border-2 border-accent/40 hover:border-accent hover:bg-accent/10 text-accent-foreground font-medium shadow-sm"
+    }] : [])
+  ];
+
+  const headerBadges = labelDoc ? [
+    {
+      label: labelDoc.name,
+      variant: 'outline' as const,
+      className: "border-primary/30 bg-primary/10 text-primary font-semibold px-3 py-1"
+    },
+    {
+      label: `${labelDoc.size.width}×${labelDoc.size.height}mm`,
+      variant: 'secondary' as const,
+      className: "bg-muted/60 border-2 border-border/50 font-medium"
+    },
+    ...(dataset ? [{
+      label: `${dataset.name} (${dataset.rowCount} rows)`,
+      icon: <Database className="h-3 w-3 mr-1" />,
+      variant: 'secondary' as const,
+      className: "bg-accent/20 border-2 border-accent/30 text-accent-foreground font-medium"
+    }] : [])
+  ] : [];
+
   return <div className="h-screen flex flex-col bg-gradient-to-br from-background via-background to-muted/10">
-      {/* Enhanced Header with Better Organization */}
-      <div className="border-b-2 border-border/50 bg-gradient-to-r from-card/80 to-card/60 backdrop-blur-md shadow-lg">
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-md">
-                  <Printer className="h-5 w-5 text-primary-foreground" />
-                </div>
-                <div>
-                  <h1 className="text-3xl font-bold bg-gradient-to-r from-primary via-primary/90 to-primary/70 bg-clip-text text-transparent">
-                    Label Designer & Printer
-                  </h1>
-                  <p className="text-sm text-muted-foreground mt-1">Create, design and print professional labels</p>
-                </div>
-              </div>
+      <HuhaHeader01
+        icon={<Printer className="h-5 w-5 text-primary-foreground" />}
+        title="Label Designer & Printer"
+        subtitle="Create, design and print professional labels"
+        actions={headerActions}
+        badges={headerBadges}
+      />
+      
+      {/* Dialogs */}
+      <Dialog open={showLoadDialog} onOpenChange={setShowLoadDialog}>
+        <DialogContent className="border-2 border-border bg-background/95 backdrop-blur-sm max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-semibold text-foreground">Load Existing Label</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            {userDocuments.length === 0 ? <div className="text-center py-12">
+                <FolderOpen className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
+                <p className="text-muted-foreground">No saved labels found.</p>
+                <p className="text-sm text-muted-foreground/70 mt-1">Create a new label to get started</p>
+              </div> : <div className="space-y-3 max-h-60 overflow-y-auto">
+                {userDocuments.map(doc => <div key={doc.id} className="flex justify-between items-center p-4 border-2 border-border rounded-xl hover:bg-accent/30 hover:border-accent/50 cursor-pointer transition-all duration-200 hover:shadow-sm" onClick={() => handleLoadDocument(doc.id)}>
+                    <div>
+                      <h4 className="font-medium text-foreground">{doc.name}</h4>
+                      <p className="text-sm text-muted-foreground">
+                        {doc.width}×{doc.height}mm • {new Date(doc.updated_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>)}
+              </div>}
+          </div>
+        </DialogContent>
+      </Dialog>
+      
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent className="border-2 border-border bg-background/95 backdrop-blur-sm max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-semibold text-foreground">Create New Label</DialogTitle>
+            <p className="text-sm text-muted-foreground">Design a new label template for your printing needs</p>
+          </DialogHeader>
+          <div className="space-y-6 pt-6">
+            <div className="space-y-3">
+              <Label className="text-sm font-semibold text-foreground">Label Name</Label>
+              <Input value={newLabelName} onChange={e => setNewLabelName(e.target.value)} placeholder="Enter a descriptive name for your label" className="border-2 border-input focus:border-primary/60 focus:ring-2 focus:ring-primary/20 h-11" />
             </div>
-            <div className="flex items-center gap-3">
-              <Dialog open={showLoadDialog} onOpenChange={setShowLoadDialog}>
-                <DialogTrigger asChild>
-                  <Button variant="outline" size="sm" onClick={handleLoadDocuments} className="border-2 border-primary/30 hover:border-primary/50 hover:bg-primary/5 text-primary font-medium shadow-sm">
-                    <FolderOpen className="h-4 w-4 mr-2" />
-                    Load Label
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="border-2 border-border bg-background/95 backdrop-blur-sm max-w-md">
-                  <DialogHeader>
-                    <DialogTitle className="text-xl font-semibold text-foreground">Load Existing Label</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4 pt-4">
-                    {userDocuments.length === 0 ? <div className="text-center py-12">
-                        <FolderOpen className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-                        <p className="text-muted-foreground">No saved labels found.</p>
-                        <p className="text-sm text-muted-foreground/70 mt-1">Create a new label to get started</p>
-                      </div> : <div className="space-y-3 max-h-60 overflow-y-auto">
-                        {userDocuments.map(doc => <div key={doc.id} className="flex justify-between items-center p-4 border-2 border-border rounded-xl hover:bg-accent/30 hover:border-accent/50 cursor-pointer transition-all duration-200 hover:shadow-sm" onClick={() => handleLoadDocument(doc.id)}>
-                            <div>
-                              <h4 className="font-medium text-foreground">{doc.name}</h4>
-                              <p className="text-sm text-muted-foreground">
-                                {doc.width}×{doc.height}mm • {new Date(doc.updated_at).toLocaleDateString()}
-                              </p>
-                            </div>
-                          </div>)}
-                      </div>}
-                  </div>
-                </DialogContent>
-              </Dialog>
-              
-              <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-                <DialogTrigger asChild>
-                  <Button size="sm" className="bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary/80 border-2 border-primary shadow-md font-medium">
-                    <Plus className="h-4 w-4 mr-2" />
-                    New Label
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="border-2 border-border bg-background/95 backdrop-blur-sm max-w-lg">
-                  <DialogHeader>
-                    <DialogTitle className="text-xl font-semibold text-foreground">Create New Label</DialogTitle>
-                    <p className="text-sm text-muted-foreground">Design a new label template for your printing needs</p>
-                  </DialogHeader>
-                  <div className="space-y-6 pt-6">
-                    <div className="space-y-3">
-                      <Label className="text-sm font-semibold text-foreground">Label Name</Label>
-                      <Input value={newLabelName} onChange={e => setNewLabelName(e.target.value)} placeholder="Enter a descriptive name for your label" className="border-2 border-input focus:border-primary/60 focus:ring-2 focus:ring-primary/20 h-11" />
-                    </div>
-                    <div className="space-y-3">
-                      <Label className="text-sm font-semibold text-foreground">Size Preset</Label>
-                      <Select value={isCustomSize ? 'custom' : selectedPreset} onValueChange={value => {
-                      if (value === 'custom') {
-                        setIsCustomSize(true);
-                      } else {
-                        setIsCustomSize(false);
-                        setSelectedPreset(value);
-                      }
-                    }}>
-                        <SelectTrigger className="border-2 border-input focus:border-primary/60 h-11">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="bg-background border-2 border-border shadow-lg z-50">
-                          {Object.entries(LABEL_PRESETS).map(([key, preset]) => <SelectItem key={key} value={key} className="hover:bg-accent/50">
-                              <div className="flex items-center justify-between w-full">
-                                <span className="font-medium">{key}</span>
-                                <span className="text-muted-foreground text-sm">({preset.width}×{preset.height}mm)</span>
-                              </div>
-                            </SelectItem>)}
-                          <SelectItem value="custom" className="hover:bg-accent/50 border-t border-border mt-2 pt-2">
-                            <span className="font-medium text-primary">Custom Size</span>
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    {isCustomSize && <div className="grid grid-cols-2 gap-4 p-4 border-2 border-dashed border-primary/30 rounded-xl bg-primary/5">
-                        <div className="space-y-2">
-                          <Label className="text-sm font-semibold text-foreground">Width (mm)</Label>
-                          <Input type="number" value={customWidth} onChange={e => setCustomWidth(Number(e.target.value))} placeholder="Width" min="1" max="500" className="border-2 border-input focus:border-primary/60 h-10" />
-                        </div>
-                        <div className="space-y-2">
-                          <Label className="text-sm font-semibold text-foreground">Height (mm)</Label>
-                          <Input type="number" value={customHeight} onChange={e => setCustomHeight(Number(e.target.value))} placeholder="Height" min="1" max="500" className="border-2 border-input focus:border-primary/60 h-10" />
-                        </div>
-                      </div>}
-                    <div className="flex justify-end gap-3 pt-6 border-t border-border">
-                      <Button variant="outline" onClick={() => setShowCreateDialog(false)} className="border-2 border-border hover:bg-muted/50">
-                        Cancel
-                      </Button>
-                      <Button onClick={handleCreateLabel} className="bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary/80 border-2 border-primary shadow-sm">
-                        Create Label
-                      </Button>
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
-              
-              {labelDoc && <Button variant="outline" size="sm" onClick={handlePreview} className="border-2 border-accent/40 hover:border-accent hover:bg-accent/10 text-accent-foreground font-medium shadow-sm">
-                  <Eye className="h-4 w-4 mr-2" />
-                  Preview
-                </Button>}
+            <div className="space-y-3">
+              <Label className="text-sm font-semibold text-foreground">Size Preset</Label>
+              <Select value={isCustomSize ? 'custom' : selectedPreset} onValueChange={value => {
+              if (value === 'custom') {
+                setIsCustomSize(true);
+              } else {
+                setIsCustomSize(false);
+                setSelectedPreset(value);
+              }
+            }}>
+                <SelectTrigger className="border-2 border-input focus:border-primary/60 h-11">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-background border-2 border-border shadow-lg z-50">
+                  {Object.entries(LABEL_PRESETS).map(([key, preset]) => <SelectItem key={key} value={key} className="hover:bg-accent/50">
+                      <div className="flex items-center justify-between w-full">
+                        <span className="font-medium">{key}</span>
+                        <span className="text-muted-foreground text-sm">({preset.width}×{preset.height}mm)</span>
+                      </div>
+                    </SelectItem>)}
+                  <SelectItem value="custom" className="hover:bg-accent/50 border-t border-border mt-2 pt-2">
+                    <span className="font-medium text-primary">Custom Size</span>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {isCustomSize && <div className="grid grid-cols-2 gap-4 p-4 border-2 border-dashed border-primary/30 rounded-xl bg-primary/5">
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold text-foreground">Width (mm)</Label>
+                  <Input type="number" value={customWidth} onChange={e => setCustomWidth(Number(e.target.value))} placeholder="Width" min="1" max="500" className="border-2 border-input focus:border-primary/60 h-10" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold text-foreground">Height (mm)</Label>
+                  <Input type="number" value={customHeight} onChange={e => setCustomHeight(Number(e.target.value))} placeholder="Height" min="1" max="500" className="border-2 border-input focus:border-primary/60 h-10" />
+                </div>
+              </div>}
+            <div className="flex justify-end gap-3 pt-6 border-t border-border">
+              <Button variant="outline" onClick={() => setShowCreateDialog(false)} className="border-2 border-border hover:bg-muted/50">
+                Cancel
+              </Button>
+              <Button onClick={handleCreateLabel} className="bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary/80 border-2 border-primary shadow-sm">
+                Create Label
+              </Button>
             </div>
           </div>
-          
-          {/* Status Bar */}
-          {labelDoc && <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-muted/30 to-muted/20 rounded-xl border-2 border-border/30">
-              <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary font-semibold px-3 py-1">
-                {labelDoc.name}
-              </Badge>
-              <Badge variant="secondary" className="bg-muted/60 border-2 border-border/50 font-medium">
-                {labelDoc.size.width}×{labelDoc.size.height}mm
-              </Badge>
-              {dataset && <Badge variant="secondary" className="bg-accent/20 border-2 border-accent/30 text-accent-foreground font-medium">
-                  <Database className="h-3 w-3 mr-1" />
-                  {dataset.name} ({dataset.rowCount} rows)
-                </Badge>}
-            </div>}
-        </div>
-      </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Main Content Area */}
       <div className="flex flex-col gap-8 p-8 flex-1 min-h-0">

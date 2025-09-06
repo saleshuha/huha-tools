@@ -1,0 +1,89 @@
+import React from 'react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
+
+interface HuhaHeader01Action {
+  label: string;
+  icon?: React.ReactNode;
+  onClick: () => void;
+  variant?: 'default' | 'outline' | 'secondary';
+  className?: string;
+}
+
+interface HuhaHeader01Badge {
+  label: string;
+  variant?: 'default' | 'secondary' | 'outline';
+  icon?: React.ReactNode;
+  className?: string;
+}
+
+interface HuhaHeader01Props {
+  icon: React.ReactNode;
+  title: string;
+  subtitle: string;
+  actions?: HuhaHeader01Action[];
+  badges?: HuhaHeader01Badge[];
+  className?: string;
+}
+
+export const HuhaHeader01: React.FC<HuhaHeader01Props> = ({
+  icon,
+  title,
+  subtitle,
+  actions = [],
+  badges = [],
+  className
+}) => {
+  return (
+    <div className={cn("border-b-2 border-border/50 bg-gradient-to-r from-card/80 to-card/60 backdrop-blur-md shadow-lg", className)}>
+      <div className="p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-md">
+                {icon}
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold bg-gradient-to-r from-primary via-primary/90 to-primary/70 bg-clip-text text-transparent">
+                  {title}
+                </h1>
+                <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            {actions.map((action, index) => (
+              <Button
+                key={index}
+                variant={action.variant || 'default'}
+                size="sm"
+                onClick={action.onClick}
+                className={cn(action.className)}
+              >
+                {action.icon}
+                {action.label}
+              </Button>
+            ))}
+          </div>
+        </div>
+        
+        {/* Status Bar */}
+        {badges.length > 0 && (
+          <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-muted/30 to-muted/20 rounded-xl border-2 border-border/30">
+            {badges.map((badge, index) => (
+              <Badge
+                key={index}
+                variant={badge.variant || 'default'}
+                className={cn(badge.className)}
+              >
+                {badge.icon}
+                {badge.label}
+              </Badge>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
