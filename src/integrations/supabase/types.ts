@@ -1309,6 +1309,7 @@ export type Database = {
           brand_code: string | null
           created_at: string
           file_name: string | null
+          file_upload_date: string | null
           fulfillment_timestamp: string | null
           id: string
           id_warehouse_configuration: string | null
@@ -1344,6 +1345,7 @@ export type Database = {
           brand_code?: string | null
           created_at?: string
           file_name?: string | null
+          file_upload_date?: string | null
           fulfillment_timestamp?: string | null
           id?: string
           id_warehouse_configuration?: string | null
@@ -1379,6 +1381,7 @@ export type Database = {
           brand_code?: string | null
           created_at?: string
           file_name?: string | null
+          file_upload_date?: string | null
           fulfillment_timestamp?: string | null
           id?: string
           id_warehouse_configuration?: string | null

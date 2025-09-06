@@ -54,10 +54,6 @@ interface NoonOrderData {
 }
 
 export function NoonOrdersUploader() {
-  const [preview, setPreview] = useState<NoonOrderData[]>([]);
-  const [fileName, setFileName] = useState<string>('');
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [selectedStoreId, setSelectedStoreId] = useState<string>('');
   const [uploading, setUploading] = useState(false);
   
@@ -89,13 +85,7 @@ export function NoonOrdersUploader() {
           const errors: string[] = [];
           
           if (missingHeaders.length > 0) {
-            errors.push(`Missing required headers: ${missingHeaders.join(', ')}`);
-          }
-
-          if (errors.length > 0) {
-            setValidationErrors(errors);
-            reject(new Error(errors.join('; ')));
-            return;
+            throw new Error(`Missing required headers: ${missingHeaders.join(', ')}`);
           }
 
           // Helper function to convert Excel serial date to ISO string
@@ -154,7 +144,6 @@ export function NoonOrdersUploader() {
             return order;
           });
 
-          setValidationErrors([]);
           resolve(orders);
         } catch (error) {
           reject(error);
@@ -166,30 +155,7 @@ export function NoonOrdersUploader() {
     });
   }, []);
 
-  const onDrop = useCallback(async (acceptedFiles: File[]) => {
-    const file = acceptedFiles[0];
-    if (!file) return;
-
-    setFileName(file.name);
-    setUploadProgress(0);
-    
-    try {
-      const orders = await parseFile(file);
-      setPreview(orders);
-      toast({
-        title: "File Parsed Successfully",
-        description: `Found ${orders.length} orders in the file`,
-      });
-    } catch (error) {
-      toast({
-        title: "File Parse Error",
-        description: error instanceof Error ? error.message : 'Failed to parse file',
-        variant: "destructive"
-      });
-    }
-  }, [parseFile, toast]);
-
-  const handleUpload = async () => {
+  const handleFileUpload = async (file: File) => {
     if (!selectedStoreId) {
       toast({
         title: "Store Required",
@@ -199,65 +165,40 @@ export function NoonOrdersUploader() {
       return;
     }
 
-    if (preview.length === 0) {
-      toast({
-        title: "No Data",
-        description: "Please upload a file first",
-        variant: "destructive"
-      });
-      return;
-    }
-
     setUploading(true);
-    setUploadProgress(0);
-
+    
     try {
+      const orders = await parseFile(file);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      // Prepare orders for database insert - exclude 'user' field as it maps to 'shipment_user'
-      const ordersToInsert = preview.map(order => {
-        const { user: orderUser, ...orderWithoutUser } = order; // Exclude 'user' field and rename it
+      // Prepare orders for database insert
+      const ordersToInsert = orders.map(order => {
+        const { user: orderUser, ...orderWithoutUser } = order;
         return {
           ...orderWithoutUser,
           user_id: user.id,
           selected_store_id: selectedStoreId,
-          file_name: fileName,
-          shipment_user: orderUser, // Map original 'user' field to 'shipment_user'
-          // Ensure required fields have defaults
+          file_name: file.name,
+          file_upload_date: new Date().toISOString(),
+          shipment_user: orderUser,
           quantity: order.quantity || 1,
           order_country_code: order.order_country_code || 'UAE'
         };
       });
 
-      // Insert in batches to show progress
-      const batchSize = 100;
-      let inserted = 0;
+      const { error } = await supabase
+        .from('noon_processing_orders')
+        .insert(ordersToInsert);
 
-      for (let i = 0; i < ordersToInsert.length; i += batchSize) {
-        const batch = ordersToInsert.slice(i, i + batchSize);
-        
-        const { error } = await supabase
-          .from('noon_processing_orders')
-          .insert(batch);
-
-        if (error) throw error;
-        
-        inserted += batch.length;
-        setUploadProgress((inserted / ordersToInsert.length) * 100);
-      }
+      if (error) throw error;
 
       toast({
         title: "Upload Successful",
-        description: `Successfully uploaded ${inserted} orders`,
+        description: `Successfully uploaded ${ordersToInsert.length} orders`,
       });
 
-      // Clear form
-      setPreview([]);
-      setFileName('');
-      setUploadProgress(0);
       setSelectedStoreId('');
-
     } catch (error) {
       console.error('Upload error:', error);
       toast({
@@ -270,167 +211,41 @@ export function NoonOrdersUploader() {
     }
   };
 
-  const clearPreview = () => {
-    setPreview([]);
-    setFileName('');
-    setValidationErrors([]);
-    setUploadProgress(0);
+  const handleFileSelect = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.xlsx,.xls,.csv';
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) {
+        handleFileUpload(file);
+      }
+    };
+    input.click();
   };
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: {
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
-      'application/vnd.ms-excel': ['.xls'],
-      'text/csv': ['.csv']
-    },
-    multiple: false
-  });
 
   return (
     <div className="space-y-6">
-      {/* Store Management */}
-      <NoonStoreManagement 
-        selectedStoreId={selectedStoreId}
-        onStoreChange={setSelectedStoreId}
-      />
-
-      {/* Processing Orders Table */}
+      {/* Processing Orders Table - Main Focus */}
       <NoonProcessingOrdersTable />
 
-      {/* File Upload */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Upload className="h-5 w-5" />
-            Upload Noon Orders File
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Validation Errors */}
-          {validationErrors.length > 0 && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                <ul className="list-disc list-inside space-y-1">
-                  {validationErrors.map((error, index) => (
-                    <li key={index}>{error}</li>
-                  ))}
-                </ul>
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {/* File Drop Zone */}
-          <div
-            {...getRootProps()}
-            className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
-              isDragActive 
-                ? 'border-primary bg-primary/5' 
-                : 'border-muted-foreground/25 hover:border-primary/50 hover:bg-primary/5'
-            }`}
-          >
-            <input {...getInputProps()} />
-            <FileSpreadsheet className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-            {isDragActive ? (
-              <p className="text-lg font-medium">Drop the file here...</p>
-            ) : (
-              <div>
-                <p className="text-lg font-medium mb-2">
-                  Drag & drop your Noon orders file here, or click to select
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Supports Excel (.xlsx, .xls) and CSV files
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* Expected Headers Info */}
-          <div className="bg-muted/50 rounded-lg p-4">
-            <h4 className="font-medium mb-2">Expected Headers:</h4>
-            <div className="flex flex-wrap gap-1">
-              {EXPECTED_HEADERS.map((header) => (
-                <Badge key={header} variant="outline" className="text-xs">
-                  {header}
-                </Badge>
-              ))}
-            </div>
-          </div>
-
-          {/* File Preview */}
-          {preview.length > 0 && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="h-5 w-5 text-green-500" />
-                  <span className="font-medium">File: {fileName}</span>
-                  <Badge>{preview.length} orders</Badge>
-                </div>
-                <Button variant="ghost" size="sm" onClick={clearPreview}>
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-
-              {/* Upload Progress */}
-              {uploading && (
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>Uploading orders...</span>
-                    <span>{Math.round(uploadProgress)}%</span>
-                  </div>
-                  <Progress value={uploadProgress} />
-                </div>
-              )}
-
-              {/* Preview Table */}
-              <div className="border rounded-lg overflow-hidden">
-                <div className="bg-muted p-3 font-medium">Preview (First 5 rows)</div>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b bg-muted/50">
-                        <th className="text-left p-2 text-xs">Order Nr</th>
-                        <th className="text-left p-2 text-xs">Purchase Item Nr</th>
-                        <th className="text-left p-2 text-xs">SKU</th>
-                        <th className="text-left p-2 text-xs">Title</th>
-                        <th className="text-left p-2 text-xs">Quantity</th>
-                        <th className="text-left p-2 text-xs">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {preview.slice(0, 5).map((order, index) => (
-                        <tr key={index} className="border-b">
-                          <td className="p-2 text-xs">{order.order_nr}</td>
-                          <td className="p-2 text-xs">{order.purchase_item_nr}</td>
-                          <td className="p-2 text-xs">{order.sku || 'N/A'}</td>
-                          <td className="p-2 text-xs max-w-[200px] truncate">{order.title || 'N/A'}</td>
-                          <td className="p-2 text-xs">{order.quantity || 1}</td>
-                          <td className="p-2 text-xs">{order.order_status || 'N/A'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Upload Actions */}
-              <div className="flex justify-end space-x-2">
-                <Button variant="outline" onClick={clearPreview} disabled={uploading}>
-                  Cancel
-                </Button>
-                <Button 
-                  onClick={handleUpload} 
-                  disabled={uploading || !selectedStoreId}
-                  className="bg-primary hover:bg-primary/90"
-                >
-                  {uploading ? 'Uploading...' : `Upload ${preview.length} Orders`}
-                </Button>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Simple Upload Section */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <NoonStoreManagement 
+            selectedStoreId={selectedStoreId}
+            onStoreChange={setSelectedStoreId}
+          />
+        </div>
+        <Button 
+          onClick={handleFileSelect}
+          disabled={uploading || !selectedStoreId}
+          className="flex items-center gap-2"
+        >
+          <Upload className="h-4 w-4" />
+          {uploading ? 'Uploading...' : 'Upload Orders File'}
+        </Button>
+      </div>
     </div>
   );
 }
