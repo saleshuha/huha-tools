@@ -15,6 +15,7 @@ import { FloatingProgressIndicator } from "@/components/FloatingProgressIndicato
 import { AppSidebar } from "@/components/AppSidebar";
 import { CountrySwitcher } from "@/components/CountrySwitcher";
 import { BackgroundTasksPanel } from "@/components/BackgroundTasksPanel";
+import { ThemeColorWidget } from "@/components/theme/ThemeColorWidget";
 import { Button } from "@/components/ui/button";
 import { Activity } from "lucide-react";
 import Index from "./pages/Index";
@@ -299,6 +300,7 @@ const App = () => {
                   isOpen={showBackgroundTasks} 
                   onClose={() => setShowBackgroundTasks(false)} 
                 />
+                <ThemeColorWidget />
               </SidebarProvider>
             </BrowserRouter>
           </BackgroundTasksProvider>
