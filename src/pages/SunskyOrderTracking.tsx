@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useSunskyOrders } from '@/hooks/useSunskyOrders';
 import { useCountry } from '@/contexts/CountryContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,10 +9,11 @@ import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { 
   ExternalLink, Search, RefreshCw, ChevronDown, ChevronUp,
-  Package, Clock, Truck, CheckCircle, AlertTriangle, AlertCircle 
+  Package, Clock, Truck, CheckCircle, AlertTriangle, AlertCircle, Eye
 } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { SunskyCredentialsSelector } from '@/components/SunskyCredentialsSelector';
+import { calculateOrderProgress, calculateItemsProgress } from '@/utils/sunsky-progress';
 
 // Status configurations for orders and items with Sunsky numeric status mapping
 const statusColors = {
@@ -83,12 +85,12 @@ interface SlowItem {
 }
 
 export default function SunskyOrderTrackingPage() {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
   const [slowItems, setSlowItems] = useState<SlowItem[]>([]);
   const [showOnlyPOLinked, setShowOnlyPOLinked] = useState(false);
-  const [fetchAllOrders, setFetchAllOrders] = useState(false);
   const [loadingLabels, setLoadingLabels] = useState<Set<string>>(new Set());
   const [orderLabels, setOrderLabels] = useState<Map<string, any[]>>(new Map());
   const [selectedCredentialId, setSelectedCredentialId] = useState<string | null>(null);
@@ -118,7 +120,7 @@ export default function SunskyOrderTrackingPage() {
         item.title?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     
-    const readableStatus = getReadableStatus(order.status);
+    const readableStatus = getReadableStatus(order.status || 'pending');
     const matchesStatus = selectedStatus === 'all' || 
                          readableStatus === selectedStatus ||
                          order.status === selectedStatus;
@@ -238,11 +240,11 @@ export default function SunskyOrderTrackingPage() {
   // Order statistics with proper status mapping
   const orderStats = {
     total: orders.length,
-    pending: orders.filter(o => getReadableStatus(o.status) === 'ordered' || o.status === 'pending').length,
-    unpaid: orders.filter(o => getReadableStatus(o.status) === 'unpaid').length,
-    paid: orders.filter(o => getReadableStatus(o.status) === 'paid').length,
-    shipped: orders.filter(o => getReadableStatus(o.status) === 'shipped').length,
-    delivered: orders.filter(o => getReadableStatus(o.status) === 'delivered').length,
+    pending: orders.filter(o => getReadableStatus(o.status || 'pending') === 'ordered' || o.status === 'pending').length,
+    unpaid: orders.filter(o => getReadableStatus(o.status || 'pending') === 'unpaid').length,
+    paid: orders.filter(o => getReadableStatus(o.status || 'pending') === 'paid').length,
+    shipped: orders.filter(o => getReadableStatus(o.status || 'pending') === 'shipped').length,
+    delivered: orders.filter(o => getReadableStatus(o.status || 'pending') === 'delivered').length,
     totalValue: orders.reduce((sum, order) => sum + (order.total || 0), 0)
   };
 
@@ -443,74 +445,214 @@ export default function SunskyOrderTrackingPage() {
                 Loading orders...
               </div>
             ) : filteredOrders.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p className="font-medium">No Sunsky orders found</p>
-                {!selectedCredentialId ? (
-                  <div className="mt-4 p-4 bg-orange-50 rounded-lg border border-orange-200 max-w-md mx-auto">
-                    <p className="text-sm text-orange-700 font-medium">Select Sunsky credentials above to sync orders</p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <p className="text-sm">No orders synced yet from Sunsky</p>
-                      <Button 
-                        onClick={() => syncOrdersFromAPI(selectedCredentialId)}
-                        disabled={syncing}
-                        className="mt-2 bg-gradient-primary hover:bg-gradient-primary/90"
-                      >
-                      <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
-                      Fetch All Orders from Sunsky
-                    </Button>
-                  </div>
-                )}
+              <div className="text-center py-8">
+                <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-muted-foreground">No orders found matching your criteria</p>
               </div>
             ) : (
               <div className="space-y-4">
-                {filteredOrders.map((order) => (
-                  <Card key={order.id} className="border-l-4 border-l-primary">
-                    <Collapsible 
-                      open={expandedOrders.has(order.number)}
-                      onOpenChange={() => toggleOrderExpansion(order.number)}
+                {filteredOrders.map((order) => {
+                  const isExpanded = expandedOrders.has(order.number);
+                  const labels = orderLabels.get(order.number) || [];
+                  const isLoadingLabels = loadingLabels.has(order.number);
+                  const orderProgress = calculateOrderProgress(order.status || 'pending');
+                  const itemsProgress = calculateItemsProgress(order.items || []);
+                  
+                  return (
+                    <div
+                      key={order.id}
+                      className="border border-border rounded-lg hover:shadow-medium transition-all duration-200 bg-card"
                     >
-                      <CollapsibleTrigger asChild>
-                        <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                              <div>
-                                <div className="font-bold text-lg">Order #{order.number}</div>
-                                <div className="text-sm text-muted-foreground">
-                                  Site: {order.site_number || 'N/A'} • Created: {formatDate(order.gmt_created)}
-                                </div>
-                              </div>
-                              {getStatusBadge(order.status || 'pending')}
+                      {/* Order Header - Clickable to view details */}
+                      <div 
+                        className="p-4 cursor-pointer hover:bg-muted/30 transition-colors"
+                        onClick={() => navigate(`/sunsky-order-details/${order.number}`)}
+                      >
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-2">
+                              <Eye className="h-4 w-4 text-primary" />
+                              <span className="font-mono text-sm font-semibold">
+                                #{order.number}
+                              </span>
                             </div>
                             
-                            <div className="flex items-center gap-4">
-                              <div className="text-right">
-                                <div className="font-bold">
-                                  {order.total ? formatCurrency(order.total, order.currency) : 'N/A'}
-                                </div>
-                                {order.tracking_number && (
-                                  <div className="text-xs text-muted-foreground font-mono">
-                                    {order.tracking_number}
-                                  </div>
-                                )}
+                            <div className="flex items-center gap-2">
+                              <Badge className={`${orderProgress.statusColor} text-white`}>
+                                {orderProgress.statusLabel}
+                              </Badge>
+                              {order.po_numbers && order.po_numbers.length > 0 && (
+                                <Badge variant="outline" className="text-blue-600 border-blue-300">
+                                  PO Linked
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                            <div className="flex items-center gap-1">
+                              <Package className="h-4 w-4" />
+                              {order.items?.length || 0} items
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Clock className="h-4 w-4" />
+                              {formatDate(order.gmt_created)}
+                            </div>
+                            {order.total && (
+                              <div className="font-semibold">
+                                {formatCurrency(order.total, order.currency)}
                               </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Progress Bar */}
+                        <div className="mb-3">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs text-muted-foreground">Order Progress</span>
+                            <span className="text-xs text-muted-foreground">{orderProgress.percentage}%</span>
+                          </div>
+                          <Progress value={orderProgress.percentage} className="h-2" />
+                        </div>
+
+                        {/* Items Progress Bar */}
+                        {order.items && order.items.length > 0 && (
+                          <div className="mb-3">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-xs text-muted-foreground">
+                                Items Progress ({itemsProgress.completedItems}/{itemsProgress.totalItems})
+                              </span>
+                              <span className="text-xs text-muted-foreground">{itemsProgress.percentage}%</span>
+                            </div>
+                            <Progress value={itemsProgress.percentage} className="h-1" />
+                          </div>
+                        )}
+                        
+                        {/* Order summary row */}
+                        <div className="flex items-center justify-between text-sm">
+                          <div className="text-muted-foreground">
+                            {order.shipping_company && (
+                              <span>via {order.shipping_company}</span>
+                            )}
+                            {order.tracking_number && (
+                              <span className="ml-2 font-mono">
+                                • Tracking: {order.tracking_number}
+                              </span>
+                            )}
+                          </div>
+                          
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-primary hover:text-primary-dark"
+                            >
+                              <Eye className="h-3 w-3 mr-1" />
+                              View Details
+                            </Button>
+                            
+                            {order.tracking_url && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleTrackingClick(order.tracking_url!);
+                                }}
+                              >
+                                <ExternalLink className="h-3 w-3 mr-1" />
+                                Track
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Quick Preview Section - Only for expanded orders */}
+                      <Collapsible
+                        open={isExpanded}
+                        onOpenChange={() => toggleOrderExpansion(order.number)}
+                      >
+                        <CollapsibleTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="w-full border-t border-border rounded-none rounded-b-lg h-8"
+                          >
+                            {isExpanded ? (
+                              <>
+                                <ChevronUp className="h-3 w-3 mr-1" />
+                                Hide Preview
+                              </>
+                            ) : (
+                              <>
+                                <ChevronDown className="h-3 w-3 mr-1" />
+                                Quick Preview
+                              </>
+                            )}
+                          </Button>
+                        </CollapsibleTrigger>
+                        
+                        <CollapsibleContent>
+                          <div className="border-t border-border p-4 bg-muted/30">
+                            <div className="space-y-4">
+                              {/* PO Numbers */}
+                              {order.po_numbers && order.po_numbers.length > 0 && (
+                                <div>
+                                  <h4 className="font-medium mb-2 text-sm">Linked PO Numbers</h4>
+                                  <div className="flex flex-wrap gap-2">
+                                    {order.po_numbers.map((poNumber, index) => (
+                                      <Badge key={index} variant="outline" className="font-mono text-xs">
+                                        {poNumber}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                               
-                              <div className="flex items-center gap-2">
-                                {order.tracking_url && (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleTrackingClick(order.tracking_url!);
-                                    }}
-                                  >
-                                    <ExternalLink className="h-3 w-3 mr-1" />
-                                    Track
-                                  </Button>
-                                )}
+                              {/* Top 3 Items Preview */}
+                              {order.items && order.items.length > 0 && (
+                                <div>
+                                  <h4 className="font-medium mb-2 text-sm">
+                                    Items Preview ({Math.min(3, order.items.length)} of {order.items.length})
+                                  </h4>
+                                  <div className="space-y-2">
+                                    {order.items.slice(0, 3).map((item, itemIndex) => (
+                                      <div 
+                                        key={item.id || itemIndex}
+                                        className="bg-card p-2 rounded border border-border text-xs"
+                                      >
+                                        <div className="flex items-center justify-between">
+                                          <div className="flex-1 min-w-0">
+                                            <p className="font-medium truncate">
+                                              {item.title || item.sku_code || 'Unknown Item'}
+                                            </p>
+                                            {item.sku_code && (
+                                              <p className="text-muted-foreground font-mono">
+                                                SKU: {item.sku_code}
+                                              </p>
+                                            )}
+                                          </div>
+                                          <div className="text-right ml-2">
+                                            {getStatusBadge(item.item_status || 'pending', isItemDelayed(item))}
+                                            <div className="text-muted-foreground mt-1">
+                                              Qty: {item.quantity || 1}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ))}
+                                    {order.items.length > 3 && (
+                                      <div className="text-center text-xs text-muted-foreground py-2">
+                                        +{order.items.length - 3} more items. Click "View Details" to see all.
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {/* Action buttons */}
+                              <div className="flex gap-2 pt-2 border-t border-border">
                                 <Button
                                   size="sm"
                                   variant="outline"
@@ -518,145 +660,29 @@ export default function SunskyOrderTrackingPage() {
                                     e.stopPropagation();
                                     handleGetLabels(order.number);
                                   }}
-                                  disabled={loadingLabels.has(order.number)}
+                                  disabled={isLoadingLabels}
                                 >
-                                  {loadingLabels.has(order.number) ? (
+                                  {isLoadingLabels ? (
                                     <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
                                   ) : (
                                     <Package className="h-3 w-3 mr-1" />
                                   )}
-                                  Labels
+                                  Get Labels
                                 </Button>
-                                {expandedOrders.has(order.number) ? (
-                                  <ChevronUp className="h-4 w-4" />
-                                ) : (
-                                  <ChevronDown className="h-4 w-4" />
+                                
+                                {labels.length > 0 && (
+                                  <Badge variant="outline" className="text-green-600 border-green-300">
+                                    {labels.length} labels available
+                                  </Badge>
                                 )}
                               </div>
                             </div>
                           </div>
-                        </CardHeader>
-                      </CollapsibleTrigger>
-                      
-                       <CollapsibleContent>
-                        <CardContent className="pt-0">
-                          <div className="border-t pt-4">
-                            {/* Labels section */}
-                            {orderLabels.has(order.number) && orderLabels.get(order.number)!.length > 0 && (
-                              <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                                <h4 className="font-medium text-blue-800 mb-2">Order Labels</h4>
-                                <div className="space-y-2">
-                                  {orderLabels.get(order.number)!.map((label, index) => (
-                                    <div key={index} className="flex items-center justify-between text-sm">
-                                      <span className="font-mono text-blue-700">{label.barcode}</span>
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => window.open(label.url, '_blank')}
-                                      >
-                                        <ExternalLink className="h-3 w-3 mr-1" />
-                                        View Label
-                                      </Button>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                            
-                            <h4 className="font-medium mb-3 flex items-center gap-2">
-                              <Package className="h-4 w-4" />
-                              Items ({order.items?.length || 0})
-                            </h4>
-                            
-                            {order.items && order.items.length > 0 ? (
-                              <div className="space-y-3">
-                                {order.items.map((item, index) => {
-                                  const delayed = isItemDelayed(item);
-                                  return (
-                                    <div key={index} className={`p-3 rounded border ${delayed ? 'border-orange-200 bg-orange-50' : 'border-border'}`}>
-                                      <div className="flex items-start justify-between">
-                                        <div className="flex-1">
-                                          <div className="font-medium">{item.title || 'Untitled Item'}</div>
-                                          <div className="text-sm text-muted-foreground space-y-1">
-                                            <div>SKU: {item.sku_code || 'N/A'}</div>
-                                            {item.model_number && <div>Model: {item.model_number}</div>}
-                                            <div>Quantity: {item.quantity || 'N/A'}</div>
-                                            {item.unit_price && (
-                                              <div>Price: {formatCurrency(item.unit_price, item.currency || 'USD')}</div>
-                                            )}
-                                          </div>
-                                        </div>
-                                        
-                                        <div className="ml-4 text-right space-y-2">
-                                          {item.item_status && getStatusBadge(item.item_status, delayed)}
-                                          
-                                          {item.expected_ship_date && (
-                                            <div className="text-xs text-muted-foreground">
-                                              Expected: {formatDate(item.expected_ship_date)}
-                                            </div>
-                                          )}
-                                          
-                                          {delayed && (
-                                            <div className="text-xs text-orange-600 font-medium">
-                                              {Math.floor((Date.now() - new Date(item.status_last_updated_at || item.created_at).getTime()) / (1000 * 60 * 60 * 24))} days in status
-                                            </div>
-                                          )}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            ) : (
-                              <div className="text-center py-4 text-muted-foreground">
-                                <div className="space-y-3">
-                                  <Package className="h-8 w-8 mx-auto opacity-50" />
-                                  <div>
-                                    <p className="text-sm font-medium">No items loaded for this order</p>
-                                     <p className="text-xs">
-                                       {order.status === 'unpaid' 
-                                         ? 'Order is not yet paid on Sunsky - item details unavailable'
-                                         : order.status === 'error'
-                                         ? 'Order has error status on Sunsky - items may not be available'
-                                         : order.status === 'api_error'
-                                         ? 'API credential or access issue - please check Sunsky credentials'
-                                         : 'Items may not have been fetched yet'}
-                                     </p>
-                                  </div>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={async (e) => {
-                                      e.stopPropagation();
-                                      await getOrderDetails(order.number, false, order.sunsky_credentials_id);
-                                    }}
-                                  >
-                                    <RefreshCw className="h-3 w-3 mr-1" />
-                                    Resync Details
-                                  </Button>
-                                </div>
-                              </div>
-                            )}
-                            
-                            {/* Show PO Numbers if available */}
-                            {order.po_numbers && order.po_numbers.length > 0 && (
-                              <div className="mt-3 pt-3 border-t">
-                                <div className="text-xs font-medium text-muted-foreground mb-1">Related PO Numbers:</div>
-                                <div className="flex flex-wrap gap-1">
-                                  {order.po_numbers.map((poNumber, index) => (
-                                    <Badge key={index} variant="outline" className="text-xs">
-                                      {poNumber}
-                                    </Badge>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </CardContent>
-                      </CollapsibleContent>
-                    </Collapsible>
-                  </Card>
-                ))}
+                        </CollapsibleContent>
+                      </Collapsible>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </CardContent>

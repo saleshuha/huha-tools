@@ -9,6 +9,8 @@ export interface SunskyOrder {
   status: string | null;
   site_number: string | null;
   gmt_created: string | null;
+  gmt_paid?: string | null;
+  gmt_shipped?: string | null;
   total: number | null;
   currency: string | null;
   shipping_company: string | null;

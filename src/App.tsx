@@ -50,6 +50,7 @@ import AddSKUPage from "./pages/AddSKUPage";
 import BulkColumnEditor from "./pages/BulkColumnEditor";
 import SunskySKUImporterPage from "./pages/SunskySKUImporter";
 import SunskyOrderTrackingPage from "./pages/SunskyOrderTracking";
+import SunskyOrderDetails from "./pages/SunskyOrderDetails";
 import NoonFileCleaner from "./pages/NoonFileCleaner";
 import AmazonVendorCentral from "./pages/AmazonVendorCentral";
 import LabelDesigner from "./pages/LabelDesigner";
@@ -254,6 +255,7 @@ const App = () => {
                         <Route path="/add-sku" element={<AddSKUPageWrapper />} />
                          <Route path="/sunsky-importer" element={<SunskySKUImporterPage />} />
                          <Route path="/sunsky-order-tracking" element={<SunskyOrderTrackingPage />} />
+                         <Route path="/sunsky-order-details/:orderNumber" element={<SunskyOrderDetails />} />
                          <Route path="/source-order-tracking" element={<SunskyOrderTrackingPage />} />
                          <Route path="/noon-order-tracking" element={<NoonOrderTrackingPage />} />
                          <Route path="/amazon-fulfillment" element={<AmazonFulfillmentTracker />} />
