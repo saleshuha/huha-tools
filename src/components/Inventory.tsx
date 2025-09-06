@@ -18,11 +18,11 @@ export function Inventory() {
         <div className="flex items-center justify-center mb-8">
           <div className="text-center">
             <div className="flex items-center justify-center gap-4 mb-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-orange-500 via-amber-500 to-yellow-500 rounded-2xl flex items-center justify-center shadow-lg shadow-orange-500/25">
+              <div className="w-12 h-12 bg-gradient-primary rounded-2xl flex items-center justify-center shadow-lg shadow-glow">
                 <Package className="w-7 h-7 text-white" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-orange-600 via-amber-600 to-yellow-600 bg-clip-text text-transparent">
+                <h1 className="text-3xl font-bold bg-gradient-to-r from-primary via-sky to-cyan bg-clip-text text-transparent">
                   Instock Inventory Management
                 </h1>
                 <p className="text-slate-600 dark:text-slate-400">Advanced Amazon ASIN tracking and analytics</p>
