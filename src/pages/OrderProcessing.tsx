@@ -1,4 +1,6 @@
 import { OrderProcessor } from '@/components/OrderProcessor';
+import { HuhaHeader01 } from '@/components/ui/huha-header-01';
+import { Package } from 'lucide-react';
 
 export default function OrderProcessingPage() {
   return (
@@ -13,15 +15,12 @@ export default function OrderProcessingPage() {
       
       {/* Enhanced Container with Proper Spacing */}
       <div className="relative z-10 app-container space-y-8 py-8 animate-fade-in">
-        {/* Enhanced Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-primary-dark bg-clip-text text-transparent mb-2">
-            📦 DF Order Processing
-          </h1>
-          <p className="text-muted-foreground text-lg">
-            Process customer orders and update inventory in real-time
-          </p>
-        </div>
+        <HuhaHeader01
+          icon={<Package className="w-5 h-5 text-primary-foreground" />}
+          title="DF Order Processing"
+          subtitle="Process customer orders and update inventory in real-time"
+          className="mb-8"
+        />
 
         <OrderProcessor />
       </div>
