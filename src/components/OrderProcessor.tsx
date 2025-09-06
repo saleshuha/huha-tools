@@ -601,17 +601,27 @@ export function OrderProcessor() {
   // Get matched orders (orders with inventory matches) filtered to current session only
   const matchedOrders = useMemo(() => {
     const today = new Date().toISOString().split('T')[0]; // Get today's date in YYYY-MM-DD format
+    console.log('Filtering matched orders for today:', today);
+    
     const matched = matchedItems
       .filter(m => m.inventoryMatch)
       .map(m => m.orderItem)
       .filter(order => {
         // Filter to show only orders that were uploaded/matched today (current session)
+        console.log('Order uploadDate:', order.uploadDate, 'Today:', today);
         if (order.uploadDate) {
-          return order.uploadDate === today;
+          const matches = order.uploadDate === today;
+          console.log('Date matches:', matches);
+          return matches;
         }
-        // Fallback: if no upload date, don't show the order
-        return false;
+        // Also include orders without upload date if they were just processed
+        const orderDate = new Date(order.orderPlaceDate || '').toISOString().split('T')[0];
+        const isToday = orderDate === today;
+        console.log('Fallback check - orderDate:', orderDate, 'isToday:', isToday);
+        return isToday;
       });
+    
+    console.log('Total matched orders after filtering:', matched.length);
     
     // Sort by order place date, then by order ID
     return matched.sort((a, b) => {
