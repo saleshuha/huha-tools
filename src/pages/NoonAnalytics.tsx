@@ -660,8 +660,7 @@ export default function NoonAnalytics() {
 
         {/* Analytics Tabs */}
         <HuhaTab01
-          defaultValue="trends"
-          value=""
+          value="trends"
           onValueChange={() => {}}
           items={[
             {
@@ -741,10 +740,6 @@ export default function NoonAnalytics() {
             }
           ]}
         />
-      </div>
-    </div>
-  );
-}
       </div>
     </div>
   );

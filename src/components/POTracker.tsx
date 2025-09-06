@@ -213,9 +213,8 @@ export const POTracker = () => {
         </CardHeader>
         <CardContent>
           <POFileUpload 
-            onUploadComplete={() => fetchPOOrders()}
-            onProgress={setProcessingProgress}
-            onStatusUpdate={setProcessingStatus}
+            onFilesUpload={() => {}}
+            isLoading={isLoading}
           />
         </CardContent>
       </Card>
