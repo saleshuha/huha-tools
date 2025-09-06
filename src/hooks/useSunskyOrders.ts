@@ -172,18 +172,33 @@ export const useSunskyOrders = () => {
         return;
       }
 
-      // Require credential to be selected for syncing
-      if (!credentialId) {
-        toast({
-          title: 'No Credentials Selected',
-          description: 'Please select Sunsky credentials before syncing orders.',
-          variant: 'destructive',
-        });
-        setState(prev => ({ ...prev, syncing: false }));
-        return;
+      // If no credential provided, try to get the first available active one
+      let finalCredentialId = credentialId;
+      if (!finalCredentialId) {
+        const { data: credentials, error: credError } = await supabase
+          .from('sunsky_credentials')
+          .select('id, name, is_active')
+          .eq('user_id', user.id)
+          .eq('is_active', true)
+          .limit(1);
+
+        if (credError) throw credError;
+
+        if (!credentials || credentials.length === 0) {
+          toast({
+            title: 'No Sunsky Credentials',
+            description: 'Please add your Sunsky API credentials before syncing orders.',
+            variant: 'destructive',
+          });
+          setState(prev => ({ ...prev, syncing: false }));
+          return;
+        }
+
+        finalCredentialId = credentials[0].id;
+        console.log('Using first available credential:', finalCredentialId);
       }
 
-      console.log('Syncing ALL Sunsky orders with credential:', credentialId);
+      console.log('Syncing ALL Sunsky orders with credential:', finalCredentialId);
 
       // Fetch ALL orders from Sunsky (not just app-related ones)
       console.log('🌍 Fetching ALL orders from Sunsky API...');
@@ -196,7 +211,7 @@ export const useSunskyOrders = () => {
       const { data, error } = await supabase.functions.invoke('sunsky-api', {
         body: {
           action: 'getAllOrders',
-          apiId: credentialId
+          apiId: finalCredentialId
         },
       });
 
@@ -232,7 +247,7 @@ export const useSunskyOrders = () => {
             body: {
               action: 'saveOrderWithItems',
               orderData: order,
-              apiId: credentialId
+              apiId: finalCredentialId
             },
           });
 

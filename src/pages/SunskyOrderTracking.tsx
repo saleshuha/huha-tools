@@ -263,7 +263,7 @@ export default function SunskyOrderTrackingPage() {
             <div className="flex flex-col sm:flex-row gap-2">
               <Button 
                 onClick={() => syncOrdersFromAPI(selectedCredentialId)}
-                disabled={syncing || !selectedCredentialId}
+                disabled={syncing}
                 variant="default"
                 className="bg-gradient-primary hover:bg-gradient-primary/90"
               >
