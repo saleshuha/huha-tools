@@ -53,7 +53,7 @@ export function DelayedItemsTab({
     };
 
     fetchDelayedItems();
-  }, [getSlowItems]);
+  }, []); // Remove getSlowItems dependency to prevent infinite loop
 
   // Get unique statuses for filter dropdown
   const uniqueStatuses = useMemo(() => {
