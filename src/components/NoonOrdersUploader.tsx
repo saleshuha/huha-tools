@@ -236,34 +236,43 @@ export function NoonOrdersUploader() {
       
       <Tabs defaultValue="orders" className="w-full relative z-10">
         <div className="bg-card/80 backdrop-blur-sm border-b border-border/60">
-          <div className="app-container py-4">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-primary via-emerald to-sky bg-clip-text text-transparent">
-                  🌙 Noon Orders Processing
-                </h1>
-                <p className="text-muted-foreground mt-1">
-                  Upload and manage Noon order files with advanced processing
-                </p>
+          <div className="app-container py-6">
+            {/* Simple Centered Header */}
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center gap-3 mb-4">
+                <div className="p-3 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 shadow-lg">
+                  <Package className="h-8 w-8 text-primary" />
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold text-foreground">
+                    Noon Orders Processing
+                  </h1>
+                  <p className="text-muted-foreground text-lg">
+                    Upload and manage your order files
+                  </p>
+                </div>
               </div>
             </div>
             
-            <TabsList className="grid w-full max-w-md grid-cols-2 bg-muted/50 p-1 h-auto">
-              <TabsTrigger 
-                value="orders" 
-                className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all duration-200"
-              >
-                <Package className="h-4 w-4" />
-                Processing Orders
-              </TabsTrigger>
-              <TabsTrigger 
-                value="stores" 
-                className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all duration-200"
-              >
-                <Store className="h-4 w-4" />
-                Store Management
-              </TabsTrigger>
-            </TabsList>
+            {/* Centered Tabs */}
+            <div className="flex justify-center">
+              <TabsList className="grid w-full max-w-md grid-cols-2 bg-muted/50 p-1 h-auto">
+                <TabsTrigger 
+                  value="orders" 
+                  className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all duration-200"
+                >
+                  <Package className="h-4 w-4" />
+                  Processing Orders
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="stores" 
+                  className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all duration-200"
+                >
+                  <Store className="h-4 w-4" />
+                  Store Management
+                </TabsTrigger>
+              </TabsList>
+            </div>
           </div>
         </div>
 
@@ -274,32 +283,25 @@ export function NoonOrdersUploader() {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-6">
-                    {/* Store Selection */}
+                    {/* Simple Store Dropdown */}
                     <div className="flex items-center gap-3">
                       <div className="p-2 rounded-lg bg-primary/10">
                         <Store className="h-5 w-5 text-primary" />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-sm font-medium text-foreground">Active Store</label>
-                        <NoonStoreManagement 
-                          selectedStoreId={selectedStoreId}
-                          onStoreChange={setSelectedStoreId}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Store Info */}
-                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50 border border-border/50">
-                      <div className="text-sm text-muted-foreground">
-                        {selectedStoreId && stores.length > 0 ? (
-                          <span className="text-foreground font-medium">
-                            {stores.find(s => s.id === selectedStoreId)?.name || 'Loading...'}
-                          </span>
-                        ) : selectedStoreId && stores.length === 0 ? (
-                          <span>Loading store...</span>
-                        ) : (
-                          <span>No store selected</span>
-                        )}
+                        <label className="text-sm font-medium text-foreground">Select Store</label>
+                        <select
+                          value={selectedStoreId}
+                          onChange={(e) => setSelectedStoreId(e.target.value)}
+                          className="px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm min-w-[200px] focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
+                        >
+                          <option value="">Choose a store...</option>
+                          {stores.map((store) => (
+                            <option key={store.id} value={store.id}>
+                              {store.name} ({store.country})
+                            </option>
+                          ))}
+                        </select>
                       </div>
                     </div>
                   </div>
