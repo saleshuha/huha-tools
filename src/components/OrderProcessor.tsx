@@ -598,11 +598,20 @@ export function OrderProcessor() {
     return statuses.sort();
   }, [allOrders]);
 
-  // Get matched orders (orders with inventory matches) - show all matched orders
+  // Get matched orders (orders with inventory matches) filtered to current session only
   const matchedOrders = useMemo(() => {
+    const today = new Date().toISOString().split('T')[0]; // Get today's date in YYYY-MM-DD format
     const matched = matchedItems
       .filter(m => m.inventoryMatch)
-      .map(m => m.orderItem);
+      .map(m => m.orderItem)
+      .filter(order => {
+        // Filter to show only orders that were uploaded/matched today (current session)
+        if (order.uploadDate) {
+          return order.uploadDate === today;
+        }
+        // Fallback: if no upload date, don't show the order
+        return false;
+      });
     
     // Sort by order place date, then by order ID
     return matched.sort((a, b) => {
