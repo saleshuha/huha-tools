@@ -363,25 +363,77 @@ export default function SunskyOrderTrackingPage() {
             </div>
           )}
 
-          {/* Delayed items alert */}
+          {/* Delayed Items Section */}
           {slowItems.length > 0 && (
-            <div className="mb-4 p-4 bg-orange-50 rounded-lg border border-orange-200">
-              <h3 className="font-medium text-orange-800 mb-2 flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4" />
-                Delayed Items ({slowItems.length})
-              </h3>
-              <div className="space-y-2">
-                {slowItems.slice(0, 5).map((item, index) => (
-                  <div key={index} className="text-sm text-orange-700 flex justify-between">
-                    <span>{item.title || item.sku_code} (Order: {item.order_number})</span>
-                    <span>{item.days_in_status} days in {item.item_status || 'current'} status</span>
-                  </div>
-                ))}
-                {slowItems.length > 5 && (
-                  <div className="text-xs text-orange-600">
-                    +{slowItems.length - 5} more delayed items
-                  </div>
-                )}
+            <div className="mb-6">
+              <div className="flex items-center gap-3 mb-4">
+                <AlertTriangle className="h-6 w-6 text-warning" />
+                <h2 className="text-xl font-semibold text-foreground">
+                  Delayed Items ({slowItems.length})
+                </h2>
+              </div>
+              
+              <div className="bg-card rounded-lg border shadow-sm">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="border-b bg-muted/50">
+                      <tr>
+                        <th className="text-left p-4 font-medium text-muted-foreground">Order Number</th>
+                        <th className="text-left p-4 font-medium text-muted-foreground">Item Details</th>
+                        <th className="text-left p-4 font-medium text-muted-foreground">Status</th>
+                        <th className="text-left p-4 font-medium text-muted-foreground">Days Delayed</th>
+                        <th className="text-left p-4 font-medium text-muted-foreground">Last Status Update</th>
+                        <th className="text-left p-4 font-medium text-muted-foreground">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {slowItems.map((item, index) => (
+                        <tr key={index} className="border-b last:border-b-0 hover:bg-muted/30">
+                          <td className="p-4">
+                            <div className="font-medium text-primary">
+                              {item.order_number}
+                            </div>
+                          </td>
+                          <td className="p-4">
+                            <div className="space-y-1">
+                              <div className="font-medium text-foreground">
+                                {item.title || item.sku_code}
+                              </div>
+                              {item.sku_code && item.title && (
+                                <div className="text-sm text-muted-foreground">
+                                  SKU: {item.sku_code}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="p-4">
+                            {getStatusBadge(item.item_status || 'unknown', true)}
+                          </td>
+                          <td className="p-4">
+                            <div className="flex items-center gap-2">
+                              <AlertTriangle className="h-4 w-4 text-warning" />
+                              <span className="font-medium text-warning">
+                                {item.days_in_status} days
+                              </span>
+                            </div>
+                          </td>
+                          <td className="p-4 text-muted-foreground">
+                            {(item as any).status_last_updated_at || (item as any).last_updated ? formatDate((item as any).status_last_updated_at || (item as any).last_updated) : 'N/A'}
+                          </td>
+                          <td className="p-4">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => toggleOrderExpansion(item.order_number)}
+                            >
+                              View Order
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           )}
