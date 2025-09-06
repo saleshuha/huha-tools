@@ -186,17 +186,20 @@ export function NoonOrdersUploader() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      // Prepare orders for database insert
-      const ordersToInsert = preview.map(order => ({
-        ...order,
-        user_id: user.id,
-        selected_store_id: selectedStoreId,
-        file_name: fileName,
-        shipment_user: order.user, // Map 'user' field to 'shipment_user'
-        // Ensure required fields have defaults
-        quantity: order.quantity || 1,
-        order_country_code: order.order_country_code || 'UAE'
-      }));
+      // Prepare orders for database insert - exclude 'user' field as it maps to 'shipment_user'
+      const ordersToInsert = preview.map(order => {
+        const { user: orderUser, ...orderWithoutUser } = order; // Exclude 'user' field and rename it
+        return {
+          ...orderWithoutUser,
+          user_id: user.id,
+          selected_store_id: selectedStoreId,
+          file_name: fileName,
+          shipment_user: orderUser, // Map original 'user' field to 'shipment_user'
+          // Ensure required fields have defaults
+          quantity: order.quantity || 1,
+          order_country_code: order.order_country_code || 'UAE'
+        };
+      });
 
       // Insert in batches to show progress
       const batchSize = 100;
