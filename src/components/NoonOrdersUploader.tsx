@@ -5,12 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { NoonStoreManagement } from '@/components/NoonStoreManagement';
 import { NoonProcessingOrdersTable } from '@/components/NoonProcessingOrdersTable';
 import { useNoonStores } from '@/hooks/useNoonStores';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, FileSpreadsheet, AlertCircle, CheckCircle, X } from 'lucide-react';
+import { Upload, FileSpreadsheet, AlertCircle, CheckCircle, X, Store, Package } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 // Expected headers for Noon orders
@@ -226,26 +227,60 @@ export function NoonOrdersUploader() {
 
   return (
     <div className="space-y-6">
-      {/* Processing Orders Table - Main Focus */}
-      <NoonProcessingOrdersTable />
+      <Tabs defaultValue="orders" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="orders" className="flex items-center gap-2">
+            <Package className="h-4 w-4" />
+            Processing Orders
+          </TabsTrigger>
+          <TabsTrigger value="stores" className="flex items-center gap-2">
+            <Store className="h-4 w-4" />
+            Store Management
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Simple Upload Section */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <NoonStoreManagement 
-            selectedStoreId={selectedStoreId}
-            onStoreChange={setSelectedStoreId}
-          />
-        </div>
-        <Button 
-          onClick={handleFileSelect}
-          disabled={uploading || !selectedStoreId}
-          className="flex items-center gap-2"
-        >
-          <Upload className="h-4 w-4" />
-          {uploading ? 'Uploading...' : 'Upload Orders File'}
-        </Button>
-      </div>
+        <TabsContent value="orders" className="space-y-4">
+          {/* Upload Section */}
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-muted-foreground">
+              {selectedStoreId ? (
+                <span>Selected Store: {stores.find(s => s.id === selectedStoreId)?.name || 'Unknown'}</span>
+              ) : (
+                <span>No store selected - go to Store Management tab to select a store</span>
+              )}
+            </div>
+            <Button 
+              onClick={handleFileSelect}
+              disabled={uploading || !selectedStoreId}
+              className="flex items-center gap-2"
+            >
+              <Upload className="h-4 w-4" />
+              {uploading ? 'Uploading...' : 'Upload Orders File'}
+            </Button>
+          </div>
+
+          {/* Processing Orders Table */}
+          <NoonProcessingOrdersTable />
+        </TabsContent>
+
+        <TabsContent value="stores" className="space-y-4">
+          {/* Store Management */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Store className="h-5 w-5" />
+                Noon Store Management
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <NoonStoreManagement 
+                selectedStoreId={selectedStoreId}
+                onStoreChange={setSelectedStoreId}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
