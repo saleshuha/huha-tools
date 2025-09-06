@@ -624,22 +624,9 @@ export const DateWiseOrderPrint: React.FC = () => {
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Date Selection */}
-        <div className="grid grid-cols-1 gap-4">
-          <div>
-            <Label>Filter By</Label>
-            <Select value={dateFilterType} onValueChange={(value: any) => setDateFilterType(value)}>
-              <SelectTrigger className="border-2 border-border">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="upload_date">Upload Date (when orders were imported)</SelectItem>
-                <SelectItem value="order_date">Order Date (when orders were placed)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          
-          <div>
+        {/* Date and Filter Controls */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="space-y-2">
             <Label>Date Range</Label>
             <Select value={dateRange} onValueChange={(value: any) => setDateRange(value)}>
               <SelectTrigger className="border-2 border-border">
@@ -654,67 +641,79 @@ export const DateWiseOrderPrint: React.FC = () => {
             </Select>
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <Label>Start Date</Label>
+          <div className="space-y-2">
+            <Label>Start Date</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className={cn("w-full justify-start text-left font-normal border-2 border-border", !selectedDate && "text-muted-foreground")}>
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {selectedDate ? format(selectedDate, "MMM dd, yyyy") : <span>Pick date</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0 bg-background border shadow-md">
+                <Calendar mode="single" selected={selectedDate} onSelect={(date) => date && setSelectedDate(date)} className="p-3 pointer-events-auto" />
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          {dateRange === 'custom' && (
+            <div className="space-y-2">
+              <Label>End Date</Label>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal border-2 border-border", !selectedDate && "text-muted-foreground")}>
+                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal border-2 border-border", !endDate && "text-muted-foreground")}>
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {selectedDate ? format(selectedDate, "MMM dd, yyyy") : <span>Pick date</span>}
+                    {endDate ? format(endDate, "MMM dd, yyyy") : <span>Pick date</span>}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0 bg-background border shadow-md">
-                  <Calendar mode="single" selected={selectedDate} onSelect={(date) => date && setSelectedDate(date)} className="p-3 pointer-events-auto" />
+                  <Calendar mode="single" selected={endDate} onSelect={(date) => date && setEndDate(date)} className="p-3 pointer-events-auto" />
                 </PopoverContent>
               </Popover>
             </div>
+          )}
 
-            {dateRange === 'custom' && (
-              <div>
-                <Label>End Date</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal border-2 border-border", !endDate && "text-muted-foreground")}>
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {endDate ? format(endDate, "MMM dd, yyyy") : <span>Pick date</span>}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0 bg-background border shadow-md">
-                    <Calendar mode="single" selected={endDate} onSelect={(date) => date && setEndDate(date)} className="p-3 pointer-events-auto" />
-                  </PopoverContent>
-                </Popover>
-              </div>
-            )}
+          <div className="space-y-2">
+            <Label>Filter By</Label>
+            <Select value={dateFilterType} onValueChange={(value: any) => setDateFilterType(value)}>
+              <SelectTrigger className="border-2 border-border">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="upload_date">Upload Date</SelectItem>
+                <SelectItem value="order_date">Order Date</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
+        </div>
 
-          <div className="flex gap-2">
-            <div className="flex-1">
-              <Label>Status Filter</Label>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="border-2 border-border">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Orders</SelectItem>
-                  <SelectItem value="processed">Processed</SelectItem>
-                  <SelectItem value="shipped">Shipped</SelectItem>
-                  <SelectItem value="delivered">Delivered</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex-1">
-              <Label>Print Format</Label>
-              <Select value={printSettings.format} onValueChange={(value: any) => setPrintSettings(prev => ({...prev, format: value}))}>
-                <SelectTrigger className="border-2 border-border">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="zpl">ZPL (Direct Print)</SelectItem>
-                  <SelectItem value="pdf">PDF (Preview)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+        {/* Status and Format Controls */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>Status Filter</Label>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="border-2 border-border">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Orders</SelectItem>
+                <SelectItem value="processed">Processed</SelectItem>
+                <SelectItem value="shipped">Shipped</SelectItem>
+                <SelectItem value="delivered">Delivered</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Print Format</Label>
+            <Select value={printSettings.format} onValueChange={(value: any) => setPrintSettings(prev => ({...prev, format: value}))}>
+              <SelectTrigger className="border-2 border-border">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="zpl">ZPL (Direct Print)</SelectItem>
+                <SelectItem value="pdf">PDF (Preview)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
