@@ -278,7 +278,7 @@ export const InventoryDataMapper: React.FC = () => {
 
         {/* Error Display */}
         {error && (
-          <div className="p-2 bg-destructive/10 border border-destructive/20 rounded-lg">
+          <div className="p-2 bg-destructive/10 border-2 border-destructive/20 rounded-lg">
             <p className="text-sm text-destructive">{error}</p>
           </div>
         )}

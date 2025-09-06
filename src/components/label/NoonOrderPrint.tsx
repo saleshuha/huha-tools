@@ -476,11 +476,11 @@ export const NoonOrderPrint: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <Card>
+      <Card className="border-2 border-border">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <CalendarIcon className="h-5 w-5" />
-            Noon Order Printing
+            Step 1: Noon Order Printing
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -684,10 +684,10 @@ export const NoonOrderPrint: React.FC = () => {
       </Card>
 
       {/* Orders List */}
-      <Card>
+      <Card className="border-2 border-border">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <CardTitle>Noon Orders</CardTitle>
+            <CardTitle>Step 2: Order Selection</CardTitle>
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="select-all"

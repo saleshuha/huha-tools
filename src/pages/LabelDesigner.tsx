@@ -9,6 +9,7 @@ import { DateWiseOrderPrint } from '@/components/label/DateWiseOrderPrint';
 import { NoonOrderPrint } from '@/components/label/NoonOrderPrint';
 import { PrintEligibleItems } from '@/components/label/PrintEligibleItems';
 import { DataPreviewPanel } from '@/components/label/DataPreviewPanel';
+import { StepperIndicator } from '@/components/label/StepperIndicator';
 import { PrintService } from '@/services/print-service';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -32,6 +33,7 @@ const LabelDesignerContent: React.FC = () => {
   const [customWidth, setCustomWidth] = useState(100);
   const [customHeight, setCustomHeight] = useState(50);
   const [isCustomSize, setIsCustomSize] = useState(false);
+  const [activeTab, setActiveTab] = useState('designer');
   const [printSettings, setPrintSettings] = useState<PrintSettings>({
     format: 'pdf',
     paperSize: 'a4',
@@ -266,7 +268,17 @@ const LabelDesignerContent: React.FC = () => {
         </div>
       </div>
       <div className="flex flex-col gap-6 p-6 bg-gradient-to-br from-background to-muted/20">
-        <Tabs defaultValue="amazon-orders" className="flex-1">
+        <StepperIndicator 
+          currentStep={
+            activeTab === 'designer' && !dataset ? 1 :
+            activeTab === 'designer' && !labelDoc ? 2 :
+            activeTab === 'designer' ? 3 :
+            4
+          }
+          hasDataset={!!dataset}
+          hasTemplate={!!labelDoc}
+        />
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
           <TabsList className="grid w-fit grid-cols-4 mb-6 bg-muted/50 border-2 border-border p-1 rounded-lg">
             <TabsTrigger 
               value="amazon-orders" 

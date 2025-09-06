@@ -129,7 +129,7 @@ export const LabelWorkspace: React.FC = () => {
     return handles.map(({ position, style }) => (
       <div
         key={position}
-        className="absolute w-2 h-2 bg-primary border border-white cursor-nw-resize z-10"
+        className="absolute w-2 h-2 bg-primary border-2 border-white cursor-nw-resize z-10"
         style={{
           ...style,
           cursor: position === 'nw' || position === 'se' ? 'nw-resize' : 'ne-resize'

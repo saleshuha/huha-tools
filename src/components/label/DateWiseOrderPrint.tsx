@@ -613,11 +613,11 @@ export const DateWiseOrderPrint: React.FC = () => {
   };
 
   return (
-    <Card className="w-full h-fit">
+    <Card className="w-full h-fit border-2 border-border">
       <CardHeader className="pb-3">
         <CardTitle className="text-lg flex items-center gap-2">
           <CalendarIcon className="h-5 w-5" />
-          Date-Wise Order Printing
+          Step 1: Date-Wise Order Printing
         </CardTitle>
         <p className="text-sm text-muted-foreground">
           Select orders by date to process labels for all available orders
@@ -886,8 +886,9 @@ export const DateWiseOrderPrint: React.FC = () => {
         </div>
 
         {/* Orders List */}
-        <div className="space-y-3">
+        <div className="space-y-3 p-4 border-2 border-border rounded-lg bg-card/50">
           <div className="flex items-center justify-between">
+            <h3 className="text-sm font-medium">Step 2: Order Selection & Stats</h3>
             <div className="flex items-center gap-2">
               <Badge variant="secondary">
                 {orders.length} orders found

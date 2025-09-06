@@ -590,7 +590,7 @@ export function LabelCanvas({ templateId, datasetId, onCanvasSizeChange, onCanva
           </CardHeader>
           <CardContent>
             <div className="flex justify-center">
-              <div className="border border-border rounded-lg overflow-hidden shadow-sm">
+              <div className="border-2 border-border rounded-lg overflow-hidden shadow-sm">
                 <canvas ref={canvasRef} />
               </div>
             </div>
@@ -684,7 +684,7 @@ export function LabelCanvas({ templateId, datasetId, onCanvasSizeChange, onCanva
                               <SelectTrigger className="h-8 text-xs">
                                 <SelectValue placeholder="Select column" />
                               </SelectTrigger>
-                              <SelectContent className="bg-background border border-border z-50">
+                              <SelectContent className="bg-background border-2 border-border z-50">
                                 <SelectItem value="none" className="text-xs">
                                   None
                                 </SelectItem>

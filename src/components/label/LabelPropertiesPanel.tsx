@@ -152,7 +152,7 @@ export const LabelPropertiesPanel: React.FC = () => {
                 <textarea
                   value={selectedElement.text || ''}
                   onChange={(e) => handleUpdate({ text: e.target.value })}
-                  className="w-full h-20 px-3 py-2 text-sm border border-input bg-background rounded-md resize-none"
+                  className="w-full h-20 px-3 py-2 text-sm border-2 border-input bg-background rounded-md resize-none"
                   placeholder="Enter long text that will wrap across multiple lines..."
                 />
               </div>

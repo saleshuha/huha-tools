@@ -122,7 +122,7 @@ export function DataMappingPanel({
         <CardContent className="space-y-4">
           {/* Mapping Status */}
           <div className={`flex items-center gap-2 p-3 rounded-lg ${
-            isMapped ? 'bg-success/10 border border-success/20' : 'bg-muted/50'
+            isMapped ? 'bg-success/10 border-2 border-success/20' : 'bg-muted/50'
           }`}>
             {isMapped ? (
               <CheckCircle className="w-4 h-4 text-success" />
@@ -313,7 +313,7 @@ export function DataMappingPanel({
 
                 {/* Validation Warnings */}
                 {validationErrors.length > 0 && (
-                  <div className="p-3 bg-warning/10 border border-warning/20 rounded-lg">
+                  <div className="p-3 bg-warning/10 border-2 border-warning/20 rounded-lg">
                     <div className="flex items-center gap-2 mb-2">
                       <AlertTriangle className="w-4 h-4 text-warning" />
                       <span className="text-sm font-medium text-warning">Validation Issues</span>
