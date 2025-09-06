@@ -87,6 +87,11 @@ export function OrderProcessor() {
   const [orderDateFilter, setOrderDateFilter] = useState('');
   const [uploadDateFilter, setUploadDateFilter] = useState('');
   const [orderStatusFilter, setOrderStatusFilter] = useState('all');
+  
+  // Matched orders filters
+  const [matchedOrderDateFilter, setMatchedOrderDateFilter] = useState('');
+  const [matchedUploadDateFilter, setMatchedUploadDateFilter] = useState('');
+  const [matchedOrderStatusFilter, setMatchedOrderStatusFilter] = useState('all');
 
   const {
     inventory: asinInventory,
@@ -598,30 +603,32 @@ export function OrderProcessor() {
     return statuses.sort();
   }, [allOrders]);
 
-  // Get matched orders (orders with inventory matches) filtered to current session only
+  // Get matched orders (orders with inventory matches) with filters applied
   const matchedOrders = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0]; // Get today's date in YYYY-MM-DD format
-    console.log('Filtering matched orders for today:', today);
-    
-    const matched = matchedItems
+    let matched = matchedItems
       .filter(m => m.inventoryMatch)
-      .map(m => m.orderItem)
-      .filter(order => {
-        // Filter to show only orders that were uploaded/matched today (current session)
-        console.log('Order uploadDate:', order.uploadDate, 'Today:', today);
-        if (order.uploadDate) {
-          const matches = order.uploadDate === today;
-          console.log('Date matches:', matches);
-          return matches;
-        }
-        // Also include orders without upload date if they were just processed
-        const orderDate = new Date(order.orderPlaceDate || '').toISOString().split('T')[0];
-        const isToday = orderDate === today;
-        console.log('Fallback check - orderDate:', orderDate, 'isToday:', isToday);
-        return isToday;
+      .map(m => m.orderItem);
+      
+    // Apply matched orders filters
+    if (matchedOrderDateFilter) {
+      matched = matched.filter(order => {
+        const orderDate = order.orderPlaceDate ? new Date(order.orderPlaceDate).toISOString().split('T')[0] : '';
+        return orderDate === matchedOrderDateFilter;
       });
+    }
     
-    console.log('Total matched orders after filtering:', matched.length);
+    if (matchedUploadDateFilter) {
+      matched = matched.filter(order => {
+        const uploadDate = order.uploadDate || '';
+        return uploadDate === matchedUploadDateFilter;
+      });
+    }
+    
+    if (matchedOrderStatusFilter && matchedOrderStatusFilter !== 'all') {
+      matched = matched.filter(order => 
+        order.orderStatus?.toLowerCase().includes(matchedOrderStatusFilter.toLowerCase())
+      );
+    }
     
     // Sort by order place date, then by order ID
     return matched.sort((a, b) => {
@@ -632,7 +639,7 @@ export function OrderProcessor() {
       }
       return a.orderId.localeCompare(b.orderId);
     });
-  }, [matchedItems]);
+  }, [matchedItems, matchedOrderDateFilter, matchedUploadDateFilter, matchedOrderStatusFilter]);
 
   // Get unmatched orders (orders without inventory matches) grouped by date
   const unmatchedOrders = useMemo(() => {
@@ -960,6 +967,83 @@ export function OrderProcessor() {
             </TabsContent>
 
             <TabsContent value="matched-orders" className="space-y-4">
+              {/* Enhanced Search and Filter Section for Matched Orders */}
+              <Card className="p-4 bg-gradient-to-r from-primary/5 via-card to-accent/5 border-primary/20">
+                <div className="flex items-center gap-2 mb-4">
+                  <Search className="w-4 h-4 text-primary" />
+                  <h4 className="font-semibold text-foreground">Filter Matched Orders</h4>
+                  <Badge variant="secondary" className="ml-auto text-xs">
+                    {matchedOrders.length} matched
+                  </Badge>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium flex items-center gap-2">
+                      <Clock className="w-3 h-3" />
+                      Order Date
+                    </Label>
+                    <Input 
+                      type="date" 
+                      value={matchedOrderDateFilter}
+                      onChange={(e) => setMatchedOrderDateFilter(e.target.value)}
+                      className="bg-background/80 border-primary/20 focus:border-primary"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium flex items-center gap-2">
+                      <FileSpreadsheet className="w-3 h-3" />
+                      Upload Date
+                    </Label>
+                    <Input 
+                      type="date" 
+                      value={matchedUploadDateFilter}
+                      onChange={(e) => setMatchedUploadDateFilter(e.target.value)}
+                      className="bg-background/80 border-primary/20 focus:border-primary"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium flex items-center gap-2">
+                      <Tag className="w-3 h-3" />
+                      Status
+                    </Label>
+                    <Select value={matchedOrderStatusFilter} onValueChange={setMatchedOrderStatusFilter}>
+                      <SelectTrigger className="bg-background/80 border-primary/20 focus:border-primary">
+                        <SelectValue placeholder="All Statuses" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Statuses</SelectItem>
+                        {uniqueStatuses.map(status => (
+                          <SelectItem key={status} value={status}>{status}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                
+                {(matchedOrderDateFilter || matchedUploadDateFilter || matchedOrderStatusFilter !== 'all') && (
+                  <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                    <div className="text-sm text-muted-foreground">
+                      Active filters applied
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => {
+                        setMatchedOrderDateFilter('');
+                        setMatchedUploadDateFilter('');
+                        setMatchedOrderStatusFilter('all');
+                      }}
+                      className="text-xs"
+                    >
+                      Clear Filters
+                    </Button>
+                  </div>
+                )}
+              </Card>
+
               {matchedOrders.length > 0 ? (
                 <div className="rounded-lg border overflow-hidden">
                   <Table>
