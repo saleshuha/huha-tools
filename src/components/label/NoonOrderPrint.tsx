@@ -22,16 +22,15 @@ import QZTrayPrinter from '@/utils/qz-tray-printer';
 interface NoonOrderToProcess {
   id: string;
   file_name: string;
-  sku?: string;
-  partner_sku?: string;
-  title?: string;
+  asin_code?: string;
+  sku_code?: string;
+  product_title?: string;
   quantity: number;
-  order_nr?: string;
-  order_received_at: string;
-  item_status: string;
+  order_number?: string;
+  order_date: string;
+  status: string;
+  has_match: boolean;
   printable: boolean;
-  purchase_item_nr: string;
-  order_status?: string;
 }
 
 export const NoonOrderPrint: React.FC = () => {
@@ -180,18 +179,17 @@ export const NoonOrderPrint: React.FC = () => {
       const formattedOrders: NoonOrderToProcess[] = (data || []).map((order: any) => ({
         id: order.id,
         file_name: order.file_name || 'Unknown File',
-        sku: order.sku || '',
-        partner_sku: order.partner_sku || '',
-        title: order.title || order.sku || 'Unknown Product',
+        asin_code: order.purchase_item_nr || '',
+        sku_code: order.sku || order.partner_sku || '',
+        product_title: order.title || order.sku || 'Unknown Product',
         quantity: order.quantity || 1,
-        order_nr: order.order_nr || '',
-        order_received_at: dateFilterType === 'order_date' && order.order_received_at 
+        order_number: order.order_nr || '',
+        order_date: dateFilterType === 'order_date' && order.order_received_at 
           ? format(new Date(order.order_received_at), 'MMM dd, yyyy')
           : format(new Date(order.created_at), 'MMM dd, yyyy HH:mm'),
-        item_status: order.item_status || 'pending',
+        status: order.item_status || 'pending',
+        has_match: false, // Not used anymore, replaced by printable
         printable: true, // For now, all noon orders are printable
-        purchase_item_nr: order.purchase_item_nr || '',
-        order_status: order.order_status || 'pending',
       }));
 
       setOrders(formattedOrders);
@@ -233,9 +231,8 @@ export const NoonOrderPrint: React.FC = () => {
     
     const headers = [
       'Order Number',
-      'Purchase Item Number',
+      'ASIN',
       'SKU',
-      'Partner SKU',
       'Title',
       'Quantity',
       'Order Date',
@@ -250,14 +247,13 @@ export const NoonOrderPrint: React.FC = () => {
       selectedOrderData.forEach(order => {
         for (let i = 0; i < order.quantity; i++) {
           data.push([
-            order.order_nr || '',
-            order.purchase_item_nr || '',
-            order.sku || '',
-            order.partner_sku || '',
-            order.title || '',
+            order.order_number || '',
+            order.asin_code || '',
+            order.sku_code || '',
+            order.product_title || '',
             '1', // Each label represents quantity of 1
-            order.order_received_at,
-            order.item_status,
+            order.order_date,
+            order.status,
             order.file_name
           ]);
         }
@@ -265,14 +261,13 @@ export const NoonOrderPrint: React.FC = () => {
     } else {
       // Single row per order
       data = selectedOrderData.map(order => [
-        order.order_nr || '',
-        order.purchase_item_nr || '',
-        order.sku || '',
-        order.partner_sku || '',
-        order.title || '',
+        order.order_number || '',
+        order.asin_code || '',
+        order.sku_code || '',
+        order.product_title || '',
         order.quantity.toString(),
-        order.order_received_at,
-        order.item_status,
+        order.order_date,
+        order.status,
         order.file_name
       ]);
     }
@@ -480,7 +475,7 @@ export const NoonOrderPrint: React.FC = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <CalendarIcon className="h-5 w-5" />
-            Step 1: Noon Order Printing
+            Date-wise Order Printing (Noon)
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -726,23 +721,23 @@ export const NoonOrderPrint: React.FC = () => {
                     />
                     <div className="flex-1 grid grid-cols-1 md:grid-cols-5 gap-2">
                       <div>
-                        <p className="font-medium text-sm">{order.order_nr}</p>
-                        <p className="text-xs text-muted-foreground">{order.purchase_item_nr}</p>
+                        <p className="font-medium text-sm">{order.order_number}</p>
+                        <p className="text-xs text-muted-foreground">{order.asin_code}</p>
                       </div>
                       <div>
-                        <p className="text-sm">{order.sku}</p>
-                        <p className="text-xs text-muted-foreground">{order.partner_sku}</p>
+                        <p className="text-sm">{order.sku_code}</p>
+                        <p className="text-xs text-muted-foreground">SKU Code</p>
                       </div>
                       <div>
-                        <p className="text-sm truncate" title={order.title}>
-                          {order.title}
+                        <p className="text-sm truncate" title={order.product_title}>
+                          {order.product_title}
                         </p>
                         <p className="text-xs text-muted-foreground">Qty: {order.quantity}</p>
                       </div>
                       <div>
-                        <p className="text-sm">{order.order_received_at}</p>
+                        <p className="text-sm">{order.order_date}</p>
                         <Badge variant="outline" className="text-xs">
-                          {order.item_status}
+                          {order.status}
                         </Badge>
                       </div>
                       <div>
