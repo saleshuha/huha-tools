@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { DatePickerWithRange } from "@/components/ui/date-range-picker";
-import { Search, Plus, Download, AlertCircle, CheckCircle2, Package, Globe, Calendar, RefreshCw, Filter, Grid, List, Settings, Eye, Save, RotateCcw, Play, Pause, X, PauseCircle, PlayCircle, XCircle, Trash2, ChevronDown } from "lucide-react";
+import { Search, Plus, Download, AlertCircle, CheckCircle2, Package, Globe, Calendar, RefreshCw, Filter, Grid, List, Settings, Eye, Save, RotateCcw, Play, Pause, X, PauseCircle, PlayCircle, XCircle, Trash2, ChevronDown, Database } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -1931,66 +1931,107 @@ export const SunskySKUImporter: React.FC = () => {
   }, [selectedCategory, selectedSearchAPI]);
 
   return (
-    <div className="container mx-auto p-6 space-y-8">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Sunsky SKU Importer</h1>
-          <p className="text-muted-foreground">
-            Search, view, and import products from Sunsky marketplace
-          </p>
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/5">
+      {/* Hero Header Section */}
+      <div className="relative overflow-hidden border-b bg-gradient-to-r from-primary/10 via-primary/5 to-transparent">
+        <div className="absolute inset-0 bg-grid-white/10 bg-[size:20px_20px] [mask-image:radial-gradient(white,transparent_70%)]" />
+        <div className="container relative mx-auto px-6 py-12">
+          <div className="mx-auto max-w-4xl text-center">
+            <div className="mb-4 inline-flex items-center rounded-full border bg-background/50 px-4 py-2 text-sm backdrop-blur-sm">
+              <span className="mr-2 h-2 w-2 rounded-full bg-green-500"></span>
+              Sunsky Marketplace Integration
+            </div>
+            <h1 className="mb-4 text-4xl font-bold tracking-tight bg-gradient-primary bg-clip-text text-transparent sm:text-5xl">
+              Sunsky SKU Importer
+            </h1>
+            <p className="mx-auto max-w-2xl text-xl text-muted-foreground">
+              Search, view, and import products from Sunsky marketplace with advanced filtering and bulk operations
+            </p>
+          </div>
         </div>
       </div>
+      
+      <div className="container mx-auto px-6 py-8 space-y-8">
+        {!hasCredentials && (
+          <Alert className="border-destructive/50 bg-destructive/5">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Please configure your Sunsky API credentials in the Settings tab to start importing SKUs.
+            </AlertDescription>
+          </Alert>
+        )}
 
-      {!hasCredentials && (
-        <Alert>
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            Please configure your Sunsky API credentials in the Settings tab to start importing SKUs.
-          </AlertDescription>
-        </Alert>
-      )}
-
-      <Tabs defaultValue="search" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="search">Search & Import</TabsTrigger>
-          <TabsTrigger value="jobs">Import Jobs</TabsTrigger>
-          <TabsTrigger value="skus">Imported SKUs</TabsTrigger>
-          <TabsTrigger value="export-status">Export by Status</TabsTrigger>
-          <TabsTrigger value="settings">Settings</TabsTrigger>
-        </TabsList>
+        <Tabs defaultValue="search" className="w-full">
+          <TabsList className="grid w-full grid-cols-5 h-12 bg-muted/50 border-2 border-border/50 rounded-lg p-1">
+            <TabsTrigger 
+              value="search" 
+              className="h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all duration-200"
+            >
+              <Search className="h-4 w-4 mr-2" />
+              Search & Import
+            </TabsTrigger>
+            <TabsTrigger 
+              value="jobs"
+              className="h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all duration-200"
+            >
+              <Package className="h-4 w-4 mr-2" />
+              Import Jobs
+            </TabsTrigger>
+            <TabsTrigger 
+              value="skus"
+              className="h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all duration-200"
+            >
+              <Database className="h-4 w-4 mr-2" />
+              Imported SKUs
+            </TabsTrigger>
+            <TabsTrigger 
+              value="export-status"
+              className="h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all duration-200"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Export by Status
+            </TabsTrigger>
+            <TabsTrigger 
+              value="settings"
+              className="h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all duration-200"
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              Settings
+            </TabsTrigger>
+          </TabsList>
         
-        <TabsContent value="search" className="space-y-6">
-          {/* Search Filters */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Search className="h-5 w-5" />
-                Search Products
-              </CardTitle>
-              <CardDescription>
-                Search and filter products from Sunsky marketplace
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* API Selection for Search */}
-              <div className="space-y-2">
-                <Label htmlFor="search-api">Select API for Search</Label>
-                <Select value={selectedSearchAPI} onValueChange={setSelectedSearchAPI}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose API credentials" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableAPIs.map((api) => (
-                      <SelectItem key={api.id} value={api.id}>
-                        <div className="flex items-center gap-2">
-                          <div className={`w-2 h-2 rounded-full ${api.is_active ? 'bg-green-500' : 'bg-red-500'}`} />
-                          {api.name}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+          <TabsContent value="search" className="space-y-6">
+            {/* Search Filters */}
+            <Card className="border-2 border-border/50 bg-card/50 backdrop-blur-sm shadow-lg">
+              <CardHeader className="bg-gradient-to-r from-primary/5 to-transparent border-b">
+                <CardTitle className="flex items-center gap-2">
+                  <Search className="h-5 w-5 text-primary" />
+                  Search Products
+                </CardTitle>
+                <CardDescription>
+                  Search and filter products from Sunsky marketplace
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6 p-6">
+                {/* API Selection for Search */}
+                <div className="space-y-3">
+                  <Label htmlFor="search-api" className="text-sm font-semibold">Select API for Search</Label>
+                  <Select value={selectedSearchAPI} onValueChange={setSelectedSearchAPI}>
+                    <SelectTrigger className="h-11 border-2 border-input bg-background/50 hover:border-primary/50 transition-colors">
+                      <SelectValue placeholder="Choose API credentials" />
+                    </SelectTrigger>
+                    <SelectContent className="border-2">
+                      {availableAPIs.map((api) => (
+                        <SelectItem key={api.id} value={api.id}>
+                          <div className="flex items-center gap-2">
+                            <div className={`w-2 h-2 rounded-full ${api.is_active ? 'bg-green-500' : 'bg-red-500'}`} />
+                            {api.name}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
               {/* PO Model Numbers Search Progress */}
               {isSearchingPO && (
@@ -2088,116 +2129,120 @@ export const SunskySKUImporter: React.FC = () => {
                 </Card>
               )}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="search">Search Term</Label>
-                  <Input
-                    id="search"
-                    placeholder="Enter product name or keyword..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="category">Main Category</Label>
-                  <Select value={selectedCategory} onValueChange={setSelectedCategory} disabled={fetchingCategories}>
-                    <SelectTrigger>
-                      <SelectValue placeholder={fetchingCategories ? "Loading categories..." : "Select main category"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Categories</SelectItem>
-                      {categories.filter(category => category.id && category.name).map((category) => (
-                        <SelectItem key={category.id} value={category.id.toString()}>
-                          {category.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {(subCategories.length > 0 || fetchingSubCategories) && (
-                  <div className="space-y-2">
-                    <Label htmlFor="subcategory">Sub-Category</Label>
-                    <Select value={selectedSubCategory} onValueChange={setSelectedSubCategory} disabled={fetchingSubCategories}>
-                      <SelectTrigger>
-                        <SelectValue placeholder={fetchingSubCategories ? "Loading subcategories..." : "Select sub-category"} />
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div className="space-y-3">
+                    <Label htmlFor="search" className="text-sm font-semibold">Search Term</Label>
+                    <Input
+                      id="search"
+                      placeholder="Enter product name or keyword..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="h-11 border-2 border-input bg-background/50 hover:border-primary/50 focus:border-primary transition-colors"
+                    />
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <Label htmlFor="category" className="text-sm font-semibold">Main Category</Label>
+                    <Select value={selectedCategory} onValueChange={setSelectedCategory} disabled={fetchingCategories}>
+                      <SelectTrigger className="h-11 border-2 border-input bg-background/50 hover:border-primary/50 transition-colors">
+                        <SelectValue placeholder={fetchingCategories ? "Loading categories..." : "Select main category"} />
                       </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Sub-Categories</SelectItem>
-                        {subCategories.filter(subCategory => subCategory.id && subCategory.name).map((subCategory) => (
-                          <SelectItem key={subCategory.id} value={subCategory.id.toString()}>
-                            {subCategory.name}
+                      <SelectContent className="border-2">
+                        <SelectItem value="all">All Categories</SelectItem>
+                        {categories.filter(category => category.id && category.name).map((category) => (
+                          <SelectItem key={category.id} value={category.id.toString()}>
+                            {category.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                    {subCategories.length === 0 && !fetchingSubCategories && (
-                      <p className="text-sm text-muted-foreground">No subcategories available for this category</p>
+                  </div>
+
+                  {(subCategories.length > 0 || fetchingSubCategories) && (
+                    <div className="space-y-3">
+                      <Label htmlFor="subcategory" className="text-sm font-semibold">Sub-Category</Label>
+                      <Select value={selectedSubCategory} onValueChange={setSelectedSubCategory} disabled={fetchingSubCategories}>
+                        <SelectTrigger className="h-11 border-2 border-input bg-background/50 hover:border-primary/50 transition-colors">
+                          <SelectValue placeholder={fetchingSubCategories ? "Loading subcategories..." : "Select sub-category"} />
+                        </SelectTrigger>
+                        <SelectContent className="border-2">
+                          <SelectItem value="all">All Sub-Categories</SelectItem>
+                          {subCategories.filter(subCategory => subCategory.id && subCategory.name).map((subCategory) => (
+                            <SelectItem key={subCategory.id} value={subCategory.id.toString()}>
+                              {subCategory.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {subCategories.length === 0 && !fetchingSubCategories && (
+                        <p className="text-sm text-muted-foreground">No subcategories available for this category</p>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="space-y-3">
+                    <Label htmlFor="brand" className="text-sm font-semibold">Brand</Label>
+                    <Select value={selectedBrand} onValueChange={setSelectedBrand} disabled={fetchingBrands}>
+                      <SelectTrigger className="h-11 border-2 border-input bg-background/50 hover:border-primary/50 transition-colors">
+                        <SelectValue placeholder={fetchingBrands ? "Loading brands..." : "Select brand"} />
+                      </SelectTrigger>
+                      <SelectContent className="border-2">
+                        <SelectItem value="all">All Brands</SelectItem>
+                        {brands.filter(brand => brand.id && brand.name).map((brand) => (
+                          <SelectItem key={brand.id} value={brand.id.toString()}>
+                            {brand.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {brands.length === 0 && !fetchingBrands && (
+                      <p className="text-sm text-muted-foreground">No brands available for this category</p>
                     )}
                   </div>
-                )}
 
-                <div className="space-y-2">
-                  <Label htmlFor="brand">Brand</Label>
-                  <Select value={selectedBrand} onValueChange={setSelectedBrand} disabled={fetchingBrands}>
-                    <SelectTrigger>
-                      <SelectValue placeholder={fetchingBrands ? "Loading brands..." : "Select brand"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Brands</SelectItem>
-                      {brands.filter(brand => brand.id && brand.name).map((brand) => (
-                        <SelectItem key={brand.id} value={brand.id.toString()}>
-                          {brand.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {brands.length === 0 && !fetchingBrands && (
-                    <p className="text-sm text-muted-foreground">No brands available for this category</p>
-                  )}
-                </div>
+                  <div className="space-y-3">
+                    <Label htmlFor="price-min" className="text-sm font-semibold">Min Price ($)</Label>
+                    <Input
+                      id="price-min"
+                      type="number"
+                      placeholder="0.00"
+                      value={priceMin}
+                      onChange={(e) => setPriceMin(e.target.value)}
+                      className="h-11 border-2 border-input bg-background/50 hover:border-primary/50 focus:border-primary transition-colors"
+                    />
+                  </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="price-min">Min Price ($)</Label>
-                  <Input
-                    id="price-min"
-                    type="number"
-                    placeholder="0.00"
-                    value={priceMin}
-                    onChange={(e) => setPriceMin(e.target.value)}
-                  />
-                </div>
+                  <div className="space-y-3">
+                    <Label htmlFor="price-max" className="text-sm font-semibold">Max Price ($)</Label>
+                    <Input
+                      id="price-max"
+                      type="number"
+                      placeholder="1000.00"
+                      value={priceMax}
+                      onChange={(e) => setPriceMax(e.target.value)}
+                      className="h-11 border-2 border-input bg-background/50 hover:border-primary/50 focus:border-primary transition-colors"
+                    />
+                  </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="price-max">Max Price ($)</Label>
-                  <Input
-                    id="price-max"
-                    type="number"
-                    placeholder="1000.00"
-                    value={priceMax}
-                    onChange={(e) => setPriceMax(e.target.value)}
-                  />
-                </div>
+                  <div className="space-y-3">
+                    <Label htmlFor="stock-min" className="text-sm font-semibold">Min Stock</Label>
+                    <Input
+                      id="stock-min"
+                      type="number"
+                      placeholder="1"
+                      value={stockMin}
+                      onChange={(e) => setStockMin(e.target.value)}
+                      className="h-11 border-2 border-input bg-background/50 hover:border-primary/50 focus:border-primary transition-colors"
+                    />
+                  </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="stock-min">Min Stock</Label>
-                  <Input
-                    id="stock-min"
-                    type="number"
-                    placeholder="1"
-                    value={stockMin}
-                    onChange={(e) => setStockMin(e.target.value)}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="lead-time">Lead Time Level</Label>
-                  <Select value={leadTimeLevel} onValueChange={setLeadTimeLevel}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Any lead time" />
-                    </SelectTrigger>
-                    <SelectContent>
+                  <div className="space-y-3">
+                    <Label htmlFor="lead-time" className="text-sm font-semibold">Lead Time Level</Label>
+                    <Select value={leadTimeLevel} onValueChange={setLeadTimeLevel}>
+                      <SelectTrigger className="h-11 border-2 border-input bg-background/50 hover:border-primary/50 transition-colors">
+                        <SelectValue placeholder="Any lead time" />
+                      </SelectTrigger>
+                      <SelectContent className="border-2">
                       <SelectItem value="any">Any</SelectItem>
                       <SelectItem value="1">1-3 days</SelectItem>
                       <SelectItem value="2">4-7 days</SelectItem>
@@ -4080,6 +4125,7 @@ export const SunskySKUImporter: React.FC = () => {
         onDownload={handleExportHistoryDownload}
         onRerun={handleExportHistoryRerun}
       />
+      </div>
     </div>
   );
 };
