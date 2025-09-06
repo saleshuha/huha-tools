@@ -129,7 +129,7 @@ export const useSunskyOrders = () => {
         .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
         .order('gmt_created', { ascending: false })
         .order('created_at', { ascending: false })
-        .limit(50000); // Increase limit to handle large datasets
+        .range(0, 49999); // Use range instead of limit to get up to 50,000 orders
 
       if (showOnlyPOLinked) {
         // Only show orders that have PO relationships
