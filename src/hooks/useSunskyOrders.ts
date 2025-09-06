@@ -85,7 +85,7 @@ export const useSunskyOrders = () => {
     try {
       console.log('🔄 Fetching ALL synced Sunsky orders from database...');
 
-      // Query the sunsky_orders table directly to get ALL synced orders
+      // Query the sunsky_orders table directly to get ALL synced orders without limits
       let query = supabase
         .from('sunsky_orders')
         .select(`
@@ -125,20 +125,24 @@ export const useSunskyOrders = () => {
             raw,
             created_at
           )
-        `)
+        `, { count: 'exact' })
         .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
         .order('gmt_created', { ascending: false })
         .order('created_at', { ascending: false })
-        .range(0, 49999); // Use range instead of limit to get up to 50,000 orders
 
       if (showOnlyPOLinked) {
         // Only show orders that have PO relationships
         query = query.not('po_numbers', 'is', null);
       }
 
-      const { data: allOrders, error } = await query;
+      const { data: allOrders, error, count } = await query;
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Supabase query error:', error);
+        throw error;
+      }
+
+      console.log(`📊 Query returned ${allOrders?.length || 0} orders, total count: ${count || 'unknown'}`);
 
       // Format the orders to match the expected structure
       const ordersWithData: SunskyOrder[] = (allOrders || []).map((order: any) => ({
@@ -147,7 +151,15 @@ export const useSunskyOrders = () => {
         credential_name: null // We'll fetch this separately if needed
       }));
 
-      console.log(`📊 Found ${ordersWithData.length} synced Sunsky orders`);
+      console.log(`📊 Found ${ordersWithData.length} synced Sunsky orders (total in DB: ${count || 'unknown'})`);
+      if (count && count > ordersWithData.length) {
+        console.warn(`⚠️ Only showing ${ordersWithData.length} out of ${count} total orders - there may be a query limit`);
+        toast({
+          title: 'Partial Results',
+          description: `Showing ${ordersWithData.length} out of ${count} total orders. Some results may be limited.`,
+          variant: 'destructive',
+        });
+      }
       if (ordersWithData.length >= 45000) {
         console.warn('⚠️ Approaching order limit - consider implementing pagination');
         toast({
