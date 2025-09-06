@@ -609,7 +609,7 @@ export const NoonOrderPrint: React.FC = () => {
           </div>
 
           {/* Print Settings */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border rounded-lg bg-muted/50">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 border rounded-lg bg-muted/50">
             <div className="space-y-2">
               <div className="flex items-center space-x-2">
               <Checkbox
@@ -641,6 +641,31 @@ export const NoonOrderPrint: React.FC = () => {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+            )}
+
+            {qzConnected && selectedPrinter?.toLowerCase().includes('zebra') && (
+              <div className="space-y-2">
+                <Label>Print Darkness</Label>
+                <Select 
+                  value={printSettings.darkness?.toString()} 
+                  onValueChange={(value) => setPrintSettings(prev => ({ ...prev, darkness: parseInt(value) }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select darkness" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="5">Light (5)</SelectItem>
+                    <SelectItem value="10">Normal (10)</SelectItem>
+                    <SelectItem value="15">Medium (15)</SelectItem>
+                    <SelectItem value="20">Dark (20)</SelectItem>
+                    <SelectItem value="25">Very Dark (25)</SelectItem>
+                    <SelectItem value="30">Maximum (30)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Adjust print darkness (5-30)
+                </p>
               </div>
             )}
 
