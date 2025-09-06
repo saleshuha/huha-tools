@@ -14,10 +14,12 @@ import {
   Package, Clock, Truck, CheckCircle, AlertTriangle, AlertCircle, Eye,
   Filter, Calendar, TrendingUp, Users
 } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { SunskyCredentialsSelector } from '@/components/SunskyCredentialsSelector';
 import { SegmentedProgress } from '@/components/sunsky/SegmentedProgress';
 import { ItemStatusBadge } from '@/components/sunsky/ItemStatusBadge';
+import { DelayedItemsTab } from '@/components/sunsky/DelayedItemsTab';
 import { calculateOrderProgress, calculateItemsProgress, getDaysInStatus, isItemDelayed } from '@/utils/sunsky-progress';
 
 // Status configurations for orders and items with Sunsky numeric status mapping
@@ -363,480 +365,432 @@ export default function SunskyOrderTrackingPage() {
             </div>
           )}
 
-          {/* Delayed Items Section */}
-          {slowItems.length > 0 && (
-            <div className="mb-6">
-              <div className="flex items-center gap-3 mb-4">
-                <AlertTriangle className="h-6 w-6 text-warning" />
-                <h2 className="text-xl font-semibold text-foreground">
-                  Delayed Items ({slowItems.length})
-                </h2>
-              </div>
-              
-              <div className="bg-card rounded-lg border shadow-sm">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="border-b bg-muted/50">
-                      <tr>
-                        <th className="text-left p-4 font-medium text-muted-foreground">Order Number</th>
-                        <th className="text-left p-4 font-medium text-muted-foreground">Item Details</th>
-                        <th className="text-left p-4 font-medium text-muted-foreground">Status</th>
-                        <th className="text-left p-4 font-medium text-muted-foreground">Days Delayed</th>
-                        <th className="text-left p-4 font-medium text-muted-foreground">Last Status Update</th>
-                        <th className="text-left p-4 font-medium text-muted-foreground">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {slowItems.map((item, index) => (
-                        <tr key={index} className="border-b last:border-b-0 hover:bg-muted/30">
-                          <td className="p-4">
-                            <div className="font-medium text-primary">
-                              {item.order_number}
-                            </div>
-                          </td>
-                          <td className="p-4">
-                            <div className="space-y-1">
-                              <div className="font-medium text-foreground">
-                                {item.title || item.sku_code}
-                              </div>
-                              {item.sku_code && item.title && (
-                                <div className="text-sm text-muted-foreground">
-                                  SKU: {item.sku_code}
-                                </div>
-                              )}
-                            </div>
-                          </td>
-                          <td className="p-4">
-                            {getStatusBadge(item.item_status || 'unknown', true)}
-                          </td>
-                          <td className="p-4">
-                            <div className="flex items-center gap-2">
-                              <AlertTriangle className="h-4 w-4 text-warning" />
-                              <span className="font-medium text-warning">
-                                {item.days_in_status} days
-                              </span>
-                            </div>
-                          </td>
-                          <td className="p-4 text-muted-foreground">
-                            {(item as any).status_last_updated_at || (item as any).last_updated ? formatDate((item as any).status_last_updated_at || (item as any).last_updated) : 'N/A'}
-                          </td>
-                          <td className="p-4">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => toggleOrderExpansion(item.order_number)}
-                            >
-                              View Order
-                            </Button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )}
+          {/* Tabs for Orders and Delayed Items */}
+          <Tabs defaultValue="orders" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="orders" className="flex items-center gap-2">
+                <Package className="h-4 w-4" />
+                Orders ({filteredAndSortedOrders.length})
+              </TabsTrigger>
+              <TabsTrigger value="delayed" className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4" />
+                Delayed Items ({slowItems.length})
+              </TabsTrigger>
+            </TabsList>
 
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2">
-                  <Package className="h-5 w-5 text-blue-500" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Total Orders</p>
-                    <p className="text-2xl font-bold">{orderStats.total}</p>
+            <TabsContent value="orders" className="mt-6">
+              {/* Filters */}
+              <div className="mb-6 space-y-4">
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search orders by number, PO numbers, or status..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5 text-orange-500" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Unpaid</p>
-                    <p className="text-2xl font-bold">{orderStats.unpaid}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="h-5 w-5 text-blue-500" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Paid</p>
-                    <p className="text-2xl font-bold">{orderStats.paid}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2">
-                  <Truck className="h-5 w-5 text-purple-500" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Shipped</p>
-                    <p className="text-2xl font-bold">{orderStats.shipped}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2">
-                  <ExternalLink className="h-5 w-5 text-indigo-500" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Total Value</p>
-                    <p className="text-2xl font-bold">{formatCurrency(orderStats.totalValue, 'USD')}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Filters */}
-          <div className="flex flex-col sm:flex-row gap-4 mb-6">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by order number, tracking, SKU, or title..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <select
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-              className="px-3 py-2 border border-input rounded-md bg-background"
-            >
-              <option value="all">All Status</option>
-              <option value="pending">Pending</option>
-              <option value="unpaid">Unpaid</option>
-              <option value="ordered">Ordered</option>
-              <option value="paid">Paid</option>
-              <option value="shipped">Shipped</option>
-              <option value="delivered">Delivered</option>
-              <option value="cancelled">Cancelled</option>
-              <option value="error">Error</option>
-              <option value="api_error">API Error</option>
-            </select>
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium">View:</label>
-              <select
-                value={showOnlyPOLinked ? 'po-linked' : 'all-orders'}
-                onChange={(e) => setShowOnlyPOLinked(e.target.value === 'po-linked')}
-                className="px-3 py-2 border border-input rounded-md bg-background text-sm"
-              >
-                <option value="all-orders">All Sunsky Orders ({orders.length})</option>
-                <option value="po-linked">PO-Linked Only</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {/* Orders List */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Package className="h-5 w-5" />
-              Sunsky Orders ({filteredAndSortedOrders.length})
-              {delayedCount > 0 && (
-                <Badge variant="destructive">{delayedCount} with delayed items</Badge>
-              )}
-              {!selectedCredentialId && (
-                <Badge variant="outline" className="text-orange-600 border-orange-300">
-                  Select credentials to sync
-                </Badge>
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="flex items-center justify-center py-8">
-                <RefreshCw className="h-6 w-6 animate-spin mr-2" />
-                Loading orders...
-              </div>
-            ) : filteredAndSortedOrders.length === 0 ? (
-              <div className="text-center py-8">
-                <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground">No orders found matching your criteria</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {paginatedOrders.map((order) => {
-                  const isExpanded = expandedOrders.has(order.number);
-                  const labels = orderLabels.get(order.number) || [];
-                  const isLoadingLabels = loadingLabels.has(order.number);
-                  const orderProgress = calculateOrderProgress(order.status || 'pending');
-                  const itemsProgress = calculateItemsProgress(order.items || []);
-                  
-                  return (
-                    <div
-                      key={order.id}
-                      className="border border-border rounded-lg hover:shadow-medium transition-all duration-200 bg-card"
+                  <select
+                    value={selectedStatus}
+                    onChange={(e) => setSelectedStatus(e.target.value)}
+                    className="px-3 py-2 border border-input rounded-md bg-background text-sm min-w-40"
+                  >
+                    <option value="all">All Status</option>
+                    <option value="pending">Pending</option>
+                    <option value="unpaid">Unpaid</option>
+                    <option value="ordered">Ordered</option>
+                    <option value="paid">Paid</option>
+                    <option value="shipped">Shipped</option>
+                    <option value="delivered">Delivered</option>
+                    <option value="cancelled">Cancelled</option>
+                    <option value="error">Error</option>
+                    <option value="api_error">API Error</option>
+                  </select>
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm font-medium">View:</label>
+                    <select
+                      value={showOnlyPOLinked ? 'po-linked' : 'all-orders'}
+                      onChange={(e) => setShowOnlyPOLinked(e.target.value === 'po-linked')}
+                      className="px-3 py-2 border border-input rounded-md bg-background text-sm"
                     >
-                      {/* Order Header - Clickable to view details */}
-                      <div 
-                        className="p-4 cursor-pointer hover:bg-muted/30 transition-colors"
-                        onClick={() => navigate(`/sunsky-order-details/${order.number}`)}
-                      >
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-4">
-                            <div className="flex items-center gap-2">
-                              <Eye className="h-4 w-4 text-primary" />
-                              <span className="font-mono text-sm font-semibold">
-                                #{order.number}
-                              </span>
-                            </div>
-                            
-                            <div className="flex items-center gap-2">
-                              <Badge className={`${orderProgress.statusColor} text-white`}>
-                                {orderProgress.statusLabel}
-                              </Badge>
-                              {order.po_numbers && order.po_numbers.length > 0 && (
-                                <Badge variant="outline" className="text-blue-600 border-blue-300">
-                                  PO Linked
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                            <div className="flex items-center gap-1">
-                              <Package className="h-4 w-4" />
-                              {order.items?.length || 0} items
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Clock className="h-4 w-4" />
-                              {formatDate(order.gmt_created)}
-                            </div>
-                            {order.total && (
-                              <div className="font-semibold">
-                                {formatCurrency(order.total, order.currency)}
-                              </div>
-                            )}
-                          </div>
-                        </div>
+                      <option value="all-orders">All Sunsky Orders ({orders.length})</option>
+                      <option value="po-linked">PO-Linked Only</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
 
-                        {/* Progress Bar */}
-                        <div className="mb-3">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-xs text-muted-foreground">Order Progress</span>
-                            <span className="text-xs text-muted-foreground">{orderProgress.percentage}%</span>
-                          </div>
-                          <Progress value={orderProgress.percentage} className="h-2" />
-                        </div>
-
-                        {/* Items Progress Bar */}
-                        {order.items && order.items.length > 0 && (
-                          <div className="mb-3">
-                            <div className="flex items-center justify-between mb-2">
-                              <span className="text-xs text-muted-foreground">
-                                Items Progress ({itemsProgress.completedItems}/{itemsProgress.totalItems})
-                              </span>
-                              <span className="text-xs text-muted-foreground">{itemsProgress.percentage}%</span>
-                            </div>
-                            <Progress value={itemsProgress.percentage} className="h-1" />
-                          </div>
-                        )}
-                        
-                        {/* Order summary row */}
-                        <div className="flex items-center justify-between text-sm">
-                          <div className="text-muted-foreground">
-                            {order.shipping_company && (
-                              <span>via {order.shipping_company}</span>
-                            )}
-                            {order.tracking_number && (
-                              <span className="ml-2 font-mono">
-                                • Tracking: {order.tracking_number}
-                              </span>
-                            )}
-                          </div>
-                          
-                          <div className="flex items-center gap-2">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="text-primary hover:text-primary-dark"
-                            >
-                              <Eye className="h-3 w-3 mr-1" />
-                              View Details
-                            </Button>
-                            
-                            {order.tracking_url && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleTrackingClick(order.tracking_url!);
-                                }}
-                              >
-                                <ExternalLink className="h-3 w-3 mr-1" />
-                                Track
-                              </Button>
-                            )}
-                          </div>
-                        </div>
+              {/* Stats Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2">
+                      <Package className="h-5 w-5 text-blue-500" />
+                      <div>
+                        <p className="text-sm text-muted-foreground">Total Orders</p>
+                        <p className="text-2xl font-bold">{orderStats.total}</p>
                       </div>
+                    </div>
+                  </CardContent>
+                </Card>
 
-                      {/* Quick Preview Section - Only for expanded orders */}
-                      <Collapsible
-                        open={isExpanded}
-                        onOpenChange={() => toggleOrderExpansion(order.number)}
-                      >
-                        <CollapsibleTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="w-full border-t border-border rounded-none rounded-b-lg h-8"
-                          >
-                            {isExpanded ? (
-                              <>
-                                <ChevronUp className="h-3 w-3 mr-1" />
-                                Hide Preview
-                              </>
-                            ) : (
-                              <>
-                                <ChevronDown className="h-3 w-3 mr-1" />
-                                Quick Preview
-                              </>
-                            )}
-                          </Button>
-                        </CollapsibleTrigger>
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="h-5 w-5 text-orange-500" />
+                      <div>
+                        <p className="text-sm text-muted-foreground">Unpaid</p>
+                        <p className="text-2xl font-bold">{orderStats.unpaid}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-5 w-5 text-blue-500" />
+                      <div>
+                        <p className="text-sm text-muted-foreground">Paid</p>
+                        <p className="text-2xl font-bold">{orderStats.paid}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2">
+                      <Truck className="h-5 w-5 text-purple-500" />
+                      <div>
+                        <p className="text-sm text-muted-foreground">Shipped</p>
+                        <p className="text-2xl font-bold">{orderStats.shipped}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2">
+                      <ExternalLink className="h-5 w-5 text-indigo-500" />
+                      <div>
+                        <p className="text-sm text-muted-foreground">Total Value</p>
+                        <p className="text-2xl font-bold">{formatCurrency(orderStats.totalValue, 'USD')}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Orders List */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Package className="h-5 w-5" />
+                    Sunsky Orders ({filteredAndSortedOrders.length})
+                    {delayedCount > 0 && (
+                      <Badge variant="destructive">{delayedCount} with delayed items</Badge>
+                    )}
+                    {!selectedCredentialId && (
+                      <Badge variant="outline" className="text-orange-600 border-orange-300">
+                        Select credentials to sync
+                      </Badge>
+                    )}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {loading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <RefreshCw className="h-6 w-6 animate-spin mr-2" />
+                      Loading orders...
+                    </div>
+                  ) : filteredAndSortedOrders.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <p className="text-muted-foreground">No orders found matching your criteria</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {paginatedOrders.map((order) => {
+                        const isExpanded = expandedOrders.has(order.number);
+                        const labels = orderLabels.get(order.number) || [];
+                        const isLoadingLabels = loadingLabels.has(order.number);
+                        const orderProgress = calculateOrderProgress(order.status || 'pending');
+                        const itemsProgress = calculateItemsProgress(order.items || []);
                         
-                        <CollapsibleContent>
-                          <div className="border-t border-border p-4 bg-muted/30">
-                            <div className="space-y-4">
-                              {/* PO Numbers */}
-                              {order.po_numbers && order.po_numbers.length > 0 && (
-                                <div>
-                                  <h4 className="font-medium mb-2 text-sm">Linked PO Numbers</h4>
-                                  <div className="flex flex-wrap gap-2">
-                                    {order.po_numbers.map((poNumber, index) => (
-                                      <Badge key={index} variant="outline" className="font-mono text-xs">
-                                        {poNumber}
-                                      </Badge>
-                                    ))}
+                        return (
+                          <div
+                            key={order.id}
+                            className="border border-border rounded-lg hover:shadow-medium transition-all duration-200 bg-card"
+                          >
+                            {/* Order Header - Clickable to view details */}
+                            <div 
+                              className="p-4 cursor-pointer hover:bg-muted/30 transition-colors"
+                              onClick={() => navigate(`/sunsky-order-details/${order.number}`)}
+                            >
+                              <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center gap-4">
+                                  <div className="flex items-center gap-2">
+                                    <Eye className="h-4 w-4 text-primary" />
+                                    <span className="font-mono text-sm font-semibold">
+                                      #{order.number}
+                                    </span>
                                   </div>
-                                </div>
-                              )}
-                              
-                              {/* Top 3 Items Preview */}
-                              {order.items && order.items.length > 0 && (
-                                <div>
-                                  <h4 className="font-medium mb-2 text-sm">
-                                    Items Preview ({Math.min(3, order.items.length)} of {order.items.length})
-                                  </h4>
-                                  <div className="space-y-2">
-                                    {order.items.slice(0, 3).map((item, itemIndex) => (
-                                      <div 
-                                        key={item.id || itemIndex}
-                                        className="bg-card p-2 rounded border border-border text-xs"
-                                      >
-                                        <div className="flex items-center justify-between">
-                                          <div className="flex-1 min-w-0">
-                                            <p className="font-medium truncate">
-                                              {item.title || item.sku_code || 'Unknown Item'}
-                                            </p>
-                                            {item.sku_code && (
-                                              <p className="text-muted-foreground font-mono">
-                                                SKU: {item.sku_code}
-                                              </p>
-                                            )}
-                                          </div>
-                                          <div className="text-right ml-2">
-                                            {getStatusBadge(item.item_status || 'pending', isItemDelayed(item))}
-                                            <div className="text-muted-foreground mt-1">
-                                              Qty: {item.quantity || 1}
-                                            </div>
-                                          </div>
-                                        </div>
-                                      </div>
-                                    ))}
-                                    {order.items.length > 3 && (
-                                      <div className="text-center text-xs text-muted-foreground py-2">
-                                        +{order.items.length - 3} more items. Click "View Details" to see all.
-                                      </div>
+                                  
+                                  <div className="flex items-center gap-2">
+                                    <Badge className={`${orderProgress.statusColor} text-white`}>
+                                      {orderProgress.statusLabel}
+                                    </Badge>
+                                    {order.po_numbers && order.po_numbers.length > 0 && (
+                                      <Badge variant="outline" className="text-blue-600 border-blue-300">
+                                        PO Linked
+                                      </Badge>
                                     )}
                                   </div>
                                 </div>
+                                
+                                <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                                  <div className="flex items-center gap-1">
+                                    <Package className="h-4 w-4" />
+                                    {order.items?.length || 0} items
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <Clock className="h-4 w-4" />
+                                    {formatDate(order.gmt_created)}
+                                  </div>
+                                  {order.total && (
+                                    <div className="font-semibold">
+                                      {formatCurrency(order.total, order.currency)}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Progress Bar */}
+                              <div className="mb-3">
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="text-xs text-muted-foreground">Order Progress</span>
+                                  <span className="text-xs text-muted-foreground">{orderProgress.percentage}%</span>
+                                </div>
+                                <Progress value={orderProgress.percentage} className="h-2" />
+                              </div>
+
+                              {/* Items Progress Bar */}
+                              {order.items && order.items.length > 0 && (
+                                <div className="mb-3">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className="text-xs text-muted-foreground">
+                                      Items Progress ({itemsProgress.completedItems}/{itemsProgress.totalItems})
+                                    </span>
+                                    <span className="text-xs text-muted-foreground">{itemsProgress.percentage}%</span>
+                                  </div>
+                                  <Progress value={itemsProgress.percentage} className="h-1" />
+                                </div>
                               )}
                               
-                              {/* Action buttons */}
-                              <div className="flex gap-2 pt-2 border-t border-border">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleGetLabels(order.number);
-                                  }}
-                                  disabled={isLoadingLabels}
-                                >
-                                  {isLoadingLabels ? (
-                                    <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
-                                  ) : (
-                                    <Package className="h-3 w-3 mr-1" />
+                              {/* Order summary row */}
+                              <div className="flex items-center justify-between text-sm">
+                                <div className="text-muted-foreground">
+                                  {order.shipping_company && (
+                                    <span>via {order.shipping_company}</span>
                                   )}
-                                  Get Labels
-                                </Button>
+                                  {order.tracking_number && (
+                                    <span className="ml-2 font-mono">
+                                      • Tracking: {order.tracking_number}
+                                    </span>
+                                  )}
+                                </div>
                                 
-                                {labels.length > 0 && (
-                                  <Badge variant="outline" className="text-green-600 border-green-300">
-                                    {labels.length} labels available
-                                  </Badge>
-                                )}
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="text-primary hover:text-primary-dark"
+                                  >
+                                    <Eye className="h-3 w-3 mr-1" />
+                                    View Details
+                                  </Button>
+                                  
+                                  {order.tracking_url && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleTrackingClick(order.tracking_url!);
+                                      }}
+                                    >
+                                      <ExternalLink className="h-3 w-3 mr-1" />
+                                      Track
+                                    </Button>
+                                  )}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        </CollapsibleContent>
-                      </Collapsible>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
 
-            {/* Pagination Controls */}
-            {filteredAndSortedOrders.length > itemsPerPage && (
-              <div className="flex items-center justify-between pt-6 border-t border-border">
-                <div className="text-sm text-muted-foreground">
-                  Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredAndSortedOrders.length)} of {filteredAndSortedOrders.length} orders
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                    disabled={currentPage === 1}
-                  >
-                    Previous
-                  </Button>
-                  <span className="text-sm text-muted-foreground">
-                    Page {currentPage} of {totalPages}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                    disabled={currentPage === totalPages}
-                  >
-                    Next
-                  </Button>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                            {/* Quick Preview Section - Only for expanded orders */}
+                            <Collapsible
+                              open={isExpanded}
+                              onOpenChange={() => toggleOrderExpansion(order.number)}
+                            >
+                              <CollapsibleTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="w-full border-t border-border rounded-none rounded-b-lg h-8"
+                                >
+                                  {isExpanded ? (
+                                    <>
+                                      <ChevronUp className="h-3 w-3 mr-1" />
+                                      Hide Preview
+                                    </>
+                                  ) : (
+                                    <>
+                                      <ChevronDown className="h-3 w-3 mr-1" />
+                                      Quick Preview
+                                    </>
+                                  )}
+                                </Button>
+                              </CollapsibleTrigger>
+                              
+                              <CollapsibleContent>
+                                <div className="border-t border-border p-4 bg-muted/30">
+                                  <div className="space-y-4">
+                                    {/* PO Numbers */}
+                                    {order.po_numbers && order.po_numbers.length > 0 && (
+                                      <div>
+                                        <h4 className="font-medium mb-2 text-sm">Linked PO Numbers</h4>
+                                        <div className="flex flex-wrap gap-2">
+                                          {order.po_numbers.map((poNumber, index) => (
+                                            <Badge key={index} variant="outline" className="font-mono text-xs">
+                                              {poNumber}
+                                            </Badge>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                    
+                                    {/* Top 3 Items Preview */}
+                                    {order.items && order.items.length > 0 && (
+                                      <div>
+                                        <h4 className="font-medium mb-2 text-sm">
+                                          Items Preview ({Math.min(3, order.items.length)} of {order.items.length})
+                                        </h4>
+                                        <div className="space-y-2">
+                                          {order.items.slice(0, 3).map((item, itemIndex) => (
+                                            <div 
+                                              key={item.id || itemIndex}
+                                              className="bg-card p-2 rounded border border-border text-xs"
+                                            >
+                                              <div className="flex items-center justify-between">
+                                                <div className="flex-1 min-w-0">
+                                                  <p className="font-medium truncate">
+                                                    {item.title || item.sku_code || 'Unknown Item'}
+                                                  </p>
+                                                  {item.sku_code && (
+                                                    <p className="text-muted-foreground font-mono">
+                                                      SKU: {item.sku_code}
+                                                    </p>
+                                                  )}
+                                                </div>
+                                                <div className="text-right ml-2">
+                                                  {getStatusBadge(item.item_status || 'pending', isItemDelayed(item))}
+                                                  <div className="text-muted-foreground mt-1">
+                                                    Qty: {item.quantity || 1}
+                                                  </div>
+                                                </div>
+                                              </div>
+                                            </div>
+                                          ))}
+                                          {order.items.length > 3 && (
+                                            <div className="text-center text-xs text-muted-foreground py-2">
+                                              +{order.items.length - 3} more items. Click "View Details" to see all.
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    )}
+                                    
+                                    {/* Action buttons */}
+                                    <div className="flex gap-2 pt-2 border-t border-border">
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleGetLabels(order.number);
+                                        }}
+                                        disabled={isLoadingLabels}
+                                      >
+                                        {isLoadingLabels ? (
+                                          <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                                        ) : (
+                                          <Package className="h-3 w-3 mr-1" />
+                                        )}
+                                        Get Labels
+                                      </Button>
+                                      
+                                      {labels.length > 0 && (
+                                        <Badge variant="outline" className="text-green-600 border-green-300">
+                                          {labels.length} labels available
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </CollapsibleContent>
+                            </Collapsible>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Pagination Controls */}
+                  {filteredAndSortedOrders.length > itemsPerPage && (
+                    <div className="flex items-center justify-between pt-6 border-t border-border">
+                      <div className="text-sm text-muted-foreground">
+                        Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredAndSortedOrders.length)} of {filteredAndSortedOrders.length} orders
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                          disabled={currentPage === 1}
+                        >
+                          Previous
+                        </Button>
+                        <span className="text-sm text-muted-foreground">
+                          Page {currentPage} of {totalPages}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                          disabled={currentPage === totalPages}
+                        >
+                          Next
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="delayed" className="mt-6">
+              <DelayedItemsTab
+                onViewOrder={toggleOrderExpansion}
+                onTrackingClick={handleTrackingClick}
+                formatDate={formatDate}
+                getStatusBadge={getStatusBadge}
+              />
+            </TabsContent>
+          </Tabs>
+        </div>
       </div>
     </div>
   );
