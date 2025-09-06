@@ -15,20 +15,25 @@ export const InventoryDataMapper: React.FC = () => {
   const { 
     inventory, 
     orders, 
+    noonOrders,
     loading, 
     error, 
     fetchInventory, 
     fetchProcessedOrders, 
+    fetchNoonOrders,
     getInventoryDataset, 
     getOrdersDataset, 
-    searchInventory 
+    getNoonOrdersDataset,
+    searchInventory,
+    searchNoonOrders
   } = useInventoryData();
   
   const { setDataset, dataset } = useLabelDoc();
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedDataSource, setSelectedDataSource] = useState<'inventory' | 'orders'>('inventory');
+  const [selectedDataSource, setSelectedDataSource] = useState<'inventory' | 'orders' | 'noon-orders'>('inventory');
   
   const filteredInventory = searchInventory(searchTerm);
+  const filteredNoonOrders = searchNoonOrders(searchTerm);
 
   const handleLoadInventoryData = async () => {
     try {
@@ -37,6 +42,16 @@ export const InventoryDataMapper: React.FC = () => {
       toast.success('Inventory data loaded for label mapping');
     } catch (error) {
       toast.error('Failed to load inventory data');
+    }
+  };
+
+  const handleLoadNoonOrdersData = async () => {
+    try {
+      const noonOrdersDataset = getNoonOrdersDataset();
+      setDataset(noonOrdersDataset);
+      toast.success('Noon orders data loaded for label mapping');
+    } catch (error) {
+      toast.error('Failed to load noon orders data');
     }
   };
 
@@ -53,8 +68,10 @@ export const InventoryDataMapper: React.FC = () => {
   const handleRefresh = () => {
     if (selectedDataSource === 'inventory') {
       fetchInventory();
-    } else {
+    } else if (selectedDataSource === 'orders') {
       fetchProcessedOrders();
+    } else if (selectedDataSource === 'noon-orders') {
+      fetchNoonOrders();
     }
   };
 
@@ -65,30 +82,39 @@ export const InventoryDataMapper: React.FC = () => {
           <Database className="h-5 w-5" />
           Data Mapping
         </CardTitle>
-        <p className="text-sm text-muted-foreground">
-          Map label elements to inventory or order data
-        </p>
+         <p className="text-sm text-muted-foreground">
+           Map label elements to inventory, orders, or noon order data
+         </p>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Data Source Selection */}
-        <div className="flex gap-2">
+        <div className="grid grid-cols-3 gap-1">
           <Button
             variant={selectedDataSource === 'inventory' ? 'default' : 'outline'}
             size="sm"
             onClick={() => setSelectedDataSource('inventory')}
-            className="flex-1"
+            className="text-xs"
           >
-            <Package className="h-4 w-4 mr-2" />
+            <Package className="h-3 w-3 mr-1" />
             Inventory
           </Button>
           <Button
             variant={selectedDataSource === 'orders' ? 'default' : 'outline'}
             size="sm"
             onClick={() => setSelectedDataSource('orders')}
-            className="flex-1"
+            className="text-xs"
           >
-            <Package className="h-4 w-4 mr-2" />
+            <Package className="h-3 w-3 mr-1" />
             Orders
+          </Button>
+          <Button
+            variant={selectedDataSource === 'noon-orders' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setSelectedDataSource('noon-orders')}
+            className="text-xs"
+          >
+            <Package className="h-3 w-3 mr-1" />
+            Noon
           </Button>
         </div>
 
@@ -108,13 +134,17 @@ export const InventoryDataMapper: React.FC = () => {
         <div className="space-y-2">
           <div className="flex gap-2">
             <Button
-              onClick={selectedDataSource === 'inventory' ? handleLoadInventoryData : handleLoadOrdersData}
+              onClick={
+                selectedDataSource === 'inventory' ? handleLoadInventoryData : 
+                selectedDataSource === 'orders' ? handleLoadOrdersData : 
+                handleLoadNoonOrdersData
+              }
               size="sm"
               className="flex-1"
               disabled={loading}
             >
               <Database className="h-4 w-4 mr-2" />
-              Load {selectedDataSource === 'inventory' ? 'Inventory' : 'Orders'}
+              Load {selectedDataSource === 'inventory' ? 'Inventory' : selectedDataSource === 'orders' ? 'Orders' : 'Noon'}
             </Button>
             <Button
               variant="outline"
@@ -142,7 +172,7 @@ export const InventoryDataMapper: React.FC = () => {
         </div>
 
         {/* Data Preview */}
-        <Tabs value={selectedDataSource} onValueChange={(value) => setSelectedDataSource(value as 'inventory' | 'orders')}>
+        <Tabs value={selectedDataSource} onValueChange={(value) => setSelectedDataSource(value as 'inventory' | 'orders' | 'noon-orders')}>
           <TabsContent value="inventory" className="space-y-2">
             <div className="space-y-2 max-h-64 overflow-y-auto">
               <div className="flex items-center justify-between">
@@ -203,6 +233,43 @@ export const InventoryDataMapper: React.FC = () => {
               {orders.length === 0 && (
                 <p className="text-sm text-muted-foreground text-center py-4">
                   No processed orders found
+                </p>
+              )}
+            </div>
+          </TabsContent>
+          <TabsContent value="noon-orders" className="space-y-2">
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium">Noon Orders</Label>
+                <Badge variant="outline">{filteredNoonOrders.length} orders</Badge>
+              </div>
+              
+              {filteredNoonOrders.slice(0, 10).map((order) => (
+                <div key={order.id} className="p-2 border rounded-lg text-xs space-y-1">
+                  <div className="flex items-center justify-between">
+                    <p className="font-medium truncate">{order.order_nr}</p>
+                    <Badge variant="secondary" className="text-xs">
+                      Qty: {order.quantity}
+                    </Badge>
+                  </div>
+                  <p className="text-muted-foreground text-xs">{order.purchase_item_nr}</p>
+                  {order.title && <p className="text-muted-foreground truncate">{order.title}</p>}
+                  {order.sku && <p className="text-muted-foreground">SKU: {order.sku}</p>}
+                  {order.partner_sku && <p className="text-muted-foreground">Partner SKU: {order.partner_sku}</p>}
+                  <div className="flex items-center justify-between">
+                    <Badge variant="outline" className="text-xs">
+                      {order.item_status}
+                    </Badge>
+                    {order.file_name && (
+                      <span className="text-xs text-muted-foreground truncate">{order.file_name}</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+              
+              {filteredNoonOrders.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No noon orders found
                 </p>
               )}
             </div>

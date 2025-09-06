@@ -1,6 +1,19 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
+export interface NoonOrderItem {
+  id: string;
+  order_nr: string;
+  purchase_item_nr: string;
+  sku?: string;
+  partner_sku?: string;
+  title?: string;
+  quantity: number;
+  item_status: string;
+  order_received_at?: string;
+  file_name?: string;
+}
+
 export interface InventoryItem {
   id: string;
   asin?: string;
@@ -29,6 +42,7 @@ export interface OrderItem {
 export function useInventoryData() {
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [orders, setOrders] = useState<OrderItem[]>([]);
+  const [noonOrders, setNoonOrders] = useState<NoonOrderItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -70,6 +84,26 @@ export function useInventoryData() {
       setInventory(combinedInventory);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch inventory');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchNoonOrders = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const { data, error } = await supabase
+        .from('noon_processing_orders')
+        .select('id, order_nr, purchase_item_nr, sku, partner_sku, title, quantity, item_status, order_received_at, file_name')
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      if (error) throw error;
+
+      setNoonOrders(data || []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch noon orders');
     } finally {
       setLoading(false);
     }
@@ -120,6 +154,32 @@ export function useInventoryData() {
     };
   };
 
+  const getNoonOrdersDataset = () => {
+    const headers = ['Order Number', 'Purchase Item Number', 'SKU', 'Partner SKU', 'Title', 'Quantity', 'Status', 'Order Date', 'File Name'];
+    const data = noonOrders.map(order => [
+      order.order_nr || '',
+      order.purchase_item_nr || '',
+      order.sku || '',
+      order.partner_sku || '',
+      order.title || '',
+      order.quantity.toString(),
+      order.item_status || '',
+      order.order_received_at ? new Date(order.order_received_at).toLocaleDateString() : '',
+      order.file_name || '',
+    ]);
+
+    return {
+      id: 'noon_orders',
+      name: 'Noon Orders',
+      description: 'Noon processing orders for label printing',
+      headers,
+      data,
+      rowCount: data.length,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+  };
+
   const getOrdersDataset = () => {
     const headers = ['Order Number', 'ASIN', 'SKU', 'Title', 'Quantity', 'Match Type', 'Inventory Type', 'Processed At'];
     const data = orders.map(order => [
@@ -157,20 +217,37 @@ export function useInventoryData() {
     );
   };
 
+  const searchNoonOrders = (searchTerm: string) => {
+    if (!searchTerm.trim()) return noonOrders;
+    
+    const term = searchTerm.toLowerCase();
+    return noonOrders.filter(order => 
+      order.order_nr?.toLowerCase().includes(term) ||
+      order.sku?.toLowerCase().includes(term) ||
+      order.partner_sku?.toLowerCase().includes(term) ||
+      order.title?.toLowerCase().includes(term)
+    );
+  };
+
   useEffect(() => {
     fetchInventory();
     fetchProcessedOrders();
+    fetchNoonOrders();
   }, []);
 
   return {
     inventory,
     orders,
+    noonOrders,
     loading,
     error,
     fetchInventory,
     fetchProcessedOrders,
+    fetchNoonOrders,
     getInventoryDataset,
     getOrdersDataset,
+    getNoonOrdersDataset,
     searchInventory,
+    searchNoonOrders,
   };
 }
