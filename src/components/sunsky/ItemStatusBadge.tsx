@@ -1,7 +1,8 @@
 import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { 
-  AlertTriangle, Package, CheckCircle, Truck, Clock, AlertCircle 
+  AlertTriangle, Package, CheckCircle, Truck, Clock, AlertCircle, 
+  PackageCheck, Timer, ShoppingCart, Wrench
 } from 'lucide-react';
 
 interface ItemStatusBadgeProps {
@@ -25,6 +26,26 @@ const statusConfig = {
     icon: AlertTriangle, 
     className: 'bg-warning/10 text-warning border-warning/20 hover:bg-warning/15' 
   },
+  preparing: { 
+    label: 'Preparing', 
+    icon: Wrench, 
+    className: 'bg-blue/10 text-blue border-blue/20 hover:bg-blue/15' 
+  },
+  ready_to_ship: { 
+    label: 'Ready to Ship', 
+    icon: PackageCheck, 
+    className: 'bg-cyan/10 text-cyan border-cyan/20 hover:bg-cyan/15' 
+  },
+  delay_to_ship: { 
+    label: 'Delay to Ship', 
+    icon: Timer, 
+    className: 'bg-orange/10 text-orange border-orange/20 hover:bg-orange/15' 
+  },
+  packed_to_ship: { 
+    label: 'Packed to Ship', 
+    icon: Package, 
+    className: 'bg-indigo/10 text-indigo border-indigo/20 hover:bg-indigo/15' 
+  },
   error: { 
     label: 'Error', 
     icon: AlertCircle, 
@@ -37,7 +58,7 @@ const statusConfig = {
   },
   ordered: { 
     label: 'Ordered', 
-    icon: Package, 
+    icon: ShoppingCart, 
     className: 'bg-sky/10 text-sky border-sky/20 hover:bg-sky/15' 
   },
   paid: { 
@@ -60,11 +81,6 @@ const statusConfig = {
     icon: AlertCircle, 
     className: 'bg-destructive/10 text-destructive border-destructive/20 hover:bg-destructive/15' 
   },
-  ready_to_ship: { 
-    label: 'Ready to Ship', 
-    icon: Package, 
-    className: 'bg-cyan/10 text-cyan border-cyan/20 hover:bg-cyan/15' 
-  },
   out_of_stock: { 
     label: 'Out of Stock', 
     icon: AlertTriangle, 
@@ -83,8 +99,18 @@ const statusConfig = {
   },
   '1': { 
     label: 'Ordered', 
-    icon: Package, 
+    icon: ShoppingCart, 
     className: 'bg-sky/10 text-sky border-sky/20 hover:bg-sky/15' 
+  },
+  '2': { 
+    label: 'Preparing', 
+    icon: Wrench, 
+    className: 'bg-blue/10 text-blue border-blue/20 hover:bg-blue/15' 
+  },
+  '3': { 
+    label: 'Ready to Ship', 
+    icon: PackageCheck, 
+    className: 'bg-cyan/10 text-cyan border-cyan/20 hover:bg-cyan/15' 
   },
   '4': { 
     label: 'Paid', 
@@ -109,10 +135,16 @@ const normalizeStatus = (status: string | number): string => {
   switch (statusStr) {
     case '0': return 'unpaid';
     case '1': return 'ordered';
+    case '2': return 'preparing';
+    case '3': return 'ready_to_ship';
     case '4': return 'paid';
     case '5': return 'shipped';
     case '6': return 'delivered';
-    default: return statusStr.toLowerCase();
+    // Handle string-based statuses
+    case 'delay to ship': return 'delay_to_ship';
+    case 'packed to ship': return 'packed_to_ship';
+    case 'ready to ship': return 'ready_to_ship';
+    default: return statusStr.toLowerCase().replace(/\s+/g, '_');
   }
 };
 
