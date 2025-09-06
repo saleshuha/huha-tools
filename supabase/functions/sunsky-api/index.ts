@@ -931,7 +931,30 @@ serve(async (req) => {
   }
 
   try {
-    const { action, ...requestData } = await req.json();
+    // Parse request body with error handling
+    let requestBody;
+    try {
+      requestBody = await req.json();
+    } catch (jsonError) {
+      console.error('Failed to parse request JSON:', jsonError);
+      throw new Error('Invalid JSON in request body');
+    }
+    
+    const { action, ...requestData } = requestBody;
+    
+    // Debug logging
+    console.log('Received request:', {
+      method: req.method,
+      action: action,
+      hasRequestData: !!requestData,
+      requestDataKeys: requestData ? Object.keys(requestData) : []
+    });
+    
+    // Validate action parameter
+    if (!action || typeof action !== 'string') {
+      console.error('Invalid or missing action parameter:', action);
+      throw new Error(`Invalid action parameter: ${action}. Action must be a non-empty string.`);
+    }
     
     // Get user from auth header
     const authHeader = req.headers.get('authorization');
@@ -2438,10 +2461,19 @@ serve(async (req) => {
     }
 
   } catch (error) {
-    console.error('Sunsky API function error:', error);
+    console.error('Error in sunsky-api function:', error);
+    
+    // Enhanced error logging
+    console.error('Request details:', {
+      method: req.method,
+      url: req.url,
+      headers: Object.fromEntries(req.headers.entries()),
+    });
+    
     return new Response(JSON.stringify({ 
       result: 'error', 
-      message: error.message 
+      message: error.message,
+      timestamp: new Date().toISOString()
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
