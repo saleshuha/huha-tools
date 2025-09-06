@@ -453,11 +453,11 @@ export default function SunskyOrderTrackingPage() {
                 ) : (
                   <div className="space-y-2">
                     <p className="text-sm">No orders synced yet from Sunsky</p>
-                    <Button 
-                      onClick={() => syncOrdersFromAPI(selectedCredentialId)}
-                      disabled={syncing}
-                      className="mt-2"
-                    >
+                      <Button 
+                        onClick={() => syncOrdersFromAPI(selectedCredentialId)}
+                        disabled={syncing}
+                        className="mt-2 bg-gradient-primary hover:bg-gradient-primary/90"
+                      >
                       <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
                       Fetch All Orders from Sunsky
                     </Button>

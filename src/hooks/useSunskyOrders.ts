@@ -65,71 +65,76 @@ export const useSunskyOrders = () => {
 
   const { toast } = useToast();
 
-  // Fetch ALL orders placed by user through the app - now filtered by backend
+  // Fetch ALL synced orders from database (not just app-placed ones)
   const fetchStoredOrders = async (showOnlyPOLinked: boolean = false) => {
     setState(prev => ({ ...prev, loading: true, error: null }));
 
     try {
-      console.log('🔄 Fetching app-placed Sunsky orders...');
+      console.log('🔄 Fetching ALL synced Sunsky orders from database...');
 
-      // Use the updated RPC function that only returns truly app-placed orders
-      const { data: allOrders, error } = await supabase.rpc('get_all_user_sunsky_orders');
+      // Query the sunsky_orders table directly to get ALL synced orders
+      let query = supabase
+        .from('sunsky_orders')
+        .select(`
+          id,
+          user_id,
+          number,
+          status,
+          site_number,
+          gmt_created,
+          total,
+          currency,
+          shipping_company,
+          tracking_number,
+          tracking_url,
+          po_numbers,
+          sunsky_credentials_id,
+          raw,
+          created_at,
+          updated_at,
+          status_last_updated_at,
+          last_synced_at,
+          sunsky_order_items (
+            id,
+            user_id,
+            order_number,
+            sku_code,
+            model_number,
+            title,
+            quantity,
+            unit_price,
+            currency,
+            asin,
+            item_status,
+            status_last_updated_at,
+            expected_ship_date,
+            last_synced_at,
+            raw,
+            created_at
+          )
+        `)
+        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
+        .order('gmt_created', { ascending: false })
+        .order('created_at', { ascending: false });
+
+      if (showOnlyPOLinked) {
+        // Only show orders that have PO relationships
+        query = query.not('po_numbers', 'is', null);
+      }
+
+      const { data: allOrders, error } = await query;
 
       if (error) throw error;
 
-      let ordersWithData: SunskyOrder[];
+      // Format the orders to match the expected structure
+      const ordersWithData: SunskyOrder[] = (allOrders || []).map((order: any) => ({
+        ...order,
+        items: order.sunsky_order_items || [],
+        credential_name: null // We'll fetch this separately if needed
+      }));
 
-      if (showOnlyPOLinked) {
-        // Filter to show only orders with explicit PO relationships if requested
-        ordersWithData = (allOrders || [])
-          .filter((order: any) => {
-            const hasPoNumbers = order.po_numbers && Array.isArray(order.po_numbers) && order.po_numbers.length > 0;
-            return hasPoNumbers;
-          })
-          .map((order: any): SunskyOrder => ({
-            ...order,
-            items: order.items || [],
-            credential_name: order.sunsky_credential?.name || null
-          }));
-      } else {
-        // Show ALL app-placed orders (default behavior)
-        ordersWithData = (allOrders || []).map((order: any): SunskyOrder => ({
-          ...order,
-          items: order.items || [],
-          credential_name: order.sunsky_credential?.name || null
-        }));
-      }
-
-      console.log(`📊 Found ${ordersWithData.length} app-placed orders`);
+      console.log(`📊 Found ${ordersWithData.length} synced Sunsky orders`);
       console.log('Order numbers:', ordersWithData.map(o => o.number).join(', '));
-
-      // Auto-fetch missing item details for orders without items but with credentials
-      const ordersNeedingItems = ordersWithData.filter(order => 
-        (!order.items || order.items.length === 0) && order.sunsky_credentials_id
-      );
-
-      if (ordersNeedingItems.length > 0) {
-        console.log(`🔄 Auto-fetching items for ${ordersNeedingItems.length} orders...`);
-        
-        // Fetch items for orders that need them
-        for (const order of ordersNeedingItems) {
-          try {
-            await getOrderDetails(order.number, true, order.sunsky_credentials_id);
-          } catch (error) {
-            console.warn(`Failed to auto-fetch items for order ${order.number}:`, error);
-          }
-        }
-
-        // Re-fetch orders after auto-fetching items
-        const { data: updatedOrders, error: refetchError } = await supabase.rpc('get_all_user_sunsky_orders');
-        if (!refetchError && updatedOrders) {
-          ordersWithData = (updatedOrders || []).map((order: any): SunskyOrder => ({
-            ...order,
-            items: order.items || [],
-            credential_name: order.sunsky_credential?.name || null
-          }));
-        }
-      }
 
       setState(prev => ({
         ...prev,
@@ -150,7 +155,7 @@ export const useSunskyOrders = () => {
     }
   };
 
-  // Sync orders from Sunsky API - all orders that have been placed on Sunsky
+  // Sync ALL orders from Sunsky API - not just app-related orders
   const syncOrdersFromAPI = async (credentialId?: string | null) => {
     setState(prev => ({ ...prev, syncing: true, error: null, progressCurrent: 0, progressTotal: 0, progressPercent: 0 }));
 
@@ -167,190 +172,82 @@ export const useSunskyOrders = () => {
         return;
       }
 
-      // If a specific credential is provided, use it; otherwise check for any active credentials
+      // Require credential to be selected for syncing
       if (!credentialId) {
-        const { data: credentials, error: credError } = await supabase
-          .from('sunsky_credentials')
-          .select('id, name, is_active')
-          .eq('user_id', user.id)
-          .eq('is_active', true)
-          .limit(1);
-
-        if (credError) throw credError;
-
-        if (!credentials || credentials.length === 0) {
-          toast({
-            title: 'No Sunsky Credentials',
-            description: 'Please add your Sunsky API credentials before syncing orders.',
-            variant: 'destructive',
-          });
-          setState(prev => ({ ...prev, syncing: false }));
-          return;
-        }
-
-        credentialId = credentials[0].id;
-        console.log('Using first available credential:', credentialId);
-      } else {
-        console.log('Using selected credential:', credentialId);
-      }
-
-      // Get ALL PO orders that have supplier order numbers (orders that have been placed)
-      const { data: allPOs, error: poError } = await supabase
-        .from('po_orders')
-        .select(`
-          po_number, 
-          sku_code, 
-          model_number, 
-          supplier_order_number,
-          sunsky_credentials_id,
-          status,
-          title
-        `)
-        .not('supplier_order_number', 'is', null);
-
-      if (poError) throw poError;
-
-      console.log('Total PO orders with supplier order numbers found:', allPOs?.length || 0);
-
-      if (!allPOs || allPOs.length === 0) {
         toast({
-          title: 'No Placed Orders Found',
-          description: 'No PO orders have been placed on Sunsky yet. Place some orders first to track them.',
+          title: 'No Credentials Selected',
+          description: 'Please select Sunsky credentials before syncing orders.',
           variant: 'destructive',
         });
         setState(prev => ({ ...prev, syncing: false }));
         return;
       }
 
-      // Get unique order numbers that were placed (have supplier_order_number)
-      // Include the credentials_id for each order to use the correct API account
-      const placedOrdersMap = new Map();
-      allPOs
-        .filter(po => po.supplier_order_number && po.supplier_order_number.trim() !== '')
-        .forEach(po => {
-          const orderNumber = po.supplier_order_number;
-          if (!placedOrdersMap.has(orderNumber)) {
-            placedOrdersMap.set(orderNumber, {
-              orderNumber,
-              credentialId: po.sunsky_credentials_id,
-              poNumbers: new Set()
-            });
-          }
-          placedOrdersMap.get(orderNumber).poNumbers.add(po.po_number);
-        });
+      console.log('Syncing ALL Sunsky orders with credential:', credentialId);
 
-      const placedOrderEntries = Array.from(placedOrdersMap.values());
-
-      console.log('Unique placed order numbers to sync:', placedOrderEntries.length);
-
-      if (placedOrderEntries.length === 0) {
-        toast({
-          title: 'No Valid Orders Found',
-          description: 'No valid supplier order numbers found in PO orders.',
-          variant: 'destructive',
-        });
-        setState(prev => ({ ...prev, syncing: false }));
-        return;
-      }
-
-      setState(prev => ({ ...prev, progressTotal: placedOrderEntries.length }));
-
-      // Sync each placed order with PO context and correct credentials
-      let syncedCount = 0;
-      let unpaidCount = 0;
-      let errorCount = 0;
+      // Fetch ALL orders from Sunsky (not just app-related ones)
+      console.log('🌍 Fetching ALL orders from Sunsky API...');
       
-      for (let i = 0; i < placedOrderEntries.length; i++) {
-        const { orderNumber, credentialId: orderCredentialId, poNumbers } = placedOrderEntries[i];
-        const relatedPONumbers = Array.from(poNumbers);
+      toast({
+        title: 'Syncing Orders',
+        description: 'Fetching ALL orders from your Sunsky account...',
+      });
+
+      const { data, error } = await supabase.functions.invoke('sunsky-api', {
+        body: {
+          action: 'getAllOrders',
+          apiId: credentialId
+        },
+      });
+
+      if (error) {
+        throw new Error(`API Error: ${error.message}`);
+      }
+
+      if (!data || data.result !== 'success') {
+        throw new Error(data?.message || 'Failed to fetch orders from Sunsky API');
+      }
+
+      const allOrders = data.orders || [];
+      console.log(`📦 Found ${allOrders.length} total orders on Sunsky`);
+
+      setState(prev => ({ ...prev, progressTotal: allOrders.length }));
+
+      let syncedCount = 0;
+      let errorCount = 0;
+
+      // Process each order
+      for (let i = 0; i < allOrders.length; i++) {
+        const order = allOrders[i];
         
         setState(prev => ({ 
           ...prev, 
           progressCurrent: i + 1, 
-          progressPercent: Math.round(((i + 1) / placedOrderEntries.length) * 100)
+          progressPercent: Math.round(((i + 1) / allOrders.length) * 100)
         }));
 
         try {
-          console.log(`Attempting to sync order ${orderNumber} with selected credential ${credentialId} and PO numbers:`, relatedPONumbers);
-          
-          // Use the selected credential for all orders
-          const apiIdToUse = credentialId;
-          
-          const { data, error } = await supabase.functions.invoke('sunsky-api', {
+          // Store the order in our database with items
+          const { data: saveData, error: saveError } = await supabase.functions.invoke('sunsky-api', {
             body: {
-              action: 'getOrderDetails',
-              orderNumber: orderNumber,
-              poNumbers: relatedPONumbers,
-              apiId: apiIdToUse
+              action: 'saveOrderWithItems',
+              orderData: order,
+              apiId: credentialId
             },
           });
 
-          console.log(`Response for order ${orderNumber}:`, { data, error });
-
-          if (error) {
-            console.error(`Error syncing order ${orderNumber}:`, error);
+          if (saveError) {
+            console.error(`Error saving order ${order.number}:`, saveError);
             errorCount++;
-            toast({
-              title: 'Connection Error',
-              description: `Failed to connect to Sunsky API for order ${orderNumber}. Please check your credentials.`,
-              variant: 'destructive',
-            });
-            continue;
-          }
-
-          if (!data) {
-            console.error(`No data returned for order ${orderNumber}`);
-            errorCount++;
-            continue;
-          }
-
-          if (data && data.result === 'success') {
-            if (data.reason === 'unpaid') {
-              console.log(`Order ${orderNumber} is unpaid - stored as pending`);
-              unpaidCount++;
-            } else if (data.reason === 'error' || data.reason === 'api_error') {
-              console.log(`Order ${orderNumber} has error status - stored as error`);
-              errorCount++;
-            } else {
-              console.log(`Successfully synced order ${orderNumber}`);
-              syncedCount++;
-            }
-          } else if (data && data.result === 'error') {
-            console.error(`Order ${orderNumber} sync failed:`, data);
-            errorCount++;
-            const errorMsg = data.message || 'Unknown error';
-            
-            // Show more specific error for API credential issues
-            if (data.reason === 'api_issue') {
-              toast({
-                title: 'API Credential Issue',
-                description: `Order ${orderNumber}: Please add valid Sunsky API credentials to sync this order.`,
-                variant: 'destructive',
-              });
-            } else {
-              toast({
-                title: 'Order Error',
-                description: `Order ${orderNumber}: ${errorMsg}`,
-                variant: 'destructive',
-              });
-            }
+          } else if (saveData?.result === 'success') {
+            syncedCount++;
           } else {
-            console.error(`Order ${orderNumber} unexpected response:`, data);
+            console.error(`Failed to save order ${order.number}:`, saveData);
             errorCount++;
-            toast({
-              title: 'Unexpected Response',
-              description: `Order ${orderNumber}: Received unexpected response from Sunsky API`,
-              variant: 'destructive',
-            });
           }
         } catch (err) {
-          console.error(`Failed to sync order ${orderNumber}:`, err);
+          console.error(`Failed to process order ${order.number}:`, err);
           errorCount++;
-          toast({
-            title: 'Request Failed',
-            description: `Order ${orderNumber}: ${err instanceof Error ? err.message : 'Network error'}`,
-            variant: 'destructive',
-          });
         }
       }
 
@@ -363,10 +260,10 @@ export const useSunskyOrders = () => {
       
       toast({
         title: 'Sync Complete',
-        description: errorCount === placedOrderEntries.length && errorCount > 0 
-          ? `All ${placedOrderEntries.length} orders failed. Please check your Sunsky API credentials.`
-          : `${summaryMsg} out of ${placedOrderEntries.length} orders`,
-        variant: errorCount === placedOrderEntries.length ? 'destructive' : 'default',
+        description: errorCount === allOrders.length && errorCount > 0 
+          ? `All ${allOrders.length} orders failed. Please check your Sunsky API credentials.`
+          : `${summaryMsg} out of ${allOrders.length} orders from Sunsky`,
+        variant: errorCount === allOrders.length ? 'destructive' : 'default',
       });
       
       // Refresh local data

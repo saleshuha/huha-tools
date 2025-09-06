@@ -2335,6 +2335,185 @@ serve(async (req) => {
         }
       }
 
+      case 'getAllOrders': {
+        const { apiId } = requestData;
+        
+        if (!apiId) {
+          throw new Error('API credential ID is required');
+        }
+
+        const credentials = await getApiCredentials(user.id, apiId);
+        if (!credentials) {
+          throw new Error('No Sunsky API credentials found for the provided API ID');
+        }
+
+        console.log('Fetching ALL orders from Sunsky API...');
+        
+        // Fetch orders from Sunsky API using listOrders
+        let allOrders: any[] = [];
+        let page = 1;
+        let pageSize = 100; // Max allowed
+        let totalFetched = 0;
+        
+        try {
+          // Fetch all pages of orders
+          while (true) {
+            console.log(`Fetching page ${page} from Sunsky API...`);
+            
+            const params = {
+              pageSize,
+              page
+            };
+
+            const response = await makeSunskyRequest(
+              '/openapi/order!getOrderList.do',
+              params,
+              credentials.key,
+              credentials.secret,
+              user.id
+            );
+
+            if (response.result !== 'success') {
+              throw new Error(`Sunsky API error: ${response.messages?.[0] || 'Unknown error'}`);
+            }
+
+            const pageOrders = response.data?.result || [];
+            const totalPages = response.data?.pageCount || 1;
+            
+            console.log(`Page ${page}: Got ${pageOrders.length} orders, total pages: ${totalPages}`);
+            
+            allOrders = [...allOrders, ...pageOrders];
+            totalFetched += pageOrders.length;
+            
+            // Break if we've fetched all pages or no more orders
+            if (page >= totalPages || pageOrders.length === 0) {
+              break;
+            }
+            
+            page++;
+            
+            // Safety limit to prevent infinite loops
+            if (page > 100) {
+              console.warn('Reached page limit of 100, stopping fetch');
+              break;
+            }
+          }
+          
+          console.log(`Successfully fetched ${totalFetched} total orders from Sunsky`);
+          
+          return new Response(JSON.stringify({
+            result: 'success',
+            orders: allOrders,
+            totalCount: totalFetched
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+          
+        } catch (error: any) {
+          console.error('Error fetching all orders from Sunsky:', error);
+          return new Response(JSON.stringify({
+            result: 'error',
+            message: `Failed to fetch orders from Sunsky: ${error.message}`
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+      }
+
+      case 'saveOrderWithItems': {
+        const { orderData, apiId } = requestData;
+        
+        if (!orderData) {
+          throw new Error('Order data is required');
+        }
+        
+        if (!apiId) {
+          throw new Error('API credential ID is required');
+        }
+
+        console.log(`Saving order ${orderData.number} to database...`);
+        
+        try {
+          const now = new Date().toISOString();
+          
+          // Format order for database storage
+          const orderToUpsert = {
+            user_id: user.id,
+            sunsky_credentials_id: apiId,
+            number: orderData.number,
+            status: orderData.status || 'unknown',
+            site_number: orderData.siteNumber || null,
+            gmt_created: orderData.gmtCreated ? new Date(orderData.gmtCreated).toISOString() : now,
+            gmt_paid: orderData.gmtPaid ? new Date(orderData.gmtPaid).toISOString() : null,
+            gmt_shipped: orderData.gmtShipped ? new Date(orderData.gmtShipped).toISOString() : null,
+            total: orderData.totalAmount || orderData.amount || null,
+            currency: orderData.currency || 'USD',
+            shipping_company: orderData.deliveryAddress?.shippingWay?.name || null,
+            tracking_number: orderData.trackingNumber || null,
+            tracking_url: orderData.deliveryAddress?.shippingWay?.queryUrl || null,
+            status_last_updated_at: now,
+            last_synced_at: now,
+            raw: orderData
+          };
+
+          // Store the main order
+          const { error: insertError } = await supabase
+            .from('sunsky_orders')
+            .upsert([orderToUpsert], { onConflict: 'number' });
+          
+          if (insertError) {
+            throw new Error(`Failed to store order: ${insertError.message}`);
+          }
+          
+          // Store order items if available
+          const orderItems = orderData.detailList || orderData.items || [];
+          if (orderItems && Array.isArray(orderItems) && orderItems.length > 0) {
+            const itemsToUpsert = orderItems.map((item: any) => ({
+              user_id: user.id,
+              order_number: orderData.number,
+              sku_code: item.itemNo || item.skuCode || null,
+              model_number: item.modelNumber || null,
+              title: item.title || null,
+              quantity: item.qty ? parseInt(item.qty) : (item.quantity ? parseInt(item.quantity) : null),
+              unit_price: item.price ? parseFloat(item.price) : (item.unitPrice ? parseFloat(item.unitPrice) : null),
+              currency: orderData.currency || 'USD',
+              asin: item.asin || null,
+              item_status: item.status || orderData.status || null,
+              status_last_updated_at: now,
+              expected_ship_date: item.expectedShipDate ? new Date(item.expectedShipDate) : null,
+              last_synced_at: now,
+              raw: item
+            }));
+
+            const { error: itemsError } = await supabase
+              .from('sunsky_order_items')
+              .upsert(itemsToUpsert, { onConflict: 'user_id,order_number,sku_code' });
+            
+            if (itemsError) {
+              console.warn(`Warning: Failed to store some order items for ${orderData.number}:`, itemsError);
+            } else {
+              console.log(`Successfully stored ${itemsToUpsert.length} items for order ${orderData.number}`);
+            }
+          }
+          
+          return new Response(JSON.stringify({
+            result: 'success',
+            message: `Order ${orderData.number} saved successfully`
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+          
+        } catch (error: any) {
+          console.error(`Error saving order ${orderData.number}:`, error);
+          return new Response(JSON.stringify({
+            result: 'error',
+            message: `Failed to save order ${orderData.number}: ${error.message}`
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+      }
+
       case 'getOrderLabels': {
         const { orderNumber } = requestData;
         
