@@ -128,7 +128,8 @@ export const useSunskyOrders = () => {
         `)
         .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
         .order('gmt_created', { ascending: false })
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(50000); // Increase limit to handle large datasets
 
       if (showOnlyPOLinked) {
         // Only show orders that have PO relationships
@@ -147,7 +148,14 @@ export const useSunskyOrders = () => {
       }));
 
       console.log(`📊 Found ${ordersWithData.length} synced Sunsky orders`);
-      console.log('Order numbers:', ordersWithData.map(o => o.number).join(', '));
+      if (ordersWithData.length >= 45000) {
+        console.warn('⚠️ Approaching order limit - consider implementing pagination');
+        toast({
+          title: 'Large Dataset',
+          description: `You have ${ordersWithData.length} orders. Performance may be impacted with very large datasets.`,
+        });
+      }
+      console.log('Order numbers:', ordersWithData.slice(0, 10).map(o => o.number).join(', '), ordersWithData.length > 10 ? `... and ${ordersWithData.length - 10} more` : '');
 
       setState(prev => ({
         ...prev,
