@@ -2252,55 +2252,52 @@ export const SunskySKUImporter: React.FC = () => {
                   </Select>
                 </div>
 
-                  <div className="space-y-3">
-                    <Label className="text-sm font-semibold">Date Range</Label>
-                    <div className="border-2 border-input bg-background/50 hover:border-primary/50 transition-colors rounded-md">
-                      <DatePickerWithRange
-                        date={dateRange}
-                        onDateChange={setDateRange}
-                      />
-                    </div>
-                  </div>
+                <div className="space-y-2">
+                  <Label>Date Range</Label>
+                  <DatePickerWithRange
+                    date={dateRange}
+                    onDateChange={setDateRange}
+                  />
                 </div>
+              </div>
 
-                <div className="flex items-center gap-4 pt-4 border-t border-border/50">
-                  <Button
-                    onClick={() => searchProducts(1, selectedSearchAPI)}
-                    disabled={!hasCredentials || loading || !selectedSearchAPI}
-                    className="flex items-center gap-2 h-11 px-6 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-200"
-                  >
-                    {loading ? (
-                      <RefreshCw className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Search className="h-4 w-4" />
-                    )}
-                    Search Products
-                  </Button>
+              <div className="flex items-center gap-4">
+                <Button
+                  onClick={() => searchProducts(1, selectedSearchAPI)}
+                  disabled={!hasCredentials || loading || !selectedSearchAPI}
+                  className="flex items-center gap-2"
+                >
+                  {loading ? (
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Search className="h-4 w-4" />
+                  )}
+                  Search Products
+                </Button>
 
-                  <Button
-                    disabled={!hasCredentials || isSearchingPO}
-                    onClick={handleSearchPOModelNumbers}
-                    variant="outline"
-                    className="h-11 px-6 border-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground shadow-md hover:shadow-lg transition-all duration-200"
-                  >
-                    <Package className="h-4 w-4 mr-2" />
-                    {isSearchingPO ? 'Searching PO Items...' : 'Search PO Model Numbers'}
-                  </Button>
+                <Button
+                  disabled={!hasCredentials || isSearchingPO}
+                  onClick={handleSearchPOModelNumbers}
+                  variant="outline"
+                  className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+                >
+                  <Package className="h-4 w-4 mr-2" />
+                  {isSearchingPO ? 'Searching PO Items...' : 'Search PO Model Numbers'}
+                </Button>
 
-                  <Button
-                    variant="outline"
-                    className="h-11 px-6 border-2 border-border hover:border-primary hover:text-primary shadow-md hover:shadow-lg transition-all duration-200"
-                    onClick={() => {
-                      setSearchTerm('');
-                      setSelectedCategory('all');
-                      setSelectedSubCategory('all');
-                      setSelectedBrand('all');
-                      setPriceMin('');
-                      setPriceMax('');
-                      setStockMin('');
-                      setLeadTimeLevel('any');
-                      setDateRange(undefined);
-                    }}
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSearchTerm('');
+                    setSelectedCategory('all');
+                    setSelectedSubCategory('all');
+                    setSelectedBrand('all');
+                    setPriceMin('');
+                    setPriceMax('');
+                    setStockMin('');
+                    setLeadTimeLevel('any');
+                    setDateRange(undefined);
+                  }}
                 >
                   <RotateCcw className="h-4 w-4 mr-2" />
                   Clear Filters
@@ -2524,10 +2521,10 @@ export const SunskySKUImporter: React.FC = () => {
                 <div className="space-y-2 mb-4">
                   <Label htmlFor="job-api">Select API for Import Job</Label>
                   <Select value={selectedJobAPI} onValueChange={setSelectedJobAPI}>
-                    <SelectTrigger className="h-11 border-2 border-input bg-background/50 hover:border-primary/50 transition-colors">
+                    <SelectTrigger>
                       <SelectValue placeholder="Choose API credentials" />
                     </SelectTrigger>
-                    <SelectContent className="border-2">
+                    <SelectContent>
                       {availableAPIs.map((api) => (
                         <SelectItem key={api.id} value={api.id}>
                           <div className="flex items-center gap-2">
@@ -2544,10 +2541,10 @@ export const SunskySKUImporter: React.FC = () => {
                   <div className="flex-1 space-y-2">
                     <Label htmlFor="job-category">Category</Label>
                     <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                      <SelectTrigger className="h-11 border-2 border-input bg-background/50 hover:border-primary/50 transition-colors">
+                      <SelectTrigger>
                         <SelectValue placeholder="Select category to import" />
                       </SelectTrigger>
-                      <SelectContent className="border-2">
+                      <SelectContent>
                         {categories.filter(category => category.id && category.name).map((category) => (
                           <SelectItem key={category.id} value={category.id.toString()}>
                             {category.name}
@@ -2788,10 +2785,10 @@ export const SunskySKUImporter: React.FC = () => {
                           setSkuCurrentPage(1); // Reset to first page
                         }}
                       >
-                        <SelectTrigger className="w-20 h-9 border-2 border-input bg-background/50 hover:border-primary/50 transition-colors">
+                        <SelectTrigger className="w-20">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent className="border-2">
+                        <SelectContent>
                           <SelectItem value="10">10</SelectItem>
                           <SelectItem value="25">25</SelectItem>
                           <SelectItem value="50">50</SelectItem>
@@ -3115,10 +3112,10 @@ export const SunskySKUImporter: React.FC = () => {
                 <div className="space-y-2">
                   <Label htmlFor="export-status">Product Status</Label>
                   <Select value={selectedExportStatus.toString()} onValueChange={(value) => setSelectedExportStatus(parseInt(value))}>
-                    <SelectTrigger className="h-11 border-2 border-input bg-background/50 hover:border-primary/50 transition-colors">
+                    <SelectTrigger>
                       <SelectValue placeholder="Select status to export" />
                     </SelectTrigger>
-                    <SelectContent className="border-2">
+                    <SelectContent>
                       <SelectItem value="1">Valid</SelectItem>
                       <SelectItem value="2">Deleted</SelectItem>
                       <SelectItem value="3">Out of Stock</SelectItem>
@@ -3131,10 +3128,10 @@ export const SunskySKUImporter: React.FC = () => {
                 <div className="space-y-2">
                   <Label htmlFor="export-category">Category</Label>
                   <Select value={exportCategory} onValueChange={setExportCategory}>
-                    <SelectTrigger className="h-11 border-2 border-input bg-background/50 hover:border-primary/50 transition-colors">
+                    <SelectTrigger>
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
-                    <SelectContent className="border-2">
+                    <SelectContent>
                       <SelectItem value="all">All Categories</SelectItem>
                       {categories.map((category) => (
                         <SelectItem key={category.id} value={category.id.toString()}>
@@ -3153,10 +3150,10 @@ export const SunskySKUImporter: React.FC = () => {
                     onValueChange={setExportSubCategory}
                     disabled={exportCategory === 'all'}
                   >
-                    <SelectTrigger className="h-11 border-2 border-input bg-background/50 hover:border-primary/50 transition-colors">
+                    <SelectTrigger>
                       <SelectValue placeholder="Select subcategory" />
                     </SelectTrigger>
-                    <SelectContent className="border-2">
+                    <SelectContent>
                       <SelectItem value="all">All Subcategories</SelectItem>
                       {subCategories.map((category) => (
                         <SelectItem key={category.id} value={category.id.toString()}>
@@ -3183,10 +3180,10 @@ export const SunskySKUImporter: React.FC = () => {
                 <div className="space-y-2">
                   <Label htmlFor="export-page-size">Page Size</Label>
                   <Select value={exportPageSize.toString()} onValueChange={(value) => setExportPageSize(parseInt(value))}>
-                    <SelectTrigger className="h-11 border-2 border-input bg-background/50 hover:border-primary/50 transition-colors">
+                    <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="border-2">
+                    <SelectContent>
                       <SelectItem value="20">20 per page</SelectItem>
                       <SelectItem value="50">50 per page</SelectItem>
                       <SelectItem value="100">100 per page</SelectItem>
