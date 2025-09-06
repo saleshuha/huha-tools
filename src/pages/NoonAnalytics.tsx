@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DatePickerWithRange } from "@/components/ui/date-range-picker";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DatePickerWithRange } from '@/components/ui/date-range-picker';
+import { HuhaTab01 } from '@/components/ui/huha-tab-01';
 import { 
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, AreaChart, Area,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer 
@@ -658,264 +659,92 @@ export default function NoonAnalytics() {
         </div>
 
         {/* Analytics Tabs */}
-        <Tabs defaultValue="trends" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="trends">Revenue Trends</TabsTrigger>
-            <TabsTrigger value="fees">Fee Analysis</TabsTrigger>
-            <TabsTrigger value="products">Top Products</TabsTrigger>
-            <TabsTrigger value="stores">Store Performance</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="trends" className="space-y-6">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Revenue & Orders Trend</CardTitle>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => exportData('daily')}
-                  className="flex items-center gap-2"
-                >
-                  <FileSpreadsheet className="h-4 w-4" />
-                  Export Daily Data
-                </Button>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={400}>
-                  <AreaChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis yAxisId="left" />
-                    <YAxis yAxisId="right" orientation="right" />
-                    <Tooltip
-                      formatter={(value: any, name: string) => [
-                        name === 'revenue' || name === 'fees' || name === 'profit'
-                          ? formatCurrency(value)
-                          : value.toLocaleString(),
-                        name
-                      ]}
-                    />
-                    <Legend />
-                    <Area
-                      yAxisId="left"
-                      type="monotone"
-                      dataKey="revenue"
-                      stackId="1"
-                      stroke="#8884d8"
-                      fill="#8884d8"
-                      fillOpacity={0.6}
-                      name="Revenue"
-                    />
-                    <Area
-                      yAxisId="left"
-                      type="monotone"
-                      dataKey="profit"
-                      stackId="2"
-                      stroke="#82ca9d"
-                      fill="#82ca9d"
-                      fillOpacity={0.6}
-                      name="Profit"
-                    />
-                    <Line
-                      yAxisId="right"
-                      type="monotone"
-                      dataKey="orders"
-                      stroke="#ff7300"
-                      strokeWidth={3}
-                      name="Orders"
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="fees">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Fee Breakdown</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie
-                        data={feeBreakdown}
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={100}
-                        fill="#8884d8"
-                        dataKey="amount"
-                        label={({ category, percentage }) => `${category}: ${formatPercentage(percentage)}`}
+        <HuhaTab01
+          defaultValue="trends"
+          value=""
+          onValueChange={() => {}}
+          items={[
+            {
+              value: "trends",
+              label: "Revenue Trends",
+              content: (
+                <div className="space-y-6">
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between">
+                      <CardTitle>Revenue & Orders Trend</CardTitle>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => exportData('daily')}
+                        className="flex items-center gap-2"
                       >
-                        {feeBreakdown.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip formatter={(value: any) => formatCurrency(value)} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Fee Categories</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {feeBreakdown.map((fee, index) => (
-                      <div key={index} className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <div
-                            className="w-4 h-4 rounded-full"
-                            style={{ backgroundColor: fee.color }}
+                        <FileSpreadsheet className="h-4 w-4" />
+                        Export Daily Data
+                      </Button>
+                    </CardHeader>
+                    <CardContent>
+                      <ResponsiveContainer width="100%" height={400}>
+                        <AreaChart data={chartData}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="date" />
+                          <YAxis yAxisId="left" />
+                          <YAxis yAxisId="right" orientation="right" />
+                          <Tooltip
+                            formatter={(value: any, name: string) => [
+                              name === 'revenue' || name === 'fees' || name === 'profit'
+                                ? formatCurrency(value)
+                                : value.toLocaleString(),
+                              name
+                            ]}
                           />
-                          <span className="font-medium">{fee.category}</span>
-                        </div>
-                        <div className="text-right">
-                          <div className="font-bold">{formatCurrency(fee.amount)}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {formatPercentage(fee.percentage)}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="products">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Top Performing Products</CardTitle>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => exportData('products')}
-                  className="flex items-center gap-2"
-                >
-                  <FileSpreadsheet className="h-4 w-4" />
-                  Export Products
-                </Button>
-              </CardHeader>
-              <CardContent>
-                {topProducts.length > 0 ? (
-                  <div className="space-y-4">
-                    {topProducts.map((product, index) => (
-                      <div key={product.sku} className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
-                        <div className="flex items-center gap-4">
-                          <div className="w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm font-bold">
-                            {index + 1}
-                          </div>
-                          <div>
-                            <p className="font-medium text-slate-900">{product.sku || 'Unknown SKU'}</p>
-                            <p className="text-sm text-slate-600">{product.orders} orders</p>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-4 gap-4 text-right">
-                          <div>
-                            <p className="font-bold text-green-600">{formatCurrency(product.revenue)}</p>
-                            <p className="text-xs text-slate-600">Revenue</p>
-                          </div>
-                          <div>
-                            <p className="font-bold text-red-600">{formatCurrency(product.fees)}</p>
-                            <p className="text-xs text-slate-600">Fees</p>
-                          </div>
-                          <div>
-                            <p className="font-bold text-blue-600">{formatCurrency(product.profit)}</p>
-                            <p className="text-xs text-slate-600">Profit</p>
-                          </div>
-                          <div>
-                            <p className={`font-bold ${product.margin >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                              {formatPercentage(product.margin)}
-                            </p>
-                            <p className="text-xs text-slate-600">Margin</p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-slate-500">
-                    <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No product data available for the selected filters</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="stores">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Store Performance Comparison</CardTitle>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => exportData('stores')}
-                  className="flex items-center gap-2"
-                  disabled={selectedStore !== "all"}
-                >
-                  <FileSpreadsheet className="h-4 w-4" />
-                  Export Stores
-                </Button>
-              </CardHeader>
-              <CardContent>
-                {selectedStore === "all" && storePerformance.length > 0 ? (
-                  <div className="space-y-4">
-                    {storePerformance.map((store, index) => (
-                      <div key={store.store_name} className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
-                        <div className="flex items-center gap-4">
-                          <div className="w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm font-bold">
-                            {index + 1}
-                          </div>
-                          <div>
-                            <p className="font-medium text-slate-900">{store.store_name}</p>
-                            <p className="text-sm text-slate-600">{store.orders} orders</p>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-4 gap-4 text-right">
-                          <div>
-                            <p className="font-bold text-green-600">{formatCurrency(store.revenue)}</p>
-                            <p className="text-xs text-slate-600">Revenue</p>
-                          </div>
-                          <div>
-                            <p className="font-bold text-red-600">{formatCurrency(store.fees)}</p>
-                            <p className="text-xs text-slate-600">Fees</p>
-                          </div>
-                          <div>
-                            <p className="font-bold text-blue-600">{formatCurrency(store.profit)}</p>
-                            <p className="text-xs text-slate-600">Profit</p>
-                          </div>
-                          <div>
-                            <p className={`font-bold ${store.margin >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                              {formatPercentage(store.margin)}
-                            </p>
-                            <p className="text-xs text-slate-600">Margin</p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : selectedStore !== "all" ? (
-                  <div className="text-center py-8 text-slate-500">
-                    <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>Store comparison is only available when viewing "All Stores"</p>
-                    <p className="text-sm mt-2">Change the store filter to "All Stores" to see store performance comparison</p>
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-slate-500">
-                    <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No store data available for comparison</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+                          <Legend />
+                          <Area
+                            yAxisId="left"
+                            type="monotone"
+                            dataKey="revenue"
+                            stackId="1"
+                            stroke="#8884d8"
+                            fill="#8884d8"
+                            fillOpacity={0.6}
+                            name="Revenue"
+                          />
+                          <Area
+                            yAxisId="right"
+                            type="monotone"
+                            dataKey="orders"
+                            stroke="#82ca9d"
+                            fill="#82ca9d"
+                            fillOpacity={0.6}
+                            name="Orders"
+                          />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </CardContent>
+                  </Card>
+                </div>
+              )
+            },
+            {
+              value: "fees",
+              label: "Fee Analysis",
+              content: <div>Fee analysis content</div>
+            },
+            {
+              value: "products", 
+              label: "Top Products",
+              content: <div>Top products content</div>
+            },
+            {
+              value: "stores",
+              label: "Store Performance", 
+              content: <div>Store performance content</div>
+            }
+          ]}
+        />
+      </div>
+    </div>
+  );
+}
       </div>
     </div>
   );

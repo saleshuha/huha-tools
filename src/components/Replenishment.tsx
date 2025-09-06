@@ -4,7 +4,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Badge } from './ui/badge';
 import { Progress } from './ui/progress';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import { HuhaTab01 } from './ui/huha-tab-01';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
@@ -1954,11 +1954,38 @@ export function Replenishment() {
         </Card>
       </div>
 
-      {/* Main Content Tabs */}
-      <Tabs defaultValue="restock" className="w-full">
-        <TabsList className="grid w-full grid-cols-1 h-14 p-2 bg-gradient-subtle rounded-xl shadow-elegant">
-          <TabsTrigger value="restock" className="text-sm font-semibold px-6 py-3 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all duration-300 hover:bg-white/10">📦 Restock Management</TabsTrigger>
-        </TabsList>
+      {/* Main Content - Simplified for now */}
+      <Card className="glass-container">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Package className="w-5 h-5" />
+            Restock Management Dashboard
+          </CardTitle>
+          <p className="text-muted-foreground">Manage critical stock items and track orders</p>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-2xl font-bold text-orange-600">{pendingItems.length}</div>
+                <p className="text-sm text-muted-foreground">Ready to Order</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-2xl font-bold text-blue-600">{orderedItems.length}</div>
+                <p className="text-sm text-muted-foreground">Ordered Items</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-2xl font-bold text-red-600">{outOfStockItems.length}</div>
+                <p className="text-sm text-muted-foreground">Out of Stock</p>
+              </CardContent>
+            </Card>
+          </div>
+        </CardContent>
+      </Card>
 
 
         {/* Restock Management Tab with Separate Tabs */}
