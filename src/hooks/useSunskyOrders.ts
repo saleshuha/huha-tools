@@ -158,6 +158,7 @@ export const useSunskyOrders = () => {
   };
 
   // Sync ALL orders from Sunsky API - not just app-related orders
+  // Skip delivered orders that are already in the database  
   const syncOrdersFromAPI = async (credentialId?: string | null) => {
     setState(prev => ({ ...prev, syncing: true, error: null, progressCurrent: 0, progressTotal: 0, progressPercent: 0 }));
 
@@ -200,20 +201,36 @@ export const useSunskyOrders = () => {
         console.log('Using first available credential:', finalCredentialId);
       }
 
-      console.log('Syncing ALL Sunsky orders with credential:', finalCredentialId);
+      console.log('Syncing Sunsky orders with credential:', finalCredentialId);
+
+      // Get delivered orders already in database to skip them
+      console.log('🔍 Checking for delivered orders already in database...');
+      const { data: deliveredOrdersData, error: deliveredError } = await supabase
+        .from('sunsky_orders')
+        .select('number')
+        .eq('user_id', user.id)
+        .in('status', ['6', 'delivered']); // Status 6 = delivered
+
+      if (deliveredError) {
+        console.warn('Failed to fetch delivered orders, continuing with full sync:', deliveredError);
+      }
+
+      const deliveredOrderNumbers = new Set(deliveredOrdersData?.map(o => o.number) || []);
+      console.log(`📦 Found ${deliveredOrderNumbers.size} delivered orders in database to skip`);
 
       // Fetch ALL orders from Sunsky (not just app-related ones)
       console.log('🌍 Fetching ALL orders from Sunsky API...');
       
       toast({
         title: 'Syncing Orders',
-        description: 'Fetching ALL orders from your Sunsky account...',
+        description: 'Fetching orders from your Sunsky account, skipping delivered ones...',
       });
 
       const { data, error } = await supabase.functions.invoke('sunsky-api', {
         body: {
           action: 'getAllOrders',
-          apiId: finalCredentialId
+          apiId: finalCredentialId,
+          skipDeliveredOrders: Array.from(deliveredOrderNumbers) // Pass delivered order numbers to skip
         },
       });
 
@@ -226,7 +243,8 @@ export const useSunskyOrders = () => {
       }
 
       const allOrders = data.orders || [];
-      console.log(`📦 Found ${allOrders.length} total orders on Sunsky`);
+      const skippedCount = data.skippedCount || 0;
+      console.log(`📦 Found ${allOrders.length} orders to sync (${skippedCount} delivered orders skipped)`);
 
       setState(prev => ({ ...prev, progressTotal: allOrders.length }));
 
@@ -272,6 +290,7 @@ export const useSunskyOrders = () => {
       const messages = [];
       if (syncedCount > 0) messages.push(`${syncedCount} synced`);
       if (errorCount > 0) messages.push(`${errorCount} failed`);
+      if (skippedCount > 0) messages.push(`${skippedCount} delivered orders skipped`);
 
       const summaryMsg = messages.length > 0 ? messages.join(', ') : 'No orders processed';
       
@@ -279,7 +298,7 @@ export const useSunskyOrders = () => {
         title: 'Sync Complete',
         description: errorCount === allOrders.length && errorCount > 0 
           ? `All ${allOrders.length} orders failed. Please check your Sunsky API credentials.`
-          : `${summaryMsg} out of ${allOrders.length} orders from Sunsky`,
+          : `${summaryMsg} out of ${allOrders.length + skippedCount} total orders`,
         variant: errorCount === allOrders.length ? 'destructive' : 'default',
       });
       

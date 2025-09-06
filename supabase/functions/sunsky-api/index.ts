@@ -2336,7 +2336,7 @@ serve(async (req) => {
       }
 
       case 'getAllOrders': {
-        const { apiId } = requestData;
+        const { apiId, skipDeliveredOrders = [] } = requestData;
         
         if (!apiId) {
           throw new Error('API credential ID is required');
@@ -2348,12 +2348,17 @@ serve(async (req) => {
         }
 
         console.log('Fetching ALL orders from Sunsky API...');
+        console.log(`Will skip ${skipDeliveredOrders.length} delivered orders`);
+        
+        // Create a set for faster lookup of orders to skip
+        const skipOrderNumbers = new Set(skipDeliveredOrders);
         
         // Fetch orders from Sunsky API using listOrders
         let allOrders: any[] = [];
         let page = 1;
         let pageSize = 100; // Max allowed
         let totalFetched = 0;
+        let skippedCount = 0;
         
         try {
           // Fetch all pages of orders
@@ -2382,8 +2387,19 @@ serve(async (req) => {
             
             console.log(`Page ${page}: Got ${pageOrders.length} orders, total pages: ${totalPages}`);
             
-            allOrders = [...allOrders, ...pageOrders];
-            totalFetched += pageOrders.length;
+            // Filter out delivered orders that we already have in the database
+            const ordersToSync = pageOrders.filter((order: any) => {
+              const orderNumber = order.number || order.orderNumber;
+              if (skipOrderNumbers.has(orderNumber)) {
+                skippedCount++;
+                console.log(`Skipping delivered order: ${orderNumber}`);
+                return false;
+              }
+              return true;
+            });
+            
+            allOrders = [...allOrders, ...ordersToSync];
+            totalFetched += ordersToSync.length;
             
             // Break if we've fetched all pages or no more orders
             if (page >= totalPages || pageOrders.length === 0) {
@@ -2399,12 +2415,13 @@ serve(async (req) => {
             }
           }
           
-          console.log(`Successfully fetched ${totalFetched} total orders from Sunsky`);
+          console.log(`Successfully fetched ${totalFetched} orders to sync, skipped ${skippedCount} delivered orders`);
           
           return new Response(JSON.stringify({
             result: 'success',
             orders: allOrders,
-            totalCount: totalFetched
+            totalCount: totalFetched,
+            skippedCount: skippedCount
           }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
