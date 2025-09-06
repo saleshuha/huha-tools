@@ -512,14 +512,14 @@ export default function SunskyOrderTrackingPage() {
                 <RefreshCw className="h-6 w-6 animate-spin mr-2" />
                 Loading orders...
               </div>
-            ) : filteredOrders.length === 0 ? (
+            ) : filteredAndSortedOrders.length === 0 ? (
               <div className="text-center py-8">
                 <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <p className="text-muted-foreground">No orders found matching your criteria</p>
               </div>
             ) : (
               <div className="space-y-4">
-                {filteredOrders.map((order) => {
+                {paginatedOrders.map((order) => {
                   const isExpanded = expandedOrders.has(order.number);
                   const labels = orderLabels.get(order.number) || [];
                   const isLoadingLabels = loadingLabels.has(order.number);
@@ -751,6 +751,36 @@ export default function SunskyOrderTrackingPage() {
                     </div>
                   );
                 })}
+              </div>
+            )}
+
+            {/* Pagination Controls */}
+            {filteredAndSortedOrders.length > itemsPerPage && (
+              <div className="flex items-center justify-between pt-6 border-t border-border">
+                <div className="text-sm text-muted-foreground">
+                  Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredAndSortedOrders.length)} of {filteredAndSortedOrders.length} orders
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    Previous
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages}
+                  >
+                    Next
+                  </Button>
+                </div>
               </div>
             )}
           </CardContent>
