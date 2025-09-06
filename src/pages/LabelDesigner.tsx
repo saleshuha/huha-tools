@@ -265,13 +265,19 @@ const LabelDesignerContent: React.FC = () => {
         </div>
       </div>
       <div className="flex flex-col gap-6 p-6 bg-gradient-to-br from-background to-muted/20">
-        <Tabs defaultValue="orders" className="flex-1">
-          <TabsList className="grid w-fit grid-cols-3 mb-6 bg-muted/50 border-2 border-border p-1 rounded-lg">
+        <Tabs defaultValue="amazon-orders" className="flex-1">
+          <TabsList className="grid w-fit grid-cols-4 mb-6 bg-muted/50 border-2 border-border p-1 rounded-lg">
             <TabsTrigger 
-              value="orders" 
+              value="amazon-orders" 
               className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md font-medium transition-all duration-200 hover:bg-accent/50"
             >
-              Order Printing
+              Amazon Order Printing
+            </TabsTrigger>
+            <TabsTrigger 
+              value="noon-orders" 
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md font-medium transition-all duration-200 hover:bg-accent/50"
+            >
+              Noon Order Printing
             </TabsTrigger>
             <TabsTrigger 
               value="eligible" 
@@ -286,7 +292,10 @@ const LabelDesignerContent: React.FC = () => {
               Label Designer
             </TabsTrigger>
           </TabsList>
-          <TabsContent value="orders" className="border-2 border-border rounded-lg bg-card/50 p-6 shadow-sm">
+          <TabsContent value="amazon-orders" className="border-2 border-border rounded-lg bg-card/50 p-6 shadow-sm">
+            <DateWiseOrderPrint />
+          </TabsContent>
+          <TabsContent value="noon-orders" className="border-2 border-border rounded-lg bg-card/50 p-6 shadow-sm">
             <DateWiseOrderPrint />
           </TabsContent>
           <TabsContent value="eligible" className="border-2 border-border rounded-lg bg-card/50 p-6 shadow-sm">
