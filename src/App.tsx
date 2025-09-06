@@ -55,6 +55,7 @@ import NoonFileCleaner from "./pages/NoonFileCleaner";
 import AmazonVendorCentral from "./pages/AmazonVendorCentral";
 import LabelDesigner from "./pages/LabelDesigner";
 import NoonOrderTrackingPage from "./pages/NoonOrderTracking";
+import NoonOrderProcessingPage from "./pages/NoonOrderProcessing";
 
 import { useState as useReactState } from "react";
 import { useToast } from "@/components/ui/use-toast";
@@ -257,6 +258,7 @@ const App = () => {
                          <Route path="/sunsky-order-tracking" element={<SunskyOrderTrackingPage />} />
                          <Route path="/sunsky-order-details/:orderNumber" element={<SunskyOrderDetails />} />
                          <Route path="/source-order-tracking" element={<SunskyOrderTrackingPage />} />
+                         <Route path="/noon-order-processing" element={<NoonOrderProcessingPage />} />
                          <Route path="/noon-order-tracking" element={<NoonOrderTrackingPage />} />
                          <Route path="/amazon-fulfillment" element={<AmazonFulfillmentTracker />} />
                          <Route path="/label-designer" element={<LabelDesigner />} />

@@ -354,6 +354,31 @@ export function AppSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
 
+              {/* Noon Orders Processing */}
+              <SidebarMenuItem>
+                <SidebarMenuButton 
+                  asChild
+                  className={`group relative w-full rounded-xl transition-all duration-200 ${
+                    isActive("/noon-order-processing")
+                      ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
+                      : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
+                  }`}
+                >
+                  <NavLink 
+                    to="/noon-order-processing" 
+                    end
+                    className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
+                  >
+                    <Upload className="h-5 w-5 flex-shrink-0" />
+                    {!isCollapsed && (
+                      <span className="font-semibold text-sm">
+                        Noon Orders Processing
+                      </span>
+                    )}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
               {/* Noon Orders Tracking */}
               <SidebarMenuItem>
                 <SidebarMenuButton 
