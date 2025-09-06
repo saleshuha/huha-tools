@@ -254,30 +254,18 @@ const LabelDesignerContent: React.FC = () => {
         {/* Enhanced Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 min-h-0">
           <div className="mb-8">
-            <TabsList className="grid w-full max-w-4xl mx-auto grid-cols-4 bg-gradient-to-r from-muted/60 to-muted/40 border-2 border-border/50 p-2 rounded-xl shadow-sm h-14">
-              <TabsTrigger value="amazon-orders" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/90 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg font-semibold transition-all duration-300 hover:bg-accent/30 rounded-lg h-10 text-sm">
-                <div className="flex items-center gap-2">
-                  <span className="hidden sm:inline">📦</span>
-                  Amazon Orders
-                </div>
+            <TabsList className="grid w-full grid-cols-4 h-12 p-1 bg-muted/50">
+              <TabsTrigger value="amazon-orders" className="h-10 px-6 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all duration-200">
+                Amazon Orders
               </TabsTrigger>
-              <TabsTrigger value="noon-orders" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/90 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg font-semibold transition-all duration-300 hover:bg-accent/30 rounded-lg h-10 text-sm">
-                <div className="flex items-center gap-2">
-                  <span className="hidden sm:inline">🌙</span>
-                  Noon Orders
-                </div>
+              <TabsTrigger value="noon-orders" className="h-10 px-6 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all duration-200">
+                Noon Orders
               </TabsTrigger>
-              <TabsTrigger value="eligible" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/90 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg font-semibold transition-all duration-300 hover:bg-accent/30 rounded-lg h-10 text-sm">
-                <div className="flex items-center gap-2">
-                  <span className="hidden sm:inline">✅</span>
-                  Eligible Items
-                </div>
+              <TabsTrigger value="eligible" className="h-10 px-6 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all duration-200">
+                Eligible Items
               </TabsTrigger>
-              <TabsTrigger value="designer" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/90 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg font-semibold transition-all duration-300 hover:bg-accent/30 rounded-lg h-10 text-sm">
-                <div className="flex items-center gap-2">
-                  <span className="hidden sm:inline">🎨</span>
-                  Designer
-                </div>
+              <TabsTrigger value="designer" className="h-10 px-6 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all duration-200">
+                Designer
               </TabsTrigger>
             </TabsList>
           </div>

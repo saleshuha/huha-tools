@@ -489,7 +489,7 @@ export const NoonOrderPrint: React.FC = () => {
             <div className="space-y-2">
               <Label>Date Range</Label>
               <Select value={dateRange} onValueChange={(value: any) => setDateRange(value)}>
-                <SelectTrigger>
+                <SelectTrigger className="border-2 border-border">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -505,7 +505,7 @@ export const NoonOrderPrint: React.FC = () => {
               <Label>Start Date</Label>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start text-left">
+                  <Button variant="outline" className="w-full justify-start text-left border-2 border-border">
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {format(selectedDate, 'MMM dd, yyyy')}
                   </Button>
@@ -526,7 +526,7 @@ export const NoonOrderPrint: React.FC = () => {
                 <Label>End Date</Label>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start text-left">
+                    <Button variant="outline" className="w-full justify-start text-left border-2 border-border">
                       <CalendarIcon className="mr-2 h-4 w-4" />
                       {format(endDate, 'MMM dd, yyyy')}
                     </Button>
@@ -546,7 +546,7 @@ export const NoonOrderPrint: React.FC = () => {
             <div className="space-y-2">
               <Label>Date Filter</Label>
               <Select value={dateFilterType} onValueChange={(value: any) => setDateFilterType(value)}>
-                <SelectTrigger>
+                <SelectTrigger className="border-2 border-border">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -562,7 +562,7 @@ export const NoonOrderPrint: React.FC = () => {
             <div className="flex items-center gap-2">
               <Label htmlFor="status-filter">Status:</Label>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-40">
+                <SelectTrigger className="w-40 border-2 border-border">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -630,7 +630,7 @@ export const NoonOrderPrint: React.FC = () => {
               <div className="space-y-2">
                 <Label>Printer</Label>
                 <Select value={selectedPrinter} onValueChange={setSelectedPrinter}>
-                  <SelectTrigger>
+                  <SelectTrigger className="border-2 border-border">
                     <SelectValue placeholder="Select printer" />
                   </SelectTrigger>
                   <SelectContent>
@@ -651,7 +651,7 @@ export const NoonOrderPrint: React.FC = () => {
                   value={printSettings.darkness?.toString()} 
                   onValueChange={(value) => setPrintSettings(prev => ({ ...prev, darkness: parseInt(value) }))}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="border-2 border-border">
                     <SelectValue placeholder="Select darkness" />
                   </SelectTrigger>
                   <SelectContent>

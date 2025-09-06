@@ -629,7 +629,7 @@ export const DateWiseOrderPrint: React.FC = () => {
           <div>
             <Label>Filter By</Label>
             <Select value={dateFilterType} onValueChange={(value: any) => setDateFilterType(value)}>
-              <SelectTrigger>
+              <SelectTrigger className="border-2 border-border">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -642,7 +642,7 @@ export const DateWiseOrderPrint: React.FC = () => {
           <div>
             <Label>Date Range</Label>
             <Select value={dateRange} onValueChange={(value: any) => setDateRange(value)}>
-              <SelectTrigger>
+              <SelectTrigger className="border-2 border-border">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -659,7 +659,7 @@ export const DateWiseOrderPrint: React.FC = () => {
               <Label>Start Date</Label>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !selectedDate && "text-muted-foreground")}>
+                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal border-2 border-border", !selectedDate && "text-muted-foreground")}>
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {selectedDate ? format(selectedDate, "MMM dd, yyyy") : <span>Pick date</span>}
                   </Button>
@@ -675,7 +675,7 @@ export const DateWiseOrderPrint: React.FC = () => {
                 <Label>End Date</Label>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !endDate && "text-muted-foreground")}>
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal border-2 border-border", !endDate && "text-muted-foreground")}>
                       <CalendarIcon className="mr-2 h-4 w-4" />
                       {endDate ? format(endDate, "MMM dd, yyyy") : <span>Pick date</span>}
                     </Button>
@@ -692,7 +692,7 @@ export const DateWiseOrderPrint: React.FC = () => {
             <div className="flex-1">
               <Label>Status Filter</Label>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger>
+                <SelectTrigger className="border-2 border-border">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -706,7 +706,7 @@ export const DateWiseOrderPrint: React.FC = () => {
             <div className="flex-1">
               <Label>Print Format</Label>
               <Select value={printSettings.format} onValueChange={(value: any) => setPrintSettings(prev => ({...prev, format: value}))}>
-                <SelectTrigger>
+                <SelectTrigger className="border-2 border-border">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -743,7 +743,7 @@ export const DateWiseOrderPrint: React.FC = () => {
                   dpi: parseInt(value) as 203 | 300
                 }))}
               >
-                <SelectTrigger>
+                <SelectTrigger className="border-2 border-border">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -834,7 +834,7 @@ export const DateWiseOrderPrint: React.FC = () => {
               <div>
                 <Label className="text-sm font-medium">Select Printer</Label>
                 <Select value={selectedPrinter} onValueChange={setSelectedPrinter}>
-                  <SelectTrigger>
+                  <SelectTrigger className="border-2 border-border">
                     <SelectValue placeholder="Select printer" />
                   </SelectTrigger>
                   <SelectContent>
