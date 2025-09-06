@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { NoonOrdersUpload } from '@/components/NoonOrdersUpload';
 import { NoonOrdersTable } from '@/components/NoonOrdersTable';
 import { NoonStoreManagement } from '@/components/NoonStoreManagement';
@@ -11,6 +10,7 @@ import { TrackingToolbar } from '@/components/noon/tracking/TrackingToolbar';
 import { StatusMetricsCards } from '@/components/noon/tracking/StatusMetricsCards';
 import { ExceptionsDrawer } from '@/components/noon/tracking/ExceptionsDrawer';
 import { EnhancedOrdersPipeline } from '@/components/noon/tracking/EnhancedOrdersPipeline';
+import { HuhaTab01 } from '@/components/ui/huha-tab-01';
 import { useNoonOrders, NoonOrder } from '@/hooks/useNoonOrders';
 import { useNoonStores } from '@/hooks/useNoonStores';
 import { useSunskyCredentials } from '@/hooks/useSunskyCredentials';
@@ -303,45 +303,41 @@ export default function NoonOrderTrackingPage() {
         {/* Enhanced Toolbar */}
         <TrackingToolbar searchTerm={searchTerm} onSearchChange={setSearchTerm} selectedStore={selectedStoreId} onStoreChange={setSelectedStoreId} selectedCredentials={selectedCredentialsId} onCredentialsChange={setSelectedCredentialsId} viewMode={viewMode} onViewModeChange={setViewMode} onRefresh={refreshOrders} onExport={handleExport} onShowExceptions={() => setShowExceptions(true)} onShowAnalytics={handleShowAnalytics} loading={loading} totalOrders={sampleOrders.length} filteredOrders={filteredOrders.length} exceptionCount={exceptionOrders.length} stores={stores} credentials={credentials} />
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-5 mb-8 bg-card border border-border/50 shadow-soft">
-            <TabsTrigger value="orders" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              Orders Management
-            </TabsTrigger>
-            <TabsTrigger value="upload" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              Upload Orders
-            </TabsTrigger>
-            <TabsTrigger value="stores" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              Store Management
-            </TabsTrigger>
-            <TabsTrigger value="sunsky-place" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              Place Sunsky Orders
-            </TabsTrigger>
-            <TabsTrigger value="sunsky-track" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              Track Sunsky Orders
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="orders" className="space-y-6">
-            {viewMode === 'table' ? <NoonOrdersTable selectedStoreId={selectedStoreId} onStoreChange={setSelectedStoreId} /> : <EnhancedOrdersPipeline orders={filteredOrders} onOrderMove={handleOrderMove} onOrderView={handleOrderView} className="animate-fade-in" />}
-          </TabsContent>
-
-          <TabsContent value="upload" className="space-y-6">
-            <NoonOrdersUpload selectedStoreId={selectedStoreId} onUploadComplete={() => setActiveTab('orders')} />
-          </TabsContent>
-
-          <TabsContent value="stores" className="space-y-6">
-            <NoonStoreManagement selectedStoreId={selectedStoreId} onStoreChange={setSelectedStoreId} />
-          </TabsContent>
-
-          <TabsContent value="sunsky-place" className="space-y-6">
-            <SunskyOrderPlacement selectedStoreId={selectedStoreId} onOrdersPlaced={() => setActiveTab('sunsky-track')} />
-          </TabsContent>
-
-          <TabsContent value="sunsky-track" className="space-y-6">
-            <SunskyOrderTracking />
-          </TabsContent>
-        </Tabs>
+        <HuhaTab01
+          value={activeTab}
+          onValueChange={setActiveTab}
+          items={[
+            {
+              value: "orders",
+              label: "Orders Management",
+              content: viewMode === 'table' ? (
+                <NoonOrdersTable selectedStoreId={selectedStoreId} onStoreChange={setSelectedStoreId} />
+              ) : (
+                <EnhancedOrdersPipeline orders={filteredOrders} onOrderMove={handleOrderMove} onOrderView={handleOrderView} className="animate-fade-in" />
+              )
+            },
+            {
+              value: "upload",
+              label: "Upload Orders",
+              content: <NoonOrdersUpload selectedStoreId={selectedStoreId} onUploadComplete={() => setActiveTab('orders')} />
+            },
+            {
+              value: "stores",
+              label: "Store Management",
+              content: <NoonStoreManagement selectedStoreId={selectedStoreId} onStoreChange={setSelectedStoreId} />
+            },
+            {
+              value: "sunsky-place",
+              label: "Place Sunsky Orders",
+              content: <SunskyOrderPlacement selectedStoreId={selectedStoreId} onOrdersPlaced={() => setActiveTab('sunsky-track')} />
+            },
+            {
+              value: "sunsky-track",
+              label: "Track Sunsky Orders",
+              content: <SunskyOrderTracking />
+            }
+          ]}
+        />
       </div>
 
       {/* Enhanced Drawers */}
