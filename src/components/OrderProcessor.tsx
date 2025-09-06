@@ -92,6 +92,13 @@ export function OrderProcessor() {
   const [matchedOrderDateFilter, setMatchedOrderDateFilter] = useState('');
   const [matchedUploadDateFilter, setMatchedUploadDateFilter] = useState('');
   const [matchedOrderStatusFilter, setMatchedOrderStatusFilter] = useState('all');
+  const [matchedSearchTerm, setMatchedSearchTerm] = useState('');
+  const [matchedInventoryTypeFilter, setMatchedInventoryTypeFilter] = useState('all');
+  const [matchedMatchTypeFilter, setMatchedMatchTypeFilter] = useState('all');
+  
+  // Matched orders pagination
+  const [matchedCurrentPage, setMatchedCurrentPage] = useState(1);
+  const [matchedItemsPerPage] = useState(100);
 
   const {
     inventory: asinInventory,
@@ -607,7 +614,19 @@ export function OrderProcessor() {
   const matchedOrders = useMemo(() => {
     let matched = matchedItems
       .filter(m => m.inventoryMatch)
-      .map(m => m.orderItem);
+      .map(m => ({ ...m.orderItem, matchedItem: m })); // Include match details
+      
+    // Apply search filter
+    if (matchedSearchTerm) {
+      const searchLower = matchedSearchTerm.toLowerCase();
+      matched = matched.filter(order => 
+        order.orderId.toLowerCase().includes(searchLower) ||
+        order.asin?.toLowerCase().includes(searchLower) ||
+        order.sku?.toLowerCase().includes(searchLower) ||
+        order.itemTitle?.toLowerCase().includes(searchLower) ||
+        order.orderStatus?.toLowerCase().includes(searchLower)
+      );
+    }
       
     // Apply matched orders filters
     if (matchedOrderDateFilter) {
@@ -630,6 +649,18 @@ export function OrderProcessor() {
       );
     }
     
+    if (matchedInventoryTypeFilter && matchedInventoryTypeFilter !== 'all') {
+      matched = matched.filter(order => 
+        order.matchedItem?.inventoryType === matchedInventoryTypeFilter
+      );
+    }
+    
+    if (matchedMatchTypeFilter && matchedMatchTypeFilter !== 'all') {
+      matched = matched.filter(order => 
+        order.matchedItem?.matchType === matchedMatchTypeFilter
+      );
+    }
+    
     // Sort by order place date, then by order ID
     return matched.sort((a, b) => {
       const dateA = new Date(a.orderPlaceDate || '1970-01-01');
@@ -639,7 +670,7 @@ export function OrderProcessor() {
       }
       return a.orderId.localeCompare(b.orderId);
     });
-  }, [matchedItems, matchedOrderDateFilter, matchedUploadDateFilter, matchedOrderStatusFilter]);
+  }, [matchedItems, matchedOrderDateFilter, matchedUploadDateFilter, matchedOrderStatusFilter, matchedSearchTerm, matchedInventoryTypeFilter, matchedMatchTypeFilter]);
 
   // Get unmatched orders (orders without inventory matches) grouped by date
   const unmatchedOrders = useMemo(() => {
@@ -660,10 +691,21 @@ export function OrderProcessor() {
     return dbResults;
   }, [dbResults]);
 
-  // Pagination calculations
-  const totalPages = Math.ceil(filteredMatches.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedMatches = filteredMatches.slice(startIndex, startIndex + itemsPerPage);
+  // Matched orders pagination
+  const matchedTotalPages = Math.ceil(matchedOrders.length / matchedItemsPerPage);
+  const matchedStartIndex = (matchedCurrentPage - 1) * matchedItemsPerPage;
+  const paginatedMatchedOrders = matchedOrders.slice(matchedStartIndex, matchedStartIndex + matchedItemsPerPage);
+  
+  // Clear matched orders filters
+  const clearMatchedFilters = () => {
+    setMatchedSearchTerm('');
+    setMatchedOrderDateFilter('');
+    setMatchedUploadDateFilter('');
+    setMatchedOrderStatusFilter('all');
+    setMatchedInventoryTypeFilter('all');
+    setMatchedMatchTypeFilter('all');
+    setMatchedCurrentPage(1);
+  };
 
   const analytics = useMemo(() => {
     const latestOrderDate = allOrders.length > 0 
@@ -971,13 +1013,26 @@ export function OrderProcessor() {
               <Card className="p-4 bg-gradient-to-r from-primary/5 via-card to-accent/5 border-primary/20">
                 <div className="flex items-center gap-2 mb-4">
                   <Search className="w-4 h-4 text-primary" />
-                  <h4 className="font-semibold text-foreground">Filter Matched Orders</h4>
+                  <h4 className="font-semibold text-foreground">Search & Filter Matched Orders</h4>
                   <Badge variant="secondary" className="ml-auto text-xs">
-                    {matchedOrders.length} matched
+                    {matchedOrders.length} matched orders
                   </Badge>
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Search Bar */}
+                <div className="mb-4">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search by Order ID, ASIN, SKU, Title, or Status..."
+                      value={matchedSearchTerm}
+                      onChange={(e) => setMatchedSearchTerm(e.target.value)}
+                      className="pl-10 bg-background/80 border-primary/20 focus:border-primary"
+                    />
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                   <div className="space-y-2">
                     <Label className="text-sm font-medium flex items-center gap-2">
                       <Clock className="w-3 h-3" />
@@ -1007,7 +1062,7 @@ export function OrderProcessor() {
                   <div className="space-y-2">
                     <Label className="text-sm font-medium flex items-center gap-2">
                       <Tag className="w-3 h-3" />
-                      Status
+                      Order Status
                     </Label>
                     <Select value={matchedOrderStatusFilter} onValueChange={setMatchedOrderStatusFilter}>
                       <SelectTrigger className="bg-background/80 border-primary/20 focus:border-primary">
@@ -1021,111 +1076,230 @@ export function OrderProcessor() {
                       </SelectContent>
                     </Select>
                   </div>
+                  
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium flex items-center gap-2">
+                      <Package className="w-3 h-3" />
+                      Inventory Type
+                    </Label>
+                    <Select value={matchedInventoryTypeFilter} onValueChange={setMatchedInventoryTypeFilter}>
+                      <SelectTrigger className="bg-background/80 border-primary/20 focus:border-primary">
+                        <SelectValue placeholder="All Types" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Types</SelectItem>
+                        <SelectItem value="asin">ASIN Inventory</SelectItem>
+                        <SelectItem value="sku">SKU Inventory</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium flex items-center gap-2">
+                      <Tag className="w-3 h-3" />
+                      Match Type
+                    </Label>
+                    <Select value={matchedMatchTypeFilter} onValueChange={setMatchedMatchTypeFilter}>
+                      <SelectTrigger className="bg-background/80 border-primary/20 focus:border-primary">
+                        <SelectValue placeholder="All Matches" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Matches</SelectItem>
+                        <SelectItem value="asin">Matched by ASIN</SelectItem>
+                        <SelectItem value="sku">Matched by SKU</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 
-                {(matchedOrderDateFilter || matchedUploadDateFilter || matchedOrderStatusFilter !== 'all') && (
+                {(matchedSearchTerm || matchedOrderDateFilter || matchedUploadDateFilter || matchedOrderStatusFilter !== 'all' || matchedInventoryTypeFilter !== 'all' || matchedMatchTypeFilter !== 'all') && (
                   <div className="flex items-center justify-between mt-4 pt-4 border-t">
                     <div className="text-sm text-muted-foreground">
-                      Active filters applied
+                      Showing {paginatedMatchedOrders.length} of {matchedOrders.length} matched orders
                     </div>
                     <Button 
                       variant="outline" 
                       size="sm" 
-                      onClick={() => {
-                        setMatchedOrderDateFilter('');
-                        setMatchedUploadDateFilter('');
-                        setMatchedOrderStatusFilter('all');
-                      }}
-                      className="text-xs"
+                      onClick={clearMatchedFilters}
+                      className="text-xs border-primary/30 text-primary hover:bg-primary hover:text-primary-foreground"
                     >
-                      Clear Filters
+                      <Minus className="w-4 h-4 mr-2" />
+                      Clear All Filters
                     </Button>
                   </div>
                 )}
               </Card>
 
               {matchedOrders.length > 0 ? (
-                <div className="rounded-lg border overflow-hidden">
-                  <Table>
-                     <TableHeader>
-                       <TableRow>
-                         <TableHead className="w-16">Serial #</TableHead>
-                         <TableHead>Order ID</TableHead>
-                         <TableHead>Order Date</TableHead>
-                         <TableHead>ASIN/SKU</TableHead>
-                         <TableHead>Title</TableHead>
-                         <TableHead>Quantity</TableHead>
-                         <TableHead>Match Status</TableHead>
-                       </TableRow>
-                     </TableHeader>
-                      <TableBody>
-                        {matchedOrders.slice(0, 50).map((order, index) => {
-                          const matchedItem = matchedItems.find(m => m.orderItem.orderId === order.orderId);
-                          let inventorySerialNumber = 'N/A';
-                          
-                          if (matchedItem?.inventoryMatch) {
-                            if (matchedItem.inventoryType === 'asin') {
-                              inventorySerialNumber = (matchedItem.inventoryMatch as AsinInventoryItem).serialNumber;
-                            } else if (matchedItem.inventoryType === 'sku') {
-                              inventorySerialNumber = (matchedItem.inventoryMatch as SkuInventoryItem).binSerialNumber;
+                <div className="space-y-4">
+                  <div className="rounded-lg border overflow-hidden">
+                    <Table>
+                       <TableHeader>
+                         <TableRow>
+                           <TableHead className="w-16">Serial #</TableHead>
+                           <TableHead>Order ID</TableHead>
+                           <TableHead>Order Date</TableHead>
+                           <TableHead>ASIN/SKU</TableHead>
+                           <TableHead>Title</TableHead>
+                           <TableHead>Quantity</TableHead>
+                           <TableHead>Inventory Type</TableHead>
+                           <TableHead>Match Details</TableHead>
+                           <TableHead>Stock Available</TableHead>
+                         </TableRow>
+                       </TableHeader>
+                        <TableBody>
+                          {paginatedMatchedOrders.map((order, index) => {
+                            const matchedItem = order.matchedItem;
+                            let inventorySerialNumber = 'N/A';
+                            let availableStock = 0;
+                            
+                            if (matchedItem?.inventoryMatch) {
+                              availableStock = matchedItem.inventoryMatch.quantity;
+                              if (matchedItem.inventoryType === 'asin') {
+                                inventorySerialNumber = (matchedItem.inventoryMatch as AsinInventoryItem).serialNumber;
+                              } else if (matchedItem.inventoryType === 'sku') {
+                                inventorySerialNumber = (matchedItem.inventoryMatch as SkuInventoryItem).binSerialNumber;
+                              }
                             }
-                          }
-                          
-                          return (
-                            <TableRow key={`${order.orderId}-${index}`}>
-                              <TableCell className="text-xs font-medium text-muted-foreground">
-                                {inventorySerialNumber}
-                              </TableCell>
-                           <TableCell className="font-mono text-xs">{order.orderId}</TableCell>
-                           <TableCell className="text-xs">
-                             {order.orderPlaceDate ? (
-                               <div className="text-muted-foreground">
-                                 {new Date(order.orderPlaceDate).toLocaleDateString()}
+                            
+                            return (
+                              <TableRow key={`${order.orderId}-${index}`}>
+                                <TableCell className="text-xs font-medium text-muted-foreground">
+                                  {inventorySerialNumber}
+                                </TableCell>
+                             <TableCell className="font-mono text-xs">{order.orderId}</TableCell>
+                             <TableCell className="text-xs">
+                               {order.orderPlaceDate ? (
+                                 <div className="text-muted-foreground">
+                                   {new Date(order.orderPlaceDate).toLocaleDateString()}
+                                 </div>
+                               ) : (
+                                 <span className="text-muted-foreground">N/A</span>
+                               )}
+                             </TableCell>
+                             <TableCell>
+                               <div className="space-y-1">
+                                 {order.asin && (
+                                   <div className="text-xs text-blue-600 dark:text-blue-400">
+                                     ASIN: {order.asin}
+                                   </div>
+                                 )}
+                                 {order.sku && (
+                                   <div className="text-xs text-green-600 dark:text-green-400">
+                                     SKU: {order.sku}
+                                   </div>
+                                 )}
                                </div>
-                             ) : (
-                               <span className="text-muted-foreground">N/A</span>
-                             )}
-                           </TableCell>
-                           <TableCell>
-                             <div className="space-y-1">
-                               {order.asin && (
-                                 <div className="text-xs text-blue-600 dark:text-blue-400">
-                                   ASIN: {order.asin}
+                             </TableCell>
+                             <TableCell className="max-w-xs truncate">{order.itemTitle}</TableCell>
+                             <TableCell>
+                               <Badge variant="outline" className="text-xs">
+                                 {order.itemQuantity}
+                               </Badge>
+                             </TableCell>
+                             <TableCell>
+                               <Badge variant={matchedItem?.inventoryType === 'asin' ? 'default' : 'secondary'} className="text-xs">
+                                 {matchedItem?.inventoryType === 'asin' ? 'ASIN' : 'SKU'} Inventory
+                               </Badge>
+                             </TableCell>
+                             <TableCell>
+                               <div className="space-y-1">
+                                 <Badge variant="outline" className="text-xs">
+                                   Matched by {matchedItem?.matchType?.toUpperCase()}
+                                 </Badge>
+                                 <div className="text-xs text-muted-foreground">
+                                   {matchedItem?.matchType === 'asin' ? `ASIN: ${order.asin}` : `SKU: ${order.sku}`}
+                                 </div>
+                               </div>
+                             </TableCell>
+                             <TableCell>
+                               <Badge 
+                                 variant={availableStock >= order.itemQuantity ? 'default' : 'destructive'} 
+                                 className="text-xs"
+                               >
+                                 {availableStock} available
+                               </Badge>
+                               {availableStock < order.itemQuantity && (
+                                 <div className="text-xs text-destructive mt-1">
+                                   Insufficient stock!
                                  </div>
                                )}
-                               {order.sku && (
-                                 <div className="text-xs text-green-600 dark:text-green-400">
-                                   SKU: {order.sku}
-                                 </div>
-                               )}
-                             </div>
-                           </TableCell>
-                           <TableCell className="max-w-xs truncate">{order.itemTitle}</TableCell>
-                           <TableCell>
-                             <Badge variant="outline" className="text-xs">
-                               {order.itemQuantity}
-                             </Badge>
-                           </TableCell>
-                           <TableCell>
-                             <Badge variant="default" className="text-xs">
-                               Matched
-                             </Badge>
-                            </TableCell>
-                          </TableRow>
-                          );
-                        })}
-                     </TableBody>
-                  </Table>
-                  {matchedOrders.length > 50 && (
-                    <div className="p-4 text-center text-sm text-muted-foreground border-t">
-                      Showing first 50 records out of {matchedOrders.length} total
+                             </TableCell>
+                           </TableRow>
+                           );
+                          })}
+                       </TableBody>
+                    </Table>
+                  </div>
+                  
+                  {/* Pagination */}
+                  {matchedTotalPages > 1 && (
+                    <div className="flex items-center justify-center space-x-2">
+                      <Pagination>
+                        <PaginationContent>
+                          <PaginationItem>
+                            <PaginationPrevious 
+                              onClick={() => setMatchedCurrentPage(Math.max(1, matchedCurrentPage - 1))}
+                              className={matchedCurrentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                            />
+                          </PaginationItem>
+                          
+                          {[...Array(Math.min(5, matchedTotalPages))].map((_, i) => {
+                            const pageNumber = matchedCurrentPage <= 3 
+                              ? i + 1 
+                              : matchedCurrentPage > matchedTotalPages - 3 
+                                ? matchedTotalPages - 4 + i 
+                                : matchedCurrentPage - 2 + i;
+                            
+                            if (pageNumber > matchedTotalPages || pageNumber < 1) return null;
+                            
+                            return (
+                              <PaginationItem key={pageNumber}>
+                                <PaginationLink
+                                  onClick={() => setMatchedCurrentPage(pageNumber)}
+                                  isActive={matchedCurrentPage === pageNumber}
+                                  className="cursor-pointer"
+                                >
+                                  {pageNumber}
+                                </PaginationLink>
+                              </PaginationItem>
+                            );
+                          })}
+                          
+                          {matchedTotalPages > 5 && matchedCurrentPage < matchedTotalPages - 2 && (
+                            <PaginationItem>
+                              <PaginationEllipsis />
+                            </PaginationItem>
+                          )}
+                          
+                          <PaginationItem>
+                            <PaginationNext 
+                              onClick={() => setMatchedCurrentPage(Math.min(matchedTotalPages, matchedCurrentPage + 1))}
+                              className={matchedCurrentPage === matchedTotalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                            />
+                          </PaginationItem>
+                        </PaginationContent>
+                      </Pagination>
                     </div>
                   )}
+                  
+                  <div className="text-center text-sm text-muted-foreground">
+                    Showing {matchedStartIndex + 1}-{Math.min(matchedStartIndex + matchedItemsPerPage, matchedOrders.length)} of {matchedOrders.length} matched orders
+                  </div>
                 </div>
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
                   <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>No matched orders yet.</p>
+                  <p>{matchedItems.length === 0 ? 'No matched orders yet.' : 'No orders match the current filters.'}</p>
+                  {matchedItems.length > 0 && (
+                    <Button 
+                      variant="outline" 
+                      onClick={clearMatchedFilters}
+                      className="mt-2 text-xs"
+                    >
+                      Clear Filters
+                    </Button>
+                  )}
                 </div>
               )}
             </TabsContent>

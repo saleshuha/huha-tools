@@ -14,7 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 interface SunskyCredential {
   id: string;
   name: string;
-  api_key: string;
+  key_last4: string;
   is_active: boolean;
 }
 
@@ -39,9 +39,7 @@ export const SunskyCredentialsSelector: React.FC<SunskyCredentialsSelectorProps>
     try {
       setLoading(true);
       const { data, error } = await supabase
-        .from('sunsky_credentials')
-        .select('id, name, api_key, is_active')
-        .order('created_at', { ascending: false });
+        .rpc('get_user_sunsky_credentials_secure');
       
       if (error) throw error;
       
@@ -111,7 +109,7 @@ export const SunskyCredentialsSelector: React.FC<SunskyCredentialsSelectorProps>
                 ●
               </span>
               <span>
-                {credential.name || `${credential.api_key.substring(0, 8)}...`}
+                {credential.name || `***${credential.key_last4 || 'N/A'}`}
               </span>
             </div>
           </SelectItem>

@@ -1106,16 +1106,13 @@ export const SunskySKUImporter: React.FC = () => {
     console.log('🔍 Loading available APIs for user:', profile?.id);
     try {
       const { data, error } = await supabase
-        .from('sunsky_credentials')
-        .select('id, api_key, is_active')
-        .eq('user_id', profile?.id)
-        .order('created_at', { ascending: false });
+        .rpc('get_user_sunsky_credentials_secure');
       
       if (error) throw error;
       
-      const apis = (data || []).map((cred, index) => ({
+      const apis = (data || []).map((cred: any, index: number) => ({
         id: cred.id,
-        name: `API Key ${index + 1} (${cred.api_key.substring(0, 8)}...)`,
+        name: `API Key ${index + 1} (***${cred.key_last4 || 'N/A'})`,
         is_active: cred.is_active
       }));
       

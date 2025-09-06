@@ -69,7 +69,7 @@ interface SavedAddress {
 interface SunskyCredential {
   id: string;
   name?: string;
-  api_key: string;
+  key_last4: string;
   is_active: boolean;
   created_at: string;
 }
@@ -168,10 +168,7 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
     try {
       setLoadingCredentials(true);
       const { data, error } = await supabase
-        .from('sunsky_credentials')
-        .select('id, name, api_key, is_active, created_at')
-        .eq('is_active', true)
-        .order('created_at', { ascending: false });
+        .rpc('get_user_sunsky_credentials_secure');
 
       if (error) throw error;
       
@@ -831,7 +828,7 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
                           <div className="flex items-center gap-2">
                             <span>{credential.name || 'Unnamed Account'}</span>
                             <Badge variant="outline" className="text-xs">
-                              {credential.api_key.substring(0, 8)}***
+                              ***{credential.key_last4 || 'N/A'}
                             </Badge>
                           </div>
                         </SelectItem>
