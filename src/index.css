@@ -2,88 +2,180 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Excel Mapper Design System - Professional data transformation tool */
+
 @layer base {
   :root {
-    /* HUD Theme - Dark First */
-    --background: 218 23% 11%;           /* #1a1f2e - Dark navy background */
-    --foreground: 210 40% 95%;           /* #f1f5f9 - Light text */
+    /* Base Colors - FreshUI Theme */
+    --background: 0 0% 100%;
+    --foreground: 210 11% 15%;
+
+    /* Clean white surfaces */
+    --card: 0 0% 100%;
+    --card-foreground: 210 11% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 11% 15%;
+
+    /* Primary Colors - Fresh Blue */
+    --primary: 210 100% 50%;
+    --primary-foreground: 0 0% 100%;
+    --primary-light: 210 100% 60%;
+    --primary-dark: 210 100% 40%;
+
+    /* Secondary Colors - Light Gray */
+    --secondary: 210 17% 95%;
+    --secondary-foreground: 210 11% 15%;
+
+    /* Muted Colors */
+    --muted: 210 17% 95%;
+    --muted-foreground: 210 11% 46%;
+
+    /* Accent Colors */
+    --accent: 210 17% 92%;
+    --accent-foreground: 210 11% 15%;
+
+    /* Enhanced color palette */
+    --emerald: 142 76% 40%;
+    --emerald-foreground: 0 0% 100%;
+    --emerald-light: 142 76% 50%;
+    --emerald-dark: 142 76% 30%;
+
+    --sky: 199 89% 48%;
+    --sky-foreground: 0 0% 100%;
+    --sky-light: 199 89% 58%;
+    --sky-dark: 199 89% 38%;
+
+    --cyan: 188 94% 42%;
+    --cyan-foreground: 0 0% 100%;
+    --cyan-light: 188 94% 52%;
+    --cyan-dark: 188 94% 32%;
+
+    --teal: 173 58% 39%;
+    --teal-foreground: 0 0% 100%;
+    --teal-light: 173 58% 49%;
+    --teal-dark: 173 58% 29%;
+
+    /* Clean status colors */
+    --success: 138 76% 40%;
+    --success-foreground: 0 0% 100%;
     
-    --card: 218 23% 15%;                 /* #212837 - Slightly lighter dark */
-    --card-foreground: 210 40% 95%;      /* #f1f5f9 - Light text on cards */
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
     
-    --popover: 218 23% 15%;              /* #212837 - Same as card */
-    --popover-foreground: 210 40% 95%;   /* #f1f5f9 - Light text */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* UI Component Colors - FreshUI */
+    --border: 210 17% 90%;
+    --input: 210 17% 95%;
+    --ring: 210 100% 50%;
+
+    --radius: 0.375rem;
     
-    --primary: 189 100% 50%;             /* #00d4ff - Cyan accent */
-    --primary-foreground: 218 23% 11%;   /* #1a1f2e - Dark text on cyan */
+    /* Gradients - FreshUI Clean */
+    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(210 100% 45%));
+    --gradient-accent: linear-gradient(135deg, hsl(var(--accent)), hsl(210 20% 90%));
+    --gradient-surface: linear-gradient(180deg, hsl(var(--background)), hsl(210 20% 98%));
+    --gradient-emerald: linear-gradient(135deg, hsl(var(--emerald)), hsl(var(--emerald-light)));
+    --gradient-sky: linear-gradient(135deg, hsl(var(--sky)), hsl(var(--sky-light)));
+    --gradient-cyan: linear-gradient(135deg, hsl(var(--cyan)), hsl(var(--cyan-light)));
+    --gradient-teal: linear-gradient(135deg, hsl(var(--teal)), hsl(var(--teal-light)));
+    --gradient-ocean: linear-gradient(135deg, hsl(var(--sky)), hsl(var(--cyan)));
+    --gradient-nature: linear-gradient(135deg, hsl(var(--emerald)), hsl(var(--teal)));
     
-    --secondary: 218 23% 18%;            /* #252b3d - Slightly lighter than card */
-    --secondary-foreground: 210 30% 80%; /* #cbd5e1 - Medium light text */
+    /* Shadows - FreshUI Subtle */
+    --shadow-soft: 0 1px 2px 0 hsl(210 25% 25% / 0.05);
+    --shadow-medium: 0 1px 3px 0 hsl(210 25% 25% / 0.1), 0 1px 2px 0 hsl(210 25% 25% / 0.06);
+    --shadow-strong: 0 4px 6px -1px hsl(210 25% 25% / 0.1), 0 2px 4px -1px hsl(210 25% 25% / 0.06);
+    --shadow-glow: 0 0 20px hsl(var(--primary) / 0.1);
+    --shadow-accent-glow: 0 0 20px hsl(var(--accent) / 0.1);
+    --shadow-emerald-glow: 0 0 20px hsl(var(--emerald) / 0.1);
+    --shadow-sky-glow: 0 0 20px hsl(var(--sky) / 0.1);
+    --shadow-cyan-glow: 0 0 20px hsl(var(--cyan) / 0.1);
     
-    --muted: 218 23% 18%;                /* #252b3d - Same as secondary */
-    --muted-foreground: 210 20% 60%;     /* #94a3b8 - Muted text */
-    
-    --accent: 158 100% 50%;              /* #00ff94 - Neon green accent */
-    --accent-foreground: 218 23% 11%;    /* #1a1f2e - Dark text on green */
-    
-    --destructive: 0 84% 60%;            /* #ef4444 - Red for errors */
-    --destructive-foreground: 210 40% 95%; /* #f1f5f9 - Light text */
-    
-    --border: 218 23% 20%;               /* #2a3441 - Subtle borders */
-    --input: 218 23% 20%;                /* #2a3441 - Input borders */
-    --ring: 189 100% 50%;                /* #00d4ff - Focus rings */
-    
-    --success: 158 100% 50%;             /* #00ff94 - Success green */
-    --warning: 38 92% 50%;               /* #f59e0b - Warning orange */
-    --info: 189 100% 50%;                /* #00d4ff - Info cyan */
-    
-    /* Sidebar colors */
-    --sidebar-background: 218 23% 13%;   /* #1d232f - Slightly darker than card */
-    --sidebar-foreground: 210 30% 80%;   /* #cbd5e1 - Light text */
-    --sidebar-primary: 189 100% 50%;     /* #00d4ff - Cyan accent */
-    --sidebar-primary-foreground: 218 23% 11%; /* #1a1f2e - Dark text */
-    --sidebar-accent: 218 23% 18%;       /* #252b3d - Hover state */
-    --sidebar-accent-foreground: 210 40% 95%; /* #f1f5f9 - Light text */
-    --sidebar-border: 218 23% 20%;       /* #2a3441 - Subtle borders */
-    --sidebar-ring: 189 100% 50%;        /* #00d4ff - Focus rings */
-    
-    /* HUD Specific Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(189 100% 50%), hsl(158 100% 50%));
-    --gradient-surface: linear-gradient(135deg, hsl(218 23% 11%), hsl(218 23% 13%));
-    --gradient-card: linear-gradient(135deg, hsl(218 23% 15%), hsl(218 23% 17%));
-    
-    /* HUD Shadows */
-    --shadow-hud: 0 4px 20px -2px hsl(189 100% 50% / 0.1);
-    --shadow-card: 0 2px 10px -2px hsl(218 23% 8% / 0.3);
-    --shadow-accent: 0 0 30px hsl(189 100% 50% / 0.3);
-    
-    /* Smooth Transitions */
+    /* Smooth animations */
     --transition-smooth: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    
-    --radius: 0.5rem;
+    --transition-bounce: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+    /* Sidebar colors - FreshUI */
+    --sidebar-background: 210 17% 98%;
+    --sidebar-foreground: 210 11% 15%;
+    --sidebar-primary: 210 100% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 17% 95%;
+    --sidebar-accent-foreground: 210 11% 15%;
+    --sidebar-border: 210 17% 92%;
+    --sidebar-ring: 210 100% 50%;
   }
 
   .dark {
-    /* Dark mode uses same colors as HUD is dark-first */
-    --background: 218 23% 11%;
-    --foreground: 210 40% 95%;
-    --card: 218 23% 15%;
-    --card-foreground: 210 40% 95%;
-    --popover: 218 23% 15%;
-    --popover-foreground: 210 40% 95%;
-    --primary: 189 100% 50%;
-    --primary-foreground: 218 23% 11%;
-    --secondary: 218 23% 18%;
-    --secondary-foreground: 210 30% 80%;
-    --muted: 218 23% 18%;
-    --muted-foreground: 210 20% 60%;
-    --accent: 158 100% 50%;
-    --accent-foreground: 218 23% 11%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 95%;
-    --border: 218 23% 20%;
-    --input: 218 23% 20%;
-    --ring: 189 100% 50%;
+    /* Base Colors - FreshUI Dark */
+    --background: 210 25% 8%;
+    --foreground: 210 11% 91%;
+
+    --card: 210 25% 10%;
+    --card-foreground: 210 11% 91%;
+
+    --popover: 210 25% 10%;
+    --popover-foreground: 210 11% 91%;
+
+    --primary: 210 100% 55%;
+    --primary-foreground: 0 0% 0%;
+    --primary-light: 210 100% 65%;
+    --primary-dark: 210 100% 45%;
+
+    --secondary: 210 25% 12%;
+    --secondary-foreground: 210 11% 91%;
+
+    --muted: 210 25% 12%;
+    --muted-foreground: 210 11% 54%;
+
+    --accent: 210 25% 15%;
+    --accent-foreground: 210 11% 91%;
+
+    /* Enhanced dark theme colors */
+    --emerald: 142 76% 45%;
+    --emerald-foreground: 0 0% 100%;
+    --emerald-light: 142 76% 55%;
+    --emerald-dark: 142 76% 35%;
+
+    --sky: 199 89% 53%;
+    --sky-foreground: 0 0% 0%;
+    --sky-light: 199 89% 63%;
+    --sky-dark: 199 89% 43%;
+
+    --cyan: 188 94% 47%;
+    --cyan-foreground: 0 0% 0%;
+    --cyan-light: 188 94% 57%;
+    --cyan-dark: 188 94% 37%;
+
+    --teal: 173 58% 44%;
+    --teal-foreground: 0 0% 100%;
+    --teal-light: 173 58% 54%;
+    --teal-dark: 173 58% 34%;
+
+    --success: 138 76% 45%;
+    --success-foreground: 0 0% 100%;
+    
+    --warning: 38 92% 55%;
+    --warning-foreground: 0 0% 0%;
+    
+    --destructive: 0 84% 65%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 210 25% 15%;
+    --input: 210 25% 15%;
+    --ring: 210 100% 55%;
+
+    --sidebar-background: 210 25% 6%;
+    --sidebar-foreground: 210 11% 91%;
+    --sidebar-primary: 210 100% 55%;
+    --sidebar-primary-foreground: 0 0% 0%;
+    --sidebar-accent: 210 25% 12%;
+    --sidebar-accent-foreground: 210 11% 91%;
+    --sidebar-border: 210 25% 15%;
+    --sidebar-ring: 210 100% 55%;
   }
 }
 
@@ -91,228 +183,132 @@
   * {
     @apply border-border;
   }
-  
+
   body {
-    @apply bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    font-family: "Inter", "Roboto", "Open Sans", system-ui, -apple-system, sans-serif;
+    @apply bg-background text-foreground antialiased;
+    min-height: 100vh;
+    line-height: 1.5;
+    font-weight: 400;
   }
   
-  /* Custom scrollbar styling */
+  /* Custom scrollbars */
   ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 8px;
+    height: 8px;
   }
   
   ::-webkit-scrollbar-track {
-    background: hsl(var(--background));
+    @apply bg-muted/30;
   }
   
   ::-webkit-scrollbar-thumb {
-    background: hsl(var(--border));
-    border-radius: 3px;
+    @apply bg-border rounded-full;
   }
   
   ::-webkit-scrollbar-thumb:hover {
-    background: hsl(var(--muted-foreground));
+    @apply bg-border/80;
   }
 }
 
 @layer components {
-  /* HUD Panel Components */
-  .hud-panel {
-    @apply bg-card border border-border rounded-lg shadow-sm;
-    background: linear-gradient(135deg, hsl(var(--card)), hsl(218 23% 17%));
-    box-shadow: var(--shadow-card);
-  }
-  
-  .hud-toolbar {
-    @apply bg-card/50 border-b border-border px-4 py-3 flex items-center justify-between;
-    backdrop-filter: blur(10px);
-  }
-  
-  .hud-metric-card {
-    @apply hud-panel p-6 hover:shadow-lg transition-all duration-200;
-  }
-  
-  .hud-metric-card:hover {
-    box-shadow: var(--shadow-hud);
-    transform: translateY(-1px);
-  }
-  
-  /* HUD Buttons */
-  .btn-hud-primary {
-    @apply bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm;
-    box-shadow: 0 0 20px hsl(var(--primary) / 0.3);
-  }
-  
-  .btn-hud-accent {
-    @apply bg-accent text-accent-foreground hover:bg-accent/90;
-    box-shadow: 0 0 20px hsl(var(--accent) / 0.3);
-  }
-  
-  .btn-hud-ghost {
-    @apply bg-transparent hover:bg-secondary/50 text-foreground border border-border;
-  }
-  
-  /* HUD Data Tables */
-  .hud-table {
-    @apply bg-card border border-border rounded-lg overflow-hidden;
-  }
-  
-  .hud-table th {
-    @apply bg-secondary/50 text-secondary-foreground font-medium px-4 py-3 text-left;
-  }
-  
-  .hud-table td {
-    @apply px-4 py-3 border-t border-border;
-  }
-  
-  .hud-table tbody tr:hover {
-    @apply bg-secondary/30;
-  }
-  
-  /* HUD Upload Zones */
-  .hud-upload-zone {
-    @apply hud-panel border-2 border-dashed border-primary/30 hover:border-primary/50 transition-colors;
-    background: linear-gradient(135deg, hsl(var(--card)), hsl(218 23% 17%));
-  }
-  
-  .hud-upload-zone.drag-over {
-    @apply border-primary bg-primary/5;
-    box-shadow: var(--shadow-accent);
-  }
-  
-  /* HUD Status Indicators */
-  .status-success {
-    @apply bg-accent/20 text-accent border border-accent/30 rounded-full px-3 py-1 text-sm font-medium;
-  }
-  
-  .status-warning {
-    @apply bg-warning/20 text-warning border border-warning/30 rounded-full px-3 py-1 text-sm font-medium;
-  }
-  
-  .status-error {
-    @apply bg-destructive/20 text-destructive border border-destructive/30 rounded-full px-3 py-1 text-sm font-medium;
-  }
-  
-  .status-info {
-    @apply bg-primary/20 text-primary border border-primary/30 rounded-full px-3 py-1 text-sm font-medium;
-  }
-  
-  /* Legacy compatibility classes */
-  .glass-container {
-    @apply hud-panel;
-  }
-  
+  /* FreshUI Panel Components */
   .panel {
-    @apply hud-panel;
+    @apply bg-card border border-border rounded-md shadow-soft;
   }
-  
+
+  .panel-header {
+    @apply px-4 py-3 border-b border-border bg-muted/30;
+  }
+
+  .panel-content {
+    @apply p-4;
+  }
+
   .toolbar {
-    @apply hud-toolbar;
+    @apply bg-background border-b border-border px-4 py-2 flex items-center gap-3;
   }
-  
+
+  /* FreshUI Upload zones */
   .upload-zone {
-    @apply hud-upload-zone;
+    @apply border-2 border-dashed border-border rounded-md p-6
+           transition-all duration-200 hover:border-primary hover:bg-primary/5
+           bg-card;
   }
   
+  .upload-zone.drag-over {
+    @apply border-primary bg-primary/10 shadow-medium;
+  }
+  
+  .upload-zone.has-file {
+    @apply border-success bg-success/5;
+  }
+  
+  /* FreshUI Data tables */
   .data-table {
-    @apply hud-table;
+    @apply bg-card border border-border rounded-md overflow-hidden;
   }
-}
 
-@layer utilities {
-  /* HUD Layout Utilities */
-  .hud-container {
-    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  .data-table-header {
+    @apply bg-muted/50 border-b border-border;
   }
   
-  .hud-grid {
-    @apply grid gap-6;
+  /* FreshUI Column cards */
+  .column-card {
+    @apply bg-card rounded-md p-3 border border-border shadow-soft
+           transition-all duration-200 hover:shadow-medium hover:border-primary/50;
   }
   
-  .hud-grid-2 {
-    @apply grid grid-cols-1 lg:grid-cols-2 gap-6;
+  .column-card.dragging {
+    @apply opacity-60 scale-95 shadow-strong;
   }
   
-  .hud-grid-3 {
-    @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6;
+  .column-card.drag-target {
+    @apply border-accent bg-accent/10;
   }
   
-  .hud-grid-4 {
-    @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6;
+  .column-card.mapped {
+    @apply border-success bg-success/10;
   }
   
-  /* HUD Spacing */
-  .hud-spacing {
-    @apply space-y-6;
+  /* FreshUI Buttons */
+  .btn-fresh {
+    @apply bg-primary text-primary-foreground border-0 px-3 py-2 rounded-md
+           font-medium text-sm transition-all duration-150 shadow-soft
+           hover:bg-primary/90 hover:shadow-medium;
   }
-  
-  .hud-spacing-sm {
-    @apply space-y-4;
+
+  .btn-fresh-outline {
+    @apply bg-transparent text-primary border border-primary px-3 py-2 rounded-md
+           font-medium text-sm transition-all duration-150
+           hover:bg-primary/10;
   }
-  
-  .hud-spacing-lg {
-    @apply space-y-8;
+
+  .btn-fresh-secondary {
+    @apply bg-secondary text-secondary-foreground border-0 px-3 py-2 rounded-md
+           font-medium text-sm transition-all duration-150 shadow-soft
+           hover:bg-secondary/80;
   }
-  
-  /* HUD Text Utilities */
-  .text-hud-primary {
-    @apply text-primary;
+
+  /* Glass container - cleaner version */
+  .glass-container {
+    @apply bg-card/95 backdrop-blur-sm border border-border rounded-md shadow-soft;
   }
-  
-  .text-hud-accent {
-    @apply text-accent;
-  }
-  
-  .text-hud-success {
-    @apply text-accent;
-  }
-  
-  .text-hud-warning {
-    @apply text-warning;
-  }
-  
-  .text-hud-error {
-    @apply text-destructive;
-  }
-  
-  /* HUD Background Utilities */
-  .bg-hud-surface {
-    background: var(--gradient-surface);
-  }
-  
-  .bg-hud-card {
-    background: var(--gradient-card);
-  }
-  
-  .bg-hud-primary {
-    background: var(--gradient-primary);
-  }
-  
-  /* Auto-fit columns for responsive grids */
+
+  /* FreshUI Grid utilities */
   .auto-fit-columns {
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   }
 
-  /* App container spacing */
+  /* FreshUI App container */
   .app-container {
-    @apply min-h-screen bg-hud-surface;
+    @apply w-full px-3 sm:px-4 lg:max-w-[1400px] xl:max-w-[1600px] 2xl:max-w-[1800px] mx-auto;
   }
 }
 
-/* HUD Loading Animation */
-@keyframes hud-pulse {
-  0%, 100% {
-    opacity: 1;
-    box-shadow: 0 0 20px hsl(var(--primary) / 0.3);
-  }
-  50% {
-    opacity: 0.7;
-    box-shadow: 0 0 30px hsl(var(--primary) / 0.5);
-  }
-}
-
-.hud-loading {
-  animation: hud-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+/* Loading animation for analytics */
+@keyframes loading-bar {
+  0% { transform: translateX(-100%); }
+  50% { transform: translateX(0%); }
+  100% { transform: translateX(100%); }
 }
