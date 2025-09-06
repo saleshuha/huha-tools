@@ -7,26 +7,38 @@ schemas = ["public", "graphql_public"]
 extra_search_path = ["public", "extensions"]
 max_rows = 1000
 
+[functions.ai-inventory-forecast]
+verify_jwt = true
+
 [functions.amazon-feed-receiver]
-verify_jwt = true
-
-[functions.amazon-test-sender]
-verify_jwt = true
-
-[functions.integration-diagnostics]
 verify_jwt = true
 
 [functions.amazon-sftp-receiver]
 verify_jwt = true
 
-[functions.vendor-inventory-feed]
+[functions.amazon-test-sender]
 verify_jwt = true
 
-[functions.send-inventory-email]
+[functions.generate-export-download]
+verify_jwt = true
+
+[functions.generate-ssh-keys]
+verify_jwt = true
+
+[functions.get-all-po-data]
+verify_jwt = true
+
+[functions.integration-diagnostics]
 verify_jwt = true
 
 [functions.process-po-background]
 verify_jwt = true
 
+[functions.send-inventory-email]
+verify_jwt = true
+
 [functions.sunsky-api]
+verify_jwt = true
+
+[functions.vendor-inventory-feed]
 verify_jwt = true

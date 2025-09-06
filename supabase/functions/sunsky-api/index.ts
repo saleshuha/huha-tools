@@ -2,9 +2,12 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.5/dist/main/index.js";
 import { crypto } from "https://deno.land/std@0.190.0/crypto/mod.ts";
 
+// Restricted CORS headers for security  
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': 'https://vfqqlifvhooefxvvyebm.supabase.co',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Credentials': 'true',
 };
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -244,28 +247,56 @@ async function generateSignature(params: Record<string, any>, key: string, secre
 
 // Get API credentials for user (user-specific first, then fallback to env)
 async function getApiCredentials(userId: string, apiId?: string): Promise<{ key: string; secret: string }> {
+  const encryptionKey = Deno.env.get('SUNSKY_CRED_ENC_KEY');
+  
   // If specific API ID is provided, use those credentials
   if (apiId) {
     const { data: specificCredentials } = await supabase
       .from('sunsky_credentials')
-      .select('api_key, api_secret')
+      .select('api_key_encrypted, api_secret_encrypted, api_key, api_secret')
       .eq('id', apiId)
       .eq('user_id', userId)
       .single();
 
-    if (specificCredentials?.api_key && specificCredentials?.api_secret) {
-      console.log('Using specific Sunsky credentials for API ID:', apiId);
-      return {
-        key: specificCredentials.api_key,
-        secret: specificCredentials.api_secret
-      };
+    if (specificCredentials) {
+      let key = '', secret = '';
+      
+      // Try encrypted credentials first, fallback to plaintext
+      if (specificCredentials.api_key_encrypted && specificCredentials.api_secret_encrypted && encryptionKey) {
+        try {
+          const { data: decryptedKey } = await supabase.rpc('pgp_sym_decrypt_bytea', {
+            message: specificCredentials.api_key_encrypted,
+            passphrase: encryptionKey
+          });
+          
+          const { data: decryptedSecret } = await supabase.rpc('pgp_sym_decrypt_bytea', {
+            message: specificCredentials.api_secret_encrypted,
+            passphrase: encryptionKey
+          });
+          
+          key = decryptedKey;
+          secret = decryptedSecret;
+        } catch (error) {
+          console.error('Failed to decrypt credentials, trying plaintext fallback:', error);
+          key = specificCredentials.api_key;
+          secret = specificCredentials.api_secret;
+        }
+      } else {
+        key = specificCredentials.api_key;
+        secret = specificCredentials.api_secret;
+      }
+
+      if (key && secret) {
+        console.log('Using specific Sunsky credentials for API ID:', apiId.substring(0, 8) + '...');
+        return { key, secret };
+      }
     }
   }
 
   // Try to get user-specific credentials (active ones)
   const { data: userCredentialsList, error: credentialsError } = await supabase
     .from('sunsky_credentials')
-    .select('api_key, api_secret')
+    .select('api_key_encrypted, api_secret_encrypted, api_key, api_secret')
     .eq('user_id', userId)
     .eq('is_active', true)
     .limit(1);
@@ -276,15 +307,41 @@ async function getApiCredentials(userId: string, apiId?: string): Promise<{ key:
   console.log('User credentials query result:', { 
     hasCredentials: !!userCredentials, 
     error: credentialsError?.message,
-    userId: userId 
+    userId: userId.substring(0, 8) + '...' 
   });
 
-  if (userCredentials?.api_key && userCredentials?.api_secret) {
-    console.log('Using user-specific Sunsky credentials');
-    return {
-      key: userCredentials.api_key,
-      secret: userCredentials.api_secret
-    };
+  if (userCredentials) {
+    let key = '', secret = '';
+    
+    // Try encrypted credentials first, fallback to plaintext
+    if (userCredentials.api_key_encrypted && userCredentials.api_secret_encrypted && encryptionKey) {
+      try {
+        const { data: decryptedKey } = await supabase.rpc('pgp_sym_decrypt_bytea', {
+          message: userCredentials.api_key_encrypted,
+          passphrase: encryptionKey
+        });
+        
+        const { data: decryptedSecret } = await supabase.rpc('pgp_sym_decrypt_bytea', {
+          message: userCredentials.api_secret_encrypted,
+          passphrase: encryptionKey
+        });
+        
+        key = decryptedKey;
+        secret = decryptedSecret;
+      } catch (error) {
+        console.error('Failed to decrypt credentials, trying plaintext fallback:', error);
+        key = userCredentials.api_key;
+        secret = userCredentials.api_secret;
+      }
+    } else {
+      key = userCredentials.api_key;
+      secret = userCredentials.api_secret;
+    }
+
+    if (key && secret) {
+      console.log('Using user-specific Sunsky credentials');
+      return { key, secret };
+    }
   }
 
   // Fallback to environment variables
@@ -1910,11 +1967,7 @@ serve(async (req) => {
       }
 
       case 'listApiKeys': {
-        const { data: apiKeys, error } = await supabase
-          .from('sunsky_credentials')
-          .select('id, name, api_key, is_active, created_at, last_tested')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false });
+        const { data: apiKeys, error } = await supabase.rpc('get_user_sunsky_credentials_secure');
 
         if (error) {
           throw new Error(`Failed to load API keys: ${error.message}`);
@@ -1923,7 +1976,7 @@ serve(async (req) => {
         const formattedKeys = apiKeys?.map(key => ({
           id: key.id,
           name: key.name || 'Unnamed API Key',
-          maskedKey: key.api_key ? key.api_key.substring(0, 4) + '***' + key.api_key.slice(-3) : '',
+          maskedKey: key.key_last4 ? '***' + key.key_last4 : 'Hidden',
           isActive: key.is_active || false,
           status: 'unknown', // Will be updated when tested
           lastTested: key.last_tested ? new Date(key.last_tested) : undefined
@@ -1944,6 +1997,11 @@ serve(async (req) => {
           throw new Error('API key, secret, and name are required');
         }
 
+        const encryptionKey = Deno.env.get('SUNSKY_CRED_ENC_KEY');
+        if (!encryptionKey) {
+          throw new Error('Encryption key not configured');
+        }
+
         // Check if this is the first API key for the user
         const { count } = await supabase
           .from('sunsky_credentials')
@@ -1952,13 +2010,25 @@ serve(async (req) => {
 
         const isFirst = count === 0;
 
-        // Insert new API key
+        // Encrypt the credentials before storing
+        const { data: encryptedKey } = await supabase.rpc('pgp_sym_encrypt', {
+          data: apiKey,
+          passphrase: encryptionKey
+        });
+
+        const { data: encryptedSecret } = await supabase.rpc('pgp_sym_encrypt', {
+          data: apiSecret,
+          passphrase: encryptionKey
+        });
+
+        // Insert new API key with encrypted data
         const { data, error } = await supabase
           .from('sunsky_credentials')
           .insert({
             user_id: user.id,
-            api_key: apiKey,
-            api_secret: apiSecret,
+            api_key_encrypted: encryptedKey,
+            api_secret_encrypted: encryptedSecret,
+            key_last4: apiKey.length >= 4 ? apiKey.slice(-4) : apiKey,
             name: name,
             is_active: isFirst // First API key becomes active by default
           })
@@ -1975,7 +2045,7 @@ serve(async (req) => {
           apiKey: {
             id: data.id,
             name: data.name,
-            maskedKey: apiKey.substring(0, 4) + '***' + apiKey.slice(-3),
+            maskedKey: '***' + (data.key_last4 || '****'),
             isActive: data.is_active
           }
         }), {

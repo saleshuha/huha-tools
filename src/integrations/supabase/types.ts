@@ -2451,6 +2451,45 @@ export type Database = {
         }
         Relationships: []
       }
+      security_audit_log: {
+        Row: {
+          action: string
+          created_at: string | null
+          id: string
+          ip_address: string | null
+          new_values: Json | null
+          old_values: Json | null
+          record_id: string | null
+          table_name: string | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string | null
+          id?: string
+          ip_address?: string | null
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id?: string | null
+          table_name?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string | null
+          id?: string
+          ip_address?: string | null
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id?: string | null
+          table_name?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       sku_costs: {
         Row: {
           cost: number
@@ -2718,10 +2757,13 @@ export type Database = {
       sunsky_credentials: {
         Row: {
           api_key: string
+          api_key_encrypted: string | null
           api_secret: string
+          api_secret_encrypted: string | null
           created_at: string
           id: string
           is_active: boolean
+          key_last4: string | null
           last_tested: string | null
           name: string | null
           updated_at: string
@@ -2729,10 +2771,13 @@ export type Database = {
         }
         Insert: {
           api_key: string
+          api_key_encrypted?: string | null
           api_secret: string
+          api_secret_encrypted?: string | null
           created_at?: string
           id?: string
           is_active?: boolean
+          key_last4?: string | null
           last_tested?: string | null
           name?: string | null
           updated_at?: string
@@ -2740,10 +2785,13 @@ export type Database = {
         }
         Update: {
           api_key?: string
+          api_key_encrypted?: string | null
           api_secret?: string
+          api_secret_encrypted?: string | null
           created_at?: string
           id?: string
           is_active?: boolean
+          key_last4?: string | null
           last_tested?: string | null
           name?: string | null
           updated_at?: string
@@ -4247,9 +4295,32 @@ export type Database = {
           title: string
         }[]
       }
+      get_user_sunsky_credentials_secure: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          created_at: string
+          id: string
+          is_active: boolean
+          key_last4: string
+          last_tested: string
+          name: string
+          updated_at: string
+          user_id: string
+        }[]
+      }
       is_user_admin: {
         Args: { user_id: string }
         Returns: boolean
+      }
+      log_security_event: {
+        Args: {
+          p_action: string
+          p_new_values?: Json
+          p_old_values?: Json
+          p_record_id?: string
+          p_table_name?: string
+        }
+        Returns: undefined
       }
       update_asin_inventory_status_by_asin: {
         Args: {
