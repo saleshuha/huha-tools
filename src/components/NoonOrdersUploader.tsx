@@ -243,8 +243,10 @@ export function NoonOrdersUploader() {
           {/* Upload Section */}
           <div className="flex items-center justify-between">
             <div className="text-sm text-muted-foreground">
-              {selectedStoreId ? (
-                <span>Selected Store: {stores.find(s => s.id === selectedStoreId)?.name || 'Unknown'}</span>
+              {selectedStoreId && stores.length > 0 ? (
+                <span>Selected Store: {stores.find(s => s.id === selectedStoreId)?.name || 'Loading...'}</span>
+              ) : selectedStoreId && stores.length === 0 ? (
+                <span>Selected Store: Loading...</span>
               ) : (
                 <span>No store selected - go to Store Management tab to select a store</span>
               )}
@@ -260,7 +262,7 @@ export function NoonOrdersUploader() {
           </div>
 
           {/* Processing Orders Table */}
-          <NoonProcessingOrdersTable />
+          <NoonProcessingOrdersTable selectedStoreId={selectedStoreId} />
         </TabsContent>
 
         <TabsContent value="stores" className="space-y-4">

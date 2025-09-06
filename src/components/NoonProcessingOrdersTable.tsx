@@ -38,7 +38,7 @@ const ALL_COLUMNS = [
   { key: 'file_name', label: 'File Name', default: false },
 ];
 
-export function NoonProcessingOrdersTable() {
+export function NoonProcessingOrdersTable({ selectedStoreId }: { selectedStoreId?: string }) {
   const [orders, setOrders] = useState<ProcessingOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -47,13 +47,20 @@ export function NoonProcessingOrdersTable() {
   );
   const { toast } = useToast();
 
-  const fetchOrders = async () => {
+  const fetchOrders = async (storeId?: string) => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      let query = supabase
         .from('noon_processing_orders')
         .select('id, order_nr, order_status, quantity, purchase_item_nr, sku, title, order_country_code, file_name, file_upload_date, order_received_at, created_at')
         .order('created_at', { ascending: false });
+      
+      // Filter by store if selectedStoreId is provided
+      if (storeId) {
+        query = query.eq('selected_store_id', storeId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setOrders(data || []);
@@ -70,8 +77,8 @@ export function NoonProcessingOrdersTable() {
   };
 
   useEffect(() => {
-    fetchOrders();
-  }, []);
+    fetchOrders(selectedStoreId);
+  }, [selectedStoreId]);
 
   const filteredOrders = orders.filter(order =>
     order.order_nr.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -82,17 +89,26 @@ export function NoonProcessingOrdersTable() {
 
   const clearAllOrders = async () => {
     try {
-      const { error } = await supabase
+      let query = supabase
         .from('noon_processing_orders')
         .delete()
         .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all user's orders
+      
+      // Filter by store if selectedStoreId is provided
+      if (selectedStoreId) {
+        query = query.eq('selected_store_id', selectedStoreId);
+      }
+
+      const { error } = await query;
 
       if (error) throw error;
       
       setOrders([]);
       toast({
         title: "Success",
-        description: "All processing orders cleared",
+        description: selectedStoreId 
+          ? "All processing orders for selected store cleared" 
+          : "All processing orders cleared",
       });
     } catch (error) {
       console.error('Error clearing orders:', error);
