@@ -6,7 +6,6 @@ import { LabelPropertiesPanel } from '@/components/label/LabelPropertiesPanel';
 import { InventoryDataMapper } from '@/components/label/InventoryDataMapper';
 import { OrderLabelTemplates } from '@/components/label/OrderLabelTemplates';
 import { DateWiseOrderPrint } from '@/components/label/DateWiseOrderPrint';
-import { NoonOrderPrint } from '@/components/label/NoonOrderPrint';
 import { PrintEligibleItems } from '@/components/label/PrintEligibleItems';
 import { DataPreviewPanel } from '@/components/label/DataPreviewPanel';
 import { PrintService } from '@/services/print-service';
@@ -297,7 +296,7 @@ const LabelDesignerContent: React.FC = () => {
             <DateWiseOrderPrint />
           </TabsContent>
           <TabsContent value="noon-orders" className="border-2 border-border rounded-lg bg-card/50 p-6 shadow-sm">
-            <NoonOrderPrint />
+            <DateWiseOrderPrint />
           </TabsContent>
           <TabsContent value="eligible" className="border-2 border-border rounded-lg bg-card/50 p-6 shadow-sm">
             <PrintEligibleItems />
