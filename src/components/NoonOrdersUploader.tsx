@@ -6,6 +6,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { NoonStoreManagement } from '@/components/NoonStoreManagement';
+import { NoonProcessingOrdersTable } from '@/components/NoonProcessingOrdersTable';
 import { useNoonStores } from '@/hooks/useNoonStores';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -237,7 +238,7 @@ export function NoonOrdersUploader() {
         const batch = ordersToInsert.slice(i, i + batchSize);
         
         const { error } = await supabase
-          .from('noon_orders')
+          .from('noon_processing_orders')
           .insert(batch);
 
         if (error) throw error;
@@ -293,6 +294,9 @@ export function NoonOrdersUploader() {
         selectedStoreId={selectedStoreId}
         onStoreChange={setSelectedStoreId}
       />
+
+      {/* Processing Orders Table */}
+      <NoonProcessingOrdersTable />
 
       {/* File Upload */}
       <Card>
