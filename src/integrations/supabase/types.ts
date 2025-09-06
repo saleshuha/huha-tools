@@ -223,6 +223,48 @@ export type Database = {
           },
         ]
       }
+      automation_tasks: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          parameters: Json | null
+          result: Json | null
+          started_at: string | null
+          status: string | null
+          task_type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          parameters?: Json | null
+          result?: Json | null
+          started_at?: string | null
+          status?: string | null
+          task_type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          parameters?: Json | null
+          result?: Json | null
+          started_at?: string | null
+          status?: string | null
+          task_type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       background_tasks: {
         Row: {
           completed_at: string | null
@@ -321,6 +363,39 @@ export type Database = {
           },
         ]
       }
+      category_mappings: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean | null
+          noon_category_id: string
+          noon_category_name: string | null
+          sunsky_category_id: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          noon_category_id: string
+          noon_category_name?: string | null
+          sunsky_category_id: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          noon_category_id?: string
+          noon_category_name?: string | null
+          sunsky_category_id?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       exchange_rates: {
         Row: {
           from_currency: string
@@ -400,6 +475,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      huha_stores: {
+        Row: {
+          created_at: string
+          credentials: Json | null
+          huha_store_id: string
+          id: string
+          is_active: boolean | null
+          store_name: string
+          store_type: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          credentials?: Json | null
+          huha_store_id: string
+          id?: string
+          is_active?: boolean | null
+          store_name: string
+          store_type?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          credentials?: Json | null
+          huha_store_id?: string
+          id?: string
+          is_active?: boolean | null
+          store_name?: string
+          store_type?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       label_datasets: {
         Row: {
@@ -2083,6 +2194,59 @@ export type Database = {
         }
         Relationships: []
       }
+      product_listings: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          listed_at: string | null
+          listing_data: Json | null
+          platform: string
+          platform_product_id: string | null
+          platform_sku: string | null
+          status: Database["public"]["Enums"]["listing_status"] | null
+          sunsky_product_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          listed_at?: string | null
+          listing_data?: Json | null
+          platform: string
+          platform_product_id?: string | null
+          platform_sku?: string | null
+          status?: Database["public"]["Enums"]["listing_status"] | null
+          sunsky_product_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          listed_at?: string | null
+          listing_data?: Json | null
+          platform?: string
+          platform_product_id?: string | null
+          platform_sku?: string | null
+          status?: Database["public"]["Enums"]["listing_status"] | null
+          sunsky_product_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_listings_sunsky_product_id_fkey"
+            columns: ["sunsky_product_id"]
+            isOneToOne: false
+            referencedRelation: "sunsky_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           country: string
@@ -2392,6 +2556,51 @@ export type Database = {
           updated_at?: string
           user_id?: string | null
           window_start?: string
+        }
+        Relationships: []
+      }
+      sunsky_categories: {
+        Row: {
+          code: string | null
+          created_at: string
+          gmt_modified: string | null
+          hs_code: string | null
+          id: string
+          name: string
+          parent_id: number | null
+          short_name: string | null
+          status: number | null
+          sunsky_id: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          code?: string | null
+          created_at?: string
+          gmt_modified?: string | null
+          hs_code?: string | null
+          id?: string
+          name: string
+          parent_id?: number | null
+          short_name?: string | null
+          status?: number | null
+          sunsky_id: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          code?: string | null
+          created_at?: string
+          gmt_modified?: string | null
+          hs_code?: string | null
+          id?: string
+          name?: string
+          parent_id?: number | null
+          short_name?: string | null
+          status?: number | null
+          sunsky_id?: number
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -2713,11 +2922,82 @@ export type Database = {
           },
         ]
       }
+      sunsky_order_items_new: {
+        Row: {
+          amount: number | null
+          created_at: string
+          delay_to_ship: boolean | null
+          id: string
+          item_no: string
+          quantity: number
+          remark: string | null
+          scanned: boolean | null
+          sunsky_order_id: string | null
+          sunsky_order_number: string
+          sunsky_product_id: string | null
+          title: string | null
+          unit_price: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount?: number | null
+          created_at?: string
+          delay_to_ship?: boolean | null
+          id?: string
+          item_no: string
+          quantity: number
+          remark?: string | null
+          scanned?: boolean | null
+          sunsky_order_id?: string | null
+          sunsky_order_number: string
+          sunsky_product_id?: string | null
+          title?: string | null
+          unit_price?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number | null
+          created_at?: string
+          delay_to_ship?: boolean | null
+          id?: string
+          item_no?: string
+          quantity?: number
+          remark?: string | null
+          scanned?: boolean | null
+          sunsky_order_id?: string | null
+          sunsky_order_number?: string
+          sunsky_product_id?: string | null
+          title?: string | null
+          unit_price?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sunsky_order_items_new_sunsky_order_id_fkey"
+            columns: ["sunsky_order_id"]
+            isOneToOne: false
+            referencedRelation: "sunsky_orders_new"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sunsky_order_items_new_sunsky_product_id_fkey"
+            columns: ["sunsky_product_id"]
+            isOneToOne: false
+            referencedRelation: "sunsky_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sunsky_orders: {
         Row: {
           created_at: string
           currency: string | null
           gmt_created: string | null
+          gmt_paid: string | null
+          gmt_shipped: string | null
           id: string
           last_synced_at: string
           number: string
@@ -2738,6 +3018,8 @@ export type Database = {
           created_at?: string
           currency?: string | null
           gmt_created?: string | null
+          gmt_paid?: string | null
+          gmt_shipped?: string | null
           id?: string
           last_synced_at?: string
           number: string
@@ -2758,6 +3040,8 @@ export type Database = {
           created_at?: string
           currency?: string | null
           gmt_created?: string | null
+          gmt_paid?: string | null
+          gmt_shipped?: string | null
           id?: string
           last_synced_at?: string
           number?: string
@@ -2783,6 +3067,183 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      sunsky_orders_new: {
+        Row: {
+          amount: number | null
+          created_at: string
+          delivery_address: Json | null
+          gmt_created: string | null
+          gmt_paid: string | null
+          gmt_shipped: string | null
+          id: string
+          raw_data: Json | null
+          shipping_cost: number | null
+          shipping_way_id: number | null
+          shipping_way_name: string | null
+          site_number: string | null
+          status: Database["public"]["Enums"]["sunsky_order_status"] | null
+          sunsky_order_number: string
+          tax_amount: number | null
+          total_amount: number | null
+          tracking_number: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount?: number | null
+          created_at?: string
+          delivery_address?: Json | null
+          gmt_created?: string | null
+          gmt_paid?: string | null
+          gmt_shipped?: string | null
+          id?: string
+          raw_data?: Json | null
+          shipping_cost?: number | null
+          shipping_way_id?: number | null
+          shipping_way_name?: string | null
+          site_number?: string | null
+          status?: Database["public"]["Enums"]["sunsky_order_status"] | null
+          sunsky_order_number: string
+          tax_amount?: number | null
+          total_amount?: number | null
+          tracking_number?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number | null
+          created_at?: string
+          delivery_address?: Json | null
+          gmt_created?: string | null
+          gmt_paid?: string | null
+          gmt_shipped?: string | null
+          id?: string
+          raw_data?: Json | null
+          shipping_cost?: number | null
+          shipping_way_id?: number | null
+          shipping_way_name?: string | null
+          site_number?: string | null
+          status?: Database["public"]["Enums"]["sunsky_order_status"] | null
+          sunsky_order_number?: string
+          tax_amount?: number | null
+          total_amount?: number | null
+          tracking_number?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      sunsky_products: {
+        Row: {
+          barcode: string | null
+          brand_name: string | null
+          category_id: number | null
+          clearance: boolean | null
+          contains_battery: boolean | null
+          created_at: string
+          description: string | null
+          gmt_listed: string | null
+          gmt_modified: string | null
+          group_item_no: string | null
+          id: string
+          item_no: string
+          lead_time: string | null
+          moq: number | null
+          name: string | null
+          oem: boolean | null
+          org_price: number | null
+          pack_qty: number | null
+          pack_weight: number | null
+          pic_count: number | null
+          price: number | null
+          raw_data: Json | null
+          status: Database["public"]["Enums"]["sunsky_product_status"] | null
+          stock: number | null
+          sunsky_id: number
+          unit_height: number | null
+          unit_length: number | null
+          unit_weight: number | null
+          unit_width: number | null
+          updated_at: string
+          user_id: string
+          video_url: string | null
+          warehouse: string | null
+          with_logo: boolean | null
+        }
+        Insert: {
+          barcode?: string | null
+          brand_name?: string | null
+          category_id?: number | null
+          clearance?: boolean | null
+          contains_battery?: boolean | null
+          created_at?: string
+          description?: string | null
+          gmt_listed?: string | null
+          gmt_modified?: string | null
+          group_item_no?: string | null
+          id?: string
+          item_no: string
+          lead_time?: string | null
+          moq?: number | null
+          name?: string | null
+          oem?: boolean | null
+          org_price?: number | null
+          pack_qty?: number | null
+          pack_weight?: number | null
+          pic_count?: number | null
+          price?: number | null
+          raw_data?: Json | null
+          status?: Database["public"]["Enums"]["sunsky_product_status"] | null
+          stock?: number | null
+          sunsky_id: number
+          unit_height?: number | null
+          unit_length?: number | null
+          unit_weight?: number | null
+          unit_width?: number | null
+          updated_at?: string
+          user_id: string
+          video_url?: string | null
+          warehouse?: string | null
+          with_logo?: boolean | null
+        }
+        Update: {
+          barcode?: string | null
+          brand_name?: string | null
+          category_id?: number | null
+          clearance?: boolean | null
+          contains_battery?: boolean | null
+          created_at?: string
+          description?: string | null
+          gmt_listed?: string | null
+          gmt_modified?: string | null
+          group_item_no?: string | null
+          id?: string
+          item_no?: string
+          lead_time?: string | null
+          moq?: number | null
+          name?: string | null
+          oem?: boolean | null
+          org_price?: number | null
+          pack_qty?: number | null
+          pack_weight?: number | null
+          pic_count?: number | null
+          price?: number | null
+          raw_data?: Json | null
+          status?: Database["public"]["Enums"]["sunsky_product_status"] | null
+          stock?: number | null
+          sunsky_id?: number
+          unit_height?: number | null
+          unit_length?: number | null
+          unit_weight?: number | null
+          unit_width?: number | null
+          updated_at?: string
+          user_id?: string
+          video_url?: string | null
+          warehouse?: string | null
+          with_logo?: boolean | null
+        }
+        Relationships: []
       }
       sunsky_skus: {
         Row: {
@@ -2826,6 +3287,45 @@ export type Database = {
           updated_at?: string
           user_id?: string
           weight?: number | null
+        }
+        Relationships: []
+      }
+      sync_status: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          last_modified_at: string | null
+          last_sync_at: string | null
+          status: string | null
+          sync_type: string
+          total_records: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          last_modified_at?: string | null
+          last_sync_at?: string | null
+          status?: string | null
+          sync_type: string
+          total_records?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          last_modified_at?: string | null
+          last_sync_at?: string | null
+          status?: string | null
+          sync_type?: string
+          total_records?: number | null
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -3674,6 +4174,18 @@ export type Database = {
     Enums: {
       country_code: "UAE" | "KSA"
       inventory_status: "in-stock" | "sold" | "reserved" | "damaged" | "ordered"
+      listing_status: "pending" | "listed" | "failed" | "delisted"
+      sunsky_order_status:
+        | "unpaid"
+        | "paid"
+        | "shipped"
+        | "cancelled"
+        | "delivered"
+      sunsky_product_status:
+        | "active"
+        | "inactive"
+        | "out_of_stock"
+        | "discontinued"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -3803,6 +4315,20 @@ export const Constants = {
     Enums: {
       country_code: ["UAE", "KSA"],
       inventory_status: ["in-stock", "sold", "reserved", "damaged", "ordered"],
+      listing_status: ["pending", "listed", "failed", "delisted"],
+      sunsky_order_status: [
+        "unpaid",
+        "paid",
+        "shipped",
+        "cancelled",
+        "delivered",
+      ],
+      sunsky_product_status: [
+        "active",
+        "inactive",
+        "out_of_stock",
+        "discontinued",
+      ],
     },
   },
 } as const
