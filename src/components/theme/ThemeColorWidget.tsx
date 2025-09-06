@@ -7,17 +7,16 @@ export const ThemeColorWidget = () => {
   const { currentTheme, themeColors, changeTheme } = useAccentTheme();
 
   return (
-    <div className="fixed right-4 top-1/2 -translate-y-1/2 z-50">
-      <Popover>
-        <PopoverTrigger asChild>
-          <Button
-            size="sm"
-            variant="outline"
-            className="w-10 h-10 p-0 rounded-full shadow-lg backdrop-blur-sm bg-card/90 hover:bg-card border-border/50"
-          >
-            <Palette className="h-4 w-4" />
-          </Button>
-        </PopoverTrigger>
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          size="sm"
+          variant="outline"
+          className="w-10 h-10 p-0 rounded-full"
+        >
+          <Palette className="h-4 w-4" />
+        </Button>
+      </PopoverTrigger>
         <PopoverContent side="left" className="w-48 p-3">
           <div className="space-y-3">
             <h4 className="font-medium text-sm">Theme Colors</h4>
@@ -47,7 +46,6 @@ export const ThemeColorWidget = () => {
             </div>
           </div>
         </PopoverContent>
-      </Popover>
-    </div>
+    </Popover>
   );
 };

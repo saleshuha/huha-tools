@@ -223,6 +223,7 @@ const App = () => {
                             <Activity className="h-4 w-4" />
                             Tasks
                           </Button>
+                          <ThemeColorWidget />
                           <CountrySwitcher />
                         </div>
                       </div>
@@ -300,7 +301,6 @@ const App = () => {
                   isOpen={showBackgroundTasks} 
                   onClose={() => setShowBackgroundTasks(false)} 
                 />
-                <ThemeColorWidget />
               </SidebarProvider>
             </BrowserRouter>
           </BackgroundTasksProvider>
