@@ -3,6 +3,8 @@
 @tailwind components;
 @tailwind utilities;
 
+@import './theme/atlas-flat.css';
+
 /* =============================================== */
 /* Mercury Ops Theme - Operational Excellence     */
 /* Clean, High-Contrast Design for Data-Heavy Apps */

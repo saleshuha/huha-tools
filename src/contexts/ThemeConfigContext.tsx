@@ -2,6 +2,12 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAccentTheme } from '@/hooks/useAccentTheme';
 
 export interface ThemeConfig {
+  // Theme Style
+  themeStyle: 'flat' | 'mercury';
+  
+  // Density
+  density: 'comfortable' | 'compact';
+  
   // Colors (integrated with existing accent theme)
   colorScheme: string;
   
@@ -47,29 +53,31 @@ export interface ThemeConfig {
 }
 
 const defaultConfig: ThemeConfig = {
-  colorScheme: 'Mercury Azure',
-  headerStyle: 'spacious',
-  headerGradient: true,
-  tabStyle: 'segmented',
+  themeStyle: 'flat',
+  density: 'comfortable',
+  colorScheme: 'Indigo',
+  headerStyle: 'default',
+  headerGradient: false,
+  tabStyle: 'default',
   tabAnimation: true,
   tabPosition: 'top',
-  buttonStyle: 'rounded',
-  buttonShadow: true,
+  buttonStyle: 'default',
+  buttonShadow: false,
   buttonSize: 'md',
   buttonVariant: 'solid',
-  fieldStyle: 'filled',
-  fieldFocus: 'glow',
+  fieldStyle: 'default',
+  fieldFocus: 'default',
   fieldSize: 'md',
   tableDensity: 'default',
-  tableStripes: true,
+  tableStripes: false,
   tableHover: true,
   tableBorder: 'horizontal',
-  tableStyle: 'shadow',
-  cardStyle: 'elevated',
-  cardShadow: 'md',
-  navStyle: 'filled',
-  sidebarStyle: 'minimal',
-  borderRadius: 'large',
+  tableStyle: 'minimal',
+  cardStyle: 'flat',
+  cardShadow: 'none',
+  navStyle: 'default',
+  sidebarStyle: 'bordered',
+  borderRadius: 'medium',
   animations: true,
   spacing: 'default',
 };
@@ -163,6 +171,8 @@ export const ThemeConfigProvider: React.FC<{ children: React.ReactNode }> = ({ c
     root.style.setProperty('--spacing', spacingMap[themeConfig.spacing]);
     
     // Set all data attributes for styling
+    root.setAttribute('data-theme-style', themeConfig.themeStyle);
+    root.setAttribute('data-density', themeConfig.density);
     root.setAttribute('data-header-style', themeConfig.headerStyle);
     root.setAttribute('data-header-gradient', themeConfig.headerGradient.toString());
     root.setAttribute('data-tab-style', themeConfig.tabStyle);

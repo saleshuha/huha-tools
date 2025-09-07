@@ -12,7 +12,10 @@ const TabsList = React.forwardRef<
   <TabsPrimitive.List
     ref={ref}
     className={cn(
-      "inline-flex h-12 items-center justify-center rounded-xl bg-surface-container/80 p-1.5 text-muted-foreground border border-border/50 shadow-soft backdrop-blur-sm",
+      "inline-flex items-center justify-center rounded-lg bg-muted p-1",
+      "[data-theme-style='flat']:bg-surface-variant [data-theme-style='flat']:border [data-theme-style='flat']:border-border",
+      "[data-theme-style='mercury']:bg-muted/60 [data-theme-style='mercury']:backdrop-blur-sm",
+      "[data-density='comfortable']:p-1 [data-density='compact']:p-0.5",
       className
     )}
     {...props}
@@ -27,7 +30,11 @@ const TabsTrigger = React.forwardRef<
   <TabsPrimitive.Trigger
     ref={ref}
     className={cn(
-      "inline-flex items-center justify-center whitespace-nowrap rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-soft hover:bg-surface/80 hover:text-foreground border border-transparent data-[state=active]:border-primary/20",
+      "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-surface data-[state=active]:text-foreground data-[state=active]:shadow-sm",
+      "[data-theme-style='flat']:data-[state=active]:bg-surface [data-theme-style='flat']:data-[state=active]:border [data-theme-style='flat']:data-[state=active]:border-border",
+      "[data-theme-style='mercury']:data-[state=active]:shadow-soft [data-theme-style='mercury']:data-[state=active]:backdrop-blur-sm",
+      "[data-density='comfortable']:px-4 [data-density='comfortable']:py-2.5",
+      "[data-density='compact']:px-3 [data-density='compact']:py-2 [data-density='compact']:text-xs",
       className
     )}
     {...props}
@@ -42,7 +49,8 @@ const TabsContent = React.forwardRef<
   <TabsPrimitive.Content
     ref={ref}
     className={cn(
-      "mt-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+      "ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+      "[data-density='comfortable']:mt-4 [data-density='compact']:mt-3",
       className
     )}
     {...props}
