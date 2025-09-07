@@ -33,7 +33,6 @@ import { generateExcelFile } from "@/utils/excelExport";
 import { useBackgroundTasks } from "@/contexts/BackgroundTasksContext";
 import { useConcurrentSunskyExport } from "@/hooks/useConcurrentSunskyExport";
 import { usePersistentBackgroundTasks } from "@/hooks/usePersistentBackgroundTasks";
-
 interface SunskyProduct {
   // Core product fields
   id: number;
@@ -43,10 +42,13 @@ interface SunskyProduct {
   description?: string;
   brandName?: string;
   categoryId?: number;
-  
+
   // Pricing and availability
   price: string;
-  priceList?: Array<{ key: number; value: string }>;
+  priceList?: Array<{
+    key: number;
+    value: string;
+  }>;
   convertedPrice?: number;
   convertedCurrency?: string;
   stock: number;
@@ -54,7 +56,7 @@ interface SunskyProduct {
   clearance?: boolean;
   orgPrice?: string;
   priceExpired?: string;
-  
+
   // Physical properties
   unitWeight?: string;
   packQty?: number;
@@ -65,12 +67,12 @@ interface SunskyProduct {
   packLength?: number;
   packWidth?: number;
   packHeight?: number;
-  
+
   // Logistics and timing
   warehouse: string;
   leadTime: string;
   leadTimeLevel?: number;
-  
+
   // Product details
   barcode?: string;
   status?: number;
@@ -78,39 +80,48 @@ interface SunskyProduct {
   baseImgCount?: number;
   videoUrl?: string;
   modelLabel?: string;
-  modelList?: Array<{ key: string; value: string }>;
+  modelList?: Array<{
+    key: string;
+    value: string;
+  }>;
   optionList?: {
     display: string;
-    items: Array<{ itemNo: string; keywords: string }>;
+    items: Array<{
+      itemNo: string;
+      keywords: string;
+    }>;
   };
-  
+
   // Dates
   gmtListed?: string;
   gmtModified?: string;
-  
+
   // Capabilities
   oem?: boolean;
   withLogo?: boolean;
   containsBattery?: boolean;
   giftItemNo?: string;
-  
+
   // Compatibility and specs
   brands?: Array<{
-    brand: { name: string };
-    models: Array<{ name: string }>;
+    brand: {
+      name: string;
+    };
+    models: Array<{
+      name: string;
+    }>;
   }>;
   params?: Array<{
     name: string;
     values: string[];
   }>;
   paramsTable?: string;
-  
+
   // Legacy fields for compatibility
   dimensions?: string;
   images?: string[];
   specifications?: Record<string, any>;
 }
-
 interface SunskyCategory {
   id: number;
   name: string;
@@ -120,12 +131,10 @@ interface SunskyCategory {
   children?: SunskyCategory[];
   status?: number;
 }
-
 interface SunskyBrand {
   id: number;
   name: string;
 }
-
 interface SearchFilters {
   keyword?: string;
   categoryId?: number;
@@ -145,38 +154,57 @@ interface SearchFilters {
 // Status mapping functions
 const getCategoryStatusText = (status?: number): string => {
   switch (status) {
-    case 1: return 'Valid';
-    case 2: return 'Deleted';
-    default: return status ? `Unknown (${status})` : '';
+    case 1:
+      return 'Valid';
+    case 2:
+      return 'Deleted';
+    default:
+      return status ? `Unknown (${status})` : '';
   }
 };
-
 const getProductStatusText = (status?: number): string => {
   switch (status) {
-    case 1: return 'Valid';
-    case 2: return 'Deleted';
-    case 3: return 'Out of stock';
-    case 4: return 'Hidden (too old)';
-    default: return status ? `Unknown (${status})` : '';
+    case 1:
+      return 'Valid';
+    case 2:
+      return 'Deleted';
+    case 3:
+      return 'Out of stock';
+    case 4:
+      return 'Hidden (too old)';
+    default:
+      return status ? `Unknown (${status})` : '';
   }
 };
-
 const getStatusBadgeVariant = (status?: number, isCategory = false): 'default' | 'secondary' | 'destructive' | 'outline' => {
   if (!status) return 'outline';
-  
   if (isCategory) {
     switch (status) {
-      case 1: return 'default'; // Valid
-      case 2: return 'destructive'; // Deleted
-      default: return 'outline';
+      case 1:
+        return 'default';
+      // Valid
+      case 2:
+        return 'destructive';
+      // Deleted
+      default:
+        return 'outline';
     }
   } else {
     switch (status) {
-      case 1: return 'default'; // Valid
-      case 2: return 'destructive'; // Deleted
-      case 3: return 'secondary'; // Out of stock
-      case 4: return 'outline'; // Hidden
-      default: return 'outline';
+      case 1:
+        return 'default';
+      // Valid
+      case 2:
+        return 'destructive';
+      // Deleted
+      case 3:
+        return 'secondary';
+      // Out of stock
+      case 4:
+        return 'outline';
+      // Hidden
+      default:
+        return 'outline';
     }
   }
 };
@@ -187,19 +215,46 @@ const formatBytes = (bytes: number) => {
   const i = Math.floor(Math.log(bytes) / Math.log(1024));
   return `${Math.round(bytes / Math.pow(1024, i) * 100) / 100} ${sizes[i]}`;
 };
-
 export const SunskySKUImporter: React.FC = () => {
-  const { toast } = useToast();
-  const { addTask, updateTask, cancelTask, isTaskCancelled, runConcurrentExport } = useBackgroundTasks();
-  const { profile } = useUserProfile();
-  const { sunskySKUs, isLoading: skusLoading, fetchSKUs, totalCount, refreshSKUs, addSKUs } = useSKUManager();
-  const { jobs, isLoading: jobsLoading, createImportJob, fetchJobs } = useImportJobs();
-  const { getPOModelNumbers } = usePOOrders();
-  const { addExportEntry, updateExportEntry, exportHistory: savedExportHistory } = useExportHistory();
-  const { 
-    tasks: persistentTasks, 
+  const {
+    toast
+  } = useToast();
+  const {
+    addTask,
+    updateTask,
+    cancelTask,
+    isTaskCancelled,
+    runConcurrentExport
+  } = useBackgroundTasks();
+  const {
+    profile
+  } = useUserProfile();
+  const {
+    sunskySKUs,
+    isLoading: skusLoading,
+    fetchSKUs,
+    totalCount,
+    refreshSKUs,
+    addSKUs
+  } = useSKUManager();
+  const {
+    jobs,
+    isLoading: jobsLoading,
+    createImportJob,
+    fetchJobs
+  } = useImportJobs();
+  const {
+    getPOModelNumbers
+  } = usePOOrders();
+  const {
+    addExportEntry,
+    updateExportEntry,
+    exportHistory: savedExportHistory
+  } = useExportHistory();
+  const {
+    tasks: persistentTasks,
     loading: tasksLoading,
-    activeTasks, 
+    activeTasks,
     completedTasks,
     failedTasks,
     fetchTasks,
@@ -207,7 +262,7 @@ export const SunskySKUImporter: React.FC = () => {
     deleteTask: deletePersistentTask,
     downloadResult
   } = usePersistentBackgroundTasks();
-  const { 
+  const {
     startConcurrentExport,
     isExporting: isConcurrentExporting,
     exportProgress: concurrentExportProgress,
@@ -216,7 +271,6 @@ export const SunskySKUImporter: React.FC = () => {
     exportResults: concurrentExportResults,
     cancelExport: cancelConcurrentExport
   } = useConcurrentSunskyExport();
-  
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -257,34 +311,36 @@ export const SunskySKUImporter: React.FC = () => {
   const [fetchingCategories, setFetchingCategories] = useState(false);
   const [fetchingSubCategories, setFetchingSubCategories] = useState(false);
   const [fetchingBrands, setFetchingBrands] = useState(false);
-  
+
   // Header management  
   const [availableHeaders, setAvailableHeaders] = useState<string[]>([]);
-  const [selectedHeaders, setSelectedHeaders] = useState<string[]>([
-    'itemNo', 'name', 'brandName', 'stock', 'leadTime', 'warehouse', 'price', 'convertedPrice'
-  ]);
+  const [selectedHeaders, setSelectedHeaders] = useState<string[]>(['itemNo', 'name', 'brandName', 'stock', 'leadTime', 'warehouse', 'price', 'convertedPrice']);
   const [showHeaderSelector, setShowHeaderSelector] = useState(false);
   const [showColumnDialog, setShowColumnDialog] = useState(false);
-  
+
   // Job details dialog
   const [selectedJob, setSelectedJob] = useState<ImportJob | null>(null);
   const [showJobDetailsDialog, setShowJobDetailsDialog] = useState(false);
   const [showClearAuthDialog, setShowClearAuthDialog] = useState(false);
-  
+
   // Export history dialog
   const [selectedExportEntry, setSelectedExportEntry] = useState<ExportHistoryEntry | null>(null);
   const [showExportHistoryDialog, setShowExportHistoryDialog] = useState(false);
-  
+
   // Pagination for import jobs
   const [jobsCurrentPage, setJobsCurrentPage] = useState(1);
   const [jobsPerPage] = useState(5);
-  
+
   // API selection
-  const [availableAPIs, setAvailableAPIs] = useState<Array<{id: string, name: string, is_active: boolean}>>([]);
+  const [availableAPIs, setAvailableAPIs] = useState<Array<{
+    id: string;
+    name: string;
+    is_active: boolean;
+  }>>([]);
   const [selectedAPI, setSelectedAPI] = useState<string>('');
   const [selectedSearchAPI, setSelectedSearchAPI] = useState<string>('');
   const [selectedJobAPI, setSelectedJobAPI] = useState<string>('');
-  
+
   // Export by status feature
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
@@ -294,7 +350,10 @@ export const SunskySKUImporter: React.FC = () => {
   const [currentExportTaskId, setCurrentExportTaskId] = useState<string | null>(null);
   const [exportResults, setExportResults] = useState<{
     products: SunskyProduct[];
-    categories: Map<number, { name: string; products: SunskyProduct[] }>;
+    categories: Map<number, {
+      name: string;
+      products: SunskyProduct[];
+    }>;
     totalFound: number;
   } | null>(null);
 
@@ -315,28 +374,14 @@ export const SunskySKUImporter: React.FC = () => {
   const [exportSubCategory, setExportSubCategory] = useState<string>('all');
   const [exportPageSize, setExportPageSize] = useState<number>(100);
   const [searchPageSize, setSearchPageSize] = useState<number>(50);
-  const [selectedExportColumns, setSelectedExportColumns] = useState<string[]>([
-    'itemNo', 'name', 'brandName', 'price', 'stock', 'status', 'leadTime', 'warehouse', 'moq'
-  ]);
-  const [availableExportColumns, setAvailableExportColumns] = useState<string[]>([
-    'itemNo', 'name', 'brandName', 'price', 'stock', 'status', 'leadTime', 'warehouse', 'moq',
-    'categoryId', 'description', 'unitWeight', 'packQty', 'unitLength', 'unitWidth', 'unitHeight',
-    'packWeight', 'packLength', 'packWidth', 'packHeight', 'barcode', 'orgPrice', 'priceExpired',
-    'picCount', 'baseImgCount', 'videoUrl', 'gmtListed', 'gmtModified', 'oem', 'withLogo', 'containsBattery'
-  ]);
+  const [selectedExportColumns, setSelectedExportColumns] = useState<string[]>(['itemNo', 'name', 'brandName', 'price', 'stock', 'status', 'leadTime', 'warehouse', 'moq']);
+  const [availableExportColumns, setAvailableExportColumns] = useState<string[]>(['itemNo', 'name', 'brandName', 'price', 'stock', 'status', 'leadTime', 'warehouse', 'moq', 'categoryId', 'description', 'unitWeight', 'packQty', 'unitLength', 'unitWidth', 'unitHeight', 'packWeight', 'packLength', 'packWidth', 'packHeight', 'barcode', 'orgPrice', 'priceExpired', 'picCount', 'baseImgCount', 'videoUrl', 'gmtListed', 'gmtModified', 'oem', 'withLogo', 'containsBattery']);
   const [selectedExportAPIs, setSelectedExportAPIs] = useState<string[]>([]);
   const [runInBackground, setRunInBackground] = useState<boolean>(false);
-  
+
   // SKU table column management - match search results headers
-  const [skuTableHeaders, setSkuTableHeaders] = useState<string[]>([
-    'sku_code', 'title', 'cost', 'currency', 'weight', 'country', 'created_at'
-  ]);
-  const [availableSkuHeaders] = useState<string[]>([
-    'sku_code', 'title', 'description', 'cost', 'currency', 'weight', 'country', 'created_at',
-    'brand', 'category', 'stock', 'moq', 'lead_time', 'price', 'warehouse', 'barcode',
-    'unit_weight', 'pack_qty', 'dimensions', 'pack_weight', 'pack_dimensions', 'clearance',
-    'oem', 'with_logo', 'contains_battery', 'status', 'video_url', 'gmt_listed', 'gmt_modified'
-  ]);
+  const [skuTableHeaders, setSkuTableHeaders] = useState<string[]>(['sku_code', 'title', 'cost', 'currency', 'weight', 'country', 'created_at']);
+  const [availableSkuHeaders] = useState<string[]>(['sku_code', 'title', 'description', 'cost', 'currency', 'weight', 'country', 'created_at', 'brand', 'category', 'stock', 'moq', 'lead_time', 'price', 'warehouse', 'barcode', 'unit_weight', 'pack_qty', 'dimensions', 'pack_weight', 'pack_dimensions', 'clearance', 'oem', 'with_logo', 'contains_battery', 'status', 'video_url', 'gmt_listed', 'gmt_modified']);
 
   // SKU Pagination
   const [skuCurrentPage, setSkuCurrentPage] = useState(1);
@@ -351,12 +396,10 @@ export const SunskySKUImporter: React.FC = () => {
     if (concurrentExportResults && !isExporting && isConcurrentExporting === false) {
       const handleConcurrentExportComplete = async () => {
         try {
-          const categoryName = exportCategory === 'all' ? 'All Categories' : 
-            categories.find(c => c.id.toString() === exportCategory)?.name || 'Unknown';
-          
-          const apiKeysWithNames = availableAPIs.filter(api => api.is_active).map(api => ({ 
-            id: api.id, 
-            name: api.name 
+          const categoryName = exportCategory === 'all' ? 'All Categories' : categories.find(c => c.id.toString() === exportCategory)?.name || 'Unknown';
+          const apiKeysWithNames = availableAPIs.filter(api => api.is_active).map(api => ({
+            id: api.id,
+            name: api.name
           }));
 
           // Check if this is a background task
@@ -369,8 +412,7 @@ export const SunskySKUImporter: React.FC = () => {
               export_type: 'status_export',
               filters: {
                 status: selectedExportStatus,
-                categoryId: exportSubCategory !== 'all' ? parseInt(exportSubCategory) : 
-                           (exportCategory !== 'all' ? parseInt(exportCategory) : undefined),
+                categoryId: exportSubCategory !== 'all' ? parseInt(exportSubCategory) : exportCategory !== 'all' ? parseInt(exportCategory) : undefined,
                 categoryName,
                 columns: selectedExportColumns,
                 pageSize: exportPageSize,
@@ -407,7 +449,6 @@ export const SunskySKUImporter: React.FC = () => {
               categories: concurrentExportResults.categoriesMap,
               totalFound: concurrentExportResults.totalFound
             });
-
             toast({
               title: "Export Complete",
               description: `Successfully exported ${concurrentExportResults.totalFound} products using ${apiKeysWithNames.length} API keys concurrently.`
@@ -415,16 +456,14 @@ export const SunskySKUImporter: React.FC = () => {
           } else {
             // For background tasks, just clear the task ID since the hook handles everything
             setCurrentExportTaskId(null);
-
             toast({
               title: "Background Export Complete",
               description: `Successfully exported ${concurrentExportResults.totalFound} products using ${apiKeysWithNames.length} API keys concurrently.`
             });
           }
-          
         } catch (error) {
           console.error('Error handling concurrent export results:', error);
-          
+
           // Update background task with error if applicable
           if (currentExportTaskId) {
             updateTask(currentExportTaskId, {
@@ -434,7 +473,6 @@ export const SunskySKUImporter: React.FC = () => {
             });
             setCurrentExportTaskId(null);
           }
-          
           toast({
             title: "Export Processing Error",
             description: "Export completed but failed to process results",
@@ -442,7 +480,6 @@ export const SunskySKUImporter: React.FC = () => {
           });
         }
       };
-
       handleConcurrentExportComplete();
     }
   }, [concurrentExportResults, isExporting, isConcurrentExporting, exportCategory, categories, availableAPIs, selectedExportStatus, exportSubCategory, selectedExportColumns, exportPageSize, addExportEntry, updateTask, currentExportTaskId, savedExportHistory, updateExportEntry, toast]);
@@ -452,13 +489,11 @@ export const SunskySKUImporter: React.FC = () => {
     if (currentExportTaskId && (isConcurrentExporting || concurrentExportProgress.length > 0)) {
       // Calculate overall progress and update task
       const totalProgress = concurrentOverallProgress || 0;
-      
+
       // Update threads progress
       const threads = concurrentExportProgress.map((apiProgress, index) => ({
         id: index,
-        progress: apiProgress.currentPage > 0 && apiProgress.totalPages > 0 
-          ? Math.min(95, (apiProgress.currentPage / apiProgress.totalPages) * 100) 
-          : 0,
+        progress: apiProgress.currentPage > 0 && apiProgress.totalPages > 0 ? Math.min(95, apiProgress.currentPage / apiProgress.totalPages * 100) : 0,
         label: `${apiProgress.apiKeyName}: ${apiProgress.status === 'processing' ? 'Processing' : apiProgress.status}`,
         status: apiProgress.status,
         processed: apiProgress.processedItems || 0,
@@ -469,7 +504,6 @@ export const SunskySKUImporter: React.FC = () => {
 
       // Calculate total processed items across all APIs
       const totalProcessedItems = concurrentExportProgress.reduce((sum, p) => sum + (p.processedItems || 0), 0);
-
       updateTask(currentExportTaskId, {
         progress: totalProgress,
         processedItems: totalProcessedItems,
@@ -485,17 +519,15 @@ export const SunskySKUImporter: React.FC = () => {
   // Save column preferences
   const saveColumnPreferences = async () => {
     try {
-      const { error } = await supabase
-        .from('noon_file_headers')
-        .upsert({
-          user_id: profile?.id,
-          file_type: 'sunsky_sku_columns',
-          headers: skuTableHeaders,
-          store_name: 'sunsky_importer'
-        });
-      
+      const {
+        error
+      } = await supabase.from('noon_file_headers').upsert({
+        user_id: profile?.id,
+        file_type: 'sunsky_sku_columns',
+        headers: skuTableHeaders,
+        store_name: 'sunsky_importer'
+      });
       if (error) throw error;
-      
       toast({
         title: "Success",
         description: "Column preferences saved"
@@ -513,16 +545,12 @@ export const SunskySKUImporter: React.FC = () => {
   // Load column preferences
   const loadColumnPreferences = async () => {
     try {
-      const { data, error } = await supabase
-        .from('noon_file_headers')
-        .select('headers')
-        .eq('user_id', profile?.id)
-        .eq('file_type', 'sunsky_sku_columns')
-        .eq('store_name', 'sunsky_importer')
-        .limit(1);
-      
+      const {
+        data,
+        error
+      } = await supabase.from('noon_file_headers').select('headers').eq('user_id', profile?.id).eq('file_type', 'sunsky_sku_columns').eq('store_name', 'sunsky_importer').limit(1);
       if (error) throw error;
-      
+
       // Take the first result if any exist
       if (data && data.length > 0 && data[0]?.headers) {
         setSkuTableHeaders(data[0].headers);
@@ -535,14 +563,12 @@ export const SunskySKUImporter: React.FC = () => {
   // Task control functions
   const pauseJob = async (jobId: string) => {
     try {
-      const { error } = await supabase
-        .from('sunsky_import_jobs')
-        .update({ paused: true })
-        .eq('id', jobId)
-        .eq('user_id', profile?.id);
-      
+      const {
+        error
+      } = await supabase.from('sunsky_import_jobs').update({
+        paused: true
+      }).eq('id', jobId).eq('user_id', profile?.id);
       if (error) throw error;
-      
       toast({
         title: "Success",
         description: "Import job paused"
@@ -557,17 +583,14 @@ export const SunskySKUImporter: React.FC = () => {
       });
     }
   };
-
   const resumeJob = async (jobId: string) => {
     try {
-      const { error } = await supabase
-        .from('sunsky_import_jobs')
-        .update({ paused: false })
-        .eq('id', jobId)
-        .eq('user_id', profile?.id);
-      
+      const {
+        error
+      } = await supabase.from('sunsky_import_jobs').update({
+        paused: false
+      }).eq('id', jobId).eq('user_id', profile?.id);
       if (error) throw error;
-      
       toast({
         title: "Success",
         description: "Import job resumed"
@@ -582,20 +605,15 @@ export const SunskySKUImporter: React.FC = () => {
       });
     }
   };
-
   const cancelJob = async (jobId: string) => {
     try {
-      const { error } = await supabase
-        .from('sunsky_import_jobs')
-        .update({ 
-          cancelled: true,
-          status: 'cancelled'
-        })
-        .eq('id', jobId)
-        .eq('user_id', profile?.id);
-      
+      const {
+        error
+      } = await supabase.from('sunsky_import_jobs').update({
+        cancelled: true,
+        status: 'cancelled'
+      }).eq('id', jobId).eq('user_id', profile?.id);
       if (error) throw error;
-      
       toast({
         title: "Success",
         description: "Import job cancelled"
@@ -614,18 +632,15 @@ export const SunskySKUImporter: React.FC = () => {
   // Clear all SKUs function
   const clearAllSKUs = async () => {
     try {
-      const { error } = await supabase
-        .from('sunsky_skus')
-        .delete()
-        .eq('user_id', profile?.id);
-      
+      const {
+        error
+      } = await supabase.from('sunsky_skus').delete().eq('user_id', profile?.id);
       if (error) throw error;
-      
       toast({
         title: "Success",
         description: "All imported SKUs have been cleared"
       });
-      
+
       // Refresh the SKU list
       fetchSKUs(1, false);
     } catch (error) {
@@ -657,7 +672,6 @@ export const SunskySKUImporter: React.FC = () => {
         }
       }
     };
-
     if (!isBackground) {
       setIsExporting(true);
       setExportProgress(0);
@@ -666,10 +680,12 @@ export const SunskySKUImporter: React.FC = () => {
       setExportResults(null);
       setCurrentExportTaskId(taskId || null);
     }
-
     try {
       const allProducts: SunskyProduct[] = [];
-      const categoriesMap = new Map<number, { name: string; products: SunskyProduct[] }>();
+      const categoriesMap = new Map<number, {
+        name: string;
+        products: SunskyProduct[];
+      }>();
       let currentPage = 1;
       let totalProcessed = 0;
       let estimatedTotal = 0;
@@ -677,16 +693,14 @@ export const SunskySKUImporter: React.FC = () => {
       const perKeyDelay = 250; // 250ms delay per API key for level 9 limits
       let currentApiIndex = 0;
       let isCancelled = false;
-
       updateProgress(5, 'Fetching categories...');
-      
+
       // Get all main categories first
       const categoriesResponse = await callSunskyAPI('getCategories', {
         mode: 'all',
         parentId: '0',
         modifiedSince: ''
       }, apiIds[0]);
-
       if (categoriesResponse?.result !== 'success' || !categoriesResponse?.data) {
         throw new Error('Failed to fetch categories');
       }
@@ -694,40 +708,37 @@ export const SunskySKUImporter: React.FC = () => {
       // Initialize categories map
       const allCategories = categoriesResponse.data as SunskyCategory[];
       allCategories.forEach(cat => {
-        categoriesMap.set(cat.id, { name: cat.name, products: [] });
+        categoriesMap.set(cat.id, {
+          name: cat.name,
+          products: []
+        });
       });
 
       // Get subcategories if needed
       if (exportCategory !== 'all' && exportSubCategory === 'all') {
         updateProgress(10, 'Fetching subcategories...');
-        
         const subCatsResponse = await callSunskyAPI('getCategories', {
           parentId: exportCategory,
           mode: 'subcategories',
           modifiedSince: ''
         }, apiIds[0]);
-
         if (subCatsResponse?.result === 'success' && subCatsResponse?.data) {
           const subcats = subCatsResponse.data as SunskyCategory[];
           subcats.forEach(cat => {
-            categoriesMap.set(cat.id, { name: cat.name, products: [] });
+            categoriesMap.set(cat.id, {
+              name: cat.name,
+              products: []
+            });
           });
         }
       }
-
       const statusText = getProductStatusText(selectedExportStatus);
-      const categoryText = exportCategory !== 'all' ? 
-        (exportSubCategory !== 'all' ? 
-          subCategories.find(c => c.id.toString() === exportSubCategory)?.name || 'Unknown Subcategory' :
-          categories.find(c => c.id.toString() === exportCategory)?.name || 'Unknown Category'
-        ) : 'All Categories';
-
+      const categoryText = exportCategory !== 'all' ? exportSubCategory !== 'all' ? subCategories.find(c => c.id.toString() === exportSubCategory)?.name || 'Unknown Subcategory' : categories.find(c => c.id.toString() === exportCategory)?.name || 'Unknown Category' : 'All Categories';
       updateProgress(15, `Getting total product count for ${statusText} products from ${categoryText}...`);
 
       // First, get the total count by fetching page 1 with small pageSize
       let actualTotalProducts = 0;
       let actualTotalPages = 0;
-
       try {
         // Determine effective category ID for filtering
         let effectiveCategoryId = undefined;
@@ -736,20 +747,17 @@ export const SunskySKUImporter: React.FC = () => {
         } else if (exportCategory !== 'all') {
           effectiveCategoryId = parseInt(exportCategory);
         }
-
         const countParams: any = {
           page: 1,
-          pageSize: exportPageSize, // Use actual page size to get better estimate
+          pageSize: exportPageSize,
+          // Use actual page size to get better estimate
           status: selectedExportStatus,
           lang: 'en'
         };
-
         if (effectiveCategoryId) {
           countParams.categoryId = effectiveCategoryId;
         }
-
         const countResponse = await callSunskyAPI('searchProducts', countParams, apiIds[0]);
-        
         if (countResponse?.result === 'success' && countResponse?.data?.products) {
           // Extract total information from response
           if (countResponse.data.totalResults) {
@@ -774,11 +782,9 @@ export const SunskySKUImporter: React.FC = () => {
         actualTotalProducts = 500; // More reasonable fallback estimate
         actualTotalPages = Math.ceil(actualTotalProducts / exportPageSize);
       }
-
       updateProgress(20, `Starting export... (estimated ${actualTotalProducts} products across ~${actualTotalPages} pages)`, actualTotalProducts, 0, actualTotalProducts);
-
       const maxPages = actualTotalPages; // Fetch all available pages
-      
+
       while (hasMore && currentPage <= maxPages && !isCancelled) {
         // Check if task was cancelled (for background tasks)
         if (isBackground && taskId) {
@@ -787,19 +793,10 @@ export const SunskySKUImporter: React.FC = () => {
             resolve([]);
           }) : [];
         }
-
         try {
           const currentApiId = apiIds[currentApiIndex % apiIds.length];
-          
-          const progressPercentage = Math.min(95, 20 + Math.round(((currentPage - 1) / actualTotalPages) * 75));
-          
-          updateProgress(
-            progressPercentage, 
-            `Fetching page ${currentPage}/${actualTotalPages} (${totalProcessed}/${actualTotalProducts} products) - API ${currentApiIndex % apiIds.length + 1}`,
-            actualTotalProducts,
-            totalProcessed,
-            actualTotalProducts
-          );
+          const progressPercentage = Math.min(95, 20 + Math.round((currentPage - 1) / actualTotalPages * 75));
+          updateProgress(progressPercentage, `Fetching page ${currentPage}/${actualTotalPages} (${totalProcessed}/${actualTotalProducts} products) - API ${currentApiIndex % apiIds.length + 1}`, actualTotalProducts, totalProcessed, actualTotalProducts);
 
           // Determine effective category ID for filtering
           let effectiveCategoryId = undefined;
@@ -808,23 +805,19 @@ export const SunskySKUImporter: React.FC = () => {
           } else if (exportCategory !== 'all') {
             effectiveCategoryId = parseInt(exportCategory);
           }
-
           const searchParams: any = {
             page: currentPage,
             pageSize: exportPageSize,
             status: selectedExportStatus,
             lang: 'en'
           };
-
           if (effectiveCategoryId) {
             searchParams.categoryId = effectiveCategoryId;
           }
-
           const response = await callSunskyAPI('searchProducts', searchParams, currentApiId);
-
           if (response?.result !== 'success') {
             console.warn(`Failed to fetch page ${currentPage} with API ${currentApiId}:`, response);
-            
+
             // Try next API or break if all failed
             currentApiIndex++;
             if (currentApiIndex >= apiIds.length) {
@@ -832,9 +825,7 @@ export const SunskySKUImporter: React.FC = () => {
             }
             continue;
           }
-
           const pageProducts = response.data?.products || [];
-          
           if (pageProducts.length === 0) {
             hasMore = false;
             break;
@@ -846,21 +837,15 @@ export const SunskySKUImporter: React.FC = () => {
             const detectedColumns = Object.keys(firstProduct);
             const allColumns = [...new Set([...availableExportColumns, ...detectedColumns])];
             setAvailableExportColumns(allColumns);
-            
+
             // Update actual totals if we have better information from the response
             if (response.data.totalResults && response.data.totalResults !== actualTotalProducts) {
               actualTotalProducts = response.data.totalResults;
               actualTotalPages = Math.ceil(actualTotalProducts / exportPageSize);
-              updateProgress(
-                progressPercentage, 
-                `Updated total: ${actualTotalProducts} products across ${actualTotalPages} pages`,
-                actualTotalProducts,
-                totalProcessed,
-                actualTotalProducts
-              );
+              updateProgress(progressPercentage, `Updated total: ${actualTotalProducts} products across ${actualTotalPages} pages`, actualTotalProducts, totalProcessed, actualTotalProducts);
             } else if (pageProducts.length < exportPageSize && currentPage > 1) {
               // We got less than a full page - update our estimate
-              const estimatedFromCurrentProgress = totalProcessed + (pageProducts.length * (actualTotalPages - currentPage));
+              const estimatedFromCurrentProgress = totalProcessed + pageProducts.length * (actualTotalPages - currentPage);
               if (estimatedFromCurrentProgress < actualTotalProducts) {
                 actualTotalProducts = Math.max(totalProcessed + pageProducts.length, estimatedFromCurrentProgress);
                 actualTotalPages = currentPage + Math.ceil((actualTotalProducts - totalProcessed) / exportPageSize);
@@ -871,18 +856,19 @@ export const SunskySKUImporter: React.FC = () => {
           // Process products and organize by category
           pageProducts.forEach((product: SunskyProduct) => {
             allProducts.push(product);
-            
             if (product.categoryId && categoriesMap.has(product.categoryId)) {
               categoriesMap.get(product.categoryId)?.products.push(product);
             } else {
               // Handle products without category or unknown category
               if (!categoriesMap.has(0)) {
-                categoriesMap.set(0, { name: 'Uncategorized', products: [] });
+                categoriesMap.set(0, {
+                  name: 'Uncategorized',
+                  products: []
+                });
               }
               categoriesMap.get(0)?.products.push(product);
             }
           });
-
           totalProcessed += pageProducts.length;
           currentPage++;
           currentApiIndex++;
@@ -895,32 +881,24 @@ export const SunskySKUImporter: React.FC = () => {
           // Rate limiting delay per API key
           if (hasMore) {
             const delay = perKeyDelay;
-            const progressPercentage = Math.min(95, 20 + Math.round(((currentPage - 1) / actualTotalPages) * 75));
-            updateProgress(
-              progressPercentage, 
-              `Rate limiting... waiting ${delay}ms (${totalProcessed}/${actualTotalProducts} products)`,
-              actualTotalProducts,
-              totalProcessed,
-              actualTotalProducts
-            );
+            const progressPercentage = Math.min(95, 20 + Math.round((currentPage - 1) / actualTotalPages * 75));
+            updateProgress(progressPercentage, `Rate limiting... waiting ${delay}ms (${totalProcessed}/${actualTotalProducts} products)`, actualTotalProducts, totalProcessed, actualTotalProducts);
             await new Promise(resolve => setTimeout(resolve, delay));
           }
-
         } catch (pageError) {
           console.error(`Error fetching page ${currentPage}:`, pageError);
           currentApiIndex++;
-          if (currentApiIndex >= apiIds.length * 2) { // Allow some retries
+          if (currentApiIndex >= apiIds.length * 2) {
+            // Allow some retries
             hasMore = false;
           }
         }
       }
-
       const finalResults = {
         products: allProducts,
         categories: categoriesMap,
         totalFound: totalProcessed
       };
-
       if (isBackground && taskId) {
         updateTask(taskId, {
           progress: 90,
@@ -931,32 +909,26 @@ export const SunskySKUImporter: React.FC = () => {
 
         // Generate Excel in background
         await generateLegacyExcelFile(finalResults, taskId);
-        
         updateTask(taskId, {
           progress: 100,
           status: 'completed',
           totalItems: totalProcessed,
           processedItems: totalProcessed
         });
-
         toast({
           title: "Export Complete",
           description: `Background export completed. Found ${totalProcessed} products.`
         });
-        
       } else {
         setExportResults(finalResults);
         updateProgress(100, `Export complete! Found ${totalProcessed}/${actualTotalProducts} products across ${categoriesMap.size} categories`, actualTotalProducts, totalProcessed, actualTotalProducts);
-
         toast({
           title: "Export Complete",
           description: `Successfully fetched ${totalProcessed} ${statusText} products from ${categoryText}`
         });
       }
-
     } catch (error) {
       console.error('Export error:', error);
-      
       if (isBackground && taskId) {
         updateTask(taskId, {
           status: 'error',
@@ -965,7 +937,6 @@ export const SunskySKUImporter: React.FC = () => {
       } else {
         setExportStatus('Export failed');
       }
-      
       toast({
         title: "Export Failed",
         description: error.message || "Failed to export products",
@@ -977,46 +948,25 @@ export const SunskySKUImporter: React.FC = () => {
       }
     }
   };
-
   const processExportInBackground = async (taskId: string, apiIds: string[]) => {
     await processExport(apiIds, true, taskId);
   };
-
   const generateLegacyExcelFile = async (results: any, taskId?: string) => {
     try {
       const XLSX = require('xlsx');
       const workbook = XLSX.utils.book_new();
 
       // Create summary sheet
-      const categoryText = exportCategory !== 'all' ? 
-        (exportSubCategory !== 'all' ? 
-          subCategories.find(c => c.id.toString() === exportSubCategory)?.name || 'Unknown Subcategory' :
-          categories.find(c => c.id.toString() === exportCategory)?.name || 'Unknown Category'
-        ) : 'All Categories';
-
-      const summaryData = [
-        ['Export Summary'],
-        ['Status', getProductStatusText(selectedExportStatus)],
-        ['Category Filter', categoryText],
-        ['Total Products', results.totalFound.toString()],
-        ['Total Categories', results.categoriesMap.size.toString()],
-        ['Export Date', new Date().toLocaleString()],
-        ['Page Size', exportPageSize.toString()],
-        ['API Keys Used', selectedExportAPIs.length || availableAPIs.filter(api => api.is_active).length],
-        [],
-        ['Category', 'Product Count'],
-      ];
-
+      const categoryText = exportCategory !== 'all' ? exportSubCategory !== 'all' ? subCategories.find(c => c.id.toString() === exportSubCategory)?.name || 'Unknown Subcategory' : categories.find(c => c.id.toString() === exportCategory)?.name || 'Unknown Category' : 'All Categories';
+      const summaryData = [['Export Summary'], ['Status', getProductStatusText(selectedExportStatus)], ['Category Filter', categoryText], ['Total Products', results.totalFound.toString()], ['Total Categories', results.categoriesMap.size.toString()], ['Export Date', new Date().toLocaleString()], ['Page Size', exportPageSize.toString()], ['API Keys Used', selectedExportAPIs.length || availableAPIs.filter(api => api.is_active).length], [], ['Category', 'Product Count']];
       results.categoriesMap.forEach((category: any, categoryId: number) => {
         summaryData.push([category.name, category.products.length.toString()]);
       });
-
       const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
       XLSX.utils.book_append_sheet(workbook, summarySheet, 'Summary');
 
       // Create detailed products sheet with selected columns
       const productsData = [selectedExportColumns];
-
       results.categoriesMap.forEach((category: any) => {
         category.products.forEach((product: any) => {
           const row = selectedExportColumns.map(column => {
@@ -1036,18 +986,13 @@ export const SunskySKUImporter: React.FC = () => {
           productsData.push(row);
         });
       });
-
       const productsSheet = XLSX.utils.aoa_to_sheet(productsData);
       XLSX.utils.book_append_sheet(workbook, productsSheet, 'Products');
 
       // Create category-specific sheets (limit to top 10 categories by product count)
-      const sortedCategories = Array.from(results.categoriesMap.entries())
-        .sort(([,a], [,b]) => b.products.length - a.products.length)
-        .slice(0, 10);
-
+      const sortedCategories = Array.from(results.categoriesMap.entries()).sort(([, a], [, b]) => b.products.length - a.products.length).slice(0, 10);
       sortedCategories.forEach(([categoryId, category]) => {
         const categoryData = [selectedExportColumns];
-
         category.products.forEach((product: any) => {
           const row = selectedExportColumns.map(column => {
             switch (column) {
@@ -1065,7 +1010,6 @@ export const SunskySKUImporter: React.FC = () => {
           });
           categoryData.push(row);
         });
-
         const categorySheet = XLSX.utils.aoa_to_sheet(categoryData);
         const sheetName = category.name ? category.name.substring(0, 31) : `Category ${categoryId}`;
         XLSX.utils.book_append_sheet(workbook, categorySheet, sheetName);
@@ -1075,14 +1019,11 @@ export const SunskySKUImporter: React.FC = () => {
       const statusSlug = getProductStatusText(selectedExportStatus).toLowerCase().replace(/\s+/g, '_');
       const categorySlug = categoryText.toLowerCase().replace(/\s+/g, '_').substring(0, 20);
       const fileName = `sunsky_export_${statusSlug}_${categorySlug}_${new Date().toISOString().split('T')[0]}.xlsx`;
-      
       XLSX.writeFile(workbook, fileName);
-
       toast({
         title: "Download Started",
         description: `Downloading ${fileName}`
       });
-
     } catch (error) {
       console.error('Excel generation error:', error);
       if (taskId) {
@@ -1105,20 +1046,19 @@ export const SunskySKUImporter: React.FC = () => {
   const loadAvailableAPIs = async () => {
     console.log('🔍 Loading available APIs for user:', profile?.id);
     try {
-      const { data, error } = await supabase
-        .rpc('get_user_sunsky_credentials_secure');
-      
+      const {
+        data,
+        error
+      } = await supabase.rpc('get_user_sunsky_credentials_secure');
       if (error) throw error;
-      
       const apis = (data || []).map((cred: any, index: number) => ({
         id: cred.id,
         name: `API Key ${index + 1} (***${cred.key_last4 || 'N/A'})`,
         is_active: cred.is_active
       }));
-      
       console.log('🔍 Available APIs loaded:', apis);
       setAvailableAPIs(apis);
-      
+
       // Set default selected API to first active one
       const defaultAPI = apis.find(api => api.is_active)?.id || apis[0]?.id || '';
       console.log('🔍 Default API:', defaultAPI);
@@ -1145,18 +1085,18 @@ export const SunskySKUImporter: React.FC = () => {
   const checkStatus = async () => {
     console.log('🔍 Checking credentials status for user:', profile?.id);
     try {
-      const { data, error } = await supabase
-        .from('sunsky_credentials')
-        .select('is_active')
-        .eq('user_id', profile?.id)
-        .eq('is_active', true)
-        .limit(1);
-      
+      const {
+        data,
+        error
+      } = await supabase.from('sunsky_credentials').select('is_active').eq('user_id', profile?.id).eq('is_active', true).limit(1);
       if (error) throw error;
       const hasCredsResult = !!data && data.length > 0;
-      console.log('🔍 Credentials check result:', { data, hasCredsResult });
+      console.log('🔍 Credentials check result:', {
+        data,
+        hasCredsResult
+      });
       setHasCredentials(hasCredsResult);
-      
+
       // Load available APIs when checking credentials - but only call if not already loading
       if (availableAPIs.length === 0) {
         await loadAvailableAPIs();
@@ -1168,22 +1108,23 @@ export const SunskySKUImporter: React.FC = () => {
   };
   const toggleApiKeyActive = async (apiKeyId: string, makeActive: boolean) => {
     try {
-      const { data, error } = await supabase.functions.invoke('sunsky-api', {
-        body: { 
+      const {
+        data,
+        error
+      } = await supabase.functions.invoke('sunsky-api', {
+        body: {
           action: 'toggleApiKeyActive',
           apiId: apiKeyId,
           isActive: makeActive
         }
       });
-
       if (error) throw error;
-
       if (data.result === 'success') {
         toast({
           title: "Success",
-          description: makeActive ? "API key activated" : "API key deactivated",
+          description: makeActive ? "API key activated" : "API key deactivated"
         });
-        
+
         // Refresh the available APIs list
         await loadAvailableAPIs();
         await checkCredentialsStatus();
@@ -1195,28 +1136,35 @@ export const SunskySKUImporter: React.FC = () => {
       toast({
         title: "Error",
         description: error.message || "Failed to update API key status",
-        variant: "destructive",
+        variant: "destructive"
       });
     }
   };
-
   const checkCredentialsStatus = checkStatus;
-
   const callSunskyAPI = async (action: string, data: any, apiId?: string) => {
-    console.log('Calling Sunsky API:', { action, data, apiId, selectedAPI });
+    console.log('Calling Sunsky API:', {
+      action,
+      data,
+      apiId,
+      selectedAPI
+    });
     try {
-      const { data: response, error } = await supabase.functions.invoke('sunsky-api', {
-        body: { 
-          action, 
+      const {
+        data: response,
+        error
+      } = await supabase.functions.invoke('sunsky-api', {
+        body: {
+          action,
           ...data,
           apiId: apiId || selectedSearchAPI || selectedAPI // Use specified API or default search API
         }
       });
-
-      console.log('Sunsky API response:', { response, error });
-
+      console.log('Sunsky API response:', {
+        response,
+        error
+      });
       if (error) throw error;
-      
+
       // Handle different response structures
       if (response && typeof response === 'object') {
         // If response has result field, return the full response for proper parsing
@@ -1232,7 +1180,6 @@ export const SunskySKUImporter: React.FC = () => {
           };
         }
       }
-      
       return response;
     } catch (error) {
       console.error('Sunsky API error:', error);
@@ -1256,23 +1203,22 @@ export const SunskySKUImporter: React.FC = () => {
       console.log('Skipping loadCategories - no credentials');
       return;
     }
-    
     console.log('Loading main categories with API ID:', apiId);
     setFetchingCategories(true);
     try {
       const result = await callSunskyAPI('getCategories', {
-        mode: 'top', // Load main categories
-        parentId: '0', // Explicitly request top-level categories
+        mode: 'top',
+        // Load main categories
+        parentId: '0',
+        // Explicitly request top-level categories
         modifiedSince: modifiedSinceDate
       }, apiId);
-      
       console.log('Main categories result:', result);
-      
+
       // Handle both response structures
       const isSuccess = result.result === 'success' || result.success === true;
       const data = result.data || [];
       const error = result.error || result.message;
-      
       if (isSuccess && data.length > 0) {
         setCategories(data);
         // Reset subcategories when main categories change
@@ -1297,26 +1243,23 @@ export const SunskySKUImporter: React.FC = () => {
       setFetchingCategories(false);
     }
   };
-
   const loadSubCategories = async (categoryId: string, apiId?: string) => {
     if (!hasCredentials || categoryId === 'all') {
       setSubCategories([]);
       return;
     }
-    
     console.log('Loading subcategories for category:', categoryId);
     setFetchingSubCategories(true);
     try {
-      const result = await callSunskyAPI('getCategories', { 
+      const result = await callSunskyAPI('getCategories', {
         parentId: categoryId,
         mode: 'subcategories',
         modifiedSince: modifiedSinceDate
       }, apiId || selectedSearchAPI);
-      
+
       // Handle both response structures
       const isSuccess = result.result === 'success' || result.success === true;
       const data = result.data || [];
-      
       if (isSuccess) {
         setSubCategories(data);
         console.log(`Loaded ${data.length} subcategories for category ${categoryId}`);
@@ -1334,13 +1277,11 @@ export const SunskySKUImporter: React.FC = () => {
       setFetchingSubCategories(false);
     }
   };
-
   const loadBrands = async (apiId?: string, categoryId?: string) => {
     if (!hasCredentials) {
       console.log('Skipping loadBrands - no credentials');
       return;
     }
-    
     console.log('Loading brands with API ID:', apiId, 'categoryId:', categoryId);
     setFetchingBrands(true);
     try {
@@ -1348,22 +1289,19 @@ export const SunskySKUImporter: React.FC = () => {
       if (categoryId && categoryId !== 'all') {
         params.categoryId = categoryId;
       }
-      
       const result = await callSunskyAPI('getBrands', params, apiId);
-      
       console.log('Brands result:', result);
-      
+
       // Handle both response structures
       const isSuccess = result.result === 'success' || result.success === true;
       const data = result.data || [];
-      
       if (isSuccess) {
         setBrands(data);
         console.log('Set brands:', data.length || 0);
         if (data.length === 0) {
           toast({
             title: "Info",
-            description: "No brands found for this category",
+            description: "No brands found for this category"
           });
         }
       } else {
@@ -1371,7 +1309,7 @@ export const SunskySKUImporter: React.FC = () => {
         setBrands([]); // Clear brands on error
         toast({
           title: "Warning",
-          description: "Could not load brands, showing all products",
+          description: "Could not load brands, showing all products"
         });
       }
     } catch (error) {
@@ -1379,16 +1317,14 @@ export const SunskySKUImporter: React.FC = () => {
       setBrands([]); // Clear brands on error
       toast({
         title: "Warning",
-        description: "Could not load brands, showing all products",
+        description: "Could not load brands, showing all products"
       });
     } finally {
       setFetchingBrands(false);
     }
   };
-
   const searchProducts = async (page = 1, apiId?: string) => {
     if (!hasCredentials) return;
-    
     setLoading(true);
     try {
       const filters: SearchFilters = {
@@ -1402,20 +1338,17 @@ export const SunskySKUImporter: React.FC = () => {
         dateFrom: dateRange?.from?.toISOString().split('T')[0],
         dateTo: dateRange?.to?.toISOString().split('T')[0]
       };
-
-                  const result = await callSunskyAPI('searchProducts', {
-                    filters,
-                    page,
-                    pageSize: searchPageSize
-                  }, apiId || selectedSearchAPI);
-      
+      const result = await callSunskyAPI('searchProducts', {
+        filters,
+        page,
+        pageSize: searchPageSize
+      }, apiId || selectedSearchAPI);
       console.log('Search products API response:', result);
-      
       if (result.result === 'success') {
         setProducts(result.data?.products || []);
         setCurrentPage(page);
         setTotalPages(Math.ceil((result.data?.total || 0) / 20));
-        
+
         // Extract all headers from first product and set them as selected
         if (result.data?.products?.length > 0) {
           const productKeys = Object.keys(result.data.products[0]);
@@ -1423,7 +1356,6 @@ export const SunskySKUImporter: React.FC = () => {
           // Auto-select all available headers to show all columns
           setSelectedHeaders(productKeys);
         }
-        
         toast({
           title: "Search Complete",
           description: `Found ${result.data?.total || 0} products`
@@ -1443,15 +1375,13 @@ export const SunskySKUImporter: React.FC = () => {
       setLoading(false);
     }
   };
-
   const getProductDetails = async (itemNo: string) => {
     if (!hasCredentials) return null;
-    
     try {
-      const result = await callSunskyAPI('getProductDetails', { itemNo });
-      
+      const result = await callSunskyAPI('getProductDetails', {
+        itemNo
+      });
       console.log('Get product details API response:', result);
-      
       if (result.result === 'success') {
         return result.data;
       } else {
@@ -1463,7 +1393,6 @@ export const SunskySKUImporter: React.FC = () => {
       return null;
     }
   };
-
   const importSelectedSKUs = async () => {
     if (selectedProducts.size === 0) {
       toast({
@@ -1473,40 +1402,35 @@ export const SunskySKUImporter: React.FC = () => {
       });
       return;
     }
-
     setImporting(true);
     setImportProgress(0);
-    
     try {
       const productList = Array.from(selectedProducts);
       const total = productList.length;
       let imported = 0;
       let errors = 0;
-
       for (const itemNo of productList) {
         try {
           console.log(`Getting details for ${itemNo}...`);
           const productDetails = await getProductDetails(itemNo);
-          
           if (productDetails) {
             console.log(`Importing ${itemNo} to database...`);
-            const { data: insertedData, error } = await supabase
-              .from('sunsky_skus')
-              .upsert({
-                user_id: profile?.id,
-                sku_code: productDetails.itemNo,
-                title: productDetails.name || '',
-                cost: productDetails.convertedPrice || parseFloat(productDetails.price || '0') || 0,
-                weight: productDetails.unitWeight ? parseFloat(productDetails.unitWeight) : 0,
-                currency: productDetails.convertedCurrency || 'USD',
-                country: profile?.country || 'UAE',
-                product_data: productDetails
-              }, {
-                onConflict: 'user_id,sku_code',
-                ignoreDuplicates: false
-              })
-              .select();
-
+            const {
+              data: insertedData,
+              error
+            } = await supabase.from('sunsky_skus').upsert({
+              user_id: profile?.id,
+              sku_code: productDetails.itemNo,
+              title: productDetails.name || '',
+              cost: productDetails.convertedPrice || parseFloat(productDetails.price || '0') || 0,
+              weight: productDetails.unitWeight ? parseFloat(productDetails.unitWeight) : 0,
+              currency: productDetails.convertedCurrency || 'USD',
+              country: profile?.country || 'UAE',
+              product_data: productDetails
+            }, {
+              onConflict: 'user_id,sku_code',
+              ignoreDuplicates: false
+            }).select();
             if (!error) {
               imported++;
               console.log(`Successfully imported ${itemNo}`, insertedData);
@@ -1522,8 +1446,7 @@ export const SunskySKUImporter: React.FC = () => {
           console.error(`Error importing ${itemNo}:`, error);
           errors++;
         }
-        
-        setImportProgress(((imported + errors) / total) * 100);
+        setImportProgress((imported + errors) / total * 100);
       }
 
       // Force refresh the SKU list
@@ -1541,12 +1464,10 @@ export const SunskySKUImporter: React.FC = () => {
           console.error('Fallback refresh also failed:', fallbackError);
         }
       }
-
       toast({
         title: "Import Complete",
         description: `Successfully imported ${imported} out of ${total} SKUs${errors > 0 ? ` (${errors} errors)` : ''}`
       });
-      
       setSelectedProducts(new Set());
     } catch (error) {
       console.error('Error during import:', error);
@@ -1571,12 +1492,11 @@ export const SunskySKUImporter: React.FC = () => {
       });
       return;
     }
-
     try {
-      const { data, error } = await supabase.storage
-        .from('exports')
-        .download(entry.file_path);
-
+      const {
+        data,
+        error
+      } = await supabase.storage.from('exports').download(entry.file_path);
       if (error) throw error;
 
       // Create download link
@@ -1588,7 +1508,6 @@ export const SunskySKUImporter: React.FC = () => {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-
       toast({
         title: "Download Started",
         description: "Export file download has started"
@@ -1602,12 +1521,10 @@ export const SunskySKUImporter: React.FC = () => {
       });
     }
   }, [toast]);
-
   const handleExportHistoryRerun = useCallback(async (entry: ExportHistoryEntry) => {
     setShowExportHistoryDialog(false);
-    
     const filters = entry.filters || {};
-    
+
     // Apply the filters from the history entry
     if (filters.status) setSelectedExportStatus(filters.status);
     if (filters.category) setExportCategory(filters.category);
@@ -1617,7 +1534,6 @@ export const SunskySKUImporter: React.FC = () => {
     if (filters.apiKeys) {
       setSelectedExportAPIs(filters.apiKeys.map((api: any) => api.id));
     }
-
     toast({
       title: "Export Configuration Applied",
       description: "Settings from history have been applied. Click 'Run in Background' to start the export."
@@ -1634,17 +1550,14 @@ export const SunskySKUImporter: React.FC = () => {
       });
       return;
     }
-
     setIsSearchingPO(true);
     setPOSearchProgress(0);
-
     try {
       // Get model numbers data from PO orders
       const modelData = await getPOModelNumbers();
-      
       if (modelData.uniqueCount === 0) {
         toast({
-          title: "No Model Numbers Found", 
+          title: "No Model Numbers Found",
           description: `Searched ${modelData.totalUniqueCount || 0} PO records but found no model numbers. Check console for details.`,
           variant: "default"
         });
@@ -1657,7 +1570,6 @@ export const SunskySKUImporter: React.FC = () => {
         description: `Total PO items: ${modelData.totalCount} | Unique models: ${modelData.uniqueCount} | Already imported: ${modelData.alreadyImportedCount} | Processing ALL models...`,
         variant: "default"
       });
-
       console.log(`🎯 STARTING PO MODEL SEARCH:`, {
         totalPOItems: modelData.totalCount,
         uniqueModels: modelData.uniqueCount,
@@ -1666,40 +1578,36 @@ export const SunskySKUImporter: React.FC = () => {
       });
 
       // Create import job first
-      const { data: importJob } = await supabase
-        .from('sunsky_import_jobs')
-        .insert({
-          user_id: profile?.id,
-          type: 'po_search',
-          criteria: { 
-            source: 'po_model_numbers', 
-            total_models: modelData.totalCount,
-            unique_models: modelData.uniqueCount,
-            api_keys_used: 3 // Will be updated by background function
-          },
-          status: 'pending',
-          total_items: modelData.uniqueCount,
-          processed_items: 0,
-          success_count: 0,
-          error_count: 0,
-          started_at: new Date().toISOString()
-        })
-        .select()
-        .single();
-
+      const {
+        data: importJob
+      } = await supabase.from('sunsky_import_jobs').insert({
+        user_id: profile?.id,
+        type: 'po_search',
+        criteria: {
+          source: 'po_model_numbers',
+          total_models: modelData.totalCount,
+          unique_models: modelData.uniqueCount,
+          api_keys_used: 3 // Will be updated by background function
+        },
+        status: 'pending',
+        total_items: modelData.uniqueCount,
+        processed_items: 0,
+        success_count: 0,
+        error_count: 0,
+        started_at: new Date().toISOString()
+      }).select().single();
       if (!importJob) {
         throw new Error('Failed to create import job');
       }
 
       // Start background processing
       const response = await supabase.functions.invoke('process-po-background', {
-        body: { 
+        body: {
           action: 'start',
           jobId: importJob.id,
           modelData: modelData
         }
       });
-
       if (response.error) {
         throw new Error('Failed to start background processing');
       }
@@ -1719,12 +1627,10 @@ export const SunskySKUImporter: React.FC = () => {
 
       // Start polling for job progress
       pollJobProgress(importJob.id);
-
       toast({
         title: "Background Processing Started",
-        description: `Processing ${modelData.uniqueCount} unique model numbers in the background. You can continue working on other features.`,
+        description: `Processing ${modelData.uniqueCount} unique model numbers in the background. You can continue working on other features.`
       });
-
     } catch (error) {
       console.error('Error starting background processing:', error);
       toast({
@@ -1741,19 +1647,17 @@ export const SunskySKUImporter: React.FC = () => {
   const pollJobProgress = async (jobId: string) => {
     const pollInterval = setInterval(async () => {
       try {
-        const { data: job, error } = await supabase
-          .from('sunsky_import_jobs')
-          .select('*')
-          .eq('id', jobId)
-          .single();
-
+        const {
+          data: job,
+          error
+        } = await supabase.from('sunsky_import_jobs').select('*').eq('id', jobId).single();
         if (error || !job) {
           clearInterval(pollInterval);
           return;
         }
 
         // Update progress
-        const progress = job.total_items > 0 ? Math.floor((job.processed_items / job.total_items) * 100) : 0;
+        const progress = job.total_items > 0 ? Math.floor(job.processed_items / job.total_items * 100) : 0;
         setPOSearchProgress(progress);
 
         // Update stats
@@ -1762,23 +1666,19 @@ export const SunskySKUImporter: React.FC = () => {
           searchedItems: job.processed_items,
           matchedItems: job.success_count,
           errorItems: job.error_count,
-          currentItem: job.status === 'completed' ? 'Completed!' : 
-                      job.status === 'error' ? 'Failed!' : 
-                      `Processing... (${job.processed_items}/${job.total_items})`
+          currentItem: job.status === 'completed' ? 'Completed!' : job.status === 'error' ? 'Failed!' : `Processing... (${job.processed_items}/${job.total_items})`
         }));
 
         // Check if job is complete
         if (job.status === 'completed' || job.status === 'error' || job.status === 'cancelled') {
           clearInterval(pollInterval);
-          
           if (job.status === 'completed') {
             // Refresh data
             await fetchSKUs(1, false);
             await fetchJobs();
-            
             toast({
               title: "Background Processing Complete",
-              description: `Successfully processed ${job.success_count} items. ${job.error_count} errors.`,
+              description: `Successfully processed ${job.success_count} items. ${job.error_count} errors.`
             });
           } else if (job.status === 'error') {
             toast({
@@ -1787,11 +1687,9 @@ export const SunskySKUImporter: React.FC = () => {
               variant: "destructive"
             });
           }
-
           setIsSearchingPO(false);
           setPOSearchProgress(100);
         }
-
       } catch (error) {
         console.error('Error polling job progress:', error);
         clearInterval(pollInterval);
@@ -1803,14 +1701,12 @@ export const SunskySKUImporter: React.FC = () => {
       clearInterval(pollInterval);
     }, 30 * 60 * 1000);
   };
-
   const createCategoryImportJob = async (categoryId: string, categoryName: string) => {
     try {
       const result = await createImportJob('category', {
         categoryId: parseInt(categoryId),
         categoryName
       });
-      
       if (result.success) {
         toast({
           title: "Job Created",
@@ -1829,7 +1725,6 @@ export const SunskySKUImporter: React.FC = () => {
       });
     }
   };
-
   const toggleProductSelection = (itemNo: string) => {
     const newSelected = new Set(selectedProducts);
     if (newSelected.has(itemNo)) {
@@ -1839,7 +1734,6 @@ export const SunskySKUImporter: React.FC = () => {
     }
     setSelectedProducts(newSelected);
   };
-
   const selectAllProducts = () => {
     if (selectedProducts.size === products.length) {
       setSelectedProducts(new Set());
@@ -1847,10 +1741,8 @@ export const SunskySKUImporter: React.FC = () => {
       setSelectedProducts(new Set(products.map(p => p.itemNo)));
     }
   };
-
   const formatFieldValue = (field: string, value: any) => {
     if (value === null || value === undefined) return '-';
-    
     switch (field) {
       case 'price':
       case 'convertedPrice':
@@ -1869,7 +1761,6 @@ export const SunskySKUImporter: React.FC = () => {
         return value.toString();
     }
   };
-
   const saveHeaderSelection = () => {
     setShowHeaderSelector(false);
     toast({
@@ -1877,12 +1768,11 @@ export const SunskySKUImporter: React.FC = () => {
       description: "Display headers have been updated"
     });
   };
-
   useEffect(() => {
-    console.log('🔍 Profile effect triggered:', { 
-      profileId: profile?.id, 
-      hasCredentials, 
-      availableAPIsLength: availableAPIs.length 
+    console.log('🔍 Profile effect triggered:', {
+      profileId: profile?.id,
+      hasCredentials,
+      availableAPIsLength: availableAPIs.length
     });
     if (profile?.id) {
       checkCredentialsStatus();
@@ -1894,7 +1784,10 @@ export const SunskySKUImporter: React.FC = () => {
   }, [profile?.id]); // Remove functions from dependency array to prevent infinite loop
 
   useEffect(() => {
-    console.log('🔍 Selected API effect:', { hasCredentials, selectedAPI });
+    console.log('🔍 Selected API effect:', {
+      hasCredentials,
+      selectedAPI
+    });
     if (hasCredentials && selectedAPI) {
       console.log('🚀 Calling loadCategories from selectedAPI effect with:', selectedAPI);
       loadCategories(selectedAPI);
@@ -1904,14 +1797,16 @@ export const SunskySKUImporter: React.FC = () => {
 
   // Load categories and brands when search API is selected
   useEffect(() => {
-    console.log('🔍 Search API effect:', { hasCredentials, selectedSearchAPI });
+    console.log('🔍 Search API effect:', {
+      hasCredentials,
+      selectedSearchAPI
+    });
     if (hasCredentials && selectedSearchAPI) {
       console.log('🚀 Calling loadCategories from selectedSearchAPI effect with:', selectedSearchAPI);
       loadCategories(selectedSearchAPI);
       loadBrands(selectedSearchAPI);
     }
   }, [hasCredentials, selectedSearchAPI]);
-
   useEffect(() => {
     if (selectedCategory !== 'all' && selectedSearchAPI) {
       loadSubCategories(selectedCategory, selectedSearchAPI);
@@ -1926,72 +1821,37 @@ export const SunskySKUImporter: React.FC = () => {
       }
     }
   }, [selectedCategory, selectedSearchAPI]);
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/5">
+  return <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/5">
       {/* Hero Header Section */}
-      <div className="relative overflow-hidden border-b bg-gradient-to-r from-primary/10 via-primary/5 to-transparent">
-        <div className="absolute inset-0 bg-grid-white/10 bg-[size:20px_20px] [mask-image:radial-gradient(white,transparent_70%)]" />
-        <div className="container relative mx-auto px-6 py-12">
-          <div className="mx-auto max-w-4xl text-center">
-            <div className="mb-4 inline-flex items-center rounded-full border bg-background/50 px-4 py-2 text-sm backdrop-blur-sm">
-              <span className="mr-2 h-2 w-2 rounded-full bg-green-500"></span>
-              Sunsky Marketplace Integration
-            </div>
-            <h1 className="mb-4 text-4xl font-bold tracking-tight bg-gradient-primary bg-clip-text text-transparent sm:text-5xl">
-              Sunsky SKU Importer
-            </h1>
-            <p className="mx-auto max-w-2xl text-xl text-muted-foreground">
-              Search, view, and import products from Sunsky marketplace with advanced filtering and bulk operations
-            </p>
-          </div>
-        </div>
-      </div>
+      
       
       <div className="container mx-auto px-6 py-8 space-y-8">
-        {!hasCredentials && (
-          <Alert className="border-destructive/50 bg-destructive/5">
+        {!hasCredentials && <Alert className="border-destructive/50 bg-destructive/5">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
               Please configure your Sunsky API credentials in the Settings tab to start importing SKUs.
             </AlertDescription>
-          </Alert>
-        )}
+          </Alert>}
 
         <Tabs defaultValue="search" className="w-full">
           <TabsList className="grid w-full grid-cols-5 h-12 bg-muted/50 border-2 border-border/50 rounded-lg p-1">
-            <TabsTrigger 
-              value="search" 
-              className="h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all duration-200"
-            >
+            <TabsTrigger value="search" className="h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all duration-200">
               <Search className="h-4 w-4 mr-2" />
               Search & Import
             </TabsTrigger>
-            <TabsTrigger 
-              value="jobs"
-              className="h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all duration-200"
-            >
+            <TabsTrigger value="jobs" className="h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all duration-200">
               <Package className="h-4 w-4 mr-2" />
               Import Jobs
             </TabsTrigger>
-            <TabsTrigger 
-              value="skus"
-              className="h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all duration-200"
-            >
+            <TabsTrigger value="skus" className="h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all duration-200">
               <Database className="h-4 w-4 mr-2" />
               Imported SKUs
             </TabsTrigger>
-            <TabsTrigger 
-              value="export-status"
-              className="h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all duration-200"
-            >
+            <TabsTrigger value="export-status" className="h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all duration-200">
               <Download className="h-4 w-4 mr-2" />
               Export by Status
             </TabsTrigger>
-            <TabsTrigger 
-              value="settings"
-              className="h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all duration-200"
-            >
+            <TabsTrigger value="settings" className="h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all duration-200">
               <Settings className="h-4 w-4 mr-2" />
               Settings
             </TabsTrigger>
@@ -2018,21 +1878,18 @@ export const SunskySKUImporter: React.FC = () => {
                       <SelectValue placeholder="Choose API credentials" />
                     </SelectTrigger>
                     <SelectContent className="border-2">
-                      {availableAPIs.map((api) => (
-                        <SelectItem key={api.id} value={api.id}>
+                      {availableAPIs.map(api => <SelectItem key={api.id} value={api.id}>
                           <div className="flex items-center gap-2">
                             <div className={`w-2 h-2 rounded-full ${api.is_active ? 'bg-green-500' : 'bg-red-500'}`} />
                             {api.name}
                           </div>
-                        </SelectItem>
-                      ))}
+                        </SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
 
               {/* PO Model Numbers Search Progress */}
-              {isSearchingPO && (
-                <Card className="border-primary/20 bg-primary/5">
+              {isSearchingPO && <Card className="border-primary/20 bg-primary/5">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-lg flex items-center gap-2">
                       <Package className="h-5 w-5 animate-pulse" />
@@ -2053,14 +1910,12 @@ export const SunskySKUImporter: React.FC = () => {
                     </div>
 
                     {/* Current Item */}
-                    {poSearchStats.currentItem && (
-                      <div className="space-y-1">
+                    {poSearchStats.currentItem && <div className="space-y-1">
                         <Label className="text-xs text-muted-foreground">Currently Searching:</Label>
                         <div className="text-sm font-mono bg-muted/50 p-2 rounded border">
                           {poSearchStats.currentItem}
                         </div>
-                      </div>
-                    )}
+                      </div>}
 
                     {/* Statistics Grid */}
                     <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 text-center">
@@ -2101,41 +1956,30 @@ export const SunskySKUImporter: React.FC = () => {
                     </div>
 
                     {/* Progress Breakdown */}
-                    {poSearchStats.totalItems > 0 && (
-                      <div className="space-y-2">
+                    {poSearchStats.totalItems > 0 && <div className="space-y-2">
                         <Label className="text-xs text-muted-foreground">Progress Breakdown:</Label>
                         <div className="grid grid-cols-2 gap-2 text-xs">
                           <div className="flex justify-between">
                             <span>Completion:</span>
                             <span className="font-medium">
-                              {((poSearchStats.searchedItems / poSearchStats.totalItems) * 100).toFixed(1)}%
+                              {(poSearchStats.searchedItems / poSearchStats.totalItems * 100).toFixed(1)}%
                             </span>
                           </div>
                           <div className="flex justify-between">
                             <span>Success Rate:</span>
                             <span className="font-medium text-green-600">
-                              {poSearchStats.searchedItems > 0 
-                                ? ((poSearchStats.matchedItems / poSearchStats.searchedItems) * 100).toFixed(1) 
-                                : 0}%
+                              {poSearchStats.searchedItems > 0 ? (poSearchStats.matchedItems / poSearchStats.searchedItems * 100).toFixed(1) : 0}%
                             </span>
                           </div>
                         </div>
-                      </div>
-                    )}
+                      </div>}
                   </CardContent>
-                </Card>
-              )}
+                </Card>}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   <div className="space-y-3">
                     <Label htmlFor="search" className="text-sm font-semibold">Search Term</Label>
-                    <Input
-                      id="search"
-                      placeholder="Enter product name or keyword..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="h-11 border-2 border-input bg-background/50 hover:border-primary/50 focus:border-primary transition-colors"
-                    />
+                    <Input id="search" placeholder="Enter product name or keyword..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="h-11 border-2 border-input bg-background/50 hover:border-primary/50 focus:border-primary transition-colors" />
                   </div>
                   
                   <div className="space-y-3">
@@ -2146,17 +1990,14 @@ export const SunskySKUImporter: React.FC = () => {
                       </SelectTrigger>
                       <SelectContent className="border-2">
                         <SelectItem value="all">All Categories</SelectItem>
-                        {categories.filter(category => category.id && category.name).map((category) => (
-                          <SelectItem key={category.id} value={category.id.toString()}>
+                        {categories.filter(category => category.id && category.name).map(category => <SelectItem key={category.id} value={category.id.toString()}>
                             {category.name}
-                          </SelectItem>
-                        ))}
+                          </SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
 
-                  {(subCategories.length > 0 || fetchingSubCategories) && (
-                    <div className="space-y-3">
+                  {(subCategories.length > 0 || fetchingSubCategories) && <div className="space-y-3">
                       <Label htmlFor="subcategory" className="text-sm font-semibold">Sub-Category</Label>
                       <Select value={selectedSubCategory} onValueChange={setSelectedSubCategory} disabled={fetchingSubCategories}>
                         <SelectTrigger className="h-11 border-2 border-input bg-background/50 hover:border-primary/50 transition-colors">
@@ -2164,18 +2005,13 @@ export const SunskySKUImporter: React.FC = () => {
                         </SelectTrigger>
                         <SelectContent className="border-2">
                           <SelectItem value="all">All Sub-Categories</SelectItem>
-                          {subCategories.filter(subCategory => subCategory.id && subCategory.name).map((subCategory) => (
-                            <SelectItem key={subCategory.id} value={subCategory.id.toString()}>
+                          {subCategories.filter(subCategory => subCategory.id && subCategory.name).map(subCategory => <SelectItem key={subCategory.id} value={subCategory.id.toString()}>
                               {subCategory.name}
-                            </SelectItem>
-                          ))}
+                            </SelectItem>)}
                         </SelectContent>
                       </Select>
-                      {subCategories.length === 0 && !fetchingSubCategories && (
-                        <p className="text-sm text-muted-foreground">No subcategories available for this category</p>
-                      )}
-                    </div>
-                  )}
+                      {subCategories.length === 0 && !fetchingSubCategories && <p className="text-sm text-muted-foreground">No subcategories available for this category</p>}
+                    </div>}
 
                   <div className="space-y-3">
                     <Label htmlFor="brand" className="text-sm font-semibold">Brand</Label>
@@ -2185,52 +2021,27 @@ export const SunskySKUImporter: React.FC = () => {
                       </SelectTrigger>
                       <SelectContent className="border-2">
                         <SelectItem value="all">All Brands</SelectItem>
-                        {brands.filter(brand => brand.id && brand.name).map((brand) => (
-                          <SelectItem key={brand.id} value={brand.id.toString()}>
+                        {brands.filter(brand => brand.id && brand.name).map(brand => <SelectItem key={brand.id} value={brand.id.toString()}>
                             {brand.name}
-                          </SelectItem>
-                        ))}
+                          </SelectItem>)}
                       </SelectContent>
                     </Select>
-                    {brands.length === 0 && !fetchingBrands && (
-                      <p className="text-sm text-muted-foreground">No brands available for this category</p>
-                    )}
+                    {brands.length === 0 && !fetchingBrands && <p className="text-sm text-muted-foreground">No brands available for this category</p>}
                   </div>
 
                   <div className="space-y-3">
                     <Label htmlFor="price-min" className="text-sm font-semibold">Min Price ($)</Label>
-                    <Input
-                      id="price-min"
-                      type="number"
-                      placeholder="0.00"
-                      value={priceMin}
-                      onChange={(e) => setPriceMin(e.target.value)}
-                      className="h-11 border-2 border-input bg-background/50 hover:border-primary/50 focus:border-primary transition-colors"
-                    />
+                    <Input id="price-min" type="number" placeholder="0.00" value={priceMin} onChange={e => setPriceMin(e.target.value)} className="h-11 border-2 border-input bg-background/50 hover:border-primary/50 focus:border-primary transition-colors" />
                   </div>
 
                   <div className="space-y-3">
                     <Label htmlFor="price-max" className="text-sm font-semibold">Max Price ($)</Label>
-                    <Input
-                      id="price-max"
-                      type="number"
-                      placeholder="1000.00"
-                      value={priceMax}
-                      onChange={(e) => setPriceMax(e.target.value)}
-                      className="h-11 border-2 border-input bg-background/50 hover:border-primary/50 focus:border-primary transition-colors"
-                    />
+                    <Input id="price-max" type="number" placeholder="1000.00" value={priceMax} onChange={e => setPriceMax(e.target.value)} className="h-11 border-2 border-input bg-background/50 hover:border-primary/50 focus:border-primary transition-colors" />
                   </div>
 
                   <div className="space-y-3">
                     <Label htmlFor="stock-min" className="text-sm font-semibold">Min Stock</Label>
-                    <Input
-                      id="stock-min"
-                      type="number"
-                      placeholder="1"
-                      value={stockMin}
-                      onChange={(e) => setStockMin(e.target.value)}
-                      className="h-11 border-2 border-input bg-background/50 hover:border-primary/50 focus:border-primary transition-colors"
-                    />
+                    <Input id="stock-min" type="number" placeholder="1" value={stockMin} onChange={e => setStockMin(e.target.value)} className="h-11 border-2 border-input bg-background/50 hover:border-primary/50 focus:border-primary transition-colors" />
                   </div>
 
                   <div className="space-y-3">
@@ -2251,51 +2062,32 @@ export const SunskySKUImporter: React.FC = () => {
 
                 <div className="space-y-2">
                   <Label>Date Range</Label>
-                  <DatePickerWithRange
-                    date={dateRange}
-                    onDateChange={setDateRange}
-                  />
+                  <DatePickerWithRange date={dateRange} onDateChange={setDateRange} />
                 </div>
               </div>
 
               <div className="flex items-center gap-4">
-                <Button
-                  onClick={() => searchProducts(1, selectedSearchAPI)}
-                  disabled={!hasCredentials || loading || !selectedSearchAPI}
-                  className="flex items-center gap-2"
-                >
-                  {loading ? (
-                    <RefreshCw className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Search className="h-4 w-4" />
-                  )}
+                <Button onClick={() => searchProducts(1, selectedSearchAPI)} disabled={!hasCredentials || loading || !selectedSearchAPI} className="flex items-center gap-2">
+                  {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                   Search Products
                 </Button>
 
-                <Button
-                  disabled={!hasCredentials || isSearchingPO}
-                  onClick={handleSearchPOModelNumbers}
-                  variant="outline"
-                  className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
-                >
+                <Button disabled={!hasCredentials || isSearchingPO} onClick={handleSearchPOModelNumbers} variant="outline" className="border-primary text-primary hover:bg-primary hover:text-primary-foreground">
                   <Package className="h-4 w-4 mr-2" />
                   {isSearchingPO ? 'Searching PO Items...' : 'Search PO Model Numbers'}
                 </Button>
 
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setSearchTerm('');
-                    setSelectedCategory('all');
-                    setSelectedSubCategory('all');
-                    setSelectedBrand('all');
-                    setPriceMin('');
-                    setPriceMax('');
-                    setStockMin('');
-                    setLeadTimeLevel('any');
-                    setDateRange(undefined);
-                  }}
-                >
+                <Button variant="outline" onClick={() => {
+                  setSearchTerm('');
+                  setSelectedCategory('all');
+                  setSelectedSubCategory('all');
+                  setSelectedBrand('all');
+                  setPriceMin('');
+                  setPriceMax('');
+                  setStockMin('');
+                  setLeadTimeLevel('any');
+                  setDateRange(undefined);
+                }}>
                   <RotateCcw className="h-4 w-4 mr-2" />
                   Clear Filters
                 </Button>
@@ -2316,24 +2108,18 @@ export const SunskySKUImporter: React.FC = () => {
                       </DialogDescription>
                     </DialogHeader>
                     <div className="grid grid-cols-2 gap-4 max-h-96 overflow-y-auto">
-                      {availableHeaders.map((header) => (
-                        <div key={header} className="flex items-center space-x-2">
-                          <Checkbox
-                            id={header}
-                            checked={selectedHeaders.includes(header)}
-                            onCheckedChange={(checked) => {
-                              if (checked) {
-                                setSelectedHeaders([...selectedHeaders, header]);
-                              } else {
-                                setSelectedHeaders(selectedHeaders.filter(h => h !== header));
-                              }
-                            }}
-                          />
+                      {availableHeaders.map(header => <div key={header} className="flex items-center space-x-2">
+                          <Checkbox id={header} checked={selectedHeaders.includes(header)} onCheckedChange={checked => {
+                          if (checked) {
+                            setSelectedHeaders([...selectedHeaders, header]);
+                          } else {
+                            setSelectedHeaders(selectedHeaders.filter(h => h !== header));
+                          }
+                        }} />
                           <Label htmlFor={header} className="text-sm">
                             {header.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
                           </Label>
-                        </div>
-                      ))}
+                        </div>)}
                     </div>
                     <div className="flex justify-end gap-2">
                       <Button variant="outline" onClick={() => setShowHeaderSelector(false)}>
@@ -2351,8 +2137,7 @@ export const SunskySKUImporter: React.FC = () => {
           </Card>
 
           {/* Search Results */}
-          {products.length > 0 && (
-            <Card>
+          {products.length > 0 && <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
@@ -2365,139 +2150,88 @@ export const SunskySKUImporter: React.FC = () => {
                     </CardDescription>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={selectAllProducts}
-                    >
+                    <Button variant="outline" size="sm" onClick={selectAllProducts}>
                       {selectedProducts.size === products.length ? 'Deselect All' : 'Select All'}
                     </Button>
-                    <Button
-                      onClick={importSelectedSKUs}
-                      disabled={selectedProducts.size === 0 || importing}
-                      size="sm"
-                    >
-                      {importing ? (
-                        <RefreshCw className="h-4 w-4 animate-spin mr-2" />
-                      ) : (
-                        <Download className="h-4 w-4 mr-2" />
-                      )}
+                    <Button onClick={importSelectedSKUs} disabled={selectedProducts.size === 0 || importing} size="sm">
+                      {importing ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
                       Import Selected ({selectedProducts.size})
                     </Button>
                   </div>
                 </div>
               </CardHeader>
               <CardContent>
-                {importing && (
-                  <div className="mb-4">
+                {importing && <div className="mb-4">
                     <div className="flex items-center justify-between text-sm mb-2">
                       <span>Importing SKUs...</span>
                       <span>{Math.round(importProgress)}%</span>
                     </div>
                     <Progress value={importProgress} className="h-2" />
-                  </div>
-                )}
+                  </div>}
 
-                {isSearchingPO && poSearchProgress > 0 && (
-                  <div className="mb-4">
+                {isSearchingPO && poSearchProgress > 0 && <div className="mb-4">
                     <div className="flex items-center justify-between text-sm mb-2">
                       <span>Searching PO Model Numbers...</span>
                       <span>{Math.round(poSearchProgress)}%</span>
                     </div>
                     <Progress value={poSearchProgress} className="h-2" />
-                  </div>
-                )}
+                  </div>}
 
                 <div className="rounded-md border">
                   <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead className="w-12">
-                          <Checkbox
-                            checked={selectedProducts.size === products.length && products.length > 0}
-                            onCheckedChange={selectAllProducts}
-                          />
+                          <Checkbox checked={selectedProducts.size === products.length && products.length > 0} onCheckedChange={selectAllProducts} />
                         </TableHead>
-                        {selectedHeaders.map((header) => (
-                          <TableHead key={header}>
+                        {selectedHeaders.map(header => <TableHead key={header}>
                             {header.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
-                          </TableHead>
-                        ))}
+                          </TableHead>)}
                         <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {products.map((product) => (
-                        <TableRow key={product.itemNo}>
+                      {products.map(product => <TableRow key={product.itemNo}>
                           <TableCell>
-                            <Checkbox
-                              checked={selectedProducts.has(product.itemNo)}
-                              onCheckedChange={() => toggleProductSelection(product.itemNo)}
-                            />
+                            <Checkbox checked={selectedProducts.has(product.itemNo)} onCheckedChange={() => toggleProductSelection(product.itemNo)} />
                           </TableCell>
-                          {selectedHeaders.map((header) => (
-                            <TableCell key={header} className="max-w-xs truncate">
+                          {selectedHeaders.map(header => <TableCell key={header} className="max-w-xs truncate">
                               {formatFieldValue(header, product[header as keyof SunskyProduct])}
-                            </TableCell>
-                          ))}
+                            </TableCell>)}
                           <TableCell>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setSelectedProduct(product)}
-                            >
+                            <Button variant="outline" size="sm" onClick={() => setSelectedProduct(product)}>
                               <Eye className="h-4 w-4" />
                             </Button>
                           </TableCell>
-                        </TableRow>
-                      ))}
+                        </TableRow>)}
                     </TableBody>
                   </Table>
                 </div>
 
                 {/* Pagination */}
-                {totalPages > 1 && (
-                  <div className="flex items-center justify-center mt-6">
+                {totalPages > 1 && <div className="flex items-center justify-center mt-6">
                     <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => searchProducts(currentPage - 1, selectedSearchAPI)}
-                        disabled={currentPage === 1 || loading}
-                      >
+                      <Button variant="outline" size="sm" onClick={() => searchProducts(currentPage - 1, selectedSearchAPI)} disabled={currentPage === 1 || loading}>
                         Previous
                       </Button>
                       <div className="flex items-center gap-1">
-                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                          const page = Math.max(1, currentPage - 2) + i;
-                          if (page > totalPages) return null;
-                          return (
-                            <Button
-                              key={page}
-                              variant={page === currentPage ? "default" : "outline"}
-                              size="sm"
-                              onClick={() => searchProducts(page, selectedSearchAPI)}
-                              disabled={loading}
-                            >
+                        {Array.from({
+                      length: Math.min(5, totalPages)
+                    }, (_, i) => {
+                      const page = Math.max(1, currentPage - 2) + i;
+                      if (page > totalPages) return null;
+                      return <Button key={page} variant={page === currentPage ? "default" : "outline"} size="sm" onClick={() => searchProducts(page, selectedSearchAPI)} disabled={loading}>
                               {page}
-                            </Button>
-                          );
-                        })}
+                            </Button>;
+                    })}
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => searchProducts(currentPage + 1, selectedSearchAPI)}
-                        disabled={currentPage === totalPages || loading}
-                      >
+                      <Button variant="outline" size="sm" onClick={() => searchProducts(currentPage + 1, selectedSearchAPI)} disabled={currentPage === totalPages || loading}>
                         Next
                       </Button>
                     </div>
-                  </div>
-                )}
+                  </div>}
               </CardContent>
-            </Card>
-          )}
+            </Card>}
         </TabsContent>
         
         <TabsContent value="jobs" className="space-y-6">
@@ -2522,14 +2256,12 @@ export const SunskySKUImporter: React.FC = () => {
                       <SelectValue placeholder="Choose API credentials" />
                     </SelectTrigger>
                     <SelectContent>
-                      {availableAPIs.map((api) => (
-                        <SelectItem key={api.id} value={api.id}>
+                      {availableAPIs.map(api => <SelectItem key={api.id} value={api.id}>
                           <div className="flex items-center gap-2">
                             <div className={`w-2 h-2 rounded-full ${api.is_active ? 'bg-green-500' : 'bg-red-500'}`} />
                             {api.name}
                           </div>
-                        </SelectItem>
-                      ))}
+                        </SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
@@ -2542,23 +2274,18 @@ export const SunskySKUImporter: React.FC = () => {
                         <SelectValue placeholder="Select category to import" />
                       </SelectTrigger>
                       <SelectContent>
-                        {categories.filter(category => category.id && category.name).map((category) => (
-                          <SelectItem key={category.id} value={category.id.toString()}>
+                        {categories.filter(category => category.id && category.name).map(category => <SelectItem key={category.id} value={category.id.toString()}>
                             {category.name}
-                          </SelectItem>
-                        ))}
+                          </SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
-                  <Button
-                    onClick={() => {
-                      const category = categories.find(c => c.id.toString() === selectedCategory);
-                      if (category) {
-                        createCategoryImportJob(selectedCategory, category.name);
-                      }
-                    }}
-                    disabled={!hasCredentials || !selectedCategory || selectedCategory === 'all' || !selectedJobAPI}
-                  >
+                  <Button onClick={() => {
+                    const category = categories.find(c => c.id.toString() === selectedCategory);
+                    if (category) {
+                      createCategoryImportJob(selectedCategory, category.name);
+                    }
+                  }} disabled={!hasCredentials || !selectedCategory || selectedCategory === 'all' || !selectedJobAPI}>
                     <Plus className="h-4 w-4 mr-2" />
                     Create Job
                   </Button>
@@ -2579,177 +2306,108 @@ export const SunskySKUImporter: React.FC = () => {
                       Monitor the status of your import tasks
                     </CardDescription>
                   </div>
-                  <Button 
-                    onClick={() => fetchJobs()}
-                    variant="outline"
-                    size="sm"
-                  >
+                  <Button onClick={() => fetchJobs()} variant="outline" size="sm">
                     <RefreshCw className="h-4 w-4 mr-2" />
                     Refresh Jobs
                   </Button>
                 </div>
               </CardHeader>
               <CardContent>
-                {jobsLoading ? (
-                  <div className="flex items-center justify-center py-8">
+                {jobsLoading ? <div className="flex items-center justify-center py-8">
                     <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
-                  </div>
-                ) : jobs.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
+                  </div> : jobs.length === 0 ? <div className="text-center py-8 text-muted-foreground">
                     <Calendar className="h-12 w-12 mx-auto mb-4" />
                     <p>No import jobs yet</p>
                     <p className="text-sm">Create category import jobs to track progress</p>
-                  </div>
-                ) : (
-                  <>
+                  </div> : <>
                     <div className="space-y-4">
-                      {jobs
-                        .slice((jobsCurrentPage - 1) * jobsPerPage, jobsCurrentPage * jobsPerPage)
-                        .map((job) => (
-                        <div 
-                          key={job.id} 
-                          className="border rounded-lg p-4 cursor-pointer hover:bg-muted/50 transition-colors"
-                          onClick={() => {
-                            setSelectedJob(job);
-                            setShowJobDetailsDialog(true);
-                          }}
-                        >
+                      {jobs.slice((jobsCurrentPage - 1) * jobsPerPage, jobsCurrentPage * jobsPerPage).map(job => <div key={job.id} className="border rounded-lg p-4 cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => {
+                      setSelectedJob(job);
+                      setShowJobDetailsDialog(true);
+                    }}>
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
-                              <Badge 
-                                variant={
-                                  job.status === 'completed' ? 'default' :
-                                  job.status === 'processing' ? 'secondary' :
-                                  job.status === 'failed' ? 'destructive' : 'outline'
-                                }
-                              >
+                              <Badge variant={job.status === 'completed' ? 'default' : job.status === 'processing' ? 'secondary' : job.status === 'failed' ? 'destructive' : 'outline'}>
                                 {job.status}
                               </Badge>
                               <div>
                                 <span className="font-medium capitalize">{job.type}</span>
-                                {job.total_items && (
-                                  <span className="text-sm text-muted-foreground ml-2">
+                                {job.total_items && <span className="text-sm text-muted-foreground ml-2">
                                     ({job.processed_items || 0}/{job.total_items} items)
-                                  </span>
-                                )}
+                                  </span>}
                               </div>
                             </div>
                             
                             <div className="flex items-center gap-2">
-                              {job.status === 'processing' && !job.paused && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    pauseJob(job.id);
-                                  }}
-                                  className="text-orange-600 hover:bg-orange-50"
-                                >
+                              {job.status === 'processing' && !job.paused && <Button size="sm" variant="outline" onClick={e => {
+                            e.stopPropagation();
+                            pauseJob(job.id);
+                          }} className="text-orange-600 hover:bg-orange-50">
                                   <PauseCircle className="h-4 w-4" />
-                                </Button>
-                              )}
+                                </Button>}
                               
-                              {job.status === 'processing' && job.paused && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    resumeJob(job.id);
-                                  }}
-                                  className="text-green-600 hover:bg-green-50"
-                                >
+                              {job.status === 'processing' && job.paused && <Button size="sm" variant="outline" onClick={e => {
+                            e.stopPropagation();
+                            resumeJob(job.id);
+                          }} className="text-green-600 hover:bg-green-50">
                                   <PlayCircle className="h-4 w-4" />
-                                </Button>
-                              )}
+                                </Button>}
                               
-                              {(job.status === 'processing' || job.status === 'queued') && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    cancelJob(job.id);
-                                  }}
-                                  className="text-red-600 hover:bg-red-50"
-                                >
+                              {(job.status === 'processing' || job.status === 'queued') && <Button size="sm" variant="outline" onClick={e => {
+                            e.stopPropagation();
+                            cancelJob(job.id);
+                          }} className="text-red-600 hover:bg-red-50">
                                   <XCircle className="h-4 w-4" />
-                                </Button>
-                              )}
+                                </Button>}
                               
                               <div className="text-xs text-muted-foreground text-right">
                                 <div>{new Date(job.created_at).toLocaleDateString()}</div>
-                                {job.started_at && (
-                                  <div>{new Date(job.started_at).toLocaleTimeString()}</div>
-                                )}
+                                {job.started_at && <div>{new Date(job.started_at).toLocaleTimeString()}</div>}
                               </div>
                             </div>
                           </div>
                           
                           {/* Progress bar for active jobs */}
-                          {job.total_items && job.status === 'processing' && (
-                            <div className="mt-2">
-                              <Progress 
-                                value={(job.processed_items / job.total_items) * 100} 
-                                className="h-2" 
-                              />
-                            </div>
-                          )}
-                        </div>
-                      ))}
+                          {job.total_items && job.status === 'processing' && <div className="mt-2">
+                              <Progress value={job.processed_items / job.total_items * 100} className="h-2" />
+                            </div>}
+                        </div>)}
                     </div>
                     
                     {/* Jobs Pagination */}
-                    {jobs.length > jobsPerPage && (
-                      <div className="mt-6">
+                    {jobs.length > jobsPerPage && <div className="mt-6">
                         <Pagination>
                           <PaginationContent>
                             <PaginationItem>
-                              <PaginationPrevious 
-                                href="#"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  if (jobsCurrentPage > 1) setJobsCurrentPage(jobsCurrentPage - 1);
-                                }}
-                                className={jobsCurrentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                              />
+                              <PaginationPrevious href="#" onClick={e => {
+                            e.preventDefault();
+                            if (jobsCurrentPage > 1) setJobsCurrentPage(jobsCurrentPage - 1);
+                          }} className={jobsCurrentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"} />
                             </PaginationItem>
                             
-                            {Array.from({ length: Math.ceil(jobs.length / jobsPerPage) }, (_, i) => i + 1).map((page) => (
-                              <PaginationItem key={page}>
-                                <PaginationLink
-                                  href="#"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    setJobsCurrentPage(page);
-                                  }}
-                                  isActive={page === jobsCurrentPage}
-                                  className="cursor-pointer"
-                                >
+                            {Array.from({
+                          length: Math.ceil(jobs.length / jobsPerPage)
+                        }, (_, i) => i + 1).map(page => <PaginationItem key={page}>
+                                <PaginationLink href="#" onClick={e => {
+                            e.preventDefault();
+                            setJobsCurrentPage(page);
+                          }} isActive={page === jobsCurrentPage} className="cursor-pointer">
                                   {page}
                                 </PaginationLink>
-                              </PaginationItem>
-                            ))}
+                              </PaginationItem>)}
                             
                             <PaginationItem>
-                              <PaginationNext 
-                                href="#"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  if (jobsCurrentPage < Math.ceil(jobs.length / jobsPerPage)) {
-                                    setJobsCurrentPage(jobsCurrentPage + 1);
-                                  }
-                                }}
-                                className={jobsCurrentPage === Math.ceil(jobs.length / jobsPerPage) ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                              />
+                              <PaginationNext href="#" onClick={e => {
+                            e.preventDefault();
+                            if (jobsCurrentPage < Math.ceil(jobs.length / jobsPerPage)) {
+                              setJobsCurrentPage(jobsCurrentPage + 1);
+                            }
+                          }} className={jobsCurrentPage === Math.ceil(jobs.length / jobsPerPage) ? "pointer-events-none opacity-50" : "cursor-pointer"} />
                             </PaginationItem>
                           </PaginationContent>
                         </Pagination>
-                      </div>
-                    )}
-                  </>
-                )}
+                      </div>}
+                  </>}
               </CardContent>
             </Card>
           </div>
@@ -2775,13 +2433,10 @@ export const SunskySKUImporter: React.FC = () => {
                       <Label htmlFor="items-per-page" className="text-sm">
                         Items per page:
                       </Label>
-                      <Select 
-                        value={skuItemsPerPage.toString()} 
-                        onValueChange={(value) => {
-                          setSkuItemsPerPage(parseInt(value));
-                          setSkuCurrentPage(1); // Reset to first page
-                        }}
-                      >
+                      <Select value={skuItemsPerPage.toString()} onValueChange={value => {
+                        setSkuItemsPerPage(parseInt(value));
+                        setSkuCurrentPage(1); // Reset to first page
+                      }}>
                         <SelectTrigger className="w-20">
                           <SelectValue />
                         </SelectTrigger>
@@ -2811,45 +2466,28 @@ export const SunskySKUImporter: React.FC = () => {
                         </DialogHeader>
                         <div className="space-y-4">
                           <div className="max-h-96 overflow-y-auto space-y-3 pr-2">
-                            {availableSkuHeaders.map((header) => (
-                              <div key={header} className="flex items-center space-x-3">
-                                <Checkbox
-                                  id={header}
-                                  checked={skuTableHeaders.includes(header)}
-                                  onCheckedChange={(checked) => {
-                                    if (checked) {
-                                      setSkuTableHeaders([...skuTableHeaders, header]);
-                                    } else {
-                                      setSkuTableHeaders(skuTableHeaders.filter(h => h !== header));
-                                    }
-                                  }}
-                                />
-                                <Label 
-                                  htmlFor={header}
-                                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                                >
+                            {availableSkuHeaders.map(header => <div key={header} className="flex items-center space-x-3">
+                                <Checkbox id={header} checked={skuTableHeaders.includes(header)} onCheckedChange={checked => {
+                                if (checked) {
+                                  setSkuTableHeaders([...skuTableHeaders, header]);
+                                } else {
+                                  setSkuTableHeaders(skuTableHeaders.filter(h => h !== header));
+                                }
+                              }} />
+                                <Label htmlFor={header} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer">
                                   {header.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                                 </Label>
-                              </div>
-                            ))}
+                              </div>)}
                           </div>
                           <div className="flex justify-between pt-4 border-t">
-                            <Button 
-                              onClick={() => {
-                                saveColumnPreferences();
-                                setShowColumnDialog(false);
-                              }}
-                              variant="default"
-                              size="sm"
-                            >
+                            <Button onClick={() => {
+                              saveColumnPreferences();
+                              setShowColumnDialog(false);
+                            }} variant="default" size="sm">
                               <Save className="h-4 w-4 mr-2" />
                               Save & Close
                             </Button>
-                            <Button 
-                              onClick={() => setShowColumnDialog(false)}
-                              variant="outline"
-                              size="sm"
-                            >
+                            <Button onClick={() => setShowColumnDialog(false)} variant="outline" size="sm">
                               Cancel
                             </Button>
                           </div>
@@ -2857,21 +2495,12 @@ export const SunskySKUImporter: React.FC = () => {
                       </DialogContent>
                     </Dialog>
                     
-                    <Button 
-                      onClick={() => fetchSKUs(1, false)}
-                      variant="outline"
-                      size="sm"
-                    >
+                    <Button onClick={() => fetchSKUs(1, false)} variant="outline" size="sm">
                       <RefreshCw className="h-4 w-4 mr-2" />
                       Refresh
                     </Button>
                     
-                    <Button 
-                      onClick={() => setShowClearAuthDialog(true)}
-                      variant="destructive"
-                      size="sm"
-                      disabled={sunskySKUs.length === 0}
-                    >
+                    <Button onClick={() => setShowClearAuthDialog(true)} variant="destructive" size="sm" disabled={sunskySKUs.length === 0}>
                       <Trash2 className="h-4 w-4 mr-2" />
                       Clear All
                     </Button>
@@ -2879,110 +2508,93 @@ export const SunskySKUImporter: React.FC = () => {
                 </div>
               </CardHeader>
               <CardContent>
-                {skusLoading ? (
-                  <div className="flex items-center justify-center py-8">
+                {skusLoading ? <div className="flex items-center justify-center py-8">
                     <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
-                  </div>
-                ) : sunskySKUs.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
+                  </div> : sunskySKUs.length === 0 ? <div className="text-center py-8 text-muted-foreground">
                     <Package className="h-12 w-12 mx-auto mb-4" />
                     <p>No SKUs imported yet</p>
                     <p className="text-sm">Use the search tab to import SKUs from Sunsky</p>
-                  </div>
-                ) : (
-                  <>
+                  </div> : <>
                   <div className="rounded-md border">
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          {skuTableHeaders.map((header) => (
-                            <TableHead key={header}>
+                          {skuTableHeaders.map(header => <TableHead key={header}>
                               {header.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                            </TableHead>
-                          ))}
+                            </TableHead>)}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {paginatedSKUs.map((sku) => (
-                          <TableRow key={sku.id}>
-                            {skuTableHeaders.map((header) => (
-                              <TableCell key={header} className={header === 'sku_code' ? 'font-mono' : header === 'title' ? 'max-w-xs truncate' : header === 'created_at' ? 'text-sm text-muted-foreground' : ''}>
+                        {paginatedSKUs.map(sku => <TableRow key={sku.id}>
+                            {skuTableHeaders.map(header => <TableCell key={header} className={header === 'sku_code' ? 'font-mono' : header === 'title' ? 'max-w-xs truncate' : header === 'created_at' ? 'text-sm text-muted-foreground' : ''}>
                                  {(() => {
-                                   const productData = sku?.product_data || {};
-                                   
-                                   // Handle specific fields
-                                   if (header === 'created_at') {
-                                     return new Date(sku[header as keyof typeof sku] as string).toLocaleDateString();
-                                   } else if (header === 'cost' && sku.cost) {
-                                     return sku.cost.toFixed(2);
-                                   } else if (header === 'weight' && sku.weight) {
-                                     return `${sku.weight}kg`;
-                                   } else if (header === 'brand' && productData.brandName) {
-                                     return productData.brandName;
-                                   } else if (header === 'category' && productData.categoryName) {
-                                     return productData.categoryName;
-                                   } else if (header === 'stock' && productData.stock !== undefined) {
-                                     return productData.stock.toString();
-                                   } else if (header === 'moq' && productData.moq !== undefined) {
-                                     return productData.moq.toString();
-                                   } else if (header === 'lead_time' && productData.leadTime) {
-                                     return `${productData.leadTime} days`;
-                                   } else if (header === 'price' && productData.price) {
-                                     return `$${parseFloat(productData.price).toFixed(2)}`;
-                                   } else if (header === 'warehouse' && productData.warehouse) {
-                                     return productData.warehouse;
-                                   } else if (header === 'barcode' && productData.barcode) {
-                                     return productData.barcode;
-                                   } else if (header === 'unit_weight' && productData.unitWeight) {
-                                     return `${productData.unitWeight}kg`;
-                                   } else if (header === 'pack_qty' && productData.packQty) {
-                                     return productData.packQty.toString();
-                                   } else if (header === 'dimensions' && (productData.unitLength || productData.unitWidth || productData.unitHeight)) {
-                                     return `${productData.unitLength || 0}×${productData.unitWidth || 0}×${productData.unitHeight || 0}cm`;
-                                   } else if (header === 'pack_weight' && productData.packWeight) {
-                                     return `${productData.packWeight}kg`;
-                                   } else if (header === 'pack_dimensions' && (productData.packLength || productData.packWidth || productData.packHeight)) {
-                                     return `${productData.packLength || 0}×${productData.packWidth || 0}×${productData.packHeight || 0}cm`;
-                                   } else if (header === 'clearance' && productData.clearance !== undefined) {
-                                     return productData.clearance ? 'Yes' : 'No';
-                                   } else if (header === 'oem' && productData.oem !== undefined) {
-                                     return productData.oem ? 'Yes' : 'No';
-                                   } else if (header === 'with_logo' && productData.withLogo !== undefined) {
-                                     return productData.withLogo ? 'Yes' : 'No';
-                                   } else if (header === 'contains_battery' && productData.containsBattery !== undefined) {
-                                     return productData.containsBattery ? 'Yes' : 'No';
-                                   } else if (header === 'status' && productData.status !== undefined) {
-                                      return (
-                                        <Badge 
-                                          variant={getStatusBadgeVariant(productData.status, false)}
-                                          className="text-xs"
-                                        >
+                              const productData = sku?.product_data || {};
+
+                              // Handle specific fields
+                              if (header === 'created_at') {
+                                return new Date(sku[header as keyof typeof sku] as string).toLocaleDateString();
+                              } else if (header === 'cost' && sku.cost) {
+                                return sku.cost.toFixed(2);
+                              } else if (header === 'weight' && sku.weight) {
+                                return `${sku.weight}kg`;
+                              } else if (header === 'brand' && productData.brandName) {
+                                return productData.brandName;
+                              } else if (header === 'category' && productData.categoryName) {
+                                return productData.categoryName;
+                              } else if (header === 'stock' && productData.stock !== undefined) {
+                                return productData.stock.toString();
+                              } else if (header === 'moq' && productData.moq !== undefined) {
+                                return productData.moq.toString();
+                              } else if (header === 'lead_time' && productData.leadTime) {
+                                return `${productData.leadTime} days`;
+                              } else if (header === 'price' && productData.price) {
+                                return `$${parseFloat(productData.price).toFixed(2)}`;
+                              } else if (header === 'warehouse' && productData.warehouse) {
+                                return productData.warehouse;
+                              } else if (header === 'barcode' && productData.barcode) {
+                                return productData.barcode;
+                              } else if (header === 'unit_weight' && productData.unitWeight) {
+                                return `${productData.unitWeight}kg`;
+                              } else if (header === 'pack_qty' && productData.packQty) {
+                                return productData.packQty.toString();
+                              } else if (header === 'dimensions' && (productData.unitLength || productData.unitWidth || productData.unitHeight)) {
+                                return `${productData.unitLength || 0}×${productData.unitWidth || 0}×${productData.unitHeight || 0}cm`;
+                              } else if (header === 'pack_weight' && productData.packWeight) {
+                                return `${productData.packWeight}kg`;
+                              } else if (header === 'pack_dimensions' && (productData.packLength || productData.packWidth || productData.packHeight)) {
+                                return `${productData.packLength || 0}×${productData.packWidth || 0}×${productData.packHeight || 0}cm`;
+                              } else if (header === 'clearance' && productData.clearance !== undefined) {
+                                return productData.clearance ? 'Yes' : 'No';
+                              } else if (header === 'oem' && productData.oem !== undefined) {
+                                return productData.oem ? 'Yes' : 'No';
+                              } else if (header === 'with_logo' && productData.withLogo !== undefined) {
+                                return productData.withLogo ? 'Yes' : 'No';
+                              } else if (header === 'contains_battery' && productData.containsBattery !== undefined) {
+                                return productData.containsBattery ? 'Yes' : 'No';
+                              } else if (header === 'status' && productData.status !== undefined) {
+                                return <Badge variant={getStatusBadgeVariant(productData.status, false)} className="text-xs">
                                           {getProductStatusText(productData.status)}
-                                        </Badge>
-                                      );
-                                   } else if (header === 'video_url' && productData.videoUrl) {
-                                     return productData.videoUrl;
-                                   } else if (header === 'gmt_listed' && productData.gmtListed) {
-                                     return new Date(productData.gmtListed).toLocaleDateString();
-                                   } else if (header === 'gmt_modified' && productData.gmtModified) {
-                                     return new Date(productData.gmtModified).toLocaleDateString();
-                                   } else if (header === 'description' && productData.description) {
-                                     return productData.description;
-                                   } else {
-                                     return (sku[header as keyof typeof sku] as string) || '-';
-                                   }
-                                 })()}
-                              </TableCell>
-                            ))}
-                          </TableRow>
-                        ))}
+                                        </Badge>;
+                              } else if (header === 'video_url' && productData.videoUrl) {
+                                return productData.videoUrl;
+                              } else if (header === 'gmt_listed' && productData.gmtListed) {
+                                return new Date(productData.gmtListed).toLocaleDateString();
+                              } else if (header === 'gmt_modified' && productData.gmtModified) {
+                                return new Date(productData.gmtModified).toLocaleDateString();
+                              } else if (header === 'description' && productData.description) {
+                                return productData.description;
+                              } else {
+                                return sku[header as keyof typeof sku] as string || '-';
+                              }
+                            })()}
+                              </TableCell>)}
+                          </TableRow>)}
                        </TableBody>
                      </Table>
                    </div>
                    
                    {/* SKU Pagination */}
-                   {skuTotalPages > 1 && (
-                     <div className="mt-6 flex items-center justify-between">
+                   {skuTotalPages > 1 && <div className="mt-6 flex items-center justify-between">
                        <div className="text-sm text-muted-foreground">
                          Showing {skuStartIndex + 1} to {Math.min(skuEndIndex, totalCount)} of {totalCount} results
                        </div>
@@ -2990,102 +2602,66 @@ export const SunskySKUImporter: React.FC = () => {
                        <Pagination>
                          <PaginationContent>
                            <PaginationItem>
-                             <PaginationPrevious 
-                               href="#"
-                               onClick={(e) => {
-                                 e.preventDefault();
-                                 if (skuCurrentPage > 1) setSkuCurrentPage(skuCurrentPage - 1);
-                               }}
-                               className={skuCurrentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                             />
+                             <PaginationPrevious href="#" onClick={e => {
+                            e.preventDefault();
+                            if (skuCurrentPage > 1) setSkuCurrentPage(skuCurrentPage - 1);
+                          }} className={skuCurrentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"} />
                            </PaginationItem>
                            
                            {/* Show first page */}
-                           {skuCurrentPage > 3 && (
-                             <>
+                           {skuCurrentPage > 3 && <>
                                <PaginationItem>
-                                 <PaginationLink
-                                   href="#"
-                                   onClick={(e) => {
-                                     e.preventDefault();
-                                     setSkuCurrentPage(1);
-                                   }}
-                                   className="cursor-pointer"
-                                 >
+                                 <PaginationLink href="#" onClick={e => {
+                              e.preventDefault();
+                              setSkuCurrentPage(1);
+                            }} className="cursor-pointer">
                                    1
                                  </PaginationLink>
                                </PaginationItem>
-                               {skuCurrentPage > 4 && (
-                                 <PaginationItem>
+                               {skuCurrentPage > 4 && <PaginationItem>
                                    <span className="px-3 py-2">...</span>
-                                 </PaginationItem>
-                               )}
-                             </>
-                           )}
+                                 </PaginationItem>}
+                             </>}
                            
                            {/* Show current page and neighbors */}
-                           {Array.from({ length: skuTotalPages }, (_, i) => i + 1)
-                             .filter(page => 
-                               page >= Math.max(1, skuCurrentPage - 2) && 
-                               page <= Math.min(skuTotalPages, skuCurrentPage + 2)
-                             )
-                             .map((page) => (
-                               <PaginationItem key={page}>
-                                 <PaginationLink
-                                   href="#"
-                                   onClick={(e) => {
-                                     e.preventDefault();
-                                     setSkuCurrentPage(page);
-                                   }}
-                                   isActive={page === skuCurrentPage}
-                                   className="cursor-pointer"
-                                 >
+                           {Array.from({
+                          length: skuTotalPages
+                        }, (_, i) => i + 1).filter(page => page >= Math.max(1, skuCurrentPage - 2) && page <= Math.min(skuTotalPages, skuCurrentPage + 2)).map(page => <PaginationItem key={page}>
+                                 <PaginationLink href="#" onClick={e => {
+                            e.preventDefault();
+                            setSkuCurrentPage(page);
+                          }} isActive={page === skuCurrentPage} className="cursor-pointer">
                                    {page}
                                  </PaginationLink>
-                               </PaginationItem>
-                             ))}
+                               </PaginationItem>)}
                            
                            {/* Show last page */}
-                           {skuCurrentPage < skuTotalPages - 2 && (
-                             <>
-                               {skuCurrentPage < skuTotalPages - 3 && (
-                                 <PaginationItem>
+                           {skuCurrentPage < skuTotalPages - 2 && <>
+                               {skuCurrentPage < skuTotalPages - 3 && <PaginationItem>
                                    <span className="px-3 py-2">...</span>
-                                 </PaginationItem>
-                               )}
+                                 </PaginationItem>}
                                <PaginationItem>
-                                 <PaginationLink
-                                   href="#"
-                                   onClick={(e) => {
-                                     e.preventDefault();
-                                     setSkuCurrentPage(skuTotalPages);
-                                   }}
-                                   className="cursor-pointer"
-                                 >
+                                 <PaginationLink href="#" onClick={e => {
+                              e.preventDefault();
+                              setSkuCurrentPage(skuTotalPages);
+                            }} className="cursor-pointer">
                                    {skuTotalPages}
                                  </PaginationLink>
                                </PaginationItem>
-                             </>
-                           )}
+                             </>}
                            
                            <PaginationItem>
-                             <PaginationNext 
-                               href="#"
-                               onClick={(e) => {
-                                 e.preventDefault();
-                                 if (skuCurrentPage < skuTotalPages) {
-                                   setSkuCurrentPage(skuCurrentPage + 1);
-                                 }
-                               }}
-                               className={skuCurrentPage === skuTotalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                             />
+                             <PaginationNext href="#" onClick={e => {
+                            e.preventDefault();
+                            if (skuCurrentPage < skuTotalPages) {
+                              setSkuCurrentPage(skuCurrentPage + 1);
+                            }
+                          }} className={skuCurrentPage === skuTotalPages ? "pointer-events-none opacity-50" : "cursor-pointer"} />
                            </PaginationItem>
                           </PaginationContent>
                         </Pagination>
-                      </div>
-                    )}
-                  </>
-                )}
+                      </div>}
+                  </>}
                </CardContent>
             </Card>
           </div>
@@ -3108,7 +2684,7 @@ export const SunskySKUImporter: React.FC = () => {
                 {/* Product Status */}
                 <div className="space-y-2">
                   <Label htmlFor="export-status">Product Status</Label>
-                  <Select value={selectedExportStatus.toString()} onValueChange={(value) => setSelectedExportStatus(parseInt(value))}>
+                  <Select value={selectedExportStatus.toString()} onValueChange={value => setSelectedExportStatus(parseInt(value))}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select status to export" />
                     </SelectTrigger>
@@ -3130,11 +2706,9 @@ export const SunskySKUImporter: React.FC = () => {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Categories</SelectItem>
-                      {categories.map((category) => (
-                        <SelectItem key={category.id} value={category.id.toString()}>
+                      {categories.map(category => <SelectItem key={category.id} value={category.id.toString()}>
                           {category.name}
-                        </SelectItem>
-                      ))}
+                        </SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
@@ -3142,41 +2716,27 @@ export const SunskySKUImporter: React.FC = () => {
                 {/* Subcategory Filter */}
                 <div className="space-y-2">
                   <Label htmlFor="export-subcategory">Subcategory</Label>
-                  <Select 
-                    value={exportSubCategory} 
-                    onValueChange={setExportSubCategory}
-                    disabled={exportCategory === 'all'}
-                  >
+                  <Select value={exportSubCategory} onValueChange={setExportSubCategory} disabled={exportCategory === 'all'}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select subcategory" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Subcategories</SelectItem>
-                      {subCategories.map((category) => (
-                        <SelectItem key={category.id} value={category.id.toString()}>
+                      {subCategories.map(category => <SelectItem key={category.id} value={category.id.toString()}>
                           {category.name}
-                        </SelectItem>
-                      ))}
+                        </SelectItem>)}
                     </SelectContent>
                   </Select>
-                  {exportCategory !== 'all' && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => loadSubCategories(exportCategory, selectedSearchAPI)}
-                      disabled={fetchingSubCategories}
-                      className="w-full mt-2"
-                    >
+                  {exportCategory !== 'all' && <Button variant="outline" size="sm" onClick={() => loadSubCategories(exportCategory, selectedSearchAPI)} disabled={fetchingSubCategories} className="w-full mt-2">
                       {fetchingSubCategories ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
                       Load Subcategories
-                    </Button>
-                  )}
+                    </Button>}
                 </div>
 
                 {/* Page Size */}
                 <div className="space-y-2">
                   <Label htmlFor="export-page-size">Page Size</Label>
-                  <Select value={exportPageSize.toString()} onValueChange={(value) => setExportPageSize(parseInt(value))}>
+                  <Select value={exportPageSize.toString()} onValueChange={value => setExportPageSize(parseInt(value))}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -3199,32 +2759,22 @@ export const SunskySKUImporter: React.FC = () => {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent className="w-56">
-                      {availableAPIs.filter(api => api.is_active).map((api) => (
-                        <DropdownMenuCheckboxItem
-                          key={api.id}
-                          checked={selectedExportAPIs.includes(api.id)}
-                          onCheckedChange={(checked) => {
-                            if (checked) {
-                              setSelectedExportAPIs([...selectedExportAPIs, api.id]);
-                            } else {
-                              setSelectedExportAPIs(selectedExportAPIs.filter(id => id !== api.id));
-                            }
-                          }}
-                        >
+                      {availableAPIs.filter(api => api.is_active).map(api => <DropdownMenuCheckboxItem key={api.id} checked={selectedExportAPIs.includes(api.id)} onCheckedChange={checked => {
+                        if (checked) {
+                          setSelectedExportAPIs([...selectedExportAPIs, api.id]);
+                        } else {
+                          setSelectedExportAPIs(selectedExportAPIs.filter(id => id !== api.id));
+                        }
+                      }}>
                           {api.name}
-                        </DropdownMenuCheckboxItem>
-                      ))}
+                        </DropdownMenuCheckboxItem>)}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
 
                 {/* Background Processing */}
                 <div className="flex items-center space-x-2">
-                  <Checkbox 
-                    id="run-background" 
-                    checked={runInBackground}
-                    onCheckedChange={(checked) => setRunInBackground(checked === true)}
-                  />
+                  <Checkbox id="run-background" checked={runInBackground} onCheckedChange={checked => setRunInBackground(checked === true)} />
                   <Label htmlFor="run-background" className="text-sm">
                     Run in background
                   </Label>
@@ -3242,21 +2792,15 @@ export const SunskySKUImporter: React.FC = () => {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent className="w-64 max-h-64 overflow-y-auto">
-                    {availableExportColumns.map((column) => (
-                      <DropdownMenuCheckboxItem
-                        key={column}
-                        checked={selectedExportColumns.includes(column)}
-                        onCheckedChange={(checked) => {
-                          if (checked) {
-                            setSelectedExportColumns([...selectedExportColumns, column]);
-                          } else {
-                            setSelectedExportColumns(selectedExportColumns.filter(col => col !== column));
-                          }
-                        }}
-                      >
+                    {availableExportColumns.map(column => <DropdownMenuCheckboxItem key={column} checked={selectedExportColumns.includes(column)} onCheckedChange={checked => {
+                      if (checked) {
+                        setSelectedExportColumns([...selectedExportColumns, column]);
+                      } else {
+                        setSelectedExportColumns(selectedExportColumns.filter(col => col !== column));
+                      }
+                    }}>
                         {column}
-                      </DropdownMenuCheckboxItem>
-                    ))}
+                      </DropdownMenuCheckboxItem>)}
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
@@ -3268,324 +2812,272 @@ export const SunskySKUImporter: React.FC = () => {
                   Debug: runInBackground={runInBackground.toString()}, hasCredentials={hasCredentials.toString()}
                 </div>
                 
-                <Button 
-                  onClick={() => {
-                    // Direct foreground export without the old function
-                    if (!hasCredentials) {
-                      toast({
-                        title: "API Credentials Required",
-                        description: "Please configure your API credentials first",
-                        variant: "destructive"
-                      });
-                      return;
-                    }
-                    
-                    if (!selectedExportStatus) {
-                      toast({
-                        title: "Status Required",
-                        description: "Please select a product status to export",
-                        variant: "destructive"
-                      });
-                      return;
-                    }
-
-                    // Use the concurrent export directly for foreground processing
-                    const apiIds = selectedExportAPIs.length > 0 ? selectedExportAPIs : 
-                                   availableAPIs.filter(api => api.is_active).map(api => api.id);
-                    
-                    const apiKeysWithNames = apiIds.map(id => {
-                      const api = availableAPIs.find(a => a.id === id);
-                      return { id, name: api?.name || `API ${id.substring(0, 8)}` };
+                <Button onClick={() => {
+                  // Direct foreground export without the old function
+                  if (!hasCredentials) {
+                    toast({
+                      title: "API Credentials Required",
+                      description: "Please configure your API credentials first",
+                      variant: "destructive"
                     });
+                    return;
+                  }
+                  if (!selectedExportStatus) {
+                    toast({
+                      title: "Status Required",
+                      description: "Please select a product status to export",
+                      variant: "destructive"
+                    });
+                    return;
+                  }
 
-                    const exportConfig = {
-                      status: selectedExportStatus,
-                      categoryId: exportSubCategory !== 'all' ? parseInt(exportSubCategory) : 
-                                 (exportCategory !== 'all' ? parseInt(exportCategory) : undefined),
-                      pageSize: exportPageSize,
-                      maxPages: Number.MAX_SAFE_INTEGER,
-                      columns: selectedExportColumns,
-                      apiKeys: apiKeysWithNames
+                  // Use the concurrent export directly for foreground processing
+                  const apiIds = selectedExportAPIs.length > 0 ? selectedExportAPIs : availableAPIs.filter(api => api.is_active).map(api => api.id);
+                  const apiKeysWithNames = apiIds.map(id => {
+                    const api = availableAPIs.find(a => a.id === id);
+                    return {
+                      id,
+                      name: api?.name || `API ${id.substring(0, 8)}`
                     };
-
-                    startConcurrentExport(exportConfig);
-                  }}
-                  disabled={isExporting || !hasCredentials}
-                  className="flex-1"
-                >
+                  });
+                  const exportConfig = {
+                    status: selectedExportStatus,
+                    categoryId: exportSubCategory !== 'all' ? parseInt(exportSubCategory) : exportCategory !== 'all' ? parseInt(exportCategory) : undefined,
+                    pageSize: exportPageSize,
+                    maxPages: Number.MAX_SAFE_INTEGER,
+                    columns: selectedExportColumns,
+                    apiKeys: apiKeysWithNames
+                  };
+                  startConcurrentExport(exportConfig);
+                }} disabled={isExporting || !hasCredentials} className="flex-1">
                   {isExporting || isConcurrentExporting ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
                   {isExporting || isConcurrentExporting ? 'Exporting...' : 'Export Now'}
                 </Button>
                 
-                <Button 
-                  onClick={async () => {
-                    console.log('🔥🔥🔥 RUN IN BACKGROUND BUTTON CLICKED!!!');
-                    
-                    if (!runInBackground) {
-                      toast({
-                        title: "Background Mode Required", 
-                        description: "Please check the 'Run in background' checkbox first",
-                        variant: "destructive"
-                      });
-                      return;
+                <Button onClick={async () => {
+                  console.log('🔥🔥🔥 RUN IN BACKGROUND BUTTON CLICKED!!!');
+                  if (!runInBackground) {
+                    toast({
+                      title: "Background Mode Required",
+                      description: "Please check the 'Run in background' checkbox first",
+                      variant: "destructive"
+                    });
+                    return;
+                  }
+                  if (!hasCredentials) {
+                    toast({
+                      title: "API Credentials Required",
+                      description: "Please configure your API credentials first",
+                      variant: "destructive"
+                    });
+                    return;
+                  }
+                  if (!selectedExportStatus) {
+                    toast({
+                      title: "Status Required",
+                      description: "Please select a product status to export",
+                      variant: "destructive"
+                    });
+                    return;
+                  }
+
+                  // Set loading state
+                  setIsExporting(true);
+                  try {
+                    console.log('🚀 Starting background export process...');
+
+                    // Get authenticated user
+                    const {
+                      data: {
+                        user
+                      },
+                      error: authError
+                    } = await supabase.auth.getUser();
+                    if (authError || !user) {
+                      throw new Error('Authentication required');
                     }
-                    
-                    if (!hasCredentials) {
-                      toast({
-                        title: "API Credentials Required",
-                        description: "Please configure your API credentials first",
-                        variant: "destructive"
-                      });
-                      return;
+                    console.log('✅ User authenticated:', user.id);
+
+                    // Determine API configuration
+                    const apiIds = selectedExportAPIs.length > 0 ? selectedExportAPIs : availableAPIs.filter(api => api.is_active).map(api => api.id);
+                    if (apiIds.length === 0) {
+                      throw new Error('No active API keys available');
                     }
-
-                    if (!selectedExportStatus) {
-                      toast({
-                        title: "Status Required",
-                        description: "Please select a product status to export",
-                        variant: "destructive"
-                      });
-                      return;
-                    }
-
-                    // Set loading state
-                    setIsExporting(true);
-                    
-                    try {
-                      console.log('🚀 Starting background export process...');
-                      
-                      // Get authenticated user
-                      const { data: { user }, error: authError } = await supabase.auth.getUser();
-                      if (authError || !user) {
-                        throw new Error('Authentication required');
-                      }
-
-                      console.log('✅ User authenticated:', user.id);
-
-                      // Determine API configuration
-                      const apiIds = selectedExportAPIs.length > 0 ? selectedExportAPIs : 
-                                     availableAPIs.filter(api => api.is_active).map(api => api.id);
-                      
-                      if (apiIds.length === 0) {
-                        throw new Error('No active API keys available');
-                      }
-
-                      const categoryName = exportCategory !== 'all' ? 
-                        (exportSubCategory !== 'all' ? 
-                          subCategories.find(c => c.id.toString() === exportSubCategory)?.name || 'Unknown Subcategory' :
-                          categories.find(c => c.id.toString() === exportCategory)?.name || 'Unknown Category'
-                        ) : 'All Categories';
-
-                      const apiKeysWithNames = apiIds.map(id => {
-                        const api = availableAPIs.find(a => a.id === id);
-                        return { id, name: api?.name || `API ${id.substring(0, 8)}` };
-                      });
-
-                      console.log('📋 Export Configuration:', {
-                        status: selectedExportStatus,
-                        categoryName,
-                        apiKeysCount: apiKeysWithNames.length,
-                        columns: selectedExportColumns.length,
-                        exportCategory,
-                        exportSubCategory
-                      });
-
-                      // Create background task record
-                      const taskData = {
-                        type: 'sunsky_export',
-                        status: 'queued',
-                        progress: 0,
-                        total_items: 0,
-                        user_id: user.id,
-                        metadata: {
-                          exportConfig: {
-                            status: selectedExportStatus,
-                            categoryId: exportSubCategory !== 'all' ? parseInt(exportSubCategory) : 
-                                       (exportCategory !== 'all' ? parseInt(exportCategory) : undefined),
-                            pageSize: exportPageSize,
-                            maxPages: Number.MAX_SAFE_INTEGER,
-                            columns: selectedExportColumns,
-                            apiKeys: apiKeysWithNames,
-                            statusText: getProductStatusText(selectedExportStatus),
-                            categoryName
-                          },
-                          categoryName,
-                          statusText: getProductStatusText(selectedExportStatus),
-                          apiKeysCount: apiKeysWithNames.length,
-                          startTime: new Date().toISOString()
-                        }
+                    const categoryName = exportCategory !== 'all' ? exportSubCategory !== 'all' ? subCategories.find(c => c.id.toString() === exportSubCategory)?.name || 'Unknown Subcategory' : categories.find(c => c.id.toString() === exportCategory)?.name || 'Unknown Category' : 'All Categories';
+                    const apiKeysWithNames = apiIds.map(id => {
+                      const api = availableAPIs.find(a => a.id === id);
+                      return {
+                        id,
+                        name: api?.name || `API ${id.substring(0, 8)}`
                       };
+                    });
+                    console.log('📋 Export Configuration:', {
+                      status: selectedExportStatus,
+                      categoryName,
+                      apiKeysCount: apiKeysWithNames.length,
+                      columns: selectedExportColumns.length,
+                      exportCategory,
+                      exportSubCategory
+                    });
 
-                      console.log('💾 Creating background task with data:', taskData);
-                      const { data: task, error: taskError } = await supabase
-                        .from('background_tasks')
-                        .insert([taskData])
-                        .select()
-                        .single();
-
-                      if (taskError) {
-                        console.error('❌ Failed to create background task:', taskError);
-                        throw new Error(`Failed to create background task: ${taskError.message}`);
+                    // Create background task record
+                    const taskData = {
+                      type: 'sunsky_export',
+                      status: 'queued',
+                      progress: 0,
+                      total_items: 0,
+                      user_id: user.id,
+                      metadata: {
+                        exportConfig: {
+                          status: selectedExportStatus,
+                          categoryId: exportSubCategory !== 'all' ? parseInt(exportSubCategory) : exportCategory !== 'all' ? parseInt(exportCategory) : undefined,
+                          pageSize: exportPageSize,
+                          maxPages: Number.MAX_SAFE_INTEGER,
+                          columns: selectedExportColumns,
+                          apiKeys: apiKeysWithNames,
+                          statusText: getProductStatusText(selectedExportStatus),
+                          categoryName
+                        },
+                        categoryName,
+                        statusText: getProductStatusText(selectedExportStatus),
+                        apiKeysCount: apiKeysWithNames.length,
+                        startTime: new Date().toISOString()
                       }
-
-                      if (!task) {
-                        throw new Error('Failed to create background task: No data returned');
-                      }
-
-                      console.log('✅ Background task created successfully:', task);
-
-                      // Update task to processing status
-                      console.log('🔄 Updating task to processing status...');
-                      const { error: updateError } = await supabase
-                        .from('background_tasks')
-                        .update({ 
-                          status: 'processing',
-                          metadata: {
-                            ...(task.metadata as any || {}),
-                            processingStarted: new Date().toISOString()
-                          }
-                        })
-                        .eq('id', task.id);
-
-                      if (updateError) {
-                        console.error('❌ Failed to update task status:', updateError);
-                        throw new Error(`Failed to update task status: ${updateError.message}`);
-                      }
-
-                      console.log('🚀 Task marked as processing, starting concurrent export...');
-
-                      // Show starting toast with progress
-                      toast({
-                        title: "🚀 Background Export Started",
-                        description: `Task created successfully! Using ${apiKeysWithNames.length} API keys. Check the Tasks tab for progress.`,
-                        duration: 5000
-                      });
-
-                      // Start the concurrent export in the background
-                      const exportConfig = taskData.metadata.exportConfig;
-                      console.log('🎯 Starting concurrent export with config:', exportConfig);
-                      console.log('🎯 Starting concurrent export with task ID:', task.id);
-                      
-                      // Start the export - don't await this
-                      const exportPromise = startConcurrentExport(exportConfig, task.id);
-                      
-                      // Handle the export completion/failure
-                      exportPromise.then(() => {
-                        console.log('✅ Concurrent export completed successfully for task:', task.id);
-                        // Refresh tasks to show completion
-                        fetchTasks();
-                      }).catch((error) => {
-                        console.error('❌ Concurrent export failed for task:', task.id, error);
-                        // Mark task as failed
-                        supabase
-                          .from('background_tasks')
-                          .update({ 
-                            status: 'failed',
-                            metadata: {
-                              ...(task.metadata as any || {}),
-                              error: error.message || 'Export failed',
-                              failedAt: new Date().toISOString()
-                            }
-                          })
-                          .eq('id', task.id)
-                          .then(() => {
-                            console.log('❌ Task marked as failed in database');
-                            fetchTasks(); // Refresh to show failed status
-                          });
-                      });
-
-                      // Refresh tasks to show new task immediately
-                      console.log('🔄 Refreshing tasks list to show new task...');
-                      await fetchTasks();
-
-                      console.log('🎉 Background export initiated successfully, Task ID:', task.id);
-                      
-                    } catch (error) {
-                      console.error('💥 Background export error:', error);
-                      toast({
-                        title: "❌ Background Export Failed",
-                        description: error.message || "Failed to start background processing",
-                        variant: "destructive"
-                      });
-                    } finally {
-                      setIsExporting(false);
+                    };
+                    console.log('💾 Creating background task with data:', taskData);
+                    const {
+                      data: task,
+                      error: taskError
+                    } = await supabase.from('background_tasks').insert([taskData]).select().single();
+                    if (taskError) {
+                      console.error('❌ Failed to create background task:', taskError);
+                      throw new Error(`Failed to create background task: ${taskError.message}`);
                     }
-                  }}
-                  disabled={isExporting || isConcurrentExporting || !hasCredentials || !runInBackground || !selectedExportStatus}
-                  variant="secondary"
-                  className="flex items-center gap-2 min-w-[200px]"
-                >
-                  {isExporting ? (
-                    <>
+                    if (!task) {
+                      throw new Error('Failed to create background task: No data returned');
+                    }
+                    console.log('✅ Background task created successfully:', task);
+
+                    // Update task to processing status
+                    console.log('🔄 Updating task to processing status...');
+                    const {
+                      error: updateError
+                    } = await supabase.from('background_tasks').update({
+                      status: 'processing',
+                      metadata: {
+                        ...(task.metadata as any || {}),
+                        processingStarted: new Date().toISOString()
+                      }
+                    }).eq('id', task.id);
+                    if (updateError) {
+                      console.error('❌ Failed to update task status:', updateError);
+                      throw new Error(`Failed to update task status: ${updateError.message}`);
+                    }
+                    console.log('🚀 Task marked as processing, starting concurrent export...');
+
+                    // Show starting toast with progress
+                    toast({
+                      title: "🚀 Background Export Started",
+                      description: `Task created successfully! Using ${apiKeysWithNames.length} API keys. Check the Tasks tab for progress.`,
+                      duration: 5000
+                    });
+
+                    // Start the concurrent export in the background
+                    const exportConfig = taskData.metadata.exportConfig;
+                    console.log('🎯 Starting concurrent export with config:', exportConfig);
+                    console.log('🎯 Starting concurrent export with task ID:', task.id);
+
+                    // Start the export - don't await this
+                    const exportPromise = startConcurrentExport(exportConfig, task.id);
+
+                    // Handle the export completion/failure
+                    exportPromise.then(() => {
+                      console.log('✅ Concurrent export completed successfully for task:', task.id);
+                      // Refresh tasks to show completion
+                      fetchTasks();
+                    }).catch(error => {
+                      console.error('❌ Concurrent export failed for task:', task.id, error);
+                      // Mark task as failed
+                      supabase.from('background_tasks').update({
+                        status: 'failed',
+                        metadata: {
+                          ...(task.metadata as any || {}),
+                          error: error.message || 'Export failed',
+                          failedAt: new Date().toISOString()
+                        }
+                      }).eq('id', task.id).then(() => {
+                        console.log('❌ Task marked as failed in database');
+                        fetchTasks(); // Refresh to show failed status
+                      });
+                    });
+
+                    // Refresh tasks to show new task immediately
+                    console.log('🔄 Refreshing tasks list to show new task...');
+                    await fetchTasks();
+                    console.log('🎉 Background export initiated successfully, Task ID:', task.id);
+                  } catch (error) {
+                    console.error('💥 Background export error:', error);
+                    toast({
+                      title: "❌ Background Export Failed",
+                      description: error.message || "Failed to start background processing",
+                      variant: "destructive"
+                    });
+                  } finally {
+                    setIsExporting(false);
+                  }
+                }} disabled={isExporting || isConcurrentExporting || !hasCredentials || !runInBackground || !selectedExportStatus} variant="secondary" className="flex items-center gap-2 min-w-[200px]">
+                  {isExporting ? <>
                       <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                       Creating Task...
-                    </>
-                  ) : isConcurrentExporting ? (
-                    <>
+                    </> : isConcurrentExporting ? <>
                       <RefreshCw className="h-4 w-4 animate-spin" />
                       Processing...
-                    </>
-                  ) : (
-                    <>
+                    </> : <>
                       <Play className="h-4 w-4" />
                       Run in Background
-                    </>
-                  )}
+                    </>}
                 </Button>
 
                 {/* Test Task Button for debugging */}
-                <Button 
-                  onClick={async (e) => {
-                    console.log('🧪🧪🧪 TEST TASK BUTTON CLICKED!!!');
-                    e.preventDefault();
-                    e.stopPropagation();
-                    
-                    try {
-                      const testTask = {
-                        type: 'test_task',
-                        status: 'queued',
-                        progress: 0,
-                        total_items: 100,
-                        user_id: profile?.id,
-                        metadata: {
-                          message: 'Test task created at ' + new Date().toISOString(),
-                          test: true
-                        }
-                      };
-                      
-                      console.log('Inserting test task:', testTask);
-                      
-                      const { data, error } = await supabase
-                        .from('background_tasks')
-                        .insert([testTask])
-                        .select()
-                        .single();
-                        
-                      if (error) throw error;
-                      
-                      console.log('Test task created:', data);
-                      
-                      // Refresh the tasks list
-                      await fetchTasks();
-                      
-                      toast({
-                        title: "Test Task Created",
-                        description: `Test task ${data.id} created successfully`
-                      });
-                    } catch (error) {
-                      console.error('Failed to create test task:', error);
-                      toast({
-                        title: "Error",
-                        description: "Failed to create test task: " + (error as Error).message,
-                        variant: "destructive"
-                      });
-                    }
-                  }}
-                  disabled={tasksLoading}
-                  variant="outline"
-                  size="sm"
-                  className="flex items-center gap-2"
-                >
+                <Button onClick={async e => {
+                  console.log('🧪🧪🧪 TEST TASK BUTTON CLICKED!!!');
+                  e.preventDefault();
+                  e.stopPropagation();
+                  try {
+                    const testTask = {
+                      type: 'test_task',
+                      status: 'queued',
+                      progress: 0,
+                      total_items: 100,
+                      user_id: profile?.id,
+                      metadata: {
+                        message: 'Test task created at ' + new Date().toISOString(),
+                        test: true
+                      }
+                    };
+                    console.log('Inserting test task:', testTask);
+                    const {
+                      data,
+                      error
+                    } = await supabase.from('background_tasks').insert([testTask]).select().single();
+                    if (error) throw error;
+                    console.log('Test task created:', data);
+
+                    // Refresh the tasks list
+                    await fetchTasks();
+                    toast({
+                      title: "Test Task Created",
+                      description: `Test task ${data.id} created successfully`
+                    });
+                  } catch (error) {
+                    console.error('Failed to create test task:', error);
+                    toast({
+                      title: "Error",
+                      description: "Failed to create test task: " + (error as Error).message,
+                      variant: "destructive"
+                    });
+                  }
+                }} disabled={tasksLoading} variant="outline" size="sm" className="flex items-center gap-2">
                   <Settings className="h-4 w-4" />
                   Create Test Task
                 </Button>
@@ -3607,17 +3099,14 @@ export const SunskySKUImporter: React.FC = () => {
                     <ul className="list-disc list-inside mt-1 space-y-1">
                       {(selectedExportAPIs.length > 0 ? selectedExportAPIs : availableAPIs.filter(api => api.is_active).map(api => api.id)).map((apiId, index) => {
                         const api = availableAPIs.find(a => a.id === apiId);
-                        return (
-                          <li key={apiId}>API {index + 1}: {api?.name || 'Unknown'}</li>
-                        );
+                        return <li key={apiId}>API {index + 1}: {api?.name || 'Unknown'}</li>;
                       })}
                     </ul>
                   </div>
                 </div>
               </div>
 
-              {(isExporting || isConcurrentExporting) && (
-                <div className="space-y-2">
+              {(isExporting || isConcurrentExporting) && <div className="space-y-2">
                   <div className="flex items-center justify-between text-sm">
                     <span>Export Progress</span>
                     <span>{isConcurrentExporting ? concurrentOverallProgress : exportProgress}%</span>
@@ -3626,60 +3115,43 @@ export const SunskySKUImporter: React.FC = () => {
                   <div className="flex items-center justify-between text-sm">
                     <p className="text-muted-foreground">{isConcurrentExporting ? concurrentExportStatus : exportStatus}</p>
                     <div className="flex items-center gap-4">
-                      {exportTotalItems > 0 && !isConcurrentExporting && (
-                        <span className="text-primary font-medium">
+                      {exportTotalItems > 0 && !isConcurrentExporting && <span className="text-primary font-medium">
                           Estimated: ~{exportTotalItems} items
-                        </span>
-                      )}
-                      {isConcurrentExporting && concurrentExportProgress.length > 0 && (
-                        <div className="space-y-1">
+                        </span>}
+                      {isConcurrentExporting && concurrentExportProgress.length > 0 && <div className="space-y-1">
                           <span className="text-xs text-muted-foreground">API Progress:</span>
                           {concurrentExportProgress.map((apiProgress, index) => {
-                            const progressPercent = apiProgress.totalPages > 0 
-                              ? Math.round((apiProgress.currentPage / apiProgress.totalPages) * 100)
-                              : 0;
-                            return (
-                              <div key={apiProgress.apiKeyId} className="flex items-center gap-2 text-xs">
+                        const progressPercent = apiProgress.totalPages > 0 ? Math.round(apiProgress.currentPage / apiProgress.totalPages * 100) : 0;
+                        return <div key={apiProgress.apiKeyId} className="flex items-center gap-2 text-xs">
                                 <span className="w-12 truncate">API {index + 1}</span>
                                 <Progress value={progressPercent} className="flex-1 h-1" />
                                 <span className="w-8 text-right">{progressPercent}%</span>
                                 <span className="text-muted-foreground">({apiProgress.processedItems} items)</span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                      {(isExporting || currentExportTaskId) && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            if (currentExportTaskId) {
-                              // Cancel background task
-                              cancelTask(currentExportTaskId);
-                            }
-                            setIsExporting(false);
-                            setCurrentExportTaskId(null);
-                            setExportStatus('Export cancelled by user');
-                            toast({
-                              title: "Export Cancelled",
-                              description: "Export has been cancelled",
-                              variant: "destructive"
-                            });
-                          }}
-                          className="h-6 px-2 text-xs"
-                        >
+                              </div>;
+                      })}
+                        </div>}
+                      {(isExporting || currentExportTaskId) && <Button size="sm" variant="outline" onClick={() => {
+                      if (currentExportTaskId) {
+                        // Cancel background task
+                        cancelTask(currentExportTaskId);
+                      }
+                      setIsExporting(false);
+                      setCurrentExportTaskId(null);
+                      setExportStatus('Export cancelled by user');
+                      toast({
+                        title: "Export Cancelled",
+                        description: "Export has been cancelled",
+                        variant: "destructive"
+                      });
+                    }} className="h-6 px-2 text-xs">
                           <XCircle className="h-3 w-3 mr-1" />
                           Cancel
-                        </Button>
-                      )}
+                        </Button>}
                     </div>
                   </div>
-                </div>
-              )}
+                </div>}
 
-              {exportResults && (
-                <div className="space-y-4 mt-6">
+              {exportResults && <div className="space-y-4 mt-6">
                   <div className="grid grid-cols-3 gap-4">
                     <div className="text-center p-4 bg-primary/5 rounded-lg">
                       <div className="text-2xl font-bold">{exportResults.totalFound}</div>
@@ -3714,12 +3186,10 @@ export const SunskySKUImporter: React.FC = () => {
                       <li>Individual sheets for top 10 categories by product count</li>
                     </ul>
                   </div>
-                </div>
-              )}
+                </div>}
 
               {/* Background Tasks Panel */}
-              {activeTasks.length > 0 && (
-                <Card className="mt-6">
+              {activeTasks.length > 0 && <Card className="mt-6">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <RefreshCw className="h-5 w-5 animate-spin" />
@@ -3731,8 +3201,7 @@ export const SunskySKUImporter: React.FC = () => {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {activeTasks.map((task) => (
-                         <div key={task.id} className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                      {activeTasks.map(task => <div key={task.id} className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                            <div className="flex items-center justify-between mb-3">
                              <div>
                                <div className="font-medium">
@@ -3743,69 +3212,39 @@ export const SunskySKUImporter: React.FC = () => {
                                </div>
                              </div>
                              <div className="flex items-center gap-2">
-                               <Badge variant="outline" className={
-                                 task.status === 'completed' ? 'bg-green-100 text-green-800' :
-                                 task.status === 'processing' ? 'bg-blue-100 text-blue-800' :
-                                 task.status === 'failed' ? 'bg-red-100 text-red-800' :
-                                 'bg-gray-100'
-                               }>
+                               <Badge variant="outline" className={task.status === 'completed' ? 'bg-green-100 text-green-800' : task.status === 'processing' ? 'bg-blue-100 text-blue-800' : task.status === 'failed' ? 'bg-red-100 text-red-800' : 'bg-gray-100'}>
                                  {task.status}
                                </Badge>
-                               {task.status === 'completed' && (
-                                 <Button
-                                   size="sm"
-                                   variant="outline"
-                                   onClick={() => downloadResult(task)}
-                                   className="text-green-600 hover:bg-green-50"
-                                 >
+                               {task.status === 'completed' && <Button size="sm" variant="outline" onClick={() => downloadResult(task)} className="text-green-600 hover:bg-green-50">
                                    <Download className="h-4 w-4" />
-                                 </Button>
-                               )}
-                               {task.status === 'processing' && (
-                                 <Button
-                                   size="sm"
-                                   variant="outline" 
-                                   onClick={() => cancelPersistentTask(task.id)}
-                                   className="text-red-600 hover:bg-red-50"
-                                 >
+                                 </Button>}
+                               {task.status === 'processing' && <Button size="sm" variant="outline" onClick={() => cancelPersistentTask(task.id)} className="text-red-600 hover:bg-red-50">
                                    <XCircle className="h-4 w-4" />
-                                 </Button>
-                               )}
+                                 </Button>}
                              </div>
                            </div>
                           
                           {/* Progress Bar */}
-                          {task.total_items > 0 && (
-                            <div className="space-y-2">
+                          {task.total_items > 0 && <div className="space-y-2">
                               <div className="flex justify-between text-sm">
                                 <span>Progress</span>
                                 <span>{task.processed_items} / {task.total_items} items ({task.progress}%)</span>
                               </div>
                               <Progress value={task.progress} className="h-2" />
-                            </div>
-                          )}
+                            </div>}
                           
                           {/* Task Details */}
-                          {task.metadata && (
-                            <div className="mt-3 text-sm text-muted-foreground">
-                              {task.metadata.categoryName && (
-                                <div>Category: {task.metadata.categoryName}</div>
-                              )}
-                              {task.metadata.selectedAPIs && (
-                                <div>Using {task.metadata.selectedAPIs.length} API key(s)</div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      ))}
+                          {task.metadata && <div className="mt-3 text-sm text-muted-foreground">
+                              {task.metadata.categoryName && <div>Category: {task.metadata.categoryName}</div>}
+                              {task.metadata.selectedAPIs && <div>Using {task.metadata.selectedAPIs.length} API key(s)</div>}
+                            </div>}
+                        </div>)}
                     </div>
                   </CardContent>
-                </Card>
-              )}
+                </Card>}
 
               {/* Export History */}
-              {savedExportHistory.length > 0 && (
-                <Card className="mt-6">
+              {savedExportHistory.length > 0 && <Card className="mt-6">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <Package className="h-5 w-5" />
@@ -3817,21 +3256,12 @@ export const SunskySKUImporter: React.FC = () => {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-2">
-                      {savedExportHistory.map((entry) => (
-                        <div 
-                          key={entry.id} 
-                          className="flex items-center justify-between p-3 bg-muted/30 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
-                          onClick={() => {
-                            setSelectedExportEntry(entry);
-                            setShowExportHistoryDialog(true);
-                          }}
-                        >
+                      {savedExportHistory.map(entry => <div key={entry.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors" onClick={() => {
+                      setSelectedExportEntry(entry);
+                      setShowExportHistoryDialog(true);
+                    }}>
                           <div className="flex items-center gap-3">
-                            <div className={`h-3 w-3 rounded-full ${
-                              entry.status === 'completed' ? 'bg-green-500' :
-                              entry.status === 'processing' ? 'bg-blue-500 animate-pulse' :
-                              entry.status === 'cancelled' ? 'bg-yellow-500' : 'bg-red-500'
-                            }`} />
+                            <div className={`h-3 w-3 rounded-full ${entry.status === 'completed' ? 'bg-green-500' : entry.status === 'processing' ? 'bg-blue-500 animate-pulse' : entry.status === 'cancelled' ? 'bg-yellow-500' : 'bg-red-500'}`} />
                              <div>
                                 <div className="font-medium text-sm">
                                   {(entry.metadata as any)?.categoryName || 'Export'} - {entry.total_items.toLocaleString()} items
@@ -3840,30 +3270,22 @@ export const SunskySKUImporter: React.FC = () => {
                                   {new Date(entry.created_at).toLocaleString()}
                                   {(entry.metadata as any)?.apiKeys?.length > 0 && ` • ${(entry.metadata as any).apiKeys.length} API keys`}
                                   {(entry.metadata as any)?.columns?.length > 0 && ` • ${(entry.metadata as any).columns.length} columns`}
-                                  {entry.file_path && ` • ${(entry.file_size ? formatBytes(entry.file_size) : 'File ready')}`}
+                                  {entry.file_path && ` • ${entry.file_size ? formatBytes(entry.file_size) : 'File ready'}`}
                                 </div>
                              </div>
                           </div>
                           <div className="flex items-center gap-2">
-                            <Badge variant={
-                              entry.status === 'completed' ? 'default' :
-                              entry.status === 'processing' ? 'secondary' :
-                              entry.status === 'cancelled' ? 'outline' : 'destructive'
-                            }>
+                            <Badge variant={entry.status === 'completed' ? 'default' : entry.status === 'processing' ? 'secondary' : entry.status === 'cancelled' ? 'outline' : 'destructive'}>
                               {entry.status}
                             </Badge>
-                             {entry.error_message && (
-                               <Badge variant="destructive" className="text-xs max-w-32 truncate">
+                             {entry.error_message && <Badge variant="destructive" className="text-xs max-w-32 truncate">
                                  Error
-                               </Badge>
-                             )}
+                               </Badge>}
                           </div>
-                        </div>
-                      ))}
+                        </div>)}
                     </div>
                   </CardContent>
-                </Card>
-              )}
+                </Card>}
             </CardContent>
           </Card>
         </TabsContent>
@@ -3892,9 +3314,7 @@ export const SunskySKUImporter: React.FC = () => {
                           {hasCredentials ? 'Connected' : 'Not Connected'}
                         </span>
                         <p className="text-sm text-muted-foreground">
-                          {hasCredentials 
-                            ? 'Your API credentials are configured and ready to use.' 
-                            : 'Please configure your API credentials below to enable importing.'}
+                          {hasCredentials ? 'Your API credentials are configured and ready to use.' : 'Please configure your API credentials below to enable importing.'}
                         </p>
                       </div>
                     </div>
@@ -3910,12 +3330,10 @@ export const SunskySKUImporter: React.FC = () => {
                   </div>
 
                   {/* Available APIs List */}
-                  {availableAPIs.length > 0 && (
-                    <div className="space-y-4">
+                  {availableAPIs.length > 0 && <div className="space-y-4">
                       <h3 className="text-lg font-medium">Available API Keys</h3>
                       <div className="grid gap-3">
-                        {availableAPIs.map((api) => (
-                          <div key={api.id} className="flex items-center justify-between p-3 border rounded-lg">
+                        {availableAPIs.map(api => <div key={api.id} className="flex items-center justify-between p-3 border rounded-lg">
                             <div className="flex items-center gap-3">
                               <div className={`w-3 h-3 rounded-full ${api.is_active ? 'bg-green-500' : 'bg-red-500'}`} />
                               <span className="font-medium">{api.name}</span>
@@ -3924,19 +3342,13 @@ export const SunskySKUImporter: React.FC = () => {
                               </Badge>
                             </div>
                              <div className="flex items-center gap-2">
-                               <Button 
-                                 variant="outline" 
-                                 size="sm"
-                                 onClick={() => toggleApiKeyActive(api.id, !api.is_active)}
-                               >
+                               <Button variant="outline" size="sm" onClick={() => toggleApiKeyActive(api.id, !api.is_active)}>
                                  {api.is_active ? 'Deactivate' : 'Activate'}
                                </Button>
                              </div>
-                          </div>
-                        ))}
+                          </div>)}
                       </div>
-                    </div>
-                  )}
+                    </div>}
                 </div>
               </CardContent>
             </Card>
@@ -3957,20 +3369,12 @@ export const SunskySKUImporter: React.FC = () => {
             </DialogDescription>
           </DialogHeader>
           
-          {selectedJob && (
-            <div className="space-y-6">
+          {selectedJob && <div className="space-y-6">
               {/* Status Overview */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label className="text-sm font-medium text-muted-foreground">Status</Label>
-                  <Badge 
-                    variant={
-                      selectedJob.status === 'completed' ? 'default' :
-                      selectedJob.status === 'processing' ? 'secondary' :
-                      selectedJob.status === 'failed' ? 'destructive' : 'outline'
-                    }
-                    className="w-fit"
-                  >
+                  <Badge variant={selectedJob.status === 'completed' ? 'default' : selectedJob.status === 'processing' ? 'secondary' : selectedJob.status === 'failed' ? 'destructive' : 'outline'} className="w-fit">
                     {selectedJob.status}
                   </Badge>
                 </div>
@@ -3998,18 +3402,13 @@ export const SunskySKUImporter: React.FC = () => {
                   </div>
                 </div>
                 
-                {selectedJob.total_items && selectedJob.total_items > 0 && (
-                  <div className="space-y-2">
+                {selectedJob.total_items && selectedJob.total_items > 0 && <div className="space-y-2">
                     <div className="flex justify-between text-sm">
                       <span>Progress</span>
-                      <span>{Math.round((selectedJob.processed_items / selectedJob.total_items) * 100)}%</span>
+                      <span>{Math.round(selectedJob.processed_items / selectedJob.total_items * 100)}%</span>
                     </div>
-                    <Progress 
-                      value={(selectedJob.processed_items / selectedJob.total_items) * 100} 
-                      className="h-2" 
-                    />
-                  </div>
-                )}
+                    <Progress value={selectedJob.processed_items / selectedJob.total_items * 100} className="h-2" />
+                  </div>}
               </div>
 
               {/* Results Summary */}
@@ -4037,22 +3436,18 @@ export const SunskySKUImporter: React.FC = () => {
                       {new Date(selectedJob.created_at).toLocaleString()}
                     </span>
                   </div>
-                  {selectedJob.started_at && (
-                    <div className="flex justify-between">
+                  {selectedJob.started_at && <div className="flex justify-between">
                       <span className="text-sm">Started:</span>
                       <span className="text-sm font-medium">
                         {new Date(selectedJob.started_at).toLocaleString()}
                       </span>
-                    </div>
-                  )}
-                  {selectedJob.completed_at && (
-                    <div className="flex justify-between">
+                    </div>}
+                  {selectedJob.completed_at && <div className="flex justify-between">
                       <span className="text-sm">Completed:</span>
                       <span className="text-sm font-medium">
                         {new Date(selectedJob.completed_at).toLocaleString()}
                       </span>
-                    </div>
-                  )}
+                    </div>}
                 </div>
               </div>
 
@@ -4067,8 +3462,7 @@ export const SunskySKUImporter: React.FC = () => {
               </div>
 
               {/* Error Details */}
-              {selectedJob.last_error && (
-                <div className="space-y-4">
+              {selectedJob.last_error && <div className="space-y-4">
                   <Label className="text-sm font-medium text-muted-foreground">Error Details</Label>
                   <div className="bg-red-50 border border-red-200 p-4 rounded-lg">
                     <div className="text-sm text-red-800 font-medium mb-2">Last Error:</div>
@@ -4076,53 +3470,29 @@ export const SunskySKUImporter: React.FC = () => {
                       {selectedJob.last_error}
                     </div>
                   </div>
-                </div>
-              )}
+                </div>}
 
               {/* Additional Flags */}
-              {(selectedJob.paused || selectedJob.cancelled) && (
-                <div className="space-y-4">
+              {(selectedJob.paused || selectedJob.cancelled) && <div className="space-y-4">
                   <Label className="text-sm font-medium text-muted-foreground">Flags</Label>
                   <div className="flex gap-2">
-                    {selectedJob.paused && (
-                      <Badge variant="secondary">Paused</Badge>
-                    )}
-                    {selectedJob.cancelled && (
-                      <Badge variant="destructive">Cancelled</Badge>
-                    )}
+                    {selectedJob.paused && <Badge variant="secondary">Paused</Badge>}
+                    {selectedJob.cancelled && <Badge variant="destructive">Cancelled</Badge>}
                   </div>
-                </div>
-              )}
-            </div>
-          )}
+                </div>}
+            </div>}
           
           <div className="flex justify-end pt-4 border-t">
-            <Button 
-              onClick={() => setShowJobDetailsDialog(false)}
-              variant="outline"
-            >
+            <Button onClick={() => setShowJobDetailsDialog(false)} variant="outline">
               Close
             </Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      <ReAuthDialog
-        open={showClearAuthDialog}
-        onOpenChange={setShowClearAuthDialog}
-        onSuccess={clearAllSKUs}
-        title="Clear All SKUs - Authentication Required"
-        description="This action will permanently delete all imported SKUs. Please confirm your identity to proceed."
-      />
+      <ReAuthDialog open={showClearAuthDialog} onOpenChange={setShowClearAuthDialog} onSuccess={clearAllSKUs} title="Clear All SKUs - Authentication Required" description="This action will permanently delete all imported SKUs. Please confirm your identity to proceed." />
 
-      <ExportHistoryDialog
-        entry={selectedExportEntry}
-        isOpen={showExportHistoryDialog}
-        onClose={() => setShowExportHistoryDialog(false)}
-        onDownload={handleExportHistoryDownload}
-        onRerun={handleExportHistoryRerun}
-      />
+      <ExportHistoryDialog entry={selectedExportEntry} isOpen={showExportHistoryDialog} onClose={() => setShowExportHistoryDialog(false)} onDownload={handleExportHistoryDownload} onRerun={handleExportHistoryRerun} />
       </div>
-    </div>
-  );
+    </div>;
 };
