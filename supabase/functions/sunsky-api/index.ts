@@ -2,9 +2,9 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.5/dist/main/index.js";
 import { crypto } from "https://deno.land/std@0.190.0/crypto/mod.ts";
 
-// Restricted CORS headers for security  
+// CORS headers for security  
 const corsHeaders = {
-  'Access-Control-Allow-Origin': 'https://vfqqlifvhooefxvvyebm.supabase.co',
+  'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Credentials': 'true',
