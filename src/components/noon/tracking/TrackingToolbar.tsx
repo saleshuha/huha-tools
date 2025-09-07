@@ -59,7 +59,7 @@ export function TrackingToolbar({
 }: TrackingToolbarProps) {
   return (
     <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-md border-b shadow-soft">
-      <div className="w-full px-4 sm:px-6 lg:px-8 py-4">
+      <div className="px-4 sm:px-6 lg:px-8 py-4">
         {/* Primary toolbar */}
         <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between mb-4">
           <div className="flex items-center gap-3">
