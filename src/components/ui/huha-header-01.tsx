@@ -36,7 +36,7 @@ export const HuhaHeader01: React.FC<HuhaHeader01Props> = ({
   className
 }) => {
   return (
-    <div className={cn("border-b-2 border-border/50 bg-gradient-to-r from-card/80 to-card/60 backdrop-blur-md shadow-lg min-h-[120px]", className)}>
+    <div className={cn("huha-header border-b-2 border-border/50 bg-gradient-to-r from-card/80 to-card/60 backdrop-blur-md shadow-lg", className)} style={{ minHeight: 'var(--header-min-h, 120px)' }}>
       <div className="px-8 py-6">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-6">

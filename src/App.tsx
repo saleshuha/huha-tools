@@ -11,6 +11,7 @@ import type { User, Session } from "@supabase/supabase-js";
 
 import { CountryProvider } from "@/contexts/CountryContext";
 import { BackgroundTasksProvider } from "@/contexts/BackgroundTasksContext";
+import { ThemeConfigProvider } from "@/contexts/ThemeConfigContext";
 import { FloatingProgressIndicator } from "@/components/FloatingProgressIndicator";
 import { AppSidebar } from "@/components/AppSidebar";
 import { CountrySwitcher } from "@/components/CountrySwitcher";
@@ -57,6 +58,7 @@ import AmazonVendorCentral from "./pages/AmazonVendorCentral";
 import LabelDesigner from "./pages/LabelDesigner";
 import NoonOrderTrackingPage from "./pages/NoonOrderTracking";
 import NoonOrderProcessingPage from "./pages/NoonOrderProcessing";
+import PreviewSettings from "./pages/PreviewSettings";
 
 import { useState as useReactState } from "react";
 import { useToast } from "@/components/ui/use-toast";
@@ -183,10 +185,11 @@ const App = () => {
 
   // If user is authenticated, show main app
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <CountryProvider>
-          <BackgroundTasksProvider>
+          <QueryClientProvider client={queryClient}>
+            <TooltipProvider>
+              <ThemeConfigProvider>
+                <CountryProvider>
+                  <BackgroundTasksProvider>
             <Toaster />
             <Sonner />
             <BrowserRouter>
@@ -252,6 +255,7 @@ const App = () => {
                         <Route path="/processed-orders" element={<ProcessedOrders />} />
                         <Route path="/order-processing" element={<OrderProcessingPage />} />
                         <Route path="/users" element={<UserManagementPage />} />
+                        <Route path="/preview-settings" element={<PreviewSettings />} />
                         <Route path="/replenishment" element={<ReplenishmentPage />} />
                         <Route path="/po-tracker" element={<POTrackerPage />} />
                         <Route path="/po-details/:poNumber" element={<PODetailsPage />} />
@@ -303,10 +307,11 @@ const App = () => {
                 />
               </SidebarProvider>
             </BrowserRouter>
-          </BackgroundTasksProvider>
-        </CountryProvider>
-      </TooltipProvider>
-    </QueryClientProvider>
+                  </BackgroundTasksProvider>
+                </CountryProvider>
+              </ThemeConfigProvider>
+            </TooltipProvider>
+          </QueryClientProvider>
   );
 };
 

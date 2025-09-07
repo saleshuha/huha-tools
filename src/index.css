@@ -98,6 +98,9 @@
     --transition-smooth: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     --transition-bounce: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
 
+    /* Theme Config Variables */
+    --header-min-h: 120px;
+
     /* Sidebar colors - FreshUI */
     --sidebar-background: 210 17% 98%;
     --sidebar-foreground: 210 11% 15%;
@@ -308,7 +311,91 @@
 
 /* Loading animation for analytics */
 @keyframes loading-bar {
-  0% { transform: translateX(-100%); }
-  50% { transform: translateX(0%); }
-  100% { transform: translateX(100%); }
+  0% {
+    width: 0%;
+  }
+  100% {
+    width: 100%;
+  }
+}
+
+/* Theme Configuration Overrides */
+
+/* Header Styles */
+[data-header-style="compact"] .huha-header {
+  min-height: 80px;
+}
+
+[data-header-style="spacious"] .huha-header {
+  min-height: 160px;
+}
+
+[data-header-gradient="false"] .huha-header {
+  background: hsl(var(--card));
+}
+
+/* Button Styles */
+[data-button-style="rounded"] .btn,
+[data-button-style="rounded"] button {
+  border-radius: 1rem;
+}
+
+[data-button-style="sharp"] .btn,
+[data-button-style="sharp"] button {
+  border-radius: 0;
+}
+
+[data-button-shadow="false"] .btn,
+[data-button-shadow="false"] button {
+  box-shadow: none;
+}
+
+/* Field Styles */
+[data-field-style="filled"] input,
+[data-field-style="filled"] select,
+[data-field-style="filled"] textarea {
+  background-color: hsl(var(--muted));
+  border: 1px solid transparent;
+}
+
+[data-field-style="subtle"] input,
+[data-field-style="subtle"] select,
+[data-field-style="subtle"] textarea {
+  border-color: hsl(var(--border) / 0.3);
+}
+
+[data-field-focus="glow"] input:focus,
+[data-field-focus="glow"] select:focus,
+[data-field-focus="glow"] textarea:focus {
+  box-shadow: 0 0 0 2px hsl(var(--primary) / 0.2);
+}
+
+[data-field-focus="underline"] input:focus,
+[data-field-focus="underline"] select:focus,
+[data-field-focus="underline"] textarea:focus {
+  border-left: 3px solid hsl(var(--primary));
+  box-shadow: none;
+}
+
+/* Table Styles */
+[data-table-density="compact"] table tr {
+  height: 2rem;
+}
+
+[data-table-density="spacious"] table tr {
+  height: 4rem;
+}
+
+[data-table-stripes="true"] table tbody tr:nth-child(even) {
+  background-color: hsl(var(--muted) / 0.3);
+}
+
+[data-table-hover="false"] table tbody tr:hover {
+  background-color: transparent;
+}
+
+/* Animation Controls */
+[data-animations="false"] * {
+  transition: none !important;
+  animation: none !important;
 }
