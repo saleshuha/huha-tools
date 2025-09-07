@@ -148,9 +148,9 @@ export const ThemeConfigProvider: React.FC<{ children: React.ReactNode }> = ({ c
     
     // Header variables
     const headerHeightMap = {
-      compact: '80px',
-      default: '120px', 
-      spacious: '160px'
+      compact: '60px',
+      default: '80px', 
+      spacious: '100px'
     };
     root.style.setProperty('--header-min-h', headerHeightMap[themeConfig.headerStyle]);
     
