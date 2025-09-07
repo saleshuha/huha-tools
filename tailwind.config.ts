@@ -12,16 +12,16 @@ export default {
 	theme: {
 		container: {
 			center: true,
-			padding: '1.5rem',
+			padding: '2rem',
 			screens: {
-				'2xl': '1200px'
+				'2xl': '1400px'
 			}
 		},
 		extend: {
 			fontFamily: {
-				sans: ['"Open Sans"', "Inter", "Roboto", "system-ui", "sans-serif"],
+				sans: ["Inter", "Roboto", "Open Sans", "sans-serif"],
 				mono: ["JetBrains Mono", "Consolas", "Monaco", "Courier New", "monospace"],
-				display: ['"Open Sans"', "Inter", "system-ui", "sans-serif"],
+				display: ["Inter", "Roboto", "system-ui", "sans-serif"],
 			},
 			colors: {
 				border: 'hsl(var(--border))',
@@ -120,9 +120,13 @@ export default {
 			},
 			boxShadow: {
 				'soft': 'var(--shadow-soft)',
-				'elevated': 'var(--shadow-elevated)',
-				'glass': 'var(--shadow-glass)',
-				'glow': 'var(--shadow-glow)'
+				'medium': 'var(--shadow-medium)',
+				'strong': 'var(--shadow-strong)',
+				'glow': 'var(--shadow-glow)',
+				'accent-glow': 'var(--shadow-accent-glow)',
+				'emerald-glow': 'var(--shadow-emerald-glow)',
+				'sky-glow': 'var(--shadow-sky-glow)',
+				'cyan-glow': 'var(--shadow-cyan-glow)'
 			},
 			transitionTimingFunction: {
 				'smooth': 'var(--transition-smooth)',

@@ -462,7 +462,7 @@ const BulkColumnEditor = () => {
         title="Bulk Column Text Editor"
         subtitle="Upload multiple CSV/Excel files and replace text in entire columns"
       />
-      <div className="glass-container mx-6 my-4 p-8 animate-fade-in">
+      <div className="glass-container my-4 p-8 animate-fade-in">
 
         {/* Progress Indicator */}
         {progressState.step !== 'idle' && (
