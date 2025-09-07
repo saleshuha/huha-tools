@@ -9,7 +9,7 @@ import { AutoProcessingStatus } from '@/components/AutoProcessingStatus';
 import { TrackingToolbar } from '@/components/noon/tracking/TrackingToolbar';
 import { StatusMetricsCards } from '@/components/noon/tracking/StatusMetricsCards';
 import { ExceptionsDrawer } from '@/components/noon/tracking/ExceptionsDrawer';
-import { EnhancedOrdersPipeline } from '@/components/noon/tracking/EnhancedOrdersPipeline';
+
 import { HuhaTab01 } from '@/components/ui/huha-tab-01';
 import { useNoonOrders, NoonOrder } from '@/hooks/useNoonOrders';
 import { useNoonStores } from '@/hooks/useNoonStores';
@@ -22,7 +22,7 @@ export default function NoonOrderTrackingPage() {
   const [selectedOrder, setSelectedOrder] = useState<NoonOrder | null>(null);
   const [showOrderDetail, setShowOrderDetail] = useState(false);
   const [showExceptions, setShowExceptions] = useState(false);
-  const [viewMode, setViewMode] = useState<'table' | 'pipeline'>('table');
+  
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState({
     search: '',
@@ -301,7 +301,7 @@ export default function NoonOrderTrackingPage() {
         <StatusMetricsCards metrics={statusMetrics} className="animate-fade-in" />
 
         {/* Enhanced Toolbar */}
-        <TrackingToolbar searchTerm={searchTerm} onSearchChange={setSearchTerm} selectedStore={selectedStoreId} onStoreChange={setSelectedStoreId} selectedCredentials={selectedCredentialsId} onCredentialsChange={setSelectedCredentialsId} viewMode={viewMode} onViewModeChange={setViewMode} onRefresh={refreshOrders} onExport={handleExport} onShowExceptions={() => setShowExceptions(true)} onShowAnalytics={handleShowAnalytics} loading={loading} totalOrders={sampleOrders.length} filteredOrders={filteredOrders.length} exceptionCount={exceptionOrders.length} stores={stores} credentials={credentials} />
+        <TrackingToolbar searchTerm={searchTerm} onSearchChange={setSearchTerm} selectedStore={selectedStoreId} onStoreChange={setSelectedStoreId} selectedCredentials={selectedCredentialsId} onCredentialsChange={setSelectedCredentialsId} onRefresh={refreshOrders} onExport={handleExport} onShowExceptions={() => setShowExceptions(true)} onShowAnalytics={handleShowAnalytics} loading={loading} totalOrders={sampleOrders.length} filteredOrders={filteredOrders.length} exceptionCount={exceptionOrders.length} stores={stores} credentials={credentials} />
 
         <HuhaTab01
           value={activeTab}
@@ -310,11 +310,7 @@ export default function NoonOrderTrackingPage() {
             {
               value: "orders",
               label: "Orders Management",
-              content: viewMode === 'table' ? (
-                <NoonOrdersTable selectedStoreId={selectedStoreId} onStoreChange={setSelectedStoreId} />
-              ) : (
-                <EnhancedOrdersPipeline orders={filteredOrders} onOrderMove={handleOrderMove} onOrderView={handleOrderView} className="animate-fade-in" />
-              )
+              content: <NoonOrdersTable selectedStoreId={selectedStoreId} onStoreChange={setSelectedStoreId} />
             },
             {
               value: "upload",

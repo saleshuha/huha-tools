@@ -12,8 +12,6 @@ interface TrackingToolbarProps {
   onStoreChange: (value: string) => void;
   selectedCredentials: string;
   onCredentialsChange: (value: string) => void;
-  viewMode: 'table' | 'pipeline';
-  onViewModeChange: (mode: 'table' | 'pipeline') => void;
   onRefresh: () => void;
   onExport: () => void;
   onShowExceptions: () => void;
@@ -39,8 +37,6 @@ export function TrackingToolbar({
   onStoreChange,
   selectedCredentials,
   onCredentialsChange,
-  viewMode,
-  onViewModeChange,
   onRefresh,
   onExport,
   onShowExceptions,
@@ -88,11 +84,6 @@ export function TrackingToolbar({
           </div>
 
           <div className="flex items-center gap-2">
-            {/* View Mode Toggle */}
-            <div className="flex items-center gap-1 bg-card border border-border/50 rounded-lg p-1">
-              
-              
-            </div>
 
             <Button variant="outline" size="sm" onClick={onShowExceptions} className={cn("relative", exceptionCount > 0 && "border-warning text-warning hover:bg-warning/10")}>
               <AlertTriangle className="h-4 w-4 mr-2" />
