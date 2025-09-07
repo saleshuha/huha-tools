@@ -269,6 +269,31 @@ export function AppSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
 
+              {/* Sales & Replenishment */}
+              <SidebarMenuItem>
+                <SidebarMenuButton 
+                  asChild
+                  className={`group relative w-full rounded-md transition-all duration-200 ${
+                    isActive("/replenishment")
+                      ? "bg-primary/90 text-primary-foreground shadow-sm" 
+                      : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
+                  }`}
+                >
+                  <NavLink 
+                    to="/replenishment" 
+                    end
+                    className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-md"
+                  >
+                    <TrendingUp className="h-4 w-4 flex-shrink-0" />
+                    {!isCollapsed && (
+                      <span className="font-medium text-sm">
+                        Sales & Replenishment
+                      </span>
+                    )}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
               {/* Amazon Section - only show when not collapsed */}
               {!isCollapsed && (
                 <SidebarMenuItem>
@@ -455,56 +480,6 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               )}
 
-              {/* Sales & Replenishment */}
-              <SidebarMenuItem>
-                <SidebarMenuButton 
-                  asChild
-                  className={`group relative w-full rounded-md transition-all duration-200 ${
-                    isActive("/replenishment")
-                      ? "bg-primary/90 text-primary-foreground shadow-sm" 
-                      : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
-                  }`}
-                >
-                  <NavLink 
-                    to="/replenishment" 
-                    end
-                    className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-md"
-                  >
-                    <TrendingUp className="h-4 w-4 flex-shrink-0" />
-                    {!isCollapsed && (
-                      <span className="font-medium text-sm">
-                        Sales & Replenishment
-                      </span>
-                    )}
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-
-              {/* Label Designer */}
-              <SidebarMenuItem>
-                <SidebarMenuButton 
-                  asChild
-                  className={`group relative w-full rounded-md transition-all duration-200 ${
-                    isActive("/label-designer")
-                      ? "bg-primary/90 text-primary-foreground shadow-sm" 
-                      : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
-                  }`}
-                >
-                  <NavLink 
-                    to="/label-designer" 
-                    end
-                    className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-md"
-                  >
-                    <Tag className="h-4 w-4 flex-shrink-0" />
-                    {!isCollapsed && (
-                      <span className="font-medium text-sm">
-                        Label Designer
-                      </span>
-                    )}
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-
               {/* Source Section - only show when not collapsed */}
               {!isCollapsed && (
                 <SidebarMenuItem>
@@ -576,6 +551,30 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               )}
 
+              {/* Label Designer */}
+              <SidebarMenuItem>
+                <SidebarMenuButton 
+                  asChild
+                  className={`group relative w-full rounded-md transition-all duration-200 ${
+                    isActive("/label-designer")
+                      ? "bg-primary/90 text-primary-foreground shadow-sm" 
+                      : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
+                  }`}
+                >
+                  <NavLink 
+                    to="/label-designer" 
+                    end
+                    className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-md"
+                  >
+                    <Tag className="h-4 w-4 flex-shrink-0" />
+                    {!isCollapsed && (
+                      <span className="font-medium text-sm">
+                        Label Designer
+                      </span>
+                    )}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
 
               {/* Carrefour Sales Tracker */}
               <SidebarMenuItem>
@@ -592,7 +591,7 @@ export function AppSidebar() {
                     end
                     className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-md"
                   >
-                    <BarChart3 className="h-5 w-5 flex-shrink-0" />
+                    <BarChart3 className="h-4 w-4 flex-shrink-0" />
                     {!isCollapsed && (
                       <span className="font-medium text-sm">
                         Carrefour Sales Tracker
