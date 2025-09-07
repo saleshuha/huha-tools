@@ -207,10 +207,10 @@ export function AppSidebar() {
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton 
                     asChild
-                    className={`group relative w-full rounded-md transition-all duration-150 ${
+                    className={`group relative w-full rounded-md transition-all duration-200 ${
                       isActive(item.url)
-                        ? "bg-primary text-primary-foreground shadow-sm" 
-                        : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                        ? "bg-primary/90 text-primary-foreground shadow-sm" 
+                        : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
                     }`}
                   >
                     <NavLink 
@@ -233,10 +233,10 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   asChild
-                  className={`group relative w-full rounded-md transition-all duration-150 ${
+                  className={`group relative w-full rounded-md transition-all duration-200 ${
                     isActive("/inventory")
-                      ? "bg-primary text-primary-foreground shadow-sm" 
-                      : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                      ? "bg-primary/90 text-primary-foreground shadow-sm" 
+                      : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
                   }`}
                 >
                   <NavLink 
@@ -258,10 +258,10 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   asChild
-                  className={`group relative w-full rounded-md transition-all duration-150 ${
+                  className={`group relative w-full rounded-md transition-all duration-200 ${
                     isActive("/order-processing")
-                      ? "bg-primary text-primary-foreground shadow-sm" 
-                      : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                      ? "bg-primary/90 text-primary-foreground shadow-sm" 
+                      : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
                   }`}
                 >
                   <NavLink 
@@ -283,10 +283,10 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   asChild
-                  className={`group relative w-full rounded-md transition-all duration-150 ${
+                  className={`group relative w-full rounded-md transition-all duration-200 ${
                     isActive("/replenishment")
-                      ? "bg-primary text-primary-foreground shadow-sm" 
-                      : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                      ? "bg-primary/90 text-primary-foreground shadow-sm" 
+                      : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
                   }`}
                 >
                   <NavLink 
@@ -308,10 +308,10 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   asChild
-                  className={`group relative w-full rounded-md transition-all duration-150 ${
+                  className={`group relative w-full rounded-md transition-all duration-200 ${
                     isActive("/label-designer")
-                      ? "bg-primary text-primary-foreground shadow-sm" 
-                      : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                      ? "bg-primary/90 text-primary-foreground shadow-sm" 
+                      : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
                   }`}
                 >
                   <NavLink 
@@ -333,10 +333,10 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   asChild
-                  className={`group relative w-full rounded-md transition-all duration-150 ${
+                  className={`group relative w-full rounded-md transition-all duration-200 ${
                     isActive("/po-tracker")
-                      ? "bg-primary text-primary-foreground shadow-sm" 
-                      : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                      ? "bg-primary/90 text-primary-foreground shadow-sm" 
+                      : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
                   }`}
                 >
                   <NavLink 
@@ -358,16 +358,16 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   asChild
-                  className={`group relative w-full rounded-xl transition-all duration-200 ${
+                  className={`group relative w-full rounded-md transition-all duration-200 ${
                     isActive("/noon-order-processing")
-                      ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
-                      : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
+                      ? "bg-primary/90 text-primary-foreground shadow-sm" 
+                      : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
                   }`}
                 >
                   <NavLink 
                     to="/noon-order-processing" 
                     end
-                    className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
+                    className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-md"
                   >
                     <Upload className="h-5 w-5 flex-shrink-0" />
                     {!isCollapsed && (
@@ -383,16 +383,16 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   asChild
-                  className={`group relative w-full rounded-xl transition-all duration-200 ${
+                  className={`group relative w-full rounded-md transition-all duration-200 ${
                     isActive("/noon-order-tracking")
-                      ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
-                      : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
+                      ? "bg-primary/90 text-primary-foreground shadow-sm" 
+                      : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
                   }`}
                 >
                   <NavLink 
                     to="/noon-order-tracking" 
                     end
-                    className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
+                    className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-md"
                   >
                     <Package className="h-5 w-5 flex-shrink-0" />
                     {!isCollapsed && (
@@ -409,16 +409,16 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   asChild
-                  className={`group relative w-full rounded-xl transition-all duration-200 ${
+                  className={`group relative w-full rounded-md transition-all duration-200 ${
                     isActive("/sunsky-importer")
-                      ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
-                      : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
+                      ? "bg-primary/90 text-primary-foreground shadow-sm" 
+                      : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
                   }`}
                 >
                   <NavLink 
                     to="/sunsky-importer" 
                     end
-                    className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
+                    className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-md"
                   >
                     <Globe className="h-5 w-5 flex-shrink-0" />
                     {!isCollapsed && (
@@ -434,20 +434,20 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   asChild
-                  className={`group relative w-full rounded-xl transition-all duration-200 ${
+                  className={`group relative w-full rounded-md transition-all duration-200 ${
                     isActive("/sunsky-order-tracking")
-                      ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
-                      : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
+                      ? "bg-primary/90 text-primary-foreground shadow-sm" 
+                      : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
                   }`}
                 >
                   <NavLink 
                     to="/sunsky-order-tracking" 
                     end
-                    className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
+                    className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-md"
                   >
-                    <Truck className="h-5 w-5 flex-shrink-0" />
+                    <Truck className="h-4 w-4 flex-shrink-0" />
                     {!isCollapsed && (
-                      <span className="font-semibold text-sm">
+                      <span className="font-medium text-sm">
                         Source Order Tracking
                       </span>
                     )}
@@ -459,18 +459,18 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   asChild
-                  className={`group relative w-full rounded-xl transition-all duration-200 ${
+                  className={`group relative w-full rounded-md transition-all duration-200 ${
                     isActive("/amazon-fulfillment")
-                      ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
-                      : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
+                      ? "bg-primary/90 text-primary-foreground shadow-sm" 
+                      : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
                   }`}
                 >
                   <NavLink 
                     to="/amazon-fulfillment" 
                     end
-                    className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
+                    className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-md"
                   >
-                    <Package className="h-5 w-5 flex-shrink-0" />
+                    <Package className="h-4 w-4 flex-shrink-0" />
                     {!isCollapsed && (
                       <span className="font-semibold text-sm">
                         Amazon Fulfillment Tracker
@@ -485,16 +485,16 @@ export function AppSidebar() {
                 <SidebarMenuItem>
                   <SidebarMenuButton 
                     asChild
-                    className={`group relative w-full rounded-xl transition-all duration-200 ${
+                    className={`group relative w-full rounded-md transition-all duration-200 ${
                       isActive("/amazon-vendor-central")
-                        ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
-                        : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
+                        ? "bg-primary/90 text-primary-foreground shadow-sm" 
+                        : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
                     }`}
                   >
                     <NavLink 
                       to="/amazon-vendor-central" 
                       end
-                      className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
+                      className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-md"
                     >
                       <Settings className="h-5 w-5 flex-shrink-0" />
                       {!isCollapsed && (
@@ -512,16 +512,16 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   asChild
-                  className={`group relative w-full rounded-xl transition-all duration-200 ${
+                  className={`group relative w-full rounded-md transition-all duration-200 ${
                     isActive("/carrefour-payments")
-                      ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
-                      : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
+                      ? "bg-primary/90 text-primary-foreground shadow-sm" 
+                      : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
                   }`}
                 >
                   <NavLink 
                     to="/carrefour-payments" 
                     end
-                    className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
+                    className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-md"
                   >
                     <BarChart3 className="h-5 w-5 flex-shrink-0" />
                     {!isCollapsed && (
@@ -538,15 +538,15 @@ export function AppSidebar() {
                 <SidebarMenuItem>
                   <Collapsible open={isToolsOpen} onOpenChange={setIsToolsOpen}>
                     <CollapsibleTrigger asChild>
-                      <SidebarMenuButton
-                        asChild
-                        className={`group relative w-full rounded-xl transition-all duration-200 ${
-                          isToolsSectionActive()
-                            ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
-                            : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
-                        }`}
-                      >
-                        <div className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl cursor-pointer">
+                    <SidebarMenuButton
+                      asChild
+                      className={`group relative w-full rounded-md transition-all duration-200 ${
+                        isToolsSectionActive()
+                          ? "bg-primary/90 text-primary-foreground shadow-sm" 
+                          : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-md cursor-pointer">
                           <Wrench className="h-5 w-5 flex-shrink-0" />
                           <span className="font-semibold text-sm">
                             Tools
@@ -559,13 +559,13 @@ export function AppSidebar() {
                     </CollapsibleTrigger>
                     <CollapsibleContent className="mt-2 space-y-1 pl-3 z-50 relative">
                       {toolsItems.map((item) => (
-                        <SidebarMenuButton 
+                        <SidebarMenuButton
                           key={item.title}
                           asChild
-                          className={`group relative w-full rounded-lg transition-all duration-200 ml-2 ${
+                          className={`group relative w-full rounded-md transition-all duration-200 ml-2 ${
                             isActive(item.url)
-                              ? "bg-gradient-to-r from-primary/80 to-primary/70 text-primary-foreground shadow-md shadow-primary/20" 
-                              : "hover:bg-gradient-to-r hover:from-sidebar-accent/60 hover:to-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+                              ? "bg-primary/90 text-primary-foreground shadow-sm" 
+                              : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
                           }`}
                         >
                           <NavLink 
@@ -590,10 +590,10 @@ export function AppSidebar() {
                 <SidebarMenuItem>
                   <SidebarMenuButton 
                     asChild
-                    className={`group relative w-full rounded-xl transition-all duration-200 ${
+                    className={`group relative w-full rounded-md transition-all duration-200 ${
                       isActive("/data-viewer")
-                        ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
-                        : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
+                        ? "bg-primary/90 text-primary-foreground shadow-sm" 
+                        : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
                     }`}
                   >
                     <a 
