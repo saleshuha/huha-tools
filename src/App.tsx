@@ -194,34 +194,38 @@ const App = () => {
             <Sonner />
             <BrowserRouter>
               <SidebarProvider>
-                <div className="min-h-screen flex w-full">
+                <div className="min-h-screen flex w-full bg-muted/10">
                   <AppSidebar />
                   <div className="flex-1 flex flex-col">
-                    <header className="h-12 flex items-center border-b bg-background shadow-sm">
-                      <div className="flex items-center justify-between w-full gap-4 px-4">
+                    <header className="bg-card border-b border-border shadow-soft">
+                      <div className="flex items-center justify-between w-full gap-4 px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <SidebarTrigger className="h-8 w-8" />
-                          <div className="flex items-center gap-2">
-                            <img 
-                              src="/lovable-uploads/4f9a15c5-2d12-4ee0-b0bd-e982c5b4ece7.png" 
-                              alt="HuHa Logo" 
-                              className="h-6 w-6 object-contain"
-                            />
+                          <SidebarTrigger className="h-8 w-8 bg-muted/50 hover:bg-muted border border-border rounded-md" />
+                          <div className="flex items-center gap-3">
+                            <div className="bg-primary/10 p-2 rounded-lg border border-primary/20">
+                              <img 
+                                src="/lovable-uploads/4f9a15c5-2d12-4ee0-b0bd-e982c5b4ece7.png" 
+                                alt="HuHa Logo" 
+                                className="h-6 w-6 object-contain"
+                              />
+                            </div>
                             <div className="flex flex-col">
-                              <h1 className="font-semibold text-sm text-foreground">HuHa Product Management System</h1>
-                              <p className="text-xs text-muted-foreground">Professional Inventory & Analytics Platform</p>
+                              <h1 className="font-semibold text-lg text-foreground">HuHa Product Management</h1>
+                              <p className="text-sm text-muted-foreground">Professional Inventory & Analytics Platform</p>
                             </div>
                           </div>
                         </div>
                         <div className="flex-1 flex justify-center">
-                          <span className="text-xs font-medium text-muted-foreground">اللَّهُمَّ صل عَلَى مُحَمَّدٍ وَعَلَى آلِ مُحَمَّدٍ</span>
+                          <div className="bg-muted/30 px-4 py-2 rounded-lg border border-border">
+                            <span className="text-sm font-medium text-muted-foreground">اللَّهُمَّ صل عَلَى مُحَمَّدٍ وَعَلَى آلِ مُحَمَّدٍ</span>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-3">
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => setShowBackgroundTasks(true)}
-                            className="flex items-center gap-2"
+                            className="flex items-center gap-2 shadow-soft"
                           >
                             <Activity className="h-4 w-4" />
                             Tasks
@@ -231,7 +235,7 @@ const App = () => {
                         </div>
                       </div>
                     </header>
-                    <main className="flex-1">
+                    <main className="flex-1 bg-muted/10 p-6">
                       <div className="app-container">
                         <Routes>
                         <Route path="/" element={<Index />} />

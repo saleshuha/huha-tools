@@ -126,7 +126,10 @@ export default {
 				'accent-glow': 'var(--shadow-accent-glow)',
 				'emerald-glow': 'var(--shadow-emerald-glow)',
 				'sky-glow': 'var(--shadow-sky-glow)',
-				'cyan-glow': 'var(--shadow-cyan-glow)'
+				'cyan-glow': 'var(--shadow-cyan-glow)',
+				'success': 'var(--shadow-success)',
+				'warning': 'var(--shadow-warning)',
+				'destructive': 'var(--shadow-destructive)'
 			},
 			transitionTimingFunction: {
 				'smooth': 'var(--transition-smooth)',

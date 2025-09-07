@@ -84,15 +84,18 @@
     --gradient-ocean: linear-gradient(135deg, hsl(var(--sky)), hsl(var(--cyan)));
     --gradient-nature: linear-gradient(135deg, hsl(var(--emerald)), hsl(var(--teal)));
     
-    /* Shadows - FreshUI Subtle */
-    --shadow-soft: 0 1px 2px 0 hsl(210 25% 25% / 0.05);
-    --shadow-medium: 0 1px 3px 0 hsl(210 25% 25% / 0.1), 0 1px 2px 0 hsl(210 25% 25% / 0.06);
-    --shadow-strong: 0 4px 6px -1px hsl(210 25% 25% / 0.1), 0 2px 4px -1px hsl(210 25% 25% / 0.06);
-    --shadow-glow: 0 0 20px hsl(var(--primary) / 0.1);
-    --shadow-accent-glow: 0 0 20px hsl(var(--accent) / 0.1);
-    --shadow-emerald-glow: 0 0 20px hsl(var(--emerald) / 0.1);
-    --shadow-sky-glow: 0 0 20px hsl(var(--sky) / 0.1);
-    --shadow-cyan-glow: 0 0 20px hsl(var(--cyan) / 0.1);
+    /* Enhanced shadows for boxed theme */
+    --shadow-soft: 0 1px 3px 0 hsl(210 25% 25% / 0.08), 0 1px 2px 0 hsl(210 25% 25% / 0.06);
+    --shadow-medium: 0 4px 6px -1px hsl(210 25% 25% / 0.1), 0 2px 4px -1px hsl(210 25% 25% / 0.08);
+    --shadow-strong: 0 10px 15px -3px hsl(210 25% 25% / 0.1), 0 4px 6px -2px hsl(210 25% 25% / 0.1);
+    --shadow-glow: 0 0 20px hsl(var(--primary) / 0.15);
+    --shadow-accent-glow: 0 0 20px hsl(var(--accent) / 0.15);
+    --shadow-emerald-glow: 0 0 20px hsl(var(--emerald) / 0.15);
+    --shadow-sky-glow: 0 0 20px hsl(var(--sky) / 0.15);
+    --shadow-cyan-glow: 0 0 20px hsl(var(--cyan) / 0.15);
+    --shadow-success: 0 4px 8px -2px hsl(var(--success) / 0.2);
+    --shadow-warning: 0 4px 8px -2px hsl(var(--warning) / 0.2);
+    --shadow-destructive: 0 4px 8px -2px hsl(var(--destructive) / 0.2);
     
     /* Smooth animations */
     --transition-smooth: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -215,28 +218,72 @@
 }
 
 @layer components {
-  /* FreshUI Panel Components */
+  /* ============================================================================
+     BOXED THEME SYSTEM - Clean, Contained Design
+     ============================================================================ */
+  
+  /* App Container - Boxed Layout */
+  .app-container {
+    @apply w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6;
+  }
+
+  /* Main Content Box */
+  .content-box {
+    @apply bg-card border border-border rounded-lg shadow-medium p-6;
+  }
+
+  .content-box-header {
+    @apply border-b border-border pb-4 mb-6;
+  }
+
+  .content-box-title {
+    @apply text-xl font-semibold text-foreground mb-2;
+  }
+
+  .content-box-description {
+    @apply text-sm text-muted-foreground;
+  }
+
+  /* Panel Components - Boxed */
   .panel {
-    @apply bg-card border border-border rounded-md shadow-soft;
+    @apply bg-card border border-border rounded-lg shadow-medium;
   }
 
   .panel-header {
-    @apply px-4 py-3 border-b border-border bg-muted/30;
+    @apply px-6 py-4 border-b border-border bg-muted/20 rounded-t-lg;
   }
 
   .panel-content {
-    @apply p-4;
+    @apply p-6;
   }
 
+  .panel-footer {
+    @apply px-6 py-4 border-t border-border bg-muted/20 rounded-b-lg;
+  }
+
+  /* Toolbar - Boxed */
   .toolbar {
-    @apply bg-background border-b border-border px-4 py-2 flex items-center gap-3;
+    @apply bg-card border border-border rounded-lg shadow-soft px-4 py-3 flex items-center gap-3 mb-4;
   }
 
-  /* FreshUI Upload zones */
+  /* Section Container */
+  .section-container {
+    @apply bg-card border border-border rounded-lg shadow-medium overflow-hidden;
+  }
+
+  .section-header {
+    @apply bg-muted/30 border-b border-border px-6 py-4;
+  }
+
+  .section-content {
+    @apply p-6;
+  }
+
+  /* Upload Zones - Boxed */
   .upload-zone {
-    @apply border-2 border-dashed border-border rounded-md p-6
+    @apply border-2 border-dashed border-border rounded-lg p-8
            transition-all duration-200 hover:border-primary hover:bg-primary/5
-           bg-card;
+           bg-card shadow-soft;
   }
   
   .upload-zone.drag-over {
@@ -244,21 +291,29 @@
   }
   
   .upload-zone.has-file {
-    @apply border-success bg-success/5;
+    @apply border-success bg-success/5 shadow-success/10;
   }
   
-  /* FreshUI Data tables */
+  /* Data Tables - Boxed */
   .data-table {
-    @apply bg-card border border-border rounded-md overflow-hidden;
+    @apply bg-card border border-border rounded-lg overflow-hidden shadow-medium;
   }
 
   .data-table-header {
-    @apply bg-muted/50 border-b border-border;
+    @apply bg-muted/40 border-b border-border;
+  }
+
+  .data-table-row {
+    @apply border-b border-border/50 last:border-b-0 hover:bg-muted/20 transition-colors;
+  }
+
+  .data-table-cell {
+    @apply px-4 py-3 text-sm;
   }
   
-  /* FreshUI Column cards */
+  /* Column Cards - Enhanced Boxed */
   .column-card {
-    @apply bg-card rounded-md p-3 border border-border shadow-soft
+    @apply bg-card rounded-lg p-4 border border-border shadow-soft
            transition-all duration-200 hover:shadow-medium hover:border-primary/50;
   }
   
@@ -267,45 +322,178 @@
   }
   
   .column-card.drag-target {
-    @apply border-accent bg-accent/10;
+    @apply border-accent bg-accent/10 shadow-accent-glow;
   }
   
   .column-card.mapped {
-    @apply border-success bg-success/10;
+    @apply border-success bg-success/10 shadow-success/20;
   }
-  
-  /* FreshUI Buttons */
+
+  /* Widget Cards */
+  .widget-card {
+    @apply bg-card border border-border rounded-lg p-4 shadow-medium
+           hover:shadow-strong transition-shadow duration-200;
+  }
+
+  .widget-card-header {
+    @apply flex items-center justify-between pb-3 border-b border-border mb-4;
+  }
+
+  .widget-card-title {
+    @apply font-semibold text-foreground;
+  }
+
+  .widget-card-content {
+    @apply space-y-3;
+  }
+
+  /* Stats Cards */
+  .stats-card {
+    @apply bg-gradient-to-br from-card to-card/80 border border-border rounded-lg p-6 shadow-medium
+           hover:shadow-strong transition-all duration-200;
+  }
+
+  .stats-card-header {
+    @apply flex items-center justify-between mb-4;
+  }
+
+  .stats-card-value {
+    @apply text-2xl font-bold text-foreground;
+  }
+
+  .stats-card-label {
+    @apply text-sm text-muted-foreground;
+  }
+
+  /* Form Containers - Boxed */
+  .form-container {
+    @apply bg-card border border-border rounded-lg shadow-medium p-6 space-y-6;
+  }
+
+  .form-section {
+    @apply space-y-4;
+  }
+
+  .form-section-header {
+    @apply border-b border-border pb-3 mb-4;
+  }
+
+  .form-section-title {
+    @apply font-medium text-foreground;
+  }
+
+  .form-section-description {
+    @apply text-sm text-muted-foreground;
+  }
+
+  /* Buttons - Enhanced Boxed */
   .btn-fresh {
-    @apply bg-primary text-primary-foreground border-0 px-3 py-2 rounded-md
+    @apply bg-primary text-primary-foreground border-0 px-4 py-2 rounded-lg
            font-medium text-sm transition-all duration-150 shadow-soft
-           hover:bg-primary/90 hover:shadow-medium;
+           hover:bg-primary/90 hover:shadow-medium hover:scale-[1.02];
   }
 
   .btn-fresh-outline {
-    @apply bg-transparent text-primary border border-primary px-3 py-2 rounded-md
-           font-medium text-sm transition-all duration-150
-           hover:bg-primary/10;
+    @apply bg-transparent text-primary border border-primary px-4 py-2 rounded-lg
+           font-medium text-sm transition-all duration-150 shadow-soft
+           hover:bg-primary/10 hover:shadow-medium;
   }
 
   .btn-fresh-secondary {
-    @apply bg-secondary text-secondary-foreground border-0 px-3 py-2 rounded-md
+    @apply bg-secondary text-secondary-foreground border-0 px-4 py-2 rounded-lg
            font-medium text-sm transition-all duration-150 shadow-soft
-           hover:bg-secondary/80;
+           hover:bg-secondary/80 hover:shadow-medium;
   }
 
-  /* Glass container - cleaner version */
-  .glass-container {
-    @apply bg-card/95 backdrop-blur-sm border border-border rounded-md shadow-soft;
+  .btn-fresh-ghost {
+    @apply bg-transparent text-foreground px-4 py-2 rounded-lg
+           font-medium text-sm transition-all duration-150
+           hover:bg-muted/50 hover:shadow-soft;
   }
 
-  /* FreshUI Grid utilities */
-  .auto-fit-columns {
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  /* Navigation - Boxed */
+  .nav-container {
+    @apply bg-card border border-border rounded-lg shadow-soft overflow-hidden;
   }
 
-  /* FreshUI App container */
-  .app-container {
-    @apply w-full px-3 sm:px-4 lg:max-w-[1400px] xl:max-w-[1600px] 2xl:max-w-[1800px] mx-auto;
+  .nav-item {
+    @apply px-4 py-3 transition-colors hover:bg-muted/30 border-b border-border/50 last:border-b-0;
+  }
+
+  .nav-item.active {
+    @apply bg-primary/10 text-primary border-primary/20;
+  }
+
+  /* Grid Layouts - Boxed */
+  .grid-container {
+    @apply grid gap-6;
+  }
+
+  .grid-cols-boxed {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  }
+
+  .grid-cols-boxed-sm {
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  }
+
+  .grid-cols-boxed-lg {
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  }
+
+  /* Sidebar Enhancements */
+  .sidebar-boxed {
+    @apply bg-card border-r border-border shadow-medium;
+  }
+
+  .sidebar-content {
+    @apply p-4 space-y-2;
+  }
+
+  .sidebar-item {
+    @apply px-3 py-2 rounded-lg transition-colors hover:bg-muted/30;
+  }
+
+  .sidebar-item.active {
+    @apply bg-primary/10 text-primary;
+  }
+
+  /* Tabs - Boxed Style */
+  .tabs-boxed {
+    @apply bg-card border border-border rounded-lg shadow-soft overflow-hidden;
+  }
+
+  .tabs-list-boxed {
+    @apply bg-muted/30 border-b border-border p-1;
+  }
+
+  .tabs-trigger-boxed {
+    @apply px-4 py-2 rounded-md data-[state=active]:bg-card data-[state=active]:shadow-soft;
+  }
+
+  .tabs-content-boxed {
+    @apply p-6;
+  }
+
+  /* Alert Boxes */
+  .alert-box {
+    @apply bg-card border border-border rounded-lg p-4 shadow-soft;
+  }
+
+  .alert-box-info {
+    @apply border-sky bg-sky/5;
+  }
+
+  .alert-box-success {
+    @apply border-success bg-success/5;
+  }
+
+  .alert-box-warning {
+    @apply border-warning bg-warning/5;
+  }
+
+  .alert-box-error {
+    @apply border-destructive bg-destructive/5;
   }
 }
 
