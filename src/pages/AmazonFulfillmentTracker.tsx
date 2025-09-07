@@ -31,6 +31,13 @@ const AmazonFulfillmentTracker = () => {
         subtitle={`Direct fulfillment order payment tracking for ${selectedCountry}`}
         actions={[
           {
+            label: '',
+            icon: <CurrencySelector />,
+            onClick: () => {},
+            variant: 'outline' as const,
+            className: 'p-0'
+          },
+          {
             label: 'Currency Rates',
             icon: <DollarSign className="h-4 w-4 mr-2" />,
             onClick: () => setShowCurrencyDialog(true),
@@ -47,13 +54,6 @@ const AmazonFulfillmentTracker = () => {
             onClick: () => setShowReAuthDialog(true),
             variant: 'secondary' as const
           }] : [])
-        ]}
-        badges={[
-          {
-            label: '',
-            icon: <CurrencySelector />,
-            variant: 'outline' as const
-          }
         ]}
       />
       <div className="mx-6 space-y-6">
