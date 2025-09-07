@@ -48,6 +48,13 @@ const AmazonFulfillmentTracker = () => {
             variant: 'secondary' as const
           }] : [])
         ]}
+        badges={[
+          {
+            label: '',
+            icon: <CurrencySelector />,
+            variant: 'outline' as const
+          }
+        ]}
       />
       <div className="mx-6 space-y-6">
 
