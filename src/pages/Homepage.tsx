@@ -122,11 +122,11 @@ const Homepage = () => {
             ? 'Managing inventory and operations in the United Arab Emirates' 
             : 'Managing inventory and operations in Saudi Arabia'
           }
-          className="mx-4 my-4 flex-shrink-0 animate-slide-up"
+          className="flex-shrink-0 animate-slide-up"
         />
 
         {/* Enhanced Selected Date Tasks */}
-        {selectedDate && getTasksForDate(selectedDate).length > 0 && <div className="glass-container p-6 mx-4 mb-2 flex-shrink-0 animate-slide-up">
+        {selectedDate && getTasksForDate(selectedDate).length > 0 && <div className="glass-container p-6 mx-6 mb-2 flex-shrink-0 animate-slide-up">
             <h3 className="text-lg font-semibold mb-4 text-card-foreground">
               Tasks for {format(selectedDate, 'EEEE, MMMM d, yyyy')}
             </h3>
@@ -152,7 +152,7 @@ const Homepage = () => {
         {/* Enhanced Calendar */}
         <div className="flex-1 p-4 overflow-hidden">
           {/* Calendar Header */}
-          <div className="glass-container p-4 mb-4 bg-card animate-fade-in">
+          <div className="glass-container p-4 mb-4 bg-card animate-fade-in mx-6">
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-bold text-card-foreground bg-gradient-primary bg-clip-text text-transparent">
                 {format(currentDate, 'MMMM yyyy')}

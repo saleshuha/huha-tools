@@ -24,8 +24,7 @@ const AmazonFulfillmentTracker = () => {
 
   return (
     <CurrencyDisplayProvider>
-      <div className="min-h-screen bg-gradient-surface p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="min-h-screen bg-gradient-surface">
       <HuhaHeader01
         icon={<DollarSign className="w-5 h-5 text-primary-foreground" />}
         title="Amazon Fulfillment Tracker"
@@ -50,9 +49,7 @@ const AmazonFulfillmentTracker = () => {
           }] : [])
         ]}
       />
-      <div className="flex justify-end mb-4">
-        <CurrencySelector />
-      </div>
+      <div className="mx-6 space-y-6">
 
         {/* Main Content */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">

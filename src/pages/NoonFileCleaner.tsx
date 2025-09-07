@@ -153,7 +153,7 @@ const NoonFileCleaner: React.FC = () => {
   };
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="mx-6 space-y-6">
       <HuhaHeader01
         icon={<FileText className="w-5 h-5 text-primary-foreground" />}
         title="Noon File Cleaner"

@@ -319,7 +319,6 @@ export default function SunskyOrderTrackingPage() {
         icon={<Package className="w-5 h-5 text-primary-foreground" />}
         title="Sunsky Order Tracking (Global)"
         subtitle={`Track ALL Sunsky orders and monitor item delivery status for ${selectedCountry}`}
-        className="mx-6 my-4"
       />
       <div className="glass-container mx-6 my-4 p-8 animate-fade-in">
         <div className="mb-6">

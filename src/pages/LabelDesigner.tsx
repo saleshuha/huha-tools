@@ -152,7 +152,8 @@ const LabelDesignerContent: React.FC = () => {
     }] : [])
   ] : [];
 
-  return <div className="h-screen flex flex-col bg-gradient-to-br from-background via-background to-muted/10">
+  return (
+    <div className="h-screen flex flex-col bg-gradient-to-br from-background via-background to-muted/10">
       <HuhaHeader01
         icon={<Printer className="h-5 w-5 text-primary-foreground" />}
         title="Label Designer & Printer"
@@ -162,7 +163,7 @@ const LabelDesignerContent: React.FC = () => {
       />
       
       {/* Dialogs */}
-      <Dialog open={showLoadDialog} onOpenChange={setShowLoadDialog}>
+        <Dialog open={showLoadDialog} onOpenChange={setShowLoadDialog}>
         <DialogContent className="border-2 border-border bg-background/95 backdrop-blur-sm max-w-md">
           <DialogHeader>
             <DialogTitle className="text-xl font-semibold text-foreground">Load Existing Label</DialogTitle>
@@ -379,7 +380,8 @@ const LabelDesignerContent: React.FC = () => {
           </TabsContent>
         </Tabs>
       </div>
-    </div>;
+    </div>
+  );
 };
 const LabelDesigner: React.FC = () => {
   return <SimpleLabelDocProvider>
