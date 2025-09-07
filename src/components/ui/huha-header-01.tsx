@@ -36,46 +36,53 @@ export const HuhaHeader01: React.FC<HuhaHeader01Props> = ({
   className
 }) => {
   return (
-    <div className={cn("huha-header border-b-2 border-border/50 bg-gradient-to-r from-card/80 to-card/60 backdrop-blur-md shadow-lg mx-6 my-4", className)} style={{ minHeight: 'var(--header-min-h, 80px)' }}>
-      <div className="px-6 py-3">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-5">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-md">
+    <div className={cn(
+      "relative overflow-hidden rounded-xl border bg-card/50 backdrop-blur-sm shadow-soft",
+      className
+    )}>
+      <div className="relative z-10 p-6">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-4">
+            {icon && (
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary shadow-soft">
                 {icon}
               </div>
-              <div className="space-y-2">
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-primary via-primary/90 to-primary/70 bg-clip-text text-transparent leading-tight">
-                  {title}
-                </h1>
-                <p className="text-base text-muted-foreground">{subtitle}</p>
-              </div>
+            )}
+            <div>
+              <h1 className="text-2xl font-semibold text-foreground">
+                {title}
+              </h1>
+              {subtitle && (
+                <p className="text-muted-foreground mt-1">{subtitle}</p>
+              )}
             </div>
           </div>
-          <div className="flex items-center gap-4">
-            {actions.map((action, index) => (
-              <Button
-                key={index}
-                variant={action.variant || 'default'}
-                size="sm"
-                onClick={action.onClick}
-                className={cn(action.className)}
-              >
-                {action.icon}
-                {action.label}
-              </Button>
-            ))}
-          </div>
+          
+          {actions.length > 0 && (
+            <div className="flex items-center gap-2">
+              {actions.map((action, index) => (
+                <Button
+                  key={index}
+                  variant={action.variant || 'default'}
+                  size="sm"
+                  onClick={action.onClick}
+                  className={cn("shadow-none", action.className)}
+                >
+                  {action.icon}
+                  {action.label}
+                </Button>
+              ))}
+            </div>
+          )}
         </div>
         
-        {/* Status Bar */}
         {badges.length > 0 && (
-          <div className="flex items-center gap-4 p-4 bg-gradient-to-r from-muted/30 to-muted/20 rounded-xl border-2 border-border/30">
+          <div className="flex items-center gap-2 mt-4 pt-4 border-t border-border/50">
             {badges.map((badge, index) => (
               <Badge
                 key={index}
                 variant={badge.variant || 'default'}
-                className={cn(badge.className)}
+                className={cn("shadow-none", badge.className)}
               >
                 {badge.icon}
                 {badge.label}

@@ -1,9 +1,12 @@
 import { Inventory } from '@/components/Inventory';
+import { PageLayout } from '@/components/layout/PageLayout';
 
 export default function InventoryPage() {
-  return <div className="min-h-screen bg-gradient-surface">
-      <div className="w-full px-4 md:px-6 py-4 animate-fade-in">
+  return (
+    <div className="min-h-screen bg-gradient-surface">
+      <PageLayout>
         <Inventory />
-      </div>
-    </div>;
+      </PageLayout>
+    </div>
+  );
 }

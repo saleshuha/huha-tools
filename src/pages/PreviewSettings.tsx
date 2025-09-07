@@ -2,6 +2,7 @@ import React from 'react';
 import { Settings, Palette, Layout, Square, Type, Table, RotateCcw, Save, MousePointer, Grid, Navigation } from 'lucide-react';
 import { HuhaHeader01 } from '@/components/ui/huha-header-01';
 import { HuhaTab01 } from '@/components/ui/huha-tab-01';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -34,6 +35,40 @@ const PreviewSettings = () => {
     toast({
       title: "Settings Reset",
       description: "All theme settings have been reset to defaults.",
+    });
+  };
+
+  const handleApplyFreshUI = () => {
+    setConfig({
+      colorScheme: 'Blue',
+      headerStyle: 'clean',
+      headerGradient: false,
+      tabStyle: 'modern',
+      tabAnimation: true,
+      tabPosition: 'top',
+      buttonStyle: 'modern',
+      buttonShadow: false,
+      buttonSize: 'md',
+      buttonVariant: 'solid',
+      fieldStyle: 'clean',
+      fieldFocus: 'subtle',
+      fieldSize: 'md',
+      tableDensity: 'comfortable',
+      tableStripes: false,
+      tableHover: true,
+      tableBorder: 'minimal',
+      tableStyle: 'minimal',
+      cardStyle: 'clean',
+      cardShadow: 'sm',
+      navStyle: 'clean',
+      sidebarStyle: 'clean',
+      borderRadius: 'medium',
+      animations: true,
+      spacing: 'comfortable',
+    });
+    toast({
+      title: "FreshUI Preset Applied",
+      description: "Theme has been set to the FreshUI preset - clean, modern & professional.",
     });
   };
 
@@ -645,39 +680,47 @@ const PreviewSettings = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <HuhaHeader01
-        icon={<Settings className="h-6 w-6 text-white" />}
-        title="Preview Settings"
-        subtitle="Customize your interface design and appearance"
-        actions={[
-          {
-            label: "Reset to Defaults",
-            icon: <RotateCcw className="h-4 w-4 mr-2" />,
-            onClick: handleReset,
-            variant: "outline"
-          },
-          {
-            label: "Save Settings",
-            icon: <Save className="h-4 w-4 mr-2" />,
-            onClick: handleSave,
-            variant: "default"
-          }
-        ]}
-        badges={[
-          {
-            label: `Theme: ${config.colorScheme}`,
-            icon: <Palette className="h-3 w-3 mr-1" />
-          }
-        ]}
-      />
-
-      <div className="container mx-auto px-8 py-6">
-        <HuhaTab01
-          items={tabItems}
-          value={activeTab}
-          onValueChange={setActiveTab}
+      <PageLayout>
+        <HuhaHeader01
+          icon={<Settings className="h-6 w-6 text-white" />}
+          title="Preview Settings"
+          subtitle="Customize your interface design and appearance"
+          actions={[
+            {
+              label: "Apply FreshUI",
+              icon: <Palette className="h-4 w-4 mr-2" />,
+              onClick: handleApplyFreshUI,
+              variant: "secondary"
+            },
+            {
+              label: "Reset to Defaults",
+              icon: <RotateCcw className="h-4 w-4 mr-2" />,
+              onClick: handleReset,
+              variant: "outline"
+            },
+            {
+              label: "Save Settings",
+              icon: <Save className="h-4 w-4 mr-2" />,
+              onClick: handleSave,
+              variant: "default"
+            }
+          ]}
+          badges={[
+            {
+              label: `Theme: ${config.colorScheme}`,
+              icon: <Palette className="h-3 w-3 mr-1" />
+            }
+          ]}
         />
-      </div>
+
+        <div className="pt-6">
+          <HuhaTab01
+            items={tabItems}
+            value={activeTab}
+            onValueChange={setActiveTab}
+          />
+        </div>
+      </PageLayout>
     </div>
   );
 };

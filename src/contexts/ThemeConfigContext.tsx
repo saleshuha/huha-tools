@@ -6,72 +6,72 @@ export interface ThemeConfig {
   colorScheme: string;
   
   // Header
-  headerStyle: 'default' | 'compact' | 'spacious';
+  headerStyle: 'default' | 'compact' | 'spacious' | 'clean';
   headerGradient: boolean;
   
   // Tabs  
-  tabStyle: 'default' | 'pills' | 'underline' | 'segmented' | 'bordered';
+  tabStyle: 'default' | 'pills' | 'underline' | 'segmented' | 'bordered' | 'modern';
   tabAnimation: boolean;
   tabPosition: 'top' | 'bottom' | 'left' | 'right';
   
   // Buttons
-  buttonStyle: 'default' | 'rounded' | 'sharp' | 'pill' | 'ghost' | 'soft';
+  buttonStyle: 'default' | 'rounded' | 'sharp' | 'pill' | 'ghost' | 'soft' | 'modern';
   buttonShadow: boolean;
   buttonSize: 'sm' | 'md' | 'lg';
   buttonVariant: 'solid' | 'outline' | 'ghost' | 'gradient';
   
   // Fields
-  fieldStyle: 'default' | 'filled' | 'subtle' | 'underline' | 'floating' | 'bordered';
-  fieldFocus: 'default' | 'glow' | 'underline' | 'scale' | 'shadow';
+  fieldStyle: 'default' | 'filled' | 'subtle' | 'underline' | 'floating' | 'bordered' | 'clean';
+  fieldFocus: 'default' | 'glow' | 'underline' | 'scale' | 'shadow' | 'subtle';
   fieldSize: 'sm' | 'md' | 'lg';
   
   // Tables
-  tableDensity: 'default' | 'compact' | 'spacious';
+  tableDensity: 'default' | 'compact' | 'spacious' | 'comfortable';
   tableStripes: boolean;
   tableHover: boolean;
-  tableBorder: 'none' | 'horizontal' | 'vertical' | 'all';
+  tableBorder: 'none' | 'horizontal' | 'vertical' | 'all' | 'minimal';
   tableStyle: 'default' | 'minimal' | 'bordered' | 'shadow';
   
   // Cards
-  cardStyle: 'default' | 'flat' | 'elevated' | 'outlined' | 'soft';
+  cardStyle: 'default' | 'flat' | 'elevated' | 'outlined' | 'soft' | 'clean';
   cardShadow: 'none' | 'sm' | 'md' | 'lg' | 'xl';
   
   // Navigation
-  navStyle: 'default' | 'pill' | 'underline' | 'filled';
-  sidebarStyle: 'default' | 'floating' | 'bordered' | 'minimal';
+  navStyle: 'default' | 'pill' | 'underline' | 'filled' | 'clean';
+  sidebarStyle: 'default' | 'floating' | 'bordered' | 'minimal' | 'clean';
   
   // Global
   borderRadius: 'none' | 'small' | 'medium' | 'large' | 'full';
   animations: boolean;
-  spacing: 'tight' | 'default' | 'loose';
+  spacing: 'tight' | 'default' | 'loose' | 'comfortable';
 }
 
 const defaultConfig: ThemeConfig = {
   colorScheme: 'Blue',
-  headerStyle: 'default',
-  headerGradient: true,
-  tabStyle: 'default',
+  headerStyle: 'clean',
+  headerGradient: false,
+  tabStyle: 'modern',
   tabAnimation: true,
   tabPosition: 'top',
-  buttonStyle: 'default',
-  buttonShadow: true,
+  buttonStyle: 'modern',
+  buttonShadow: false,
   buttonSize: 'md',
   buttonVariant: 'solid',
-  fieldStyle: 'default',
-  fieldFocus: 'default',
+  fieldStyle: 'clean',
+  fieldFocus: 'subtle',
   fieldSize: 'md',
-  tableDensity: 'default',
+  tableDensity: 'comfortable',
   tableStripes: false,
   tableHover: true,
-  tableBorder: 'horizontal',
-  tableStyle: 'default',
-  cardStyle: 'default',
-  cardShadow: 'md',
-  navStyle: 'default',
-  sidebarStyle: 'default',
+  tableBorder: 'minimal',
+  tableStyle: 'minimal',
+  cardStyle: 'clean',
+  cardShadow: 'sm',
+  navStyle: 'clean',
+  sidebarStyle: 'clean',
   borderRadius: 'medium',
   animations: true,
-  spacing: 'default',
+  spacing: 'comfortable',
 };
 
 interface ThemeConfigContextType {
