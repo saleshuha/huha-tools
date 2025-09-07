@@ -621,24 +621,24 @@ export function AppSidebar() {
         <SidebarProgressIndicator />
         
         {/* Notification Logs above User Management */}
-        <div className="mb-3">
+        <div className="mb-1">
           <SidebarNotificationLogs />
         </div>
         
         <SidebarMenuButton 
           asChild
-          className={`group relative w-full rounded-xl transition-all duration-200 ${
+          className={`group relative w-full rounded-md transition-all duration-200 ${
             isActive("/users")
-              ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
-              : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
+              ? "bg-primary/90 text-primary-foreground shadow-sm" 
+              : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
           }`}
         >
           <NavLink 
             to="/users" 
             end
-            className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
+            className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-md"
           >
-            <Users className="h-5 w-5 flex-shrink-0" />
+            <Users className="h-4 w-4 flex-shrink-0" />
             {!isCollapsed && (
               <span className="font-medium text-sm">
                 User Management
@@ -650,18 +650,18 @@ export function AppSidebar() {
         {/* Preview Settings */}
         <SidebarMenuButton 
           asChild
-          className={`group relative w-full rounded-xl transition-all duration-200 ${
+          className={`group relative w-full rounded-md transition-all duration-200 ${
             isActive("/preview-settings")
-              ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
-              : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
+              ? "bg-primary/90 text-primary-foreground shadow-sm" 
+              : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
           }`}
         >
           <NavLink 
             to="/preview-settings" 
             end
-            className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl"
+            className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-md"
           >
-            <Palette className="h-5 w-5 flex-shrink-0" />
+            <Palette className="h-4 w-4 flex-shrink-0" />
             {!isCollapsed && (
               <span className="font-medium text-sm">
                 Preview Settings
