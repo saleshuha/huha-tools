@@ -30,7 +30,7 @@ export interface ThemeConfig {
   tableStripes: boolean;
   tableHover: boolean;
   tableBorder: 'none' | 'horizontal' | 'vertical' | 'all' | 'minimal';
-  tableStyle: 'default' | 'minimal' | 'bordered' | 'shadow';
+  tableStyle: 'default' | 'minimal' | 'bordered' | 'shadow' | 'clean';
   
   // Cards
   cardStyle: 'default' | 'flat' | 'elevated' | 'outlined' | 'soft' | 'clean';
@@ -54,22 +54,22 @@ const defaultConfig: ThemeConfig = {
   tabAnimation: true,
   tabPosition: 'top',
   buttonStyle: 'modern',
-  buttonShadow: false,
+  buttonShadow: true,
   buttonSize: 'md',
   buttonVariant: 'solid',
   fieldStyle: 'clean',
-  fieldFocus: 'subtle',
+  fieldFocus: 'glow',
   fieldSize: 'md',
   tableDensity: 'comfortable',
   tableStripes: false,
   tableHover: true,
   tableBorder: 'minimal',
-  tableStyle: 'minimal',
-  cardStyle: 'clean',
-  cardShadow: 'sm',
+  tableStyle: 'clean',
+  cardStyle: 'elevated',
+  cardShadow: 'md',
   navStyle: 'clean',
   sidebarStyle: 'clean',
-  borderRadius: 'medium',
+  borderRadius: 'large',
   animations: true,
   spacing: 'comfortable',
 };

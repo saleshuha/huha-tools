@@ -6,103 +6,58 @@
 
 @layer base {
   :root {
-    /* Base Colors - FreshUI Theme */
-    --background: 0 0% 100%;
-    --foreground: 210 11% 15%;
-
-    /* Clean white surfaces */
+    /* FreshUI Color Palette */
+    --background: 220 13% 98%;
+    --foreground: 215 25% 27%;
     --card: 0 0% 100%;
-    --card-foreground: 210 11% 15%;
-
+    --card-foreground: 215 25% 27%;
     --popover: 0 0% 100%;
-    --popover-foreground: 210 11% 15%;
-
-    /* Primary Colors - Fresh Blue */
-    --primary: 210 100% 50%;
+    --popover-foreground: 215 25% 27%;
+    --primary: 217 91% 60%;
     --primary-foreground: 0 0% 100%;
-    --primary-light: 210 100% 60%;
-    --primary-dark: 210 100% 40%;
-
-    /* Secondary Colors - Light Gray */
-    --secondary: 210 17% 95%;
-    --secondary-foreground: 210 11% 15%;
-
-    /* Muted Colors */
-    --muted: 210 17% 95%;
-    --muted-foreground: 210 11% 46%;
-
-    /* Accent Colors */
-    --accent: 210 17% 92%;
-    --accent-foreground: 210 11% 15%;
-
-    /* Enhanced color palette */
-    --emerald: 142 76% 40%;
-    --emerald-foreground: 0 0% 100%;
-    --emerald-light: 142 76% 50%;
-    --emerald-dark: 142 76% 30%;
-
-    --sky: 199 89% 48%;
-    --sky-foreground: 0 0% 100%;
-    --sky-light: 199 89% 58%;
-    --sky-dark: 199 89% 38%;
-
-    --cyan: 188 94% 42%;
-    --cyan-foreground: 0 0% 100%;
-    --cyan-light: 188 94% 52%;
-    --cyan-dark: 188 94% 32%;
-
-    --teal: 173 58% 39%;
-    --teal-foreground: 0 0% 100%;
-    --teal-light: 173 58% 49%;
-    --teal-dark: 173 58% 29%;
-
-    /* Clean status colors */
-    --success: 138 76% 40%;
-    --success-foreground: 0 0% 100%;
-    
-    --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 100%;
-    
+    --primary-hover: 217 91% 55%;
+    --secondary: 210 40% 95%;
+    --secondary-foreground: 215 25% 27%;
+    --muted: 210 40% 95%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 217 91% 95%;
+    --accent-foreground: 217 91% 60%;
     --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
-
-    /* UI Component Colors - FreshUI */
-    --border: 210 17% 90%;
-    --input: 210 17% 95%;
-    --ring: 210 100% 50%;
-
-    /* FreshUI Border Radius - Softer, more modern */
-    --radius: 12px;
-
-    /* FreshUI Gradients - Subtle and Clean */
-    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.9));
-    --gradient-accent: linear-gradient(135deg, hsl(var(--accent)), hsl(var(--accent) / 0.8));
-    --gradient-surface: linear-gradient(180deg, hsl(var(--background)), hsl(var(--muted) / 0.05));
-    --gradient-emerald: linear-gradient(135deg, hsl(var(--emerald)), hsl(var(--emerald) / 0.9));
-    --gradient-sky: linear-gradient(135deg, hsl(var(--sky)), hsl(var(--sky) / 0.9));
-    --gradient-cyan: linear-gradient(135deg, hsl(var(--cyan)), hsl(var(--cyan) / 0.9));
-    --gradient-teal: linear-gradient(135deg, hsl(var(--teal)), hsl(var(--teal) / 0.9));
-    --gradient-ocean: linear-gradient(135deg, hsl(189 94% 43%), hsl(189 94% 50%));
-    --gradient-nature: linear-gradient(135deg, hsl(142 76% 36%), hsl(142 76% 45%));
-
-    /* FreshUI Shadows - Clean and Minimal */
-    --shadow-soft: 0 1px 3px 0 hsl(var(--foreground) / 0.06), 0 1px 2px 0 hsl(var(--foreground) / 0.04);
-    --shadow-medium: 0 4px 6px -1px hsl(var(--foreground) / 0.08), 0 2px 4px -1px hsl(var(--foreground) / 0.04);
-    --shadow-strong: 0 10px 15px -3px hsl(var(--foreground) / 0.1), 0 4px 6px -2px hsl(var(--foreground) / 0.05);
-    --shadow-glow: 0 0 15px hsl(var(--primary) / 0.12);
-    --shadow-accent-glow: 0 0 20px hsl(var(--accent) / 0.15);
-    --shadow-emerald-glow: 0 0 20px hsl(var(--emerald) / 0.15);
-    --shadow-sky-glow: 0 0 20px hsl(var(--sky) / 0.15);
-    --shadow-cyan-glow: 0 0 20px hsl(var(--cyan) / 0.15);
-
-    /* FreshUI Transitions - Smooth and Professional */
-    --transition-smooth: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-bounce: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-    --transition-spring: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-
-    /* Theme Config Variables */
-    --header-min-h: 120px;
-
+    --destructive-foreground: 0 0% 98%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 217 91% 60%;
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 98%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 98%;
+    --info: 199 89% 48%;
+    --info-foreground: 0 0% 98%;
+    
+    /* Chart colors */
+    --chart-1: 217 91% 60%;
+    --chart-2: 142 71% 45%;
+    --chart-3: 38 92% 50%;
+    --chart-4: 270 95% 75%;
+    --chart-5: 340 82% 52%;
+    
+    /* FreshUI Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(217 91% 60%), hsl(217 91% 70%));
+    --gradient-card: linear-gradient(135deg, hsl(0 0% 100%), hsl(210 40% 98%));
+    --gradient-muted: linear-gradient(135deg, hsl(210 40% 95%), hsl(210 40% 98%));
+    --gradient-glass: linear-gradient(135deg, hsla(0, 0%, 100%, 0.25), hsla(0, 0%, 100%, 0.1));
+    
+    /* FreshUI Shadows */
+    --shadow-soft: 0 1px 3px 0 hsla(215, 25%, 27%, 0.08), 0 1px 2px 0 hsla(215, 25%, 27%, 0.06);
+    --shadow-elevated: 0 4px 6px -1px hsla(215, 25%, 27%, 0.1), 0 2px 4px -1px hsla(215, 25%, 27%, 0.06);
+    --shadow-glass: 0 8px 32px 0 hsla(215, 25%, 27%, 0.1);
+    --shadow-glow: 0 0 0 1px hsla(217, 91%, 60%, 0.15);
+    
+    /* Spacing & Layout */
+    --radius: 0.75rem;
+    --container-max-width: 1200px;
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    
     /* Sidebar colors - FreshUI */
     --sidebar-background: 210 17% 98%;
     --sidebar-foreground: 210 11% 15%;
@@ -115,63 +70,39 @@
   }
 
   .dark {
-    /* Base Colors - FreshUI Dark */
-    --background: 210 25% 8%;
-    --foreground: 210 11% 91%;
-
-    --card: 210 25% 10%;
-    --card-foreground: 210 11% 91%;
-
-    --popover: 210 25% 10%;
-    --popover-foreground: 210 11% 91%;
-
-    --primary: 210 100% 55%;
-    --primary-foreground: 0 0% 0%;
-    --primary-light: 210 100% 65%;
-    --primary-dark: 210 100% 45%;
-
-    --secondary: 210 25% 12%;
-    --secondary-foreground: 210 11% 91%;
-
-    --muted: 210 25% 12%;
-    --muted-foreground: 210 11% 54%;
-
-    --accent: 210 25% 15%;
-    --accent-foreground: 210 11% 91%;
-
-    /* Enhanced dark theme colors */
-    --emerald: 142 76% 45%;
-    --emerald-foreground: 0 0% 100%;
-    --emerald-light: 142 76% 55%;
-    --emerald-dark: 142 76% 35%;
-
-    --sky: 199 89% 53%;
-    --sky-foreground: 0 0% 0%;
-    --sky-light: 199 89% 63%;
-    --sky-dark: 199 89% 43%;
-
-    --cyan: 188 94% 47%;
-    --cyan-foreground: 0 0% 0%;
-    --cyan-light: 188 94% 57%;
-    --cyan-dark: 188 94% 37%;
-
-    --teal: 173 58% 44%;
-    --teal-foreground: 0 0% 100%;
-    --teal-light: 173 58% 54%;
-    --teal-dark: 173 58% 34%;
-
-    --success: 138 76% 45%;
-    --success-foreground: 0 0% 100%;
+    --background: 224 71% 4%;
+    --foreground: 213 31% 91%;
+    --card: 224 71% 4%;
+    --card-foreground: 213 31% 91%;
+    --popover: 224 71% 4%;
+    --popover-foreground: 213 31% 91%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 222 84% 5%;
+    --primary-hover: 217 91% 55%;
+    --secondary: 222 84% 5%;
+    --secondary-foreground: 213 31% 91%;
+    --muted: 223 47% 11%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 216 34% 17%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 216 34% 17%;
+    --input: 216 34% 17%;
+    --ring: 217 91% 60%;
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 98%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 98%;
+    --info: 199 89% 48%;
+    --info-foreground: 0 0% 98%;
     
-    --warning: 38 92% 55%;
-    --warning-foreground: 0 0% 0%;
-    
-    --destructive: 0 84% 65%;
-    --destructive-foreground: 0 0% 100%;
-
-    --border: 210 25% 15%;
-    --input: 210 25% 15%;
-    --ring: 210 100% 55%;
+    /* Chart colors for dark mode */
+    --chart-1: 217 91% 60%;
+    --chart-2: 142 71% 45%;
+    --chart-3: 38 92% 50%;
+    --chart-4: 270 95% 75%;
+    --chart-5: 340 82% 52%;
 
     --sidebar-background: 210 25% 6%;
     --sidebar-foreground: 210 11% 91%;
@@ -190,11 +121,12 @@
   }
 
   body {
-    font-family: "Inter", "Roboto", "Open Sans", system-ui, -apple-system, sans-serif;
+    font-family: "Open Sans", "Inter", system-ui, -apple-system, sans-serif;
     @apply bg-background text-foreground antialiased;
     min-height: 100vh;
-    line-height: 1.5;
+    line-height: 1.6;
     font-weight: 400;
+    letter-spacing: -0.01em;
   }
   
   /* Custom scrollbars */
@@ -217,97 +149,56 @@
 }
 
 @layer components {
-  /* FreshUI Panel Components */
+  /* FreshUI Component Styles */
   .panel {
-    @apply bg-card border border-border rounded-md shadow-soft;
+    @apply bg-card border border-border rounded-xl p-6 shadow-soft backdrop-blur-sm;
   }
 
-  .panel-header {
-    @apply px-4 py-3 border-b border-border bg-muted/30;
-  }
-
-  .panel-content {
-    @apply p-4;
-  }
-
-  .toolbar {
-    @apply bg-background border-b border-border px-4 py-2 flex items-center gap-3;
-  }
-
-  /* FreshUI Upload zones */
-  .upload-zone {
-    @apply border-2 border-dashed border-border rounded-md p-6
-           transition-all duration-200 hover:border-primary hover:bg-primary/5
-           bg-card;
-  }
-  
-  .upload-zone.drag-over {
-    @apply border-primary bg-primary/10 shadow-medium;
-  }
-  
-  .upload-zone.has-file {
-    @apply border-success bg-success/5;
-  }
-  
-  /* FreshUI Data tables */
-  .data-table {
-    @apply bg-card border border-border rounded-md overflow-hidden;
-  }
-
-  .data-table-header {
-    @apply bg-muted/50 border-b border-border;
-  }
-  
-  /* FreshUI Column cards */
-  .column-card {
-    @apply bg-card rounded-md p-3 border border-border shadow-soft
-           transition-all duration-200 hover:shadow-medium hover:border-primary/50;
-  }
-  
-  .column-card.dragging {
-    @apply opacity-60 scale-95 shadow-strong;
-  }
-  
-  .column-card.drag-target {
-    @apply border-accent bg-accent/10;
-  }
-  
-  .column-card.mapped {
-    @apply border-success bg-success/10;
-  }
-  
-  /* FreshUI Buttons */
-  .btn-fresh {
-    @apply bg-primary text-primary-foreground border-0 px-3 py-2 rounded-md
-           font-medium text-sm transition-all duration-150 shadow-soft
-           hover:bg-primary/90 hover:shadow-medium;
-  }
-
-  .btn-fresh-outline {
-    @apply bg-transparent text-primary border border-primary px-3 py-2 rounded-md
-           font-medium text-sm transition-all duration-150
-           hover:bg-primary/10;
-  }
-
-  .btn-fresh-secondary {
-    @apply bg-secondary text-secondary-foreground border-0 px-3 py-2 rounded-md
-           font-medium text-sm transition-all duration-150 shadow-soft
-           hover:bg-secondary/80;
-  }
-
-  /* Glass container - cleaner version */
   .glass-container {
-    @apply bg-card/95 backdrop-blur-sm border border-border rounded-md shadow-soft;
+    @apply bg-gradient-to-br from-card/80 to-card/40 backdrop-blur-md border border-border/50 rounded-xl shadow-glass;
   }
 
-  /* FreshUI Grid utilities */
+  .upload-zone {
+    @apply border-2 border-dashed border-primary/30 rounded-xl p-8 text-center bg-primary/5 hover:bg-primary/10 hover:border-primary/50 transition-all duration-300;
+  }
+
+  .data-table {
+    @apply w-full border-collapse bg-card rounded-xl overflow-hidden shadow-soft;
+  }
+
+  .data-table th {
+    @apply bg-muted/50 text-muted-foreground font-semibold text-left p-4 border-b border-border/50;
+  }
+
+  .data-table td {
+    @apply p-4 border-b border-border/30;
+  }
+
+  .data-table tr:hover {
+    @apply bg-muted/30;
+  }
+
+  .column-card {
+    @apply bg-card border border-border/50 rounded-xl p-5 shadow-soft hover:shadow-elevated hover:border-primary/30 transition-all duration-300;
+  }
+
+  .btn-fresh {
+    @apply inline-flex items-center justify-center rounded-xl text-sm font-semibold transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 shadow-soft hover:shadow-elevated;
+  }
+
+  .metric-card {
+    @apply bg-gradient-to-br from-card to-muted/20 border border-border/50 rounded-xl p-6 shadow-soft hover:shadow-elevated transition-all duration-300;
+  }
+
+  /* Grid utilities */
   .auto-fit-columns {
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
   }
 
-  /* FreshUI App container */
   .app-container {
-    @apply w-full px-3 sm:px-4 lg:max-w-[1400px] xl:max-w-[1600px] 2xl:max-w-[1800px] mx-auto;
+    @apply max-w-[1200px] mx-auto px-6;
   }
 }
 
