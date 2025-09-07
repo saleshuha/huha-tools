@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { HuhaHeader01 } from '@/components/ui/huha-header-01';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -153,12 +154,11 @@ const NoonFileCleaner: React.FC = () => {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <div className="text-center space-y-2">
-        <h1 className="text-3xl font-bold text-foreground">Noon File Cleaner</h1>
-        <p className="text-muted-foreground">
-          Clean your Noon base files by removing SKUs listed in error files
-        </p>
-      </div>
+      <HuhaHeader01
+        icon={<FileText className="w-5 h-5 text-primary-foreground" />}
+        title="Noon File Cleaner"
+        subtitle="Clean your Noon base files by removing SKUs listed in error files"
+      />
 
       <Tabs defaultValue="upload" className="w-full">
         <TabsList className="grid w-full grid-cols-3">

@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSunskyOrders } from '@/hooks/useSunskyOrders';
 import { useCountry } from '@/contexts/CountryContext';
+import { HuhaHeader01 } from '@/components/ui/huha-header-01';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -314,18 +315,15 @@ export default function SunskyOrderTrackingPage() {
 
   return (
     <div className="min-h-screen bg-gradient-surface">
+      <HuhaHeader01
+        icon={<Package className="w-5 h-5 text-primary-foreground" />}
+        title="Sunsky Order Tracking (Global)"
+        subtitle={`Track ALL Sunsky orders and monitor item delivery status for ${selectedCountry}`}
+        className="mx-6 my-4"
+      />
       <div className="glass-container mx-6 my-4 p-8 animate-fade-in">
-        {/* Header */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-2">
-                📦 Sunsky Order Tracking (Global)
-              </h1>
-              <p className="text-muted-foreground text-lg">
-                Track ALL Sunsky orders and monitor item delivery status for {selectedCountry}
-              </p>
-            </div>
             <div className="flex flex-col sm:flex-row gap-2">
               <Button 
                 onClick={() => syncOrdersFromAPI(selectedCredentialId)}

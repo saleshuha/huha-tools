@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { HuhaHeader01 } from '@/components/ui/huha-header-01';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Upload, DollarSign } from 'lucide-react';
@@ -25,37 +26,33 @@ const AmazonFulfillmentTracker = () => {
     <CurrencyDisplayProvider>
       <div className="min-h-screen bg-gradient-surface p-6">
       <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-              Amazon Fulfillment Tracker
-            </h1>
-            <p className="text-muted-foreground">
-              Direct fulfillment order payment tracking for {selectedCountry}
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <CurrencySelector />
-            <Button variant="outline" onClick={() => setShowCurrencyDialog(true)}>
-              <DollarSign className="h-4 w-4 mr-2" />
-              Currency Rates
-            </Button>
-            <Button variant="outline" onClick={() => setShowImportDialog(true)}>
-              <Upload className="h-4 w-4 mr-2" />
-              Import Orders
-            </Button>
-            {user && profile?.role === 'admin' && (
-              <Button 
-                variant="destructive" 
-                onClick={() => setShowReAuthDialog(true)}
-                size="sm"
-              >
-                Clear All Data
-              </Button>
-            )}
-          </div>
-        </div>
+      <HuhaHeader01
+        icon={<DollarSign className="w-5 h-5 text-primary-foreground" />}
+        title="Amazon Fulfillment Tracker"
+        subtitle={`Direct fulfillment order payment tracking for ${selectedCountry}`}
+        actions={[
+          {
+            label: 'Currency Rates',
+            icon: <DollarSign className="h-4 w-4 mr-2" />,
+            onClick: () => setShowCurrencyDialog(true),
+            variant: 'outline' as const
+          },
+          {
+            label: 'Import Orders',
+            icon: <Upload className="h-4 w-4 mr-2" />,
+            onClick: () => setShowImportDialog(true),
+            variant: 'outline' as const
+          },
+          ...(user && profile?.role === 'admin' ? [{
+            label: 'Clear All Data',
+            onClick: () => setShowReAuthDialog(true),
+            variant: 'secondary' as const
+          }] : [])
+        ]}
+      />
+      <div className="flex justify-end mb-4">
+        <CurrencySelector />
+      </div>
 
         {/* Main Content */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">

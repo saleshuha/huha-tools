@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { HuhaHeader01 } from '@/components/ui/huha-header-01';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -509,41 +510,31 @@ export default function NoonAnalytics() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" asChild>
-              <Link to="/noon-dashboard" className="flex items-center gap-2">
-                <ArrowLeft className="h-4 w-4" />
-                Back to Dashboard
-              </Link>
-            </Button>
-            <div>
-              <h1 className="text-3xl font-bold text-slate-900">Noon Analytics Dashboard</h1>
-              <p className="text-slate-600 mt-1">
-                Advanced analytics and insights for {selectedCountry}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <Button
-              variant="outline"
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="flex items-center gap-2"
-            >
-              <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => exportData('overview')}
-              className="flex items-center gap-2"
-            >
-              <Download className="h-4 w-4" />
-              Export Overview
-            </Button>
-          </div>
-        </div>
+      <HuhaHeader01
+        icon={<BarChart3 className="w-5 h-5 text-primary-foreground" />}
+        title="Noon Analytics Dashboard"
+        subtitle={`Advanced analytics and insights for ${selectedCountry}`}
+        actions={[
+          {
+            label: 'Back to Dashboard',
+            icon: <ArrowLeft className="h-4 w-4 mr-2" />,
+            onClick: () => window.location.href = '/noon-dashboard',
+            variant: 'outline' as const
+          },
+          {
+            label: 'Refresh',
+            icon: <RefreshCw className="h-4 w-4 mr-2" />,
+            onClick: handleRefresh,
+            variant: 'outline' as const
+          },
+          {
+            label: 'Export Overview',
+            icon: <Download className="h-4 w-4 mr-2" />,
+            onClick: () => exportData('overview'),
+            variant: 'outline' as const
+          }
+        ]}
+      />
 
         {/* Filters */}
         <Card>

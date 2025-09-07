@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { HuhaHeader01 } from '@/components/ui/huha-header-01';
 import { useDropzone } from "react-dropzone";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -456,15 +457,12 @@ const BulkColumnEditor = () => {
 
   return (
     <div className="min-h-screen bg-gradient-surface">
+      <HuhaHeader01
+        icon={<Edit3 className="w-5 h-5 text-primary-foreground" />}
+        title="Bulk Column Text Editor"
+        subtitle="Upload multiple CSV/Excel files and replace text in entire columns"
+      />
       <div className="glass-container mx-6 my-4 p-8 animate-fade-in">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-2">
-            Bulk Column Text Editor
-          </h1>
-          <p className="text-muted-foreground text-lg">
-            Upload multiple CSV/Excel files and replace text in entire columns
-          </p>
-        </div>
 
         {/* Progress Indicator */}
         {progressState.step !== 'idle' && (
