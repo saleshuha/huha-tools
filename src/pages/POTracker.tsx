@@ -18,7 +18,7 @@ export default function POTrackerPage() {
           }
         ]}
       />
-      <div className="container mx-auto">
+      <div className="glass-container p-8">
         <POTracker />
       </div>
     </PageLayout>
