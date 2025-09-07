@@ -222,17 +222,7 @@ export function NoonOrdersUploader() {
       </div>
       
       <div className="w-full relative z-10">
-        <div className="bg-card/80 backdrop-blur-sm border-b border-border/60">
-          <div className="app-container py-6">
-            {/* Simple Centered Header */}
-            <div className="flex justify-center">
-              <div className="flex items-center gap-2">
-                <Package className="h-6 w-6 text-primary" />
-                <h1 className="text-2xl font-semibold text-foreground">Noon Order Processing</h1>
-              </div>
-            </div>
-          </div>
-        </div>
+        
 
         <div className="app-container py-8 space-y-6">
           {/* Enhanced Control Bar */}
