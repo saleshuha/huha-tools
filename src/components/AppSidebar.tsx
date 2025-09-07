@@ -195,7 +195,7 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border bg-sidebar">
-      <SidebarContent className="overflow-hidden">
+      <SidebarContent className="overflow-y-auto">
         <SidebarGroup>
           <SidebarGroupLabel className="text-sidebar-foreground/70 font-medium px-3 py-2 text-xs uppercase tracking-wide">
             {!isCollapsed && "HuHa Dashboard"}
@@ -371,7 +371,7 @@ export function AppSidebar() {
                   >
                     <Upload className="h-5 w-5 flex-shrink-0" />
                     {!isCollapsed && (
-                      <span className="font-semibold text-sm">
+                      <span className="font-medium text-sm">
                         Noon Orders Processing
                       </span>
                     )}
@@ -396,7 +396,7 @@ export function AppSidebar() {
                   >
                     <Package className="h-5 w-5 flex-shrink-0" />
                     {!isCollapsed && (
-                      <span className="font-semibold text-sm">
+                      <span className="font-medium text-sm">
                         Noon Orders Tracking
                       </span>
                     )}
@@ -422,7 +422,7 @@ export function AppSidebar() {
                   >
                     <Globe className="h-5 w-5 flex-shrink-0" />
                     {!isCollapsed && (
-                      <span className="font-semibold text-sm">
+                      <span className="font-medium text-sm">
                         Source Product Importer
                       </span>
                     )}
@@ -472,9 +472,9 @@ export function AppSidebar() {
                   >
                     <Package className="h-4 w-4 flex-shrink-0" />
                     {!isCollapsed && (
-                      <span className="font-semibold text-sm">
-                        Amazon Fulfillment Tracker
-                      </span>
+                        <span className="font-medium text-sm">
+                          Amazon Fulfillment Tracker
+                        </span>
                     )}
                   </NavLink>
                 </SidebarMenuButton>
@@ -498,7 +498,7 @@ export function AppSidebar() {
                     >
                       <Settings className="h-5 w-5 flex-shrink-0" />
                       {!isCollapsed && (
-                        <span className="font-semibold text-sm">
+                        <span className="font-medium text-sm">
                           Amazon Vendor Central
                         </span>
                       )}
@@ -525,7 +525,7 @@ export function AppSidebar() {
                   >
                     <BarChart3 className="h-5 w-5 flex-shrink-0" />
                     {!isCollapsed && (
-                      <span className="font-semibold text-sm">
+                      <span className="font-medium text-sm">
                         Carrefour Sales Tracker
                       </span>
                     )}
@@ -548,7 +548,7 @@ export function AppSidebar() {
                     >
                       <div className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-md cursor-pointer">
                           <Wrench className="h-5 w-5 flex-shrink-0" />
-                          <span className="font-semibold text-sm">
+                          <span className="font-medium text-sm">
                             Tools
                           </span>
                           <ChevronDown className={`h-4 w-4 ml-auto transition-transform ${
@@ -604,7 +604,7 @@ export function AppSidebar() {
                     >
                       <Eye className="h-5 w-5 flex-shrink-0" />
                       {!isCollapsed && (
-                        <span className="font-semibold text-sm">
+                        <span className="font-medium text-sm">
                           Data Viewer
                         </span>
                       )}
@@ -640,7 +640,7 @@ export function AppSidebar() {
           >
             <Users className="h-5 w-5 flex-shrink-0" />
             {!isCollapsed && (
-              <span className="font-semibold text-sm">
+              <span className="font-medium text-sm">
                 User Management
               </span>
             )}
@@ -663,7 +663,7 @@ export function AppSidebar() {
           >
             <Palette className="h-5 w-5 flex-shrink-0" />
             {!isCollapsed && (
-              <span className="font-semibold text-sm">
+              <span className="font-medium text-sm">
                 Preview Settings
               </span>
             )}
