@@ -325,13 +325,22 @@ export default function SunskyOrderTrackingPage() {
           <div className="flex items-center justify-between mb-4">
             <div className="flex flex-col sm:flex-row gap-2">
               <Button 
-                onClick={() => syncOrdersFromAPI(selectedCredentialId)}
+                onClick={() => syncOrdersFromAPI(selectedCredentialId, false)}
                 disabled={syncing}
                 variant="default"
                 className="bg-gradient-primary hover:bg-gradient-primary/90"
               >
                 <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
-                Sync All Orders
+                Sync Recent Orders
+              </Button>
+              <Button 
+                onClick={() => syncOrdersFromAPI(selectedCredentialId, true)}
+                disabled={syncing}
+                variant="outline"
+                size="sm"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+                Full Sync
               </Button>
               <SunskyCredentialsSelector
                 selectedCredentialId={selectedCredentialId}

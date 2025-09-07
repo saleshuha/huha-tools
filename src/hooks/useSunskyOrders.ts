@@ -214,9 +214,9 @@ export const useSunskyOrders = () => {
     }
   };
 
-  // Sync ALL orders from Sunsky API - not just app-related orders
-  // Skip delivered orders that are already in the database  
-  const syncOrdersFromAPI = async (credentialId?: string | null) => {
+  // Sync orders from Sunsky API - incremental sync by default (last 30 days)
+  // Use fullSync=true to sync all orders (slower)
+  const syncOrdersFromAPI = async (credentialId?: string | null, fullSync: boolean = false) => {
     setState(prev => ({ ...prev, syncing: true, error: null, progressCurrent: 0, progressTotal: 0, progressPercent: 0 }));
 
     try {
@@ -275,19 +275,25 @@ export const useSunskyOrders = () => {
       const deliveredOrderNumbers = new Set(deliveredOrdersData?.map(o => o.number) || []);
       console.log(`📦 Found ${deliveredOrderNumbers.size} delivered orders in database to skip`);
 
-      // Fetch ALL orders from Sunsky (not just app-related ones)
-      console.log('🌍 Fetching ALL orders from Sunsky API...');
+      // Determine sync strategy
+      const syncType = fullSync ? 'full' : 'incremental';
+      const dateFilter = fullSync ? null : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // Last 30 days
+      
+      console.log(`🌍 Fetching ${syncType} orders from Sunsky API...`);
       
       toast({
         title: 'Syncing Orders',
-        description: 'Fetching orders from your Sunsky account, skipping delivered ones...',
+        description: fullSync 
+          ? 'Fetching all orders from your Sunsky account (this may take a while)...'
+          : 'Fetching recent orders (last 30 days) from your Sunsky account...',
       });
 
       const { data, error } = await supabase.functions.invoke('sunsky-api', {
         body: {
-          action: 'getAllOrders',
+          action: fullSync ? 'getAllOrders' : 'getRecentOrders',
           apiId: finalCredentialId,
-          skipDeliveredOrders: Array.from(deliveredOrderNumbers) // Pass delivered order numbers to skip
+          skipDeliveredOrders: Array.from(deliveredOrderNumbers),
+          dateFrom: dateFilter?.toISOString()
         },
       });
 
