@@ -1,664 +1,180 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* ============================================
-   PRISM PRO THEME - Design System Variables
-   ============================================ */
+/* =============================================== */
+/* Mercury Ops Theme - Operational Excellence     */
+/* Clean, High-Contrast Design for Data-Heavy Apps */
+/* =============================================== */
 
-/* Base Design Tokens */
 :root {
-  /* === Color Palette === */
-  /* Neutral Foundation */
-  --neutral-50: 250 250 251;
-  --neutral-100: 245 245 247;
-  --neutral-200: 228 228 233;
-  --neutral-300: 209 213 219;
-  --neutral-400: 156 163 175;
-  --neutral-500: 107 114 128;
-  --neutral-600: 75 85 99;
-  --neutral-700: 55 65 81;
-  --neutral-800: 31 41 55;
-  --neutral-900: 15 23 42;
-  --neutral-950: 2 6 23;
-
-  /* Primary Brand Colors */
-  --primary-50: 240 249 255;
-  --primary-100: 224 242 254;
-  --primary-200: 186 230 253;
-  --primary-300: 125 211 252;
-  --primary-400: 56 189 248;
-  --primary-500: 14 165 233;
-  --primary-600: 2 132 199;
-  --primary-700: 3 105 161;
-  --primary-800: 7 89 133;
-  --primary-900: 12 74 110;
-  --primary-950: 8 47 73;
-
-  /* Semantic Colors */
-  --success-50: 240 253 244;
-  --success-500: 34 197 94;
-  --success-600: 22 163 74;
-
-  --warning-50: 255 251 235;
-  --warning-500: 245 158 11;
-  --warning-600: 217 119 6;
-
-  --error-50: 254 242 242;
-  --error-500: 239 68 68;
-  --error-600: 220 38 38;
-
-  /* === Light Theme === */
-  /* Surfaces */
-  --background: var(--neutral-50);
-  --surface: 255 255 255;
-  --surface-elevated: 255 255 255;
-  --surface-container: var(--neutral-100);
-  --surface-container-high: 255 255 255;
+  /* ===== Core Brand Identity ===== */
+  --brand-name: "Mercury Ops";
+  --brand-tagline: "Operational Excellence";
   
-  /* Content Colors */
-  --foreground: var(--neutral-900);
-  --foreground-secondary: var(--neutral-600);
-  --foreground-muted: var(--neutral-500);
-  --foreground-placeholder: var(--neutral-400);
+  /* ===== Base Environment ===== */
+  --background: 220 20% 98%;                    /* Clean white base */
+  --background-secondary: 218 15% 95%;          /* Subtle grey backdrop */
+  --foreground: 220 25% 12%;                    /* High contrast text */
+  --foreground-secondary: 218 12% 45%;          /* Secondary text */
   
-  /* Borders */
-  --border: var(--neutral-200);
-  --border-strong: var(--neutral-300);
-  --border-subtle: var(--neutral-100);
+  /* ===== Surface System ===== */
+  --surface: 0 0% 100%;                         /* Pure white cards */
+  --surface-container: 218 12% 97%;             /* Elevated container */
+  --surface-container-high: 218 10% 96%;        /* Higher elevation */
+  --surface-container-highest: 218 8% 94%;      /* Highest elevation */
+  --surface-dim: 218 8% 92%;                    /* Dimmed surface */
+  --surface-bright: 0 0% 100%;                  /* Bright surface */
   
-  /* Primary Colors */
-  --primary: var(--primary-600);
-  --primary-foreground: 255 255 255;
-  --primary-hover: var(--primary-700);
-  --primary-subtle: var(--primary-50);
+  /* ===== Electric Accent System ===== */
+  --primary: 198 100% 45%;                      /* Electric Azure */
+  --primary-light: 198 100% 65%;                /* Lighter Azure */
+  --primary-dark: 198 100% 35%;                 /* Darker Azure */
+  --primary-foreground: 0 0% 100%;              /* White on primary */
+  --primary-glow: 198 100% 55%;                 /* Glowing variant */
   
-  /* Interactive States */
-  --muted: var(--neutral-100);
-  --muted-foreground: var(--neutral-600);
-  --accent: var(--neutral-100);
-  --accent-foreground: var(--neutral-900);
+  /* ===== Functional Colors ===== */
+  --secondary: 218 12% 96%;                     /* Subtle secondary */
+  --secondary-foreground: 220 25% 12%;          /* Dark on secondary */
+  --accent: 160 100% 45%;                       /* Emerald accent */
+  --accent-foreground: 0 0% 100%;               /* White on accent */
+  --muted: 218 10% 94%;                         /* Muted background */
+  --muted-foreground: 218 12% 48%;              /* Muted text */
   
-  /* Semantic UI Colors */
-  --success: var(--success-500);
-  --success-foreground: 255 255 255;
-  --warning: var(--warning-500);
-  --warning-foreground: 255 255 255;
-  --destructive: var(--error-500);
-  --destructive-foreground: 255 255 255;
+  /* ===== Status Colors ===== */
+  --success: 142 76% 42%;                       /* Success green */
+  --success-foreground: 0 0% 100%;              /* White on success */
+  --warning: 38 100% 55%;                       /* Warning amber */
+  --warning-foreground: 220 25% 12%;            /* Dark on warning */
+  --destructive: 0 84% 58%;                     /* Error red */
+  --destructive-foreground: 0 0% 100%;          /* White on destructive */
+  --info: 198 100% 45%;                         /* Info blue (same as primary) */
+  --info-foreground: 0 0% 100%;                 /* White on info */
   
-  /* Legacy mappings for compatibility */
-  --card: var(--surface);
-  --card-foreground: var(--foreground);
-  --popover: var(--surface-elevated);
-  --popover-foreground: var(--foreground);
-  --secondary: var(--surface-container);
-  --secondary-foreground: var(--foreground);
-  --input: var(--surface);
+  /* ===== Interactive Elements ===== */
+  --border: 218 15% 88%;                        /* Clean borders */
+  --border-variant: 218 12% 85%;                /* Variant borders */
+  --border-strong: 218 20% 75%;                 /* Strong borders */
+  --input: 218 15% 94%;                         /* Input background */
+  --ring: 198 100% 45%;                         /* Focus ring */
   
-  /* Focus & Selection */
-  --ring: var(--primary-500);
-  --ring-offset: 255 255 255;
+  /* ===== Card System ===== */
+  --card: 0 0% 100%;                            /* White cards */
+  --card-foreground: 220 25% 12%;               /* Dark text on cards */
+  --popover: 0 0% 100%;                         /* White popovers */
+  --popover-foreground: 220 25% 12%;            /* Dark text on popovers */
   
-  /* === Shadows === */
-  --shadow-xs: 0 1px 2px 0 hsl(var(--neutral-900) / 0.05);
-  --shadow-sm: 0 1px 3px 0 hsl(var(--neutral-900) / 0.1), 0 1px 2px -1px hsl(var(--neutral-900) / 0.1);
-  --shadow-md: 0 4px 6px -1px hsl(var(--neutral-900) / 0.1), 0 2px 4px -2px hsl(var(--neutral-900) / 0.1);
-  --shadow-lg: 0 10px 15px -3px hsl(var(--neutral-900) / 0.1), 0 4px 6px -4px hsl(var(--neutral-900) / 0.1);
-  --shadow-xl: 0 20px 25px -5px hsl(var(--neutral-900) / 0.1), 0 8px 10px -6px hsl(var(--neutral-900) / 0.1);
-  --shadow-2xl: 0 25px 50px -12px hsl(var(--neutral-900) / 0.25);
-  
-  /* Legacy shadow mappings */
-  --shadow-soft: var(--shadow-sm);
-  --shadow-medium: var(--shadow-md);
-  --shadow-strong: var(--shadow-lg);
-  
-  /* Special Effects */
-  --shadow-glow: 0 0 20px hsl(var(--primary-500) / 0.15);
-  --shadow-inner: inset 0 2px 4px 0 hsl(var(--neutral-900) / 0.05);
-  
-  /* === Spacing & Layout === */
-  --spacing-xs: 0.25rem;
-  --spacing-sm: 0.5rem;
-  --spacing-md: 1rem;
-  --spacing-lg: 1.5rem;
-  --spacing-xl: 2rem;
-  --spacing-2xl: 3rem;
-  
-  /* Container & Content */
-  --container-max: 1400px;
-  --content-max: 1200px;
+  /* ===== Layout Dimensions ===== */
+  --radius: 0.75rem;                            /* Medium radius */
+  --container-max-width: 1440px;
   --sidebar-width: 280px;
-  --sidebar-collapsed: 64px;
+  --sidebar-collapsed-width: 64px;
+  --header-height: 80px;
+  --header-min-h: 80px;
+  --spacing: 1rem;
   
-  /* === Border Radius === */
-  --radius: 0.5rem;
-  --radius-xs: 0.25rem;
-  --radius-sm: 0.375rem;
-  --radius-md: 0.5rem;
-  --radius-lg: 0.75rem;
-  --radius-xl: 1rem;
-  --radius-2xl: 1.5rem;
-  
-  /* === Transitions === */
-  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-normal: 200ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
-
-  /* Sidebar Legacy Variables */
-  --sidebar-background: var(--surface-elevated);
-  --sidebar-foreground: var(--foreground);
-  --sidebar-primary: var(--primary);
-  --sidebar-primary-foreground: var(--primary-foreground);
-  --sidebar-accent: var(--accent);
-  --sidebar-accent-foreground: var(--accent-foreground);
-  --sidebar-border: var(--border);
-  --sidebar-ring: var(--ring);
+  /* ===== Shadow System ===== */
+  --shadow-color: 220 25% 8%;
+  --shadow-sm: 0 1px 2px 0 hsl(var(--shadow-color) / 0.06);
+  --shadow: 0 1px 3px 0 hsl(var(--shadow-color) / 0.12), 0 1px 2px -1px hsl(var(--shadow-color) / 0.12);
+  --shadow-md: 0 4px 6px -1px hsl(var(--shadow-color) / 0.12), 0 2px 4px -2px hsl(var(--shadow-color) / 0.12);
+  --shadow-lg: 0 10px 15px -3px hsl(var(--shadow-color) / 0.12), 0 4px 6px -4px hsl(var(--shadow-color) / 0.12);
+  --shadow-xl: 0 20px 25px -5px hsl(var(--shadow-color) / 0.12), 0 8px 10px -6px hsl(var(--shadow-color) / 0.12);
+  --shadow-2xl: 0 25px 50px -12px hsl(var(--shadow-color) / 0.25);
+  --shadow-soft: 0 2px 8px hsl(var(--shadow-color) / 0.08);
+  --shadow-glow: 0 0 0 1px hsl(var(--primary) / 0.12), 0 2px 12px hsl(var(--primary) / 0.15);
 }
 
-/* Dark Theme */
+/* ===== Dark Mode - Mercury Ops Night ===== */
 .dark {
-  /* Surfaces */
-  --background: var(--neutral-950);
-  --surface: var(--neutral-900);
-  --surface-elevated: var(--neutral-800);
-  --surface-container: var(--neutral-900);
-  --surface-container-high: var(--neutral-800);
+  --background: 220 25% 6%;                     /* Deep dark base */
+  --background-secondary: 220 20% 8%;           /* Slightly lighter */
+  --foreground: 210 40% 98%;                    /* High contrast white */
+  --foreground-secondary: 218 15% 70%;          /* Secondary light text */
   
-  /* Content Colors */
-  --foreground: var(--neutral-100);
-  --foreground-secondary: var(--neutral-300);
-  --foreground-muted: var(--neutral-400);
-  --foreground-placeholder: var(--neutral-500);
+  --surface: 220 22% 9%;                        /* Dark cards */
+  --surface-container: 220 20% 11%;             /* Elevated container */
+  --surface-container-high: 220 18% 13%;        /* Higher elevation */
+  --surface-container-highest: 220 16% 15%;     /* Highest elevation */
   
-  /* Borders */
-  --border: var(--neutral-800);
-  --border-strong: var(--neutral-700);
-  --border-subtle: var(--neutral-900);
+  --primary: 198 100% 60%;                      /* Brighter Electric Azure */
+  --primary-light: 198 100% 75%;                /* Lighter Azure */
+  --primary-dark: 198 100% 45%;                 /* Darker Azure */
+  --primary-foreground: 220 25% 6%;             /* Dark on primary */
+  --primary-glow: 198 100% 70%;                 /* Glowing variant */
   
-  /* Primary Colors */
-  --primary: var(--primary-500);
-  --primary-hover: var(--primary-400);
-  --primary-subtle: var(--primary-950);
+  --secondary: 220 20% 15%;                     /* Dark secondary */
+  --secondary-foreground: 210 40% 98%;          /* Light on secondary */
+  --accent: 160 100% 55%;                       /* Bright Emerald accent */
+  --accent-foreground: 220 25% 6%;              /* Dark on accent */
+  --muted: 220 20% 12%;                         /* Muted background */
+  --muted-foreground: 218 15% 65%;              /* Muted text */
   
-  /* Interactive States */
-  --muted: var(--neutral-800);
-  --muted-foreground: var(--neutral-400);
-  --accent: var(--neutral-800);
-  --accent-foreground: var(--neutral-100);
+  --border: 220 20% 18%;                        /* Dark borders */
+  --border-variant: 220 18% 22%;                /* Variant borders */
+  --border-strong: 220 15% 30%;                 /* Strong borders */
+  --input: 220 20% 12%;                         /* Input background */
   
-  /* Focus & Selection */
-  --ring-offset: var(--neutral-950);
-  
-  /* Shadows for Dark Mode */
-  --shadow-xs: 0 1px 2px 0 hsl(0 0% 0% / 0.2);
-  --shadow-sm: 0 1px 3px 0 hsl(0 0% 0% / 0.3), 0 1px 2px -1px hsl(0 0% 0% / 0.3);
-  --shadow-md: 0 4px 6px -1px hsl(0 0% 0% / 0.3), 0 2px 4px -2px hsl(0 0% 0% / 0.3);
-  --shadow-lg: 0 10px 15px -3px hsl(0 0% 0% / 0.4), 0 4px 6px -4px hsl(0 0% 0% / 0.4);
-  --shadow-xl: 0 20px 25px -5px hsl(0 0% 0% / 0.4), 0 8px 10px -6px hsl(0 0% 0% / 0.4);
-  --shadow-2xl: 0 25px 50px -12px hsl(0 0% 0% / 0.6);
-  --shadow-glow: 0 0 20px hsl(var(--primary-500) / 0.25);
-  --shadow-inner: inset 0 2px 4px 0 hsl(0 0% 0% / 0.1);
-
-  /* Legacy shadow mappings for dark mode */
-  --shadow-soft: var(--shadow-sm);
-  --shadow-medium: var(--shadow-md);
-  --shadow-strong: var(--shadow-lg);
-
-  /* Sidebar Legacy Variables for Dark Mode */
-  --sidebar-background: var(--surface);
-  --sidebar-foreground: var(--foreground);
-  --sidebar-primary: var(--primary);
-  --sidebar-primary-foreground: var(--primary-foreground);
-  --sidebar-accent: var(--accent);
-  --sidebar-accent-foreground: var(--accent-foreground);
-  --sidebar-border: var(--border);
-  --sidebar-ring: var(--ring);
+  --card: 220 22% 9%;                           /* Dark cards */
+  --card-foreground: 210 40% 98%;               /* Light text on cards */
+  --popover: 220 22% 9%;                        /* Dark popovers */
+  --popover-foreground: 210 40% 98%;            /* Light text on popovers */
 }
 
-/* ============================================
-   BASE STYLES
-   ============================================ */
+/* =============================================== */
+/* Mercury Ops Global Styles                     */
+/* =============================================== */
 
 * {
   border-color: hsl(var(--border));
 }
 
 body {
-  font-family: 'Inter', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
-  font-feature-settings: 'rlig' 1, 'calt' 1;
-  line-height: 1.6;
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  font-feature-settings: "rlig" 1, "calt" 1, "kern" 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
-
-/* Custom Scrollbars */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: hsl(var(--border-strong)) hsl(var(--surface));
-}
-
-*::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-*::-webkit-scrollbar-track {
-  background: hsl(var(--surface));
-  border-radius: var(--radius-sm);
-}
-
-*::-webkit-scrollbar-thumb {
-  background: hsl(var(--border-strong));
-  border-radius: var(--radius-sm);
-}
-
-*::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--foreground-muted));
-}
-
-/* ============================================
-   PRISM PRO COMPONENT SYSTEM
-   ============================================ */
 
 @layer components {
-  /* === Layout Components === */
-  
-  .prism-app-shell {
-    @apply min-h-screen bg-background;
-    font-family: 'Inter', system-ui, sans-serif;
+  .ops-card {
+    @apply bg-surface border border-border/60 rounded-xl shadow-soft hover:shadow-md;
+    @apply transition-all duration-200 backdrop-blur-sm;
   }
   
-  .prism-main-content {
-    @apply flex-1 flex flex-col min-h-0;
-    background: linear-gradient(to bottom, hsl(var(--background)), hsl(var(--surface-container)));
+  .ops-nav-item {
+    @apply flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium;
+    @apply transition-all duration-200 hover:bg-muted/80 hover:text-foreground group relative;
   }
   
-  .prism-page-container {
-    @apply max-w-7xl mx-auto w-full px-6 py-8 space-y-8;
+  .ops-nav-item.active {
+    @apply bg-primary text-primary-foreground shadow-soft hover:bg-primary/90;
   }
   
-  .prism-content-area {
-    @apply rounded-xl border shadow-lg p-8;
-    background-color: hsl(var(--surface));
-    border-color: hsl(var(--border));
+  .ops-title {
+    @apply text-3xl font-bold bg-gradient-to-r from-foreground via-foreground to-foreground/80;
+    @apply bg-clip-text text-transparent leading-tight;
   }
   
-  /* === Cards & Panels === */
-  
-  .prism-card {
-    @apply rounded-xl border shadow-sm hover:shadow-md transition-all duration-200;
-    background-color: hsl(var(--surface));
-    border-color: hsl(var(--border));
-  }
-  
-  .prism-card-elevated {
-    @apply rounded-xl border shadow-lg hover:shadow-xl transition-all duration-200;
-    background-color: hsl(var(--surface-elevated));
-    border-color: hsl(var(--border));
-  }
-  
-  .prism-panel {
-    @apply rounded-lg border p-6;
-    background-color: hsl(var(--surface-container));
-    border-color: hsl(var(--border-subtle));
-  }
-  
-  .prism-toolbar {
-    @apply flex items-center gap-4 p-4 border-b;
-    background-color: hsl(var(--surface));
-    border-color: hsl(var(--border-subtle));
-  }
-  
-  /* === Headers & Typography === */
-  
-  .prism-page-header {
-    @apply space-y-2;
-  }
-  
-  .prism-page-title {
-    @apply text-3xl font-bold;
-    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
-    color: hsl(var(--foreground));
-  }
-  
-  .prism-page-subtitle {
-    @apply text-lg;
-    color: hsl(var(--foreground-secondary));
-  }
-  
-  .prism-section-title {
-    @apply text-xl font-semibold mb-4;
-    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
-    color: hsl(var(--foreground));
-  }
-  
-  /* === Navigation & Sidebar === */
-  
-  .prism-sidebar {
-    @apply border-r shadow-lg;
-    background-color: hsl(var(--surface-elevated));
-    border-color: hsl(var(--border));
-    width: var(--sidebar-width);
-  }
-  
-  .prism-sidebar-collapsed {
-    width: var(--sidebar-collapsed);
-  }
-  
-  .prism-nav-item {
-    @apply flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-150 cursor-pointer;
-    color: hsl(var(--foreground-secondary));
-  }
-  
-  .prism-nav-item:hover {
-    color: hsl(var(--foreground));
-    background-color: hsl(var(--accent));
-  }
-  
-  .prism-nav-item-active {
-    @apply shadow-sm;
-    background-color: hsl(var(--primary));
-    color: hsl(var(--primary-foreground));
-  }
-  
-  .prism-nav-group-label {
-    @apply text-xs font-medium uppercase tracking-wider px-4 py-2;
-    color: hsl(var(--foreground-muted));
-  }
-  
-  /* === Legacy Component Compatibility === */
-  
-  /* App Container - Boxed Layout */
-  .app-container {
-    @apply w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6;
-  }
-
-  /* Main Content Box */
-  .content-box {
-    @apply rounded-lg border shadow-md p-6;
-    background-color: hsl(var(--surface));
-    border-color: hsl(var(--border));
-  }
-
-  .content-box-header {
-    @apply border-b pb-4 mb-6;
-    border-color: hsl(var(--border));
-  }
-
-  .content-box-title {
-    @apply text-xl font-semibold mb-2;
-    color: hsl(var(--foreground));
-  }
-
-  .content-box-description {
-    @apply text-sm;
-    color: hsl(var(--muted-foreground));
-  }
-
-  /* Panel Components - Boxed */
-  .panel {
-    @apply rounded-lg border shadow-md;
-    background-color: hsl(var(--surface));
-    border-color: hsl(var(--border));
-  }
-
-  .panel-header {
-    @apply px-6 py-4 border-b rounded-t-lg;
-    background-color: hsl(var(--muted) / 0.2);
-    border-color: hsl(var(--border));
-  }
-
-  .panel-content {
-    @apply p-6;
-  }
-
-  .panel-footer {
-    @apply px-6 py-4 border-t rounded-b-lg;
-    background-color: hsl(var(--muted) / 0.2);
-    border-color: hsl(var(--border));
-  }
-
-  /* Toolbar - Boxed */
-  .toolbar {
-    @apply border rounded-lg shadow-sm px-4 py-3 flex items-center gap-3 mb-4;
-    background-color: hsl(var(--surface));
-    border-color: hsl(var(--border));
-  }
-
-  /* Section Container */
-  .section-container {
-    @apply border rounded-lg shadow-md overflow-hidden;
-    background-color: hsl(var(--surface));
-    border-color: hsl(var(--border));
-  }
-
-  .section-header {
-    @apply border-b px-6 py-4;
-    background-color: hsl(var(--muted) / 0.3);
-    border-color: hsl(var(--border));
-  }
-
-  .section-content {
-    @apply p-6;
-  }
-
-  /* Upload Zones - Boxed */
-  .upload-zone {
-    @apply border-2 border-dashed rounded-lg p-8 transition-all duration-200 shadow-sm;
-    border-color: hsl(var(--border));
-    background-color: hsl(var(--surface));
-  }
-  
-  .upload-zone:hover {
-    border-color: hsl(var(--primary));
-    background-color: hsl(var(--primary) / 0.05);
-  }
-  
-  .upload-zone.drag-over {
-    border-color: hsl(var(--primary));
-    background-color: hsl(var(--primary) / 0.1);
-    box-shadow: var(--shadow-md);
-  }
-  
-  .upload-zone.has-file {
-    border-color: hsl(var(--success));
-    background-color: hsl(var(--success) / 0.05);
-    box-shadow: 0 4px 8px -2px hsl(var(--success) / 0.1);
-  }
-  
-  /* Data Tables - Boxed */
-  .data-table {
-    @apply border rounded-lg overflow-hidden shadow-md;
-    background-color: hsl(var(--surface));
-    border-color: hsl(var(--border));
-  }
-
-  .data-table-header {
-    @apply border-b;
-    background-color: hsl(var(--muted) / 0.4);
-    border-color: hsl(var(--border));
-  }
-
-  .data-table-row {
-    @apply border-b last:border-b-0 hover:bg-muted/20 transition-colors;
-    border-color: hsl(var(--border) / 0.5);
-  }
-
-  .data-table-cell {
-    @apply px-4 py-3 text-sm;
-  }
-  
-  /* Column Cards - Enhanced Boxed */
-  .column-card {
-    @apply rounded-lg p-4 border shadow-sm transition-all duration-200;
-    background-color: hsl(var(--surface));
-    border-color: hsl(var(--border));
-  }
-
-  .column-card:hover {
-    box-shadow: var(--shadow-md);
-    border-color: hsl(var(--primary) / 0.5);
-  }
-  
-  .column-card.dragging {
-    @apply opacity-60 scale-95;
-    box-shadow: var(--shadow-lg);
-  }
-  
-  .column-card.drag-target {
-    border-color: hsl(var(--accent));
-    background-color: hsl(var(--accent) / 0.1);
-    box-shadow: var(--shadow-glow);
-  }
-  
-  .column-card.mapped {
-    border-color: hsl(var(--success));
-    background-color: hsl(var(--success) / 0.1);
-    box-shadow: 0 4px 8px -2px hsl(var(--success) / 0.2);
-  }
-
-  /* Sidebar Enhancements */
-  .sidebar-boxed {
-    @apply border-r shadow-md;
-    background-color: hsl(var(--surface));
-    border-color: hsl(var(--border));
-  }
-
-  .sidebar-content {
-    @apply p-4 space-y-2;
-  }
-
-  .sidebar-item {
-    @apply px-3 py-2 rounded-lg transition-colors;
-  }
-
-  .sidebar-item:hover {
-    background-color: hsl(var(--muted) / 0.3);
-  }
-
-  .sidebar-item.active {
-    background-color: hsl(var(--primary) / 0.1);
-    color: hsl(var(--primary));
-  }
-
-  /* Tabs - Boxed Style */
-  .tabs-boxed {
-    @apply border rounded-lg shadow-sm overflow-hidden;
-    background-color: hsl(var(--surface));
-    border-color: hsl(var(--border));
-  }
-
-  .tabs-list-boxed {
-    @apply border-b p-1;
-    background-color: hsl(var(--muted) / 0.3);
-    border-color: hsl(var(--border));
-  }
-
-  .tabs-trigger-boxed {
-    @apply px-4 py-2 rounded-md;
-  }
-
-  .tabs-trigger-boxed[data-state="active"] {
-    background-color: hsl(var(--surface));
-    box-shadow: var(--shadow-sm);
-  }
-
-  .tabs-content-boxed {
-    @apply p-6;
-  }
-
-  /* Alert Boxes */
-  .alert-box {
-    @apply border rounded-lg p-4 shadow-sm;
-    background-color: hsl(var(--surface));
-    border-color: hsl(var(--border));
-  }
-
-  .alert-box-info {
-    border-color: hsl(var(--primary-400));
-    background-color: hsl(var(--primary-50));
-  }
-
-  .alert-box-success {
-    border-color: hsl(var(--success));
-    background-color: hsl(var(--success) / 0.05);
-  }
-
-  .alert-box-warning {
-    border-color: hsl(var(--warning));
-    background-color: hsl(var(--warning) / 0.05);
-  }
-
-  .alert-box-error {
-    border-color: hsl(var(--destructive));
-    background-color: hsl(var(--destructive) / 0.05);
+  .glass-container {
+    @apply bg-gradient-to-br from-surface/90 to-surface-container/70;
+    @apply backdrop-blur-xl border border-border/40 rounded-xl shadow-soft;
   }
 }
 
-/* ============================================
-   ANIMATIONS
-   ============================================ */
-
-@keyframes prism-fade-in {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+/* Keyframes */
+@keyframes fade-in {
+  0% { opacity: 0; transform: translateY(10px); }
+  100% { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes prism-slide-in {
-  from { opacity: 0; transform: translateX(-8px); }
-  to { opacity: 1; transform: translateX(0); }
+@keyframes scale-in {
+  0% { transform: scale(0.95); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
 }
 
-@keyframes prism-scale-in {
-  from { opacity: 0; transform: scale(0.95); }
-  to { opacity: 1; transform: scale(1); }
-}
-
-.prism-animate-fade-in {
-  animation: prism-fade-in 0.3s ease-out;
-}
-
-.prism-animate-slide-in {
-  animation: prism-slide-in 0.3s ease-out;
-}
-
-.prism-animate-scale-in {
-  animation: prism-scale-in 0.2s ease-out;
-}
-
-/* ============================================
-   ACCESSIBILITY & HIGH CONTRAST
-   ============================================ */
-
-@media (prefers-reduced-motion: reduce) {
-  * {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
-}
-
-@media (prefers-contrast: high) {
-  :root {
-    --border: var(--neutral-400);
-    --border-strong: var(--neutral-500);
-  }
-  
-  .dark {
-    --border: var(--neutral-600);
-    --border-strong: var(--neutral-500);
-  }
-}
-
-/* Print Styles */
-@media print {
-  .prism-app-shell {
-    @apply text-black bg-white;
-  }
-  
-  .prism-card, .prism-panel {
-    @apply border border-gray-300 shadow-none;
-  }
-}
+.animate-fade-in { animation: fade-in 0.3s ease-out; }
+.animate-scale-in { animation: scale-in 0.2s ease-out; }
