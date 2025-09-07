@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { NoonStoreManagement } from '@/components/NoonStoreManagement';
 import { NoonProcessingOrdersTable } from '@/components/NoonProcessingOrdersTable';
 import { useNoonStores } from '@/hooks/useNoonStores';
@@ -48,6 +48,7 @@ interface NoonOrderData {
 export function NoonOrdersUploader() {
   const [selectedStoreId, setSelectedStoreId] = useState<string>('');
   const [uploading, setUploading] = useState(false);
+  const [showStoreDialog, setShowStoreDialog] = useState(false);
   const {
     stores
   } = useNoonStores();
@@ -219,51 +220,68 @@ export function NoonOrdersUploader() {
         <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-primary via-emerald to-sky shadow-glow"></div>
       </div>
       
-      <Tabs defaultValue="orders" className="w-full relative z-10">
+      <div className="w-full relative z-10">
         <div className="bg-card/80 backdrop-blur-sm border-b border-border/60">
           <div className="app-container py-6">
             {/* Simple Centered Header */}
-            
-            
-            {/* Centered Tabs */}
             <div className="flex justify-center">
-              <TabsList className="grid w-full max-w-md grid-cols-2 bg-muted/50 p-1 h-auto">
-                <TabsTrigger value="orders" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all duration-200">
-                  <Package className="h-4 w-4" />
-                  Processing Orders
-                </TabsTrigger>
-                <TabsTrigger value="stores" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all duration-200">
-                  <Store className="h-4 w-4" />
-                  Store Management
-                </TabsTrigger>
-              </TabsList>
+              <div className="flex items-center gap-2">
+                <Package className="h-6 w-6 text-primary" />
+                <h1 className="text-2xl font-semibold text-foreground">Noon Order Processing</h1>
+              </div>
             </div>
           </div>
         </div>
 
         <div className="app-container py-8 space-y-6">
-          <TabsContent value="orders" className="space-y-6 mt-0">
-            {/* Enhanced Control Bar */}
-            <Card className="border-0 shadow-lg bg-gradient-to-r from-card via-card/95 to-card backdrop-blur-sm">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-6">
-                    {/* Simple Store Dropdown */}
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-primary/10">
-                        <Store className="h-5 w-5 text-primary" />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-sm font-medium text-foreground">Select Store</label>
-                        <select value={selectedStoreId} onChange={e => setSelectedStoreId(e.target.value)} className="px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm min-w-[200px] focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors">
-                          <option value="">Choose a store...</option>
-                          {stores.map(store => <option key={store.id} value={store.id}>
-                              {store.name} ({store.country})
-                            </option>)}
-                        </select>
-                      </div>
+          {/* Enhanced Control Bar */}
+          <Card className="border-0 shadow-lg bg-gradient-to-r from-card via-card/95 to-card backdrop-blur-sm">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-6">
+                  {/* Simple Store Dropdown */}
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-primary/10">
+                      <Store className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-sm font-medium text-foreground">Select Store</label>
+                      <select value={selectedStoreId} onChange={e => setSelectedStoreId(e.target.value)} className="px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm min-w-[200px] focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors">
+                        <option value="">Choose a store...</option>
+                        {stores.map(store => <option key={store.id} value={store.id}>
+                            {store.name} ({store.country})
+                          </option>)}
+                      </select>
                     </div>
                   </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  {/* Store Management Dialog */}
+                  <Dialog open={showStoreDialog} onOpenChange={setShowStoreDialog}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" className="bg-muted/50 hover:bg-muted">
+                        <Store className="h-4 w-4 mr-2" />
+                        Manage Stores
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden">
+                      <DialogHeader>
+                        <DialogTitle className="flex items-center gap-3">
+                          <div className="p-2 rounded-lg bg-primary/10">
+                            <Store className="h-5 w-5 text-primary" />
+                          </div>
+                          <div>
+                            <div className="text-lg font-semibold text-foreground">Noon Store Management</div>
+                            <div className="text-sm text-muted-foreground">Configure and manage your Noon store connections</div>
+                          </div>
+                        </DialogTitle>
+                      </DialogHeader>
+                      <div className="overflow-y-auto">
+                        <NoonStoreManagement selectedStoreId={selectedStoreId} onStoreChange={setSelectedStoreId} />
+                      </div>
+                    </DialogContent>
+                  </Dialog>
 
                   {/* Upload Button */}
                   <Button onClick={handleFileSelect} disabled={uploading || !selectedStoreId} className="bg-gradient-to-r from-primary to-primary-dark hover:from-primary-dark hover:to-primary shadow-lg hover:shadow-primary/25 transition-all duration-200" size="lg">
@@ -271,33 +289,13 @@ export function NoonOrdersUploader() {
                     {uploading ? 'Uploading...' : 'Upload Orders File'}
                   </Button>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </CardContent>
+          </Card>
 
-            {/* Processing Orders Table */}
-            <NoonProcessingOrdersTable selectedStoreId={selectedStoreId} />
-          </TabsContent>
-
-          <TabsContent value="stores" className="space-y-6 mt-0">
-            {/* Store Management */}
-            <Card className="border-0 shadow-lg bg-gradient-to-br from-card via-card/95 to-card backdrop-blur-sm">
-              <CardHeader className="border-b border-border/50 bg-gradient-to-r from-muted/30 to-muted/10">
-                <CardTitle className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-primary/10">
-                    <Store className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <div className="text-lg font-semibold text-foreground">Noon Store Management</div>
-                    <div className="text-sm text-muted-foreground">Configure and manage your Noon store connections</div>
-                  </div>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-8">
-                <NoonStoreManagement selectedStoreId={selectedStoreId} onStoreChange={setSelectedStoreId} />
-              </CardContent>
-            </Card>
-          </TabsContent>
+          {/* Processing Orders Table */}
+          <NoonProcessingOrdersTable selectedStoreId={selectedStoreId} />
         </div>
-      </Tabs>
+      </div>
     </div>;
 }
