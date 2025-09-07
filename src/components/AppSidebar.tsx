@@ -1,4 +1,4 @@
-import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, Wrench, LogOut, Home, Users, TrendingUp, Merge, Edit3, Database, CreditCard, Upload, BarChart3, DollarSign, Store, ShoppingCart, Globe, ExternalLink, Eye, Trash2, Settings, Tag, FileSpreadsheet, Truck, Palette } from "lucide-react"
+import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, Wrench, LogOut, Home, Users, TrendingUp, Merge, Edit3, Database, CreditCard, Upload, BarChart3, DollarSign, Store, ShoppingCart, Globe, ExternalLink, Eye, Trash2, Settings, Tag, FileSpreadsheet, Truck, Palette, ShoppingBag } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
 import { useState } from "react"
 import { Capacitor } from "@capacitor/core"
@@ -169,9 +169,24 @@ export function AppSidebar() {
     return isActive("/po-tracker") || poTrackerItems.some(item => isActive(item.url))
   }
 
+  const isAmazonSectionActive = () => {
+    return isActive("/order-processing") || isActive("/po-tracker") || isActive("/amazon-fulfillment") || isActive("/amazon-vendor-central")
+  }
+
+  const isNoonSectionActive = () => {
+    return isActive("/noon-order-processing") || isActive("/noon-order-tracking")
+  }
+
+  const isSourceSectionActive = () => {
+    return isActive("/sunsky-importer") || isActive("/sunsky-order-tracking")
+  }
+
   const [isToolsOpen, setIsToolsOpen] = useState(() => isToolsSectionActive())
   const [isPaymentReportsOpen, setIsPaymentReportsOpen] = useState(() => isPaymentReportsSectionActive())
   const [isPOTrackerOpen, setIsPOTrackerOpen] = useState(() => isPOTrackerSectionActive())
+  const [isAmazonOpen, setIsAmazonOpen] = useState(() => isAmazonSectionActive())
+  const [isNoonOpen, setIsNoonOpen] = useState(() => isNoonSectionActive())
+  const [isSourceOpen, setIsSourceOpen] = useState(() => isSourceSectionActive())
 
   const handleLogout = async () => {
     try {
@@ -254,30 +269,191 @@ export function AppSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
 
-              {/* DF Order Processing */}
-              <SidebarMenuItem>
-                <SidebarMenuButton 
-                  asChild
-                  className={`group relative w-full rounded-md transition-all duration-200 ${
-                    isActive("/order-processing")
-                      ? "bg-primary/90 text-primary-foreground shadow-sm" 
-                      : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
-                  }`}
-                >
-                  <NavLink 
-                    to="/order-processing" 
-                    end
-                    className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-md"
-                  >
-                    <FileSpreadsheet className="h-4 w-4 flex-shrink-0" />
-                    {!isCollapsed && (
-                      <span className="font-medium text-sm">
-                        DF Order Processing
-                      </span>
-                    )}
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              {/* Amazon Section - only show when not collapsed */}
+              {!isCollapsed && (
+                <SidebarMenuItem>
+                  <Collapsible open={isAmazonOpen} onOpenChange={setIsAmazonOpen}>
+                    <CollapsibleTrigger asChild>
+                    <SidebarMenuButton
+                      asChild
+                      className={`group relative w-full rounded-md transition-all duration-200 ${
+                        isAmazonSectionActive()
+                          ? "bg-primary/90 text-primary-foreground shadow-sm" 
+                          : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-md cursor-pointer">
+                          <ShoppingBag className="h-4 w-4 flex-shrink-0" />
+                          <span className="font-medium text-sm">
+                            Amazon
+                          </span>
+                          <ChevronDown className={`h-4 w-4 ml-auto transition-transform ${
+                            isAmazonOpen ? "rotate-180" : ""
+                          }`} />
+                        </div>
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="mt-2 space-y-1 pl-3 z-50 relative">
+                      {/* DF Order Processing */}
+                      <SidebarMenuButton
+                        asChild
+                        className={`group relative w-full rounded-md transition-all duration-200 ml-2 ${
+                          isActive("/order-processing")
+                            ? "bg-primary/90 text-primary-foreground shadow-sm" 
+                            : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
+                        }`}
+                      >
+                        <NavLink 
+                          to="/order-processing" 
+                          end
+                          className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-lg"
+                        >
+                          <FileSpreadsheet className="h-4 w-4 flex-shrink-0 opacity-75" />
+                          <span className="font-medium text-xs">
+                            DF Order Processing
+                          </span>
+                        </NavLink>
+                      </SidebarMenuButton>
+                      
+                      {/* PO - SS Stock Tracker */}
+                      <SidebarMenuButton
+                        asChild
+                        className={`group relative w-full rounded-md transition-all duration-200 ml-2 ${
+                          isActive("/po-tracker")
+                            ? "bg-primary/90 text-primary-foreground shadow-sm" 
+                            : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
+                        }`}
+                      >
+                        <NavLink 
+                          to="/po-tracker" 
+                          end
+                          className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-lg"
+                        >
+                          <ShoppingCart className="h-4 w-4 flex-shrink-0 opacity-75" />
+                          <span className="font-medium text-xs">
+                            PO - SS Stock Tracker
+                          </span>
+                        </NavLink>
+                      </SidebarMenuButton>
+                      
+                      {/* Amazon Fulfillment Tracker */}
+                      <SidebarMenuButton
+                        asChild
+                        className={`group relative w-full rounded-md transition-all duration-200 ml-2 ${
+                          isActive("/amazon-fulfillment")
+                            ? "bg-primary/90 text-primary-foreground shadow-sm" 
+                            : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
+                        }`}
+                      >
+                        <NavLink 
+                          to="/amazon-fulfillment" 
+                          end
+                          className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-lg"
+                        >
+                          <Package className="h-4 w-4 flex-shrink-0 opacity-75" />
+                          <span className="font-medium text-xs">
+                            Amazon Fulfillment Tracker
+                          </span>
+                        </NavLink>
+                      </SidebarMenuButton>
+                      
+                      {/* Amazon Vendor Central - Hide in native app */}
+                      {!isNative && (
+                        <SidebarMenuButton
+                          asChild
+                          className={`group relative w-full rounded-md transition-all duration-200 ml-2 ${
+                            isActive("/amazon-vendor-central")
+                              ? "bg-primary/90 text-primary-foreground shadow-sm" 
+                              : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
+                          }`}
+                        >
+                          <NavLink 
+                            to="/amazon-vendor-central" 
+                            end
+                            className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-lg"
+                          >
+                            <Settings className="h-4 w-4 flex-shrink-0 opacity-75" />
+                            <span className="font-medium text-xs">
+                              Amazon Vendor Central
+                            </span>
+                          </NavLink>
+                        </SidebarMenuButton>
+                      )}
+                    </CollapsibleContent>
+                  </Collapsible>
+                </SidebarMenuItem>
+              )}
+
+              {/* Noon Section - only show when not collapsed */}
+              {!isCollapsed && (
+                <SidebarMenuItem>
+                  <Collapsible open={isNoonOpen} onOpenChange={setIsNoonOpen}>
+                    <CollapsibleTrigger asChild>
+                    <SidebarMenuButton
+                      asChild
+                      className={`group relative w-full rounded-md transition-all duration-200 ${
+                        isNoonSectionActive()
+                          ? "bg-primary/90 text-primary-foreground shadow-sm" 
+                          : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-md cursor-pointer">
+                          <Store className="h-4 w-4 flex-shrink-0" />
+                          <span className="font-medium text-sm">
+                            Noon
+                          </span>
+                          <ChevronDown className={`h-4 w-4 ml-auto transition-transform ${
+                            isNoonOpen ? "rotate-180" : ""
+                          }`} />
+                        </div>
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="mt-2 space-y-1 pl-3 z-50 relative">
+                      {/* Noon Orders Processing */}
+                      <SidebarMenuButton
+                        asChild
+                        className={`group relative w-full rounded-md transition-all duration-200 ml-2 ${
+                          isActive("/noon-order-processing")
+                            ? "bg-primary/90 text-primary-foreground shadow-sm" 
+                            : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
+                        }`}
+                      >
+                        <NavLink 
+                          to="/noon-order-processing" 
+                          end
+                          className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-lg"
+                        >
+                          <Upload className="h-4 w-4 flex-shrink-0 opacity-75" />
+                          <span className="font-medium text-xs">
+                            Noon Orders Processing
+                          </span>
+                        </NavLink>
+                      </SidebarMenuButton>
+                      
+                      {/* Noon Orders Tracking */}
+                      <SidebarMenuButton
+                        asChild
+                        className={`group relative w-full rounded-md transition-all duration-200 ml-2 ${
+                          isActive("/noon-order-tracking")
+                            ? "bg-primary/90 text-primary-foreground shadow-sm" 
+                            : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
+                        }`}
+                      >
+                        <NavLink 
+                          to="/noon-order-tracking" 
+                          end
+                          className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-lg"
+                        >
+                          <Package className="h-4 w-4 flex-shrink-0 opacity-75" />
+                          <span className="font-medium text-xs">
+                            Noon Orders Tracking
+                          </span>
+                        </NavLink>
+                      </SidebarMenuButton>
+                    </CollapsibleContent>
+                  </Collapsible>
+                </SidebarMenuItem>
+              )}
 
               {/* Sales & Replenishment */}
               <SidebarMenuItem>
@@ -329,181 +505,74 @@ export function AppSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
 
-              {/* PO - SS Stock Tracker */}
-              <SidebarMenuItem>
-                <SidebarMenuButton 
-                  asChild
-                  className={`group relative w-full rounded-md transition-all duration-200 ${
-                    isActive("/po-tracker")
-                      ? "bg-primary/90 text-primary-foreground shadow-sm" 
-                      : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
-                  }`}
-                >
-                  <NavLink 
-                    to="/po-tracker" 
-                    end
-                    className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-md"
-                  >
-                    <ShoppingCart className="h-4 w-4 flex-shrink-0" />
-                    {!isCollapsed && (
-                      <span className="font-medium text-sm">
-                        PO - SS Stock Tracker
-                      </span>
-                    )}
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-
-              {/* Noon Orders Processing */}
-              <SidebarMenuItem>
-                <SidebarMenuButton 
-                  asChild
-                  className={`group relative w-full rounded-md transition-all duration-200 ${
-                    isActive("/noon-order-processing")
-                      ? "bg-primary/90 text-primary-foreground shadow-sm" 
-                      : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
-                  }`}
-                >
-                  <NavLink 
-                    to="/noon-order-processing" 
-                    end
-                    className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-md"
-                  >
-                    <Upload className="h-5 w-5 flex-shrink-0" />
-                    {!isCollapsed && (
-                      <span className="font-medium text-sm">
-                        Noon Orders Processing
-                      </span>
-                    )}
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-
-              {/* Noon Orders Tracking */}
-              <SidebarMenuItem>
-                <SidebarMenuButton 
-                  asChild
-                  className={`group relative w-full rounded-md transition-all duration-200 ${
-                    isActive("/noon-order-tracking")
-                      ? "bg-primary/90 text-primary-foreground shadow-sm" 
-                      : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
-                  }`}
-                >
-                  <NavLink 
-                    to="/noon-order-tracking" 
-                    end
-                    className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-md"
-                  >
-                    <Package className="h-5 w-5 flex-shrink-0" />
-                    {!isCollapsed && (
-                      <span className="font-medium text-sm">
-                        Noon Orders Tracking
-                      </span>
-                    )}
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-
-
-              {/* Source Product Importer */}
-              <SidebarMenuItem>
-                <SidebarMenuButton 
-                  asChild
-                  className={`group relative w-full rounded-md transition-all duration-200 ${
-                    isActive("/sunsky-importer")
-                      ? "bg-primary/90 text-primary-foreground shadow-sm" 
-                      : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
-                  }`}
-                >
-                  <NavLink 
-                    to="/sunsky-importer" 
-                    end
-                    className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-md"
-                  >
-                    <Globe className="h-5 w-5 flex-shrink-0" />
-                    {!isCollapsed && (
-                      <span className="font-medium text-sm">
-                        Source Product Importer
-                      </span>
-                    )}
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-
-              {/* Source Order Tracking */}
-              <SidebarMenuItem>
-                <SidebarMenuButton 
-                  asChild
-                  className={`group relative w-full rounded-md transition-all duration-200 ${
-                    isActive("/sunsky-order-tracking")
-                      ? "bg-primary/90 text-primary-foreground shadow-sm" 
-                      : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
-                  }`}
-                >
-                  <NavLink 
-                    to="/sunsky-order-tracking" 
-                    end
-                    className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-md"
-                  >
-                    <Truck className="h-4 w-4 flex-shrink-0" />
-                    {!isCollapsed && (
-                      <span className="font-medium text-sm">
-                        Source Order Tracking
-                      </span>
-                    )}
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-
-              {/* Amazon Fulfillment Tracker */}
-              <SidebarMenuItem>
-                <SidebarMenuButton 
-                  asChild
-                  className={`group relative w-full rounded-md transition-all duration-200 ${
-                    isActive("/amazon-fulfillment")
-                      ? "bg-primary/90 text-primary-foreground shadow-sm" 
-                      : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
-                  }`}
-                >
-                  <NavLink 
-                    to="/amazon-fulfillment" 
-                    end
-                    className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-md"
-                  >
-                    <Package className="h-4 w-4 flex-shrink-0" />
-                    {!isCollapsed && (
-                        <span className="font-medium text-sm">
-                          Amazon Fulfillment Tracker
-                        </span>
-                    )}
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-
-              {/* Amazon Vendor Central - Hide in native app */}
-              {!isNative && (
+              {/* Source Section - only show when not collapsed */}
+              {!isCollapsed && (
                 <SidebarMenuItem>
-                  <SidebarMenuButton 
-                    asChild
-                    className={`group relative w-full rounded-md transition-all duration-200 ${
-                      isActive("/amazon-vendor-central")
-                        ? "bg-primary/90 text-primary-foreground shadow-sm" 
-                        : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
-                    }`}
-                  >
-                    <NavLink 
-                      to="/amazon-vendor-central" 
-                      end
-                      className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-md"
+                  <Collapsible open={isSourceOpen} onOpenChange={setIsSourceOpen}>
+                    <CollapsibleTrigger asChild>
+                    <SidebarMenuButton
+                      asChild
+                      className={`group relative w-full rounded-md transition-all duration-200 ${
+                        isSourceSectionActive()
+                          ? "bg-primary/90 text-primary-foreground shadow-sm" 
+                          : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
+                      }`}
                     >
-                      <Settings className="h-5 w-5 flex-shrink-0" />
-                      {!isCollapsed && (
-                        <span className="font-medium text-sm">
-                          Amazon Vendor Central
-                        </span>
-                      )}
-                    </NavLink>
-                  </SidebarMenuButton>
+                      <div className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-md cursor-pointer">
+                          <Globe className="h-4 w-4 flex-shrink-0" />
+                          <span className="font-medium text-sm">
+                            Source
+                          </span>
+                          <ChevronDown className={`h-4 w-4 ml-auto transition-transform ${
+                            isSourceOpen ? "rotate-180" : ""
+                          }`} />
+                        </div>
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="mt-2 space-y-1 pl-3 z-50 relative">
+                      {/* Source Product Importer */}
+                      <SidebarMenuButton
+                        asChild
+                        className={`group relative w-full rounded-md transition-all duration-200 ml-2 ${
+                          isActive("/sunsky-importer")
+                            ? "bg-primary/90 text-primary-foreground shadow-sm" 
+                            : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
+                        }`}
+                      >
+                        <NavLink 
+                          to="/sunsky-importer" 
+                          end
+                          className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-lg"
+                        >
+                          <Globe className="h-4 w-4 flex-shrink-0 opacity-75" />
+                          <span className="font-medium text-xs">
+                            Source Product Importer
+                          </span>
+                        </NavLink>
+                      </SidebarMenuButton>
+                      
+                      {/* Source Order Tracking */}
+                      <SidebarMenuButton
+                        asChild
+                        className={`group relative w-full rounded-md transition-all duration-200 ml-2 ${
+                          isActive("/sunsky-order-tracking")
+                            ? "bg-primary/90 text-primary-foreground shadow-sm" 
+                            : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
+                        }`}
+                      >
+                        <NavLink 
+                          to="/sunsky-order-tracking" 
+                          end
+                          className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-lg"
+                        >
+                          <Truck className="h-4 w-4 flex-shrink-0 opacity-75" />
+                          <span className="font-medium text-xs">
+                            Source Order Tracking
+                          </span>
+                        </NavLink>
+                      </SidebarMenuButton>
+                    </CollapsibleContent>
+                  </Collapsible>
                 </SidebarMenuItem>
               )}
 
