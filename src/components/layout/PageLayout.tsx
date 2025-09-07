@@ -12,7 +12,7 @@ export const PageLayout: React.FC<PageLayoutProps> = ({
 }) => {
   return (
     <div className={cn("min-h-screen bg-gradient-surface", className)}>
-      <div className="w-full px-4 md:px-6 py-4 animate-fade-in">
+      <div className="max-w-7xl mx-auto px-4 md:px-6 py-4 animate-fade-in">
         {children}
       </div>
     </div>
