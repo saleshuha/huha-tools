@@ -1688,7 +1688,7 @@ export default function PODetailsPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-surface">
-        <div className="glass-container my-4 p-8">
+        <div className="glass-container mx-6 my-4 p-8">
           <div className="animate-pulse space-y-4">
             <div className="h-8 bg-muted rounded w-1/3"></div>
             <div className="h-24 bg-muted rounded"></div>
@@ -1702,7 +1702,7 @@ export default function PODetailsPage() {
   if (matchedOrders.length === 0) {
     return (
       <div className="min-h-screen bg-gradient-surface">
-        <div className="glass-container my-4 p-8">
+        <div className="glass-container mx-6 my-4 p-8">
           <div className="flex items-center gap-4 mb-6">
             <Button variant="outline" onClick={() => navigate('/po-tracker')}>
               <ArrowLeft className="h-4 w-4 mr-2" />
@@ -1727,7 +1727,7 @@ export default function PODetailsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-surface">
-      <div className="glass-container my-4 p-8 animate-fade-in">
+      <div className="glass-container mx-6 my-4 p-8 animate-fade-in">
         {/* Header Section */}
         <div className="flex items-center justify-between mb-8 pb-6 border-b border-gradient">
           <div className="flex items-center gap-4">
