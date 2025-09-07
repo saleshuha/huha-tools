@@ -301,15 +301,30 @@ export default function SunskyOrderTrackingPage() {
   // Order statistics with proper status mapping
   const orderStats = {
     total: orders.length,
-    pending: orders.filter(o => getReadableStatus(o.status || 'pending') === 'ordered' || o.status === 'pending').length,
-    unpaid: orders.filter(o => getReadableStatus(o.status || 'pending') === 'unpaid').length,
-    paid: orders.filter(o => getReadableStatus(o.status || 'pending') === 'paid').length,
-    shipped: orders.filter(o => getReadableStatus(o.status || 'pending') === 'shipped').length,
-    delivered: orders.filter(o => getReadableStatus(o.status || 'pending') === 'delivered').length,
+    pending: orders.filter(o => {
+      const status = getReadableStatus(o.status || '1');
+      return status === 'ordered' || status === 'pending' || String(o.status) === '1';
+    }).length,
+    unpaid: orders.filter(o => {
+      const status = getReadableStatus(o.status || '0');
+      return status === 'unpaid' || String(o.status) === '0';
+    }).length,
+    paid: orders.filter(o => {
+      const status = getReadableStatus(o.status || '4');
+      return status === 'paid' || String(o.status) === '4';
+    }).length,
+    shipped: orders.filter(o => {
+      const status = getReadableStatus(o.status || '5');
+      return status === 'shipped' || String(o.status) === '5';
+    }).length,
+    delivered: orders.filter(o => {
+      const status = getReadableStatus(o.status || '6');
+      return status === 'delivered' || String(o.status) === '6';
+    }).length,
     totalValue: orders.reduce((sum, order) => sum + (order.total || 0), 0)
   };
 
-  const delayedCount = filteredAndSortedOrders.filter(order => 
+  const delayedCount = filteredAndSortedOrders.filter(order =>
     order.items?.some(item => isItemDelayed(item))
   ).length;
 
@@ -426,11 +441,11 @@ export default function SunskyOrderTrackingPage() {
 
               {/* Stats Cards */}
               <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-2">
+                <Card className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-20 flex flex-col border-l-4 border-l-blue-500">
+                  <CardContent className="p-4 flex-1 flex items-center">
+                    <div className="flex items-center gap-2 w-full">
                       <Package className="h-5 w-5 text-blue-500" />
-                      <div>
+                      <div className="flex-1">
                         <p className="text-sm text-muted-foreground">Total Orders</p>
                         <p className="text-2xl font-bold">{orderStats.total}</p>
                       </div>
@@ -438,11 +453,11 @@ export default function SunskyOrderTrackingPage() {
                   </CardContent>
                 </Card>
 
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-2">
+                <Card className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-orange-500/5 to-background h-20 flex flex-col border-l-4 border-l-orange-500">
+                  <CardContent className="p-4 flex-1 flex items-center">
+                    <div className="flex items-center gap-2 w-full">
                       <AlertTriangle className="h-5 w-5 text-orange-500" />
-                      <div>
+                      <div className="flex-1">
                         <p className="text-sm text-muted-foreground">Unpaid</p>
                         <p className="text-2xl font-bold">{orderStats.unpaid}</p>
                       </div>
@@ -450,11 +465,11 @@ export default function SunskyOrderTrackingPage() {
                   </CardContent>
                 </Card>
 
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle className="h-5 w-5 text-blue-500" />
-                      <div>
+                <Card className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-green-500/5 to-background h-20 flex flex-col border-l-4 border-l-green-500">
+                  <CardContent className="p-4 flex-1 flex items-center">
+                    <div className="flex items-center gap-2 w-full">
+                      <CheckCircle className="h-5 w-5 text-green-500" />
+                      <div className="flex-1">
                         <p className="text-sm text-muted-foreground">Paid</p>
                         <p className="text-2xl font-bold">{orderStats.paid}</p>
                       </div>
@@ -462,11 +477,11 @@ export default function SunskyOrderTrackingPage() {
                   </CardContent>
                 </Card>
 
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-2">
+                <Card className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-purple-500/5 to-background h-20 flex flex-col border-l-4 border-l-purple-500">
+                  <CardContent className="p-4 flex-1 flex items-center">
+                    <div className="flex items-center gap-2 w-full">
                       <Truck className="h-5 w-5 text-purple-500" />
-                      <div>
+                      <div className="flex-1">
                         <p className="text-sm text-muted-foreground">Shipped</p>
                         <p className="text-2xl font-bold">{orderStats.shipped}</p>
                       </div>
@@ -474,11 +489,11 @@ export default function SunskyOrderTrackingPage() {
                   </CardContent>
                 </Card>
 
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-2">
+                <Card className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-indigo-500/5 to-background h-20 flex flex-col border-l-4 border-l-indigo-500">
+                  <CardContent className="p-4 flex-1 flex items-center">
+                    <div className="flex items-center gap-2 w-full">
                       <ExternalLink className="h-5 w-5 text-indigo-500" />
-                      <div>
+                      <div className="flex-1">
                         <p className="text-sm text-muted-foreground">Total Value</p>
                         <p className="text-2xl font-bold">{formatCurrency(orderStats.totalValue, 'USD')}</p>
                       </div>
