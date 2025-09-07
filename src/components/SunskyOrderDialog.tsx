@@ -87,6 +87,8 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
   const [loadingStatus, setLoadingStatus] = useState('');
   const [catalogSearching, setCatalogSearching] = useState(false);
   const [processingItems, setProcessingItems] = useState(false);
+  const [itemsProgress, setItemsProgress] = useState({ current: 0, total: 0 });
+  const [currentItemName, setCurrentItemName] = useState('');
   
   // Saved addresses state
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
@@ -526,11 +528,19 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
   const filterAndRetryShippingMethods = async (originalItems: any[]) => {
     console.log('Filtering unavailable items and retrying...');
     
+    // Set up progress tracking
+    setItemsProgress({ current: 0, total: originalItems.length });
+    setLoadingStatus('Checking items in Sunsky catalog...');
+    
     // Test each item individually to see which ones are available
     const availableItems = [];
     const unavailableItems = [];
     
-    for (const item of originalItems) {
+    for (let i = 0; i < originalItems.length; i++) {
+      const item = originalItems[i];
+      setCurrentItemName(item.itemNo);
+      setItemsProgress({ current: i + 1, total: originalItems.length });
+      
       try {
         const testResponse = await supabase.functions.invoke('sunsky-api', {
           body: { 
@@ -558,6 +568,10 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
     
     console.log('Available items:', availableItems);
     console.log('Unavailable items:', unavailableItems);
+    
+    // Reset progress tracking
+    setItemsProgress({ current: 0, total: 0 });
+    setCurrentItemName('');
     
     // Uncheck unavailable items
     unavailableItems.forEach(item => {
@@ -1162,53 +1176,75 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
                </Button>
 
                {loadingShipping && (
-                 <Card className="mb-4 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-blue-200 dark:border-blue-800">
-                   <div className="flex items-center justify-center mb-4">
-                     <div className="flex items-center gap-3">
-                       <div className="relative">
-                         <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-                         <div className="absolute inset-0 rounded-full border-2 border-blue-200"></div>
-                       </div>
-                       <div className="text-center">
-                         <div className="text-lg font-semibold text-blue-900 dark:text-blue-100">
-                           Loading Shipping Options
-                         </div>
-                         <div className="text-sm text-blue-700 dark:text-blue-200">
-                           {loadingStatus || 'Preparing request...'}
-                         </div>
-                       </div>
-                     </div>
-                   </div>
-                   
-                   <div className="space-y-3">
-                     <div className="flex items-center justify-between text-sm font-medium text-blue-800 dark:text-blue-200">
-                       <span>Progress</span>
-                       <span>{loadingProgress}%</span>
-                     </div>
-                     
-                     <div className="relative h-3 bg-blue-100 dark:bg-blue-800/30 rounded-full overflow-hidden">
-                       <div 
-                         className="absolute top-0 left-0 h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-300 ease-out"
-                         style={{ width: `${loadingProgress}%` }}
-                       />
-                       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse"></div>
-                     </div>
-                     
-                     <div className="flex items-center justify-center gap-2 text-xs text-blue-600 dark:text-blue-300">
-                       <div className={`w-2 h-2 rounded-full ${loadingProgress >= 20 ? 'bg-blue-500' : 'bg-blue-200'} transition-colors`}></div>
-                       <span className={loadingProgress >= 20 ? 'font-medium' : ''}>Validate Items</span>
-                       <div className={`w-2 h-2 rounded-full ${loadingProgress >= 40 ? 'bg-blue-500' : 'bg-blue-200'} transition-colors`}></div>
-                       <span className={loadingProgress >= 40 ? 'font-medium' : ''}>Prepare Request</span>
-                       <div className={`w-2 h-2 rounded-full ${loadingProgress >= 60 ? 'bg-blue-500' : 'bg-blue-200'} transition-colors`}></div>
-                       <span className={loadingProgress >= 60 ? 'font-medium' : ''}>Query Sunsky</span>
-                       <div className={`w-2 h-2 rounded-full ${loadingProgress >= 80 ? 'bg-blue-500' : 'bg-blue-200'} transition-colors`}></div>
-                       <span className={loadingProgress >= 80 ? 'font-medium' : ''}>Process Results</span>
-                       <div className={`w-2 h-2 rounded-full ${loadingProgress >= 100 ? 'bg-green-500' : 'bg-blue-200'} transition-colors`}></div>
-                       <span className={loadingProgress >= 100 ? 'font-medium text-green-600' : ''}>Complete</span>
-                     </div>
-                   </div>
-                 </Card>
-               )}
+                  <Card className="mb-4 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-blue-200 dark:border-blue-800">
+                    <div className="flex items-center justify-center mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="relative">
+                          <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+                          <div className="absolute inset-0 rounded-full border-2 border-blue-200"></div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-lg font-semibold text-blue-900 dark:text-blue-100">
+                            Loading Shipping Options
+                          </div>
+                          <div className="text-sm text-blue-700 dark:text-blue-200">
+                            {loadingStatus || 'Preparing request...'}
+                          </div>
+                          {itemsProgress.total > 0 && (
+                            <div className="text-xs text-blue-600 dark:text-blue-300 mt-1">
+                              Processing item {itemsProgress.current} of {itemsProgress.total}
+                              {currentItemName && <span className="block font-mono">{currentItemName}</span>}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between text-sm font-medium text-blue-800 dark:text-blue-200">
+                        <span>Progress</span>
+                        <span>{loadingProgress}%</span>
+                      </div>
+                      
+                      <div className="relative h-3 bg-blue-100 dark:bg-blue-800/30 rounded-full overflow-hidden">
+                        <div 
+                          className="absolute top-0 left-0 h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-300 ease-out"
+                          style={{ width: `${loadingProgress}%` }}
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse"></div>
+                      </div>
+                      
+                      {/* Items Progress Bar */}
+                      {itemsProgress.total > 0 && (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between text-xs font-medium text-blue-700 dark:text-blue-300">
+                            <span>Items Checked</span>
+                            <span>{itemsProgress.current}/{itemsProgress.total}</span>
+                          </div>
+                          <div className="relative h-2 bg-blue-100 dark:bg-blue-800/30 rounded-full overflow-hidden">
+                            <div 
+                              className="absolute top-0 left-0 h-full bg-gradient-to-r from-green-500 to-emerald-500 rounded-full transition-all duration-300 ease-out"
+                              style={{ width: `${itemsProgress.total > 0 ? (itemsProgress.current / itemsProgress.total) * 100 : 0}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div className="flex items-center justify-center gap-2 text-xs text-blue-600 dark:text-blue-300">
+                        <div className={`w-2 h-2 rounded-full ${loadingProgress >= 20 ? 'bg-blue-500' : 'bg-blue-200'} transition-colors`}></div>
+                        <span className={loadingProgress >= 20 ? 'font-medium' : ''}>Validate Items</span>
+                        <div className={`w-2 h-2 rounded-full ${loadingProgress >= 40 ? 'bg-blue-500' : 'bg-blue-200'} transition-colors`}></div>
+                        <span className={loadingProgress >= 40 ? 'font-medium' : ''}>Prepare Request</span>
+                        <div className={`w-2 h-2 rounded-full ${loadingProgress >= 60 ? 'bg-blue-500' : 'bg-blue-200'} transition-colors`}></div>
+                        <span className={loadingProgress >= 60 ? 'font-medium' : ''}>Query Sunsky</span>
+                        <div className={`w-2 h-2 rounded-full ${loadingProgress >= 80 ? 'bg-blue-500' : 'bg-blue-200'} transition-colors`}></div>
+                        <span className={loadingProgress >= 80 ? 'font-medium' : ''}>Process Results</span>
+                        <div className={`w-2 h-2 rounded-full ${loadingProgress >= 100 ? 'bg-green-500' : 'bg-blue-200'} transition-colors`}></div>
+                        <span className={loadingProgress >= 100 ? 'font-medium text-green-600' : ''}>Complete</span>
+                      </div>
+                    </div>
+                  </Card>
+                )}
               
               {!canLoadShipping && (
                 <p className="text-sm text-muted-foreground mb-4">
