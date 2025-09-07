@@ -2756,7 +2756,9 @@ export type Database = {
       }
       sunsky_credentials: {
         Row: {
+          api_key: string | null
           api_key_encrypted: string | null
+          api_secret: string | null
           api_secret_encrypted: string | null
           created_at: string
           id: string
@@ -2768,7 +2770,9 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          api_key?: string | null
           api_key_encrypted?: string | null
+          api_secret?: string | null
           api_secret_encrypted?: string | null
           created_at?: string
           id?: string
@@ -2780,7 +2784,9 @@ export type Database = {
           user_id: string
         }
         Update: {
+          api_key?: string | null
           api_key_encrypted?: string | null
+          api_secret?: string | null
           api_secret_encrypted?: string | null
           created_at?: string
           id?: string
@@ -4292,6 +4298,8 @@ export type Database = {
       get_user_sunsky_credentials_secure: {
         Args: Record<PropertyKey, never>
         Returns: {
+          api_key: string
+          api_secret: string
           created_at: string
           id: string
           is_active: boolean
