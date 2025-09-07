@@ -1,19 +1,21 @@
 import { UserManagement } from '@/components/UserManagement';
 import { Users } from 'lucide-react';
 import { HuhaHeader01 } from '@/components/ui/huha-header-01';
-import { PageLayout } from '@/components/layout/PageLayout';
 
 export default function UserManagementPage() {
   return (
-    <PageLayout>
-      <HuhaHeader01
-        icon={<Users className="w-5 h-5 text-primary-foreground" />}
-        title="User Management"
-        subtitle="Manage user accounts and permissions"
-      />
-      <div className="glass-container p-8">
-        <UserManagement />
+    <div className="min-h-screen bg-gradient-surface">
+      <div className="w-full px-4 md:px-6 py-4 animate-fade-in">
+        <HuhaHeader01
+          icon={<Users className="w-5 h-5 text-primary-foreground" />}
+          title="User Management"
+          subtitle="Manage user accounts and permissions"
+          className="mb-8"
+        />
+        <div className="glass-container mx-6 p-8">
+          <UserManagement />
+        </div>
       </div>
-    </PageLayout>
+    </div>
   );
 }
