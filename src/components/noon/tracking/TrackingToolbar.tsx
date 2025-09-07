@@ -90,10 +90,7 @@ export function TrackingToolbar({
           <div className="flex items-center gap-2">
             {/* View Mode Toggle */}
             <div className="flex items-center gap-1 bg-card border border-border/50 rounded-lg p-1">
-              <Button variant={viewMode === 'table' ? 'default' : 'ghost'} size="sm" onClick={() => onViewModeChange('table')} className={cn("h-8 px-3", viewMode === 'table' && "bg-primary text-primary-foreground shadow-sm")}>
-                <Columns className="h-4 w-4 mr-1" />
-                Table
-              </Button>
+              
               
             </div>
 
