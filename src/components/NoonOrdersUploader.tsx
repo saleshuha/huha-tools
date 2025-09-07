@@ -45,6 +45,7 @@ interface NoonOrderData {
   size?: string;
   pbarcodes?: string;
 }
+// Noon Orders Uploader Component - Handles file uploads and store management
 export function NoonOrdersUploader() {
   const [selectedStoreId, setSelectedStoreId] = useState<string>('');
   const [uploading, setUploading] = useState(false);
