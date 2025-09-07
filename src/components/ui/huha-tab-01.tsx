@@ -43,7 +43,7 @@ export const HuhaTab01: React.FC<HuhaTab01Props> = ({
             value={item.value}
             disabled={item.disabled}
             className={cn(
-              "data-[state=active]:bg-primary data-[state=active]:text-primary-foreground",
+              "tab-trigger data-[state=active]:bg-primary data-[state=active]:text-primary-foreground",
               tabsTriggerClassName
             )}
           >

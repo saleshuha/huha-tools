@@ -319,6 +319,221 @@
   }
 }
 
+/* ==========================================================================
+   THEME SYSTEM - Advanced Design Variants
+   ========================================================================== */
+
+/* Header styles */
+:root[data-header-style="compact"] {
+  --header-min-h: 80px;
+}
+
+:root[data-header-style="spacious"] {
+  --header-min-h: 160px;
+}
+
+/* Button Styles */
+:root[data-button-style="pill"] .btn {
+  @apply rounded-full;
+}
+
+:root[data-button-style="sharp"] .btn {
+  @apply rounded-none;
+}
+
+:root[data-button-style="soft"] .btn {
+  @apply bg-opacity-10 hover:bg-opacity-20;
+}
+
+:root[data-button-variant="gradient"] .btn-primary {
+  @apply bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70;
+}
+
+:root[data-button-variant="ghost"] .btn {
+  @apply bg-transparent border-transparent hover:bg-muted;
+}
+
+:root[data-button-shadow="true"] .btn {
+  @apply shadow-md hover:shadow-lg transition-shadow;
+}
+
+:root[data-button-size="sm"] .btn {
+  @apply px-3 py-1.5 text-sm;
+}
+
+:root[data-button-size="lg"] .btn {
+  @apply px-6 py-3 text-lg;
+}
+
+/* Field Styles */
+:root[data-field-style="filled"] .input-field {
+  @apply bg-muted border-transparent focus:bg-background;
+}
+
+:root[data-field-style="subtle"] .input-field {
+  @apply border-muted-foreground/20 focus:border-primary;
+}
+
+:root[data-field-style="underline"] .input-field {
+  @apply border-0 border-b-2 rounded-none bg-transparent border-muted-foreground/30 focus:border-primary;
+}
+
+:root[data-field-style="floating"] .input-field {
+  @apply pt-6 pb-2;
+}
+
+:root[data-field-style="bordered"] .input-field {
+  @apply border-2 border-muted-foreground/30 focus:border-primary;
+}
+
+:root[data-field-focus="glow"] .input-field:focus {
+  @apply ring-4 ring-primary/20 shadow-lg shadow-primary/10;
+}
+
+:root[data-field-focus="scale"] .input-field:focus {
+  @apply scale-[1.02] transition-transform;
+}
+
+:root[data-field-focus="shadow"] .input-field:focus {
+  @apply shadow-xl shadow-primary/20;
+}
+
+:root[data-field-size="sm"] .input-field {
+  @apply px-2 py-1 text-sm;
+}
+
+:root[data-field-size="lg"] .input-field {
+  @apply px-4 py-3 text-lg;
+}
+
+/* Tab Styles */
+:root[data-tab-style="pills"] .tab-trigger {
+  @apply rounded-full px-4 py-2 bg-muted/50 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground;
+}
+
+:root[data-tab-style="underline"] .tab-trigger {
+  @apply rounded-none border-b-2 border-transparent data-[state=active]:border-primary bg-transparent;
+}
+
+:root[data-tab-style="segmented"] .tab-trigger {
+  @apply rounded-none first:rounded-l-md last:rounded-r-md border border-r-0 last:border-r data-[state=active]:bg-primary data-[state=active]:text-primary-foreground;
+}
+
+:root[data-tab-style="bordered"] .tab-trigger {
+  @apply border border-muted-foreground/20 rounded-md data-[state=active]:border-primary data-[state=active]:bg-primary/5;
+}
+
+/* Table Styles */
+:root[data-table-density="compact"] .table-row {
+  @apply py-1;
+}
+
+:root[data-table-density="spacious"] .table-row {
+  @apply py-4;
+}
+
+:root[data-table-stripes="true"] .table-row:nth-child(even) {
+  @apply bg-muted/30;
+}
+
+:root[data-table-border="vertical"] .table-cell {
+  @apply border-r border-muted-foreground/20 last:border-r-0;
+}
+
+:root[data-table-border="all"] .table-cell {
+  @apply border border-muted-foreground/20;
+}
+
+:root[data-table-border="none"] .table-cell {
+  @apply border-0;
+}
+
+:root[data-table-style="minimal"] .table {
+  @apply border-0;
+}
+
+:root[data-table-style="bordered"] .table {
+  @apply border-2 border-muted-foreground/20 rounded-lg;
+}
+
+:root[data-table-style="shadow"] .table {
+  @apply shadow-lg rounded-lg border border-muted-foreground/10;
+}
+
+/* Card Styles */
+:root[data-card-style="flat"] .card {
+  @apply shadow-none border-0 bg-muted/30;
+}
+
+:root[data-card-style="elevated"] .card {
+  @apply shadow-xl border-0;
+}
+
+:root[data-card-style="outlined"] .card {
+  @apply shadow-none border-2 border-muted-foreground/20;
+}
+
+:root[data-card-style="soft"] .card {
+  @apply bg-gradient-to-br from-background to-muted/30 shadow-sm;
+}
+
+:root[data-card-shadow="none"] .card {
+  @apply shadow-none;
+}
+
+:root[data-card-shadow="sm"] .card {
+  @apply shadow-sm;
+}
+
+:root[data-card-shadow="lg"] .card {
+  @apply shadow-lg;
+}
+
+:root[data-card-shadow="xl"] .card {
+  @apply shadow-xl;
+}
+
+/* Navigation Styles */
+:root[data-nav-style="pill"] .nav-item {
+  @apply rounded-full px-4 py-2;
+}
+
+:root[data-nav-style="underline"] .nav-item {
+  @apply border-b-2 border-transparent hover:border-primary/50 active:border-primary;
+}
+
+:root[data-nav-style="filled"] .nav-item {
+  @apply bg-muted/50 hover:bg-muted active:bg-primary active:text-primary-foreground;
+}
+
+/* Sidebar Styles */
+:root[data-sidebar-style="floating"] .sidebar {
+  @apply m-2 rounded-lg shadow-lg border;
+}
+
+:root[data-sidebar-style="bordered"] .sidebar {
+  @apply border-r-2 border-muted-foreground/20;
+}
+
+:root[data-sidebar-style="minimal"] .sidebar {
+  @apply border-0 shadow-none bg-transparent;
+}
+
+/* Spacing Variants */
+:root[data-spacing="tight"] .spaced-content > * + * {
+  @apply mt-2;
+}
+
+:root[data-spacing="loose"] .spaced-content > * + * {
+  @apply mt-6;
+}
+
+/* Animation Disabling */
+:root[data-animations="false"] * {
+  @apply transition-none !important;
+  animation: none !important;
+}
+
 /* Theme Configuration Overrides */
 
 /* Header Styles */

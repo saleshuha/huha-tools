@@ -10,25 +10,40 @@ export interface ThemeConfig {
   headerGradient: boolean;
   
   // Tabs  
-  tabStyle: 'default' | 'pills' | 'underline';
+  tabStyle: 'default' | 'pills' | 'underline' | 'segmented' | 'bordered';
   tabAnimation: boolean;
+  tabPosition: 'top' | 'bottom' | 'left' | 'right';
   
   // Buttons
-  buttonStyle: 'default' | 'rounded' | 'sharp';
+  buttonStyle: 'default' | 'rounded' | 'sharp' | 'pill' | 'ghost' | 'soft';
   buttonShadow: boolean;
+  buttonSize: 'sm' | 'md' | 'lg';
+  buttonVariant: 'solid' | 'outline' | 'ghost' | 'gradient';
   
   // Fields
-  fieldStyle: 'default' | 'filled' | 'subtle';
-  fieldFocus: 'default' | 'glow' | 'underline';
+  fieldStyle: 'default' | 'filled' | 'subtle' | 'underline' | 'floating' | 'bordered';
+  fieldFocus: 'default' | 'glow' | 'underline' | 'scale' | 'shadow';
+  fieldSize: 'sm' | 'md' | 'lg';
   
   // Tables
   tableDensity: 'default' | 'compact' | 'spacious';
   tableStripes: boolean;
   tableHover: boolean;
+  tableBorder: 'none' | 'horizontal' | 'vertical' | 'all';
+  tableStyle: 'default' | 'minimal' | 'bordered' | 'shadow';
+  
+  // Cards
+  cardStyle: 'default' | 'flat' | 'elevated' | 'outlined' | 'soft';
+  cardShadow: 'none' | 'sm' | 'md' | 'lg' | 'xl';
+  
+  // Navigation
+  navStyle: 'default' | 'pill' | 'underline' | 'filled';
+  sidebarStyle: 'default' | 'floating' | 'bordered' | 'minimal';
   
   // Global
-  borderRadius: 'none' | 'small' | 'medium' | 'large';
+  borderRadius: 'none' | 'small' | 'medium' | 'large' | 'full';
   animations: boolean;
+  spacing: 'tight' | 'default' | 'loose';
 }
 
 const defaultConfig: ThemeConfig = {
@@ -37,15 +52,26 @@ const defaultConfig: ThemeConfig = {
   headerGradient: true,
   tabStyle: 'default',
   tabAnimation: true,
+  tabPosition: 'top',
   buttonStyle: 'default',
   buttonShadow: true,
+  buttonSize: 'md',
+  buttonVariant: 'solid',
   fieldStyle: 'default',
   fieldFocus: 'default',
+  fieldSize: 'md',
   tableDensity: 'default',
   tableStripes: false,
   tableHover: true,
+  tableBorder: 'horizontal',
+  tableStyle: 'default',
+  cardStyle: 'default',
+  cardShadow: 'md',
+  navStyle: 'default',
+  sidebarStyle: 'default',
   borderRadius: 'medium',
   animations: true,
+  spacing: 'default',
 };
 
 interface ThemeConfigContextType {
@@ -115,7 +141,8 @@ export const ThemeConfigProvider: React.FC<{ children: React.ReactNode }> = ({ c
       none: '0',
       small: '0.25rem',
       medium: '0.5rem',
-      large: '1rem'
+      large: '1rem',
+      full: '9999px'
     };
     root.style.setProperty('--radius', radiusMap[themeConfig.borderRadius]);
     
@@ -127,19 +154,38 @@ export const ThemeConfigProvider: React.FC<{ children: React.ReactNode }> = ({ c
     };
     root.style.setProperty('--header-min-h', headerHeightMap[themeConfig.headerStyle]);
     
-    // Set data attributes for styling
+    // Spacing variables
+    const spacingMap = {
+      tight: '0.5rem',
+      default: '1rem',
+      loose: '1.5rem'
+    };
+    root.style.setProperty('--spacing', spacingMap[themeConfig.spacing]);
+    
+    // Set all data attributes for styling
     root.setAttribute('data-header-style', themeConfig.headerStyle);
     root.setAttribute('data-header-gradient', themeConfig.headerGradient.toString());
     root.setAttribute('data-tab-style', themeConfig.tabStyle);
     root.setAttribute('data-tab-animation', themeConfig.tabAnimation.toString());
+    root.setAttribute('data-tab-position', themeConfig.tabPosition);
     root.setAttribute('data-button-style', themeConfig.buttonStyle);
     root.setAttribute('data-button-shadow', themeConfig.buttonShadow.toString());
+    root.setAttribute('data-button-size', themeConfig.buttonSize);
+    root.setAttribute('data-button-variant', themeConfig.buttonVariant);
     root.setAttribute('data-field-style', themeConfig.fieldStyle);
     root.setAttribute('data-field-focus', themeConfig.fieldFocus);
+    root.setAttribute('data-field-size', themeConfig.fieldSize);
     root.setAttribute('data-table-density', themeConfig.tableDensity);
     root.setAttribute('data-table-stripes', themeConfig.tableStripes.toString());
     root.setAttribute('data-table-hover', themeConfig.tableHover.toString());
+    root.setAttribute('data-table-border', themeConfig.tableBorder);
+    root.setAttribute('data-table-style', themeConfig.tableStyle);
+    root.setAttribute('data-card-style', themeConfig.cardStyle);
+    root.setAttribute('data-card-shadow', themeConfig.cardShadow);
+    root.setAttribute('data-nav-style', themeConfig.navStyle);
+    root.setAttribute('data-sidebar-style', themeConfig.sidebarStyle);
     root.setAttribute('data-animations', themeConfig.animations.toString());
+    root.setAttribute('data-spacing', themeConfig.spacing);
   };
 
   return (
