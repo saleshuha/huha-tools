@@ -120,13 +120,9 @@ export default {
 			},
 			boxShadow: {
 				'soft': 'var(--shadow-soft)',
-				'medium': 'var(--shadow-medium)',
-				'strong': 'var(--shadow-strong)',
-				'glow': 'var(--shadow-glow)',
-				'accent-glow': 'var(--shadow-accent-glow)',
-				'emerald-glow': 'var(--shadow-emerald-glow)',
-				'sky-glow': 'var(--shadow-sky-glow)',
-				'cyan-glow': 'var(--shadow-cyan-glow)'
+				'elevated': 'var(--shadow-elevated)',
+				'glass': 'var(--shadow-glass)',
+				'glow': 'var(--shadow-glow)'
 			},
 			transitionTimingFunction: {
 				'smooth': 'var(--transition-smooth)',
