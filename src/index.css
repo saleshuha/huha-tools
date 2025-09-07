@@ -1,182 +1,616 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@import './theme/atlas-flat.css';
+/* Excel Mapper Design System - Professional data transformation tool */
 
-/* =============================================== */
-/* Mercury Ops Theme - Operational Excellence     */
-/* Clean, High-Contrast Design for Data-Heavy Apps */
-/* =============================================== */
+@layer base {
+  :root {
+    /* Base Colors - FreshUI Theme */
+    --background: 0 0% 100%;
+    --foreground: 210 11% 15%;
 
-:root {
-  /* ===== Core Brand Identity ===== */
-  --brand-name: "Mercury Ops";
-  --brand-tagline: "Operational Excellence";
-  
-  /* ===== Base Environment ===== */
-  --background: 220 20% 98%;                    /* Clean white base */
-  --background-secondary: 218 15% 95%;          /* Subtle grey backdrop */
-  --foreground: 220 25% 12%;                    /* High contrast text */
-  --foreground-secondary: 218 12% 45%;          /* Secondary text */
-  
-  /* ===== Surface System ===== */
-  --surface: 0 0% 100%;                         /* Pure white cards */
-  --surface-container: 218 12% 97%;             /* Elevated container */
-  --surface-container-high: 218 10% 96%;        /* Higher elevation */
-  --surface-container-highest: 218 8% 94%;      /* Highest elevation */
-  --surface-dim: 218 8% 92%;                    /* Dimmed surface */
-  --surface-bright: 0 0% 100%;                  /* Bright surface */
-  
-  /* ===== Electric Accent System ===== */
-  --primary: 198 100% 45%;                      /* Electric Azure */
-  --primary-light: 198 100% 65%;                /* Lighter Azure */
-  --primary-dark: 198 100% 35%;                 /* Darker Azure */
-  --primary-foreground: 0 0% 100%;              /* White on primary */
-  --primary-glow: 198 100% 55%;                 /* Glowing variant */
-  
-  /* ===== Functional Colors ===== */
-  --secondary: 218 12% 96%;                     /* Subtle secondary */
-  --secondary-foreground: 220 25% 12%;          /* Dark on secondary */
-  --accent: 160 100% 45%;                       /* Emerald accent */
-  --accent-foreground: 0 0% 100%;               /* White on accent */
-  --muted: 218 10% 94%;                         /* Muted background */
-  --muted-foreground: 218 12% 48%;              /* Muted text */
-  
-  /* ===== Status Colors ===== */
-  --success: 142 76% 42%;                       /* Success green */
-  --success-foreground: 0 0% 100%;              /* White on success */
-  --warning: 38 100% 55%;                       /* Warning amber */
-  --warning-foreground: 220 25% 12%;            /* Dark on warning */
-  --destructive: 0 84% 58%;                     /* Error red */
-  --destructive-foreground: 0 0% 100%;          /* White on destructive */
-  --info: 198 100% 45%;                         /* Info blue (same as primary) */
-  --info-foreground: 0 0% 100%;                 /* White on info */
-  
-  /* ===== Interactive Elements ===== */
-  --border: 218 15% 88%;                        /* Clean borders */
-  --border-variant: 218 12% 85%;                /* Variant borders */
-  --border-strong: 218 20% 75%;                 /* Strong borders */
-  --input: 218 15% 94%;                         /* Input background */
-  --ring: 198 100% 45%;                         /* Focus ring */
-  
-  /* ===== Card System ===== */
-  --card: 0 0% 100%;                            /* White cards */
-  --card-foreground: 220 25% 12%;               /* Dark text on cards */
-  --popover: 0 0% 100%;                         /* White popovers */
-  --popover-foreground: 220 25% 12%;            /* Dark text on popovers */
-  
-  /* ===== Layout Dimensions ===== */
-  --radius: 0.75rem;                            /* Medium radius */
-  --container-max-width: 1440px;
-  --sidebar-width: 280px;
-  --sidebar-collapsed-width: 64px;
-  --header-height: 80px;
-  --header-min-h: 80px;
-  --spacing: 1rem;
-  
-  /* ===== Shadow System ===== */
-  --shadow-color: 220 25% 8%;
-  --shadow-sm: 0 1px 2px 0 hsl(var(--shadow-color) / 0.06);
-  --shadow: 0 1px 3px 0 hsl(var(--shadow-color) / 0.12), 0 1px 2px -1px hsl(var(--shadow-color) / 0.12);
-  --shadow-md: 0 4px 6px -1px hsl(var(--shadow-color) / 0.12), 0 2px 4px -2px hsl(var(--shadow-color) / 0.12);
-  --shadow-lg: 0 10px 15px -3px hsl(var(--shadow-color) / 0.12), 0 4px 6px -4px hsl(var(--shadow-color) / 0.12);
-  --shadow-xl: 0 20px 25px -5px hsl(var(--shadow-color) / 0.12), 0 8px 10px -6px hsl(var(--shadow-color) / 0.12);
-  --shadow-2xl: 0 25px 50px -12px hsl(var(--shadow-color) / 0.25);
-  --shadow-soft: 0 2px 8px hsl(var(--shadow-color) / 0.08);
-  --shadow-glow: 0 0 0 1px hsl(var(--primary) / 0.12), 0 2px 12px hsl(var(--primary) / 0.15);
+    /* Clean white surfaces */
+    --card: 0 0% 100%;
+    --card-foreground: 210 11% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 11% 15%;
+
+    /* Primary Colors - Fresh Blue */
+    --primary: 210 100% 50%;
+    --primary-foreground: 0 0% 100%;
+    --primary-light: 210 100% 60%;
+    --primary-dark: 210 100% 40%;
+
+    /* Secondary Colors - Light Gray */
+    --secondary: 210 17% 95%;
+    --secondary-foreground: 210 11% 15%;
+
+    /* Muted Colors */
+    --muted: 210 17% 95%;
+    --muted-foreground: 210 11% 46%;
+
+    /* Accent Colors */
+    --accent: 210 17% 92%;
+    --accent-foreground: 210 11% 15%;
+
+    /* Enhanced color palette */
+    --emerald: 142 76% 40%;
+    --emerald-foreground: 0 0% 100%;
+    --emerald-light: 142 76% 50%;
+    --emerald-dark: 142 76% 30%;
+
+    --sky: 199 89% 48%;
+    --sky-foreground: 0 0% 100%;
+    --sky-light: 199 89% 58%;
+    --sky-dark: 199 89% 38%;
+
+    --cyan: 188 94% 42%;
+    --cyan-foreground: 0 0% 100%;
+    --cyan-light: 188 94% 52%;
+    --cyan-dark: 188 94% 32%;
+
+    --teal: 173 58% 39%;
+    --teal-foreground: 0 0% 100%;
+    --teal-light: 173 58% 49%;
+    --teal-dark: 173 58% 29%;
+
+    /* Clean status colors */
+    --success: 138 76% 40%;
+    --success-foreground: 0 0% 100%;
+    
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* UI Component Colors - FreshUI */
+    --border: 210 17% 90%;
+    --input: 210 17% 95%;
+    --ring: 210 100% 50%;
+
+    --radius: 0.375rem;
+    
+    /* Gradients - FreshUI Clean */
+    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(210 100% 45%));
+    --gradient-accent: linear-gradient(135deg, hsl(var(--accent)), hsl(210 20% 90%));
+    --gradient-surface: linear-gradient(180deg, hsl(var(--background)), hsl(210 20% 98%));
+    --gradient-emerald: linear-gradient(135deg, hsl(var(--emerald)), hsl(var(--emerald-light)));
+    --gradient-sky: linear-gradient(135deg, hsl(var(--sky)), hsl(var(--sky-light)));
+    --gradient-cyan: linear-gradient(135deg, hsl(var(--cyan)), hsl(var(--cyan-light)));
+    --gradient-teal: linear-gradient(135deg, hsl(var(--teal)), hsl(var(--teal-light)));
+    --gradient-ocean: linear-gradient(135deg, hsl(var(--sky)), hsl(var(--cyan)));
+    --gradient-nature: linear-gradient(135deg, hsl(var(--emerald)), hsl(var(--teal)));
+    
+    /* Shadows - FreshUI Subtle */
+    --shadow-soft: 0 1px 2px 0 hsl(210 25% 25% / 0.05);
+    --shadow-medium: 0 1px 3px 0 hsl(210 25% 25% / 0.1), 0 1px 2px 0 hsl(210 25% 25% / 0.06);
+    --shadow-strong: 0 4px 6px -1px hsl(210 25% 25% / 0.1), 0 2px 4px -1px hsl(210 25% 25% / 0.06);
+    --shadow-glow: 0 0 20px hsl(var(--primary) / 0.1);
+    --shadow-accent-glow: 0 0 20px hsl(var(--accent) / 0.1);
+    --shadow-emerald-glow: 0 0 20px hsl(var(--emerald) / 0.1);
+    --shadow-sky-glow: 0 0 20px hsl(var(--sky) / 0.1);
+    --shadow-cyan-glow: 0 0 20px hsl(var(--cyan) / 0.1);
+    
+    /* Smooth animations */
+    --transition-smooth: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-bounce: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+    /* Theme Config Variables */
+    --header-min-h: 120px;
+
+    /* Sidebar colors - FreshUI */
+    --sidebar-background: 210 17% 98%;
+    --sidebar-foreground: 210 11% 15%;
+    --sidebar-primary: 210 100% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 17% 95%;
+    --sidebar-accent-foreground: 210 11% 15%;
+    --sidebar-border: 210 17% 92%;
+    --sidebar-ring: 210 100% 50%;
+  }
+
+  .dark {
+    /* Base Colors - FreshUI Dark */
+    --background: 210 25% 8%;
+    --foreground: 210 11% 91%;
+
+    --card: 210 25% 10%;
+    --card-foreground: 210 11% 91%;
+
+    --popover: 210 25% 10%;
+    --popover-foreground: 210 11% 91%;
+
+    --primary: 210 100% 55%;
+    --primary-foreground: 0 0% 0%;
+    --primary-light: 210 100% 65%;
+    --primary-dark: 210 100% 45%;
+
+    --secondary: 210 25% 12%;
+    --secondary-foreground: 210 11% 91%;
+
+    --muted: 210 25% 12%;
+    --muted-foreground: 210 11% 54%;
+
+    --accent: 210 25% 15%;
+    --accent-foreground: 210 11% 91%;
+
+    /* Enhanced dark theme colors */
+    --emerald: 142 76% 45%;
+    --emerald-foreground: 0 0% 100%;
+    --emerald-light: 142 76% 55%;
+    --emerald-dark: 142 76% 35%;
+
+    --sky: 199 89% 53%;
+    --sky-foreground: 0 0% 0%;
+    --sky-light: 199 89% 63%;
+    --sky-dark: 199 89% 43%;
+
+    --cyan: 188 94% 47%;
+    --cyan-foreground: 0 0% 0%;
+    --cyan-light: 188 94% 57%;
+    --cyan-dark: 188 94% 37%;
+
+    --teal: 173 58% 44%;
+    --teal-foreground: 0 0% 100%;
+    --teal-light: 173 58% 54%;
+    --teal-dark: 173 58% 34%;
+
+    --success: 138 76% 45%;
+    --success-foreground: 0 0% 100%;
+    
+    --warning: 38 92% 55%;
+    --warning-foreground: 0 0% 0%;
+    
+    --destructive: 0 84% 65%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 210 25% 15%;
+    --input: 210 25% 15%;
+    --ring: 210 100% 55%;
+
+    --sidebar-background: 210 25% 6%;
+    --sidebar-foreground: 210 11% 91%;
+    --sidebar-primary: 210 100% 55%;
+    --sidebar-primary-foreground: 0 0% 0%;
+    --sidebar-accent: 210 25% 12%;
+    --sidebar-accent-foreground: 210 11% 91%;
+    --sidebar-border: 210 25% 15%;
+    --sidebar-ring: 210 100% 55%;
+  }
 }
 
-/* ===== Dark Mode - Mercury Ops Night ===== */
-.dark {
-  --background: 220 25% 6%;                     /* Deep dark base */
-  --background-secondary: 220 20% 8%;           /* Slightly lighter */
-  --foreground: 210 40% 98%;                    /* High contrast white */
-  --foreground-secondary: 218 15% 70%;          /* Secondary light text */
-  
-  --surface: 220 22% 9%;                        /* Dark cards */
-  --surface-container: 220 20% 11%;             /* Elevated container */
-  --surface-container-high: 220 18% 13%;        /* Higher elevation */
-  --surface-container-highest: 220 16% 15%;     /* Highest elevation */
-  
-  --primary: 198 100% 60%;                      /* Brighter Electric Azure */
-  --primary-light: 198 100% 75%;                /* Lighter Azure */
-  --primary-dark: 198 100% 45%;                 /* Darker Azure */
-  --primary-foreground: 220 25% 6%;             /* Dark on primary */
-  --primary-glow: 198 100% 70%;                 /* Glowing variant */
-  
-  --secondary: 220 20% 15%;                     /* Dark secondary */
-  --secondary-foreground: 210 40% 98%;          /* Light on secondary */
-  --accent: 160 100% 55%;                       /* Bright Emerald accent */
-  --accent-foreground: 220 25% 6%;              /* Dark on accent */
-  --muted: 220 20% 12%;                         /* Muted background */
-  --muted-foreground: 218 15% 65%;              /* Muted text */
-  
-  --border: 220 20% 18%;                        /* Dark borders */
-  --border-variant: 220 18% 22%;                /* Variant borders */
-  --border-strong: 220 15% 30%;                 /* Strong borders */
-  --input: 220 20% 12%;                         /* Input background */
-  
-  --card: 220 22% 9%;                           /* Dark cards */
-  --card-foreground: 210 40% 98%;               /* Light text on cards */
-  --popover: 220 22% 9%;                        /* Dark popovers */
-  --popover-foreground: 210 40% 98%;            /* Light text on popovers */
-}
+@layer base {
+  * {
+    @apply border-border;
+  }
 
-/* =============================================== */
-/* Mercury Ops Global Styles                     */
-/* =============================================== */
-
-* {
-  border-color: hsl(var(--border));
-}
-
-body {
-  background-color: hsl(var(--background));
-  color: hsl(var(--foreground));
-  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-  font-feature-settings: "rlig" 1, "calt" 1, "kern" 1;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  body {
+    font-family: "Inter", "Roboto", "Open Sans", system-ui, -apple-system, sans-serif;
+    @apply bg-background text-foreground antialiased;
+    min-height: 100vh;
+    line-height: 1.5;
+    font-weight: 400;
+  }
+  
+  /* Custom scrollbars */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-muted/30;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-border rounded-full;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-border/80;
+  }
 }
 
 @layer components {
-  .ops-card {
-    @apply bg-surface border border-border/60 rounded-xl shadow-soft hover:shadow-md;
-    @apply transition-all duration-200 backdrop-blur-sm;
+  /* FreshUI Panel Components */
+  .panel {
+    @apply bg-card border border-border rounded-md shadow-soft;
+  }
+
+  .panel-header {
+    @apply px-4 py-3 border-b border-border bg-muted/30;
+  }
+
+  .panel-content {
+    @apply p-4;
+  }
+
+  .toolbar {
+    @apply bg-background border-b border-border px-4 py-2 flex items-center gap-3;
+  }
+
+  /* FreshUI Upload zones */
+  .upload-zone {
+    @apply border-2 border-dashed border-border rounded-md p-6
+           transition-all duration-200 hover:border-primary hover:bg-primary/5
+           bg-card;
   }
   
-  .ops-nav-item {
-    @apply flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium;
-    @apply transition-all duration-200 hover:bg-muted/80 hover:text-foreground group relative;
+  .upload-zone.drag-over {
+    @apply border-primary bg-primary/10 shadow-medium;
   }
   
-  .ops-nav-item.active {
-    @apply bg-primary text-primary-foreground shadow-soft hover:bg-primary/90;
+  .upload-zone.has-file {
+    @apply border-success bg-success/5;
   }
   
-  .ops-title {
-    @apply text-3xl font-bold bg-gradient-to-r from-foreground via-foreground to-foreground/80;
-    @apply bg-clip-text text-transparent leading-tight;
+  /* FreshUI Data tables */
+  .data-table {
+    @apply bg-card border border-border rounded-md overflow-hidden;
+  }
+
+  .data-table-header {
+    @apply bg-muted/50 border-b border-border;
   }
   
+  /* FreshUI Column cards */
+  .column-card {
+    @apply bg-card rounded-md p-3 border border-border shadow-soft
+           transition-all duration-200 hover:shadow-medium hover:border-primary/50;
+  }
+  
+  .column-card.dragging {
+    @apply opacity-60 scale-95 shadow-strong;
+  }
+  
+  .column-card.drag-target {
+    @apply border-accent bg-accent/10;
+  }
+  
+  .column-card.mapped {
+    @apply border-success bg-success/10;
+  }
+  
+  /* FreshUI Buttons */
+  .btn-fresh {
+    @apply bg-primary text-primary-foreground border-0 px-3 py-2 rounded-md
+           font-medium text-sm transition-all duration-150 shadow-soft
+           hover:bg-primary/90 hover:shadow-medium;
+  }
+
+  .btn-fresh-outline {
+    @apply bg-transparent text-primary border border-primary px-3 py-2 rounded-md
+           font-medium text-sm transition-all duration-150
+           hover:bg-primary/10;
+  }
+
+  .btn-fresh-secondary {
+    @apply bg-secondary text-secondary-foreground border-0 px-3 py-2 rounded-md
+           font-medium text-sm transition-all duration-150 shadow-soft
+           hover:bg-secondary/80;
+  }
+
+  /* Glass container - cleaner version */
   .glass-container {
-    @apply bg-gradient-to-br from-surface/90 to-surface-container/70;
-    @apply backdrop-blur-xl border border-border/40 rounded-xl shadow-soft;
+    @apply bg-card/95 backdrop-blur-sm border border-border rounded-md shadow-soft;
+  }
+
+  /* FreshUI Grid utilities */
+  .auto-fit-columns {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  }
+
+  /* FreshUI App container */
+  .app-container {
+    @apply w-full px-3 sm:px-4 lg:max-w-[1400px] xl:max-w-[1600px] 2xl:max-w-[1800px] mx-auto;
   }
 }
 
-/* Keyframes */
-@keyframes fade-in {
-  0% { opacity: 0; transform: translateY(10px); }
-  100% { opacity: 1; transform: translateY(0); }
+/* Loading animation for analytics */
+@keyframes loading-bar {
+  0% {
+    width: 0%;
+  }
+  100% {
+    width: 100%;
+  }
 }
 
-@keyframes scale-in {
-  0% { transform: scale(0.95); opacity: 0; }
-  100% { transform: scale(1); opacity: 1; }
+/* ==========================================================================
+   THEME SYSTEM - Advanced Design Variants
+   ========================================================================== */
+
+/* Header styles */
+:root[data-header-style="compact"] {
+  --header-min-h: 80px;
 }
 
-.animate-fade-in { animation: fade-in 0.3s ease-out; }
-.animate-scale-in { animation: scale-in 0.2s ease-out; }
+:root[data-header-style="spacious"] {
+  --header-min-h: 160px;
+}
+
+/* Button Styles */
+:root[data-button-style="pill"] .btn {
+  @apply rounded-full;
+}
+
+:root[data-button-style="sharp"] .btn {
+  @apply rounded-none;
+}
+
+:root[data-button-style="soft"] .btn {
+  @apply bg-opacity-10 hover:bg-opacity-20;
+}
+
+:root[data-button-variant="gradient"] .btn-primary {
+  @apply bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70;
+}
+
+:root[data-button-variant="ghost"] .btn {
+  @apply bg-transparent border-transparent hover:bg-muted;
+}
+
+:root[data-button-shadow="true"] .btn {
+  @apply shadow-md hover:shadow-lg transition-shadow;
+}
+
+:root[data-button-size="sm"] .btn {
+  @apply px-3 py-1.5 text-sm;
+}
+
+:root[data-button-size="lg"] .btn {
+  @apply px-6 py-3 text-lg;
+}
+
+/* Field Styles */
+:root[data-field-style="filled"] .input-field {
+  @apply bg-muted border-transparent focus:bg-background;
+}
+
+:root[data-field-style="subtle"] .input-field {
+  @apply border-muted-foreground/20 focus:border-primary;
+}
+
+:root[data-field-style="underline"] .input-field {
+  @apply border-0 border-b-2 rounded-none bg-transparent border-muted-foreground/30 focus:border-primary;
+}
+
+:root[data-field-style="floating"] .input-field {
+  @apply pt-6 pb-2;
+}
+
+:root[data-field-style="bordered"] .input-field {
+  @apply border-2 border-muted-foreground/30 focus:border-primary;
+}
+
+:root[data-field-focus="glow"] .input-field:focus {
+  @apply ring-4 ring-primary/20 shadow-lg shadow-primary/10;
+}
+
+:root[data-field-focus="scale"] .input-field:focus {
+  @apply scale-[1.02] transition-transform;
+}
+
+:root[data-field-focus="shadow"] .input-field:focus {
+  @apply shadow-xl shadow-primary/20;
+}
+
+:root[data-field-size="sm"] .input-field {
+  @apply px-2 py-1 text-sm;
+}
+
+:root[data-field-size="lg"] .input-field {
+  @apply px-4 py-3 text-lg;
+}
+
+/* Tab Styles */
+:root[data-tab-style="pills"] .tab-trigger {
+  @apply rounded-full px-4 py-2 bg-muted/50 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground;
+}
+
+:root[data-tab-style="underline"] .tab-trigger {
+  @apply rounded-none border-b-2 border-transparent data-[state=active]:border-primary bg-transparent;
+}
+
+:root[data-tab-style="segmented"] .tab-trigger {
+  @apply rounded-none first:rounded-l-md last:rounded-r-md border border-r-0 last:border-r data-[state=active]:bg-primary data-[state=active]:text-primary-foreground;
+}
+
+:root[data-tab-style="bordered"] .tab-trigger {
+  @apply border border-muted-foreground/20 rounded-md data-[state=active]:border-primary data-[state=active]:bg-primary/5;
+}
+
+/* Table Styles */
+:root[data-table-density="compact"] .table-row {
+  @apply py-1;
+}
+
+:root[data-table-density="spacious"] .table-row {
+  @apply py-4;
+}
+
+:root[data-table-stripes="true"] .table-row:nth-child(even) {
+  @apply bg-muted/30;
+}
+
+:root[data-table-border="vertical"] .table-cell {
+  @apply border-r border-muted-foreground/20 last:border-r-0;
+}
+
+:root[data-table-border="all"] .table-cell {
+  @apply border border-muted-foreground/20;
+}
+
+:root[data-table-border="none"] .table-cell {
+  @apply border-0;
+}
+
+:root[data-table-style="minimal"] .table {
+  @apply border-0;
+}
+
+:root[data-table-style="bordered"] .table {
+  @apply border-2 border-muted-foreground/20 rounded-lg;
+}
+
+:root[data-table-style="shadow"] .table {
+  @apply shadow-lg rounded-lg border border-muted-foreground/10;
+}
+
+/* Card Styles */
+:root[data-card-style="flat"] .card {
+  @apply shadow-none border-0 bg-muted/30;
+}
+
+:root[data-card-style="elevated"] .card {
+  @apply shadow-xl border-0;
+}
+
+:root[data-card-style="outlined"] .card {
+  @apply shadow-none border-2 border-muted-foreground/20;
+}
+
+:root[data-card-style="soft"] .card {
+  @apply bg-gradient-to-br from-background to-muted/30 shadow-sm;
+}
+
+:root[data-card-shadow="none"] .card {
+  @apply shadow-none;
+}
+
+:root[data-card-shadow="sm"] .card {
+  @apply shadow-sm;
+}
+
+:root[data-card-shadow="lg"] .card {
+  @apply shadow-lg;
+}
+
+:root[data-card-shadow="xl"] .card {
+  @apply shadow-xl;
+}
+
+/* Navigation Styles */
+:root[data-nav-style="pill"] .nav-item {
+  @apply rounded-full px-4 py-2;
+}
+
+:root[data-nav-style="underline"] .nav-item {
+  @apply border-b-2 border-transparent hover:border-primary/50 active:border-primary;
+}
+
+:root[data-nav-style="filled"] .nav-item {
+  @apply bg-muted/50 hover:bg-muted active:bg-primary active:text-primary-foreground;
+}
+
+/* Sidebar Styles */
+:root[data-sidebar-style="floating"] .sidebar {
+  @apply m-2 rounded-lg shadow-lg border;
+}
+
+:root[data-sidebar-style="bordered"] .sidebar {
+  @apply border-r-2 border-muted-foreground/20;
+}
+
+:root[data-sidebar-style="minimal"] .sidebar {
+  @apply border-0 shadow-none bg-transparent;
+}
+
+/* Spacing Variants */
+:root[data-spacing="tight"] .spaced-content > * + * {
+  @apply mt-2;
+}
+
+:root[data-spacing="loose"] .spaced-content > * + * {
+  @apply mt-6;
+}
+
+/* Animation Disabling */
+:root[data-animations="false"] * {
+  @apply transition-none !important;
+  animation: none !important;
+}
+
+/* Theme Configuration Overrides */
+
+/* Header Styles */
+[data-header-style="compact"] .huha-header {
+  min-height: 80px;
+}
+
+[data-header-style="spacious"] .huha-header {
+  min-height: 160px;
+}
+
+[data-header-gradient="false"] .huha-header {
+  background: hsl(var(--card));
+}
+
+/* Button Styles */
+[data-button-style="rounded"] .btn,
+[data-button-style="rounded"] button {
+  border-radius: 1rem;
+}
+
+[data-button-style="sharp"] .btn,
+[data-button-style="sharp"] button {
+  border-radius: 0;
+}
+
+[data-button-shadow="false"] .btn,
+[data-button-shadow="false"] button {
+  box-shadow: none;
+}
+
+/* Field Styles */
+[data-field-style="filled"] input,
+[data-field-style="filled"] select,
+[data-field-style="filled"] textarea {
+  background-color: hsl(var(--muted));
+  border: 1px solid transparent;
+}
+
+[data-field-style="subtle"] input,
+[data-field-style="subtle"] select,
+[data-field-style="subtle"] textarea {
+  border-color: hsl(var(--border) / 0.3);
+}
+
+[data-field-focus="glow"] input:focus,
+[data-field-focus="glow"] select:focus,
+[data-field-focus="glow"] textarea:focus {
+  box-shadow: 0 0 0 2px hsl(var(--primary) / 0.2);
+}
+
+[data-field-focus="underline"] input:focus,
+[data-field-focus="underline"] select:focus,
+[data-field-focus="underline"] textarea:focus {
+  border-left: 3px solid hsl(var(--primary));
+  box-shadow: none;
+}
+
+/* Table Styles */
+[data-table-density="compact"] table tr {
+  height: 2rem;
+}
+
+[data-table-density="spacious"] table tr {
+  height: 4rem;
+}
+
+[data-table-stripes="true"] table tbody tr:nth-child(even) {
+  background-color: hsl(var(--muted) / 0.3);
+}
+
+[data-table-hover="false"] table tbody tr:hover {
+  background-color: transparent;
+}
+
+/* Animation Controls */
+[data-animations="false"] * {
+  transition: none !important;
+  animation: none !important;
+}

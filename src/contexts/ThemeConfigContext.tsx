@@ -2,12 +2,6 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAccentTheme } from '@/hooks/useAccentTheme';
 
 export interface ThemeConfig {
-  // Theme Style
-  themeStyle: 'flat' | 'mercury';
-  
-  // Density
-  density: 'comfortable' | 'compact';
-  
   // Colors (integrated with existing accent theme)
   colorScheme: string;
   
@@ -53,16 +47,14 @@ export interface ThemeConfig {
 }
 
 const defaultConfig: ThemeConfig = {
-  themeStyle: 'flat',
-  density: 'comfortable',
-  colorScheme: 'Indigo',
+  colorScheme: 'Blue',
   headerStyle: 'default',
-  headerGradient: false,
+  headerGradient: true,
   tabStyle: 'default',
   tabAnimation: true,
   tabPosition: 'top',
   buttonStyle: 'default',
-  buttonShadow: false,
+  buttonShadow: true,
   buttonSize: 'md',
   buttonVariant: 'solid',
   fieldStyle: 'default',
@@ -72,11 +64,11 @@ const defaultConfig: ThemeConfig = {
   tableStripes: false,
   tableHover: true,
   tableBorder: 'horizontal',
-  tableStyle: 'minimal',
-  cardStyle: 'flat',
-  cardShadow: 'none',
+  tableStyle: 'default',
+  cardStyle: 'default',
+  cardShadow: 'md',
   navStyle: 'default',
-  sidebarStyle: 'bordered',
+  sidebarStyle: 'default',
   borderRadius: 'medium',
   animations: true,
   spacing: 'default',
@@ -171,8 +163,6 @@ export const ThemeConfigProvider: React.FC<{ children: React.ReactNode }> = ({ c
     root.style.setProperty('--spacing', spacingMap[themeConfig.spacing]);
     
     // Set all data attributes for styling
-    root.setAttribute('data-theme-style', themeConfig.themeStyle);
-    root.setAttribute('data-density', themeConfig.density);
     root.setAttribute('data-header-style', themeConfig.headerStyle);
     root.setAttribute('data-header-gradient', themeConfig.headerGradient.toString());
     root.setAttribute('data-tab-style', themeConfig.tabStyle);

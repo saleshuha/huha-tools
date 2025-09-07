@@ -194,29 +194,29 @@ export function AppSidebar() {
 
 
   return (
-    <Sidebar collapsible="icon" className="sidebar-boxed bg-card border-r border-border shadow-medium">
-      <SidebarContent className="overflow-hidden p-2">
+    <Sidebar collapsible="icon" className="border-r border-sidebar-border bg-sidebar">
+      <SidebarContent className="overflow-hidden">
         <SidebarGroup>
-          <SidebarGroupLabel className="text-foreground/70 font-semibold px-4 py-3 text-xs uppercase tracking-wide bg-muted/30 rounded-lg mb-2 border border-border shadow-soft">
+          <SidebarGroupLabel className="text-sidebar-foreground/70 font-medium px-3 py-2 text-xs uppercase tracking-wide">
             {!isCollapsed && "HuHa Dashboard"}
           </SidebarGroupLabel>
-          <SidebarGroupContent className="sidebar-content space-y-1">
+          <SidebarGroupContent className="px-2">
             <SidebarMenu className="space-y-1">
               {/* Navigation items */}
               {navigationItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton 
                     asChild
-                    className={`group relative w-full rounded-lg transition-all duration-200 shadow-soft hover:shadow-medium ${
+                    className={`group relative w-full rounded-md transition-all duration-150 ${
                       isActive(item.url)
-                        ? "bg-primary text-primary-foreground shadow-medium border border-primary/20" 
-                        : "hover:bg-muted/50 hover:text-foreground border border-transparent hover:border-border"
+                        ? "bg-primary text-primary-foreground shadow-sm" 
+                        : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                     }`}
                   >
                     <NavLink 
                       to={item.url} 
                       end
-                      className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-lg"
+                      className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-md"
                     >
                       <item.icon className="h-4 w-4 flex-shrink-0" />
                       {!isCollapsed && (
