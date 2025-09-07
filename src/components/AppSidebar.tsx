@@ -194,10 +194,10 @@ export function AppSidebar() {
 
 
   return (
-    <Sidebar collapsible="icon" className="border-r border-sidebar-border bg-sidebar">
-      <SidebarContent className="overflow-hidden">
+    <Sidebar collapsible="icon" className="border-r border-primary/20 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900">
+      <SidebarContent className="overflow-hidden bg-gradient-to-b from-primary/5 via-transparent to-primary/5">
         <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/70 font-medium px-3 py-2 text-xs uppercase tracking-wide">
+          <SidebarGroupLabel className="text-white/90 font-semibold px-3 py-3 text-xs uppercase tracking-wider bg-gradient-to-r from-primary/20 to-transparent">
             {!isCollapsed && "HuHa Dashboard"}
           </SidebarGroupLabel>
           <SidebarGroupContent className="px-2">
@@ -207,10 +207,10 @@ export function AppSidebar() {
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton 
                     asChild
-                    className={`group relative w-full rounded-md transition-all duration-150 ${
+                    className={`group relative w-full rounded-lg transition-all duration-200 ${
                       isActive(item.url)
-                        ? "bg-primary text-primary-foreground shadow-sm" 
-                        : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                        ? "bg-gradient-to-r from-primary to-primary/80 text-white shadow-lg shadow-primary/25" 
+                        : "text-white/80 hover:bg-gradient-to-r hover:from-white/10 hover:to-white/5 hover:text-white"
                     }`}
                   >
                     <NavLink 
@@ -233,10 +233,10 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   asChild
-                  className={`group relative w-full rounded-md transition-all duration-150 ${
+                  className={`group relative w-full rounded-lg transition-all duration-200 ${
                     isActive("/inventory")
-                      ? "bg-primary text-primary-foreground shadow-sm" 
-                      : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                      ? "bg-gradient-to-r from-primary to-primary/80 text-white shadow-lg shadow-primary/25" 
+                      : "text-white/80 hover:bg-gradient-to-r hover:from-white/10 hover:to-white/5 hover:text-white"
                   }`}
                 >
                   <NavLink 
@@ -258,10 +258,10 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   asChild
-                  className={`group relative w-full rounded-md transition-all duration-150 ${
+                  className={`group relative w-full rounded-lg transition-all duration-200 ${
                     isActive("/order-processing")
-                      ? "bg-primary text-primary-foreground shadow-sm" 
-                      : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                      ? "bg-gradient-to-r from-primary to-primary/80 text-white shadow-lg shadow-primary/25" 
+                      : "text-white/80 hover:bg-gradient-to-r hover:from-white/10 hover:to-white/5 hover:text-white"
                   }`}
                 >
                   <NavLink 
@@ -283,10 +283,10 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   asChild
-                  className={`group relative w-full rounded-md transition-all duration-150 ${
+                  className={`group relative w-full rounded-lg transition-all duration-200 ${
                     isActive("/replenishment")
-                      ? "bg-primary text-primary-foreground shadow-sm" 
-                      : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                      ? "bg-gradient-to-r from-primary to-primary/80 text-white shadow-lg shadow-primary/25" 
+                      : "text-white/80 hover:bg-gradient-to-r hover:from-white/10 hover:to-white/5 hover:text-white"
                   }`}
                 >
                   <NavLink 
@@ -308,10 +308,10 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   asChild
-                  className={`group relative w-full rounded-md transition-all duration-150 ${
+                  className={`group relative w-full rounded-lg transition-all duration-200 ${
                     isActive("/label-designer")
-                      ? "bg-primary text-primary-foreground shadow-sm" 
-                      : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                      ? "bg-gradient-to-r from-primary to-primary/80 text-white shadow-lg shadow-primary/25" 
+                      : "text-white/80 hover:bg-gradient-to-r hover:from-white/10 hover:to-white/5 hover:text-white"
                   }`}
                 >
                   <NavLink 
@@ -333,10 +333,10 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   asChild
-                  className={`group relative w-full rounded-md transition-all duration-150 ${
+                  className={`group relative w-full rounded-lg transition-all duration-200 ${
                     isActive("/po-tracker")
-                      ? "bg-primary text-primary-foreground shadow-sm" 
-                      : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                      ? "bg-gradient-to-r from-primary to-primary/80 text-white shadow-lg shadow-primary/25" 
+                      : "text-white/80 hover:bg-gradient-to-r hover:from-white/10 hover:to-white/5 hover:text-white"
                   }`}
                 >
                   <NavLink 
@@ -360,8 +360,8 @@ export function AppSidebar() {
                   asChild
                   className={`group relative w-full rounded-xl transition-all duration-200 ${
                     isActive("/noon-order-processing")
-                      ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
-                      : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
+                      ? "bg-gradient-to-r from-primary to-primary/90 text-white shadow-lg shadow-primary/25" 
+                      : "text-white/80 hover:bg-gradient-to-r hover:from-white/10 hover:to-white/5 hover:text-white hover:shadow-md"
                   }`}
                 >
                   <NavLink 
@@ -385,8 +385,8 @@ export function AppSidebar() {
                   asChild
                   className={`group relative w-full rounded-xl transition-all duration-200 ${
                     isActive("/noon-order-tracking")
-                      ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
-                      : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
+                      ? "bg-gradient-to-r from-primary to-primary/90 text-white shadow-lg shadow-primary/25" 
+                      : "text-white/80 hover:bg-gradient-to-r hover:from-white/10 hover:to-white/5 hover:text-white hover:shadow-md"
                   }`}
                 >
                   <NavLink 
@@ -411,8 +411,8 @@ export function AppSidebar() {
                   asChild
                   className={`group relative w-full rounded-xl transition-all duration-200 ${
                     isActive("/sunsky-importer")
-                      ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
-                      : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
+                      ? "bg-gradient-to-r from-primary to-primary/90 text-white shadow-lg shadow-primary/25" 
+                      : "text-white/80 hover:bg-gradient-to-r hover:from-white/10 hover:to-white/5 hover:text-white hover:shadow-md"
                   }`}
                 >
                   <NavLink 
@@ -436,8 +436,8 @@ export function AppSidebar() {
                   asChild
                   className={`group relative w-full rounded-xl transition-all duration-200 ${
                     isActive("/sunsky-order-tracking")
-                      ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
-                      : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
+                      ? "bg-gradient-to-r from-primary to-primary/90 text-white shadow-lg shadow-primary/25" 
+                      : "text-white/80 hover:bg-gradient-to-r hover:from-white/10 hover:to-white/5 hover:text-white hover:shadow-md"
                   }`}
                 >
                   <NavLink 
@@ -461,8 +461,8 @@ export function AppSidebar() {
                   asChild
                   className={`group relative w-full rounded-xl transition-all duration-200 ${
                     isActive("/amazon-fulfillment")
-                      ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
-                      : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
+                      ? "bg-gradient-to-r from-primary to-primary/90 text-white shadow-lg shadow-primary/25" 
+                      : "text-white/80 hover:bg-gradient-to-r hover:from-white/10 hover:to-white/5 hover:text-white hover:shadow-md"
                   }`}
                 >
                   <NavLink 
@@ -487,8 +487,8 @@ export function AppSidebar() {
                     asChild
                     className={`group relative w-full rounded-xl transition-all duration-200 ${
                       isActive("/amazon-vendor-central")
-                        ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
-                        : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
+                        ? "bg-gradient-to-r from-primary to-primary/90 text-white shadow-lg shadow-primary/25" 
+                        : "text-white/80 hover:bg-gradient-to-r hover:from-white/10 hover:to-white/5 hover:text-white hover:shadow-md"
                     }`}
                   >
                     <NavLink 
@@ -514,8 +514,8 @@ export function AppSidebar() {
                   asChild
                   className={`group relative w-full rounded-xl transition-all duration-200 ${
                     isActive("/carrefour-payments")
-                      ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
-                      : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
+                      ? "bg-gradient-to-r from-primary to-primary/90 text-white shadow-lg shadow-primary/25" 
+                      : "text-white/80 hover:bg-gradient-to-r hover:from-white/10 hover:to-white/5 hover:text-white hover:shadow-md"
                   }`}
                 >
                   <NavLink 
@@ -547,11 +547,11 @@ export function AppSidebar() {
                         }`}
                       >
                         <div className="flex items-center gap-3 no-underline w-full px-4 py-3 rounded-xl cursor-pointer">
-                          <Wrench className="h-5 w-5 flex-shrink-0" />
-                          <span className="font-semibold text-sm">
+                          <Wrench className="h-5 w-5 flex-shrink-0 text-white/80" />
+                          <span className="font-semibold text-sm text-white/90">
                             Tools
                           </span>
-                          <ChevronDown className={`h-4 w-4 ml-auto transition-transform ${
+                          <ChevronDown className={`h-4 w-4 ml-auto transition-transform text-white/60 ${
                             isToolsOpen ? "rotate-180" : ""
                           }`} />
                         </div>
@@ -564,8 +564,8 @@ export function AppSidebar() {
                           asChild
                           className={`group relative w-full rounded-lg transition-all duration-200 ml-2 ${
                             isActive(item.url)
-                              ? "bg-gradient-to-r from-primary/80 to-primary/70 text-primary-foreground shadow-md shadow-primary/20" 
-                              : "hover:bg-gradient-to-r hover:from-sidebar-accent/60 hover:to-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+                              ? "bg-gradient-to-r from-primary/80 to-primary/70 text-white shadow-md shadow-primary/20" 
+                              : "text-white/70 hover:bg-gradient-to-r hover:from-white/10 hover:to-white/5 hover:text-white/90"
                           }`}
                         >
                           <NavLink 
@@ -592,8 +592,8 @@ export function AppSidebar() {
                     asChild
                     className={`group relative w-full rounded-xl transition-all duration-200 ${
                       isActive("/data-viewer")
-                        ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
-                        : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
+                        ? "bg-gradient-to-r from-primary to-primary/90 text-white shadow-lg shadow-primary/25" 
+                        : "text-white/80 hover:bg-gradient-to-r hover:from-white/10 hover:to-white/5 hover:text-white hover:shadow-md"
                     }`}
                   >
                     <a 
@@ -616,7 +616,7 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="px-3 pb-3 pt-1 border-t border-sidebar-border">
+      <SidebarFooter className="px-3 pb-3 pt-1 border-t border-primary/20 bg-gradient-to-t from-black/20 to-transparent">
         {/* Progress Indicator */}
         <SidebarProgressIndicator />
         
@@ -629,8 +629,8 @@ export function AppSidebar() {
           asChild
           className={`group relative w-full rounded-xl transition-all duration-200 ${
             isActive("/users")
-              ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
-              : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
+              ? "bg-gradient-to-r from-primary to-primary/90 text-white shadow-lg shadow-primary/25" 
+              : "text-white/80 hover:bg-gradient-to-r hover:from-white/10 hover:to-white/5 hover:text-white hover:shadow-md"
           }`}
         >
           <NavLink 
@@ -652,8 +652,8 @@ export function AppSidebar() {
           asChild
           className={`group relative w-full rounded-xl transition-all duration-200 ${
             isActive("/preview-settings")
-              ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25" 
-              : "hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-sidebar-accent/80 hover:text-sidebar-accent-foreground hover:shadow-md"
+              ? "bg-gradient-to-r from-primary to-primary/90 text-white shadow-lg shadow-primary/25" 
+              : "text-white/80 hover:bg-gradient-to-r hover:from-white/10 hover:to-white/5 hover:text-white hover:shadow-md"
           }`}
         >
           <NavLink 
@@ -673,7 +673,7 @@ export function AppSidebar() {
         <Button 
           onClick={handleLogout}
           variant="outline"
-          className="w-full flex items-center gap-2 text-sm mt-2"
+          className="w-full flex items-center gap-2 text-sm mt-2 border-white/20 text-white/80 hover:bg-white/10 hover:text-white hover:border-white/40"
           size="sm"
         >
           <LogOut className="h-3 w-3" />
