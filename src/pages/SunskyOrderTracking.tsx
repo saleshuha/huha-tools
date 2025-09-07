@@ -320,7 +320,7 @@ export default function SunskyOrderTrackingPage() {
         title="Sunsky Order Tracking (Global)"
         subtitle={`Track ALL Sunsky orders and monitor item delivery status for ${selectedCountry}`}
       />
-      <div className="glass-container mx-6 my-4 p-8 animate-fade-in">
+      <div className="glass-container my-4 p-8 animate-fade-in">
         <div className="mb-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex flex-col sm:flex-row gap-2">

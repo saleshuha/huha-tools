@@ -132,7 +132,7 @@ export default function SunskyOrderDetails() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-surface">
-        <div className="glass-container mx-6 my-4 p-8">
+        <div className="glass-container my-4 p-8">
           <div className="flex items-center justify-center py-20">
             <RefreshCw className="h-8 w-8 animate-spin mr-3 text-primary" />
             <span className="text-lg text-muted-foreground">Loading order details...</span>
@@ -145,7 +145,7 @@ export default function SunskyOrderDetails() {
   if (!order) {
     return (
       <div className="min-h-screen bg-gradient-surface">
-        <div className="glass-container mx-6 my-4 p-8">
+        <div className="glass-container my-4 p-8">
           <div className="text-center py-20">
             <AlertTriangle className="h-16 w-16 text-destructive mx-auto mb-4" />
             <h2 className="text-2xl font-bold text-foreground mb-2">Order Not Found</h2>
@@ -168,7 +168,7 @@ export default function SunskyOrderDetails() {
 
   return (
     <div className="min-h-screen bg-gradient-surface">
-      <div className="glass-container mx-6 my-4 p-8 animate-fade-in">
+      <div className="glass-container my-4 p-8 animate-fade-in">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-6">
