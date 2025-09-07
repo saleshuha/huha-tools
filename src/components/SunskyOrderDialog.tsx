@@ -84,6 +84,9 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
   const [shippingMethods, setShippingMethods] = useState<ShippingMethod[]>([]);
   const [loadingShipping, setLoadingShipping] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
+  const [loadingStatus, setLoadingStatus] = useState('');
+  const [catalogSearching, setCatalogSearching] = useState(false);
+  const [processingItems, setProcessingItems] = useState(false);
   
   // Saved addresses state
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
@@ -362,9 +365,16 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
     
     setLoadingShipping(true);
     setLoadingProgress(0);
+    setLoadingStatus('Preparing request...');
+    
     try {
-      // Step 1: Validating items (20%)
+      // Step 1: Connecting to Sunsky catalog (10%)
+      setLoadingProgress(10);
+      setLoadingStatus('Connecting to Sunsky catalog...');
+      
+      // Step 2: Validating items (20%)
       setLoadingProgress(20);
+      setLoadingStatus('Validating selected items...');
       console.log('All order items before filtering:', orderItems);
       console.log('Checked items:', Array.from(checkedItems));
       
@@ -410,6 +420,7 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
 
       // Step 3: Making API call (60%)
       setLoadingProgress(60);
+      setLoadingStatus('Requesting shipping methods from Sunsky...');
 
       const response = await supabase.functions.invoke('sunsky-api', {
         body: { 
@@ -426,6 +437,7 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
 
       // Step 4: Processing response (80%)
       setLoadingProgress(80);
+      setLoadingStatus('Processing shipping options...');
 
       console.log('Shipping methods response:', response);
 
@@ -453,6 +465,7 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
         
         // Step 5: Finalizing (100%)
         setLoadingProgress(100);
+        setLoadingStatus('Finalizing shipping options...');
         
         // Auto-select the first shipping method
         if (methods.length > 0 && !deliveryAddress.shippingWayId) {
@@ -505,6 +518,7 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
     } finally {
       setLoadingShipping(false);
       setLoadingProgress(0);
+      setLoadingStatus('');
     }
   };
 
@@ -811,10 +825,22 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
               </div>
               
               {loadingCredentials ? (
-                <div className="flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span className="text-sm">Loading Sunsky accounts...</span>
-                </div>
+                <Card className="p-6 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border-amber-200 dark:border-amber-800">
+                  <div className="flex items-center justify-center gap-3">
+                    <div className="relative">
+                      <Loader2 className="h-6 w-6 animate-spin text-amber-600" />
+                      <div className="absolute inset-0 rounded-full border border-amber-300 animate-pulse"></div>
+                    </div>
+                    <div className="text-center">
+                      <div className="font-semibold text-amber-900 dark:text-amber-100">
+                        Loading Sunsky Accounts
+                      </div>
+                      <div className="text-sm text-amber-700 dark:text-amber-200">
+                        Searching available accounts...
+                      </div>
+                    </div>
+                  </div>
+                </Card>
               ) : sunskyCredentials.length > 0 ? (
                 <div className="space-y-3">
                   <Label htmlFor="sunskyAccount">Select Sunsky Account *</Label>
@@ -1136,13 +1162,52 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
                </Button>
 
                {loadingShipping && (
-                 <div className="mb-4">
-                   <div className="flex items-center justify-between text-sm text-muted-foreground mb-2">
-                     <span>Loading shipping options...</span>
-                     <span>{loadingProgress}%</span>
+                 <Card className="mb-4 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-blue-200 dark:border-blue-800">
+                   <div className="flex items-center justify-center mb-4">
+                     <div className="flex items-center gap-3">
+                       <div className="relative">
+                         <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+                         <div className="absolute inset-0 rounded-full border-2 border-blue-200"></div>
+                       </div>
+                       <div className="text-center">
+                         <div className="text-lg font-semibold text-blue-900 dark:text-blue-100">
+                           Loading Shipping Options
+                         </div>
+                         <div className="text-sm text-blue-700 dark:text-blue-200">
+                           {loadingStatus || 'Preparing request...'}
+                         </div>
+                       </div>
+                     </div>
                    </div>
-                   <Progress value={loadingProgress} className="h-2" />
-                 </div>
+                   
+                   <div className="space-y-3">
+                     <div className="flex items-center justify-between text-sm font-medium text-blue-800 dark:text-blue-200">
+                       <span>Progress</span>
+                       <span>{loadingProgress}%</span>
+                     </div>
+                     
+                     <div className="relative h-3 bg-blue-100 dark:bg-blue-800/30 rounded-full overflow-hidden">
+                       <div 
+                         className="absolute top-0 left-0 h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-300 ease-out"
+                         style={{ width: `${loadingProgress}%` }}
+                       />
+                       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse"></div>
+                     </div>
+                     
+                     <div className="flex items-center justify-center gap-2 text-xs text-blue-600 dark:text-blue-300">
+                       <div className={`w-2 h-2 rounded-full ${loadingProgress >= 20 ? 'bg-blue-500' : 'bg-blue-200'} transition-colors`}></div>
+                       <span className={loadingProgress >= 20 ? 'font-medium' : ''}>Validate Items</span>
+                       <div className={`w-2 h-2 rounded-full ${loadingProgress >= 40 ? 'bg-blue-500' : 'bg-blue-200'} transition-colors`}></div>
+                       <span className={loadingProgress >= 40 ? 'font-medium' : ''}>Prepare Request</span>
+                       <div className={`w-2 h-2 rounded-full ${loadingProgress >= 60 ? 'bg-blue-500' : 'bg-blue-200'} transition-colors`}></div>
+                       <span className={loadingProgress >= 60 ? 'font-medium' : ''}>Query Sunsky</span>
+                       <div className={`w-2 h-2 rounded-full ${loadingProgress >= 80 ? 'bg-blue-500' : 'bg-blue-200'} transition-colors`}></div>
+                       <span className={loadingProgress >= 80 ? 'font-medium' : ''}>Process Results</span>
+                       <div className={`w-2 h-2 rounded-full ${loadingProgress >= 100 ? 'bg-green-500' : 'bg-blue-200'} transition-colors`}></div>
+                       <span className={loadingProgress >= 100 ? 'font-medium text-green-600' : ''}>Complete</span>
+                     </div>
+                   </div>
+                 </Card>
                )}
               
               {!canLoadShipping && (
@@ -1316,13 +1381,32 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
             )}
             
             {step === 'review' && (
-              <Button 
-                onClick={handleCreateOrder}
-                disabled={loading || checkedItems.size === 0}
-              >
-                {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ExternalLink className="h-4 w-4 mr-2" />}
-                {loading ? 'Creating Order...' : 'Create Order'}
-              </Button>
+              loading ? (
+                <Card className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-green-200 dark:border-green-800">
+                  <div className="flex items-center justify-center gap-3">
+                    <div className="relative">
+                      <Loader2 className="h-6 w-6 animate-spin text-green-600" />
+                      <div className="absolute inset-0 rounded-full border border-green-300 animate-pulse"></div>
+                    </div>
+                    <div className="text-center">
+                      <div className="font-semibold text-green-900 dark:text-green-100">
+                        Creating Order
+                      </div>
+                      <div className="text-sm text-green-700 dark:text-green-200">
+                        Processing your order with Sunsky...
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              ) : (
+                <Button 
+                  onClick={handleCreateOrder}
+                  disabled={loading || checkedItems.size === 0}
+                >
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Create Order
+                </Button>
+              )
             )}
           </div>
         </DialogFooter>
