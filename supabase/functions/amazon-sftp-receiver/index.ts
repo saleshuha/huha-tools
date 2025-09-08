@@ -11,28 +11,58 @@ interface ReceiveFilesRequest {
   force_check?: boolean;
 }
 
-// Function to normalize PEM format keys (handles various PEM formats) 
+// Function to normalize PEM format keys with enhanced validation
 function normalizePem(pemKey: string): string {
   if (!pemKey) return pemKey;
   
-  let normalized = pemKey.trim();
+  // Remove any BOM and normalize whitespace
+  let normalized = pemKey.replace(/^\uFEFF/, '').trim();
   
-  // Handle escaped newlines first
-  normalized = normalized.replace(/\\n/g, '\n');
-  
-  // Check for OpenSSH format and reject it immediately
-  if (normalized.includes('-----BEGIN OPENSSH PRIVATE KEY-----')) {
-    throw new Error('OpenSSH private key format detected. Please convert to traditional PEM format using: ssh-keygen -p -m PEM -f your_key_file');
+  // Remove quotes if the key is wrapped in them
+  if ((normalized.startsWith('"') && normalized.endsWith('"')) || 
+      (normalized.startsWith("'") && normalized.endsWith("'"))) {
+    normalized = normalized.slice(1, -1);
   }
   
-  // If it's a single-line key or has very few lines, try to reformat
-  const lines = normalized.split('\n').filter(line => line.trim());
+  // Handle escaped newlines
+  normalized = normalized.replace(/\\n/g, '\n');
   
+  // Convert CRLF to LF
+  normalized = normalized.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  
+  // Get the first line to determine key type
+  const lines = normalized.split('\n').filter(line => line.trim());
+  const firstLine = lines[0]?.trim() || '';
+  
+  // Early validation: Reject unsupported key formats with specific error messages
+  if (firstLine.includes('-----BEGIN OPENSSH PRIVATE KEY-----')) {
+    throw new Error(`OPENSSH_FORMAT|${firstLine}|OpenSSH private key format is not supported. Convert to PEM format using: ssh-keygen -p -m PEM -f your_key_file`);
+  }
+  
+  if (firstLine.includes('-----BEGIN DSA PRIVATE KEY-----')) {
+    throw new Error(`DSA_FORMAT|${firstLine}|DSA private keys are not supported. Amazon requires RSA keys. Generate a new RSA key pair.`);
+  }
+  
+  if (firstLine.includes('-----BEGIN EC PRIVATE KEY-----')) {
+    throw new Error(`EC_FORMAT|${firstLine}|EC (Elliptic Curve) private keys are not supported by Amazon. Generate a new RSA key pair.`);
+  }
+  
+  if (firstLine.includes('-----BEGIN ENCRYPTED PRIVATE KEY-----')) {
+    throw new Error(`ENCRYPTED_FORMAT|${firstLine}|Encrypted private keys are not supported. Remove passphrase using: openssl rsa -in encrypted_key.pem -out decrypted_key.pem`);
+  }
+  
+  // Check for non-RSA PKCS#8 keys
+  if (firstLine.includes('-----BEGIN PRIVATE KEY-----')) {
+    // This is PKCS#8 format, but we need to ensure it's RSA
+    // We'll let the SFTP client validate this, but provide a helpful error if it fails
+    console.log('PKCS#8 format detected - will validate during connection');
+  } else if (!firstLine.includes('-----BEGIN RSA PRIVATE KEY-----')) {
+    throw new Error(`UNKNOWN_FORMAT|${firstLine}|Unsupported private key format. Supported formats: RSA private key or PKCS#8. Found: ${firstLine}`);
+  }
+  
+  // Handle single-line or malformed PEM keys
   if (lines.length <= 3) {
-    // This looks like a single-line or malformed PEM key
     const fullContent = lines.join('');
-    
-    // Check if it has PEM markers
     const beginMatch = fullContent.match(/(-----BEGIN[^-]+-----)/);
     const endMatch = fullContent.match(/(-----END[^-]+-----)/);
     
@@ -54,13 +84,13 @@ function normalizePem(pemKey: string): string {
   }
   
   // Final validation - ensure we have proper PEM structure
-  const finalLines = normalized.split('\n');
+  const finalLines = normalized.split('\n').filter(line => line.trim());
   if (finalLines.length < 4) {
-    throw new Error('Invalid PEM format: Key must have proper BEGIN/END markers with content in between');
+    throw new Error(`MALFORMED_PEM|${firstLine}|Invalid PEM format: Key must have proper BEGIN/END markers with content in between`);
   }
   
-  // Ensure proper line endings
-  normalized = normalized.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  // Ensure no extra whitespace and proper line endings
+  normalized = finalLines.join('\n');
   
   return normalized;
 }

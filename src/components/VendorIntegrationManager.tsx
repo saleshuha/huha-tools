@@ -380,6 +380,41 @@ export function VendorIntegrationManager() {
     });
   };
 
+  const validateExistingKey = () => {
+    // This would be a utility to help users check their existing key format
+    const input = prompt("Paste the first line of your private key (e.g., -----BEGIN RSA PRIVATE KEY-----) to check format:");
+    if (!input) return;
+    
+    const normalized = input.trim();
+    let message = "";
+    let command = "";
+    
+    if (normalized.includes('-----BEGIN OPENSSH PRIVATE KEY-----')) {
+      message = "OpenSSH format detected. Not supported by Amazon.";
+      command = "ssh-keygen -p -m PEM -f your_private_key";
+    } else if (normalized.includes('-----BEGIN DSA PRIVATE KEY-----')) {
+      message = "DSA key detected. Not supported by Amazon.";
+      command = "ssh-keygen -t rsa -b 2048 -f amazon_rsa_key -m PEM";
+    } else if (normalized.includes('-----BEGIN EC PRIVATE KEY-----')) {
+      message = "EC (Elliptic Curve) key detected. Not supported by Amazon.";
+      command = "ssh-keygen -t rsa -b 2048 -f amazon_rsa_key -m PEM";
+    } else if (normalized.includes('-----BEGIN ENCRYPTED PRIVATE KEY-----')) {
+      message = "Encrypted private key detected. Remove passphrase required.";
+      command = "openssl rsa -in encrypted_key.pem -out decrypted_key.pem";
+    } else if (normalized.includes('-----BEGIN RSA PRIVATE KEY-----')) {
+      message = "✅ RSA PEM format - Compatible with Amazon!";
+      command = "No conversion needed";
+    } else if (normalized.includes('-----BEGIN PRIVATE KEY-----')) {
+      message = "PKCS#8 format detected. Should work if it's RSA-based.";
+      command = "If it fails, convert with: openssl rsa -in pkcs8_key.pem -out rsa_key.pem";
+    } else {
+      message = "Unknown key format. Generate a new RSA key.";
+      command = "ssh-keygen -t rsa -b 2048 -f amazon_rsa_key -m PEM";
+    }
+    
+    alert(`Key Analysis:\n\n${message}\n\n${command !== "No conversion needed" ? "Conversion command:\n" + command : ""}`);
+  };
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'sent':
@@ -701,6 +736,16 @@ export function VendorIntegrationManager() {
                         ssh-keygen -p -m PEM -f your_private_key
                       </code>
                       <p className="text-xs">This will convert your OpenSSH key to traditional PEM format in-place.</p>
+                      <p><strong>Option 3:</strong> Check your existing key format:</p>
+                      <Button 
+                        onClick={validateExistingKey}
+                        variant="outline"
+                        className="w-full"
+                      >
+                        <Shield className="w-4 h-4 mr-2" />
+                        Validate Existing Key Format
+                      </Button>
+                      <p className="text-xs">Paste your key header to check if it's compatible with Amazon</p>
                     </div>
                   </div>
                 </div>
@@ -1744,34 +1789,114 @@ export function VendorIntegrationManager() {
                         </span>
                       </div>
                     </div>
-                    {log.error_message && (
-                      <div className="mt-3 p-3 bg-destructive/10 border border-destructive/20 rounded-md">
-                        <div className="space-y-2">
-                          <p className="text-sm text-destructive font-medium">
-                            {log.error_message.includes('Cannot parse privateKey: Unsupported key format') 
-                              ? '🔑 SSH Key Format Error' 
-                              : 'Error'}
-                          </p>
-                          <p className="text-sm text-destructive">{log.error_message}</p>
-                          {log.error_message.includes('Cannot parse privateKey: Unsupported key format') && (
-                            <div className="mt-3 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200/50 rounded-md">
-                              <p className="text-sm text-amber-700 dark:text-amber-300 font-medium mb-2">
-                                Quick Fix Required:
-                              </p>
-                              <div className="text-xs text-amber-600 dark:text-amber-400 space-y-1">
-                                <p>1. Your key is in OpenSSH format (unsupported)</p>
-                                <p>2. Convert it to PEM format using:</p>
-                                <code className="block bg-amber-100 dark:bg-amber-900/40 p-2 rounded mt-1 text-amber-800 dark:text-amber-200">
-                                  ssh-keygen -p -m PEM -f your_private_key
-                                </code>
-                                <p className="pt-2">3. Or generate a new PEM key using the button above</p>
-                                <p>4. Update the secret with the PEM-format key</p>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
+                     {log.error_message && (
+                       <div className="mt-3 p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+                         <div className="space-y-2">
+                           <p className="text-sm text-destructive font-medium">
+                             {log.error_message.includes('Cannot parse privateKey: Unsupported key format') || log.error_message.includes('KEY_FORMAT_ERROR') 
+                               ? '🔑 SSH Key Format Error' 
+                               : 'Error'}
+                           </p>
+                           <p className="text-sm text-destructive">{log.error_message}</p>
+                           {/* Enhanced error handling for structured error messages */}
+                           {(() => {
+                             const errorMessage = log.error_message;
+                             
+                             // Check for structured error format: ERROR_TYPE|FIRST_LINE|MESSAGE
+                             if (errorMessage.includes('|') && (
+                               errorMessage.includes('OPENSSH_FORMAT') || 
+                               errorMessage.includes('DSA_FORMAT') || 
+                               errorMessage.includes('EC_FORMAT') || 
+                               errorMessage.includes('ENCRYPTED_FORMAT') ||
+                               errorMessage.includes('UNKNOWN_FORMAT') ||
+                               errorMessage.includes('MALFORMED_PEM')
+                             )) {
+                               const [errorType, firstLine, message] = errorMessage.split('|');
+                               
+                               return (
+                                 <div className="mt-3 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200/50 rounded-md">
+                                   <p className="text-sm text-amber-700 dark:text-amber-300 font-medium mb-2">
+                                     🔧 Key Conversion Required:
+                                   </p>
+                                   <div className="text-xs text-amber-600 dark:text-amber-400 space-y-2">
+                                     <p><strong>Detected Key Type:</strong> {firstLine}</p>
+                                     <p><strong>Issue:</strong> {message}</p>
+                                     
+                                     {/* Specific conversion commands based on error type */}
+                                     {errorType === 'OPENSSH_FORMAT' && (
+                                       <div className="space-y-1">
+                                         <p className="font-medium">Conversion Command:</p>
+                                         <code className="block bg-amber-100 dark:bg-amber-900/40 p-2 rounded text-amber-800 dark:text-amber-200">
+                                           ssh-keygen -p -m PEM -f your_private_key
+                                         </code>
+                                         <p className="text-xs">This will convert OpenSSH format to PEM format in-place</p>
+                                       </div>
+                                     )}
+                                     
+                                     {errorType === 'ENCRYPTED_FORMAT' && (
+                                       <div className="space-y-1">
+                                         <p className="font-medium">Remove Passphrase:</p>
+                                         <code className="block bg-amber-100 dark:bg-amber-900/40 p-2 rounded text-amber-800 dark:text-amber-200">
+                                           openssl rsa -in encrypted_key.pem -out decrypted_key.pem
+                                         </code>
+                                         <p className="text-xs">This will remove the passphrase encryption</p>
+                                       </div>
+                                     )}
+                                     
+                                     {(errorType === 'DSA_FORMAT' || errorType === 'EC_FORMAT') && (
+                                       <div className="space-y-1">
+                                         <p className="font-medium">Generate New RSA Key:</p>
+                                         <code className="block bg-amber-100 dark:bg-amber-900/40 p-2 rounded text-amber-800 dark:text-amber-200">
+                                           ssh-keygen -t rsa -b 2048 -f amazon_rsa_key -m PEM
+                                         </code>
+                                         <p className="text-xs">DSA and EC keys are not supported by Amazon - generate RSA instead</p>
+                                       </div>
+                                     )}
+                                     
+                                     {errorType === 'UNKNOWN_FORMAT' && (
+                                       <div className="space-y-1">
+                                         <p className="font-medium">Generate Compatible Key:</p>
+                                         <code className="block bg-amber-100 dark:bg-amber-900/40 p-2 rounded text-amber-800 dark:text-amber-200">
+                                           ssh-keygen -t rsa -b 2048 -f amazon_rsa_key -m PEM
+                                         </code>
+                                         <p className="text-xs">Generate a new RSA key in PEM format</p>
+                                       </div>
+                                     )}
+                                     
+                                     <div className="border-t border-amber-200 pt-2 mt-3">
+                                       <p className="font-medium">Alternative:</p>
+                                       <p>Use the "Generate New PEM Keys" button above to create Amazon-compatible keys automatically</p>
+                                     </div>
+                                   </div>
+                                 </div>
+                               );
+                             }
+                             
+                             // Fallback for old-style error messages
+                             if (errorMessage.includes('Cannot parse privateKey: Unsupported key format')) {
+                               return (
+                                 <div className="mt-3 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200/50 rounded-md">
+                                   <p className="text-sm text-amber-700 dark:text-amber-300 font-medium mb-2">
+                                     Quick Fix Required:
+                                   </p>
+                                   <div className="text-xs text-amber-600 dark:text-amber-400 space-y-1">
+                                     <p>1. Your key may be in OpenSSH format (unsupported)</p>
+                                     <p>2. Convert it to PEM format using:</p>
+                                     <code className="block bg-amber-100 dark:bg-amber-900/40 p-2 rounded mt-1 text-amber-800 dark:text-amber-200">
+                                       ssh-keygen -p -m PEM -f your_private_key
+                                     </code>
+                                     <p className="pt-2">3. Or generate a new PEM key using the button above</p>
+                                     <p>4. Update the secret with the PEM-format key</p>
+                                   </div>
+                                 </div>
+                               );
+                             }
+                             
+                             return null;
+                           })()}
+                         </div>
+                       </div>
+                     )}
                   </CardContent>
                 </Card>
               ))
