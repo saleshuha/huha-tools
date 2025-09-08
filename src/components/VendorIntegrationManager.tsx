@@ -653,8 +653,24 @@ export function VendorIntegrationManager() {
 
                 <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200/50">
                   <h4 className="font-medium mb-2 text-green-700 dark:text-green-300">💡 Solutions</h4>
-                  <div className="space-y-2 text-sm text-green-600 dark:text-green-400">
-                    <p><strong>Option 1:</strong> Use our Key Generator above to create a new PEM-format key pair</p>
+                  <div className="space-y-3 text-sm text-green-600 dark:text-green-400">
+                    <p><strong>Option 1:</strong> Generate new PEM-format keys automatically</p>
+                    <Button 
+                      onClick={async () => {
+                        const success = await generateSSHKeys(selectedModulusLength);
+                        if (success) {
+                          toast({
+                            title: "PEM Keys Generated",
+                            description: `New ${selectedModulusLength}-bit PEM-format SSH keys generated successfully`,
+                          });
+                        }
+                      }}
+                      disabled={generatingKeys}
+                      className="w-full"
+                    >
+                      <Key className="w-4 h-4 mr-2" />
+                      {generatingKeys ? 'Generating PEM Keys...' : 'Generate New PEM Keys'}
+                    </Button>
                     <p><strong>Option 2:</strong> Convert your existing key with: <code className="bg-black text-green-400 px-2 py-1 rounded">ssh-keygen -p -m PEM -f your_key</code></p>
                   </div>
                 </div>
