@@ -1,7 +1,7 @@
 import React, { useState, createContext, useContext } from 'react';
 import { SimpleLabelDocProvider, useLabelDoc } from '@/contexts/SimpleLabelDocContext';
 import { LabelToolbar } from '@/components/label/LabelToolbar';
-import { LabelWorkspace } from '@/components/label/LabelWorkspace';
+import { AdvancedLabelWorkspace } from '@/components/label/AdvancedLabelWorkspace';
 import { LabelPropertiesPanel } from '@/components/label/LabelPropertiesPanel';
 import { InventoryDataMapper } from '@/components/label/InventoryDataMapper';
 import { OrderLabelTemplates } from '@/components/label/OrderLabelTemplates';
@@ -296,7 +296,7 @@ const LabelDesignerContent: React.FC = () => {
               {/* Main Canvas Area */}
               <div className="flex-1 border-2 border-border/60 rounded-xl bg-gradient-to-br from-background/80 to-background/60 shadow-inner">
                 <div className="h-full p-6">
-                  <LabelWorkspace />
+                  <AdvancedLabelWorkspace />
                 </div>
               </div>
               
