@@ -13,12 +13,14 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useVendorIntegration } from '@/hooks/useVendorIntegration';
 import { useCountry } from '@/contexts/CountryContext';
+import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Plus, Key, Upload, Download, Trash2, Send, CheckCircle, XCircle, Clock, Inbox, TestTube, RefreshCw, Shield, Copy, FileText, Settings } from 'lucide-react';
 import { format } from 'date-fns';
 
 export function VendorIntegrationManager() {
   const { selectedCountry } = useCountry();
+  const { toast } = useToast();
   const {
     integrations,
     feedLogs,
@@ -179,6 +181,25 @@ export function VendorIntegrationManager() {
     } catch (error) {
       console.error('Failed to copy to clipboard:', error);
     }
+  };
+
+  const downloadPublicKey = () => {
+    if (!generatedKeys?.public_key) return;
+    
+    const blob = new Blob([generatedKeys.public_key], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'amazon_vendor_public_key.pub';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    toast({
+      title: "Downloaded!",
+      description: "Public key downloaded as amazon_vendor_public_key.pub",
+    });
   };
 
   const handleGenerateFeed = async (integrationId: string) => {
@@ -513,15 +534,24 @@ export function VendorIntegrationManager() {
                 <div className="bg-black p-3 rounded text-green-400 font-mono text-xs break-all max-h-32 overflow-y-auto">
                   {generatedKeys.public_key}
                 </div>
-                <Button 
-                  size="sm" 
-                  variant="outline" 
-                  className="mt-2"
-                  onClick={() => copyToClipboard(generatedKeys.public_key)}
-                >
-                  <Copy className="w-4 h-4 mr-2" />
-                  Copy Public Key
-                </Button>
+                <div className="flex gap-2 mt-2">
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    onClick={() => copyToClipboard(generatedKeys.public_key)}
+                  >
+                    <Copy className="w-4 h-4 mr-2" />
+                    Copy Public Key
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={downloadPublicKey}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Download .pub File
+                  </Button>
+                </div>
               </div>
             )}
 
