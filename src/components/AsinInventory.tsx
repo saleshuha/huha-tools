@@ -27,6 +27,7 @@ import { InventoryDashboard } from './InventoryDashboard';
 import { BulkSkuUpload } from './BulkSkuUpload';
 import { BulkTitleUpload } from './BulkTitleUpload';
 import { SimpleWarehouseManager } from './SimpleWarehouseManager';
+import { LabelTemplateManager } from './LabelTemplateManager';
 import { useWarehouseManager } from '@/hooks/useWarehouseManager';
 import { useBackgroundTasks } from '@/contexts/BackgroundTasksContext';
 import { format } from 'date-fns';
@@ -894,6 +895,16 @@ export function AsinInventory() {
 
                   {/* Warehouse Settings */}
                   <SimpleWarehouseManager />
+
+                  {/* Label Templates */}
+                  <LabelTemplateManager 
+                    selectedItems={selectedItems}
+                    allItems={inventory}
+                    onPrint={(templateId, items) => {
+                      console.log('Printing with template:', templateId, 'Items:', items);
+                      // Implement actual printing logic here
+                    }} 
+                  />
 
                   {/* Export */}
                   <Button size="sm" variant="outline" className="border-2 border-primary bg-background hover:bg-green-500 hover:text-white hover:border-green-500 transition-all" onClick={exportInventory}>
