@@ -66,6 +66,7 @@ export function AsinInventory() {
   const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [previewItem, setPreviewItem] = useState<AsinInventoryItem | null>(null);
+  const [previewTemplate, setPreviewTemplate] = useState<any>(null);
   const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
   const [isBulkStatusDialogOpen, setIsBulkStatusDialogOpen] = useState(false);
   const [isBulkQuantityDialogOpen, setIsBulkQuantityDialogOpen] = useState(false);
@@ -623,7 +624,28 @@ export function AsinInventory() {
 
   // Preview label function
   const handlePreviewItem = async (item: AsinInventoryItem) => {
+    // Load template data if available
+    const savedTemplate = localStorage.getItem('savedLabelTemplate');
+    let templateData = null;
+    
+    if (savedTemplate) {
+      try {
+        const { data: template } = await supabase
+          .from('label_templates')
+          .select('*')
+          .eq('id', savedTemplate)
+          .single();
+        
+        if (template) {
+          templateData = template;
+        }
+      } catch (error) {
+        console.log('Could not load template for preview');
+      }
+    }
+    
     setPreviewItem(item);
+    setPreviewTemplate(templateData);
     setIsPreviewDialogOpen(true);
   };
 
@@ -1561,61 +1583,131 @@ export function AsinInventory() {
                 <div className="bg-muted/30 p-4 rounded-lg">
                   <h3 className="font-semibold mb-2">Label Specifications</h3>
                   <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>Size: 4" × 3" (203 DPI)</div>
+                    <div>Size: {previewTemplate ? 
+                      `${(previewTemplate.width / 72).toFixed(1)}" × ${(previewTemplate.height / 72).toFixed(1)}"` : 
+                      '4" × 3"'} (203 DPI)</div>
                     <div>Format: ZPL (Zebra Printer Language)</div>
+                    <div>Template: {previewTemplate ? previewTemplate.name : 'Default Layout'}</div>
+                    <div>Elements: {previewTemplate ? previewTemplate.elements?.length || 0 : 'Standard'}</div>
                   </div>
                 </div>
 
                 {/* Visual Label Preview */}
                 <div className="border-2 border-dashed border-gray-300 bg-white p-8 rounded-lg">
-                  <div className="bg-white border border-gray-400 p-6 mx-auto" style={{ width: '400px', height: '300px', fontSize: '14px' }}>
-                    <div className="space-y-3">
-                      {/* ASIN */}
-                      <div className="font-mono text-lg font-bold">
-                        ASIN: {previewItem.asin}
-                      </div>
-                      
-                      {/* SKU */}
-                      {previewItem.sku && (
+                  {previewTemplate ? (
+                    // Template-based preview
+                    <div className="bg-white border border-gray-400 mx-auto relative" 
+                         style={{ 
+                           width: `${Math.min(previewTemplate.width * 0.8, 400)}px`, 
+                           height: `${Math.min(previewTemplate.height * 0.8, 300)}px` 
+                         }}>
+                      {previewTemplate.elements?.map((element: any, index: number) => {
+                        let content = '';
+                        
+                        // Map element data sources to actual item data
+                        switch(element.dataSource) {
+                          case 'asin':
+                            content = previewItem.asin;
+                            break;
+                          case 'sku':
+                            content = previewItem.sku || '';
+                            break;
+                          case 'title':
+                            content = previewItem.title || `Product ${previewItem.asin}`;
+                            break;
+                          case 'quantity':
+                            content = previewItem.quantity.toString();
+                            break;
+                          case 'serial':
+                            content = previewItem.serialNumber;
+                            break;
+                          default:
+                            content = element.text || '';
+                        }
+                        
+                        return (
+                          <div
+                            key={index}
+                            style={{
+                              position: 'absolute',
+                              left: `${(element.x * 0.8)}px`,
+                              top: `${(element.y * 0.8)}px`,
+                              width: `${(element.width * 0.8)}px`,
+                              height: `${(element.height * 0.8)}px`,
+                              fontSize: `${Math.max(element.fontSize * 0.8, 8)}px`,
+                              fontWeight: element.fontWeight || 'normal',
+                              color: element.fill || '#000000',
+                              textAlign: element.textAlign || 'left',
+                              overflow: 'hidden',
+                              whiteSpace: element.type === 'text' ? 'pre-wrap' : 'nowrap',
+                              fontFamily: element.fontFamily || 'Arial'
+                            }}
+                          >
+                            {element.type === 'barcode' ? (
+                              <div className="bg-black text-white text-center py-1 text-xs font-mono">
+                                ||||| {content} |||||
+                              </div>
+                            ) : (
+                              content
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    // Default preview
+                    <div className="bg-white border border-gray-400 p-6 mx-auto" style={{ width: '400px', height: '300px', fontSize: '14px' }}>
+                      <div className="space-y-3">
+                        {/* ASIN */}
+                        <div className="font-mono text-lg font-bold">
+                          ASIN: {previewItem.asin}
+                        </div>
+                        
+                        {/* SKU */}
+                        {previewItem.sku && (
+                          <div className="font-mono text-base">
+                            SKU: {previewItem.sku}
+                          </div>
+                        )}
+                        
+                        {/* Title */}
+                        <div className="text-sm">
+                          {previewItem.title ? 
+                            (previewItem.title.length > 30 ? 
+                              previewItem.title.substring(0, 30) + '...' : 
+                              previewItem.title) : 
+                            `Product ${previewItem.asin}`}
+                        </div>
+                        
+                        {/* Quantity */}
                         <div className="font-mono text-base">
-                          SKU: {previewItem.sku}
+                          Qty: {previewItem.quantity}
                         </div>
-                      )}
-                      
-                      {/* Title */}
-                      <div className="text-sm">
-                        {previewItem.title ? 
-                          (previewItem.title.length > 30 ? 
-                            previewItem.title.substring(0, 30) + '...' : 
-                            previewItem.title) : 
-                          `Product ${previewItem.asin}`}
-                      </div>
-                      
-                      {/* Quantity */}
-                      <div className="font-mono text-base">
-                        Qty: {previewItem.quantity}
-                      </div>
-                      
-                      {/* Serial Number */}
-                      <div className="text-xs text-gray-600">
-                        Serial: {previewItem.serialNumber}
-                      </div>
-                      
-                      {/* Barcode placeholder */}
-                      <div className="mt-4 pt-2 border-t border-gray-200">
-                        <div className="bg-black text-white text-center py-1 text-xs font-mono">
-                          ||||| {previewItem.asin} |||||
+                        
+                        {/* Serial Number */}
+                        <div className="text-xs text-gray-600">
+                          Serial: {previewItem.serialNumber}
                         </div>
-                        <div className="text-center text-xs mt-1">{previewItem.asin}</div>
+                        
+                        {/* Barcode placeholder */}
+                        <div className="mt-4 pt-2 border-t border-gray-200">
+                          <div className="bg-black text-white text-center py-1 text-xs font-mono">
+                            ||||| {previewItem.asin} |||||
+                          </div>
+                          <div className="text-center text-xs mt-1">{previewItem.asin}</div>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
                 </div>
 
                 {/* Preview Actions */}
                 <div className="flex justify-between items-center">
                   <div className="text-sm text-muted-foreground">
-                    This preview shows the approximate layout. Actual print may vary based on printer settings.
+                    {previewTemplate ? 
+                      `Preview shows ${previewTemplate.name} template layout at 80% scale.` :
+                      'This preview shows the default layout. Actual print may vary based on printer settings.'
+                    }
                   </div>
                   <div className="flex gap-2">
                     <Button variant="outline" onClick={() => setIsPreviewDialogOpen(false)}>
