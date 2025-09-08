@@ -93,6 +93,8 @@ export function VendorIntegrationManager() {
   } | null>(null);
   const [generatingKeys, setGeneratingKeys] = useState(false);
   const [selectedModulusLength, setSelectedModulusLength] = useState<2048 | 4096>(2048);
+  const [uploadedTestFile, setUploadedTestFile] = useState<string | null>(null);
+  const [uploadedFileName, setUploadedFileName] = useState<string>('ConnectivityTest');
 
   useEffect(() => {
     loadIntegrations(selectedCountry);
@@ -257,17 +259,43 @@ export function VendorIntegrationManager() {
     await sendTestFile(integrationId, testXML, 'test_order_response.xml');
   };
 
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const content = e.target?.result as string;
+        setUploadedTestFile(content);
+        // Remove file extension and use just the name
+        const nameWithoutExt = file.name.replace(/\.[^/.]+$/, "");
+        setUploadedFileName(nameWithoutExt);
+        toast({
+          title: "File uploaded",
+          description: `${file.name} is ready to send as ${nameWithoutExt}`,
+        });
+      };
+      reader.readAsText(file);
+    }
+  };
+
   const handleSendConnectivityTest = async (integrationId: string) => {
-    // Fetch the connectivity test file content
     try {
-      const response = await fetch('/yourconnectivitytest.txt');
-      const connectivityTestXML = await response.text();
+      let contentToSend: string;
       
-      await sendTestFile(integrationId, connectivityTestXML, 'ConnectivityTest');
+      if (uploadedTestFile) {
+        // Use uploaded file
+        contentToSend = uploadedTestFile;
+      } else {
+        // Use default connectivity test file
+        const response = await fetch('/yourconnectivitytest.txt');
+        contentToSend = await response.text();
+      }
+      
+      await sendTestFile(integrationId, contentToSend, uploadedFileName);
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to load connectivity test file",
+        description: "Failed to send connectivity test file",
         variant: "destructive",
       });
     }
@@ -1504,15 +1532,41 @@ export function VendorIntegrationManager() {
                           <TestTube className="w-4 h-4 mr-2" />
                           Send Test
                         </Button>
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={() => handleSendConnectivityTest(integration.id)}
-                          disabled={loading || !integration.is_active}
-                        >
-                          <Send className="w-4 h-4 mr-2" />
-                          Connectivity Test
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="file"
+                            accept=".txt,.xml"
+                            onChange={handleFileUpload}
+                            className="hidden"
+                            id={`file-upload-${integration.id}`}
+                          />
+                          <Label 
+                            htmlFor={`file-upload-${integration.id}`}
+                            className="cursor-pointer"
+                          >
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              type="button"
+                              disabled={loading || !integration.is_active}
+                              asChild
+                            >
+                              <span>
+                                <Upload className="w-4 h-4 mr-2" />
+                                Upload Test File
+                              </span>
+                            </Button>
+                          </Label>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleSendConnectivityTest(integration.id)}
+                            disabled={loading || !integration.is_active}
+                          >
+                            <Send className="w-4 h-4 mr-2" />
+                            {uploadedTestFile ? `Send ${uploadedFileName}` : 'Send Default Test'}
+                          </Button>
+                        </div>
                         <Button 
                           size="sm" 
                           variant="outline"
