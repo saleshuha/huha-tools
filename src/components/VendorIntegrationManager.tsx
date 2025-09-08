@@ -8,7 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useVendorIntegration } from '@/hooks/useVendorIntegration';
@@ -36,7 +36,7 @@ export function VendorIntegrationManager() {
     diagnoseIntegration,
   } = useVendorIntegration();
 
-  const [showSetupDialog, setShowSetupDialog] = useState(false);
+  const [showSetupMode, setShowSetupMode] = useState(false);
   const [editingIntegration, setEditingIntegration] = useState<string | null>(null);
   const [showSSHInstructions, setShowSSHInstructions] = useState(false);
   const [setupStep, setSetupStep] = useState(1);
@@ -106,12 +106,15 @@ export function VendorIntegrationManager() {
       const success = await updateIntegration(editingIntegration, formData);
       if (success) {
         setEditingIntegration(null);
+        setShowSetupMode(false);
+        setSetupStep(1);
         resetForm();
       }
     } else {
       const result = await createIntegration(formData);
       if (result) {
-        setShowSetupDialog(false);
+        setShowSetupMode(false);
+        setSetupStep(1);
         resetForm();
       }
     }
@@ -188,6 +191,7 @@ export function VendorIntegrationManager() {
     setSshKeyUploaded(!!integration.sftp_host || !!integration.as2_endpoint_url);
     setSetupStep(4);
     setEditingIntegration(integration.id);
+    setShowSetupMode(true);
   };
 
   const copyToClipboard = async (text: string) => {
@@ -451,7 +455,7 @@ export function VendorIntegrationManager() {
             )}
 
             <div className="flex justify-between">
-              <Button variant="outline" onClick={() => setShowSetupDialog(false)}>
+              <Button variant="outline" onClick={() => { setShowSetupMode(false); setSetupStep(1); }}>
                 Cancel
               </Button>
               <Button 
@@ -1363,47 +1367,58 @@ export function VendorIntegrationManager() {
                 Secure connections using SFTP or AS2 protocols
               </p>
             </div>
-            <Dialog open={showSetupDialog} onOpenChange={setShowSetupDialog}>
-              <DialogTrigger asChild>
-                <Button onClick={() => resetForm()}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Setup New Integration
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle>
-                    {editingIntegration ? 'Edit Integration' : 'Amazon Vendor Central Setup'}
-                  </DialogTitle>
-                  <DialogDescription>
-                    {editingIntegration 
-                      ? 'Update your integration settings'
-                      : 'Set up secure file transfer with Amazon using SFTP or AS2'
-                    }
-                  </DialogDescription>
-                </DialogHeader>
-                {renderSetupStep()}
-              </DialogContent>
-            </Dialog>
+            {!showSetupMode && (
+              <Button onClick={() => { resetForm(); setShowSetupMode(true); }}>
+                <Plus className="w-4 h-4 mr-2" />
+                Setup New Integration
+              </Button>
+            )}
           </div>
 
-          {/* Integration Cards */}
-          <div className="space-y-4">
-            {integrations.length === 0 ? (
-              <Card>
-                <CardContent className="flex flex-col items-center justify-center py-16">
-                  <Key className="w-16 h-16 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-medium mb-2">No Integrations Configured</h3>
-                  <p className="text-muted-foreground text-center mb-4">
-                    Set up your first Amazon Vendor Central integration with SFTP or AS2.
-                  </p>
-                  <Button onClick={() => setShowSetupDialog(true)}>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Setup Integration
+          {showSetupMode ? (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>
+                      {editingIntegration ? 'Edit Integration' : 'Amazon Vendor Central Setup'}
+                    </CardTitle>
+                    <CardDescription>
+                      {editingIntegration 
+                        ? 'Update your integration settings'
+                        : 'Set up secure file transfer with Amazon using SFTP or AS2'
+                      }
+                    </CardDescription>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => { setShowSetupMode(false); setEditingIntegration(null); setSetupStep(1); }}
+                  >
+                    Cancel
                   </Button>
-                </CardContent>
-              </Card>
-            ) : (
+                </div>
+              </CardHeader>
+              <CardContent>
+                {renderSetupStep()}
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {integrations.length === 0 ? (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center py-16">
+                    <Key className="w-16 h-16 text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-medium mb-2">No Integrations Configured</h3>
+                    <p className="text-muted-foreground text-center mb-4">
+                      Set up your first Amazon Vendor Central integration with SFTP or AS2.
+                    </p>
+                    <Button onClick={() => setShowSetupMode(true)}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Setup Integration
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : (
               integrations.map((integration) => (
                 <Card key={integration.id}>
                   <CardHeader>
@@ -1514,6 +1529,7 @@ export function VendorIntegrationManager() {
               ))
             )}
           </div>
+          )}
         </TabsContent>
 
         <TabsContent value="feed-history" className="space-y-6">
