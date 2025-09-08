@@ -13,7 +13,7 @@ interface TestSendRequest {
   file_name?: string;
 }
 
-// Function to normalize PEM format keys (handles single-line PEM keys)
+// Function to normalize PEM format keys (handles various PEM formats)
 function normalizePem(pemKey: string): string {
   if (!pemKey) return pemKey;
   
@@ -22,28 +22,47 @@ function normalizePem(pemKey: string): string {
   // Handle escaped newlines first
   normalized = normalized.replace(/\\n/g, '\n');
   
-  // If it's a single-line key, add proper line breaks
-  if (!normalized.includes('\n') || normalized.split('\n').length <= 2) {
+  // Check for OpenSSH format and reject it immediately
+  if (normalized.includes('-----BEGIN OPENSSH PRIVATE KEY-----')) {
+    throw new Error('OpenSSH private key format detected. Please convert to traditional PEM format using: ssh-keygen -p -m PEM -f your_key_file');
+  }
+  
+  // If it's a single-line key or has very few lines, try to reformat
+  const lines = normalized.split('\n').filter(line => line.trim());
+  
+  if (lines.length <= 3) {
+    // This looks like a single-line or malformed PEM key
+    const fullContent = lines.join('');
+    
     // Check if it has PEM markers
-    const beginMatch = normalized.match(/(-----BEGIN[^-]+-----)/);
-    const endMatch = normalized.match(/(-----END[^-]+-----)/);
+    const beginMatch = fullContent.match(/(-----BEGIN[^-]+-----)/);
+    const endMatch = fullContent.match(/(-----END[^-]+-----)/);
     
     if (beginMatch && endMatch) {
       const header = beginMatch[1];
       const footer = endMatch[1];
       
       // Extract the key content between markers
-      let keyContent = normalized.replace(header, '').replace(footer, '').replace(/\s/g, '');
+      let keyContent = fullContent.replace(header, '').replace(footer, '').replace(/\s/g, '');
       
       // Add line breaks every 64 characters for proper PEM format
-      const lines = [];
+      const keyLines = [];
       for (let i = 0; i < keyContent.length; i += 64) {
-        lines.push(keyContent.substr(i, 64));
+        keyLines.push(keyContent.substr(i, 64));
       }
       
-      normalized = header + '\n' + lines.join('\n') + '\n' + footer;
+      normalized = header + '\n' + keyLines.join('\n') + '\n' + footer;
     }
   }
+  
+  // Final validation - ensure we have proper PEM structure
+  const finalLines = normalized.split('\n');
+  if (finalLines.length < 4) {
+    throw new Error('Invalid PEM format: Key must have proper BEGIN/END markers with content in between');
+  }
+  
+  // Ensure proper line endings
+  normalized = normalized.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
   
   return normalized;
 }
@@ -217,31 +236,41 @@ Deno.serve(async (req) => {
           const sftp = new SftpClient();
           
           // Process and validate the private key using normalizePem
-          let processedPrivateKey = normalizePem(privateKey);
+          let processedPrivateKey;
+          try {
+            processedPrivateKey = normalizePem(privateKey);
+            console.log('PEM normalization successful');
+          } catch (normError) {
+            console.error('PEM normalization failed:', normError.message);
+            throw new Error(`Private key format error: ${normError.message}`);
+          }
           
           // Log key format for debugging (first and last line only for security)
-          const keyLines = processedPrivateKey.split('\n');
-          console.log('Key format check:');
+          const keyLines = processedPrivateKey.split('\n').filter(line => line.trim());
+          console.log('Key format check after normalization:');
           console.log('First line:', keyLines[0]);
           console.log('Last line:', keyLines[keyLines.length - 1]);
           console.log('Total lines:', keyLines.length);
+          console.log('Key type:', keyLines[0].includes('RSA') ? 'RSA' : keyLines[0].includes('EC') ? 'EC' : 'PKCS#8');
           
-          // Validate key format
+          // Additional validation - key should already be validated by normalizePem
           if (!processedPrivateKey.includes('-----BEGIN') || !processedPrivateKey.includes('-----END')) {
-            throw new Error('Private key must be in PEM format with BEGIN/END markers');
+            throw new Error('Invalid PEM format after normalization');
           }
           
-          // For OpenSSH format keys, we need to convert them or use a different approach
-          if (processedPrivateKey.includes('BEGIN OPENSSH PRIVATE KEY')) {
-            console.log('OpenSSH format detected - this format may not be supported by ssh2-sftp-client');
-            throw new Error('OpenSSH private key format detected. Please convert to traditional PEM format (ssh-keygen -p -m PEM -f keyfile)');
-          }
+          // Ensure proper PEM format types
+          const supportedFormats = [
+            'BEGIN RSA PRIVATE KEY',
+            'BEGIN PRIVATE KEY', 
+            'BEGIN EC PRIVATE KEY'
+          ];
           
-          // Ensure proper PEM format
-          if (!processedPrivateKey.includes('BEGIN RSA PRIVATE KEY') && 
-              !processedPrivateKey.includes('BEGIN PRIVATE KEY') &&
-              !processedPrivateKey.includes('BEGIN EC PRIVATE KEY')) {
-            throw new Error('Unsupported private key format. Supported formats: RSA, PKCS#8, or EC private keys in PEM format');
+          const hasValidFormat = supportedFormats.some(format => 
+            processedPrivateKey.includes(format)
+          );
+          
+          if (!hasValidFormat) {
+            throw new Error(`Unsupported private key format. Supported formats: RSA, PKCS#8, or EC private keys in PEM format. Found: ${keyLines[0]}`);
           }
           
           console.log('Private key format validation passed');

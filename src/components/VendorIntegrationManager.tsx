@@ -660,26 +660,48 @@ export function VendorIntegrationManager() {
                 </div>
 
                 <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200/50">
-                  <h4 className="font-medium mb-2 text-green-700 dark:text-green-300">💡 Solutions</h4>
+                  <h4 className="font-medium mb-2 text-green-700 dark:text-green-300">💡 SSH Key Format Requirements</h4>
                   <div className="space-y-3 text-sm text-green-600 dark:text-green-400">
-                    <p><strong>Option 1:</strong> Generate new PEM-format keys automatically</p>
-                    <Button 
-                      onClick={async () => {
-                        const success = await generateSSHKeys(selectedModulusLength);
-                        if (success) {
-                          toast({
-                            title: "PEM Keys Generated",
-                            description: `New ${selectedModulusLength}-bit PEM-format SSH keys generated successfully`,
-                          });
-                        }
-                      }}
-                      disabled={generatingKeys}
-                      className="w-full"
-                    >
-                      <Key className="w-4 h-4 mr-2" />
-                      {generatingKeys ? 'Generating PEM Keys...' : 'Generate New PEM Keys'}
-                    </Button>
-                    <p><strong>Option 2:</strong> Convert your existing key with: <code className="bg-black text-green-400 px-2 py-1 rounded">ssh-keygen -p -m PEM -f your_key</code></p>
+                    <div className="bg-white dark:bg-gray-800 p-3 rounded border">
+                      <p className="font-medium mb-2">✅ Supported Formats:</p>
+                      <ul className="list-disc list-inside space-y-1 text-xs">
+                        <li>RSA private keys: <code>-----BEGIN RSA PRIVATE KEY-----</code></li>
+                        <li>PKCS#8 format: <code>-----BEGIN PRIVATE KEY-----</code></li>
+                        <li>EC private keys: <code>-----BEGIN EC PRIVATE KEY-----</code></li>
+                      </ul>
+                    </div>
+                    <div className="bg-red-50 dark:bg-red-900/20 p-3 rounded border border-red-200">
+                      <p className="font-medium mb-2 text-red-700 dark:text-red-300">❌ NOT Supported:</p>
+                      <ul className="list-disc list-inside space-y-1 text-xs text-red-600 dark:text-red-400">
+                        <li>OpenSSH format: <code>-----BEGIN OPENSSH PRIVATE KEY-----</code></li>
+                        <li>SSH2 public keys</li>
+                        <li>Single-line keys without proper formatting</li>
+                      </ul>
+                    </div>
+                    <div className="space-y-2">
+                      <p><strong>Option 1:</strong> Generate new PEM-format keys automatically</p>
+                      <Button 
+                        onClick={async () => {
+                          const success = await generateSSHKeys(selectedModulusLength);
+                          if (success) {
+                            toast({
+                              title: "PEM Keys Generated",
+                              description: `New ${selectedModulusLength}-bit PEM-format SSH keys generated successfully`,
+                            });
+                          }
+                        }}
+                        disabled={generatingKeys}
+                        className="w-full"
+                      >
+                        <Key className="w-4 h-4 mr-2" />
+                        {generatingKeys ? 'Generating PEM Keys...' : 'Generate New PEM Keys'}
+                      </Button>
+                      <p><strong>Option 2:</strong> Convert existing OpenSSH key to PEM:</p>
+                      <code className="block bg-black text-green-400 px-3 py-2 rounded text-xs">
+                        ssh-keygen -p -m PEM -f your_private_key
+                      </code>
+                      <p className="text-xs">This will convert your OpenSSH key to traditional PEM format in-place.</p>
+                    </div>
                   </div>
                 </div>
 

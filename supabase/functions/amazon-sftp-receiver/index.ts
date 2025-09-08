@@ -11,7 +11,7 @@ interface ReceiveFilesRequest {
   force_check?: boolean;
 }
 
-// Function to normalize PEM format keys (handles single-line PEM keys)
+// Function to normalize PEM format keys (handles various PEM formats) 
 function normalizePem(pemKey: string): string {
   if (!pemKey) return pemKey;
   
@@ -20,28 +20,47 @@ function normalizePem(pemKey: string): string {
   // Handle escaped newlines first
   normalized = normalized.replace(/\\n/g, '\n');
   
-  // If it's a single-line key, add proper line breaks
-  if (!normalized.includes('\n') || normalized.split('\n').length <= 2) {
+  // Check for OpenSSH format and reject it immediately
+  if (normalized.includes('-----BEGIN OPENSSH PRIVATE KEY-----')) {
+    throw new Error('OpenSSH private key format detected. Please convert to traditional PEM format using: ssh-keygen -p -m PEM -f your_key_file');
+  }
+  
+  // If it's a single-line key or has very few lines, try to reformat
+  const lines = normalized.split('\n').filter(line => line.trim());
+  
+  if (lines.length <= 3) {
+    // This looks like a single-line or malformed PEM key
+    const fullContent = lines.join('');
+    
     // Check if it has PEM markers
-    const beginMatch = normalized.match(/(-----BEGIN[^-]+-----)/);
-    const endMatch = normalized.match(/(-----END[^-]+-----)/);
+    const beginMatch = fullContent.match(/(-----BEGIN[^-]+-----)/);
+    const endMatch = fullContent.match(/(-----END[^-]+-----)/);
     
     if (beginMatch && endMatch) {
       const header = beginMatch[1];
       const footer = endMatch[1];
       
       // Extract the key content between markers
-      let keyContent = normalized.replace(header, '').replace(footer, '').replace(/\s/g, '');
+      let keyContent = fullContent.replace(header, '').replace(footer, '').replace(/\s/g, '');
       
       // Add line breaks every 64 characters for proper PEM format
-      const lines = [];
+      const keyLines = [];
       for (let i = 0; i < keyContent.length; i += 64) {
-        lines.push(keyContent.substr(i, 64));
+        keyLines.push(keyContent.substr(i, 64));
       }
       
-      normalized = header + '\n' + lines.join('\n') + '\n' + footer;
+      normalized = header + '\n' + keyLines.join('\n') + '\n' + footer;
     }
   }
+  
+  // Final validation - ensure we have proper PEM structure
+  const finalLines = normalized.split('\n');
+  if (finalLines.length < 4) {
+    throw new Error('Invalid PEM format: Key must have proper BEGIN/END markers with content in between');
+  }
+  
+  // Ensure proper line endings
+  normalized = normalized.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
   
   return normalized;
 }
