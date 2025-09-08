@@ -38,27 +38,66 @@ export const QZTraySetup: React.FC = () => {
     setChecking(true);
     
     try {
-      // Check if QZ Tray is available
-      const qz = (window as any).qz;
+      // First, check if QZ Tray script is loaded
+      let qz = (window as any).qz;
+      
+      if (!qz) {
+        // Try to load QZ Tray script
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/qz-tray@2.2.5/qz-tray.js';
+        document.head.appendChild(script);
+        
+        await new Promise((resolve, reject) => {
+          script.onload = resolve;
+          script.onerror = reject;
+          setTimeout(reject, 5000); // 5 second timeout
+        });
+        
+        qz = (window as any).qz;
+      }
+      
       if (qz) {
         setQzInstalled(true);
+        console.log('QZ Tray script loaded successfully');
         
-        // Check if QZ Tray is running
+        // Check if QZ Tray is running by attempting connection
         try {
           if (qz.websocket.isActive()) {
             setQzRunning(true);
+            setWebsiteTrusted(true);
+            console.log('QZ Tray already connected');
           } else {
+            console.log('Attempting to connect to QZ Tray...');
             await qz.websocket.connect();
             setQzRunning(true);
-            setWebsiteTrusted(true); // If connection succeeds, website is trusted
+            setWebsiteTrusted(true);
+            console.log('QZ Tray connected successfully');
+            toast.success('QZ Tray connected successfully!');
           }
-        } catch (error) {
-          console.log('QZ Tray connection failed:', error);
+        } catch (connectionError: any) {
+          console.error('QZ Tray connection failed:', connectionError);
           setQzRunning(false);
+          setWebsiteTrusted(false);
+          
+          if (connectionError.message && connectionError.message.includes('Unable to establish connection')) {
+            toast.error('QZ Tray is not running. Please start QZ Tray and try again.');
+          } else {
+            toast.error('QZ Tray connection failed. Check if it\'s running and trusted.');
+          }
         }
+      } else {
+        console.log('QZ Tray script not available');
+        setQzInstalled(false);
+        setQzRunning(false);
+        setWebsiteTrusted(false);
+        toast.error('QZ Tray is not installed or accessible.');
       }
     } catch (error) {
-      console.log('QZ Tray not available:', error);
+      console.error('QZ Tray detection failed:', error);
+      setQzInstalled(false);
+      setQzRunning(false);
+      setWebsiteTrusted(false);
+      toast.error('Failed to detect QZ Tray. Please check installation.');
     } finally {
       setChecking(false);
     }
@@ -118,14 +157,37 @@ export const QZTraySetup: React.FC = () => {
           <TabsContent value="status" className="space-y-4">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold">System Status</h3>
-              <Button 
-                onClick={checkQZStatus} 
-                disabled={checking}
-                variant="outline"
-                size="sm"
-              >
-                {checking ? 'Checking...' : 'Refresh Status'}
-              </Button>
+              <div className="flex gap-2">
+                <Button 
+                  onClick={checkQZStatus} 
+                  disabled={checking}
+                  variant="outline"
+                  size="sm"
+                >
+                  {checking ? 'Checking...' : 'Refresh Status'}
+                </Button>
+                {qzInstalled && !qzRunning && (
+                  <Button 
+                    onClick={async () => {
+                      const qz = (window as any).qz;
+                      if (qz) {
+                        try {
+                          await qz.websocket.connect();
+                          setQzRunning(true);
+                          setWebsiteTrusted(true);
+                          toast.success('Successfully connected to QZ Tray!');
+                        } catch (error) {
+                          toast.error('Failed to connect. Make sure QZ Tray is running.');
+                        }
+                      }
+                    }}
+                    size="sm"
+                    variant="default"
+                  >
+                    Connect Now
+                  </Button>
+                )}
+              </div>
             </div>
             
             <div className="grid gap-4">
