@@ -65,6 +65,8 @@ export function AsinInventory() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [previewItem, setPreviewItem] = useState<AsinInventoryItem | null>(null);
+  const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
   const [isBulkStatusDialogOpen, setIsBulkStatusDialogOpen] = useState(false);
   const [isBulkQuantityDialogOpen, setIsBulkQuantityDialogOpen] = useState(false);
   const [isDuplicateDialogOpen, setIsDuplicateDialogOpen] = useState(false);
@@ -618,6 +620,12 @@ export function AsinInventory() {
       });
     }
   }, [duplicateData, refetch, toast, setIsDuplicateDialogOpen]);
+
+  // Preview label function
+  const handlePreviewItem = async (item: AsinInventoryItem) => {
+    setPreviewItem(item);
+    setIsPreviewDialogOpen(true);
+  };
 
   // Print single item label using QZ Tray
   const handlePrintItem = async (item: AsinInventoryItem) => {
@@ -1300,6 +1308,15 @@ export function AsinInventory() {
                               variant="outline" 
                               size="sm" 
                               className="w-8 h-8 p-0" 
+                              onClick={() => handlePreviewItem(item)}
+                              title="Preview Label"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="w-8 h-8 p-0" 
                               onClick={() => handlePrintItem(item)}
                               title="Print Label"
                             >
@@ -1362,6 +1379,15 @@ export function AsinInventory() {
                    <div className="flex items-center gap-2">
                      <DualQuantityEditor currentQuantity={item.quantity} onUpdate={(newQuantity, reason) => handleQuantityUpdate(item, newQuantity, reason)} />
                      <StockHistoryDialog inventoryId={item.id} itemIdentifier={`${item.asin} (${item.serialNumber})`} inventoryType="asin" />
+                     <Button 
+                       variant="outline" 
+                       size="sm" 
+                       className="w-8 h-8 p-0" 
+                       onClick={() => handlePreviewItem(item)}
+                       title="Preview Label"
+                     >
+                       <Eye className="w-4 h-4" />
+                     </Button>
                      <Button 
                        variant="outline" 
                        size="sm" 
@@ -1517,6 +1543,95 @@ export function AsinInventory() {
                 Close
               </Button>
             </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+        {/* Label Preview Dialog */}
+        <Dialog open={isPreviewDialogOpen} onOpenChange={setIsPreviewDialogOpen}>
+          <DialogContent className="max-w-4xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Eye className="w-5 h-5" />
+                Label Preview - {previewItem?.asin}
+              </DialogTitle>
+            </DialogHeader>
+            {previewItem && (
+              <div className="space-y-6">
+                {/* Label Dimensions Info */}
+                <div className="bg-muted/30 p-4 rounded-lg">
+                  <h3 className="font-semibold mb-2">Label Specifications</h3>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>Size: 4" × 3" (203 DPI)</div>
+                    <div>Format: ZPL (Zebra Printer Language)</div>
+                  </div>
+                </div>
+
+                {/* Visual Label Preview */}
+                <div className="border-2 border-dashed border-gray-300 bg-white p-8 rounded-lg">
+                  <div className="bg-white border border-gray-400 p-6 mx-auto" style={{ width: '400px', height: '300px', fontSize: '14px' }}>
+                    <div className="space-y-3">
+                      {/* ASIN */}
+                      <div className="font-mono text-lg font-bold">
+                        ASIN: {previewItem.asin}
+                      </div>
+                      
+                      {/* SKU */}
+                      {previewItem.sku && (
+                        <div className="font-mono text-base">
+                          SKU: {previewItem.sku}
+                        </div>
+                      )}
+                      
+                      {/* Title */}
+                      <div className="text-sm">
+                        {previewItem.title ? 
+                          (previewItem.title.length > 30 ? 
+                            previewItem.title.substring(0, 30) + '...' : 
+                            previewItem.title) : 
+                          `Product ${previewItem.asin}`}
+                      </div>
+                      
+                      {/* Quantity */}
+                      <div className="font-mono text-base">
+                        Qty: {previewItem.quantity}
+                      </div>
+                      
+                      {/* Serial Number */}
+                      <div className="text-xs text-gray-600">
+                        Serial: {previewItem.serialNumber}
+                      </div>
+                      
+                      {/* Barcode placeholder */}
+                      <div className="mt-4 pt-2 border-t border-gray-200">
+                        <div className="bg-black text-white text-center py-1 text-xs font-mono">
+                          ||||| {previewItem.asin} |||||
+                        </div>
+                        <div className="text-center text-xs mt-1">{previewItem.asin}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Preview Actions */}
+                <div className="flex justify-between items-center">
+                  <div className="text-sm text-muted-foreground">
+                    This preview shows the approximate layout. Actual print may vary based on printer settings.
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" onClick={() => setIsPreviewDialogOpen(false)}>
+                      Close
+                    </Button>
+                    <Button onClick={() => {
+                      setIsPreviewDialogOpen(false);
+                      handlePrintItem(previewItem);
+                    }}>
+                      <Printer className="w-4 h-4 mr-2" />
+                      Print This Label
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
           </DialogContent>
         </Dialog>
     </div>;
