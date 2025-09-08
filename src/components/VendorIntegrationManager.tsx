@@ -1330,6 +1330,66 @@ export function VendorIntegrationManager() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-6">
+            {/* Show generated keys if available */}
+            {generatedKeys && (
+              <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200/50">
+                <h4 className="font-medium mb-3 text-blue-700 dark:text-blue-300">✅ Generated Keys Available</h4>
+                <p className="text-sm text-blue-600 dark:text-blue-400 mb-3">
+                  We've already generated your SSH keys. You can download them directly:
+                </p>
+                
+                <div className="space-y-4">
+                  <div>
+                    <h5 className="font-medium mb-2">Public Key (.pub file for Amazon)</h5>
+                    <div className="bg-black p-3 rounded text-green-400 font-mono text-xs break-all max-h-32 overflow-y-auto">
+                      {generatedKeys.public_key}
+                    </div>
+                    <div className="flex gap-2 mt-2">
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => copyToClipboard(generatedKeys.public_key)}
+                      >
+                        <Copy className="w-4 h-4 mr-2" />
+                        Copy Public Key
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={downloadPublicKey}
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        Download .pub File
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <h5 className="font-medium mb-2">Private Key (Keep Secure)</h5>
+                    <div className="bg-black p-3 rounded text-green-400 font-mono text-xs break-all max-h-32 overflow-y-auto">
+                      {generatedKeys.private_key}
+                    </div>
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="mt-2"
+                      onClick={() => copyToClipboard(generatedKeys.private_key)}
+                    >
+                      <Copy className="w-4 h-4 mr-2" />
+                      Copy Private Key
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="bg-muted/50 p-4 rounded-lg">
+              <h4 className="font-medium mb-3">Alternative: Manual Generation</h4>
+              <p className="text-sm text-muted-foreground mb-3">
+                If you prefer to generate keys manually using terminal commands:
+              </p>
+            </div>
+
             <div className="bg-muted/50 p-4 rounded-lg">
               <h4 className="font-medium mb-3">Step 1: Generate SSH Key Pair</h4>
               <div className="bg-black p-3 rounded text-green-400 font-mono text-sm">
