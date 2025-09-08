@@ -21,136 +21,84 @@ function arrayBufferToPem(buffer: ArrayBuffer, type: 'PRIVATE' | 'PUBLIC'): stri
   return lines.join('\n');
 }
 
-// Helper function to convert public key to SSH format
+// Helper function to write SSH wire format data
+function writeSSHString(data: Uint8Array): Uint8Array {
+  const length = data.length;
+  const buffer = new ArrayBuffer(4 + length);
+  const view = new DataView(buffer);
+  const result = new Uint8Array(buffer);
+  
+  // Write 32-bit length in big-endian format
+  view.setUint32(0, length, false);
+  // Write data
+  result.set(data, 4);
+  
+  return result;
+}
+
+// Helper function to convert public key to proper SSH format
 async function publicKeyToSSHFormat(publicKey: CryptoKey, keyType: string = 'integration'): Promise<string> {
-  // Export the public key in SPKI format
-  const exported = await crypto.subtle.exportKey('spki', publicKey);
+  console.log(`Converting ${keyType} public key to SSH format...`);
   
-  // Parse the SPKI structure to extract RSA components
-  const spkiArray = new Uint8Array(exported);
-  
-  // Skip SPKI header to get to the RSA public key
-  // SPKI has a standard structure, we need to find the BIT STRING containing the RSA key
-  let rsaKeyOffset = 0;
-  for (let i = 0; i < spkiArray.length - 10; i++) {
-    // Look for BIT STRING tag (0x03) followed by length
-    if (spkiArray[i] === 0x03) {
-      rsaKeyOffset = i + 1;
-      // Skip length bytes
-      if (spkiArray[i + 1] & 0x80) {
-        const lengthBytes = spkiArray[i + 1] & 0x7f;
-        rsaKeyOffset += lengthBytes + 1;
-      } else {
-        rsaKeyOffset += 2;
-      }
-      // Skip the unused bits byte (should be 0x00)
-      if (spkiArray[rsaKeyOffset] === 0x00) {
-        rsaKeyOffset += 1;
-      }
-      break;
-    }
-  }
-  
-  // Extract the RSA key data
-  const rsaKeyData = spkiArray.slice(rsaKeyOffset);
-  
-  // Parse RSA key to get n (modulus) and e (exponent)
-  const parser = new DataView(rsaKeyData.buffer, rsaKeyData.byteOffset);
-  let offset = 0;
-  
-  // Skip SEQUENCE tag and length
-  if (parser.getUint8(offset) === 0x30) {
-    offset++;
-    if (parser.getUint8(offset) & 0x80) {
-      const lengthBytes = parser.getUint8(offset) & 0x7f;
-      offset += lengthBytes + 1;
-    } else {
-      offset += 2;
-    }
-  }
-  
-  // Read modulus (n)
-  if (parser.getUint8(offset) === 0x02) { // INTEGER tag
-    offset++;
-    let nLength = parser.getUint8(offset);
-    offset++;
-    if (nLength & 0x80) {
-      const lengthBytes = nLength & 0x7f;
-      nLength = 0;
-      for (let i = 0; i < lengthBytes; i++) {
-        nLength = (nLength << 8) | parser.getUint8(offset + i);
-      }
-      offset += lengthBytes;
+  try {
+    // Export the public key in JWK format to easily access n and e
+    const jwk = await crypto.subtle.exportKey('jwk', publicKey);
+    console.log(`${keyType} JWK key type: ${jwk.kty}, use: ${jwk.use}`);
+    
+    if (jwk.kty !== 'RSA' || !jwk.n || !jwk.e) {
+      throw new Error('Invalid RSA key format in JWK');
     }
     
-    // Skip leading zero if present
-    if (parser.getUint8(offset) === 0x00) {
-      offset++;
-      nLength--;
+    // Convert base64url to regular base64, then to bytes
+    const modulusBase64 = jwk.n.replace(/-/g, '+').replace(/_/g, '/');
+    const exponentBase64 = jwk.e.replace(/-/g, '+').replace(/_/g, '/');
+    
+    // Add padding if needed
+    const modulusPadded = modulusBase64 + '='.repeat((4 - modulusBase64.length % 4) % 4);
+    const exponentPadded = exponentBase64 + '='.repeat((4 - exponentBase64.length % 4) % 4);
+    
+    // Decode from base64
+    const modulus = Uint8Array.from(atob(modulusPadded), c => c.charCodeAt(0));
+    const exponent = Uint8Array.from(atob(exponentPadded), c => c.charCodeAt(0));
+    
+    console.log(`${keyType} key - Modulus length: ${modulus.length * 8} bits, Exponent: ${Array.from(exponent).join(',')}`);
+    
+    if (modulus.length * 8 < 2048) {
+      console.error(`WARNING: ${keyType} key modulus is only ${modulus.length * 8} bits, less than required 2048 bits!`);
     }
     
-    const modulus = rsaKeyData.slice(offset, offset + nLength);
-    offset += nLength;
+    // Build SSH wire format: [type][exponent][modulus]
+    const keyTypeStr = "ssh-rsa";
+    const keyTypeBytes = new TextEncoder().encode(keyTypeStr);
     
-    // Read exponent (e)
-    if (parser.getUint8(offset) === 0x02) { // INTEGER tag
-      offset++;
-      let eLength = parser.getUint8(offset);
-      offset++;
-      if (eLength & 0x80) {
-        const lengthBytes = eLength & 0x7f;
-        eLength = 0;
-        for (let i = 0; i < lengthBytes; i++) {
-          eLength = (eLength << 8) | parser.getUint8(offset + i);
-        }
-        offset += lengthBytes;
-      }
-      
-      const exponent = rsaKeyData.slice(offset, offset + eLength);
-      
-      // Build SSH RSA key format
-      const keyTypeStr = "ssh-rsa";
-      const keyTypeBytes = new TextEncoder().encode(keyTypeStr);
-      
-      // Calculate total length
-      const totalLength = 4 + keyTypeBytes.length + 4 + exponent.length + 4 + modulus.length;
-      const sshKeyBuffer = new ArrayBuffer(totalLength);
-      const view = new DataView(sshKeyBuffer);
-      const uint8View = new Uint8Array(sshKeyBuffer);
-      
-      let pos = 0;
-      
-      // Write key type length and data
-      view.setUint32(pos, keyTypeBytes.length, false);
-      pos += 4;
-      uint8View.set(keyTypeBytes, pos);
-      pos += keyTypeBytes.length;
-      
-      // Write exponent length and data
-      view.setUint32(pos, exponent.length, false);
-      pos += 4;
-      uint8View.set(exponent, pos);
-      pos += exponent.length;
-      
-      // Write modulus length and data
-      view.setUint32(pos, modulus.length, false);
-      pos += 4;
-      uint8View.set(modulus, pos);
-      
-      // Encode to base64
-      const base64Key = base64Encode(uint8View);
-      return `ssh-rsa ${base64Key} amazon-vendor-${keyType}@integration`;
-    }
+    const typeString = writeSSHString(keyTypeBytes);
+    const exponentString = writeSSHString(exponent);
+    const modulusString = writeSSHString(modulus);
+    
+    // Concatenate all parts
+    const totalLength = typeString.length + exponentString.length + modulusString.length;
+    const sshKeyBuffer = new Uint8Array(totalLength);
+    
+    let offset = 0;
+    sshKeyBuffer.set(typeString, offset);
+    offset += typeString.length;
+    sshKeyBuffer.set(exponentString, offset);
+    offset += exponentString.length;
+    sshKeyBuffer.set(modulusString, offset);
+    
+    // Encode to base64
+    const base64Key = base64Encode(sshKeyBuffer);
+    const sshKey = `ssh-rsa ${base64Key} amazon-vendor-${keyType}@integration`;
+    
+    console.log(`Generated valid ${keyType} SSH key with ${modulus.length * 8}-bit modulus`);
+    console.log(`${keyType} SSH key (first 50 chars): ${sshKey.substring(0, 50)}...`);
+    
+    return sshKey;
+    
+  } catch (error) {
+    console.error(`Failed to convert ${keyType} key to SSH format:`, error);
+    throw error;
   }
-  
-  // Fallback to simpler method if parsing fails
-  const pemKey = arrayBufferToPem(exported, 'PUBLIC');
-  const base64Content = pemKey
-    .replace('-----BEGIN PUBLIC KEY-----', '')
-    .replace('-----END PUBLIC KEY-----', '')
-    .replace(/\s/g, '');
-  
-  return `ssh-rsa ${base64Content} amazon-vendor-${keyType}@integration`;
 }
 
 serve(async (req) => {
@@ -163,6 +111,7 @@ serve(async (req) => {
     console.log('Generating SSH key pairs for Amazon Vendor Central integration (receiving and sending)');
 
     // Generate receiving key pair
+    console.log('Generating receiving RSA key pair with 2048-bit modulus...');
     const receivingKeyPair = await crypto.subtle.generateKey(
       {
         name: 'RSASSA-PKCS1-v1_5',
@@ -173,8 +122,10 @@ serve(async (req) => {
       true, // extractable
       ['sign', 'verify']
     );
+    console.log('Receiving key pair generated successfully');
 
     // Generate sending key pair
+    console.log('Generating sending RSA key pair with 2048-bit modulus...');
     const sendingKeyPair = await crypto.subtle.generateKey(
       {
         name: 'RSASSA-PKCS1-v1_5',
@@ -185,6 +136,7 @@ serve(async (req) => {
       true, // extractable
       ['sign', 'verify']
     );
+    console.log('Sending key pair generated successfully');
 
     // Export receiving keys
     const receivingPrivateKeyBuffer = await crypto.subtle.exportKey('pkcs8', receivingKeyPair.privateKey);
