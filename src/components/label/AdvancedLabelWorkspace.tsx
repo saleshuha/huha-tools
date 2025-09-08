@@ -61,7 +61,10 @@ export const AdvancedLabelWorkspace: React.FC = () => {
 
   useEffect(() => {
     initializeQZ();
-    
+  }, []);
+
+  // Separate useEffect for keyboard handlers to avoid infinite loops
+  useEffect(() => {
     // Add keyboard event listeners
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
@@ -122,7 +125,7 @@ export const AdvancedLabelWorkspace: React.FC = () => {
 
     globalThis.document.addEventListener('keydown', handleKeyDown);
     return () => globalThis.document.removeEventListener('keydown', handleKeyDown);
-  }, [selectedElement, selectedElements, showGrid, history, historyIndex, clipboard]);
+  }, [selectedElement, selectedElements, showGrid]);
 
   const initializeQZ = async () => {
     try {
@@ -182,13 +185,13 @@ export const AdvancedLabelWorkspace: React.FC = () => {
   };
 
   // Selection handlers
-  const handleSelectAll = () => {
+  const handleSelectAll = useCallback(() => {
     if (!document) return;
     const allIds = new Set(document.elements.map(el => el.id));
     setSelectedElements(allIds);
-  };
+  }, [document]);
 
-  const handleDeleteSelected = () => {
+  const handleDeleteSelected = useCallback(() => {
     if (selectedElement) {
       saveToHistory();
       deleteElement(selectedElement.id);
@@ -200,9 +203,9 @@ export const AdvancedLabelWorkspace: React.FC = () => {
       setSelectedElements(new Set());
       toast.success(`${selectedElements.size} elements deleted`);
     }
-  };
+  }, [selectedElement, selectedElements, saveToHistory, deleteElement, selectElement]);
 
-  const handleCopy = () => {
+  const handleCopy = useCallback(() => {
     if (!document) return;
     
     const elementsToCopy = selectedElement 
@@ -211,9 +214,9 @@ export const AdvancedLabelWorkspace: React.FC = () => {
       
     setClipboard(JSON.parse(JSON.stringify(elementsToCopy)));
     toast.success(`Copied ${elementsToCopy.length} element(s)`);
-  };
+  }, [document, selectedElement, selectedElements]);
 
-  const handlePaste = () => {
+  const handlePaste = useCallback(() => {
     if (clipboard.length === 0) return;
     
     saveToHistory();
@@ -228,12 +231,12 @@ export const AdvancedLabelWorkspace: React.FC = () => {
     });
     
     toast.success(`Pasted ${clipboard.length} element(s)`);
-  };
+  }, [clipboard, saveToHistory, snapToGridHelper, addElement]);
 
-  const handleDuplicate = () => {
+  const handleDuplicate = useCallback(() => {
     handleCopy();
     handlePaste();
-  };
+  }, [handleCopy, handlePaste]);
 
   // Canvas handlers
   const handleSave = async () => {
