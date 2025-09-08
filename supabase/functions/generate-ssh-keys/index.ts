@@ -26,16 +26,130 @@ async function publicKeyToSSHFormat(publicKey: CryptoKey, keyType: string = 'int
   // Export the public key in SPKI format
   const exported = await crypto.subtle.exportKey('spki', publicKey);
   
-  // Convert to PEM format first, then extract the base64 part
-  const pemKey = arrayBufferToPem(exported, 'PUBLIC');
+  // Parse the SPKI structure to extract RSA components
+  const spkiArray = new Uint8Array(exported);
   
-  // Extract just the base64 content (remove headers and newlines)
+  // Skip SPKI header to get to the RSA public key
+  // SPKI has a standard structure, we need to find the BIT STRING containing the RSA key
+  let rsaKeyOffset = 0;
+  for (let i = 0; i < spkiArray.length - 10; i++) {
+    // Look for BIT STRING tag (0x03) followed by length
+    if (spkiArray[i] === 0x03) {
+      rsaKeyOffset = i + 1;
+      // Skip length bytes
+      if (spkiArray[i + 1] & 0x80) {
+        const lengthBytes = spkiArray[i + 1] & 0x7f;
+        rsaKeyOffset += lengthBytes + 1;
+      } else {
+        rsaKeyOffset += 2;
+      }
+      // Skip the unused bits byte (should be 0x00)
+      if (spkiArray[rsaKeyOffset] === 0x00) {
+        rsaKeyOffset += 1;
+      }
+      break;
+    }
+  }
+  
+  // Extract the RSA key data
+  const rsaKeyData = spkiArray.slice(rsaKeyOffset);
+  
+  // Parse RSA key to get n (modulus) and e (exponent)
+  const parser = new DataView(rsaKeyData.buffer, rsaKeyData.byteOffset);
+  let offset = 0;
+  
+  // Skip SEQUENCE tag and length
+  if (parser.getUint8(offset) === 0x30) {
+    offset++;
+    if (parser.getUint8(offset) & 0x80) {
+      const lengthBytes = parser.getUint8(offset) & 0x7f;
+      offset += lengthBytes + 1;
+    } else {
+      offset += 2;
+    }
+  }
+  
+  // Read modulus (n)
+  if (parser.getUint8(offset) === 0x02) { // INTEGER tag
+    offset++;
+    let nLength = parser.getUint8(offset);
+    offset++;
+    if (nLength & 0x80) {
+      const lengthBytes = nLength & 0x7f;
+      nLength = 0;
+      for (let i = 0; i < lengthBytes; i++) {
+        nLength = (nLength << 8) | parser.getUint8(offset + i);
+      }
+      offset += lengthBytes;
+    }
+    
+    // Skip leading zero if present
+    if (parser.getUint8(offset) === 0x00) {
+      offset++;
+      nLength--;
+    }
+    
+    const modulus = rsaKeyData.slice(offset, offset + nLength);
+    offset += nLength;
+    
+    // Read exponent (e)
+    if (parser.getUint8(offset) === 0x02) { // INTEGER tag
+      offset++;
+      let eLength = parser.getUint8(offset);
+      offset++;
+      if (eLength & 0x80) {
+        const lengthBytes = eLength & 0x7f;
+        eLength = 0;
+        for (let i = 0; i < lengthBytes; i++) {
+          eLength = (eLength << 8) | parser.getUint8(offset + i);
+        }
+        offset += lengthBytes;
+      }
+      
+      const exponent = rsaKeyData.slice(offset, offset + eLength);
+      
+      // Build SSH RSA key format
+      const keyTypeStr = "ssh-rsa";
+      const keyTypeBytes = new TextEncoder().encode(keyTypeStr);
+      
+      // Calculate total length
+      const totalLength = 4 + keyTypeBytes.length + 4 + exponent.length + 4 + modulus.length;
+      const sshKeyBuffer = new ArrayBuffer(totalLength);
+      const view = new DataView(sshKeyBuffer);
+      const uint8View = new Uint8Array(sshKeyBuffer);
+      
+      let pos = 0;
+      
+      // Write key type length and data
+      view.setUint32(pos, keyTypeBytes.length, false);
+      pos += 4;
+      uint8View.set(keyTypeBytes, pos);
+      pos += keyTypeBytes.length;
+      
+      // Write exponent length and data
+      view.setUint32(pos, exponent.length, false);
+      pos += 4;
+      uint8View.set(exponent, pos);
+      pos += exponent.length;
+      
+      // Write modulus length and data
+      view.setUint32(pos, modulus.length, false);
+      pos += 4;
+      uint8View.set(modulus, pos);
+      
+      // Encode to base64
+      const base64Key = base64Encode(uint8View);
+      return `ssh-rsa ${base64Key} amazon-vendor-${keyType}@integration`;
+    }
+  }
+  
+  // Fallback to simpler method if parsing fails
+  const pemKey = arrayBufferToPem(exported, 'PUBLIC');
   const base64Content = pemKey
     .replace('-----BEGIN PUBLIC KEY-----', '')
     .replace('-----END PUBLIC KEY-----', '')
     .replace(/\s/g, '');
   
-  // Convert PEM to SSH format with descriptive key name
   return `ssh-rsa ${base64Content} amazon-vendor-${keyType}@integration`;
 }
 
