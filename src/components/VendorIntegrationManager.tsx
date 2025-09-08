@@ -639,13 +639,34 @@ export function VendorIntegrationManager() {
                 </div>
               )}
 
-              <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200/50">
-                <p className="text-sm text-blue-700 dark:text-blue-300 mb-3">
-                  We've set up a secure storage for your SSH private key. Click the button above to update it with your key content.
-                </p>
-                <p className="text-xs text-blue-600 dark:text-blue-400">
-                  The secret "AMAZON_SFTP_PRIVATE_KEY" is ready to be configured.
-                </p>
+              <div className="space-y-4">
+                <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200/50">
+                  <h4 className="font-medium mb-2 text-red-700 dark:text-red-300">🚨 Key Format Issue Detected</h4>
+                  <p className="text-sm text-red-600 dark:text-red-400 mb-2">
+                    Your private key is in OpenSSH format, but Amazon SFTP requires traditional PEM format.
+                  </p>
+                  <div className="text-xs text-red-500 dark:text-red-400 space-y-1">
+                    <p>❌ OpenSSH format: <code>-----BEGIN OPENSSH PRIVATE KEY-----</code></p>
+                    <p>✅ Required PEM format: <code>-----BEGIN RSA PRIVATE KEY-----</code></p>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200/50">
+                  <h4 className="font-medium mb-2 text-green-700 dark:text-green-300">💡 Solutions</h4>
+                  <div className="space-y-2 text-sm text-green-600 dark:text-green-400">
+                    <p><strong>Option 1:</strong> Use our Key Generator above to create a new PEM-format key pair</p>
+                    <p><strong>Option 2:</strong> Convert your existing key with: <code className="bg-black text-green-400 px-2 py-1 rounded">ssh-keygen -p -m PEM -f your_key</code></p>
+                  </div>
+                </div>
+
+                <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200/50">
+                  <p className="text-sm text-blue-700 dark:text-blue-300 mb-3">
+                    Ready to store your PEM-format private key? Click above to add it securely.
+                  </p>
+                  <p className="text-xs text-blue-600 dark:text-blue-400">
+                    The secret "AMAZON_SFTP_SENDING_PRIVATE_KEY" is ready to be configured.
+                  </p>
+                </div>
               </div>
 
               <div className="flex justify-between">
