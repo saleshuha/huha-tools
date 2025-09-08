@@ -1596,113 +1596,105 @@ export function AsinInventory() {
                 <div className="border-2 border-dashed border-gray-300 bg-gray-50 p-8 rounded-lg">
                   <div className="bg-white border-2 border-gray-400 mx-auto relative shadow-lg" 
                        style={{ 
-                         width: previewTemplate ? `${Math.min(previewTemplate.width * 0.6, 350)}px` : '350px',
-                         height: previewTemplate ? `${Math.min(previewTemplate.height * 0.6, 262)}px` : '262px',
-                         minHeight: '200px'
+                         width: previewTemplate ? `${Math.max(previewTemplate.width * 0.5, 250)}px` : '350px',
+                         height: previewTemplate ? `${Math.max(previewTemplate.height * 0.5, 150)}px` : '262px',
+                         minWidth: '250px',
+                         minHeight: '150px'
                        }}>
                     
                     {previewTemplate && previewTemplate.elements?.length > 0 ? (
-                      // Template-based preview
-                      previewTemplate.elements.map((element: any, index: number) => {
-                        let content = '';
-                        
-                        // Map element data sources to actual item data
-                        switch(element.dataSource) {
-                          case 'asin':
-                            content = previewItem.asin;
-                            break;
-                          case 'sku':
-                            content = previewItem.sku || 'N/A';
-                            break;
-                          case 'title':
-                            content = previewItem.title || `Product ${previewItem.asin}`;
-                            break;
-                          case 'quantity':
-                            content = previewItem.quantity.toString();
-                            break;
-                          case 'serial':
-                            content = previewItem.serialNumber;
-                            break;
-                          default:
-                            content = element.text || '';
-                        }
-                        
-                        return (
-                          <div
-                            key={index}
-                            style={{
-                              position: 'absolute',
-                              left: `${(element.x * 0.6)}px`,
-                              top: `${(element.y * 0.6)}px`,
-                              width: `${Math.max(element.width * 0.6, 20)}px`,
-                              height: `${Math.max(element.height * 0.6, 12)}px`,
-                              fontSize: `${Math.max((element.fontSize || 12) * 0.6, 8)}px`,
-                              fontWeight: element.fontWeight || 'normal',
-                              color: element.fill || '#000000',
-                              textAlign: (element.textAlign || 'left') as any,
-                              overflow: 'hidden',
-                              whiteSpace: 'nowrap',
-                              fontFamily: element.fontFamily || 'Arial',
-                              display: 'flex',
-                              alignItems: 'center',
-                              border: '1px solid rgba(0,0,0,0.1)'
-                            }}
-                          >
-                            {element.type === 'barcode' ? (
-                              <div className="w-full">
-                                <div className="bg-black text-white text-center text-xs font-mono leading-tight">
-                                  ||||| {content.substring(0, 8)} |||||
+                      // Template-based preview - only show mapped elements
+                      previewTemplate.elements
+                        .filter((element: any) => element.dataSource && element.dataSource !== 'static')
+                        .map((element: any, index: number) => {
+                          let content = '';
+                          
+                          // Map element data sources to actual item data
+                          switch(element.dataSource) {
+                            case 'asin':
+                              content = `ASIN: ${previewItem.asin}`;
+                              break;
+                            case 'sku':
+                              content = `SKU: ${previewItem.sku || 'N/A'}`;
+                              break;
+                            case 'title':
+                              content = previewItem.title || `Product ${previewItem.asin}`;
+                              break;
+                            case 'quantity':
+                              content = `Qty: ${previewItem.quantity}`;
+                              break;
+                            case 'serial':
+                              content = `Serial: ${previewItem.serialNumber}`;
+                              break;
+                            case 'barcode':
+                              content = previewItem.asin;
+                              break;
+                            default:
+                              return null;
+                          }
+                          
+                          if (!content) return null;
+                          
+                          const scaleFactor = 0.5;
+                          const elementX = (element.x || 0) * scaleFactor;
+                          const elementY = (element.y || 0) * scaleFactor;
+                          const elementWidth = Math.max((element.width || 100) * scaleFactor, 50);
+                          const elementHeight = Math.max((element.height || 20) * scaleFactor, 16);
+                          const fontSize = Math.max((element.fontSize || 12) * scaleFactor, 8);
+                          
+                          return (
+                            <div
+                              key={index}
+                              style={{
+                                position: 'absolute',
+                                left: `${elementX}px`,
+                                top: `${elementY}px`,
+                                width: `${elementWidth}px`,
+                                height: `${elementHeight}px`,
+                                fontSize: `${fontSize}px`,
+                                fontWeight: element.fontWeight || 'normal',
+                                color: element.fill || '#000000',
+                                textAlign: (element.textAlign || 'left') as any,
+                                overflow: 'hidden',
+                                fontFamily: element.fontFamily || 'Arial',
+                                display: 'flex',
+                                alignItems: 'center',
+                                padding: '2px',
+                                backgroundColor: element.type === 'barcode' ? '#000000' : 'transparent'
+                              }}
+                            >
+                              {element.type === 'barcode' || element.dataSource === 'barcode' ? (
+                                <div className="w-full">
+                                  <div className="bg-black text-white text-center text-xs font-mono leading-tight p-1">
+                                    ||||| {content} |||||
+                                  </div>
                                 </div>
-                                <div className="text-center text-xs mt-1">{content}</div>
-                              </div>
-                            ) : (
-                              <span className="truncate">{content}</span>
-                            )}
-                          </div>
-                        );
-                      })
-                    ) : (
-                      // Default preview - always show content
-                      <div className="p-6 space-y-3 h-full flex flex-col justify-between">
-                        <div className="space-y-3">
-                          {/* ASIN */}
-                          <div className="font-mono text-lg font-bold text-blue-600">
-                            ASIN: {previewItem.asin}
-                          </div>
-                          
-                          {/* SKU */}
-                          <div className="font-mono text-base text-gray-700">
-                            SKU: {previewItem.sku || 'Not Set'}
-                          </div>
-                          
-                          {/* Title */}
-                          <div className="text-sm text-gray-800 leading-tight">
-                            {previewItem.title ? 
-                              (previewItem.title.length > 40 ? 
-                                previewItem.title.substring(0, 40) + '...' : 
-                                previewItem.title) : 
-                              `Product ${previewItem.asin}`}
-                          </div>
-                          
-                          {/* Quantity */}
-                          <div className="font-mono text-base font-semibold text-green-600">
-                            Qty: {previewItem.quantity}
-                          </div>
-                        </div>
-                        
-                        <div className="space-y-2">
-                          {/* Serial Number */}
-                          <div className="text-xs text-gray-500">
-                            Serial: {previewItem.serialNumber}
-                          </div>
-                          
-                          {/* Barcode placeholder */}
-                          <div className="pt-2 border-t border-gray-200">
-                            <div className="bg-black text-white text-center py-1 text-xs font-mono">
-                              ||||| {previewItem.asin} |||||
+                              ) : (
+                                <span className="truncate text-xs">{content}</span>
+                              )}
                             </div>
-                            <div className="text-center text-xs mt-1">{previewItem.asin}</div>
-                          </div>
+                          );
+                        })
+                    ) : (
+                      // Default preview when no template is selected
+                      <div className="p-4 space-y-2 h-full">
+                        <div className="text-sm font-bold text-blue-600">
+                          ASIN: {previewItem.asin}
+                        </div>
+                        <div className="text-sm">
+                          SKU: {previewItem.sku || 'Not Set'}
+                        </div>
+                        <div className="text-xs text-gray-700 leading-tight">
+                          {previewItem.title?.substring(0, 30) || `Product ${previewItem.asin}`}
+                        </div>
+                        <div className="text-sm font-semibold">
+                          Qty: {previewItem.quantity}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          Serial: {previewItem.serialNumber}
+                        </div>
+                        <div className="bg-black text-white text-center py-1 text-xs font-mono mt-2">
+                          ||||| {previewItem.asin} |||||
                         </div>
                       </div>
                     )}
@@ -1710,7 +1702,7 @@ export function AsinInventory() {
                   
                   {/* Scale indicator */}
                   <div className="text-center mt-4 text-xs text-gray-500">
-                    Preview shown at {previewTemplate ? '60%' : '70%'} scale
+                    Preview shown at 50% scale {previewTemplate ? `(${previewTemplate.name})` : '(Default)'}
                   </div>
                 </div>
 
