@@ -1584,24 +1584,26 @@ export function AsinInventory() {
                   <h3 className="font-semibold mb-2">Label Specifications</h3>
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>Size: {previewTemplate ? 
-                      `${(previewTemplate.width / 72).toFixed(1)}" × ${(previewTemplate.height / 72).toFixed(1)}"` : 
+                      `${Math.round(previewTemplate.width / 72 * 10) / 10}" × ${Math.round(previewTemplate.height / 72 * 10) / 10}"` : 
                       '4" × 3"'} (203 DPI)</div>
                     <div>Format: ZPL (Zebra Printer Language)</div>
                     <div>Template: {previewTemplate ? previewTemplate.name : 'Default Layout'}</div>
-                    <div>Elements: {previewTemplate ? previewTemplate.elements?.length || 0 : 'Standard'}</div>
+                    <div>Elements: {previewTemplate?.elements?.length || 'Standard Fields'}</div>
                   </div>
                 </div>
 
                 {/* Visual Label Preview */}
-                <div className="border-2 border-dashed border-gray-300 bg-white p-8 rounded-lg">
-                  {previewTemplate ? (
-                    // Template-based preview
-                    <div className="bg-white border border-gray-400 mx-auto relative" 
-                         style={{ 
-                           width: `${Math.min(previewTemplate.width * 0.8, 400)}px`, 
-                           height: `${Math.min(previewTemplate.height * 0.8, 300)}px` 
-                         }}>
-                      {previewTemplate.elements?.map((element: any, index: number) => {
+                <div className="border-2 border-dashed border-gray-300 bg-gray-50 p-8 rounded-lg">
+                  <div className="bg-white border-2 border-gray-400 mx-auto relative shadow-lg" 
+                       style={{ 
+                         width: previewTemplate ? `${Math.min(previewTemplate.width * 0.6, 350)}px` : '350px',
+                         height: previewTemplate ? `${Math.min(previewTemplate.height * 0.6, 262)}px` : '262px',
+                         minHeight: '200px'
+                       }}>
+                    
+                    {previewTemplate && previewTemplate.elements?.length > 0 ? (
+                      // Template-based preview
+                      previewTemplate.elements.map((element: any, index: number) => {
                         let content = '';
                         
                         // Map element data sources to actual item data
@@ -1610,7 +1612,7 @@ export function AsinInventory() {
                             content = previewItem.asin;
                             break;
                           case 'sku':
-                            content = previewItem.sku || '';
+                            content = previewItem.sku || 'N/A';
                             break;
                           case 'title':
                             content = previewItem.title || `Product ${previewItem.asin}`;
@@ -1630,83 +1632,94 @@ export function AsinInventory() {
                             key={index}
                             style={{
                               position: 'absolute',
-                              left: `${(element.x * 0.8)}px`,
-                              top: `${(element.y * 0.8)}px`,
-                              width: `${(element.width * 0.8)}px`,
-                              height: `${(element.height * 0.8)}px`,
-                              fontSize: `${Math.max(element.fontSize * 0.8, 8)}px`,
+                              left: `${(element.x * 0.6)}px`,
+                              top: `${(element.y * 0.6)}px`,
+                              width: `${Math.max(element.width * 0.6, 20)}px`,
+                              height: `${Math.max(element.height * 0.6, 12)}px`,
+                              fontSize: `${Math.max((element.fontSize || 12) * 0.6, 8)}px`,
                               fontWeight: element.fontWeight || 'normal',
                               color: element.fill || '#000000',
-                              textAlign: element.textAlign || 'left',
+                              textAlign: (element.textAlign || 'left') as any,
                               overflow: 'hidden',
-                              whiteSpace: element.type === 'text' ? 'pre-wrap' : 'nowrap',
-                              fontFamily: element.fontFamily || 'Arial'
+                              whiteSpace: 'nowrap',
+                              fontFamily: element.fontFamily || 'Arial',
+                              display: 'flex',
+                              alignItems: 'center',
+                              border: '1px solid rgba(0,0,0,0.1)'
                             }}
                           >
                             {element.type === 'barcode' ? (
-                              <div className="bg-black text-white text-center py-1 text-xs font-mono">
-                                ||||| {content} |||||
+                              <div className="w-full">
+                                <div className="bg-black text-white text-center text-xs font-mono leading-tight">
+                                  ||||| {content.substring(0, 8)} |||||
+                                </div>
+                                <div className="text-center text-xs mt-1">{content}</div>
                               </div>
                             ) : (
-                              content
+                              <span className="truncate">{content}</span>
                             )}
                           </div>
                         );
-                      })}
-                    </div>
-                  ) : (
-                    // Default preview
-                    <div className="bg-white border border-gray-400 p-6 mx-auto" style={{ width: '400px', height: '300px', fontSize: '14px' }}>
-                      <div className="space-y-3">
-                        {/* ASIN */}
-                        <div className="font-mono text-lg font-bold">
-                          ASIN: {previewItem.asin}
-                        </div>
-                        
-                        {/* SKU */}
-                        {previewItem.sku && (
-                          <div className="font-mono text-base">
-                            SKU: {previewItem.sku}
+                      })
+                    ) : (
+                      // Default preview - always show content
+                      <div className="p-6 space-y-3 h-full flex flex-col justify-between">
+                        <div className="space-y-3">
+                          {/* ASIN */}
+                          <div className="font-mono text-lg font-bold text-blue-600">
+                            ASIN: {previewItem.asin}
                           </div>
-                        )}
-                        
-                        {/* Title */}
-                        <div className="text-sm">
-                          {previewItem.title ? 
-                            (previewItem.title.length > 30 ? 
-                              previewItem.title.substring(0, 30) + '...' : 
-                              previewItem.title) : 
-                            `Product ${previewItem.asin}`}
-                        </div>
-                        
-                        {/* Quantity */}
-                        <div className="font-mono text-base">
-                          Qty: {previewItem.quantity}
-                        </div>
-                        
-                        {/* Serial Number */}
-                        <div className="text-xs text-gray-600">
-                          Serial: {previewItem.serialNumber}
-                        </div>
-                        
-                        {/* Barcode placeholder */}
-                        <div className="mt-4 pt-2 border-t border-gray-200">
-                          <div className="bg-black text-white text-center py-1 text-xs font-mono">
-                            ||||| {previewItem.asin} |||||
+                          
+                          {/* SKU */}
+                          <div className="font-mono text-base text-gray-700">
+                            SKU: {previewItem.sku || 'Not Set'}
                           </div>
-                          <div className="text-center text-xs mt-1">{previewItem.asin}</div>
+                          
+                          {/* Title */}
+                          <div className="text-sm text-gray-800 leading-tight">
+                            {previewItem.title ? 
+                              (previewItem.title.length > 40 ? 
+                                previewItem.title.substring(0, 40) + '...' : 
+                                previewItem.title) : 
+                              `Product ${previewItem.asin}`}
+                          </div>
+                          
+                          {/* Quantity */}
+                          <div className="font-mono text-base font-semibold text-green-600">
+                            Qty: {previewItem.quantity}
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          {/* Serial Number */}
+                          <div className="text-xs text-gray-500">
+                            Serial: {previewItem.serialNumber}
+                          </div>
+                          
+                          {/* Barcode placeholder */}
+                          <div className="pt-2 border-t border-gray-200">
+                            <div className="bg-black text-white text-center py-1 text-xs font-mono">
+                              ||||| {previewItem.asin} |||||
+                            </div>
+                            <div className="text-center text-xs mt-1">{previewItem.asin}</div>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
+                  
+                  {/* Scale indicator */}
+                  <div className="text-center mt-4 text-xs text-gray-500">
+                    Preview shown at {previewTemplate ? '60%' : '70%'} scale
+                  </div>
                 </div>
 
                 {/* Preview Actions */}
                 <div className="flex justify-between items-center">
                   <div className="text-sm text-muted-foreground">
                     {previewTemplate ? 
-                      `Preview shows ${previewTemplate.name} template layout at 80% scale.` :
-                      'This preview shows the default layout. Actual print may vary based on printer settings.'
+                      `Using "${previewTemplate.name}" template with ${previewTemplate.elements?.length || 0} elements` :
+                      'Using default template layout with standard fields'
                     }
                   </div>
                   <div className="flex gap-2">
