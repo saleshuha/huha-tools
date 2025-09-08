@@ -136,10 +136,22 @@ export function useVendorIntegration() {
 
   const createIntegration = useCallback(async (integration: CreateIntegration) => {
     try {
+      // Get the current user directly from auth
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError || !user) {
+        toast({
+          title: "Error",
+          description: "You must be logged in to create an integration",
+          variant: "destructive",
+        });
+        return null;
+      }
+
       const { data, error } = await supabase
         .from('vendor_integrations')
         .insert({
-          user_id: profile?.id,
+          user_id: user.id,
           vendor_name: integration.vendor_name || 'Amazon Vendor Central',
           transport_method: integration.transport_method || 'SFTP',
           sftp_host: integration.sftp_host,
