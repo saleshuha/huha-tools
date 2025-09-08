@@ -257,6 +257,22 @@ export function VendorIntegrationManager() {
     await sendTestFile(integrationId, testXML, 'test_order_response.xml');
   };
 
+  const handleSendConnectivityTest = async (integrationId: string) => {
+    // Fetch the connectivity test file content
+    try {
+      const response = await fetch('/yourconnectivitytest.txt');
+      const connectivityTestXML = await response.text();
+      
+      await sendTestFile(integrationId, connectivityTestXML, 'yourconnectivitytest.txt');
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load connectivity test file",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleDiagnose = async () => {
     const diagnosis = await diagnoseIntegration();
     if (diagnosis) {
@@ -1487,6 +1503,15 @@ export function VendorIntegrationManager() {
                         >
                           <TestTube className="w-4 h-4 mr-2" />
                           Send Test
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleSendConnectivityTest(integration.id)}
+                          disabled={loading || !integration.is_active}
+                        >
+                          <Send className="w-4 h-4 mr-2" />
+                          Connectivity Test
                         </Button>
                         <Button 
                           size="sm" 
