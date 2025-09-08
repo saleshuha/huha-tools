@@ -2,6 +2,7 @@ import React, { useState, createContext, useContext } from 'react';
 import { SimpleLabelDocProvider, useLabelDoc } from '@/contexts/SimpleLabelDocContext';
 import { LabelToolbar } from '@/components/label/LabelToolbar';
 import { AdvancedLabelWorkspace } from '@/components/label/AdvancedLabelWorkspace';
+import { LeftToolbox } from '@/components/label/LeftToolbox';
 import { LabelPropertiesPanel } from '@/components/label/LabelPropertiesPanel';
 import { InventoryDataMapper } from '@/components/label/InventoryDataMapper';
 import { OrderLabelTemplates } from '@/components/label/OrderLabelTemplates';
@@ -21,6 +22,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 import { LABEL_PRESETS, PrintSettings } from '@/types/label';
 import { Plus, Database, Eye, Download, Printer, FolderOpen } from 'lucide-react';
 import { toast } from 'sonner';
@@ -295,93 +298,88 @@ const LabelDesignerContent: React.FC = () => {
             </div>
           </TabsContent>
           
-          <TabsContent value="designer" className="border-2 border-border/50 rounded-xl bg-gradient-to-br from-card/60 to-card/40 p-8 shadow-lg min-h-0 flex-1">
-            <div className="flex gap-8 min-h-0 flex-1 h-full">
-              {/* Main Canvas Area */}
-              <div className="flex-1 border-2 border-border/60 rounded-xl bg-gradient-to-br from-background/80 to-background/60 shadow-inner">
-                <div className="h-full p-6">
-                  <AdvancedLabelWorkspace />
+          <TabsContent value="designer" className="border-2 border-border/50 rounded-xl bg-gradient-to-br from-card/60 to-card/40 shadow-lg min-h-0 flex-1 p-0">
+            <PanelGroup direction="horizontal" className="h-full">
+              {/* Left Toolbox */}
+              <Panel defaultSize={18} minSize={15} maxSize={25}>
+                <div className="h-full p-4">
+                  <LeftToolbox />
                 </div>
-              </div>
+              </Panel>
               
-              {/* Enhanced Control Panel */}
-              <div className="w-96 space-y-5 overflow-y-auto max-h-full">
-                {/* Step 1: Design Tools */}
-                <div className="border-2 border-border/60 rounded-xl bg-gradient-to-br from-card/70 to-card/50 shadow-md">
-                  <div className="p-4 border-b-2 border-border/30 bg-gradient-to-r from-primary/10 to-primary/5">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary/80 text-primary-foreground font-bold text-sm flex items-center justify-center shadow-sm">
-                        1
-                      </div>
-                      <h3 className="font-semibold text-foreground">Design Tools</h3>
-                    </div>
-                  </div>
-                  <div className="p-4">
-                    <LabelToolbar />
+              <PanelResizeHandle className="w-2 bg-border/30 hover:bg-border/50 transition-colors" />
+              
+              {/* Center Canvas */}
+              <Panel defaultSize={50} minSize={40}>
+                <div className="h-full border-2 border-border/30 rounded-lg bg-gradient-to-br from-background/90 to-background/70 m-4 shadow-inner">
+                  <div className="h-full p-4">
+                    <AdvancedLabelWorkspace />
                   </div>
                 </div>
-
-                {/* Step 2: Inventory Templates */}
-                <div className="border-2 border-border/60 rounded-xl bg-gradient-to-br from-card/70 to-card/50 shadow-md">
-                  <div className="p-4 border-b-2 border-border/30 bg-gradient-to-r from-accent/10 to-accent/5">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent to-accent/80 text-accent-foreground font-bold text-sm flex items-center justify-center shadow-sm">
-                        2
+              </Panel>
+              
+              <PanelResizeHandle className="w-2 bg-border/30 hover:bg-border/50 transition-colors" />
+              
+              {/* Right Properties Panel */}
+              <Panel defaultSize={32} minSize={25} maxSize={40}>
+                <div className="h-full p-4">
+                  <Card className="h-full border-2 border-border/60 bg-gradient-to-br from-card/80 to-card/60 shadow-lg">
+                    <Tabs defaultValue="properties" className="h-full flex flex-col">
+                      <div className="px-4 pt-4 border-b border-border/30">
+                        <TabsList className="grid w-full grid-cols-4 h-9 p-0.5 bg-muted/30">
+                          <TabsTrigger value="properties" className="text-xs px-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                            Properties
+                          </TabsTrigger>
+                          <TabsTrigger value="templates" className="text-xs px-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                            Templates
+                          </TabsTrigger>
+                          <TabsTrigger value="data" className="text-xs px-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                            Data
+                          </TabsTrigger>
+                          <TabsTrigger value="preview" className="text-xs px-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                            Preview
+                          </TabsTrigger>
+                        </TabsList>
                       </div>
-                      <h3 className="font-semibold text-foreground">Inventory Templates</h3>
-                    </div>
-                  </div>
-                  <div className="p-4">
-                    <InventoryLabelTemplates />
-                  </div>
-                </div>
-
-                {/* Step 3: Element Properties */}
-                <div className="border-2 border-border/60 rounded-xl bg-gradient-to-br from-card/70 to-card/50 shadow-md">
-                  <div className="p-4 border-b-2 border-border/30 bg-gradient-to-r from-secondary/10 to-secondary/5">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-secondary to-secondary/80 text-secondary-foreground font-bold text-sm flex items-center justify-center shadow-sm">
-                        3
+                      
+                      <div className="flex-1 min-h-0">
+                        <TabsContent value="properties" className="h-full p-0 m-0">
+                          <ScrollArea className="h-full">
+                            <div className="p-4">
+                              <LabelPropertiesPanel />
+                            </div>
+                          </ScrollArea>
+                        </TabsContent>
+                        
+                        <TabsContent value="templates" className="h-full p-0 m-0">
+                          <ScrollArea className="h-full">
+                            <div className="p-4">
+                              <InventoryLabelTemplates />
+                            </div>
+                          </ScrollArea>
+                        </TabsContent>
+                        
+                        <TabsContent value="data" className="h-full p-0 m-0">
+                          <ScrollArea className="h-full">
+                            <div className="p-4 space-y-4">
+                              <InventoryDataMapper />
+                            </div>
+                          </ScrollArea>
+                        </TabsContent>
+                        
+                        <TabsContent value="preview" className="h-full p-0 m-0">
+                          <ScrollArea className="h-full">
+                            <div className="p-4">
+                              <DataPreviewPanel />
+                            </div>
+                          </ScrollArea>
+                        </TabsContent>
                       </div>
-                      <h3 className="font-semibold text-foreground">Element Properties</h3>
-                    </div>
-                  </div>
-                  <div className="p-4">
-                    <LabelPropertiesPanel />
-                  </div>
+                    </Tabs>
+                  </Card>
                 </div>
-
-                {/* Step 4: Data Mapping */}
-                <div className="border-2 border-border/60 rounded-xl bg-gradient-to-br from-card/70 to-card/50 shadow-md">
-                  <div className="p-4 border-b-2 border-border/30 bg-gradient-to-r from-primary/10 to-primary/5">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary/80 text-primary-foreground font-bold text-sm flex items-center justify-center shadow-sm">
-                        4
-                      </div>
-                      <h3 className="font-semibold text-foreground">Data Source</h3>
-                    </div>
-                  </div>
-                  <div className="p-4">
-                    <InventoryDataMapper />
-                  </div>
-                </div>
-
-                {/* Step 5: Data Preview */}
-                <div className="border-2 border-border/60 rounded-xl bg-gradient-to-br from-card/70 to-card/50 shadow-md">
-                  <div className="p-4 border-b-2 border-border/30 bg-gradient-to-r from-accent/10 to-accent/5">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent to-accent/80 text-accent-foreground font-bold text-sm flex items-center justify-center shadow-sm">
-                        5
-                      </div>
-                      <h3 className="font-semibold text-foreground">Data Preview</h3>
-                    </div>
-                  </div>
-                  <div className="p-4">
-                    <DataPreviewPanel />
-                  </div>
-                </div>
-              </div>
-            </div>
+              </Panel>
+            </PanelGroup>
           </TabsContent>
           
           <TabsContent value="setup" className="border-2 border-border/50 rounded-xl bg-gradient-to-br from-card/60 to-card/40 p-8 shadow-lg min-h-0 flex-1">
