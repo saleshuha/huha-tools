@@ -77,13 +77,22 @@ export function VendorIntegrationManager() {
     receiving?: {
       private_key: string;
       public_key: string;
+      public_key_openssh?: string;
+      public_key_ssh2?: string;
+      fingerprint?: string;
+      modulus_bits?: number;
     };
     sending?: {
       private_key: string;
       public_key: string;
+      public_key_openssh?: string;
+      public_key_ssh2?: string;
+      fingerprint?: string;
+      modulus_bits?: number;
     };
   } | null>(null);
   const [generatingKeys, setGeneratingKeys] = useState(false);
+  const [selectedModulusLength, setSelectedModulusLength] = useState<2048 | 4096>(2048);
 
   useEffect(() => {
     loadIntegrations(selectedCountry);
@@ -189,14 +198,21 @@ export function VendorIntegrationManager() {
     }
   };
 
-  const downloadPublicKey = (keyType: 'receiving' | 'sending') => {
-    if (!generatedKeys?.[keyType]?.public_key) return;
+  const downloadPublicKey = (keyType: 'receiving' | 'sending', format: 'openssh' | 'ssh2' = 'openssh') => {
+    if (!generatedKeys?.[keyType]) return;
     
-    const blob = new Blob([generatedKeys[keyType].public_key], { type: 'text/plain' });
+    const keyData = format === 'ssh2' 
+      ? generatedKeys[keyType].public_key_ssh2 || generatedKeys[keyType].public_key
+      : generatedKeys[keyType].public_key_openssh || generatedKeys[keyType].public_key;
+    
+    const fileExtension = format === 'ssh2' ? 'pub2' : 'pub';
+    const fileName = `amazon_vendor_${keyType}_${format}_${generatedKeys[keyType].modulus_bits || 2048}bit.${fileExtension}`;
+    
+    const blob = new Blob([keyData], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `amazon_vendor_${keyType}_public_key.pub`;
+    link.download = fileName;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -204,7 +220,7 @@ export function VendorIntegrationManager() {
     
     toast({
       title: "Downloaded!",
-      description: `${keyType.charAt(0).toUpperCase() + keyType.slice(1)} public key downloaded`,
+      description: `${keyType.charAt(0).toUpperCase() + keyType.slice(1)} ${format.toUpperCase()} key downloaded (${generatedKeys[keyType].modulus_bits || 2048}-bit)`,
     });
   };
 
@@ -244,10 +260,13 @@ export function VendorIntegrationManager() {
     }
   };
 
-  const generateSSHKeys = async () => {
+  const generateSSHKeys = async (modulusLength: 2048 | 4096 = 2048) => {
     setGeneratingKeys(true);
     try {
-      const { data, error } = await supabase.functions.invoke('generate-ssh-keys');
+      const { data, error } = await supabase.functions.invoke('generate-ssh-keys', {
+        body: {},
+        headers: { 'Content-Type': 'application/json' }
+      });
       
       if (error) {
         throw error;
@@ -256,17 +275,53 @@ export function VendorIntegrationManager() {
       if (data?.success && data?.keys) {
         setGeneratedKeys(data.keys);
         setSshKeyGenerated(true);
+        toast({
+          title: "SSH Keys Generated!",
+          description: `Generated ${data.keys.receiving?.modulus_bits || modulusLength}-bit RSA keys for Amazon integration`,
+        });
         return true;
       } else {
         throw new Error(data?.error || 'Failed to generate SSH keys');
       }
     } catch (error) {
       console.error('SSH key generation failed:', error);
-      alert('Failed to generate SSH keys. Please try again.');
+      toast({
+        title: "Key Generation Failed",
+        description: `Failed to generate SSH keys: ${error.message}`,
+        variant: "destructive",
+      });
       return false;
     } finally {
       setGeneratingKeys(false);
     }
+  };
+
+  const validateKeys = async () => {
+    if (!generatedKeys?.receiving || !generatedKeys?.sending) {
+      toast({
+        title: "No Keys to Validate",
+        description: "Please generate SSH keys first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const receivingInfo = {
+      type: 'RSA',
+      bits: generatedKeys.receiving.modulus_bits || 'Unknown',
+      fingerprint: generatedKeys.receiving.fingerprint || 'Unknown'
+    };
+    
+    const sendingInfo = {
+      type: 'RSA', 
+      bits: generatedKeys.sending.modulus_bits || 'Unknown',
+      fingerprint: generatedKeys.sending.fingerprint || 'Unknown'
+    };
+
+    toast({
+      title: "Key Validation Results",
+      description: `Receiving: ${receivingInfo.bits}-bit ${receivingInfo.type} | Sending: ${sendingInfo.bits}-bit ${sendingInfo.type}`,
+    });
   };
 
   const getStatusIcon = (status: string) => {
@@ -324,6 +379,27 @@ export function VendorIntegrationManager() {
                   <SelectItem value="AS2">AS2 (Applicability Statement 2)</SelectItem>
                 </SelectContent>
               </Select>
+              
+              {formData.transport_method === 'SFTP' && (
+                <div className="space-y-2">
+                  <Label htmlFor="modulus_length">SSH Key Size</Label>
+                  <Select
+                    value={selectedModulusLength.toString()}
+                    onValueChange={(value) => setSelectedModulusLength(parseInt(value) as 2048 | 4096)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="2048">2048-bit (Standard)</SelectItem>
+                      <SelectItem value="4096">4096-bit (High Security)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Amazon requires minimum 2048-bit keys. 4096-bit provides extra security but larger file size.
+                  </p>
+                </div>
+              )}
             </div>
 
             {formData.transport_method === 'SFTP' ? (
@@ -381,7 +457,7 @@ export function VendorIntegrationManager() {
               <Button 
                 onClick={async () => {
                   if (formData.transport_method === 'SFTP') {
-                    const success = await generateSSHKeys();
+                    const success = await generateSSHKeys(selectedModulusLength);
                     if (success) {
                       setShowSSHInstructions(true);
                       setSetupStep(2);
@@ -395,7 +471,7 @@ export function VendorIntegrationManager() {
                 {formData.transport_method === 'SFTP' ? (
                   <>
                     <Key className="w-4 h-4 mr-2" />
-                    {generatingKeys ? 'Generating SSH Keys...' : 'Generate SSH Keys'}
+                    {generatingKeys ? `Generating ${selectedModulusLength}-bit SSH Keys...` : `Generate ${selectedModulusLength}-bit SSH Keys`}
                   </>
                 ) : (
                   <>
@@ -432,7 +508,52 @@ export function VendorIntegrationManager() {
 
               {generatedKeys && (
                 <div className="bg-muted/50 p-4 rounded-lg">
-                  <h4 className="font-medium mb-3">Generated Private Keys (Store Securely):</h4>
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-medium">Generated SSH Keys ({generatedKeys.receiving?.modulus_bits || 2048}-bit RSA)</h4>
+                    <div className="flex gap-2">
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={validateKeys}
+                      >
+                        <Shield className="w-4 h-4 mr-2" />
+                        Validate Keys
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={async () => {
+                          const success = await generateSSHKeys(selectedModulusLength);
+                          if (success) {
+                            toast({
+                              title: "Keys Regenerated",
+                              description: `New ${selectedModulusLength}-bit SSH keys generated successfully`,
+                            });
+                          }
+                        }}
+                        disabled={generatingKeys}
+                      >
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                        Regenerate
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  {/* Key Information Summary */}
+                  <div className="grid grid-cols-2 gap-4 mb-4 p-3 bg-background/50 rounded border">
+                    <div>
+                      <div className="text-sm font-medium text-blue-600 dark:text-blue-400">📥 Receiving Key</div>
+                      <div className="text-xs text-muted-foreground">
+                        {generatedKeys.receiving?.modulus_bits || 2048}-bit RSA | {generatedKeys.receiving?.fingerprint?.substring(0, 20) || 'No fingerprint'}...
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-sm font-medium text-green-600 dark:text-green-400">📤 Sending Key</div>
+                      <div className="text-xs text-muted-foreground">
+                        {generatedKeys.sending?.modulus_bits || 2048}-bit RSA | {generatedKeys.sending?.fingerprint?.substring(0, 20) || 'No fingerprint'}...
+                      </div>
+                    </div>
+                  </div>
                   
                   {/* Receiving Private Key */}
                   <div className="mb-4">
@@ -545,70 +666,151 @@ export function VendorIntegrationManager() {
             </div>
             
             <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200/50">
-              <h4 className="font-medium mb-3 text-blue-700 dark:text-blue-300">📤 Upload Steps:</h4>
+              <h4 className="font-medium mb-3 text-blue-700 dark:text-blue-300">📋 Upload Instructions:</h4>
               <ol className="space-y-2 text-sm text-blue-600 dark:text-blue-400">
                 <li><strong>1.</strong> Log in to Amazon Vendor Central</li>
                 <li><strong>2.</strong> Navigate to "Settings" → "EDI Settings"</li>
                 <li><strong>3.</strong> Find "SFTP Key Management" section</li>
-                <li><strong>4.</strong> Upload your PUBLIC key (.pub file)</li>
-                <li><strong>5.</strong> Wait for Amazon to activate (24-48 hours)</li>
-                <li><strong>6.</strong> Amazon will send you SFTP connection details</li>
+                <li><strong>4.</strong> Upload your PUBLIC key (try OpenSSH format first)</li>
+                <li><strong>5.</strong> If Amazon rejects the key, try the SSH2/RFC4716 format</li>
+                <li><strong>6.</strong> Wait for Amazon to activate (24-48 hours)</li>
+                <li><strong>7.</strong> Amazon will send you SFTP connection details</li>
               </ol>
             </div>
 
             {generatedKeys && (
               <div className="bg-muted/50 p-4 rounded-lg">
-                <h4 className="font-medium mb-3">Amazon Public Keys (Upload to Amazon):</h4>
+                <h4 className="font-medium mb-3">Public Keys for Amazon Upload ({generatedKeys.receiving?.modulus_bits || 2048}-bit)</h4>
                 
                 {/* Receiving Key */}
-                <div className="mb-4">
+                <div className="mb-6">
                   <h5 className="text-sm font-medium mb-2 text-blue-600 dark:text-blue-400">📥 Receiving Public Key (for files Amazon sends to you)</h5>
-                  <div className="bg-black p-3 rounded text-green-400 font-mono text-xs break-all max-h-32 overflow-y-auto">
-                    {generatedKeys.receiving?.public_key}
-                  </div>
-                  <div className="flex gap-2 mt-2">
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
-                      onClick={() => copyToClipboard(generatedKeys.receiving?.public_key || '')}
-                    >
-                      <Copy className="w-4 h-4 mr-2" />
-                      Copy Receiving Key
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      onClick={() => downloadPublicKey('receiving')}
-                    >
-                      <Download className="w-4 h-4 mr-2" />
-                      Download .pub File
-                    </Button>
+                  <div className="space-y-3">
+                    {/* OpenSSH Format */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Badge variant="outline" className="text-xs">OpenSSH Format</Badge>
+                        <span className="text-xs text-muted-foreground">Try this format first</span>
+                      </div>
+                      <div className="bg-black p-3 rounded text-green-400 font-mono text-xs break-all max-h-24 overflow-y-auto">
+                        {generatedKeys.receiving?.public_key_openssh || generatedKeys.receiving?.public_key}
+                      </div>
+                      <div className="flex gap-2 mt-2">
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          onClick={() => copyToClipboard(generatedKeys.receiving?.public_key_openssh || generatedKeys.receiving?.public_key || '')}
+                        >
+                          <Copy className="w-4 h-4 mr-2" />
+                          Copy OpenSSH
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => downloadPublicKey('receiving', 'openssh')}
+                        >
+                          <Download className="w-4 h-4 mr-2" />
+                          Download .pub
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    {/* SSH2/RFC4716 Format */}
+                    {generatedKeys.receiving?.public_key_ssh2 && (
+                      <div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Badge variant="outline" className="text-xs">SSH2/RFC4716 Format</Badge>
+                          <span className="text-xs text-muted-foreground">Try if OpenSSH is rejected</span>
+                        </div>
+                        <div className="bg-black p-3 rounded text-green-400 font-mono text-xs break-all max-h-24 overflow-y-auto">
+                          {generatedKeys.receiving.public_key_ssh2}
+                        </div>
+                        <div className="flex gap-2 mt-2">
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            onClick={() => copyToClipboard(generatedKeys.receiving?.public_key_ssh2 || '')}
+                          >
+                            <Copy className="w-4 h-4 mr-2" />
+                            Copy SSH2
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => downloadPublicKey('receiving', 'ssh2')}
+                          >
+                            <Download className="w-4 h-4 mr-2" />
+                            Download .pub2
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 {/* Sending Key */}
                 <div>
                   <h5 className="text-sm font-medium mb-2 text-green-600 dark:text-green-400">📤 Sending Public Key (for files you send to Amazon)</h5>
-                  <div className="bg-black p-3 rounded text-green-400 font-mono text-xs break-all max-h-32 overflow-y-auto">
-                    {generatedKeys.sending?.public_key}
-                  </div>
-                  <div className="flex gap-2 mt-2">
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
-                      onClick={() => copyToClipboard(generatedKeys.sending?.public_key || '')}
-                    >
-                      <Copy className="w-4 h-4 mr-2" />
-                      Copy Sending Key
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      onClick={() => downloadPublicKey('sending')}
-                    >
-                      <Download className="w-4 h-4 mr-2" />
-                      Download .pub File
-                    </Button>
+                  <div className="space-y-3">
+                    {/* OpenSSH Format */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Badge variant="outline" className="text-xs">OpenSSH Format</Badge>
+                        <span className="text-xs text-muted-foreground">Try this format first</span>
+                      </div>
+                      <div className="bg-black p-3 rounded text-green-400 font-mono text-xs break-all max-h-24 overflow-y-auto">
+                        {generatedKeys.sending?.public_key_openssh || generatedKeys.sending?.public_key}
+                      </div>
+                      <div className="flex gap-2 mt-2">
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          onClick={() => copyToClipboard(generatedKeys.sending?.public_key_openssh || generatedKeys.sending?.public_key || '')}
+                        >
+                          <Copy className="w-4 h-4 mr-2" />
+                          Copy OpenSSH
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => downloadPublicKey('sending', 'openssh')}
+                        >
+                          <Download className="w-4 h-4 mr-2" />
+                          Download .pub
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    {/* SSH2/RFC4716 Format */}
+                    {generatedKeys.sending?.public_key_ssh2 && (
+                      <div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Badge variant="outline" className="text-xs">SSH2/RFC4716 Format</Badge>
+                          <span className="text-xs text-muted-foreground">Try if OpenSSH is rejected</span>
+                        </div>
+                        <div className="bg-black p-3 rounded text-green-400 font-mono text-xs break-all max-h-24 overflow-y-auto">
+                          {generatedKeys.sending.public_key_ssh2}
+                        </div>
+                        <div className="flex gap-2 mt-2">
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            onClick={() => copyToClipboard(generatedKeys.sending?.public_key_ssh2 || '')}
+                          >
+                            <Copy className="w-4 h-4 mr-2" />
+                            Copy SSH2
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => downloadPublicKey('sending', 'ssh2')}
+                          >
+                            <Download className="w-4 h-4 mr-2" />
+                            Download .pub2
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

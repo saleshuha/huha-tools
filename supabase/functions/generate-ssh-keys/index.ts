@@ -21,23 +21,49 @@ function arrayBufferToPem(buffer: ArrayBuffer, type: 'PRIVATE' | 'PUBLIC'): stri
   return lines.join('\n');
 }
 
-// Helper function to write SSH wire format data
-function writeSSHString(data: Uint8Array): Uint8Array {
-  const length = data.length;
-  const buffer = new ArrayBuffer(4 + length);
+// Helper function to write SSH mpint format data
+function writeMpint(data: Uint8Array): Uint8Array {
+  // Remove leading zeros but keep at least one byte
+  let start = 0;
+  while (start < data.length - 1 && data[start] === 0) {
+    start++;
+  }
+  const trimmed = data.slice(start);
+  
+  // If the high bit is set, prepend a zero byte
+  const needsPadding = trimmed[0] & 0x80;
+  const paddedData = needsPadding ? new Uint8Array([0, ...trimmed]) : trimmed;
+  
+  // Write length + data
+  const buffer = new ArrayBuffer(4 + paddedData.length);
   const view = new DataView(buffer);
   const result = new Uint8Array(buffer);
   
-  // Write 32-bit length in big-endian format
-  view.setUint32(0, length, false);
-  // Write data
+  view.setUint32(0, paddedData.length, false);
+  result.set(paddedData, 4);
+  
+  return result;
+}
+
+// Helper function to write SSH wire format string
+function writeSSHString(data: Uint8Array): Uint8Array {
+  const buffer = new ArrayBuffer(4 + data.length);
+  const view = new DataView(buffer);
+  const result = new Uint8Array(buffer);
+  
+  view.setUint32(0, data.length, false);
   result.set(data, 4);
   
   return result;
 }
 
 // Helper function to convert public key to proper SSH format
-async function publicKeyToSSHFormat(publicKey: CryptoKey, keyType: string = 'integration'): Promise<string> {
+async function publicKeyToSSHFormat(publicKey: CryptoKey, keyType: string = 'integration'): Promise<{
+  openssh: string;
+  ssh2: string;
+  fingerprint: string;
+  modulusBits: number;
+}> {
   console.log(`Converting ${keyType} public key to SSH format...`);
   
   try {
@@ -61,39 +87,58 @@ async function publicKeyToSSHFormat(publicKey: CryptoKey, keyType: string = 'int
     const modulus = Uint8Array.from(atob(modulusPadded), c => c.charCodeAt(0));
     const exponent = Uint8Array.from(atob(exponentPadded), c => c.charCodeAt(0));
     
-    console.log(`${keyType} key - Modulus length: ${modulus.length * 8} bits, Exponent: ${Array.from(exponent).join(',')}`);
+    const modulusBits = modulus.length * 8;
+    console.log(`${keyType} key - Modulus length: ${modulusBits} bits, Exponent: ${Array.from(exponent).join(',')}`);
     
-    if (modulus.length * 8 < 2048) {
-      console.error(`WARNING: ${keyType} key modulus is only ${modulus.length * 8} bits, less than required 2048 bits!`);
+    if (modulusBits < 2048) {
+      console.error(`WARNING: ${keyType} key modulus is only ${modulusBits} bits, less than required 2048 bits!`);
     }
     
-    // Build SSH wire format: [type][exponent][modulus]
+    // Build SSH wire format using proper mpint encoding: [type][exponent][modulus]
     const keyTypeStr = "ssh-rsa";
     const keyTypeBytes = new TextEncoder().encode(keyTypeStr);
     
     const typeString = writeSSHString(keyTypeBytes);
-    const exponentString = writeSSHString(exponent);
-    const modulusString = writeSSHString(modulus);
+    const exponentMpint = writeMpint(exponent);
+    const modulusMpint = writeMpint(modulus);
     
     // Concatenate all parts
-    const totalLength = typeString.length + exponentString.length + modulusString.length;
+    const totalLength = typeString.length + exponentMpint.length + modulusMpint.length;
     const sshKeyBuffer = new Uint8Array(totalLength);
     
     let offset = 0;
     sshKeyBuffer.set(typeString, offset);
     offset += typeString.length;
-    sshKeyBuffer.set(exponentString, offset);
-    offset += exponentString.length;
-    sshKeyBuffer.set(modulusString, offset);
+    sshKeyBuffer.set(exponentMpint, offset);
+    offset += exponentMpint.length;
+    sshKeyBuffer.set(modulusMpint, offset);
     
     // Encode to base64
     const base64Key = base64Encode(sshKeyBuffer);
-    const sshKey = `ssh-rsa ${base64Key} amazon-vendor-${keyType}@integration`;
     
-    console.log(`Generated valid ${keyType} SSH key with ${modulus.length * 8}-bit modulus`);
-    console.log(`${keyType} SSH key (first 50 chars): ${sshKey.substring(0, 50)}...`);
+    // Create OpenSSH format
+    const opensshKey = `ssh-rsa ${base64Key} amazon-vendor-${keyType}@integration`;
     
-    return sshKey;
+    // Create SSH2/RFC4716 format
+    const ssh2Key = `---- BEGIN SSH2 PUBLIC KEY ----
+Comment: "amazon-vendor-${keyType}@integration"
+${base64Key.match(/.{1,64}/g)?.join('\n') || base64Key}
+---- END SSH2 PUBLIC KEY ----`;
+    
+    // Generate SHA256 fingerprint
+    const hash = await crypto.subtle.digest('SHA-256', sshKeyBuffer);
+    const fingerprint = `SHA256:${base64Encode(new Uint8Array(hash)).replace(/=+$/, '')}`;
+    
+    console.log(`Generated valid ${keyType} SSH key with ${modulusBits}-bit modulus`);
+    console.log(`${keyType} SSH fingerprint: ${fingerprint}`);
+    console.log(`${keyType} OpenSSH key (first 50 chars): ${opensshKey.substring(0, 50)}...`);
+    
+    return {
+      openssh: opensshKey,
+      ssh2: ssh2Key,
+      fingerprint,
+      modulusBits
+    };
     
   } catch (error) {
     console.error(`Failed to convert ${keyType} key to SSH format:`, error);
@@ -108,14 +153,24 @@ serve(async (req) => {
   }
 
   try {
-    console.log('Generating SSH key pairs for Amazon Vendor Central integration (receiving and sending)');
+    const url = new URL(req.url);
+    const modulusLength = parseInt(url.searchParams.get('modulus_length') || '2048');
+    
+    if (![2048, 4096].includes(modulusLength)) {
+      return Response.json(
+        { error: 'Invalid modulus length. Must be 2048 or 4096.' },
+        { status: 400, headers: corsHeaders }
+      );
+    }
+
+    console.log(`Generating SSH key pairs for Amazon Vendor Central integration with ${modulusLength}-bit keys`);
 
     // Generate receiving key pair
-    console.log('Generating receiving RSA key pair with 2048-bit modulus...');
+    console.log(`Generating receiving RSA key pair with ${modulusLength}-bit modulus...`);
     const receivingKeyPair = await crypto.subtle.generateKey(
       {
         name: 'RSASSA-PKCS1-v1_5',
-        modulusLength: 2048,
+        modulusLength,
         publicExponent: new Uint8Array([1, 0, 1]), // 65537
         hash: 'SHA-256',
       },
@@ -125,11 +180,11 @@ serve(async (req) => {
     console.log('Receiving key pair generated successfully');
 
     // Generate sending key pair
-    console.log('Generating sending RSA key pair with 2048-bit modulus...');
+    console.log(`Generating sending RSA key pair with ${modulusLength}-bit modulus...`);
     const sendingKeyPair = await crypto.subtle.generateKey(
       {
         name: 'RSASSA-PKCS1-v1_5',
-        modulusLength: 2048,
+        modulusLength,
         publicExponent: new Uint8Array([1, 0, 1]), // 65537
         hash: 'SHA-256',
       },
@@ -141,35 +196,49 @@ serve(async (req) => {
     // Export receiving keys
     const receivingPrivateKeyBuffer = await crypto.subtle.exportKey('pkcs8', receivingKeyPair.privateKey);
     const receivingPrivateKeyPem = arrayBufferToPem(receivingPrivateKeyBuffer, 'PRIVATE');
-    const receivingPublicKeySSH = await publicKeyToSSHFormat(receivingKeyPair.publicKey, 'receiving');
+    const receivingPublicKeyData = await publicKeyToSSHFormat(receivingKeyPair.publicKey, 'receiving');
 
     // Export sending keys
     const sendingPrivateKeyBuffer = await crypto.subtle.exportKey('pkcs8', sendingKeyPair.privateKey);
     const sendingPrivateKeyPem = arrayBufferToPem(sendingPrivateKeyBuffer, 'PRIVATE');
-    const sendingPublicKeySSH = await publicKeyToSSHFormat(sendingKeyPair.publicKey, 'sending');
+    const sendingPublicKeyData = await publicKeyToSSHFormat(sendingKeyPair.publicKey, 'sending');
 
-    console.log('SSH key pairs generated successfully');
+    console.log(`SSH key pairs generated successfully - ${receivingPublicKeyData.modulusBits}/${sendingPublicKeyData.modulusBits} bits`);
     
     return Response.json({
       success: true,
       keys: {
         receiving: {
           private_key: receivingPrivateKeyPem,
-          public_key: receivingPublicKeySSH
+          public_key_openssh: receivingPublicKeyData.openssh,
+          public_key_ssh2: receivingPublicKeyData.ssh2,
+          fingerprint: receivingPublicKeyData.fingerprint,
+          modulus_bits: receivingPublicKeyData.modulusBits,
+          // Legacy compatibility
+          public_key: receivingPublicKeyData.openssh
         },
         sending: {
           private_key: sendingPrivateKeyPem,
-          public_key: sendingPublicKeySSH
+          public_key_openssh: sendingPublicKeyData.openssh,
+          public_key_ssh2: sendingPublicKeyData.ssh2,
+          fingerprint: sendingPublicKeyData.fingerprint,
+          modulus_bits: sendingPublicKeyData.modulusBits,
+          // Legacy compatibility
+          public_key: sendingPublicKeyData.openssh
         }
       },
       instructions: {
         receiving_key_usage: "Upload this receiving public key to Amazon for files they send to you",
         sending_key_usage: "Upload this sending public key to Amazon for files you send to them",
         private_key_usage: "Store both private keys securely in your secrets management. Never share them.",
+        key_formats: {
+          openssh: "Standard OpenSSH format (ssh-rsa ...)",
+          ssh2: "RFC4716 SSH2 format (---- BEGIN SSH2 PUBLIC KEY ----)"
+        },
         next_steps: [
           "Copy and securely store both private keys",
-          "Upload the receiving public key to Amazon for incoming files",
-          "Upload the sending public key to Amazon for outgoing files",
+          "Try uploading the OpenSSH format first to Amazon",
+          "If Amazon rejects OpenSSH format, try the SSH2/RFC4716 format",
           "Wait for Amazon to activate your SSH keys (24-48 hours)",
           "Receive SFTP connection details from Amazon via email"
         ]
