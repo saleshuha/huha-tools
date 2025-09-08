@@ -1381,11 +1381,11 @@ export function VendorIntegrationManager() {
 
       {/* SSH Instructions Dialog */}
       <Dialog open={showSSHInstructions} onOpenChange={setShowSSHInstructions}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>SSH Key Generation Instructions</DialogTitle>
             <DialogDescription>
-              Follow these steps to generate SSH keys for Amazon Vendor Central
+              Your Amazon Vendor Central SSH keys - both receiving and sending keys are ready for use
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-6">
@@ -1394,7 +1394,7 @@ export function VendorIntegrationManager() {
               <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200/50">
                 <h4 className="font-medium mb-3 text-blue-700 dark:text-blue-300">✅ Generated Keys Available</h4>
                 <p className="text-sm text-blue-600 dark:text-blue-400 mb-3">
-                  We've already generated your SSH keys. You can download them directly:
+                  We've generated both receiving and sending SSH keys. Download the public keys for Amazon:
                 </p>
                 
                 <div className="space-y-4">
@@ -1493,72 +1493,17 @@ export function VendorIntegrationManager() {
               </div>
             )}
 
-            <div className="bg-muted/50 p-4 rounded-lg">
-              <h4 className="font-medium mb-3">Alternative: Manual Generation</h4>
-              <p className="text-sm text-muted-foreground mb-3">
-                If you prefer to generate keys manually using terminal commands:
-              </p>
-            </div>
-
-            <div className="bg-muted/50 p-4 rounded-lg">
-              <h4 className="font-medium mb-3">Step 1: Generate SSH Key Pair</h4>
-              <div className="bg-black p-3 rounded text-green-400 font-mono text-sm">
-                ssh-keygen -t rsa -b 4096 -f ~/.ssh/amazon_vendor_key -C "your-email@domain.com"
-              </div>
-              <Button 
-                size="sm" 
-                variant="outline" 
-                className="mt-2"
-                onClick={() => copyToClipboard('ssh-keygen -t rsa -b 4096 -f ~/.ssh/amazon_vendor_key -C "your-email@domain.com"')}
-              >
-                <Copy className="w-4 h-4 mr-2" />
-                Copy Command
-              </Button>
-            </div>
-
-            <div className="bg-muted/50 p-4 rounded-lg">
-              <h4 className="font-medium mb-3">Step 2: View Your Public Key</h4>
-              <div className="bg-black p-3 rounded text-green-400 font-mono text-sm">
-                cat ~/.ssh/amazon_vendor_key.pub
-              </div>
-              <Button 
-                size="sm" 
-                variant="outline" 
-                className="mt-2"
-                onClick={() => copyToClipboard('cat ~/.ssh/amazon_vendor_key.pub')}
-              >
-                <Copy className="w-4 h-4 mr-2" />
-                Copy Command
-              </Button>
-            </div>
-
-            <div className="bg-muted/50 p-4 rounded-lg">
-              <h4 className="font-medium mb-3">Step 3: Secure Your Private Key</h4>
-              <p className="text-sm text-muted-foreground mb-2">
-                Store the private key content as a secret in our system:
-              </p>
-              <div className="bg-black p-3 rounded text-green-400 font-mono text-sm">
-                cat ~/.ssh/amazon_vendor_key
-              </div>
-              <Button 
-                size="sm" 
-                variant="outline" 
-                className="mt-2"
-                onClick={() => copyToClipboard('cat ~/.ssh/amazon_vendor_key')}
-              >
-                <Copy className="w-4 h-4 mr-2" />
-                Copy Command
-              </Button>
-            </div>
-
             <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg border border-yellow-200/50">
-              <h4 className="font-medium mb-2 text-yellow-700 dark:text-yellow-300">⚠️ Important Security Notes:</h4>
-              <ul className="text-sm text-yellow-600 dark:text-yellow-400 space-y-1">
-                <li>• Never share your private key with anyone</li>
-                <li>• Only upload the public key (.pub) to Amazon</li>
-                <li>• Store the private key securely in our encrypted secrets</li>
-                <li>• Use a strong passphrase if prompted</li>
-              </ul>
+              <h4 className="font-medium mb-2 text-yellow-700 dark:text-yellow-300">📋 Next Steps:</h4>
+              <ol className="text-sm text-yellow-600 dark:text-yellow-400 space-y-1 list-decimal list-inside">
+                <li>Download both receiving and sending public keys (.pub files)</li>
+                <li>Log in to Amazon Vendor Central</li>
+                <li>Navigate to Settings → EDI Settings → SFTP Key Management</li>
+                <li>Upload the receiving public key for incoming files</li>
+                <li>Upload the sending public key for outgoing files</li>
+                <li>Wait for Amazon to activate your keys (24-48 hours)</li>
+                <li>Amazon will send you SFTP connection details via email</li>
+              </ol>
             </div>
 
             <div className="flex justify-end">
