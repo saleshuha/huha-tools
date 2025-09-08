@@ -35,6 +35,15 @@ export const AdvancedLabelWorkspace: React.FC = () => {
     deleteElement,
     addElement 
   } = useLabelDoc();
+
+  // Early return BEFORE any hooks to avoid "more hooks than previous render" error
+  if (!document) {
+    return (
+      <Card className="flex-1 flex items-center justify-center text-muted-foreground">
+        <p>No label document loaded. Create a new label to get started.</p>
+      </Card>
+    );
+  }
   
   const canvasRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -261,7 +270,7 @@ export const AdvancedLabelWorkspace: React.FC = () => {
   };
 
   const handlePrint = async () => {
-    if (!document || !qzConnected || !selectedPrinter) {
+    if (!qzConnected || !selectedPrinter) {
       toast.error('Please ensure QZ Tray is connected and a printer is selected');
       return;
     }
@@ -286,14 +295,6 @@ export const AdvancedLabelWorkspace: React.FC = () => {
       toast.error('Failed to print label');
     }
   };
-
-  if (!document) {
-    return (
-      <Card className="flex-1 flex items-center justify-center text-muted-foreground">
-        <p>No label document loaded. Create a new label to get started.</p>
-      </Card>
-    );
-  }
 
   const handleElementClick = (element: LabelElement, e: React.MouseEvent) => {
     e.stopPropagation();
