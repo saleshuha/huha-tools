@@ -1700,7 +1700,30 @@ export function VendorIntegrationManager() {
                     </div>
                     {log.error_message && (
                       <div className="mt-3 p-3 bg-destructive/10 border border-destructive/20 rounded-md">
-                        <p className="text-sm text-destructive">{log.error_message}</p>
+                        <div className="space-y-2">
+                          <p className="text-sm text-destructive font-medium">
+                            {log.error_message.includes('Cannot parse privateKey: Unsupported key format') 
+                              ? '🔑 SSH Key Format Error' 
+                              : 'Error'}
+                          </p>
+                          <p className="text-sm text-destructive">{log.error_message}</p>
+                          {log.error_message.includes('Cannot parse privateKey: Unsupported key format') && (
+                            <div className="mt-3 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200/50 rounded-md">
+                              <p className="text-sm text-amber-700 dark:text-amber-300 font-medium mb-2">
+                                Quick Fix Required:
+                              </p>
+                              <div className="text-xs text-amber-600 dark:text-amber-400 space-y-1">
+                                <p>1. Your key is in OpenSSH format (unsupported)</p>
+                                <p>2. Convert it to PEM format using:</p>
+                                <code className="block bg-amber-100 dark:bg-amber-900/40 p-2 rounded mt-1 text-amber-800 dark:text-amber-200">
+                                  ssh-keygen -p -m PEM -f your_private_key
+                                </code>
+                                <p className="pt-2">3. Or generate a new PEM key using the button above</p>
+                                <p>4. Update the secret with the PEM-format key</p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
                   </CardContent>
