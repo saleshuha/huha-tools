@@ -198,6 +198,9 @@ export const OrdersTable = ({ orders, onUpdateOrder, onDeleteOrder }: OrdersTabl
             <SelectContent>
               <SelectItem value="50">50 per page</SelectItem>
               <SelectItem value="100">100 per page</SelectItem>
+              <SelectItem value="500">500 per page</SelectItem>
+              <SelectItem value="1000">1000 per page</SelectItem>
+              <SelectItem value={filteredOrders.length.toString()}>All ({filteredOrders.length})</SelectItem>
             </SelectContent>
           </Select>
         </div>
