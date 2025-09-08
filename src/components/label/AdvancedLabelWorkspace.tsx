@@ -678,7 +678,7 @@ export const AdvancedLabelWorkspace: React.FC = () => {
     }
   };
 
-  const renderElement = (element: LabelElement) => {
+  const renderElement = useCallback((element: LabelElement) => {
     const isSelected = selectedElement?.id === element.id || selectedElements.has(element.id);
     
     const baseStyle: React.CSSProperties = {
@@ -691,7 +691,6 @@ export const AdvancedLabelWorkspace: React.FC = () => {
       border: isSelected ? '2px solid hsl(var(--primary))' : '1px solid transparent',
       transform: element.rotation ? `rotate(${element.rotation}deg)` : undefined,
       boxShadow: isSelected ? '0 0 0 1px rgba(var(--primary), 0.3)' : 'none',
-      transition: 'all 0.1s ease-in-out',
     };
 
     const elementContent = (() => {
@@ -824,14 +823,14 @@ export const AdvancedLabelWorkspace: React.FC = () => {
       }
     })();
 
-    return (
+     return (
       <ContextMenu key={element.id}>
         <ContextMenuTrigger asChild>
           <div
             style={baseStyle}
             onClick={(e) => handleElementClick(element, e)}
             onMouseDown={(e) => handleMouseDown(element, e)}
-            className={`hover:shadow-md transition-all duration-150 ${isSelected ? 'animate-pulse' : ''}`}
+            className="hover:shadow-md"
           >
             {elementContent}
             {renderAdvancedResizeHandles(element)}
@@ -859,7 +858,7 @@ export const AdvancedLabelWorkspace: React.FC = () => {
         </ContextMenuContent>
       </ContextMenu>
     );
-  };
+  }, [selectedElement, selectedElements, handleElementClick, handleMouseDown, renderAdvancedResizeHandles, handleCopy, handleDuplicate, updateElement, handleDeleteSelected, getDisplayText, generateBarcodeImage]);
 
   return (
     <Card className="flex-1 p-4">
@@ -985,7 +984,7 @@ export const AdvancedLabelWorkspace: React.FC = () => {
         >
           <div
             ref={canvasRef}
-            className="relative bg-white shadow-lg transition-all duration-200"
+            className="relative bg-white shadow-lg"
             style={{
               width: mmToPx(document.size.width),
               height: mmToPx(document.size.height),
