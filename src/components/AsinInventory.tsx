@@ -30,6 +30,7 @@ import { SimpleWarehouseManager } from './SimpleWarehouseManager';
 import { LabelTemplateManager } from './LabelTemplateManager';
 import { useWarehouseManager } from '@/hooks/useWarehouseManager';
 import { useBackgroundTasks } from '@/contexts/BackgroundTasksContext';
+import QZTrayPrinter from '@/utils/qz-tray-printer';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 export function AsinInventory() {
@@ -616,6 +617,48 @@ export function AsinInventory() {
       });
     }
   }, [duplicateData, refetch, toast, setIsDuplicateDialogOpen]);
+
+  // Print single item label using QZ Tray
+  const handlePrintItem = async (item: AsinInventoryItem) => {
+    try {
+      // Check if QZ Tray is connected
+      const connected = await QZTrayPrinter.connect();
+      if (!connected) {
+        toast({
+          title: "QZ Tray Not Connected",
+          description: "Please ensure QZ Tray is running and try again",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Generate simple ZPL for the item
+      const zplCode = `
+^XA
+^FO50,50^A0N,40,40^FD${item.asin}^FS
+^FO50,100^A0N,30,30^FD${item.title || 'No Title'}^FS
+^FO50,140^A0N,25,25^FDSKU: ${item.sku || 'N/A'}^FS
+^FO50,170^A0N,25,25^FDSerial: ${item.serialNumber}^FS
+^FO50,200^A0N,25,25^FDQty: ${item.quantity}^FS
+^XZ`;
+
+      // Print using QZ Tray
+      await QZTrayPrinter.printZPL(zplCode);
+      
+      toast({
+        title: "Label Printed",
+        description: `Printed label for ${item.asin}`,
+      });
+    } catch (error) {
+      console.error('Error printing item:', error);
+      toast({
+        title: "Print Failed",
+        description: "Could not print label. Please check QZ Tray connection.",
+        variant: "destructive"
+      });
+    }
+  };
+
 
   // Export duplicate ASINs data
   const exportDuplicates = () => {
@@ -1211,6 +1254,15 @@ export function AsinInventory() {
                           <div className="flex gap-2">
                             <DualQuantityEditor currentQuantity={item.quantity} onUpdate={(newQuantity, reason) => handleQuantityUpdate(item, newQuantity, reason)} />
                             <StockHistoryDialog inventoryId={item.id} itemIdentifier={`${item.asin} (${item.serialNumber})`} inventoryType="asin" />
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="w-8 h-8 p-0" 
+                              onClick={() => handlePrintItem(item)}
+                              title="Print Label"
+                            >
+                              <Printer className="w-4 h-4" />
+                            </Button>
                           </div>
                         </td>
                     </tr>)}
@@ -1268,6 +1320,15 @@ export function AsinInventory() {
                    <div className="flex items-center gap-2">
                      <DualQuantityEditor currentQuantity={item.quantity} onUpdate={(newQuantity, reason) => handleQuantityUpdate(item, newQuantity, reason)} />
                      <StockHistoryDialog inventoryId={item.id} itemIdentifier={`${item.asin} (${item.serialNumber})`} inventoryType="asin" />
+                     <Button 
+                       variant="outline" 
+                       size="sm" 
+                       className="w-8 h-8 p-0" 
+                       onClick={() => handlePrintItem(item)}
+                       title="Print Label"
+                     >
+                       <Printer className="w-4 h-4" />
+                     </Button>
                    </div>
                 </div>
               </CardContent>

@@ -56,9 +56,8 @@ export function StockHistoryDialog({ inventoryId, itemIdentifier, inventoryType 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <History className="w-4 h-4 mr-2" />
-          History
+        <Button variant="outline" size="sm" className="w-8 h-8 p-0">
+          <History className="w-4 h-4" />
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
