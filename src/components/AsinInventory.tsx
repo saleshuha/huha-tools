@@ -31,6 +31,7 @@ import { LabelTemplateManager } from './LabelTemplateManager';
 import { useWarehouseManager } from '@/hooks/useWarehouseManager';
 import { useBackgroundTasks } from '@/contexts/BackgroundTasksContext';
 import QZTrayPrinter from '@/utils/qz-tray-printer';
+import { generateOrderLabelZPL, type OrderItem, type OrderLabelSettings } from '@/utils/order-label-printer';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 export function AsinInventory() {
@@ -632,22 +633,63 @@ export function AsinInventory() {
         return;
       }
 
-      // Generate simple ZPL for the item
-      const zplCode = `
-^XA
-^FO50,50^A0N,40,40^FD${item.asin}^FS
-^FO50,100^A0N,30,30^FD${item.title || 'No Title'}^FS
-^FO50,140^A0N,25,25^FDSKU: ${item.sku || 'N/A'}^FS
-^FO50,170^A0N,25,25^FDSerial: ${item.serialNumber}^FS
-^FO50,200^A0N,25,25^FDQty: ${item.quantity}^FS
-^XZ`;
+      // Check for saved template settings
+      const savedTemplate = localStorage.getItem('savedLabelTemplate');
+      let labelSettings: OrderLabelSettings = {
+        labelSize: '4x3',
+        dpi: 203,
+        showOrderId: false,
+        showAsin: true,
+        showSku: true,
+        showTitle: true,
+        showQuantity: true,
+        includeBarcode: true,
+        barcodeContent: 'asin'
+      };
+
+      // If there's a saved template, try to get its settings
+      if (savedTemplate) {
+        try {
+          const { data: template } = await supabase
+            .from('label_templates')
+            .select('*')
+            .eq('id', savedTemplate)
+            .single();
+          
+          if (template) {
+            // Adjust settings based on template dimensions
+            const aspectRatio = template.width / template.height;
+            if (aspectRatio > 1.5) {
+              labelSettings.labelSize = '4x3';
+            } else if (aspectRatio > 1.2) {
+              labelSettings.labelSize = '3x2';
+            } else {
+              labelSettings.labelSize = '2x1';
+            }
+          }
+        } catch (error) {
+          console.log('Could not load saved template settings, using defaults');
+        }
+      }
+
+      // Convert AsinInventoryItem to OrderItem format
+      const orderItem: OrderItem = {
+        orderId: item.serialNumber, // Use serial number as order ID
+        asin: item.asin,
+        sku: item.sku || undefined,
+        itemTitle: item.title || `Product ${item.asin}`,
+        itemQuantity: item.quantity
+      };
+
+      // Generate professional ZPL using the order label generator
+      const zplCode = generateOrderLabelZPL(orderItem, labelSettings);
 
       // Print using QZ Tray
       await QZTrayPrinter.printZPL(zplCode);
       
       toast({
         title: "Label Printed",
-        description: `Printed label for ${item.asin}`,
+        description: `Printed professional label for ${item.asin}`,
       });
     } catch (error) {
       console.error('Error printing item:', error);
