@@ -74,8 +74,14 @@ export function VendorIntegrationManager() {
   const [sshKeyGenerated, setSshKeyGenerated] = useState(false);
   const [sshKeyUploaded, setSshKeyUploaded] = useState(false);
   const [generatedKeys, setGeneratedKeys] = useState<{
-    private_key: string;
-    public_key: string;
+    receiving?: {
+      private_key: string;
+      public_key: string;
+    };
+    sending?: {
+      private_key: string;
+      public_key: string;
+    };
   } | null>(null);
   const [generatingKeys, setGeneratingKeys] = useState(false);
 
@@ -183,14 +189,14 @@ export function VendorIntegrationManager() {
     }
   };
 
-  const downloadPublicKey = () => {
-    if (!generatedKeys?.public_key) return;
+  const downloadPublicKey = (keyType: 'receiving' | 'sending') => {
+    if (!generatedKeys?.[keyType]?.public_key) return;
     
-    const blob = new Blob([generatedKeys.public_key], { type: 'text/plain' });
+    const blob = new Blob([generatedKeys[keyType].public_key], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'amazon_vendor_public_key.pub';
+    link.download = `amazon_vendor_${keyType}_public_key.pub`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -198,7 +204,7 @@ export function VendorIntegrationManager() {
     
     toast({
       title: "Downloaded!",
-      description: "Public key downloaded as amazon_vendor_public_key.pub",
+      description: `${keyType.charAt(0).toUpperCase() + keyType.slice(1)} public key downloaded`,
     });
   };
 
@@ -426,19 +432,41 @@ export function VendorIntegrationManager() {
 
               {generatedKeys && (
                 <div className="bg-muted/50 p-4 rounded-lg">
-                  <h4 className="font-medium mb-3">Generated Private Key:</h4>
-                  <div className="bg-black p-3 rounded text-green-400 font-mono text-xs break-all max-h-40 overflow-y-auto">
-                    {generatedKeys.private_key}
+                  <h4 className="font-medium mb-3">Generated Private Keys (Store Securely):</h4>
+                  
+                  {/* Receiving Private Key */}
+                  <div className="mb-4">
+                    <h5 className="text-sm font-medium mb-2 text-blue-600 dark:text-blue-400">📥 Receiving Private Key</h5>
+                    <div className="bg-black p-3 rounded text-green-400 font-mono text-xs break-all max-h-32 overflow-y-auto">
+                      {generatedKeys.receiving?.private_key}
+                    </div>
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="mt-2"
+                      onClick={() => copyToClipboard(generatedKeys.receiving?.private_key || '')}
+                    >
+                      <Copy className="w-4 h-4 mr-2" />
+                      Copy Receiving Private Key
+                    </Button>
                   </div>
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    className="mt-2"
-                    onClick={() => copyToClipboard(generatedKeys.private_key)}
-                  >
-                    <Copy className="w-4 h-4 mr-2" />
-                    Copy Private Key
-                  </Button>
+
+                  {/* Sending Private Key */}
+                  <div>
+                    <h5 className="text-sm font-medium mb-2 text-green-600 dark:text-green-400">📤 Sending Private Key</h5>
+                    <div className="bg-black p-3 rounded text-green-400 font-mono text-xs break-all max-h-32 overflow-y-auto">
+                      {generatedKeys.sending?.private_key}
+                    </div>
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="mt-2"
+                      onClick={() => copyToClipboard(generatedKeys.sending?.private_key || '')}
+                    >
+                      <Copy className="w-4 h-4 mr-2" />
+                      Copy Sending Private Key
+                    </Button>
+                  </div>
                 </div>
               )}
 
@@ -530,27 +558,58 @@ export function VendorIntegrationManager() {
 
             {generatedKeys && (
               <div className="bg-muted/50 p-4 rounded-lg">
-                <h4 className="font-medium mb-3">Copy your PUBLIC key to upload to Amazon:</h4>
-                <div className="bg-black p-3 rounded text-green-400 font-mono text-xs break-all max-h-32 overflow-y-auto">
-                  {generatedKeys.public_key}
+                <h4 className="font-medium mb-3">Amazon Public Keys (Upload to Amazon):</h4>
+                
+                {/* Receiving Key */}
+                <div className="mb-4">
+                  <h5 className="text-sm font-medium mb-2 text-blue-600 dark:text-blue-400">📥 Receiving Public Key (for files Amazon sends to you)</h5>
+                  <div className="bg-black p-3 rounded text-green-400 font-mono text-xs break-all max-h-32 overflow-y-auto">
+                    {generatedKeys.receiving?.public_key}
+                  </div>
+                  <div className="flex gap-2 mt-2">
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      onClick={() => copyToClipboard(generatedKeys.receiving?.public_key || '')}
+                    >
+                      <Copy className="w-4 h-4 mr-2" />
+                      Copy Receiving Key
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => downloadPublicKey('receiving')}
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      Download .pub File
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex gap-2 mt-2">
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    onClick={() => copyToClipboard(generatedKeys.public_key)}
-                  >
-                    <Copy className="w-4 h-4 mr-2" />
-                    Copy Public Key
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={downloadPublicKey}
-                  >
-                    <Download className="w-4 h-4 mr-2" />
-                    Download .pub File
-                  </Button>
+
+                {/* Sending Key */}
+                <div>
+                  <h5 className="text-sm font-medium mb-2 text-green-600 dark:text-green-400">📤 Sending Public Key (for files you send to Amazon)</h5>
+                  <div className="bg-black p-3 rounded text-green-400 font-mono text-xs break-all max-h-32 overflow-y-auto">
+                    {generatedKeys.sending?.public_key}
+                  </div>
+                  <div className="flex gap-2 mt-2">
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      onClick={() => copyToClipboard(generatedKeys.sending?.public_key || '')}
+                    >
+                      <Copy className="w-4 h-4 mr-2" />
+                      Copy Sending Key
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => downloadPublicKey('sending')}
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      Download .pub File
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}
@@ -1339,45 +1398,96 @@ export function VendorIntegrationManager() {
                 </p>
                 
                 <div className="space-y-4">
+                  {/* Receiving Keys */}
                   <div>
-                    <h5 className="font-medium mb-2">Public Key (.pub file for Amazon)</h5>
-                    <div className="bg-black p-3 rounded text-green-400 font-mono text-xs break-all max-h-32 overflow-y-auto">
-                      {generatedKeys.public_key}
+                    <h5 className="font-medium mb-2 text-blue-600 dark:text-blue-400">📥 Receiving Keys (for files Amazon sends to you)</h5>
+                    
+                    <div className="mb-3">
+                      <h6 className="text-sm font-medium mb-1">Public Key (.pub file for Amazon)</h6>
+                      <div className="bg-black p-3 rounded text-green-400 font-mono text-xs break-all max-h-24 overflow-y-auto">
+                        {generatedKeys.receiving?.public_key}
+                      </div>
+                      <div className="flex gap-2 mt-2">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => copyToClipboard(generatedKeys.receiving?.public_key || '')}
+                        >
+                          <Copy className="w-4 h-4 mr-2" />
+                          Copy
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => downloadPublicKey('receiving')}
+                        >
+                          <Download className="w-4 h-4 mr-2" />
+                          Download
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex gap-2 mt-2">
+
+                    <div>
+                      <h6 className="text-sm font-medium mb-1">Private Key (Keep Secure)</h6>
+                      <div className="bg-black p-3 rounded text-green-400 font-mono text-xs break-all max-h-24 overflow-y-auto">
+                        {generatedKeys.receiving?.private_key}
+                      </div>
                       <Button 
                         size="sm" 
-                        variant="outline"
-                        onClick={() => copyToClipboard(generatedKeys.public_key)}
+                        variant="outline" 
+                        className="mt-2"
+                        onClick={() => copyToClipboard(generatedKeys.receiving?.private_key || '')}
                       >
                         <Copy className="w-4 h-4 mr-2" />
-                        Copy Public Key
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={downloadPublicKey}
-                      >
-                        <Download className="w-4 h-4 mr-2" />
-                        Download .pub File
+                        Copy Private Key
                       </Button>
                     </div>
                   </div>
                   
-                  <div>
-                    <h5 className="font-medium mb-2">Private Key (Keep Secure)</h5>
-                    <div className="bg-black p-3 rounded text-green-400 font-mono text-xs break-all max-h-32 overflow-y-auto">
-                      {generatedKeys.private_key}
+                  {/* Sending Keys */}
+                  <div className="border-t pt-4">
+                    <h5 className="font-medium mb-2 text-green-600 dark:text-green-400">📤 Sending Keys (for files you send to Amazon)</h5>
+                    
+                    <div className="mb-3">
+                      <h6 className="text-sm font-medium mb-1">Public Key (.pub file for Amazon)</h6>
+                      <div className="bg-black p-3 rounded text-green-400 font-mono text-xs break-all max-h-24 overflow-y-auto">
+                        {generatedKeys.sending?.public_key}
+                      </div>
+                      <div className="flex gap-2 mt-2">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => copyToClipboard(generatedKeys.sending?.public_key || '')}
+                        >
+                          <Copy className="w-4 h-4 mr-2" />
+                          Copy
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => downloadPublicKey('sending')}
+                        >
+                          <Download className="w-4 h-4 mr-2" />
+                          Download
+                        </Button>
+                      </div>
                     </div>
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
-                      className="mt-2"
-                      onClick={() => copyToClipboard(generatedKeys.private_key)}
-                    >
-                      <Copy className="w-4 h-4 mr-2" />
-                      Copy Private Key
-                    </Button>
+
+                    <div>
+                      <h6 className="text-sm font-medium mb-1">Private Key (Keep Secure)</h6>
+                      <div className="bg-black p-3 rounded text-green-400 font-mono text-xs break-all max-h-24 overflow-y-auto">
+                        {generatedKeys.sending?.private_key}
+                      </div>
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="mt-2"
+                        onClick={() => copyToClipboard(generatedKeys.sending?.private_key || '')}
+                      >
+                        <Copy className="w-4 h-4 mr-2" />
+                        Copy Private Key
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>

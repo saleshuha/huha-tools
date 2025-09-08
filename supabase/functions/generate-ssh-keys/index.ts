@@ -22,7 +22,7 @@ function arrayBufferToPem(buffer: ArrayBuffer, type: 'PRIVATE' | 'PUBLIC'): stri
 }
 
 // Helper function to convert public key to SSH format
-async function publicKeyToSSHFormat(publicKey: CryptoKey): Promise<string> {
+async function publicKeyToSSHFormat(publicKey: CryptoKey, keyType: string = 'integration'): Promise<string> {
   // Export the public key in SPKI format
   const exported = await crypto.subtle.exportKey('spki', publicKey);
   
@@ -35,9 +35,8 @@ async function publicKeyToSSHFormat(publicKey: CryptoKey): Promise<string> {
     .replace('-----END PUBLIC KEY-----', '')
     .replace(/\s/g, '');
   
-  // Convert PEM to SSH format
-  // This is a simplified approach that should work with Amazon
-  return `ssh-rsa ${base64Content} amazon-vendor-central@integration`;
+  // Convert PEM to SSH format with descriptive key name
+  return `ssh-rsa ${base64Content} amazon-vendor-${keyType}@integration`;
 }
 
 serve(async (req) => {
@@ -47,10 +46,10 @@ serve(async (req) => {
   }
 
   try {
-    console.log('Generating SSH key pair for Amazon Vendor Central integration');
+    console.log('Generating SSH key pairs for Amazon Vendor Central integration (receiving and sending)');
 
-    // Generate RSA key pair using Web Crypto API (standard RSA for SSH compatibility)
-    const keyPair = await crypto.subtle.generateKey(
+    // Generate receiving key pair
+    const receivingKeyPair = await crypto.subtle.generateKey(
       {
         name: 'RSASSA-PKCS1-v1_5',
         modulusLength: 2048,
@@ -61,28 +60,51 @@ serve(async (req) => {
       ['sign', 'verify']
     );
 
-    // Export private key in PKCS#8 format
-    const privateKeyBuffer = await crypto.subtle.exportKey('pkcs8', keyPair.privateKey);
-    const privateKeyPem = arrayBufferToPem(privateKeyBuffer, 'PRIVATE');
+    // Generate sending key pair
+    const sendingKeyPair = await crypto.subtle.generateKey(
+      {
+        name: 'RSASSA-PKCS1-v1_5',
+        modulusLength: 2048,
+        publicExponent: new Uint8Array([1, 0, 1]), // 65537
+        hash: 'SHA-256',
+      },
+      true, // extractable
+      ['sign', 'verify']
+    );
 
-    // Export public key in SSH format
-    const publicKeySSH = await publicKeyToSSHFormat(keyPair.publicKey);
+    // Export receiving keys
+    const receivingPrivateKeyBuffer = await crypto.subtle.exportKey('pkcs8', receivingKeyPair.privateKey);
+    const receivingPrivateKeyPem = arrayBufferToPem(receivingPrivateKeyBuffer, 'PRIVATE');
+    const receivingPublicKeySSH = await publicKeyToSSHFormat(receivingKeyPair.publicKey, 'receiving');
 
-    console.log('SSH key pair generated successfully');
+    // Export sending keys
+    const sendingPrivateKeyBuffer = await crypto.subtle.exportKey('pkcs8', sendingKeyPair.privateKey);
+    const sendingPrivateKeyPem = arrayBufferToPem(sendingPrivateKeyBuffer, 'PRIVATE');
+    const sendingPublicKeySSH = await publicKeyToSSHFormat(sendingKeyPair.publicKey, 'sending');
+
+    console.log('SSH key pairs generated successfully');
     
     return Response.json({
       success: true,
       keys: {
-        private_key: privateKeyPem,
-        public_key: publicKeySSH
+        receiving: {
+          private_key: receivingPrivateKeyPem,
+          public_key: receivingPublicKeySSH
+        },
+        sending: {
+          private_key: sendingPrivateKeyPem,
+          public_key: sendingPublicKeySSH
+        }
       },
       instructions: {
-        private_key_usage: "Store this private key securely in your secrets management. Never share it.",
-        public_key_usage: "Upload this public key to Amazon Vendor Central in the EDI Settings section.",
+        receiving_key_usage: "Upload this receiving public key to Amazon for files they send to you",
+        sending_key_usage: "Upload this sending public key to Amazon for files you send to them",
+        private_key_usage: "Store both private keys securely in your secrets management. Never share them.",
         next_steps: [
-          "Copy and securely store the private key",
-          "Upload the public key to Amazon Vendor Central",
-          "Wait for Amazon to activate your SSH key (24-48 hours)",
+          "Copy and securely store both private keys",
+          "Upload the receiving public key to Amazon for incoming files",
+          "Upload the sending public key to Amazon for outgoing files",
+          "Wait for Amazon to activate your SSH keys (24-48 hours)",
           "Receive SFTP connection details from Amazon via email"
         ]
       }
