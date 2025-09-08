@@ -256,7 +256,9 @@ export function VendorIntegrationManager() {
   </message>
 </transmission>`;
     
-    await sendTestFile(integrationId, testXML, 'test_order_response.xml');
+    // Ensure filename has .xml extension
+    const fileName = 'test_order_response.xml';
+    await sendTestFile(integrationId, testXML, fileName);
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -281,17 +283,23 @@ export function VendorIntegrationManager() {
   const handleSendConnectivityTest = async (integrationId: string) => {
     try {
       let contentToSend: string;
+      let fileName: string;
       
       if (uploadedTestFile) {
         // Use uploaded file
         contentToSend = uploadedTestFile;
+        // Ensure uploaded filename has .xml extension
+        fileName = uploadedFileName && !uploadedFileName.toLowerCase().endsWith('.xml') 
+          ? uploadedFileName + '.xml' 
+          : uploadedFileName || 'connectivity_test.xml';
       } else {
         // Use default connectivity test file
         const response = await fetch('/yourconnectivitytest.txt');
         contentToSend = await response.text();
+        fileName = 'yourconnectivitytest.xml';
       }
       
-      await sendTestFile(integrationId, contentToSend, uploadedFileName);
+      await sendTestFile(integrationId, contentToSend, fileName);
     } catch (error) {
       toast({
         title: "Error",

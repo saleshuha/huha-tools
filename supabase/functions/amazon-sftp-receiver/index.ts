@@ -11,6 +11,41 @@ interface ReceiveFilesRequest {
   force_check?: boolean;
 }
 
+// Function to normalize PEM format keys (handles single-line PEM keys)
+function normalizePem(pemKey: string): string {
+  if (!pemKey) return pemKey;
+  
+  let normalized = pemKey.trim();
+  
+  // Handle escaped newlines first
+  normalized = normalized.replace(/\\n/g, '\n');
+  
+  // If it's a single-line key, add proper line breaks
+  if (!normalized.includes('\n') || normalized.split('\n').length <= 2) {
+    // Check if it has PEM markers
+    const beginMatch = normalized.match(/(-----BEGIN[^-]+-----)/);
+    const endMatch = normalized.match(/(-----END[^-]+-----)/);
+    
+    if (beginMatch && endMatch) {
+      const header = beginMatch[1];
+      const footer = endMatch[1];
+      
+      // Extract the key content between markers
+      let keyContent = normalized.replace(header, '').replace(footer, '').replace(/\s/g, '');
+      
+      // Add line breaks every 64 characters for proper PEM format
+      const lines = [];
+      for (let i = 0; i < keyContent.length; i += 64) {
+        lines.push(keyContent.substr(i, 64));
+      }
+      
+      normalized = header + '\n' + lines.join('\n') + '\n' + footer;
+    }
+  }
+  
+  return normalized;
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {

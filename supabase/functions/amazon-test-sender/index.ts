@@ -13,6 +13,47 @@ interface TestSendRequest {
   file_name?: string;
 }
 
+// Function to normalize PEM format keys (handles single-line PEM keys)
+function normalizePem(pemKey: string): string {
+  if (!pemKey) return pemKey;
+  
+  let normalized = pemKey.trim();
+  
+  // Handle escaped newlines first
+  normalized = normalized.replace(/\\n/g, '\n');
+  
+  // If it's a single-line key, add proper line breaks
+  if (!normalized.includes('\n') || normalized.split('\n').length <= 2) {
+    // Check if it has PEM markers
+    const beginMatch = normalized.match(/(-----BEGIN[^-]+-----)/);
+    const endMatch = normalized.match(/(-----END[^-]+-----)/);
+    
+    if (beginMatch && endMatch) {
+      const header = beginMatch[1];
+      const footer = endMatch[1];
+      
+      // Extract the key content between markers
+      let keyContent = normalized.replace(header, '').replace(footer, '').replace(/\s/g, '');
+      
+      // Add line breaks every 64 characters for proper PEM format
+      const lines = [];
+      for (let i = 0; i < keyContent.length; i += 64) {
+        lines.push(keyContent.substr(i, 64));
+      }
+      
+      normalized = header + '\n' + lines.join('\n') + '\n' + footer;
+    }
+  }
+  
+  return normalized;
+}
+
+// Function to ensure filename has .xml extension
+function ensureXmlExtension(filename: string): string {
+  if (!filename) return filename;
+  return filename.toLowerCase().endsWith('.xml') ? filename : filename + '.xml';
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -130,9 +171,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Generate file name if not provided
+    // Generate file name if not provided and ensure .xml extension
     const timestamp = Date.now();
-    const defaultFileName = file_name || `test_ofr_${timestamp}.xml`;
+    const defaultFileName = ensureXmlExtension(file_name || `test_ofr_${timestamp}`);
 
     // Start background task to send file
     const sendTask = async () => {
@@ -175,11 +216,8 @@ Deno.serve(async (req) => {
           // Create SFTP client
           const sftp = new SftpClient();
           
-          // Process and validate the private key
-          let processedPrivateKey = privateKey.trim();
-          
-          // Handle escaped newlines
-          processedPrivateKey = processedPrivateKey.replace(/\\n/g, '\n');
+          // Process and validate the private key using normalizePem
+          let processedPrivateKey = normalizePem(privateKey);
           
           // Log key format for debugging (first and last line only for security)
           const keyLines = processedPrivateKey.split('\n');
