@@ -263,7 +263,7 @@ export function VendorIntegrationManager() {
       const response = await fetch('/yourconnectivitytest.txt');
       const connectivityTestXML = await response.text();
       
-      await sendTestFile(integrationId, connectivityTestXML, 'yourconnectivitytest.txt');
+      await sendTestFile(integrationId, connectivityTestXML, 'ConnectivityTest');
     } catch (error) {
       toast({
         title: "Error",
