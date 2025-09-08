@@ -5,6 +5,7 @@ import { LabelWorkspace } from '@/components/label/LabelWorkspace';
 import { LabelPropertiesPanel } from '@/components/label/LabelPropertiesPanel';
 import { InventoryDataMapper } from '@/components/label/InventoryDataMapper';
 import { OrderLabelTemplates } from '@/components/label/OrderLabelTemplates';
+import { InventoryLabelTemplates } from '@/components/label/InventoryLabelTemplates';
 import { DateWiseOrderPrint } from '@/components/label/DateWiseOrderPrint';
 import { NoonOrderPrint } from '@/components/label/NoonOrderPrint';
 import { PrintEligibleItems } from '@/components/label/PrintEligibleItems';
@@ -316,18 +317,18 @@ const LabelDesignerContent: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Step 2: Quick Templates */}
+                {/* Step 2: Inventory Templates */}
                 <div className="border-2 border-border/60 rounded-xl bg-gradient-to-br from-card/70 to-card/50 shadow-md">
                   <div className="p-4 border-b-2 border-border/30 bg-gradient-to-r from-accent/10 to-accent/5">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent to-accent/80 text-accent-foreground font-bold text-sm flex items-center justify-center shadow-sm">
                         2
                       </div>
-                      <h3 className="font-semibold text-foreground">Quick Templates</h3>
+                      <h3 className="font-semibold text-foreground">Inventory Templates</h3>
                     </div>
                   </div>
                   <div className="p-4">
-                    <OrderLabelTemplates />
+                    <InventoryLabelTemplates />
                   </div>
                 </div>
 
