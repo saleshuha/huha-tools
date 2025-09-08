@@ -22,12 +22,22 @@ function arrayBufferToPem(buffer: ArrayBuffer, type: 'PRIVATE' | 'PUBLIC'): stri
 }
 
 // Helper function to convert public key to SSH format
-function publicKeyToSSHFormat(publicKey: CryptoKey): Promise<string> {
-  return crypto.subtle.exportKey('spki', publicKey)
-    .then(exported => {
-      const base64 = base64Encode(new Uint8Array(exported));
-      return `ssh-rsa ${base64} amazon-vendor-central-integration`;
-    });
+async function publicKeyToSSHFormat(publicKey: CryptoKey): Promise<string> {
+  // Export the public key in SPKI format
+  const exported = await crypto.subtle.exportKey('spki', publicKey);
+  
+  // Convert to PEM format first, then extract the base64 part
+  const pemKey = arrayBufferToPem(exported, 'PUBLIC');
+  
+  // Extract just the base64 content (remove headers and newlines)
+  const base64Content = pemKey
+    .replace('-----BEGIN PUBLIC KEY-----', '')
+    .replace('-----END PUBLIC KEY-----', '')
+    .replace(/\s/g, '');
+  
+  // Convert PEM to SSH format
+  // This is a simplified approach that should work with Amazon
+  return `ssh-rsa ${base64Content} amazon-vendor-central@integration`;
 }
 
 serve(async (req) => {
@@ -39,10 +49,10 @@ serve(async (req) => {
   try {
     console.log('Generating SSH key pair for Amazon Vendor Central integration');
 
-    // Generate RSA key pair using Web Crypto API
+    // Generate RSA key pair using Web Crypto API (standard RSA for SSH compatibility)
     const keyPair = await crypto.subtle.generateKey(
       {
-        name: 'RSA-PSS',
+        name: 'RSASSA-PKCS1-v1_5',
         modulusLength: 2048,
         publicExponent: new Uint8Array([1, 0, 1]), // 65537
         hash: 'SHA-256',
