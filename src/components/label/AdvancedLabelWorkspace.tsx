@@ -156,17 +156,24 @@ export const AdvancedLabelWorkspace: React.FC = () => {
     return Math.round(value / gridSize) * gridSize;
   }, [snapToGrid, gridSize]);
 
-  // History management
+  // History management - Fixed to avoid infinite re-renders  
   const saveToHistory = useCallback(() => {
     if (!document) return;
     
     const newState = JSON.parse(JSON.stringify(document.elements));
-    const newHistory = history.slice(0, historyIndex + 1);
-    newHistory.push(newState);
     
-    setHistory(newHistory);
-    setHistoryIndex(newHistory.length - 1);
-  }, [document, history, historyIndex]);
+    // First update the index and capture the current value
+    setHistoryIndex(prevIndex => {
+      // Use the previous index to trim history in a separate call
+      setHistory(prevHistory => {
+        const trimmedHistory = prevHistory.slice(0, prevIndex + 1);
+        trimmedHistory.push(newState);
+        return trimmedHistory;
+      });
+      
+      return prevIndex + 1;
+    });
+  }, [document]);
 
   const handleUndo = () => {
     if (historyIndex > 0) {
