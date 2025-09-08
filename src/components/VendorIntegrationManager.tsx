@@ -1016,13 +1016,27 @@ export function VendorIntegrationManager() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="ssh_fingerprint_sending">SSH Fingerprint</Label>
-                      <Input
-                        id="ssh_fingerprint_sending"
-                        value={formData.ssh_fingerprint_sending}
-                        onChange={(e) => setFormData({ ...formData, ssh_fingerprint_sending: e.target.value })}
-                        placeholder="MD5 fingerprint from Amazon"
-                      />
+                      <Label htmlFor="ssh_fingerprint_sending">SSH Fingerprint (Sending)</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="ssh_fingerprint_sending"
+                          value={formData.ssh_fingerprint_sending}
+                          onChange={(e) => setFormData({ ...formData, ssh_fingerprint_sending: e.target.value })}
+                          placeholder="MD5 fingerprint from Amazon"
+                          className="flex-1"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setFormData({ ...formData, ssh_fingerprint_sending: '25ec34d17b01d08cf7231e64882e882b' })}
+                        >
+                          Use Current
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Current uploaded fingerprint: 25ec34d17b01d08cf7231e64882e882b
+                      </p>
                     </div>
                   </div>
                 </div>
