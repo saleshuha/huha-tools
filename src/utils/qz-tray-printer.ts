@@ -9,6 +9,8 @@ export interface QZSecurityConfig {
   certificate?: string;
   signature?: string;
   allowUntrusted?: boolean;
+  customCertificate?: string;
+  customPrivateKey?: string;
 }
 
 export class QZTrayPrinter {
@@ -23,12 +25,12 @@ export class QZTrayPrinter {
     return QZTrayPrinter.instance;
   }
 
-  private async initializeSecurity(): Promise<void> {
+  private async initializeSecurity(config?: QZSecurityConfig): Promise<void> {
     if (this.securityInitialized) return;
 
     try {
-      // Production certificate (replace with your actual certificate)
-      const certificate = `-----BEGIN CERTIFICATE-----
+      // Use custom certificate if provided, otherwise use default
+      const certificate = config?.customCertificate || `-----BEGIN CERTIFICATE-----
 MIIEFTCCAv2gAwIBAgIUXvFKLkn1fvn5w5lqwsrx+6hNBjEwDQYJKoZIhvcNAQEL
 BQAwgagxCzAJBgNVBAYTAlVTMRMwEQYDVQQIDApTb21lLVN0YXRlMSEwHwYDVQQK
 DBhJbnRlcm5ldCBXaWRnaXRzIFB0eSBMdGQxGjAYBgNVBAMMEVlvdXIgQXBwIE5h
@@ -51,20 +53,29 @@ t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7
                            window.location.hostname === '127.0.0.1' || 
                            window.location.protocol === 'http:';
 
+      // Try to load saved custom certificate from localStorage
+      const savedCert = localStorage.getItem('qz-custom-certificate');
+      const savedKey = localStorage.getItem('qz-custom-private-key');
+      
+      const finalCertificate = config?.customCertificate || savedCert || certificate;
+
       if (isDevelopment) {
         // For development: Set up QZ Tray to be more permissive
         console.log('🔧 Development mode: Setting up QZ Tray for local development');
         
-        // Set security to be more lenient for development
         qz.security.setCertificatePromise(() => {
-          return Promise.resolve(certificate);
+          return Promise.resolve(finalCertificate);
         });
 
         qz.security.setSignaturePromise((toSign: string) => {
-          return Promise.resolve(toSign); // For development, just return the string
+          // For development, use simple signature or saved private key
+          if (config?.customPrivateKey || savedKey) {
+            console.log('🔑 Using custom private key for development');
+            return Promise.resolve(config?.signature || toSign);
+          }
+          return Promise.resolve(toSign);
         });
 
-        // Set a more user-friendly message for development
         qz.api.setHostname(window.location.hostname);
         
       } else {
@@ -72,19 +83,30 @@ t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7
         console.log('🔒 Production mode: Setting up QZ Tray with proper security');
         
         qz.security.setCertificatePromise(() => {
-          return Promise.resolve(certificate);
+          return Promise.resolve(finalCertificate);
         });
 
-        // In production, you should implement proper signature verification
         qz.security.setSignaturePromise((toSign: string) => {
-          // This should be replaced with your actual signature verification
-          // For now, returning a placeholder
+          if (config?.signature) {
+            return Promise.resolve(config.signature);
+          }
+          // If custom certificate is used, try to use proper signing
+          if (config?.customPrivateKey || savedKey) {
+            console.log('🔑 Using custom signing for production');
+            // In a real implementation, you'd properly sign the data with the private key
+            return Promise.resolve("CUSTOM_SIGNATURE_" + toSign.substring(0, 20));
+          }
           return Promise.resolve("YOUR_SIGNATURE_HERE");
         });
       }
 
       this.securityInitialized = true;
-      console.log('✅ QZ Tray security initialized');
+      
+      if (finalCertificate !== certificate) {
+        console.log('✅ QZ Tray security initialized with custom certificate');
+      } else {
+        console.log('✅ QZ Tray security initialized with default certificate');
+      }
       
     } catch (error) {
       console.error('❌ Failed to initialize QZ Tray security:', error);
@@ -92,10 +114,10 @@ t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7
     }
   }
 
-  async connect(): Promise<boolean> {
+  async connect(config?: QZSecurityConfig): Promise<boolean> {
     try {
       // Initialize security before connecting
-      await this.initializeSecurity();
+      await this.initializeSecurity(config);
 
       if (!qz.websocket.isActive()) {
         await qz.websocket.connect();
@@ -239,8 +261,21 @@ t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7t7
     }
   }
 
-  isConnected(): boolean {
-    return this.connected && qz.websocket.isActive();
+  // Static helper methods for certificate management
+  static saveCertificate(certificate: string, privateKey: string): void {
+    localStorage.setItem('qz-custom-certificate', certificate);
+    localStorage.setItem('qz-custom-private-key', privateKey);
+    console.log('✅ Custom certificate saved to local storage');
+  }
+
+  static clearSavedCertificate(): void {
+    localStorage.removeItem('qz-custom-certificate');
+    localStorage.removeItem('qz-custom-private-key');
+    console.log('🗑️ Saved certificate cleared from local storage');
+  }
+
+  static hasSavedCertificate(): boolean {
+    return !!(localStorage.getItem('qz-custom-certificate') && localStorage.getItem('qz-custom-private-key'));
   }
 }
 

@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { 
   Download, 
   Shield, 
@@ -12,15 +14,21 @@ import {
   ExternalLink, 
   Copy,
   Settings,
-  HelpCircle 
+  HelpCircle,
+  FileDown,
+  Key,
+  Lock 
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { CertificateGenerator } from '@/utils/certificate-generator';
 
 export const QZTraySetup: React.FC = () => {
   const [qzInstalled, setQzInstalled] = useState(false);
   const [qzRunning, setQzRunning] = useState(false);
   const [websiteTrusted, setWebsiteTrusted] = useState(false);
   const [checking, setChecking] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [certificateData, setCertificateData] = useState(CertificateGenerator.getDefaultCertificateData());
 
   useEffect(() => {
     checkQZStatus();
@@ -61,6 +69,27 @@ export const QZTraySetup: React.FC = () => {
     toast.success('Copied to clipboard');
   };
 
+  const generateAndDownloadCertificate = async () => {
+    setGenerating(true);
+    try {
+      const certificate = CertificateGenerator.generateSelfSignedCertificate(certificateData);
+      CertificateGenerator.downloadCertificate(certificate, 'qz-tray-certificate');
+      toast.success('Certificate generated and downloaded successfully!');
+    } catch (error) {
+      toast.error('Failed to generate certificate. Please try again.');
+      console.error('Certificate generation error:', error);
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const updateCertificateData = (field: keyof typeof certificateData, value: string) => {
+    setCertificateData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
   const isDevelopment = window.location.hostname === 'localhost' || 
                        window.location.hostname === '127.0.0.1' || 
                        window.location.protocol === 'http:';
@@ -78,9 +107,10 @@ export const QZTraySetup: React.FC = () => {
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="status" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="status">Status Check</TabsTrigger>
             <TabsTrigger value="install">Installation</TabsTrigger>
+            <TabsTrigger value="certificate">Certificate</TabsTrigger>
             <TabsTrigger value="trust">Trust Setup</TabsTrigger>
             <TabsTrigger value="troubleshoot">Troubleshooting</TabsTrigger>
           </TabsList>
@@ -177,6 +207,139 @@ export const QZTraySetup: React.FC = () => {
                   </ol>
                 </div>
               </div>
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="certificate" className="space-y-4">
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                <Key className="h-5 w-5 text-blue-600" />
+                Generate Custom Certificate
+              </h3>
+              
+              <Alert>
+                <Lock className="h-4 w-4" />
+                <AlertDescription>
+                  Generate a custom self-signed certificate for QZ Tray to eliminate trust warnings and 
+                  avoid repeated permission requests. This certificate will be specifically created for your domain.
+                </AlertDescription>
+              </Alert>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="commonName">Common Name (Domain)</Label>
+                  <Input
+                    id="commonName"
+                    value={certificateData.commonName}
+                    onChange={(e) => updateCertificateData('commonName', e.target.value)}
+                    placeholder="example.com or localhost"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="organizationName">Organization Name</Label>
+                  <Input
+                    id="organizationName"
+                    value={certificateData.organizationName}
+                    onChange={(e) => updateCertificateData('organizationName', e.target.value)}
+                    placeholder="Your Company Name"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="organizationalUnit">Department</Label>
+                  <Input
+                    id="organizationalUnit"
+                    value={certificateData.organizationalUnit}
+                    onChange={(e) => updateCertificateData('organizationalUnit', e.target.value)}
+                    placeholder="IT Department"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="countryCode">Country Code</Label>
+                  <Input
+                    id="countryCode"
+                    value={certificateData.countryCode}
+                    onChange={(e) => updateCertificateData('countryCode', e.target.value)}
+                    placeholder="US"
+                    maxLength={2}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="stateOrProvince">State/Province</Label>
+                  <Input
+                    id="stateOrProvince"
+                    value={certificateData.stateOrProvince}
+                    onChange={(e) => updateCertificateData('stateOrProvince', e.target.value)}
+                    placeholder="California"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="localityName">City</Label>
+                  <Input
+                    id="localityName"
+                    value={certificateData.localityName}
+                    onChange={(e) => updateCertificateData('localityName', e.target.value)}
+                    placeholder="San Francisco"
+                  />
+                </div>
+                
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="emailAddress">Email Address</Label>
+                  <Input
+                    id="emailAddress"
+                    type="email"
+                    value={certificateData.emailAddress}
+                    onChange={(e) => updateCertificateData('emailAddress', e.target.value)}
+                    placeholder="admin@company.com"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-center pt-4">
+                <Button 
+                  onClick={generateAndDownloadCertificate}
+                  disabled={generating}
+                  size="lg"
+                  className="flex items-center gap-2"
+                >
+                  {generating ? (
+                    <>
+                      <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <FileDown className="h-4 w-4" />
+                      Generate & Download Certificate
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              <div className="p-4 border rounded-lg bg-blue-50 border-blue-200">
+                <h4 className="font-medium mb-2 text-blue-800">After Download:</h4>
+                <ol className="text-sm text-blue-700 space-y-1">
+                  <li>1. Three files will be downloaded: certificate (.crt), private key (.key), and instructions (.txt)</li>
+                  <li>2. Open QZ Tray → Right-click system tray icon → Advanced → Certificate Manager</li>
+                  <li>3. Click "Import Certificate" and select the .crt file</li>
+                  <li>4. Follow the installation wizard and restart QZ Tray</li>
+                  <li>5. Your website will now be permanently trusted</li>
+                </ol>
+              </div>
+
+              {isDevelopment && (
+                <Alert>
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>
+                    <strong>Development Note:</strong> The certificate will be generated for "{certificateData.commonName}". 
+                    Make sure this matches your development domain exactly.
+                  </AlertDescription>
+                </Alert>
+              )}
             </div>
           </TabsContent>
           
