@@ -12,7 +12,10 @@ export function resolveMappedContent(
   
   // Apply data mapping if available
   if (element.dataColumn && headers.length > 0 && dataRow.length > 0) {
-    const columnIndex = headers.indexOf(element.dataColumn);
+    // Case-insensitive column matching
+    const columnIndex = headers.findIndex(header => 
+      header.toLowerCase() === element.dataColumn.toLowerCase()
+    );
     if (columnIndex >= 0 && dataRow[columnIndex] !== undefined) {
       content = String(dataRow[columnIndex]);
       
