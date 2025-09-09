@@ -214,11 +214,23 @@ export class PrintService {
     switch (element.type) {
       case 'text':
         const content = resolveMappedContent(element, dataRow, dataset?.headers || []);
+        console.log('Text element mapping:', { 
+          element: element.dataColumn, 
+          headers: dataset?.headers, 
+          dataRow, 
+          resolved: content 
+        });
         const fontSize = Math.round((element.fontSize || 12) / 3); // ZPL font scaling
         return `^FO${x},${y}^A0N,${fontSize * 10},${fontSize * 8}^FD${content}^FS\n`;
 
       case 'multitext':
         const multiContent = resolveMappedContent(element, dataRow, dataset?.headers || []);
+        console.log('Multitext element mapping:', { 
+          element: element.dataColumn, 
+          headers: dataset?.headers, 
+          dataRow, 
+          resolved: multiContent 
+        });
         const multiFontSize = Math.round((element.fontSize || 10) / 3);
         const lineHeight = Math.round((element.lineHeight || 1.2) * multiFontSize * 10);
         
@@ -259,6 +271,12 @@ export class PrintService {
 
       case 'barcode':
         const barcodeContent = resolveMappedContent(element, dataRow, dataset?.headers || []);
+        console.log('Barcode element mapping:', { 
+          element: element.dataColumn, 
+          headers: dataset?.headers, 
+          dataRow, 
+          resolved: barcodeContent 
+        });
         const barcodeHeight = this.mmToDots(pxToMM(element.height), dpi);
         return `^FO${x},${y}^BY2,3,${barcodeHeight}^BCN,,Y,N^FD${barcodeContent}^FS\n`;
 
