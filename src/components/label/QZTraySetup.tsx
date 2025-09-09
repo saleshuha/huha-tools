@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { CertificateGenerator } from '@/utils/certificate-generator';
+import { QZCertificateManager } from '@/utils/qz-certificate-manager';
 
 export const QZTraySetup: React.FC = () => {
   const [qzInstalled, setQzInstalled] = useState(false);
@@ -29,10 +30,16 @@ export const QZTraySetup: React.FC = () => {
   const [checking, setChecking] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [certificateData, setCertificateData] = useState(CertificateGenerator.getDefaultCertificateData());
+  const [certificateStatus, setCertificateStatus] = useState(QZCertificateManager.getCertificateStatus());
 
   useEffect(() => {
     checkQZStatus();
+    updateCertificateStatus();
   }, []);
+
+  const updateCertificateStatus = () => {
+    setCertificateStatus(QZCertificateManager.getCertificateStatus());
+  };
 
   const checkQZStatus = async () => {
     setChecking(true);
@@ -113,13 +120,30 @@ export const QZTraySetup: React.FC = () => {
     try {
       const certificate = CertificateGenerator.generateSelfSignedCertificate(certificateData);
       CertificateGenerator.downloadCertificate(certificate, 'qz-tray-certificate');
-      toast.success('Certificate generated and downloaded successfully!');
+      
+      // Also store the certificate for future use
+      QZCertificateManager.importGeneratedCertificate(certificate, certificateData.commonName);
+      updateCertificateStatus();
+      
+      toast.success('Certificate generated, downloaded, and stored for future use!');
     } catch (error) {
       toast.error('Failed to generate certificate. Please try again.');
       console.error('Certificate generation error:', error);
     } finally {
       setGenerating(false);
     }
+  };
+
+  const clearStoredCertificate = () => {
+    QZCertificateManager.clearStoredCertificate();
+    updateCertificateStatus();
+    toast.success('Stored certificate cleared');
+  };
+
+  const resetDevCertificate = () => {
+    QZCertificateManager.clearDevCertificate();
+    updateCertificateStatus();
+    toast.success('Development certificate reset');
   };
 
   const updateCertificateData = (field: keyof typeof certificateData, value: string) => {
@@ -146,10 +170,11 @@ export const QZTraySetup: React.FC = () => {
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="status" className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="status">Status Check</TabsTrigger>
             <TabsTrigger value="install">Installation</TabsTrigger>
-            <TabsTrigger value="certificate">Certificate</TabsTrigger>
+            <TabsTrigger value="certificates">Certificates</TabsTrigger>
+            <TabsTrigger value="certificate">Generate</TabsTrigger>
             <TabsTrigger value="trust">Trust Setup</TabsTrigger>
             <TabsTrigger value="troubleshoot">Troubleshooting</TabsTrigger>
           </TabsList>
@@ -272,6 +297,118 @@ export const QZTraySetup: React.FC = () => {
             </div>
           </TabsContent>
           
+          <TabsContent value="certificates" className="space-y-4">
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                <Shield className="h-5 w-5 text-blue-600" />
+                Certificate Management
+              </h3>
+              
+              <Alert className={certificateStatus.currentCertificate && !certificateStatus.isExpired ? 'border-green-200 bg-green-50' : 'border-yellow-200 bg-yellow-50'}>
+                <Key className="h-4 w-4" />
+                <AlertDescription>
+                  <div className="space-y-2">
+                    <div className="font-medium">
+                      {certificateStatus.currentCertificate 
+                        ? `Active Certificate: ${certificateStatus.currentCertificate.commonName}`
+                        : 'No Active Certificate'
+                      }
+                    </div>
+                    {certificateStatus.currentCertificate && (
+                      <div className="text-sm text-muted-foreground">
+                        <div>Fingerprint: {certificateStatus.currentCertificate.fingerprint.slice(0, 40)}...</div>
+                        <div>Expires: {new Date(certificateStatus.currentCertificate.expiresAt).toLocaleDateString()}</div>
+                        {certificateStatus.isExpired && (
+                          <div className="text-red-600 font-medium">⚠️ Certificate has expired</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </AlertDescription>
+              </Alert>
+
+              <div className="grid gap-4">
+                {certificateStatus.hasBuiltInCertificate && (
+                  <div className="p-4 border rounded-lg bg-blue-50 border-blue-200">
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-2">
+                        <h4 className="font-medium flex items-center gap-2 text-blue-800">
+                          <Settings className="h-4 w-4" />
+                          Development Certificate
+                        </h4>
+                        <p className="text-sm text-blue-700">
+                          Built-in certificate for localhost development. This provides consistent identity across sessions.
+                        </p>
+                        <div className="text-xs text-blue-600">
+                          Domain: localhost • Status: Active
+                        </div>
+                      </div>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={resetDevCertificate}
+                        className="border-blue-300 text-blue-700 hover:bg-blue-100"
+                      >
+                        Reset
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {certificateStatus.hasCustomCertificate && (
+                  <div className="p-4 border rounded-lg bg-green-50 border-green-200">
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-2">
+                        <h4 className="font-medium flex items-center gap-2 text-green-800">
+                          <Key className="h-4 w-4" />
+                          Custom Certificate
+                        </h4>
+                        <p className="text-sm text-green-700">
+                          Your custom certificate for {certificateStatus.currentCertificate?.commonName}
+                        </p>
+                        <div className="text-xs text-green-600">
+                          Created: {certificateStatus.currentCertificate && 
+                            new Date(certificateStatus.currentCertificate.createdAt).toLocaleDateString()}
+                        </div>
+                      </div>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={clearStoredCertificate}
+                        className="border-green-300 text-green-700 hover:bg-green-100"
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {!certificateStatus.hasCustomCertificate && !certificateStatus.hasBuiltInCertificate && (
+                  <div className="p-4 border rounded-lg bg-yellow-50 border-yellow-200">
+                    <div className="flex items-center gap-3">
+                      <AlertTriangle className="h-5 w-5 text-yellow-600" />
+                      <div>
+                        <h4 className="font-medium text-yellow-800">No Certificate Available</h4>
+                        <p className="text-sm text-yellow-700">
+                          Generate a certificate to eliminate signing prompts and improve security.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="p-4 border rounded-lg bg-blue-50 border-blue-200">
+                <h4 className="font-medium mb-2 text-blue-800">Certificate Priority Order:</h4>
+                <ol className="text-sm text-blue-700 space-y-1">
+                  <li>1. Custom Certificate (if available and not expired)</li>
+                  <li>2. Development Certificate (for localhost)</li>
+                  <li>3. Auto-approve fallback (shows signing prompts)</li>
+                </ol>
+              </div>
+            </div>
+          </TabsContent>
+
           <TabsContent value="certificate" className="space-y-4">
             <div className="space-y-4">
               <h3 className="text-lg font-semibold flex items-center gap-2">
@@ -409,19 +546,39 @@ export const QZTraySetup: React.FC = () => {
             <div className="space-y-4">
               <h3 className="text-lg font-semibold">Website Trust Configuration</h3>
               
-              <Alert>
-                <CheckCircle2 className="h-4 w-4" />
+              <Alert className="border-blue-200 bg-blue-50">
+                <CheckCircle2 className="h-4 w-4 text-blue-600" />
                 <AlertDescription>
-                  Follow these steps to make our website trusted by QZ Tray and avoid repeated permission requests.
+                  <div className="space-y-2">
+                    <div className="font-medium text-blue-800">
+                      Certificate Status: {certificateStatus.currentCertificate ? 'Active' : 'None'}
+                    </div>
+                    <div className="text-blue-700">
+                      {certificateStatus.currentCertificate 
+                        ? `Using ${certificateStatus.hasCustomCertificate ? 'custom' : 'development'} certificate for ${certificateStatus.currentCertificate.commonName}`
+                        : 'No certificate available - QZ Tray will show signing prompts'
+                      }
+                    </div>
+                  </div>
                 </AlertDescription>
               </Alert>
               
               <div className="space-y-4">
+                <div className="p-4 border rounded-lg bg-green-50 border-green-200">
+                  <h4 className="font-medium mb-3 text-green-800">Method 1: Use Certificate (Recommended)</h4>
+                  <div className="space-y-2 text-sm text-green-700">
+                    <p>✅ <strong>Best option:</strong> Install a certificate to eliminate all signing prompts</p>
+                    <p>• Go to the "Certificates" tab to view your current certificate status</p>
+                    <p>• Development certificate is automatically created for localhost</p>
+                    <p>• Generate a custom certificate for production domains</p>
+                  </div>
+                </div>
+
                 <div className="p-4 border rounded-lg">
-                  <h4 className="font-medium mb-3">Method 1: Allow in QZ Tray Popup</h4>
+                  <h4 className="font-medium mb-3">Method 2: Manual Trust (One-time)</h4>
                   <div className="space-y-2 text-sm text-muted-foreground">
                     <p>1. When QZ Tray shows a security dialog, click <strong>"Allow"</strong></p>
-                    <p>2. Check the box <strong>"Remember this decision"</strong> before clicking Allow</p>
+                    <p>2. <strong>IMPORTANT:</strong> Check the box <strong>"Remember this decision"</strong> before clicking Allow</p>
                     <p>3. Our website will be permanently trusted</p>
                   </div>
                 </div>
