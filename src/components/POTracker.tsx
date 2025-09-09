@@ -1301,47 +1301,27 @@ export const POTracker = () => {
                                    </Badge>
                                  </div>
                                  
-                                 {/* Summary Info */}
-                                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-sm text-muted-foreground">
-                                   <div>
-                                     <span className="font-medium">Qty:</span> {group.orders.reduce((sum, order) => sum + order.quantity, 0)}
-                                   </div>
-                                   <div>
-                                     <span className="font-medium">Matched:</span> {group.orders.filter(order => order.sunsky_sku).length}/{group.orders.length}
-                                   </div>
-                                   <div>
-                                     <span className="font-medium">Status:</span>{' '}
-                                     <Badge 
-                                       variant={
-                                         group.orders.every(o => o.status === 'delivered') ? 'default' :
-                                         group.orders.some(o => o.status === 'shipped') ? 'secondary' :
-                                         group.orders.some(o => o.status === 'ordered') ? 'outline' :
-                                         'destructive'
-                                       }
-                                       className="text-xs ml-1"
-                                     >
-                                       {group.orders.every(o => o.status === 'delivered') ? 'Delivered' :
-                                        group.orders.some(o => o.status === 'shipped') ? 'Shipped' :
-                                        group.orders.some(o => o.status === 'ordered') ? 'Ordered' :
-                                        'Pending'}
-                                     </Badge>
-                                   </div>
-                                   <div>
-                                     <span className="font-medium">Labels:</span>{' '}
-                                     <Badge 
-                                       variant={
-                                         group.orders.every(o => o.is_printed) ? 'default' :
-                                         group.orders.some(o => o.is_printed) ? 'secondary' :
-                                         'outline'
-                                       }
-                                       className="text-xs ml-1"
-                                     >
-                                       {group.orders.every(o => o.is_printed) ? 'All Printed' :
-                                        group.orders.some(o => o.is_printed) ? 'Partial' :
-                                        'Pending'}
-                                     </Badge>
-                                   </div>
-                                 </div>
+                                  {/* Summary Info */}
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-muted-foreground">
+                                    <div>
+                                      <span className="font-medium">Qty:</span> {group.orders.reduce((sum, order) => sum + order.quantity, 0)}
+                                    </div>
+                                    <div>
+                                      <span className="font-medium">Labels:</span>{' '}
+                                      <Badge 
+                                        variant={
+                                          group.orders.every(o => o.is_printed) ? 'default' :
+                                          group.orders.some(o => o.is_printed) ? 'secondary' :
+                                          'outline'
+                                        }
+                                        className="text-xs ml-1"
+                                      >
+                                        {group.orders.every(o => o.is_printed) ? 'All Printed' :
+                                         group.orders.some(o => o.is_printed) ? 'Partial' :
+                                         'Pending'}
+                                      </Badge>
+                                    </div>
+                                  </div>
                                </div>
                               
                               <div className="flex items-center gap-2 ml-4">
