@@ -7,10 +7,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Loader2, Printer, FileText, Settings, Tag } from 'lucide-react';
+import { Loader2, Printer, FileText, Settings, Tag, Zap } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import jsPDF from 'jspdf';
+import QZTrayPrinter from '@/utils/qz-tray-printer';
 
 interface LabelTemplate {
   id: string;
@@ -52,6 +53,9 @@ export function LabelPrintDialog({ open, onOpenChange, selectedItems, inventoryT
   const [templates, setTemplates] = useState<LabelTemplate[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
   const [loading, setLoading] = useState(false);
+  const [qzConnected, setQzConnected] = useState(false);
+  const [availablePrinters, setAvailablePrinters] = useState<string[]>([]);
+  const [selectedPrinter, setSelectedPrinter] = useState<string>('');
   const [printSettings, setPrintSettings] = useState<PrintSettings>({
     format: 'pdf',
     copies: 1,
@@ -66,8 +70,36 @@ export function LabelPrintDialog({ open, onOpenChange, selectedItems, inventoryT
   useEffect(() => {
     if (open) {
       loadTemplates();
+      connectQZTray();
     }
   }, [open]);
+
+  const connectQZTray = async () => {
+    try {
+      const connected = await QZTrayPrinter.connect();
+      if (connected) {
+        setQzConnected(true);
+        const printers = await QZTrayPrinter.getPrinters();
+        setAvailablePrinters(printers);
+        const defaultPrinter = await QZTrayPrinter.getDefaultPrinter();
+        if (defaultPrinter) {
+          setSelectedPrinter(defaultPrinter);
+        }
+        toast({
+          title: "QZ Tray Connected",
+          description: "Direct printing is now available",
+        });
+      }
+    } catch (error) {
+      console.error('Failed to connect to QZ Tray:', error);
+      setQzConnected(false);
+      toast({
+        title: "QZ Tray Not Available",
+        description: "PDF printing only. Install QZ Tray for direct printing.",
+        variant: "destructive"
+      });
+    }
+  };
 
   const loadTemplates = async () => {
     setLoading(true);
@@ -178,6 +210,74 @@ export function LabelPrintDialog({ open, onOpenChange, selectedItems, inventoryT
     }
   };
 
+  const generateZPL = () => {
+    const dataset = createDataset();
+    let zplCode = '';
+
+    // Generate basic ZPL for each item
+    dataset.data.forEach((row, index) => {
+      const [asin, sku, title, quantity, order_id] = row;
+      
+      zplCode += `^XA\n`; // Start label
+      zplCode += `^FO20,20^A0N,30,30^FD${asin || sku}^FS\n`; // Main identifier
+      zplCode += `^FO20,60^A0N,20,20^FD${title.substring(0, 30)}^FS\n`; // Title (truncated)
+      zplCode += `^FO20,90^A0N,20,20^FDQty: ${quantity}^FS\n`; // Quantity
+      if (order_id) {
+        zplCode += `^FO20,120^A0N,15,15^FDOrder: ${order_id}^FS\n`; // Order ID
+      }
+      zplCode += `^XZ\n`; // End label
+    });
+
+    return zplCode;
+  };
+
+  const handleDirectPrint = async () => {
+    if (!selectedTemplate) {
+      toast({
+        title: "No template selected",
+        description: "Please select a label template first",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!qzConnected) {
+      toast({
+        title: "QZ Tray not connected",
+        description: "Please ensure QZ Tray is running and connected",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const zplCode = generateZPL();
+      
+      // Print multiple copies if specified
+      const zplCodes = Array(printSettings.copies).fill(zplCode);
+      
+      if (zplCodes.length === 1) {
+        await QZTrayPrinter.printZPL(zplCode, { printerName: selectedPrinter });
+      } else {
+        await QZTrayPrinter.printMultipleZPL(zplCodes, { printerName: selectedPrinter });
+      }
+      
+      toast({
+        title: "Labels printed successfully",
+        description: `Printed ${selectedItems.length} labels to ${selectedPrinter}`,
+      });
+      onOpenChange(false);
+    } catch (error) {
+      toast({
+        title: "Print failed",
+        description: error instanceof Error ? error.message : "Failed to print labels",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
   const handlePrint = async () => {
     if (!selectedTemplate) {
       toast({
@@ -374,6 +474,42 @@ export function LabelPrintDialog({ open, onOpenChange, selectedItems, inventoryT
             </CardContent>
           </Card>
 
+          {/* QZ Tray Status & Printer Selection */}
+          {qzConnected && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-green-500" />
+                  QZ Tray Direct Printing
+                </CardTitle>
+                <CardDescription>
+                  Select printer for direct printing
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Available Printers</Label>
+                  <Select value={selectedPrinter} onValueChange={setSelectedPrinter}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a printer" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background border shadow-lg z-50">
+                      {availablePrinters.map((printer) => (
+                        <SelectItem key={printer} value={printer}>
+                          {printer}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-green-600">
+                  <Zap className="w-4 h-4" />
+                  <span>QZ Tray Connected - Direct printing available</span>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Selected Items Preview */}
           <Card>
             <CardHeader>
@@ -412,15 +548,29 @@ export function LabelPrintDialog({ open, onOpenChange, selectedItems, inventoryT
             </Button>
             <Button 
               onClick={handlePrint}
+              variant="outline"
               disabled={!selectedTemplate || loading}
             >
               {loading ? (
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
               ) : (
-                <Printer className="w-4 h-4 mr-2" />
+                <FileText className="w-4 h-4 mr-2" />
               )}
-              Print PDF
+              Save PDF
             </Button>
+            {qzConnected && selectedPrinter && (
+              <Button 
+                onClick={handleDirectPrint}
+                disabled={!selectedTemplate || loading}
+              >
+                {loading ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Zap className="w-4 h-4 mr-2" />
+                )}
+                Direct Print
+              </Button>
+            )}
           </div>
         </div>
       </DialogContent>
