@@ -7,7 +7,6 @@ import { LabelPropertiesPanel } from '@/components/label/LabelPropertiesPanel';
 import { InventoryDataMapper } from '@/components/label/InventoryDataMapper';
 import { OrderLabelTemplates } from '@/components/label/OrderLabelTemplates';
 import { InventoryLabelTemplates } from '@/components/label/InventoryLabelTemplates';
-import { QZTraySetup } from '@/components/label/QZTraySetup';
 import { DateWiseOrderPrint } from '@/components/label/DateWiseOrderPrint';
 import { NoonOrderPrint } from '@/components/label/NoonOrderPrint';
 import { PrintEligibleItems } from '@/components/label/PrintEligibleItems';
@@ -260,7 +259,7 @@ const LabelDesignerContent: React.FC = () => {
         {/* Enhanced Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 min-h-0">
           <div className="mb-8">
-            <TabsList className="grid w-full grid-cols-5 h-12 p-1 bg-muted/50">
+            <TabsList className="grid w-full grid-cols-4 h-12 p-1 bg-muted/50">
               <TabsTrigger value="amazon-orders" className="h-10 px-4 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all duration-200">
                 Amazon Orders
               </TabsTrigger>
@@ -272,9 +271,6 @@ const LabelDesignerContent: React.FC = () => {
               </TabsTrigger>
               <TabsTrigger value="designer" className="h-10 px-4 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all duration-200">
                 Designer
-              </TabsTrigger>
-              <TabsTrigger value="setup" className="h-10 px-4 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all duration-200">
-                QZ Setup
               </TabsTrigger>
             </TabsList>
           </div>
@@ -380,12 +376,6 @@ const LabelDesignerContent: React.FC = () => {
                 </div>
               </Panel>
             </PanelGroup>
-          </TabsContent>
-          
-          <TabsContent value="setup" className="border-2 border-border/50 rounded-xl bg-gradient-to-br from-card/60 to-card/40 p-8 shadow-lg min-h-0 flex-1">
-            <div className="h-full">
-              <QZTraySetup />
-            </div>
           </TabsContent>
         </Tabs>
       </div>
