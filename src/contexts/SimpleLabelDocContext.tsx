@@ -172,29 +172,50 @@ export const SimpleLabelDocProvider: React.FC<{ children: React.ReactNode }> = (
   }, []);
 
   const saveDocument = useCallback(async () => {
-    if (!document) return;
+    if (!document) {
+      console.log('No document to save');
+      return;
+    }
+    
+    console.log('Saving document:', document.id, 'with elements:', document.elements.length);
     
     setIsLoading(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.error('User not authenticated for save');
+        throw new Error('User not authenticated');
+      }
+      
+      console.log('User authenticated:', user.id, 'saving document for user_id check');
+      
+      const updateData = {
+        name: document.name,
+        width: document.size.width,
+        height: document.size.height,
+        canvas_data: { 
+          elements: document.elements,
+          meta: { 
+            domain: document.domain || 'inventory',
+            datasetId: document.datasetId || null
+          }
+        } as any,
+        description: document.datasetId || null, // keep for backward compatibility
+      };
+      
+      console.log('Update data prepared:', updateData);
+      
       const { error } = await supabase
         .from('label_templates')
-        .update({
-          name: document.name,
-          width: document.size.width,
-          height: document.size.height,
-          canvas_data: { 
-            elements: document.elements,
-            meta: { 
-              domain: document.domain || 'inventory',
-              datasetId: document.datasetId || null
-            }
-          } as any,
-          description: document.datasetId || null, // keep for backward compatibility
-        })
+        .update(updateData)
         .eq('id', document.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase update error:', error);
+        throw error;
+      }
       
+      console.log('Document saved successfully to database');
       setDocument(prev => prev ? { ...prev, updatedAt: new Date().toISOString() } : null);
       toast.success('Label saved successfully');
     } catch (error) {

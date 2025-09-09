@@ -257,7 +257,14 @@ export const AdvancedLabelWorkspace: React.FC = () => {
 
   // Canvas handlers
   const handleSave = async () => {
-    await saveDocument();
+    console.log('Save button clicked - starting save process');
+    try {
+      await saveDocument();
+      console.log('Save completed successfully');
+    } catch (error) {
+      console.error('Save failed:', error);
+      toast.error('Failed to save label');
+    }
   };
 
   const handlePreview = async () => {
