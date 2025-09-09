@@ -734,7 +734,7 @@ export const POTracker = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-3 h-12 bg-gradient-subtle rounded-xl shadow-elegant p-1 border border-border/20">
           <TabsTrigger value="overview" className="flex items-center gap-2">
             <Package className="h-4 w-4" />
             PO Overview
