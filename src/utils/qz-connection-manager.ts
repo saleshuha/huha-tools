@@ -67,18 +67,28 @@ export class QZConnectionManager {
         throw new Error('QZ Tray script not loaded');
       }
 
-      // Simple security setup - no signing required
+      // Set up security for unsigned mode - resolve with null for no certificates
       window.qz.security.setCertificatePromise(function(resolve: any) {
-        resolve();
+        resolve(null);
       });
 
       window.qz.security.setSignaturePromise(function(toSign: any, resolve: any) {
-        resolve();
+        resolve(null);
       });
       
-      // Connect to QZ WebSocket
+      // Connect to QZ WebSocket with retry logic
       if (!window.qz.websocket.isActive()) {
-        await window.qz.websocket.connect();
+        let retries = 3;
+        while (retries > 0) {
+          try {
+            await window.qz.websocket.connect();
+            break;
+          } catch (err) {
+            retries--;
+            if (retries === 0) throw err;
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+        }
       }
 
       console.log('✅ QZ Tray connected successfully');
@@ -106,7 +116,14 @@ export class QZConnectionManager {
       return printers || [];
     } catch (error) {
       console.error('❌ Failed to get printers:', error);
-      throw new Error(`Failed to get printers: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      
+      // Check for signing/trust related errors
+      if (errorMsg.includes('sign') || errorMsg.includes('certificate') || errorMsg.includes('trust')) {
+        throw new Error('TRUST_ERROR: QZ Tray blocked unsigned access. Please allow and trust this website in QZ Tray.');
+      }
+      
+      throw new Error(`Failed to get printers: ${errorMsg}`);
     }
   }
 

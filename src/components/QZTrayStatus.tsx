@@ -193,7 +193,16 @@ export function QZTrayStatus() {
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                {error}
+                {error.includes('TRUST_ERROR') ? (
+                  <div className="space-y-2">
+                    <p>QZ Tray blocked unsigned access.</p>
+                    <p className="text-sm">
+                      Click "Allow" in the QZ Tray popup and check "Remember this decision", then press Refresh.
+                    </p>
+                  </div>
+                ) : (
+                  error
+                )}
               </AlertDescription>
             </Alert>
           ) : printers.length > 0 ? (
