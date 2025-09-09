@@ -1308,15 +1308,18 @@ export const POTracker = () => {
                                     </div>
                                     <div>
                                       <span className="font-medium">Labels:</span>{' '}
+                                      <span className="text-xs">
+                                        {group.orders.filter(o => o.is_printed).length}/{group.orders.length} Printed
+                                      </span>
                                       <Badge 
                                         variant={
                                           group.orders.every(o => o.is_printed) ? 'default' :
                                           group.orders.some(o => o.is_printed) ? 'secondary' :
                                           'outline'
                                         }
-                                        className="text-xs ml-1"
+                                        className="text-xs ml-2"
                                       >
-                                        {group.orders.every(o => o.is_printed) ? 'All Printed' :
+                                        {group.orders.every(o => o.is_printed) ? 'Complete' :
                                          group.orders.some(o => o.is_printed) ? 'Partial' :
                                          'Pending'}
                                       </Badge>
