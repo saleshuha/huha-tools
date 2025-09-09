@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { LabelDoc, LabelElement, LabelDataset, LabelSize } from '@/types/label';
+import { LabelDoc, LabelElement, LabelDataset, LabelSize, LabelDomain } from '@/types/label';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -10,7 +10,7 @@ interface LabelDocContextType {
   isLoading: boolean;
   
   // Document operations
-  createDocument: (name: string, size: LabelSize) => Promise<void>;
+  createDocument: (name: string, size: LabelSize, domain?: LabelDomain) => Promise<void>;
   loadDocument: (id: string) => Promise<void>;
   saveDocument: () => Promise<void>;
   loadUserDocuments: () => Promise<any[]>;
@@ -51,7 +51,7 @@ export const SimpleLabelDocProvider: React.FC<{ children: React.ReactNode }> = (
   const [selectedElement, setSelectedElement] = useState<LabelElement | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const createDocument = useCallback(async (name: string, size: LabelSize) => {
+  const createDocument = useCallback(async (name: string, size: LabelSize, domain: LabelDomain = 'inventory') => {
     setIsLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -63,7 +63,10 @@ export const SimpleLabelDocProvider: React.FC<{ children: React.ReactNode }> = (
           name,
           width: size.width,
           height: size.height,
-          canvas_data: { elements: [] } as any,
+          canvas_data: { 
+            elements: [],
+            meta: { domain, datasetId: null }
+          } as any,
           user_id: user.id,
         })
         .select()
@@ -80,6 +83,7 @@ export const SimpleLabelDocProvider: React.FC<{ children: React.ReactNode }> = (
           unit: 'mm'
         },
         elements: [],
+        domain,
         createdAt: data.created_at,
         updatedAt: data.updated_at,
       };
@@ -105,6 +109,9 @@ export const SimpleLabelDocProvider: React.FC<{ children: React.ReactNode }> = (
 
       if (error) throw error;
       
+      const canvasData = data.canvas_data as any;
+      const meta = canvasData?.meta || {};
+      
       const doc: LabelDoc = {
         id: data.id,
         name: data.name,
@@ -113,8 +120,8 @@ export const SimpleLabelDocProvider: React.FC<{ children: React.ReactNode }> = (
           height: data.height || 50,
           unit: 'mm'
         },
-        elements: Array.isArray((data.canvas_data as any)?.elements) ? 
-          (data.canvas_data as any).elements.map((el: any) => ({
+        elements: Array.isArray(canvasData?.elements) ? 
+          canvasData.elements.map((el: any) => ({
             id: el.id || crypto.randomUUID(),
             type: el.type || 'text',
             x: Number(el.x) || 0,
@@ -142,7 +149,8 @@ export const SimpleLabelDocProvider: React.FC<{ children: React.ReactNode }> = (
             src: el.src || undefined,
             objectFit: el.objectFit || 'contain'
           })) : [],
-        datasetId: data.description, // using description field temporarily for dataset ID
+        domain: meta.domain || 'inventory', // fallback to inventory for existing labels
+        datasetId: meta.datasetId || data.description, // new location or fallback to description
         createdAt: data.created_at,
         updatedAt: data.updated_at,
       };
@@ -173,8 +181,14 @@ export const SimpleLabelDocProvider: React.FC<{ children: React.ReactNode }> = (
           name: document.name,
           width: document.size.width,
           height: document.size.height,
-          canvas_data: { elements: document.elements } as any,
-          description: document.datasetId || null,
+          canvas_data: { 
+            elements: document.elements,
+            meta: { 
+              domain: document.domain || 'inventory',
+              datasetId: document.datasetId || null
+            }
+          } as any,
+          description: document.datasetId || null, // keep for backward compatibility
         })
         .eq('id', document.id);
 

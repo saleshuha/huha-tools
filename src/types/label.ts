@@ -50,11 +50,14 @@ export interface LabelElement {
   objectFit?: 'contain' | 'cover' | 'fill';
 }
 
+export type LabelDomain = 'inventory' | 'amazon' | 'noon' | 'po';
+
 export interface LabelDoc {
   id: string;
   name: string;
   size: LabelSize;
   elements: LabelElement[];
+  domain?: LabelDomain;
   datasetId?: string;
   createdAt: string;
   updatedAt: string;

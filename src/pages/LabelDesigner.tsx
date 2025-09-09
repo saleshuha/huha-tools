@@ -7,6 +7,8 @@ import { LabelPropertiesPanel } from '@/components/label/LabelPropertiesPanel';
 import { InventoryDataMapper } from '@/components/label/InventoryDataMapper';
 import { OrderLabelTemplates } from '@/components/label/OrderLabelTemplates';
 import { InventoryLabelTemplates } from '@/components/label/InventoryLabelTemplates';
+import { POLabelTemplates } from '@/components/label/POLabelTemplates';
+import { DomainDataMapper } from '@/components/label/DomainDataMapper';
 import { DateWiseOrderPrint } from '@/components/label/DateWiseOrderPrint';
 import { NoonOrderPrint } from '@/components/label/NoonOrderPrint';
 import { PrintEligibleItems } from '@/components/label/PrintEligibleItems';
@@ -23,8 +25,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
-import { LABEL_PRESETS, PrintSettings } from '@/types/label';
-import { Plus, Database, Eye, Download, Printer, FolderOpen } from 'lucide-react';
+import { LABEL_PRESETS, PrintSettings, LabelDomain } from '@/types/label';
+import { Plus, Database, Eye, Download, Printer, FolderOpen, Archive, Package, ShoppingCart, Truck } from 'lucide-react';
 import { toast } from 'sonner';
 import { HuhaHeader01 } from '@/components/ui/huha-header-01';
 const LabelDesignerContent: React.FC = () => {
@@ -43,6 +45,7 @@ const LabelDesignerContent: React.FC = () => {
   const [customWidth, setCustomWidth] = useState(100);
   const [customHeight, setCustomHeight] = useState(50);
   const [isCustomSize, setIsCustomSize] = useState(false);
+  const [selectedDomain, setSelectedDomain] = useState<LabelDomain>('inventory');
   const [activeTab, setActiveTab] = useState('designer');
   const [printSettings, setPrintSettings] = useState<PrintSettings>({
     format: 'pdf',
@@ -73,12 +76,13 @@ const LabelDesignerContent: React.FC = () => {
     } else {
       labelSize = LABEL_PRESETS[selectedPreset];
     }
-    await createDocument(newLabelName, labelSize);
+    await createDocument(newLabelName, labelSize, selectedDomain);
     setShowCreateDialog(false);
     setNewLabelName('');
     setIsCustomSize(false);
     setCustomWidth(100);
     setCustomHeight(50);
+    setSelectedDomain('inventory');
   };
   const handlePreview = async () => {
     if (!labelDoc) return;
@@ -137,11 +141,26 @@ const LabelDesignerContent: React.FC = () => {
     }] : [])
   ];
 
+  const getDomainLabel = (domain?: string) => {
+    switch (domain) {
+      case 'inventory': return 'Inventory';
+      case 'amazon': return 'Amazon Orders';
+      case 'noon': return 'Noon Orders';
+      case 'po': return 'PO Items';
+      default: return 'Inventory';
+    }
+  };
+
   const headerBadges = labelDoc ? [
     {
       label: labelDoc.name,
       variant: 'outline' as const,
       className: "border-primary/30 bg-primary/10 text-primary font-semibold px-3 py-1"
+    },
+    {
+      label: getDomainLabel(labelDoc.domain),
+      variant: 'outline' as const,
+      className: "border-accent/40 bg-accent/15 text-accent-foreground font-medium px-2 py-1"
     },
     {
       label: `${labelDoc.size.width}×${labelDoc.size.height}mm`,
@@ -201,6 +220,41 @@ const LabelDesignerContent: React.FC = () => {
             <div className="space-y-3">
               <Label className="text-sm font-semibold text-foreground">Label Name</Label>
               <Input value={newLabelName} onChange={e => setNewLabelName(e.target.value)} placeholder="Enter a descriptive name for your label" className="border-2 border-input focus:border-primary/60 focus:ring-2 focus:ring-primary/20 h-11" />
+            </div>
+            
+            <div className="space-y-3">
+              <Label className="text-sm font-semibold text-foreground">Label Purpose</Label>
+              <Select value={selectedDomain} onValueChange={(value: LabelDomain) => setSelectedDomain(value)}>
+                <SelectTrigger className="border-2 border-input focus:border-primary/60 h-11">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-background border-2 border-border shadow-lg z-50">
+                  <SelectItem value="inventory" className="hover:bg-accent/50">
+                    <div className="flex items-center gap-2">
+                      <Archive className="h-4 w-4" />
+                      <span>Inventory</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="amazon" className="hover:bg-accent/50">
+                    <div className="flex items-center gap-2">
+                      <Package className="h-4 w-4" />
+                      <span>Amazon Orders</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="noon" className="hover:bg-accent/50">
+                    <div className="flex items-center gap-2">
+                      <ShoppingCart className="h-4 w-4" />
+                      <span>Noon Orders</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="po" className="hover:bg-accent/50">
+                    <div className="flex items-center gap-2">
+                      <Truck className="h-4 w-4" />
+                      <span>PO Items</span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-3">
               <Label className="text-sm font-semibold text-foreground">Size Preset</Label>
@@ -350,7 +404,11 @@ const LabelDesignerContent: React.FC = () => {
                         <TabsContent value="templates" className="h-full p-0 m-0">
                           <ScrollArea className="h-full">
                             <div className="p-4">
-                              <InventoryLabelTemplates />
+                              {labelDoc?.domain === 'inventory' && <InventoryLabelTemplates />}
+                              {labelDoc?.domain === 'amazon' && <OrderLabelTemplates />}
+                              {labelDoc?.domain === 'noon' && <OrderLabelTemplates />}
+                              {labelDoc?.domain === 'po' && <POLabelTemplates />}
+                              {!labelDoc?.domain && <InventoryLabelTemplates />}
                             </div>
                           </ScrollArea>
                         </TabsContent>
