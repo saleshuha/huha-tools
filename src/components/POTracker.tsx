@@ -21,6 +21,8 @@ import { useCountry } from '@/contexts/CountryContext';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
+import { PrintService } from '@/services/print-service';
+import { LabelDoc, LabelDataset, LabelElement, LabelSize } from '@/types/label';
 
 export interface POOrder {
   id: string;
@@ -78,7 +80,10 @@ export const POTracker = () => {
     copiesByQuantity: true,
     pageSize: 'default',
     dpi: 203 as 203 | 300,
-    darkness: 10
+    darkness: 10,
+    customWidth: 100,
+    customHeight: 60,
+    autoSizeFromTemplate: true
   });
   
   const [qzConnected, setQzConnected] = useState(false);
@@ -406,8 +411,16 @@ export const POTracker = () => {
   const generateZPLFromTemplate = (order: POOrder, settings: typeof printSettings): string => {
     const { template, dpi, pageSize } = settings;
     
-    // Get label dimensions based on page size
-    const dimensions = getLabelDimensions(pageSize, dpi);
+    // Check if it's a custom template
+    if (template !== 'default' && template !== 'compact' && template !== 'detailed' && template !== 'minimal' && labelTemplates) {
+      const customTemplate = labelTemplates.find(t => t.id === template);
+      if (customTemplate) {
+        return generateZPLFromCustomTemplate(order, customTemplate, settings);
+      }
+    }
+    
+    // Get label dimensions based on page size or custom settings
+    const dimensions = getLabelDimensions(pageSize, dpi, settings);
     
     switch (template) {
       case 'compact':
@@ -445,14 +458,7 @@ export const POTracker = () => {
 ^FO50,150^A0N,40,40^FDQty: ${order.quantity}^FS
 ^XZ`;
         
-      default: // 'default' or custom template
-        if (template !== 'default' && labelTemplates) {
-          const customTemplate = labelTemplates.find(t => t.id === template);
-          if (customTemplate) {
-            return generateZPLFromCustomTemplate(order, customTemplate, dpi);
-          }
-        }
-        
+      default: // 'default'
         return `^XA
 ^MMT
 ^PW${dimensions.width}
@@ -467,7 +473,14 @@ export const POTracker = () => {
   };
 
   // Get label dimensions based on page size and DPI - optimized for actual label sizes
-  const getLabelDimensions = (pageSize: string, dpi: number) => {
+  const getLabelDimensions = (pageSize: string, dpi: number, settings: typeof printSettings) => {
+    if (pageSize === 'custom') {
+      return {
+        width: Math.round((settings.customWidth / 25.4) * dpi), // Convert mm to dots
+        height: Math.round((settings.customHeight / 25.4) * dpi)
+      };
+    }
+    
     const presets = {
       '4x6': { width: Math.round(4.0 * dpi), height: Math.round(6.0 * dpi) },
       '4x3': { width: Math.round(4.0 * dpi), height: Math.round(3.0 * dpi) },
@@ -479,20 +492,71 @@ export const POTracker = () => {
     return presets[pageSize as keyof typeof presets] || presets.default;
   };
 
-  // Generate ZPL from custom template
-  const generateZPLFromCustomTemplate = (order: POOrder, template: any, dpi: number): string => {
-    // This would need to parse the canvas_data and generate ZPL
-    // For now, return a basic template with proper sizing
-    return `^XA
+  // Generate ZPL from custom template using PrintService
+  const generateZPLFromCustomTemplate = (order: POOrder, template: any, settings: typeof printSettings): string => {
+    try {
+      // Create a LabelDoc from the template
+      const labelDoc: LabelDoc = {
+        id: template.id,
+        name: template.name,
+        size: {
+          width: template.width || 100,
+          height: template.height || 60,
+          unit: 'mm'
+        },
+        elements: template.canvas_data?.elements || [],
+        createdAt: template.created_at || new Date().toISOString(),
+        updatedAt: template.updated_at || new Date().toISOString()
+      };
+
+      // Create a dataset with PO order data
+      const dataset: LabelDataset = {
+        id: 'po-data',
+        name: 'PO Order Data',
+        description: 'Purchase Order Data',
+        headers: ['sku', 'title', 'quantity', 'po_number', 'status', 'asin', 'model_number'],
+        data: [[
+          order.sku_code || order.model_number || order.asin || 'N/A',
+          order.title || 'No title',
+          order.quantity.toString(),
+          order.po_number,
+          order.status,
+          order.asin || '',
+          order.model_number || ''
+        ]],
+        rowCount: 1,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      // Use PrintService to generate ZPL
+      const printSettings = {
+        format: 'zpl' as const,
+        paperSize: 'custom' as const,
+        orientation: 'portrait' as const,
+        dpi: settings.dpi,
+        copies: 1,
+        labelsPerPage: 1,
+        margin: 0,
+        darkness: settings.darkness
+      };
+
+      return PrintService.generateZPL(labelDoc, dataset, printSettings);
+    } catch (error) {
+      console.error('Error generating ZPL from custom template:', error);
+      // Fallback to basic ZPL
+      const dimensions = getLabelDimensions('default', settings.dpi, settings);
+      return `^XA
 ^MMT
-^PW${template.width}
-^LL${template.height}
+^PW${dimensions.width}
+^LL${dimensions.height}
 ^LH0,0
 ^FO50,40^A0N,50,50^FD${order.sku_code || order.model_number || order.asin || 'N/A'}^FS
 ^FO50,120^A0N,35,35^FD${(order.title || order.model_number || 'Item').substring(0, 25)}^FS
 ^FO50,180^A0N,35,35^FDQty: ${order.quantity}^FS
 ^FO50,240^A0N,25,25^FDPO: ${order.po_number}^FS
 ^XZ`;
+    }
   };
 
   // Download ZPL file
@@ -1260,37 +1324,67 @@ export const POTracker = () => {
                   <CardTitle className="text-lg">Print Settings</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {/* Template Selection */}
-                    <div className="space-y-2">
-                      <Label>Template</Label>
-                      <Select 
-                        value={printSettings.template} 
-                        onValueChange={(value) => setPrintSettings(prev => ({ ...prev, template: value }))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select template" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-background border shadow-lg z-50">
-                          <SelectItem value="default">Default</SelectItem>
-                          <SelectItem value="compact">Compact</SelectItem>
-                          <SelectItem value="detailed">Detailed</SelectItem>
-                          <SelectItem value="minimal">Minimal</SelectItem>
-                          {labelTemplates?.map((template) => (
-                            <SelectItem key={template.id} value={template.id}>
-                              {template.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                      {/* Template Selection */}
+                      <div className="space-y-2">
+                        <Label>Template</Label>
+                        <Select 
+                          value={printSettings.template} 
+                          onValueChange={(value) => {
+                            setPrintSettings(prev => ({ ...prev, template: value }));
+                            
+                            // Auto-size from template if it's a custom template and auto-size is enabled
+                            if (value !== 'default' && value !== 'compact' && value !== 'detailed' && value !== 'minimal' && 
+                                printSettings.autoSizeFromTemplate && printSettings.pageSize === 'custom' && labelTemplates) {
+                              const selectedTemplate = labelTemplates.find(t => t.id === value);
+                              if (selectedTemplate) {
+                                setPrintSettings(prev => ({
+                                  ...prev,
+                                  customWidth: selectedTemplate.width || 100,
+                                  customHeight: selectedTemplate.height || 60
+                                }));
+                              }
+                            }
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select template" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-background border shadow-lg z-50">
+                            <SelectItem value="default">Default</SelectItem>
+                            <SelectItem value="compact">Compact</SelectItem>
+                            <SelectItem value="detailed">Detailed</SelectItem>
+                            <SelectItem value="minimal">Minimal</SelectItem>
+                            {labelTemplates?.map((template) => (
+                              <SelectItem key={template.id} value={template.id}>
+                                {template.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
 
                     {/* Page Size */}
                     <div className="space-y-2">
                       <Label>Page Size</Label>
                       <Select 
                         value={printSettings.pageSize} 
-                        onValueChange={(value) => setPrintSettings(prev => ({ ...prev, pageSize: value }))}
+                        onValueChange={(value) => {
+                          setPrintSettings(prev => ({ ...prev, pageSize: value }));
+                          
+                          // Auto-size from template if custom template and auto-size enabled
+                          if (value === 'custom' && printSettings.autoSizeFromTemplate && labelTemplates) {
+                            const selectedTemplate = labelTemplates.find(t => t.id === printSettings.template);
+                            if (selectedTemplate) {
+                              setPrintSettings(prev => ({
+                                ...prev,
+                                customWidth: selectedTemplate.width || 100,
+                                customHeight: selectedTemplate.height || 60
+                              }));
+                            }
+                          }
+                        }}
                       >
                         <SelectTrigger>
                           <SelectValue />
@@ -1301,6 +1395,7 @@ export const POTracker = () => {
                           <SelectItem value="4x3">4" x 3"</SelectItem>
                           <SelectItem value="3x2">3" x 2"</SelectItem>
                           <SelectItem value="2x1">2" x 1"</SelectItem>
+                          <SelectItem value="custom">Custom Size</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -1337,6 +1432,73 @@ export const POTracker = () => {
                       />
                     </div>
                   </div>
+
+                  {/* Custom Size Controls */}
+                  {printSettings.pageSize === 'custom' && (
+                    <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-sm font-medium">Custom Label Size</h4>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            id="auto-size"
+                            type="checkbox"
+                            checked={printSettings.autoSizeFromTemplate}
+                            onChange={(e) => {
+                              const autoSize = e.target.checked;
+                              setPrintSettings(prev => ({ ...prev, autoSizeFromTemplate: autoSize }));
+                              
+                              // If enabling auto-size and we have a custom template selected
+                              if (autoSize && printSettings.template !== 'default' && printSettings.template !== 'compact' && 
+                                  printSettings.template !== 'detailed' && printSettings.template !== 'minimal' && labelTemplates) {
+                                const selectedTemplate = labelTemplates.find(t => t.id === printSettings.template);
+                                if (selectedTemplate) {
+                                  setPrintSettings(prev => ({
+                                    ...prev,
+                                    customWidth: selectedTemplate.width || 100,
+                                    customHeight: selectedTemplate.height || 60
+                                  }));
+                                }
+                              }
+                            }}
+                            className="h-4 w-4 rounded border-border"
+                          />
+                          <Label htmlFor="auto-size" className="text-sm">Auto-size from template</Label>
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Width (mm)</Label>
+                          <Input
+                            type="number"
+                            min="10"
+                            max="300"
+                            value={printSettings.customWidth}
+                            onChange={(e) => setPrintSettings(prev => ({ 
+                              ...prev, 
+                              customWidth: Math.max(10, parseInt(e.target.value) || 100)
+                            }))}
+                            disabled={printSettings.autoSizeFromTemplate}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Height (mm)</Label>
+                          <Input
+                            type="number"
+                            min="10"
+                            max="300"
+                            value={printSettings.customHeight}
+                            onChange={(e) => setPrintSettings(prev => ({ 
+                              ...prev, 
+                              customHeight: Math.max(10, parseInt(e.target.value) || 60)
+                            }))}
+                            disabled={printSettings.autoSizeFromTemplate}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
 
                   {/* Copy Settings */}
                   <div className="flex items-center gap-4 mt-4 pt-4 border-t">
@@ -1562,30 +1724,16 @@ export const POTracker = () => {
                                 </Badge>
                               </TableCell>
                               <TableCell>
-                                <div className="flex items-center gap-1">
-                                  <Button 
-                                    variant="ghost" 
-                                    size="sm"
-                                    onClick={() => {
-                                      const newSelected = new Set(selectedForPrint);
-                                      newSelected.add(order.id);
-                                      setSelectedForPrint(newSelected);
-                                    }}
-                                    disabled={selectedForPrint.has(order.id)}
-                                    title="Add to selection"
-                                  >
-                                    <Plus className="h-3 w-3" />
-                                  </Button>
-                                  <Button 
-                                    variant="outline" 
-                                    size="sm"
-                                    onClick={() => handleSingleItemPrint(order)}
-                                    disabled={!qzConnected || !selectedPrinter}
-                                    title="Print this item"
-                                  >
-                                    <Printer className="h-3 w-3" />
-                                  </Button>
-                                </div>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={() => handleSingleItemPrint(order)}
+                                  disabled={!qzConnected || !selectedPrinter}
+                                  className="w-full"
+                                >
+                                  <Printer className="h-3 w-3 mr-1" />
+                                  Print
+                                </Button>
                               </TableCell>
                             </TableRow>
                           ))
