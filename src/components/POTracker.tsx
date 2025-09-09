@@ -918,53 +918,295 @@ export const POTracker = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Printer className="h-5 w-5" />
-                Advanced Label Printing
+                Print Labels for PO Items
               </CardTitle>
             </CardHeader>
-            <CardContent className="text-center py-12">
-              <div className="max-w-md mx-auto space-y-4">
-                <div className="p-4 bg-gradient-to-br from-primary/10 to-primary/5 rounded-lg border">
-                  <Package className="h-12 w-12 mx-auto text-primary mb-4" />
-                  <h3 className="text-lg font-semibold text-primary mb-2">
-                    Enhanced Label Printing
-                  </h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Advanced label printing with templates, custom sizes, darkness control, 
-                    and direct QZ Tray printing is now available in the PO Details page.
-                  </p>
-                  <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground mb-4">
-                    <Badge variant="secondary">Custom Templates</Badge>
-                    <Badge variant="secondary">Size Control</Badge>
-                    <Badge variant="secondary">Darkness Settings</Badge>
-                    <Badge variant="secondary">Direct Print</Badge>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <Input
+                    type="text"
+                    placeholder="Search PO number, ASIN, model..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="max-w-sm"
+                  />
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center space-x-2">
+                      <Label htmlFor="copies-toggle" className="text-sm">Copies per quantity</Label>
+                      <input
+                        id="copies-toggle"
+                        type="checkbox"
+                        checked={printCopiesByQuantity}
+                        onChange={(e) => setPrintCopiesByQuantity(e.target.checked)}
+                        className="h-4 w-4 rounded border-border"
+                      />
+                    </div>
+                    <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as POOrder['status'] | 'all')}>
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Filter by status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Statuses</SelectItem>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="ordered">Ordered</SelectItem>
+                        <SelectItem value="shipped">Shipped</SelectItem>
+                        <SelectItem value="delivered">Delivered</SelectItem>
+                        <SelectItem value="cancelled">Cancelled</SelectItem>
+                        <SelectItem value="closed">Closed</SelectItem>
+                        <SelectItem value="partial-fulfilled">Partial Fulfilled</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
-                
-                <div className="space-y-3">
-                  <h4 className="font-medium">How to print labels:</h4>
-                  <div className="text-sm text-muted-foreground space-y-2">
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-primary/20 text-primary text-xs flex items-center justify-center font-bold">1</div>
-                      <span>Click on any PO number in the overview above</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-primary/20 text-primary text-xs flex items-center justify-center font-bold">2</div>
-                      <span>Scroll to the "Print Labels" section</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-primary/20 text-primary text-xs flex items-center justify-center font-bold">3</div>
-                      <span>Configure settings and print directly or download</span>
-                    </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        const currentPageIds = new Set(paginatedDetailedOrders.map(order => order.id));
+                        const allSelected = Array.from(currentPageIds).every(id => selectedForPrint.has(id));
+                        
+                        if (allSelected) {
+                          // Unselect all on current page
+                          setSelectedForPrint(prev => {
+                            const newSet = new Set(prev);
+                            currentPageIds.forEach(id => newSet.delete(id));
+                            return newSet;
+                          });
+                        } else {
+                          // Select all on current page
+                          setSelectedForPrint(prev => {
+                            const newSet = new Set(prev);
+                            currentPageIds.forEach(id => newSet.add(id));
+                            return newSet;
+                          });
+                        }
+                      }}
+                    >
+                      {Array.from(new Set(paginatedDetailedOrders.map(order => order.id))).every(id => selectedForPrint.has(id)) && paginatedDetailedOrders.length > 0
+                        ? 'Unselect Page' 
+                        : 'Select Page'
+                      }
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setSelectedForPrint(new Set())}
+                      disabled={selectedForPrint.size === 0}
+                    >
+                      Clear Selection ({selectedForPrint.size})
+                    </Button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {qzConnected && availablePrinters.length > 0 && (
+                      <>
+                        <div className="flex items-center gap-2">
+                          <Label className="text-sm">Template:</Label>
+                          <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
+                            <SelectTrigger className="w-[150px]">
+                              <SelectValue placeholder="Select template" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="default">Default</SelectItem>
+                              <SelectItem value="compact">Compact</SelectItem>
+                              <SelectItem value="detailed">Detailed</SelectItem>
+                              <SelectItem value="minimal">Minimal</SelectItem>
+                              {labelTemplates?.map((template) => (
+                                <SelectItem key={template.id} value={template.id}>
+                                  {template.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Label className="text-sm">Printer:</Label>
+                          <Select value={selectedPrinter} onValueChange={setSelectedPrinter}>
+                            <SelectTrigger className="w-[200px]">
+                              <SelectValue placeholder="Select printer" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-background border shadow-lg z-50">
+                              {availablePrinters.map((printer) => (
+                                <SelectItem key={printer} value={printer}>
+                                  {printer}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </>
+                    )}
+                    <Button 
+                      onClick={handleDirectPrint}
+                      disabled={selectedForPrint.size === 0 || !qzConnected || !selectedPrinter || isPrinting}
+                    >
+                      {isPrinting ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : qzConnected ? (
+                        <Zap className="h-4 w-4 mr-2" />
+                      ) : (
+                        <Printer className="h-4 w-4 mr-2" />
+                      )}
+                      {qzConnected ? 'Direct Print' : 'Print'} ({selectedForPrint.size})
+                    </Button>
                   </div>
                 </div>
-                
-                <Button 
-                  onClick={() => setActiveTab('overview')}
-                  className="mt-4"
-                >
-                  <Package className="h-4 w-4 mr-2" />
-                  Go to PO Overview
-                </Button>
+
+                {!qzConnected && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <AlertCircle className="h-4 w-4 text-yellow-600" />
+                        <span className="text-sm text-yellow-800">
+                          QZ Tray not connected. Please ensure QZ Tray is running and trusted.
+                        </span>
+                      </div>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={initializeQZ}
+                        className="ml-2"
+                      >
+                        <RefreshCw className="h-4 w-4 mr-1" />
+                        Retry Connection
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="rounded-lg border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-12">
+                          <input
+                            type="checkbox"
+                            checked={paginatedDetailedOrders.length > 0 && paginatedDetailedOrders.every(order => selectedForPrint.has(order.id))}
+                            onChange={(e) => {
+                              const currentPageIds = paginatedDetailedOrders.map(order => order.id);
+                              if (e.target.checked) {
+                                setSelectedForPrint(prev => new Set([...prev, ...currentPageIds]));
+                              } else {
+                                setSelectedForPrint(prev => {
+                                  const newSet = new Set(prev);
+                                  currentPageIds.forEach(id => newSet.delete(id));
+                                  return newSet;
+                                });
+                              }
+                            }}
+                            className="h-4 w-4 rounded border-border"
+                          />
+                        </TableHead>
+                        <TableHead>PO Number</TableHead>
+                        <TableHead>SKU/Model</TableHead>
+                        <TableHead>Title</TableHead>
+                        <TableHead>Quantity</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Matched</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {paginatedDetailedOrders.map((order) => (
+                        <TableRow key={order.id}>
+                          <TableCell>
+                            <input
+                              type="checkbox"
+                              checked={selectedForPrint.has(order.id)}
+                              onChange={(e) => {
+                                const newSelected = new Set(selectedForPrint);
+                                if (e.target.checked) {
+                                  newSelected.add(order.id);
+                                } else {
+                                  newSelected.delete(order.id);
+                                }
+                                setSelectedForPrint(newSelected);
+                              }}
+                              className="h-4 w-4 rounded border-border"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="link"
+                              onClick={() => navigate(`/po-details/${order.po_number}`)}
+                              className="p-0 h-auto font-mono text-xs"
+                            >
+                              {order.po_number}
+                            </Button>
+                          </TableCell>
+                          <TableCell>
+                            <span className="font-mono text-sm">
+                              {order.sku_code || order.model_number || 'N/A'}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <span className="text-sm max-w-xs truncate block">
+                              {order.title || order.model_number || order.asin || order.sku_code || 'Untitled Item'}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="secondary">{order.quantity}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={
+                              order.status === 'pending' ? 'secondary' :
+                              order.status === 'ordered' ? 'default' :
+                              order.status === 'shipped' ? 'default' :
+                              order.status === 'delivered' ? 'secondary' :
+                              'outline'
+                            }>
+                              {order.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={order.sunsky_sku ? 'secondary' : 'outline'}>
+                              {order.sunsky_sku ? 'Matched' : 'No Match'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => navigate(`/po-details/${order.po_number}`)}
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Pagination */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm text-muted-foreground">
+                      Page {currentPage} of {Math.ceil(filteredOrders.length / itemsPerPage)}
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(Math.min(Math.ceil(filteredOrders.length / itemsPerPage), currentPage + 1))}
+                      disabled={currentPage >= Math.ceil(filteredOrders.length / itemsPerPage)}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
