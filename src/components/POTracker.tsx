@@ -402,7 +402,7 @@ export const POTracker = () => {
     }
   };
 
-  // Generate ZPL from template
+  // Generate ZPL from template with proper sizing
   const generateZPLFromTemplate = (order: POOrder, settings: typeof printSettings): string => {
     const { template, dpi, pageSize } = settings;
     
@@ -412,31 +412,37 @@ export const POTracker = () => {
     switch (template) {
       case 'compact':
         return `^XA
+^MMT
 ^PW${dimensions.width}
 ^LL${dimensions.height}
-^FO20,20^A0N,25,25^FD${order.sku_code || order.model_number || order.asin || 'N/A'}^FS
-^FO20,50^A0N,15,15^FD${(order.title || order.model_number || 'Item').substring(0, 30)}^FS
-^FO20,70^A0N,15,15^FDQty: ${order.quantity} | PO: ${order.po_number}^FS
+^LH0,0
+^FO50,40^A0N,40,40^FD${order.sku_code || order.model_number || order.asin || 'N/A'}^FS
+^FO50,100^A0N,25,25^FD${(order.title || order.model_number || 'Item').substring(0, 35)}^FS
+^FO50,140^A0N,25,25^FDQty: ${order.quantity} | PO: ${order.po_number}^FS
 ^XZ`;
         
       case 'detailed':
         return `^XA
+^MMT
 ^PW${dimensions.width}
 ^LL${dimensions.height}
-^FO20,20^A0N,30,30^FD${order.sku_code || order.model_number || order.asin || 'N/A'}^FS
-^FO20,60^A0N,20,20^FD${(order.title || order.model_number || 'Item').substring(0, 25)}^FS
-^FO20,90^A0N,20,20^FDQuantity: ${order.quantity}^FS
-^FO20,120^A0N,15,15^FDPO Number: ${order.po_number}^FS
-^FO20,140^A0N,15,15^FDStatus: ${order.status}^FS
-^FO20,160^A0N,15,15^FDDate: ${new Date().toLocaleDateString()}^FS
+^LH0,0
+^FO50,40^A0N,50,50^FD${order.sku_code || order.model_number || order.asin || 'N/A'}^FS
+^FO50,120^A0N,30,30^FD${(order.title || order.model_number || 'Item').substring(0, 30)}^FS
+^FO50,170^A0N,30,30^FDQuantity: ${order.quantity}^FS
+^FO50,220^A0N,25,25^FDPO Number: ${order.po_number}^FS
+^FO50,270^A0N,25,25^FDStatus: ${order.status}^FS
+^FO50,320^A0N,20,20^FDDate: ${new Date().toLocaleDateString()}^FS
 ^XZ`;
         
       case 'minimal':
         return `^XA
+^MMT
 ^PW${dimensions.width}
 ^LL${dimensions.height}
-^FO20,20^A0N,35,35^FD${order.sku_code || order.model_number || order.asin || 'N/A'}^FS
-^FO20,70^A0N,20,20^FDQty: ${order.quantity}^FS
+^LH0,0
+^FO50,60^A0N,60,60^FD${order.sku_code || order.model_number || order.asin || 'N/A'}^FS
+^FO50,150^A0N,40,40^FDQty: ${order.quantity}^FS
 ^XZ`;
         
       default: // 'default' or custom template
@@ -448,24 +454,26 @@ export const POTracker = () => {
         }
         
         return `^XA
+^MMT
 ^PW${dimensions.width}
 ^LL${dimensions.height}
-^FO20,20^A0N,30,30^FD${order.sku_code || order.model_number || order.asin || 'N/A'}^FS
-^FO20,60^A0N,20,20^FD${(order.title || order.model_number || 'Item').substring(0, 25)}^FS
-^FO20,90^A0N,20,20^FDQty: ${order.quantity}^FS
-^FO20,120^A0N,15,15^FDPO: ${order.po_number}^FS
+^LH0,0
+^FO50,40^A0N,50,50^FD${order.sku_code || order.model_number || order.asin || 'N/A'}^FS
+^FO50,120^A0N,35,35^FD${(order.title || order.model_number || 'Item').substring(0, 25)}^FS
+^FO50,180^A0N,35,35^FDQty: ${order.quantity}^FS
+^FO50,240^A0N,25,25^FDPO: ${order.po_number}^FS
 ^XZ`;
     }
   };
 
-  // Get label dimensions based on page size and DPI
+  // Get label dimensions based on page size and DPI - optimized for actual label sizes
   const getLabelDimensions = (pageSize: string, dpi: number) => {
     const presets = {
-      '4x6': { width: 4 * dpi, height: 6 * dpi },
-      '4x3': { width: 4 * dpi, height: 3 * dpi },
-      '2x1': { width: 2 * dpi, height: 1 * dpi },
-      '3x2': { width: 3 * dpi, height: 2 * dpi },
-      'default': { width: 4 * dpi, height: 6 * dpi }
+      '4x6': { width: Math.round(4.0 * dpi), height: Math.round(6.0 * dpi) },
+      '4x3': { width: Math.round(4.0 * dpi), height: Math.round(3.0 * dpi) },
+      '2x1': { width: Math.round(2.0 * dpi), height: Math.round(1.0 * dpi) },
+      '3x2': { width: Math.round(3.0 * dpi), height: Math.round(2.0 * dpi) },
+      'default': { width: Math.round(4.0 * dpi), height: Math.round(6.0 * dpi) }
     };
     
     return presets[pageSize as keyof typeof presets] || presets.default;
@@ -474,14 +482,16 @@ export const POTracker = () => {
   // Generate ZPL from custom template
   const generateZPLFromCustomTemplate = (order: POOrder, template: any, dpi: number): string => {
     // This would need to parse the canvas_data and generate ZPL
-    // For now, return a basic template
+    // For now, return a basic template with proper sizing
     return `^XA
+^MMT
 ^PW${template.width}
 ^LL${template.height}
-^FO20,20^A0N,30,30^FD${order.sku_code || order.model_number || order.asin || 'N/A'}^FS
-^FO20,60^A0N,20,20^FD${(order.title || order.model_number || 'Item').substring(0, 25)}^FS
-^FO20,90^A0N,20,20^FDQty: ${order.quantity}^FS
-^FO20,120^A0N,15,15^FDPO: ${order.po_number}^FS
+^LH0,0
+^FO50,40^A0N,50,50^FD${order.sku_code || order.model_number || order.asin || 'N/A'}^FS
+^FO50,120^A0N,35,35^FD${(order.title || order.model_number || 'Item').substring(0, 25)}^FS
+^FO50,180^A0N,35,35^FDQty: ${order.quantity}^FS
+^FO50,240^A0N,25,25^FDPO: ${order.po_number}^FS
 ^XZ`;
   };
 
@@ -523,6 +533,56 @@ export const POTracker = () => {
       title: "ZPL file downloaded",
       description: `Downloaded ${allZPLCodes.length} labels`,
     });
+  };
+
+  // Print single item
+  const handleSingleItemPrint = async (order: POOrder) => {
+    if (!qzConnected) {
+      toast({
+        title: "QZ Tray not connected",
+        description: "Please ensure QZ Tray is running and try again",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!selectedPrinter) {
+      toast({
+        title: "No printer selected",
+        description: "Please select a printer first",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const copies = printSettings.copiesByQuantity ? order.quantity : printSettings.copies;
+      let allZPLCodes: string[] = [];
+      
+      for (let i = 0; i < copies; i++) {
+        let zplCode = generateZPLFromTemplate(order, printSettings);
+        allZPLCodes.push(zplCode);
+      }
+
+      // Set printer darkness and print
+      const darknessCommand = `~SD${printSettings.darkness.toString().padStart(2, '0')}`;
+      const finalZPL = darknessCommand + '\n' + allZPLCodes.join('\n');
+
+      await qzConnectionManager.print(finalZPL, selectedPrinter);
+
+      toast({
+        title: "Label printed successfully",
+        description: `Printed ${allZPLCodes.length} label(s) for ${order.sku_code || order.model_number || order.asin}`,
+      });
+
+    } catch (error) {
+      console.error('Print error:', error);
+      toast({
+        title: "Print failed",
+        description: error instanceof Error ? error.message : "Failed to print label",
+        variant: "destructive"
+      });
+    }
   };
 
   const paginatedDetailedOrders = useMemo(() => {
@@ -1502,18 +1562,30 @@ export const POTracker = () => {
                                 </Badge>
                               </TableCell>
                               <TableCell>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm"
-                                  onClick={() => {
-                                    const newSelected = new Set(selectedForPrint);
-                                    newSelected.add(order.id);
-                                    setSelectedForPrint(newSelected);
-                                  }}
-                                  disabled={selectedForPrint.has(order.id)}
-                                >
-                                  <Plus className="h-3 w-3" />
-                                </Button>
+                                <div className="flex items-center gap-1">
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm"
+                                    onClick={() => {
+                                      const newSelected = new Set(selectedForPrint);
+                                      newSelected.add(order.id);
+                                      setSelectedForPrint(newSelected);
+                                    }}
+                                    disabled={selectedForPrint.has(order.id)}
+                                    title="Add to selection"
+                                  >
+                                    <Plus className="h-3 w-3" />
+                                  </Button>
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    onClick={() => handleSingleItemPrint(order)}
+                                    disabled={!qzConnected || !selectedPrinter}
+                                    title="Print this item"
+                                  >
+                                    <Printer className="h-3 w-3" />
+                                  </Button>
+                                </div>
                               </TableCell>
                             </TableRow>
                           ))
