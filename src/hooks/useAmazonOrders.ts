@@ -28,7 +28,7 @@ export const useAmazonOrders = () => {
           .from('orders')
           .select('*')
           .eq('country', selectedCountry)
-          .order('created_at', { ascending: false })
+          .order('shipment_date', { ascending: true }) // Changed to shipment_date ascending to get older orders first
           .range(from, from + batchSize - 1);
 
         if (error) throw error;
@@ -196,14 +196,21 @@ export const useAmazonOrders = () => {
     const overduePayments = overdueOrders.length;
 
     console.log('🔍 Total overdue orders found:', overdueOrders.length);
+    console.log(`🔍 Expected ~137 overdue orders based on database query (shipment dates before ${new Date(new Date().getTime() - (creditDays * 24 * 60 * 60 * 1000)).toDateString()})`);
+    
     if (overdueOrders.length > 0) {
-      console.log('🔍 Sample overdue orders:', overdueOrders.slice(0, 3).map(o => ({
+      console.log('🔍 Sample overdue orders:', overdueOrders.slice(0, 5).map(o => ({
         order_id: o.order_id,
         shipment_date: o.shipment_date,
         due_date: new Date(new Date(o.shipment_date).getTime() + (creditDays * 24 * 60 * 60 * 1000)).toDateString()
       })));
     } else {
-      console.log('🔍 No overdue orders found. Expected 137 based on database query.');
+      console.log('🔍 No overdue orders found. Check if older orders (July 2025) are being processed.');
+      console.log('🔍 First 5 pending orders being checked:', pendingOrders.slice(0, 5).map(o => ({
+        order_id: o.order_id,
+        shipment_date: o.shipment_date,
+        status: o.status
+      })));
     }
 
     // Calculate overdue orders value (convert to USD)
