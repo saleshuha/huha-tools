@@ -714,12 +714,15 @@ export function AsinInventory() {
       // Generate professional ZPL using the order label generator
       const zplCode = generateOrderLabelZPL(orderItem, labelSettings);
 
-      // Print using QZ Tray
-      await qzConnectionManager.print(zplCode);
+      // Get saved default printer for more reliable printing
+      const savedDefaultPrinter = localStorage.getItem('qz-default-printer');
+      
+      // Print using QZ Tray with specific printer
+      await qzConnectionManager.print(zplCode, savedDefaultPrinter || undefined);
       
       toast({
-        title: "Label Printed",
-        description: `Printed professional label for ${item.asin}`,
+        title: "Label Printed", 
+        description: `Printed professional label for ${item.asin}${savedDefaultPrinter ? ` to ${savedDefaultPrinter}` : ''}`,
       });
     } catch (error) {
       console.error('Error printing item:', error);
