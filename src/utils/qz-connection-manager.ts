@@ -73,9 +73,9 @@ export class QZConnectionManager {
         resolve(""); // Empty certificate for development
       });
       
-      // Set up signature promise (for development, use empty signature)  
+      // Set up signature promise (for development, use empty signature)
       window.qz.security.setSignaturePromise(function(toSign: string) {
-        return Promise.resolve(""); // Empty signature for development
+        return ""; // Return empty signature directly for development
       });
       
       // Use the global qz object directly with simpler connection
