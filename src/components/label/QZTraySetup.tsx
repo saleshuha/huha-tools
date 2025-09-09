@@ -153,6 +153,59 @@ export const QZTraySetup: React.FC = () => {
     }));
   };
 
+  const handleDemoKeysUpload = async () => {
+    try {
+      const certificate = localStorage.getItem('temp-demo-certificate');
+      const privateKey = localStorage.getItem('temp-demo-private-key');
+      const certName = localStorage.getItem('temp-demo-cert-name');
+      const keyName = localStorage.getItem('temp-demo-key-name');
+      
+      if (!certificate || !privateKey) {
+        toast.error('Both certificate and private key files are required');
+        return;
+      }
+
+      // Create a simple fingerprint from the certificate content
+      const fingerprint = btoa(certificate.slice(0, 100)).replace(/[^A-Za-z0-9]/g, '').slice(0, 32);
+      
+      // Extract common name from certificate or use a default
+      let commonName = window.location.hostname;
+      try {
+        const certMatch = certificate.match(/CN=([^,\n]+)/);
+        if (certMatch) {
+          commonName = certMatch[1].trim();
+        }
+      } catch (e) {
+        console.log('Could not extract CN from certificate, using hostname');
+      }
+
+      // Create stored certificate object
+      const storedCert = {
+        certificate: certificate.trim(),
+        privateKey: privateKey.trim(),
+        fingerprint,
+        commonName,
+        createdAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString() // 1 year from now
+      };
+
+      // Store the certificate
+      QZCertificateManager.storeCertificate(storedCert);
+      updateCertificateStatus();
+
+      // Clean up temporary storage
+      localStorage.removeItem('temp-demo-certificate');
+      localStorage.removeItem('temp-demo-private-key');
+      localStorage.removeItem('temp-demo-cert-name');
+      localStorage.removeItem('temp-demo-key-name');
+
+      toast.success(`Demo certificate installed successfully! Certificate: ${certName}, Key: ${keyName}`);
+    } catch (error) {
+      console.error('Error installing demo certificate:', error);
+      toast.error('Failed to install demo certificate. Please try again.');
+    }
+  };
+
   const isDevelopment = window.location.hostname === 'localhost' || 
                        window.location.hostname === '127.0.0.1' || 
                        window.location.protocol === 'http:';
@@ -378,10 +431,24 @@ export const QZTraySetup: React.FC = () => {
                           type="file" 
                           accept=".txt,.pem" 
                           className="text-xs file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-blue-50 file:text-blue-700"
-                          onChange={(e) => {
+                          onChange={async (e) => {
                             const file = e.target.files?.[0];
                             if (file) {
-                              toast.success(`File ${file.name} selected (demo purposes)`);
+                              try {
+                                const text = await file.text();
+                                // Store the certificate temporarily until private key is also uploaded
+                                localStorage.setItem('temp-demo-certificate', text);
+                                localStorage.setItem('temp-demo-cert-name', file.name);
+                                toast.success(`Certificate ${file.name} loaded`);
+                                
+                                // Check if we have both files now
+                                const privateKey = localStorage.getItem('temp-demo-private-key');
+                                if (privateKey) {
+                                  await handleDemoKeysUpload();
+                                }
+                              } catch (error) {
+                                toast.error(`Failed to read ${file.name}`);
+                              }
                             }
                           }}
                         />
@@ -392,10 +459,24 @@ export const QZTraySetup: React.FC = () => {
                           type="file" 
                           accept=".pem" 
                           className="text-xs file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-blue-50 file:text-blue-700"
-                          onChange={(e) => {
+                          onChange={async (e) => {
                             const file = e.target.files?.[0];
                             if (file) {
-                              toast.success(`File ${file.name} selected (demo purposes)`);
+                              try {
+                                const text = await file.text();
+                                // Store the private key temporarily until certificate is also uploaded
+                                localStorage.setItem('temp-demo-private-key', text);
+                                localStorage.setItem('temp-demo-key-name', file.name);
+                                toast.success(`Private key ${file.name} loaded`);
+                                
+                                // Check if we have both files now
+                                const certificate = localStorage.getItem('temp-demo-certificate');
+                                if (certificate) {
+                                  await handleDemoKeysUpload();
+                                }
+                              } catch (error) {
+                                toast.error(`Failed to read ${file.name}`);
+                              }
                             }
                           }}
                         />
