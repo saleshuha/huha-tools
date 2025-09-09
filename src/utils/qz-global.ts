@@ -116,13 +116,13 @@ class QZGlobal {
   }
 
   private setupUnsignedMode(): void {
-    // Use null promises for unsigned mode - QZ will handle trust prompts
+    // Use proper null/undefined promises for unsigned mode
     window.qz.security.setCertificatePromise((resolve: Function, reject: Function) => {
-      resolve(); // No certificate
+      resolve(null); // Explicitly pass null for no certificate
     });
 
     window.qz.security.setSignaturePromise((toSign: string, resolve: Function, reject: Function) => {
-      resolve(); // No signature
+      resolve(null); // Explicitly pass null for no signature
     });
   }
 
