@@ -1823,28 +1823,43 @@ export const POTracker = () => {
                                    className="h-4 w-4 rounded border-border"
                                  />
                                </TableCell>
-                                  <TableCell>
-                                    {(() => {
-                                      const productImage = order.asin ? getImageByAsin(order.asin) : null;
-                                      return productImage ? (
-                                        <img 
-                                          src={productImage.image_url} 
-                                          alt={productImage.image_name || order.title || 'Product'} 
-                                          className="w-14 h-14 rounded border object-cover"
-                                          onError={(e) => {
-                                            e.currentTarget.style.display = 'none';
-                                            e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                                          }}
-                                        />
-                                      ) : (
-                                        <div className="w-14 h-14 rounded border bg-muted flex items-center justify-center">
-                                          <svg className="w-7 h-7 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                          </svg>
-                                        </div>
-                                      );
-                                    })()}
-                                  </TableCell>
+                                   <TableCell>
+                                     {(() => {
+                                       const productImage = order.asin ? getImageByAsin(order.asin) : null;
+                                       return productImage ? (
+                                         <div className="relative group">
+                                           <img 
+                                             src={productImage.image_url} 
+                                             alt={productImage.image_name || order.title || 'Product'} 
+                                             className="w-16 h-16 rounded border object-cover cursor-pointer transition-transform hover:scale-105"
+                                             onError={(e) => {
+                                               e.currentTarget.style.display = 'none';
+                                               e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                                             }}
+                                           />
+                                           {/* Hover preview */}
+                                           <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
+                                             <div className="bg-background border border-border rounded-lg shadow-lg p-2">
+                                               <img 
+                                                 src={productImage.image_url} 
+                                                 alt={productImage.image_name || order.title || 'Product'} 
+                                                 className="w-48 h-48 object-contain rounded"
+                                               />
+                                               <div className="text-xs text-muted-foreground mt-1 max-w-48 truncate">
+                                                 {productImage.image_name || order.title || 'Product Image'}
+                                               </div>
+                                             </div>
+                                           </div>
+                                         </div>
+                                       ) : (
+                                         <div className="w-16 h-16 rounded border bg-muted flex items-center justify-center">
+                                           <svg className="w-8 h-8 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                           </svg>
+                                         </div>
+                                       );
+                                     })()}
+                                   </TableCell>
                                  <TableCell className="w-32">
                                    <div className="space-y-1">
                                      {order.sku_code && (

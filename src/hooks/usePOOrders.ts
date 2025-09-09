@@ -605,14 +605,25 @@ export const usePOOrders = () => {
   // Update print status
   const updatePrintStatus = useCallback(async (orderIds: string[], isPrinted: boolean) => {
     try {
+      console.log('🖨️ Updating print status for orders:', orderIds, 'isPrinted:', isPrinted);
+      
       const { error } = await supabase
         .from('po_orders')
         .update({ is_printed: isPrinted })
         .in('id', orderIds);
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Print status update error:', error);
+        throw error;
+      }
 
+      console.log('✅ Print status updated successfully');
       await fetchPOOrders();
+      
+      toast({
+        title: "Success",
+        description: `Print status updated for ${orderIds.length} item(s)`,
+      });
       
     } catch (error) {
       console.error('Error updating print status:', error);
