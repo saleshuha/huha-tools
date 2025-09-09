@@ -78,6 +78,9 @@ export const POTracker = () => {
   const [selectedPOForLabels, setSelectedPOForLabels] = useState<string | null>(null);
   const [labelSearchQuery, setLabelSearchQuery] = useState('');
   const [selectedForPrint, setSelectedForPrint] = useState<Set<string>>(new Set());
+  const [printedItems, setPrintedItems] = useState<Set<string>>(new Set());
+  const [labelCurrentPage, setLabelCurrentPage] = useState(1);
+  const [labelItemsPerPage, setLabelItemsPerPage] = useState(20);
   const [printSettings, setPrintSettings] = useState({
     template: 'default',
     copies: 1,
@@ -406,7 +409,10 @@ export const POTracker = () => {
         description: `Printed ${allZPLCodes.length} labels to ${selectedPrinter}`,
       });
 
-      // Clear selection after successful print
+      // Mark items as printed and clear selection after successful print
+      const newPrintedItems = new Set(printedItems);
+      selectedOrders.forEach(order => newPrintedItems.add(order.id));
+      setPrintedItems(newPrintedItems);
       setSelectedForPrint(new Set());
 
     } catch (error) {
@@ -664,6 +670,11 @@ export const POTracker = () => {
         title: "Label printed successfully",
         description: `Printed ${allZPLCodes.length} label(s) for ${order.sku_code || order.model_number || order.asin}`,
       });
+
+      // Mark item as printed
+      const newPrintedItems = new Set(printedItems);
+      newPrintedItems.add(order.id);
+      setPrintedItems(newPrintedItems);
 
     } catch (error) {
       console.error('Print error:', error);
@@ -1712,112 +1723,126 @@ export const POTracker = () => {
                               )}
                             </div>
                           </TableHead>
-                          <TableHead 
-                            className="cursor-pointer hover:bg-muted/50 select-none"
-                            onClick={() => handleSort('status')}
-                          >
-                            <div className="flex items-center gap-1">
-                              Status
-                              {sortField === 'status' && (
-                                <span className="text-xs">
-                                  {sortDirection === 'asc' ? '↑' : '↓'}
-                                </span>
-                              )}
-                            </div>
-                          </TableHead>
-                          <TableHead>Matched</TableHead>
+                          <TableHead>Print Status</TableHead>
                           <TableHead>Actions</TableHead>
                         </TableRow>
                       </TableHeader>
-                      <TableBody>
-                        {filteredOrders
-                          .filter(order => order.po_number === selectedPOForLabels)
-                          .map((order) => (
-                            <TableRow key={order.id}>
-                              <TableCell>
-                                <input
-                                  type="checkbox"
-                                  checked={selectedForPrint.has(order.id)}
-                                  onChange={(e) => {
-                                    const newSelected = new Set(selectedForPrint);
-                                    if (e.target.checked) {
-                                      newSelected.add(order.id);
-                                    } else {
-                                      newSelected.delete(order.id);
-                                    }
-                                    setSelectedForPrint(newSelected);
-                                  }}
-                                  className="h-4 w-4 rounded border-border"
-                                />
-                              </TableCell>
-                              <TableCell>
-                                <div className="space-y-1">
-                                  {order.sku_code && (
-                                    <div className="text-sm font-medium font-mono">{order.sku_code}</div>
-                                  )}
-                                  {order.model_number && order.model_number !== order.sku_code && (
-                                    <div className="text-xs text-muted-foreground font-mono">{order.model_number}</div>
-                                  )}
-                                  {!order.sku_code && !order.model_number && (
-                                    <span className="text-xs text-muted-foreground">N/A</span>
-                                  )}
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <div className="space-y-1">
-                                  <div className="max-w-[250px] truncate text-sm font-medium" title={order.title}>
-                                    {order.title || 'No title'}
-                                  </div>
-                                  {order.asin && (
-                                    <div className="text-xs text-muted-foreground font-mono">{order.asin}</div>
-                                  )}
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <Badge variant="secondary" className="font-mono">
-                                  {order.quantity}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>
-                                <Badge 
-                                  variant={
-                                    order.status === 'delivered' ? 'default' :
-                                    order.status === 'shipped' ? 'secondary' :
-                                    order.status === 'ordered' ? 'outline' :
-                                    'destructive'
-                                  }
-                                  className="text-xs"
-                                >
-                                  {order.status}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>
-                                <Badge 
-                                  variant={order.sunsky_sku ? 'default' : 'outline'}
-                                  className="text-xs"
-                                >
-                                  {order.sunsky_sku ? 'Matched' : 'Unmatched'}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>
-                                <Button 
-                                  variant="outline" 
-                                  size="sm"
-                                  onClick={() => handleSingleItemPrint(order)}
-                                  disabled={!qzConnected || !selectedPrinter}
-                                  className="w-full"
-                                >
-                                  <Printer className="h-3 w-3 mr-1" />
-                                  Print
-                                </Button>
-                              </TableCell>
-                            </TableRow>
-                          ))
-                        }
-                      </TableBody>
-                    </Table>
-                  </div>
-                </CardContent>
+                       <TableBody>
+                         {(() => {
+                           const ordersForSelectedPO = filteredOrders.filter(order => order.po_number === selectedPOForLabels);
+                           const startIndex = (labelCurrentPage - 1) * labelItemsPerPage;
+                           const endIndex = startIndex + labelItemsPerPage;
+                           const paginatedOrders = ordersForSelectedPO.slice(startIndex, endIndex);
+                           
+                           return paginatedOrders.map((order) => (
+                             <TableRow key={order.id}>
+                               <TableCell>
+                                 <input
+                                   type="checkbox"
+                                   checked={selectedForPrint.has(order.id)}
+                                   onChange={(e) => {
+                                     const newSelected = new Set(selectedForPrint);
+                                     if (e.target.checked) {
+                                       newSelected.add(order.id);
+                                     } else {
+                                       newSelected.delete(order.id);
+                                     }
+                                     setSelectedForPrint(newSelected);
+                                   }}
+                                   className="h-4 w-4 rounded border-border"
+                                 />
+                               </TableCell>
+                               <TableCell>
+                                 <div className="space-y-1">
+                                   {order.sku_code && (
+                                     <div className="text-sm font-medium font-mono">{order.sku_code}</div>
+                                   )}
+                                   {order.model_number && order.model_number !== order.sku_code && (
+                                     <div className="text-xs text-muted-foreground font-mono">{order.model_number}</div>
+                                   )}
+                                   {!order.sku_code && !order.model_number && (
+                                     <span className="text-xs text-muted-foreground">N/A</span>
+                                   )}
+                                 </div>
+                               </TableCell>
+                               <TableCell>
+                                 <div className="space-y-1">
+                                   <div className="max-w-[250px] truncate text-sm font-medium" title={order.title}>
+                                     {order.title || 'No title'}
+                                   </div>
+                                   {order.asin && (
+                                     <div className="text-xs text-muted-foreground font-mono">{order.asin}</div>
+                                   )}
+                                 </div>
+                               </TableCell>
+                               <TableCell>
+                                 <Badge variant="secondary" className="font-mono">
+                                   {order.quantity}
+                                 </Badge>
+                               </TableCell>
+                               <TableCell>
+                                 <Badge 
+                                   variant={printedItems.has(order.id) ? 'default' : 'outline'}
+                                   className="text-xs"
+                                 >
+                                   {printedItems.has(order.id) ? 'Printed' : 'Not Printed Yet'}
+                                 </Badge>
+                               </TableCell>
+                               <TableCell>
+                                 <Button 
+                                   variant="outline" 
+                                   size="sm"
+                                   onClick={() => handleSingleItemPrint(order)}
+                                   disabled={!qzConnected || !selectedPrinter}
+                                   className="w-full"
+                                 >
+                                   <Printer className="h-3 w-3 mr-1" />
+                                   Print
+                                 </Button>
+                               </TableCell>
+                             </TableRow>
+                           ));
+                         })()}
+                       </TableBody>
+                     </Table>
+                   </div>
+                   
+                   {/* Pagination Controls */}
+                   {(() => {
+                     const ordersForSelectedPO = filteredOrders.filter(order => order.po_number === selectedPOForLabels);
+                     const totalPages = Math.ceil(ordersForSelectedPO.length / labelItemsPerPage);
+                     
+                     if (totalPages <= 1) return null;
+                     
+                     return (
+                       <div className="flex items-center justify-between px-2 py-4 border-t">
+                         <div className="flex items-center space-x-2">
+                           <p className="text-sm text-muted-foreground">
+                             Page {labelCurrentPage} of {totalPages} ({ordersForSelectedPO.length} items)
+                           </p>
+                         </div>
+                         <div className="flex items-center space-x-2">
+                           <Button
+                             variant="outline"
+                             size="sm"
+                             onClick={() => setLabelCurrentPage(prev => Math.max(1, prev - 1))}
+                             disabled={labelCurrentPage === 1}
+                           >
+                             Previous
+                           </Button>
+                           <Button
+                             variant="outline"
+                             size="sm"
+                             onClick={() => setLabelCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                             disabled={labelCurrentPage === totalPages}
+                           >
+                             Next
+                           </Button>
+                         </div>
+                       </div>
+                     );
+                   })()}
+                 </CardContent>
               </Card>
             </div>
           )}
