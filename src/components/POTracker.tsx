@@ -51,6 +51,7 @@ export interface POOrder {
   tracking_url?: string;
   created_at: string;
   updated_at: string;
+  is_printed?: boolean;
   sunsky_sku?: any;
 }
 
@@ -1260,7 +1261,7 @@ export const POTracker = () => {
                    </div>
 
                   {/* PO Groups List */}
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     {filteredPOGroups.length === 0 ? (
                       <Card className="p-8">
                         <div className="text-center">
@@ -1288,62 +1289,60 @@ export const POTracker = () => {
                             setLabelsStep('print');
                           }}
                         >
-                          <CardContent className="p-6">
-                            <div className="flex items-center justify-between">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-3 mb-2">
-                                  <h3 className="text-lg font-semibold text-primary">
-                                    {group.poNumber}
-                                  </h3>
-                                  <Badge variant="secondary" className="text-xs">
-                                    {group.orders.length} item{group.orders.length !== 1 ? 's' : ''}
-                                  </Badge>
-                                </div>
-                                
-                                {/* Summary Info */}
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm text-muted-foreground">
-                                  <div>
-                                    <span className="font-medium">Total Quantity:</span> {group.orders.reduce((sum, order) => sum + order.quantity, 0)}
-                                  </div>
-                                  <div>
-                                    <span className="font-medium">Matched:</span> {group.orders.filter(order => order.sunsky_sku).length}/{group.orders.length}
-                                  </div>
-                                  <div>
-                                    <span className="font-medium">Status:</span>{' '}
-                                    <Badge 
-                                      variant={
-                                        group.orders.every(o => o.status === 'delivered') ? 'default' :
-                                        group.orders.some(o => o.status === 'shipped') ? 'secondary' :
-                                        group.orders.some(o => o.status === 'ordered') ? 'outline' :
-                                        'destructive'
-                                      }
-                                      className="text-xs ml-1"
-                                    >
-                                      {group.orders.every(o => o.status === 'delivered') ? 'Delivered' :
-                                       group.orders.some(o => o.status === 'shipped') ? 'Shipped' :
-                                       group.orders.some(o => o.status === 'ordered') ? 'Ordered' :
-                                       'Pending'}
-                                    </Badge>
-                                  </div>
-                                </div>
-
-                                {/* Sample Items */}
-                                <div className="mt-3">
-                                  <div className="text-xs text-muted-foreground mb-1">Sample Items:</div>
-                                  <div className="flex flex-wrap gap-2">
-                                    {group.orders.slice(0, 3).map((order, idx) => (
-                                      <Badge key={idx} variant="outline" className="text-xs">
-                                        {order.model_number || order.asin || order.sku_code || 'N/A'}
-                                      </Badge>
-                                    ))}
-                                    {group.orders.length > 3 && (
-                                      <Badge variant="outline" className="text-xs">
-                                        +{group.orders.length - 3} more
-                                      </Badge>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
+                           <CardContent className="p-4">
+                             <div className="flex items-center justify-between">
+                               <div className="flex-1">
+                                 <div className="flex items-center gap-3 mb-2">
+                                   <h3 className="text-base font-semibold text-primary">
+                                     {group.poNumber}
+                                   </h3>
+                                   <Badge variant="secondary" className="text-xs">
+                                     {group.orders.length} item{group.orders.length !== 1 ? 's' : ''}
+                                   </Badge>
+                                 </div>
+                                 
+                                 {/* Summary Info */}
+                                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-sm text-muted-foreground">
+                                   <div>
+                                     <span className="font-medium">Qty:</span> {group.orders.reduce((sum, order) => sum + order.quantity, 0)}
+                                   </div>
+                                   <div>
+                                     <span className="font-medium">Matched:</span> {group.orders.filter(order => order.sunsky_sku).length}/{group.orders.length}
+                                   </div>
+                                   <div>
+                                     <span className="font-medium">Status:</span>{' '}
+                                     <Badge 
+                                       variant={
+                                         group.orders.every(o => o.status === 'delivered') ? 'default' :
+                                         group.orders.some(o => o.status === 'shipped') ? 'secondary' :
+                                         group.orders.some(o => o.status === 'ordered') ? 'outline' :
+                                         'destructive'
+                                       }
+                                       className="text-xs ml-1"
+                                     >
+                                       {group.orders.every(o => o.status === 'delivered') ? 'Delivered' :
+                                        group.orders.some(o => o.status === 'shipped') ? 'Shipped' :
+                                        group.orders.some(o => o.status === 'ordered') ? 'Ordered' :
+                                        'Pending'}
+                                     </Badge>
+                                   </div>
+                                   <div>
+                                     <span className="font-medium">Labels:</span>{' '}
+                                     <Badge 
+                                       variant={
+                                         group.orders.every(o => o.is_printed) ? 'default' :
+                                         group.orders.some(o => o.is_printed) ? 'secondary' :
+                                         'outline'
+                                       }
+                                       className="text-xs ml-1"
+                                     >
+                                       {group.orders.every(o => o.is_printed) ? 'All Printed' :
+                                        group.orders.some(o => o.is_printed) ? 'Partial' :
+                                        'Pending'}
+                                     </Badge>
+                                   </div>
+                                 </div>
+                               </div>
                               
                               <div className="flex items-center gap-2 ml-4">
                                 <Button 
