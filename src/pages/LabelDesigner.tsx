@@ -435,7 +435,7 @@ const LabelDesignerContent: React.FC = () => {
                         <TabsContent value="data" className="h-full p-0 m-0">
                           <ScrollArea className="h-full">
                             <div className="p-4 space-y-4">
-                              <InventoryDataMapper />
+                              <DomainDataMapper domain={labelDoc?.domain || 'inventory'} />
                             </div>
                           </ScrollArea>
                         </TabsContent>
