@@ -6,6 +6,7 @@ import './index.css'
 declare global {
   interface Window {
     qz: any;
+    qzTrusted?: boolean; // Track trust status
   }
 }
 
@@ -16,16 +17,16 @@ function initializeQZTray() {
     if (typeof window.qz !== 'undefined') {
       console.log('🔧 Setting up global QZ Tray security...');
       
-      // Set up security promises globally - this will trigger trust dialog once
+      // Set up security promises globally - avoid repeated trust dialogs
       window.qz.security.setCertificatePromise(function(resolve: any, reject: any) {
         console.log('📜 QZ Certificate requested (unsigned mode)');
-        resolve(); // Resolve with nothing for unsigned access
+        resolve(); // Always resolve for unsigned access
       });
 
       window.qz.security.setSignaturePromise(function(toSign: any) {
         return function(resolve: any, reject: any) {
-          console.log('✍️ QZ Signature requested (unsigned mode)');
-          resolve(); // Resolve with nothing for unsigned access
+          // Always resolve immediately for unsigned access - no logging to reduce noise
+          resolve();
         };
       });
 

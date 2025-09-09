@@ -79,20 +79,16 @@ export class QZConnectionManager {
         console.log('⚠️ Security not initialized globally, setting up locally...');
         
         window.qz.security.setCertificatePromise(function(resolve: any, reject: any) {
-          console.log('📜 QZ Certificate requested (local fallback)');
-          resolve();
+          resolve(); // Always resolve for unsigned access
         });
 
         window.qz.security.setSignaturePromise(function(toSign: any) {
           return function(resolve: any, reject: any) {
-            console.log('✍️ QZ Signature requested (local fallback)');
-            resolve();
+            resolve(); // Always resolve immediately for unsigned access
           };
         });
         
         this.securityInitialized = true;
-      } else {
-        console.log('✅ Using global QZ Tray security setup');
       }
 
       // Connect to QZ WebSocket - don't disconnect if already active
