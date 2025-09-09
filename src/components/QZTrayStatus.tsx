@@ -6,13 +6,15 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { RefreshCw, Printer, AlertCircle, CheckCircle, Zap } from 'lucide-react';
 import { qzConnectionManager } from '@/utils/qz-connection-manager';
 import { useToast } from '@/hooks/use-toast';
+
 export function QZTrayStatus() {
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [isLoadingPrinters, setIsLoadingPrinters] = useState(false);
   const [printers, setPrinters] = useState<string[]>([]);
-  const {
-    toast
-  } = useToast();
+  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
+
   useEffect(() => {
     // Set up connection listener
     const handleConnectionChange = (connected: boolean) => {
@@ -21,25 +23,58 @@ export function QZTrayStatus() {
         loadPrinters();
       } else {
         setPrinters([]);
+        setError(null);
       }
     };
+
     qzConnectionManager.addConnectionListener(handleConnectionChange);
 
     // Initial connection attempt
     attemptConnection();
+    
     return () => {
       qzConnectionManager.removeConnectionListener(handleConnectionChange);
     };
   }, []);
-  const loadPrinters = async () => {
+
+  const loadPrinters = async (showToast = false) => {
+    if (!isConnected) {
+      setPrinters([]);
+      setError('Not connected to QZ Tray');
+      return;
+    }
+
+    setIsLoadingPrinters(true);
+    setError(null);
+    
     try {
       const printerList = await qzConnectionManager.getPrinters();
       setPrinters(printerList);
+      
+      if (showToast) {
+        toast({
+          title: "Printers Refreshed",
+          description: `Found ${printerList.length} printer(s)`
+        });
+      }
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error('Failed to load printers:', error);
+      setError(errorMessage);
       setPrinters([]);
+      
+      if (showToast) {
+        toast({
+          title: "Failed to Load Printers",
+          description: errorMessage,
+          variant: "destructive"
+        });
+      }
+    } finally {
+      setIsLoadingPrinters(false);
     }
   };
+
   const attemptConnection = async () => {
     setIsConnecting(true);
     try {
@@ -57,6 +92,7 @@ export function QZTrayStatus() {
       setIsConnecting(false);
     }
   };
+
   const handleConnect = async () => {
     setIsConnecting(true);
     try {
@@ -83,6 +119,7 @@ export function QZTrayStatus() {
       setIsConnecting(false);
     }
   };
+
   return (
     <div className="space-y-4">
       {/* Connection Status */}
@@ -90,36 +127,55 @@ export function QZTrayStatus() {
         <div className="flex items-center gap-2">
           {isConnected ? (
             <>
-              <CheckCircle className="h-5 w-5 text-green-500" />
+              <CheckCircle className="h-5 w-5 text-success" />
               <span className="font-medium">Connected</span>
-              <Badge variant="secondary" className="bg-green-100 text-green-800">
+              <Badge variant="secondary" className="bg-success/10 text-success border-success/20">
                 Active
               </Badge>
             </>
           ) : (
             <>
-              <AlertCircle className="h-5 w-5 text-red-500" />
+              <AlertCircle className="h-5 w-5 text-destructive" />
               <span className="font-medium">Disconnected</span>
-              <Badge variant="outline" className="border-red-200 text-red-800">
+              <Badge variant="outline" className="border-destructive/20 text-destructive">
                 Offline
               </Badge>
             </>
           )}
         </div>
         
-        <Button
-          onClick={handleConnect}
-          disabled={isConnecting || isConnected}
-          size="sm"
-          className="gap-2"
-        >
-          {isConnecting ? (
-            <RefreshCw className="h-4 w-4 animate-spin" />
-          ) : (
-            <Zap className="h-4 w-4" />
+        <div className="flex gap-2">
+          {isConnected && (
+            <Button
+              onClick={() => loadPrinters(true)}
+              disabled={isLoadingPrinters}
+              size="sm"
+              variant="outline"
+              className="gap-2"
+            >
+              {isLoadingPrinters ? (
+                <RefreshCw className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
+              Refresh
+            </Button>
           )}
-          {isConnecting ? 'Connecting...' : isConnected ? 'Connected' : 'Connect'}
-        </Button>
+          
+          <Button
+            onClick={handleConnect}
+            disabled={isConnecting || isConnected}
+            size="sm"
+            className="gap-2"
+          >
+            {isConnecting ? (
+              <RefreshCw className="h-4 w-4 animate-spin" />
+            ) : (
+              <Zap className="h-4 w-4" />
+            )}
+            {isConnecting ? 'Connecting...' : isConnected ? 'Connected' : 'Connect'}
+          </Button>
+        </div>
       </div>
 
       {/* Printers List */}
@@ -128,9 +184,19 @@ export function QZTrayStatus() {
           <div className="flex items-center gap-2">
             <Printer className="h-4 w-4" />
             <span className="font-medium">Available Printers ({printers.length})</span>
+            {isLoadingPrinters && (
+              <RefreshCw className="h-3 w-3 animate-spin text-muted-foreground" />
+            )}
           </div>
           
-          {printers.length > 0 ? (
+          {error ? (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                {error}
+              </AlertDescription>
+            </Alert>
+          ) : printers.length > 0 ? (
             <div className="space-y-1">
               {printers.map((printer, index) => (
                 <div
@@ -146,7 +212,7 @@ export function QZTrayStatus() {
             <Alert>
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                No printers found. Make sure your printers are installed and accessible.
+                No printers found. Make sure your printers are installed and accessible, then click Refresh.
               </AlertDescription>
             </Alert>
           )}
