@@ -15,6 +15,7 @@ export class QZConnectionManager {
   private isConnected = false;
   private connectionPromise: Promise<boolean> | null = null;
   private listeners: ConnectionListener[] = [];
+  private securityInitialized = false;
 
   static getInstance(): QZConnectionManager {
     if (!QZConnectionManager.instance) {
@@ -34,6 +35,12 @@ export class QZConnectionManager {
     if (index > -1) {
       this.listeners.splice(index, 1);
     }
+  }
+
+  // Mark security as initialized globally (called from main.tsx)
+  markSecurityInitialized() {
+    this.securityInitialized = true;
+    console.log('🔐 QZ Tray security marked as globally initialized');
   }
 
   private notifyListeners(connected: boolean) {
@@ -67,27 +74,27 @@ export class QZConnectionManager {
         throw new Error('QZ Tray script not loaded');
       }
 
-      // Set up QZ Tray security for unsigned/demo mode according to official docs
-      // This triggers the trust dialog for unsigned access
-      window.qz.security.setCertificatePromise(function(resolve, reject) {
-        // For unsigned access - resolve with empty/null to trigger trust dialog
-        resolve();
-      });
-
-      window.qz.security.setSignaturePromise(function(toSign) {
-        return function(resolve, reject) {
-          // For unsigned access - resolve with empty/null to trigger trust dialog
+      // Only set up security if not already initialized globally
+      if (!this.securityInitialized) {
+        console.log('⚠️ Security not initialized globally, setting up locally...');
+        
+        window.qz.security.setCertificatePromise(function(resolve: any, reject: any) {
+          console.log('📜 QZ Certificate requested (local fallback)');
           resolve();
-        };
-      });
+        });
 
-      // Clear any existing connection state to force fresh handshake
-      if (window.qz.websocket.isActive()) {
-        await window.qz.websocket.disconnect();
-        // Wait for clean disconnect
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        window.qz.security.setSignaturePromise(function(toSign: any) {
+          return function(resolve: any, reject: any) {
+            console.log('✍️ QZ Signature requested (local fallback)');
+            resolve();
+          };
+        });
+        
+        this.securityInitialized = true;
+      } else {
+        console.log('✅ Using global QZ Tray security setup');
       }
-      
+
       // Connect to QZ WebSocket with retry logic
       if (!window.qz.websocket.isActive()) {
         let retries = 3;
@@ -98,6 +105,7 @@ export class QZConnectionManager {
           } catch (err) {
             retries--;
             if (retries === 0) throw err;
+            console.log(`🔄 Retry ${3 - retries}/3...`);
             await new Promise(resolve => setTimeout(resolve, 1000));
           }
         }

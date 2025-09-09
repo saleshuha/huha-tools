@@ -2,4 +2,49 @@ import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
 
+// Global QZ Tray initialization
+declare global {
+  interface Window {
+    qz: any;
+  }
+}
+
+// Initialize QZ Tray security globally once
+function initializeQZTray() {
+  // Wait for QZ Tray script to load
+  const checkQZ = () => {
+    if (typeof window.qz !== 'undefined') {
+      console.log('🔧 Setting up global QZ Tray security...');
+      
+      // Set up security promises globally - this will trigger trust dialog once
+      window.qz.security.setCertificatePromise(function(resolve: any, reject: any) {
+        console.log('📜 QZ Certificate requested (unsigned mode)');
+        resolve(); // Resolve with nothing for unsigned access
+      });
+
+      window.qz.security.setSignaturePromise(function(toSign: any) {
+        return function(resolve: any, reject: any) {
+          console.log('✍️ QZ Signature requested (unsigned mode)');
+          resolve(); // Resolve with nothing for unsigned access
+        };
+      });
+
+      // Import and notify the connection manager that security is set up globally
+      import('./utils/qz-connection-manager.ts').then(({ qzConnectionManager }) => {
+        qzConnectionManager.markSecurityInitialized();
+      });
+
+      console.log('✅ Global QZ Tray security initialized');
+    } else {
+      // Retry if QZ script not loaded yet
+      setTimeout(checkQZ, 100);
+    }
+  };
+  
+  checkQZ();
+}
+
+// Initialize QZ Tray on app startup
+initializeQZTray();
+
 createRoot(document.getElementById("root")!).render(<App />);
