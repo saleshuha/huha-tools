@@ -59,6 +59,16 @@ export class QZConnectionManager {
       return true;
     }
 
+    // Check if global security is set up first
+    if (!window.qzSecurityInitialized) {
+      console.log('⏳ Waiting for global QZ security initialization...');
+      // Wait a bit for global init
+      await new Promise(resolve => setTimeout(resolve, 500));
+      if (!window.qzSecurityInitialized) {
+        console.warn('⚠️ Global QZ security not initialized yet');
+      }
+    }
+
     this.connectionPromise = this.performConnection();
     const result = await this.connectionPromise;
     this.connectionPromise = null;
@@ -74,11 +84,32 @@ export class QZConnectionManager {
         throw new Error('QZ Tray script not loaded');
       }
 
+      // Ensure security is initialized before any websocket operations
+      if (!window.qzSecurityInitialized) {
+        console.log('🔐 Setting up QZ security before connection...');
+        
+        // Set up security if not already done
+        window.qz.security.setCertificatePromise(function(resolve: any, reject: any) {
+          console.log('📜 QZ Certificate requested (auto-approve in connection)');
+          resolve();
+        });
+
+        window.qz.security.setSignaturePromise(function(toSign: any) {
+          return function(resolve: any, reject: any) {
+            console.log('✍️ QZ Signature requested (auto-approve in connection)');
+            resolve();
+          };
+        });
+        
+        window.qzSecurityInitialized = true;
+      }
+
       // Connect to QZ WebSocket - don't disconnect if already active
       if (!window.qz.websocket.isActive()) {
         let retries = 3;
         while (retries > 0) {
           try {
+            console.log('🔌 Connecting to QZ WebSocket...');
             await window.qz.websocket.connect();
             break;
           } catch (err) {
@@ -107,7 +138,11 @@ export class QZConnectionManager {
 
   async getPrinters(): Promise<string[]> {
     if (!this.isConnected) {
-      throw new Error('Not connected to QZ Tray. Please connect first.');
+      console.log('🔄 Auto-connecting for printer discovery...');
+      const connected = await this.connect();
+      if (!connected) {
+        throw new Error('Could not connect to QZ Tray for printer discovery');
+      }
     }
     
     try {
@@ -130,7 +165,11 @@ export class QZConnectionManager {
 
   async getDefaultPrinter(): Promise<string | null> {
     if (!this.isConnected) {
-      return null;
+      console.log('🔄 Auto-connecting for default printer...');
+      const connected = await this.connect();
+      if (!connected) {
+        return null;
+      }
     }
     
     try {
