@@ -30,7 +30,7 @@ import { SimpleWarehouseManager } from './SimpleWarehouseManager';
 import { LabelTemplateManager } from './LabelTemplateManager';
 import { useWarehouseManager } from '@/hooks/useWarehouseManager';
 import { useBackgroundTasks } from '@/contexts/BackgroundTasksContext';
-import QZTrayPrinter from '@/utils/qz-tray-printer';
+import { qzConnectionManager } from '@/utils/qz-connection-manager';
 import { generateOrderLabelZPL, type OrderItem, type OrderLabelSettings } from '@/utils/order-label-printer';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -653,7 +653,7 @@ export function AsinInventory() {
   const handlePrintItem = async (item: AsinInventoryItem) => {
     try {
       // Check if QZ Tray is connected
-      const connected = await QZTrayPrinter.connect();
+      const connected = await qzConnectionManager.connect();
       if (!connected) {
         toast({
           title: "QZ Tray Not Connected",
@@ -715,7 +715,7 @@ export function AsinInventory() {
       const zplCode = generateOrderLabelZPL(orderItem, labelSettings);
 
       // Print using QZ Tray
-      await QZTrayPrinter.printZPL(zplCode);
+      await qzConnectionManager.print(zplCode);
       
       toast({
         title: "Label Printed",
