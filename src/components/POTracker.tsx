@@ -220,7 +220,7 @@ export const POTracker = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="overview" className="flex items-center gap-2">
             <Package className="h-4 w-4" />
             PO Overview
@@ -228,10 +228,6 @@ export const POTracker = () => {
           <TabsTrigger value="upload" className="flex items-center gap-2">
             <FileUp className="h-4 w-4" />
             Uploads
-          </TabsTrigger>
-          <TabsTrigger value="profit" className="flex items-center gap-2">
-            <TrendingUp className="h-4 w-4" />
-            Profit Analysis
           </TabsTrigger>
         </TabsList>
 
@@ -698,9 +694,6 @@ export const POTracker = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="profit" className="space-y-6">
-          <POProfitAnalytics poOrders={poOrders} />
-        </TabsContent>
       </Tabs>
     </div>
   );
