@@ -652,18 +652,15 @@ export function AsinInventory() {
   // Print single item label using QZ Tray
   const handlePrintItem = async (item: AsinInventoryItem) => {
     try {
-      // Check if QZ Tray is already connected, otherwise connect
-      let connected = qzConnectionManager.getConnectionStatus();
+      // Check if QZ Tray is connected, if not show appropriate message
+      const connected = qzConnectionManager.getConnectionStatus();
       if (!connected) {
-        connected = await qzConnectionManager.connect();
-        if (!connected) {
-          toast({
-            title: "QZ Tray Not Connected",
-            description: "Please ensure QZ Tray is running and try again",
-            variant: "destructive"
-          });
-          return;
-        }
+        toast({
+          title: "QZ Tray Not Connected",
+          description: "Please connect QZ Tray from the status indicator in the header first",
+          variant: "destructive"
+        });
+        return;
       }
 
       // Check for saved template settings
