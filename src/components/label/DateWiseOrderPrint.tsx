@@ -74,25 +74,40 @@ export const DateWiseOrderPrint: React.FC = () => {
 
   const initializeQZ = async () => {
     try {
+      console.log('🔄 Attempting to connect to QZ Tray...');
       const connected = await QZTrayPrinter.connect();
+      console.log('🔗 QZ Tray connection result:', connected);
+      
       if (connected) {
         setQzConnected(true);
+        console.log('✅ QZ Tray connected successfully');
+        
         const printers = await QZTrayPrinter.getPrinters();
+        console.log('🖨️ Available printers:', printers);
         setAvailablePrinters(printers);
         
         // Set default printer (prefer Zebra printers)
         const defaultPrinter = await QZTrayPrinter.getDefaultPrinter();
+        console.log('🎯 Default printer:', defaultPrinter);
+        
         if (defaultPrinter) {
           setSelectedPrinter(defaultPrinter);
         } else if (printers.length > 0) {
           setSelectedPrinter(printers[0]);
         }
         
-        toast.success('QZ Tray connected successfully');
+        toast.success(`QZ Tray connected! Found ${printers.length} printer(s)`);
+      } else {
+        throw new Error('Connection returned false');
       }
     } catch (error) {
-      console.error('Failed to connect to QZ Tray:', error);
-      // Don't show error toast as it's optional
+      console.error('❌ Failed to connect to QZ Tray:', error);
+      setQzConnected(false);
+      
+      // Switch to PDF mode as fallback
+      setPrintSettings(prev => ({ ...prev, format: 'pdf' }));
+      
+      toast.error('QZ Tray connection failed. Switched to PDF printing mode.');
     }
   };
 
@@ -1007,16 +1022,29 @@ export const DateWiseOrderPrint: React.FC = () => {
         
         <Button
           onClick={handlePrintLabels}
-          disabled={selectedOrders.length === 0 || !labelDoc || (printSettings.format === 'zpl' && (!qzConnected || !selectedPrinter))}
+          disabled={selectedOrders.length === 0 || !labelDoc}
           className="w-full"
         >
           <Printer className="h-4 w-4 mr-2" />
-          {printSettings.format === 'zpl' && qzConnected ? 'Direct Print' : 'Print'} {selectedOrders.length > 0 ? `${getTotalLabels()} ` : ''}Labels
+          {printSettings.format === 'zpl' && qzConnected && selectedPrinter ? 'Direct Print' : 'Print'} {selectedOrders.length > 0 ? `${getTotalLabels()} ` : ''}Labels
         </Button>
 
+        {/* Status Messages */}
         {!labelDoc && (
           <div className="p-3 bg-muted rounded-lg text-xs text-muted-foreground text-center">
             Create a label template to enable printing
+          </div>
+        )}
+
+        {labelDoc && selectedOrders.length === 0 && (
+          <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-xs text-blue-700 dark:text-blue-300 text-center">
+            Select orders to enable printing
+          </div>
+        )}
+
+        {printSettings.format === 'zpl' && (!qzConnected || !selectedPrinter) && selectedOrders.length > 0 && labelDoc && (
+          <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg text-xs text-yellow-700 dark:text-yellow-300 text-center">
+            {!qzConnected ? 'QZ Tray not connected - will print as PDF' : 'No printer selected - will print as PDF'}
           </div>
         )}
 
