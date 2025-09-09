@@ -54,33 +54,73 @@ export const usePOOrders = () => {
       
       console.log('🔄 Starting deduplicated PO orders fetch for user:', user.id);
       
-      // Use the raw function to get all PO orders
-      const { data: ordersData, error: ordersError } = await supabase.rpc(
-        'get_all_po_orders_raw',
-        { user_id_param: user.id }
-      );
+       // Since PostgREST limits results to 1000, we need to fetch all pages manually
+       let allOrders: any[] = [];
+       let page = 0;
+       const pageSize = 1000;
+       let hasMore = true;
 
-      if (ordersError) {
-        console.error('❌ Error fetching deduplicated PO orders:', ordersError);
-        throw ordersError;
-      }
+       console.log('🔄 Starting paginated fetch to get ALL PO orders...');
 
-      console.log('📊 Fetched deduplicated PO orders:', ordersData?.length);
-      
-      // Debug specific PO
-      const debugPO = '8RGH1C7S';
-      const debugPOOrders = ordersData?.filter(order => order.po_number === debugPO) || [];
-      console.log(`🔍 DEBUG: PO ${debugPO} has ${debugPOOrders.length} orders with total quantity:`, 
-        debugPOOrders.reduce((sum, order) => sum + (order.quantity || 0), 0));
+       while (hasMore) {
+         const startRange = page * pageSize;
+         const endRange = startRange + pageSize - 1;
+         
+         console.log(`📄 Fetching PO orders page ${page + 1} (rows ${startRange}-${endRange})...`);
+         
+         const { data: pageData, error } = await supabase
+           .from('po_orders')
+           .select(`
+             id, user_id, po_number, sku_code, quantity, status,
+             order_date, expected_delivery, notes, file_name, country,
+             currency, unit_cost, total_cost, sku_user_id, 
+             supplier_order_number, tracking_number, tracking_url,
+             created_at, updated_at, ship_to_location, asin,
+             model_number, title, external_id, external_id_type
+           `)
+           .eq('user_id', user.id)
+           .range(startRange, endRange)
+           .order('created_at', { ascending: false });
 
-      setLoadingProgress(70);
-      setLoadingStatus('Processing orders...');
+         if (error) {
+           console.error('❌ Error fetching PO orders page:', error);
+           throw error;
+         }
 
-      // Convert to POOrder format
-      const processedOrders: POOrder[] = (ordersData || []).map(order => ({
-        ...order,
-        status: order.status as POOrder['status'],
-      }));
+         if (pageData && pageData.length > 0) {
+           allOrders = [...allOrders, ...pageData];
+           console.log(`✅ Page ${page + 1}: fetched ${pageData.length} records (total so far: ${allOrders.length})`);
+           
+           // Continue if this page was full
+           hasMore = pageData.length === pageSize;
+           page++;
+         } else {
+           hasMore = false;
+         }
+
+         // Safety limit
+         if (page > 20) {
+           console.warn(`⚠️ Reached safety limit of 20 pages (${allOrders.length} records)`);
+           break;
+         }
+       }
+
+       console.log(`📊 Total PO orders fetched via pagination: ${allOrders.length}`);
+       
+       // Debug specific PO
+       const debugPO = '8RGH1C7S';
+       const debugPOOrders = allOrders.filter(order => order.po_number === debugPO);
+       console.log(`🔍 DEBUG: PO ${debugPO} has ${debugPOOrders.length} orders with total quantity:`, 
+         debugPOOrders.reduce((sum, order) => sum + (order.quantity || 0), 0));
+
+       setLoadingProgress(70);
+       setLoadingStatus('Processing orders...');
+
+       // Convert to POOrder format  
+       const processedOrders: POOrder[] = allOrders.map(order => ({
+         ...order,
+         status: order.status as POOrder['status'],
+       }));
 
       console.log(`✅ Processed ${processedOrders.length} deduplicated PO orders`);
       
