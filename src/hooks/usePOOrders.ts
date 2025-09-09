@@ -54,9 +54,9 @@ export const usePOOrders = () => {
       
       console.log('🔄 Starting deduplicated PO orders fetch for user:', user.id);
       
-      // Use the deduplicated function to avoid double counting from multiple uploads
+      // Use the raw function to get all PO orders
       const { data: ordersData, error: ordersError } = await supabase.rpc(
-        'get_all_po_orders_deduplicated',
+        'get_all_po_orders_raw',
         { user_id_param: user.id }
       );
 
