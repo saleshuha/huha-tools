@@ -14,6 +14,7 @@ interface LabelDocContextType {
   loadDocument: (id: string) => Promise<void>;
   saveDocument: () => Promise<void>;
   loadUserDocuments: () => Promise<any[]>;
+  deleteDocument: (id: string) => Promise<void>;
   
   // Dataset operations
   loadDataset: (id: string) => Promise<void>;
@@ -224,6 +225,32 @@ export const SimpleLabelDocProvider: React.FC<{ children: React.ReactNode }> = (
       return [];
     }
   }, []);
+
+  const deleteDocument = useCallback(async (id: string) => {
+    setIsLoading(true);
+    try {
+      const { error } = await supabase
+        .from('label_templates')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      
+      // If the deleted document is currently loaded, clear it
+      if (document?.id === id) {
+        setDocument(null);
+        setDataset(null);
+        setSelectedElement(null);
+      }
+      
+      toast.success('Label deleted successfully');
+    } catch (error) {
+      console.error('Delete document error:', error);
+      toast.error('Failed to delete label');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [document]);
 
   const loadDataset = useCallback(async (id: string) => {
     if (id === 'inventory' || id === 'orders') {
@@ -462,6 +489,7 @@ export const SimpleLabelDocProvider: React.FC<{ children: React.ReactNode }> = (
     loadDocument,
     saveDocument,
     loadUserDocuments,
+    deleteDocument,
     loadDataset,
     setDataset: setDatasetDirectly,
     addElement,

@@ -26,7 +26,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 import { LABEL_PRESETS, PrintSettings, LabelDomain } from '@/types/label';
-import { Plus, Database, Eye, Download, Printer, FolderOpen, Archive, Package, ShoppingCart, Truck } from 'lucide-react';
+import { Plus, Database, Eye, Download, Printer, FolderOpen, Archive, Package, ShoppingCart, Truck, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { HuhaHeader01 } from '@/components/ui/huha-header-01';
 const LabelDesignerContent: React.FC = () => {
@@ -35,7 +35,8 @@ const LabelDesignerContent: React.FC = () => {
     dataset,
     createDocument,
     loadDocument,
-    loadUserDocuments
+    loadUserDocuments,
+    deleteDocument
   } = useLabelDoc();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showLoadDialog, setShowLoadDialog] = useState(false);
@@ -117,6 +118,16 @@ const LabelDesignerContent: React.FC = () => {
     await loadDocument(id);
     setShowLoadDialog(false);
   };
+
+  const handleDeleteDocument = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation(); // Prevent triggering the load action
+    if (window.confirm('Are you sure you want to delete this label? This action cannot be undone.')) {
+      await deleteDocument(id);
+      // Refresh the documents list
+      const docs = await loadUserDocuments();
+      setUserDocuments(docs);
+    }
+  };
   const headerActions = [
     {
       label: 'Load Label',
@@ -197,13 +208,21 @@ const LabelDesignerContent: React.FC = () => {
                 <p className="text-muted-foreground">No saved labels found.</p>
                 <p className="text-sm text-muted-foreground/70 mt-1">Create a new label to get started</p>
               </div> : <div className="space-y-3 max-h-60 overflow-y-auto">
-                {userDocuments.map(doc => <div key={doc.id} className="flex justify-between items-center p-4 border-2 border-border rounded-xl hover:bg-accent/30 hover:border-accent/50 cursor-pointer transition-all duration-200 hover:shadow-sm" onClick={() => handleLoadDocument(doc.id)}>
-                    <div>
+                {userDocuments.map(doc => <div key={doc.id} className="flex justify-between items-center p-4 border-2 border-border rounded-xl hover:bg-accent/30 hover:border-accent/50 transition-all duration-200 hover:shadow-sm">
+                    <div className="flex-1 cursor-pointer" onClick={() => handleLoadDocument(doc.id)}>
                       <h4 className="font-medium text-foreground">{doc.name}</h4>
                       <p className="text-sm text-muted-foreground">
                         {doc.width}×{doc.height}mm • {new Date(doc.updated_at).toLocaleDateString()}
                       </p>
                     </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => handleDeleteDocument(e, doc.id)}
+                      className="ml-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>)}
               </div>}
           </div>
