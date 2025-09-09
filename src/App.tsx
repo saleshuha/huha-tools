@@ -18,6 +18,7 @@ import { CountrySwitcher } from "@/components/CountrySwitcher";
 import { BackgroundTasksPanel } from "@/components/BackgroundTasksPanel";
 import { ThemeColorWidget } from "@/components/theme/ThemeColorWidget";
 import { Button } from "@/components/ui/button";
+import { QZTrayStatus } from "@/components/QZTrayStatus";
 import { Activity } from "lucide-react";
 import Index from "./pages/Index";
 
@@ -216,16 +217,17 @@ const App = () => {
                         <div className="flex-1 flex justify-center">
                           <span className="text-xs font-medium text-muted-foreground">اللَّهُمَّ صل عَلَى مُحَمَّدٍ وَعَلَى آلِ مُحَمَّدٍ</span>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setShowBackgroundTasks(true)}
-                            className="flex items-center gap-2"
-                          >
-                            <Activity className="h-4 w-4" />
-                            Tasks
-                          </Button>
+                         <div className="flex items-center gap-2">
+                           <QZTrayStatus />
+                           <Button
+                             variant="outline"
+                             size="sm"
+                             onClick={() => setShowBackgroundTasks(true)}
+                             className="flex items-center gap-2"
+                           >
+                             <Activity className="h-4 w-4" />
+                             Tasks
+                           </Button>
                           <ThemeColorWidget />
                           <CountrySwitcher />
                         </div>
