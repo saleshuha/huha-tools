@@ -76,7 +76,7 @@ export const usePOOrders = () => {
              currency, unit_cost, total_cost, sku_user_id, 
              supplier_order_number, tracking_number, tracking_url,
              created_at, updated_at, ship_to_location, asin,
-             model_number, title, external_id, external_id_type
+             model_number, title, external_id, external_id_type, is_printed
            `)
            .eq('user_id', user.id)
            .range(startRange, endRange)
@@ -607,6 +607,18 @@ export const usePOOrders = () => {
     try {
       console.log('🖨️ Updating print status for orders:', orderIds, 'isPrinted:', isPrinted);
       
+      // First, verify current status
+      const { data: currentOrders, error: fetchError } = await supabase
+        .from('po_orders')
+        .select('id, is_printed')
+        .in('id', orderIds);
+      
+      if (fetchError) {
+        console.error('❌ Error fetching current orders:', fetchError);
+      } else {
+        console.log('📋 Current orders before update:', currentOrders);
+      }
+      
       const { error } = await supabase
         .from('po_orders')
         .update({ is_printed: isPrinted })
@@ -618,6 +630,20 @@ export const usePOOrders = () => {
       }
 
       console.log('✅ Print status updated successfully');
+      
+      // Verify the update worked
+      const { data: updatedOrders, error: verifyError } = await supabase
+        .from('po_orders')
+        .select('id, is_printed')
+        .in('id', orderIds);
+      
+      if (verifyError) {
+        console.error('❌ Error verifying update:', verifyError);
+      } else {
+        console.log('🔍 Orders after update:', updatedOrders);
+      }
+      
+      // Force refresh of PO orders
       await fetchPOOrders();
       
       toast({
