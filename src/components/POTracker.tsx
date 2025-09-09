@@ -69,6 +69,10 @@ export const POTracker = () => {
   const [processingProgress, setProcessingProgress] = useState(0);
   const [processingStatus, setProcessingStatus] = useState('');
   
+  // Sorting state
+  const [sortField, setSortField] = useState<keyof POOrder | 'combined_title'>('po_number');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  
   // Print Labels state - Two-step flow
   const [labelsStep, setLabelsStep] = useState<'list' | 'print'>('list');
   const [selectedPOForLabels, setSelectedPOForLabels] = useState<string | null>(null);
@@ -108,6 +112,16 @@ export const POTracker = () => {
       qzConnectionManager.removeConnectionListener(handleConnectionChange);
     };
   }, []);
+
+  // Sorting handler
+  const handleSort = (field: keyof POOrder | 'combined_title') => {
+    if (sortField === field) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);  
+      setSortDirection('asc');
+    }
+  };
 
   const loadPrinters = async () => {
     try {
@@ -1659,10 +1673,58 @@ export const POTracker = () => {
                       <TableHeader>
                         <TableRow>
                           <TableHead className="w-12">Select</TableHead>
-                          <TableHead>SKU/Model</TableHead>
-                          <TableHead>Title</TableHead>
-                          <TableHead>Qty</TableHead>
-                          <TableHead>Status</TableHead>
+                          <TableHead 
+                            className="cursor-pointer hover:bg-muted/50 select-none"
+                            onClick={() => handleSort('sku_code')}
+                          >
+                            <div className="flex items-center gap-1">
+                              SKU/Model
+                              {sortField === 'sku_code' && (
+                                <span className="text-xs">
+                                  {sortDirection === 'asc' ? '↑' : '↓'}
+                                </span>
+                              )}
+                            </div>
+                          </TableHead>
+                          <TableHead 
+                            className="cursor-pointer hover:bg-muted/50 select-none"
+                            onClick={() => handleSort('combined_title')}
+                          >
+                            <div className="flex items-center gap-1">
+                              Title & ASIN
+                              {sortField === 'combined_title' && (
+                                <span className="text-xs">
+                                  {sortDirection === 'asc' ? '↑' : '↓'}
+                                </span>
+                              )}
+                            </div>
+                          </TableHead>
+                          <TableHead 
+                            className="cursor-pointer hover:bg-muted/50 select-none"
+                            onClick={() => handleSort('quantity')}
+                          >
+                            <div className="flex items-center gap-1">
+                              Qty
+                              {sortField === 'quantity' && (
+                                <span className="text-xs">
+                                  {sortDirection === 'asc' ? '↑' : '↓'}
+                                </span>
+                              )}
+                            </div>
+                          </TableHead>
+                          <TableHead 
+                            className="cursor-pointer hover:bg-muted/50 select-none"
+                            onClick={() => handleSort('status')}
+                          >
+                            <div className="flex items-center gap-1">
+                              Status
+                              {sortField === 'status' && (
+                                <span className="text-xs">
+                                  {sortDirection === 'asc' ? '↑' : '↓'}
+                                </span>
+                              )}
+                            </div>
+                          </TableHead>
                           <TableHead>Matched</TableHead>
                           <TableHead>Actions</TableHead>
                         </TableRow>
@@ -1690,23 +1752,25 @@ export const POTracker = () => {
                               </TableCell>
                               <TableCell>
                                 <div className="space-y-1">
-                                  {order.model_number && (
-                                    <div className="text-sm font-medium">{order.model_number}</div>
+                                  {order.sku_code && (
+                                    <div className="text-sm font-medium font-mono">{order.sku_code}</div>
                                   )}
-                                  {order.asin && (
-                                    <div className="text-xs text-muted-foreground">{order.asin}</div>
+                                  {order.model_number && order.model_number !== order.sku_code && (
+                                    <div className="text-xs text-muted-foreground font-mono">{order.model_number}</div>
                                   )}
-                                  {order.sku_code && order.sku_code !== order.model_number && (
-                                    <div className="text-xs text-muted-foreground">{order.sku_code}</div>
-                                  )}
-                                  {!order.model_number && !order.asin && !order.sku_code && (
+                                  {!order.sku_code && !order.model_number && (
                                     <span className="text-xs text-muted-foreground">N/A</span>
                                   )}
                                 </div>
                               </TableCell>
                               <TableCell>
-                                <div className="max-w-[200px] truncate text-sm" title={order.title}>
-                                  {order.title || 'No title'}
+                                <div className="space-y-1">
+                                  <div className="max-w-[250px] truncate text-sm font-medium" title={order.title}>
+                                    {order.title || 'No title'}
+                                  </div>
+                                  {order.asin && (
+                                    <div className="text-xs text-muted-foreground font-mono">{order.asin}</div>
+                                  )}
                                 </div>
                               </TableCell>
                               <TableCell>
