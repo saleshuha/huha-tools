@@ -66,6 +66,12 @@ export const usePOOrders = () => {
       }
 
       console.log('📊 Fetched deduplicated PO orders:', ordersData?.length);
+      
+      // Debug specific PO
+      const debugPO = '8RGH1C7S';
+      const debugPOOrders = ordersData?.filter(order => order.po_number === debugPO) || [];
+      console.log(`🔍 DEBUG: PO ${debugPO} has ${debugPOOrders.length} orders with total quantity:`, 
+        debugPOOrders.reduce((sum, order) => sum + (order.quantity || 0), 0));
 
       setLoadingProgress(70);
       setLoadingStatus('Processing orders...');
@@ -77,6 +83,11 @@ export const usePOOrders = () => {
       }));
 
       console.log(`✅ Processed ${processedOrders.length} deduplicated PO orders`);
+      
+      // Debug specific PO after processing
+      const debugProcessedPOOrders = processedOrders.filter(order => order.po_number === debugPO);
+      console.log(`🔍 DEBUG AFTER PROCESSING: PO ${debugPO} has ${debugProcessedPOOrders.length} orders with total quantity:`, 
+        debugProcessedPOOrders.reduce((sum, order) => sum + (order.quantity || 0), 0));
 
       setPOOrders(processedOrders);
       setLoadingProgress(100);

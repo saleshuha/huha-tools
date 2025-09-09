@@ -376,6 +376,16 @@ export const POTracker = () => {
       orders
     }));
 
+    // Debug specific PO grouping
+    const debugPO = '8RGH1C7S';
+    const debugGroup = poGroups.find(group => group.poNumber === debugPO);
+    if (debugGroup) {
+      console.log(`🔍 FRONTEND DEBUG: PO ${debugPO} grouped with ${debugGroup.orders.length} orders, total quantity:`, 
+        debugGroup.orders.reduce((sum, order) => sum + (order.quantity || 0), 0));
+    } else {
+      console.log(`🔍 FRONTEND DEBUG: PO ${debugPO} not found in grouped orders`);
+    }
+
     return poGroups;
   }, [filteredOrders]);
 
