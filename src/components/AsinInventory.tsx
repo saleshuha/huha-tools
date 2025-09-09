@@ -711,8 +711,17 @@ export function AsinInventory() {
         itemQuantity: item.quantity
       };
 
+      console.log('🔍 Printing item data:', {
+        orderItem,
+        labelSettings,
+        originalItem: item
+      });
+
       // Generate professional ZPL using the order label generator
       const zplCode = generateOrderLabelZPL(orderItem, labelSettings);
+      
+      console.log('📄 Generated ZPL Code:', zplCode);
+      console.log('📊 ZPL Length:', zplCode.length);
 
       // Get saved default printer for more reliable printing
       const savedDefaultPrinter = localStorage.getItem('qz-default-printer');
@@ -729,6 +738,62 @@ export function AsinInventory() {
       toast({
         title: "Print Failed",
         description: "Could not print label. Please check QZ Tray connection.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Test print function with known good data
+  const handleTestPrint = async () => {
+    try {
+      const connected = qzConnectionManager.getConnectionStatus();
+      if (!connected) {
+        toast({
+          title: "QZ Tray Not Connected",
+          description: "Please connect QZ Tray from the status indicator in the header first",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Create test order item with known good data
+      const testOrderItem: OrderItem = {
+        orderId: "TEST-001",
+        asin: "B08N5WRWNW",
+        sku: "TEST-SKU-123",
+        itemTitle: "Test Product for Label Printing",
+        itemQuantity: 1
+      };
+
+      const testLabelSettings: OrderLabelSettings = {
+        labelSize: '4x3',
+        dpi: 203,
+        showOrderId: true,
+        showAsin: true,
+        showSku: true,
+        showTitle: true,
+        showQuantity: true,
+        includeBarcode: true,
+        barcodeContent: 'asin'
+      };
+
+      console.log('🧪 Test print data:', { testOrderItem, testLabelSettings });
+
+      const zplCode = generateOrderLabelZPL(testOrderItem, testLabelSettings);
+      console.log('🧪 Test ZPL Code:', zplCode);
+
+      const savedDefaultPrinter = localStorage.getItem('qz-default-printer');
+      await qzConnectionManager.print(zplCode, savedDefaultPrinter || undefined);
+      
+      toast({
+        title: "Test Label Printed", 
+        description: "Printed test label with sample data",
+      });
+    } catch (error) {
+      console.error('Error printing test label:', error);
+      toast({
+        title: "Test Print Failed",
+        description: "Could not print test label. Please check QZ Tray connection.",
         variant: "destructive"
       });
     }
@@ -870,8 +935,19 @@ export function AsinInventory() {
             <div className="space-y-6">
               {/* Primary Actions Section */}
               <div className="space-y-4">
-                <div className="flex flex-wrap gap-3">
-                  {/* Add New Item */}
+                 <div className="flex flex-wrap gap-3">
+                   {/* Test Print Button for Debugging */}
+                   <Button 
+                     size="sm" 
+                     variant="outline" 
+                     onClick={handleTestPrint}
+                     className="border-2 border-orange-500 bg-background hover:bg-orange-500 hover:text-white hover:border-orange-500 transition-all"
+                   >
+                     <Printer className="w-4 h-4 mr-2" />
+                     Test Print
+                   </Button>
+
+                   {/* Add New Item */}
                   <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                     <DialogTrigger asChild>
                       <Button size="sm" variant="outline" className="border-2 border-primary bg-background hover:bg-green-500 hover:text-white hover:border-green-500 transition-all">
