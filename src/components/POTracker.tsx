@@ -145,52 +145,34 @@ export const POTracker = () => {
   useEffect(() => {
     if (profile?.id && selectedCountry) {
       fetchPOOrders();
-      connectQZTray();
+      initializeQZ();
     }
   }, [profile?.id, selectedCountry, fetchPOOrders]);
 
-  const connectQZTray = async () => {
+  const initializeQZ = async () => {
     try {
-      console.log('🔄 Attempting to connect to QZ Tray...');
-      
       const connected = await QZTrayPrinter.connect();
-      console.log('🔗 QZ Tray connection result:', connected);
-      
       if (connected) {
         setQzConnected(true);
-        console.log('✅ QZ Tray connected successfully');
-        
         const printers = await QZTrayPrinter.getPrinters();
-        console.log('🖨️ Available printers:', printers);
         setAvailablePrinters(printers);
         
+        // Set default printer
         const defaultPrinter = await QZTrayPrinter.getDefaultPrinter();
-        console.log('🎯 Default printer:', defaultPrinter);
-        
         if (defaultPrinter) {
           setSelectedPrinter(defaultPrinter);
+        } else if (printers.length > 0) {
+          setSelectedPrinter(printers[0]);
         }
         
         toast({
           title: "QZ Tray Connected",
           description: `Found ${printers.length} printer(s)`,
         });
-      } else {
-        throw new Error('Connection returned false');
       }
     } catch (error) {
-      console.error('❌ Failed to connect to QZ Tray:', error);
+      console.error('Failed to connect to QZ Tray:', error);
       setQzConnected(false);
-      
-      // Provide specific error message
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      console.log('🔍 QZ Tray connection error details:', errorMsg);
-      
-      toast({
-        title: "QZ Tray Connection Failed",
-        description: `${errorMsg}. Check if QZ Tray is running and trusted.`,
-        variant: "destructive"
-      });
     }
   };
 
@@ -963,7 +945,7 @@ export const POTracker = () => {
                       <Button 
                         variant="outline" 
                         size="sm"
-                        onClick={connectQZTray}
+                        onClick={initializeQZ}
                         className="ml-2"
                       >
                         <RefreshCw className="h-4 w-4 mr-1" />
