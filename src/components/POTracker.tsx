@@ -184,7 +184,7 @@ export const POTracker = () => {
   });
 
   // New query to fetch deduplicated PO metrics from database
-  const { data: comprehensiveMetrics, isLoading: isLoadingComprehensiveMetrics, refetch: refetchComprehensiveMetrics } = useQuery({
+  const { data: comprehensiveMetrics, isLoading: isLoadingComprehensiveMetrics, refetch: refetchComprehensiveMetrics, error: comprehensiveMetricsError } = useQuery({
     queryKey: ['po-comprehensive-metrics'],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -198,7 +198,7 @@ export const POTracker = () => {
 
       if (error) {
         console.error('❌ Error fetching deduplicated metrics:', error);
-        throw error;
+        throw new Error(`Database query failed: ${error.message}`);
       }
 
       console.log('📊 Deduplicated metrics result:', data);
@@ -206,7 +206,9 @@ export const POTracker = () => {
     },
     enabled: !!profile?.id,
     staleTime: 30000, // 30 seconds
-    refetchOnWindowFocus: false
+    refetchOnWindowFocus: false,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000)
   });
 
   // Keep the existing PO group metrics query for the grouped view
