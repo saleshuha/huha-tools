@@ -11,7 +11,7 @@ import { Loader2, Printer, FileText, Settings, Tag, Zap } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import jsPDF from 'jspdf';
-import QZTrayPrinter from '@/utils/qz-tray-printer';
+import { qzConnectionManager } from '@/utils/qz-connection-manager';
 
 interface LabelTemplate {
   id: string;
@@ -76,12 +76,13 @@ export function LabelPrintDialog({ open, onOpenChange, selectedItems, inventoryT
 
   const connectQZTray = async () => {
     try {
-      const connected = await QZTrayPrinter.connect();
+      const connected = await qzConnectionManager.connect();
       if (connected) {
         setQzConnected(true);
-        const printers = await QZTrayPrinter.getPrinters();
+        const printers = await qzConnectionManager.getPrinters();
         setAvailablePrinters(printers);
-        const defaultPrinter = await QZTrayPrinter.getDefaultPrinter();
+        const savedDefaultPrinter = localStorage.getItem('qz-default-printer');
+        const defaultPrinter = savedDefaultPrinter || (await qzConnectionManager.getDefaultPrinter());
         if (defaultPrinter) {
           setSelectedPrinter(defaultPrinter);
         }
@@ -258,9 +259,12 @@ export function LabelPrintDialog({ open, onOpenChange, selectedItems, inventoryT
       const zplCodes = Array(printSettings.copies).fill(zplCode);
       
       if (zplCodes.length === 1) {
-        await QZTrayPrinter.printZPL(zplCode, { printerName: selectedPrinter });
+        await qzConnectionManager.print(zplCode, selectedPrinter);
       } else {
-        await QZTrayPrinter.printMultipleZPL(zplCodes, { printerName: selectedPrinter });
+        // Print all ZPL codes sequentially
+        for (const zplCode of zplCodes) {
+          await qzConnectionManager.print(zplCode, selectedPrinter);
+        }
       }
       
       toast({

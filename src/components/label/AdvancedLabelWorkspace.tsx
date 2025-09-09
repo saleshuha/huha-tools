@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger, ContextMenuSeparator } from '@/components/ui/context-menu';
 import { PrintService } from '@/services/print-service';
-import QZTrayPrinter from '@/utils/qz-tray-printer';
+import { qzConnectionManager } from '@/utils/qz-connection-manager';
 import { 
   Printer, Eye, Save, ZoomIn, ZoomOut, RotateCcw, 
   Copy, Trash2, Move, RotateCw, Grid3X3, MousePointer2,
@@ -138,13 +138,14 @@ export const AdvancedLabelWorkspace: React.FC = () => {
 
   const initializeQZ = async () => {
     try {
-      const connected = await QZTrayPrinter.connect();
+      const connected = await qzConnectionManager.connect();
       if (connected) {
         setQzConnected(true);
-        const printers = await QZTrayPrinter.getPrinters();
+        const printers = await qzConnectionManager.getPrinters();
         setAvailablePrinters(printers);
         
-        const defaultPrinter = await QZTrayPrinter.getDefaultPrinter();
+        const savedDefaultPrinter = localStorage.getItem('qz-default-printer');
+        const defaultPrinter = savedDefaultPrinter || (await qzConnectionManager.getDefaultPrinter());
         if (defaultPrinter) {
           setSelectedPrinter(defaultPrinter);
         } else if (printers.length > 0) {
@@ -288,7 +289,7 @@ export const AdvancedLabelWorkspace: React.FC = () => {
       };
       
       const zplCode = PrintService.generateZPL(document, dataset, printSettings);
-      await QZTrayPrinter.printZPL(zplCode, { printerName: selectedPrinter });
+      await qzConnectionManager.print(zplCode, selectedPrinter);
       toast.success('Label sent to printer successfully');
     } catch (error) {
       console.error('Print error:', error);

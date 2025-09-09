@@ -17,7 +17,7 @@ import { PrintService } from '@/services/print-service';
 import { LabelDataset, PrintSettings, LabelDoc, LabelElement } from '@/types/label';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import QZTrayPrinter from '@/utils/qz-tray-printer';
+import { qzConnectionManager } from '@/utils/qz-connection-manager';
 
 interface NoonOrderToProcess {
   id: string;
@@ -74,14 +74,15 @@ export const NoonOrderPrint: React.FC = () => {
 
   const initializeQZ = async () => {
     try {
-      const connected = await QZTrayPrinter.connect();
+      const connected = await qzConnectionManager.connect();
       if (connected) {
         setQzConnected(true);
-        const printers = await QZTrayPrinter.getPrinters();
+        const printers = await qzConnectionManager.getPrinters();
         setAvailablePrinters(printers);
         
-        // Set default printer (prefer Zebra printers)
-        const defaultPrinter = await QZTrayPrinter.getDefaultPrinter();
+        // Set default printer (prefer saved or default printer) 
+        const savedDefaultPrinter = localStorage.getItem('qz-default-printer');
+        const defaultPrinter = savedDefaultPrinter || (await qzConnectionManager.getDefaultPrinter());
         if (defaultPrinter) {
           setSelectedPrinter(defaultPrinter);
         } else if (printers.length > 0) {
@@ -302,9 +303,7 @@ export const NoonOrderPrint: React.FC = () => {
         // Direct printing via QZ Tray
         const zplCode = PrintService.generateZPL(labelDoc, ordersDataset, printSettings);
         
-        await QZTrayPrinter.printZPL(zplCode, { 
-          printerName: selectedPrinter 
-        });
+        await qzConnectionManager.print(zplCode, selectedPrinter);
         
         const totalLabels = ordersDataset.data.length * printSettings.copies;
         toast.success(`Successfully sent ${totalLabels} labels to printer: ${selectedPrinter}`);

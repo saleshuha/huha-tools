@@ -17,7 +17,7 @@ import { PrintService } from '@/services/print-service';
 import { LabelDataset, PrintSettings, LabelDoc, LabelElement } from '@/types/label';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import QZTrayPrinter from '@/utils/qz-tray-printer';
+import { qzConnectionManager } from '@/utils/qz-connection-manager';
 
 interface OrderToProcess {
   id: string;
@@ -75,19 +75,19 @@ export const DateWiseOrderPrint: React.FC = () => {
   const initializeQZ = async () => {
     try {
       console.log('🔄 Attempting to connect to QZ Tray...');
-      const connected = await QZTrayPrinter.connect();
+      const connected = await qzConnectionManager.connect();
       console.log('🔗 QZ Tray connection result:', connected);
       
       if (connected) {
         setQzConnected(true);
         console.log('✅ QZ Tray connected successfully');
         
-        const printers = await QZTrayPrinter.getPrinters();
+        const printers = await qzConnectionManager.getPrinters();
         console.log('🖨️ Available printers:', printers);
         setAvailablePrinters(printers);
         
-        // Set default printer (prefer Zebra printers)
-        const defaultPrinter = await QZTrayPrinter.getDefaultPrinter();
+        const savedDefaultPrinter = localStorage.getItem('qz-default-printer');
+        const defaultPrinter = savedDefaultPrinter || (await qzConnectionManager.getDefaultPrinter());
         console.log('🎯 Default printer:', defaultPrinter);
         
         if (defaultPrinter) {
@@ -306,9 +306,7 @@ export const DateWiseOrderPrint: React.FC = () => {
         // Direct printing via QZ Tray
         const zplCode = PrintService.generateZPL(labelDoc, ordersDataset, printSettings);
         
-        await QZTrayPrinter.printZPL(zplCode, { 
-          printerName: selectedPrinter 
-        });
+        await qzConnectionManager.print(zplCode, selectedPrinter);
         
         const totalLabels = ordersDataset.data.length * printSettings.copies;
         toast.success(`Successfully sent ${totalLabels} labels to printer: ${selectedPrinter}`);

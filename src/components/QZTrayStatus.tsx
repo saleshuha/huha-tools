@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { RefreshCw, Printer, AlertCircle, CheckCircle, Zap } from 'lucide-react';
 import { qzConnectionManager } from '@/utils/qz-connection-manager';
+import { QZTrayStatusIndicator } from './QZTrayStatusIndicator';
 import { useToast } from '@/hooks/use-toast';
 
 export function QZTrayStatus() {
@@ -142,6 +143,14 @@ export function QZTrayStatus() {
     }
   };
 
+  const setDefaultPrinter = (printerName: string) => {
+    localStorage.setItem('qz-default-printer', printerName);
+    toast({
+      title: "Default Printer Set",
+      description: `${printerName} is now your default printer`,
+    });
+  };
+
   return (
     <div className="space-y-4">
       {/* Connection Status */}
@@ -270,6 +279,14 @@ export function QZTrayStatus() {
                           onClick={() => testPrint(printer)}
                         >
                           Test Print
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          className="h-6 px-2 text-xs text-primary"
+                          onClick={() => setDefaultPrinter(printer)}
+                        >
+                          Set Default
                         </Button>
                       </div>
                     </div>

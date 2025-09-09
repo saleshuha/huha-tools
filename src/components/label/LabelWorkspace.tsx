@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { PrintService } from '@/services/print-service';
-import QZTrayPrinter from '@/utils/qz-tray-printer';
+import { qzConnectionManager } from '@/utils/qz-connection-manager';
 import { Printer, Eye, Save, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import JsBarcode from 'jsbarcode';
@@ -34,14 +34,15 @@ export const LabelWorkspace: React.FC = () => {
 
   const initializeQZ = async () => {
     try {
-      const connected = await QZTrayPrinter.connect();
+      const connected = await qzConnectionManager.connect();
       if (connected) {
         setQzConnected(true);
-        const printers = await QZTrayPrinter.getPrinters();
+        const printers = await qzConnectionManager.getPrinters();
         setAvailablePrinters(printers);
         
         // Set default printer
-        const defaultPrinter = await QZTrayPrinter.getDefaultPrinter();
+        const savedDefaultPrinter = localStorage.getItem('qz-default-printer');
+        const defaultPrinter = savedDefaultPrinter || (await qzConnectionManager.getDefaultPrinter());
         if (defaultPrinter) {
           setSelectedPrinter(defaultPrinter);
         } else if (printers.length > 0) {
@@ -92,9 +93,7 @@ export const LabelWorkspace: React.FC = () => {
       const zplCode = PrintService.generateZPL(document, dataset, printSettings);
       
       // Print directly to selected printer
-      await QZTrayPrinter.printZPL(zplCode, { 
-        printerName: selectedPrinter 
-      });
+      await qzConnectionManager.print(zplCode, selectedPrinter);
       
       toast.success('Label sent to printer successfully');
     } catch (error) {
