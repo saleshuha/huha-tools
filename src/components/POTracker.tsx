@@ -19,6 +19,7 @@ import { qzConnectionManager } from '@/utils/qz-connection-manager';
 import { usePOOrders } from '@/hooks/usePOOrders';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useCountry } from '@/contexts/CountryContext';
+import { useProductImages } from '@/hooks/useProductImages';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
@@ -149,6 +150,7 @@ export const POTracker = () => {
   const { poOrders, isLoading, fetchPOOrders, processPOFiles, deletePOOrders, updatePrintStatus } = usePOOrders();
   const { profile } = useUserProfile();
   const { selectedCountry } = useCountry();
+  const { getImageByAsin } = useProductImages();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -1811,13 +1813,28 @@ export const POTracker = () => {
                                    className="h-4 w-4 rounded border-border"
                                  />
                                </TableCell>
-                                 <TableCell>
-                                    <div className="w-14 h-14 rounded border bg-muted flex items-center justify-center">
-                                      <svg className="w-7 h-7 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                     </svg>
-                                   </div>
-                                 </TableCell>
+                                  <TableCell>
+                                    {(() => {
+                                      const productImage = order.asin ? getImageByAsin(order.asin) : null;
+                                      return productImage ? (
+                                        <img 
+                                          src={productImage.image_url} 
+                                          alt={productImage.image_name || order.title || 'Product'} 
+                                          className="w-14 h-14 rounded border object-cover"
+                                          onError={(e) => {
+                                            e.currentTarget.style.display = 'none';
+                                            e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                                          }}
+                                        />
+                                      ) : (
+                                        <div className="w-14 h-14 rounded border bg-muted flex items-center justify-center">
+                                          <svg className="w-7 h-7 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                          </svg>
+                                        </div>
+                                      );
+                                    })()}
+                                  </TableCell>
                                  <TableCell className="w-32">
                                    <div className="space-y-1">
                                      {order.sku_code && (
