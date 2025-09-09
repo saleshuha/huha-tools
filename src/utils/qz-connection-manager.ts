@@ -72,8 +72,8 @@ export class QZConnectionManager {
         resolve();
       });
 
-      window.qz.security.setSignaturePromise(function(toSign: any) {
-        return Promise.resolve();
+      window.qz.security.setSignaturePromise(function(toSign: any, resolve: any) {
+        resolve();
       });
       
       // Connect to QZ WebSocket
