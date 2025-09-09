@@ -700,6 +700,7 @@ export const AdvancedLabelWorkspace: React.FC = () => {
       border: isSelected ? '2px solid hsl(var(--primary))' : '1px solid transparent',
       transform: element.rotation ? `rotate(${element.rotation}deg)` : undefined,
       boxShadow: isSelected ? '0 0 0 1px rgba(var(--primary), 0.3)' : 'none',
+      boxSizing: 'border-box',
     };
 
     const elementContent = (() => {
@@ -719,6 +720,7 @@ export const AdvancedLabelWorkspace: React.FC = () => {
                 backgroundColor: isSelected ? 'rgba(var(--primary), 0.05)' : 'transparent',
                 width: '100%',
                 height: '100%',
+                boxSizing: 'border-box',
               }}
             >
               {getDisplayText(element, 'Sample Text')}
@@ -742,6 +744,7 @@ export const AdvancedLabelWorkspace: React.FC = () => {
                 overflow: 'hidden',
                 width: '100%',
                 height: '100%',
+                boxSizing: 'border-box',
               }}
             >
               {getDisplayText(element, 'Multi-line text content will wrap automatically within this container.')}
@@ -789,6 +792,7 @@ export const AdvancedLabelWorkspace: React.FC = () => {
                 padding: '2px',
                 width: '100%',
                 height: '100%',
+                boxSizing: 'border-box',
               }}
             >
               {barcodeImage ? (
