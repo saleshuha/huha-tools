@@ -322,9 +322,17 @@ export const POTracker = () => {
       }
 
       // Print all labels
+      if (allZPLCodes.length === 0) {
+        throw new Error("No labels generated");
+      }
+
+      if (!selectedPrinter) {
+        throw new Error("No printer selected");
+      }
+
       if (allZPLCodes.length === 1) {
         await qzConnectionManager.print(allZPLCodes[0], selectedPrinter);
-      } else {
+      } else if (allZPLCodes.length > 0) {
         // Concatenate multiple ZPL codes for batch printing
         const combinedZPL = allZPLCodes.join('\n');
         await qzConnectionManager.print(combinedZPL, selectedPrinter);
