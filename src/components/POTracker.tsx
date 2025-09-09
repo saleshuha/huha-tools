@@ -10,10 +10,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
-import { AlertCircle, CheckCircle, Clock, FileUp, Search, Filter, Package, TrendingUp, ShoppingCart, Truck, DollarSign, X, Plus, Edit2, ExternalLink, Loader2, BarChart3, Download, RefreshCw, Printer, Zap } from 'lucide-react';
+import { AlertCircle, CheckCircle, Clock, FileUp, Search, Filter, Package, TrendingUp, ShoppingCart, Truck, DollarSign, X, Plus, Edit2, ExternalLink, Loader2, BarChart3, Download, RefreshCw, Printer, Zap, Image as ImageIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { POFileUpload } from '@/components/po/POFileUpload';
 import { POProfitAnalytics } from '@/components/po/POProfitAnalytics';
+import { ProductImageManager } from '@/components/ProductImageManager';
+import { useProductImages } from '@/hooks/useProductImages';
 import { qzConnectionManager } from '@/utils/qz-connection-manager';
 import { usePOOrders } from '@/hooks/usePOOrders';
 import { useUserProfile } from '@/hooks/useUserProfile';
@@ -150,6 +152,7 @@ export const POTracker = () => {
   const { selectedCountry } = useCountry();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { getImageByAsin } = useProductImages();
 
   // Delete all PO orders for fresh upload
   const handleDeleteAllPO = async () => {
@@ -735,7 +738,7 @@ export const POTracker = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3 h-12 bg-gradient-subtle rounded-xl shadow-elegant p-1 border border-border/20">
+        <TabsList className="grid w-full grid-cols-4 h-12 bg-gradient-subtle rounded-xl shadow-elegant p-1 border border-border/20">
           <TabsTrigger value="overview" className="flex items-center gap-2">
             <Package className="h-4 w-4" />
             PO Overview
@@ -743,6 +746,10 @@ export const POTracker = () => {
           <TabsTrigger value="upload" className="flex items-center gap-2">
             <FileUp className="h-4 w-4" />
             Uploads
+          </TabsTrigger>
+          <TabsTrigger value="images" className="flex items-center gap-2">
+            <ImageIcon className="h-4 w-4" />
+            Images
           </TabsTrigger>
           <TabsTrigger value="labels" className="flex items-center gap-2">
             <Printer className="h-4 w-4" />
@@ -899,6 +906,7 @@ export const POTracker = () => {
                     <Table>
                       <TableHeader>
                         <TableRow>
+                          <TableHead>Image</TableHead>
                           <TableHead>PO Number</TableHead>
                           <TableHead>PO Items</TableHead>
                           <TableHead>ASN Quantity</TableHead>
@@ -930,6 +938,33 @@ export const POTracker = () => {
 
                           return (
                             <TableRow key={poNumber}>
+                              <TableCell>
+                                {(() => {
+                                  const firstOrderWithAsin = orders.find(order => order.asin);
+                                  if (firstOrderWithAsin?.asin) {
+                                    const productImage = getImageByAsin(firstOrderWithAsin.asin);
+                                    return productImage ? (
+                                      <img
+                                        src={productImage.image_url}
+                                        alt={productImage.image_name || firstOrderWithAsin.asin}
+                                        className="w-10 h-10 object-cover rounded border"
+                                        onError={(e) => {
+                                          e.currentTarget.src = '/placeholder.svg';
+                                        }}
+                                      />
+                                    ) : (
+                                      <div className="w-10 h-10 bg-muted rounded border flex items-center justify-center">
+                                        <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                                      </div>
+                                    );
+                                  }
+                                  return (
+                                    <div className="w-10 h-10 bg-muted rounded border flex items-center justify-center">
+                                      <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                                    </div>
+                                  );
+                                })()}
+                              </TableCell>
                               <TableCell className="font-medium">
                                 <Button 
                                   variant="link" 
@@ -991,6 +1026,7 @@ export const POTracker = () => {
                     <Table>
                       <TableHeader>
                         <TableRow>
+                          <TableHead>Image</TableHead>
                           <TableHead>PO Number</TableHead>
                           <TableHead>ASIN</TableHead>
                           <TableHead>Model/SKU</TableHead>
@@ -1005,6 +1041,31 @@ export const POTracker = () => {
                       <TableBody>
                         {paginatedDetailedOrders.map((order) => (
                           <TableRow key={order.id}>
+                            <TableCell>
+                              {order.asin ? (
+                                (() => {
+                                  const productImage = getImageByAsin(order.asin);
+                                  return productImage ? (
+                                    <img
+                                      src={productImage.image_url}
+                                      alt={productImage.image_name || order.asin}
+                                      className="w-10 h-10 object-cover rounded border"
+                                      onError={(e) => {
+                                        e.currentTarget.src = '/placeholder.svg';
+                                      }}
+                                    />
+                                  ) : (
+                                    <div className="w-10 h-10 bg-muted rounded border flex items-center justify-center">
+                                      <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                                    </div>
+                                  );
+                                })()
+                              ) : (
+                                <div className="w-10 h-10 bg-muted rounded border flex items-center justify-center">
+                                  <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                                </div>
+                              )}
+                            </TableCell>
                             <TableCell className="font-medium">
                               <Button 
                                 variant="link" 
@@ -1211,6 +1272,10 @@ export const POTracker = () => {
               }} isLoading={isLoading} />
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="images" className="space-y-6">
+          <ProductImageManager />
         </TabsContent>
 
         <TabsContent value="labels" className="space-y-6">
@@ -1731,6 +1796,7 @@ export const POTracker = () => {
                       <TableHeader>
                         <TableRow>
                           <TableHead className="w-12">Select</TableHead>
+                          <TableHead className="w-16">Image</TableHead>
                           <TableHead 
                             className="cursor-pointer hover:bg-muted/50 select-none w-32"
                             onClick={() => handleSort('sku_code')}

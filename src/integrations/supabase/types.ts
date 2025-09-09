@@ -2308,6 +2308,36 @@ export type Database = {
         }
         Relationships: []
       }
+      product_images: {
+        Row: {
+          asin: string
+          created_at: string
+          id: string
+          image_name: string | null
+          image_url: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          asin: string
+          created_at?: string
+          id?: string
+          image_name?: string | null
+          image_url: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          asin?: string
+          created_at?: string
+          id?: string
+          image_name?: string | null
+          image_url?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       product_listings: {
         Row: {
           created_at: string
