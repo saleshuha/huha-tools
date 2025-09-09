@@ -78,7 +78,6 @@ export const POTracker = () => {
   const [selectedPOForLabels, setSelectedPOForLabels] = useState<string | null>(null);
   const [labelSearchQuery, setLabelSearchQuery] = useState('');
   const [selectedForPrint, setSelectedForPrint] = useState<Set<string>>(new Set());
-  const [printedItems, setPrintedItems] = useState<Set<string>>(new Set());
   const [labelCurrentPage, setLabelCurrentPage] = useState(1);
   const [labelItemsPerPage, setLabelItemsPerPage] = useState(20);
   const [printSettings, setPrintSettings] = useState({
@@ -145,7 +144,7 @@ export const POTracker = () => {
     }
   };
   
-  const { poOrders, isLoading, fetchPOOrders, processPOFiles, deletePOOrders } = usePOOrders();
+  const { poOrders, isLoading, fetchPOOrders, processPOFiles, deletePOOrders, updatePrintStatus } = usePOOrders();
   const { profile } = useUserProfile();
   const { selectedCountry } = useCountry();
   const { toast } = useToast();
@@ -441,10 +440,9 @@ export const POTracker = () => {
         description: `Printed ${allZPLCodes.length} labels to ${selectedPrinter}`,
       });
 
-      // Mark items as printed and clear selection after successful print
-      const newPrintedItems = new Set(printedItems);
-      selectedOrders.forEach(order => newPrintedItems.add(order.id));
-      setPrintedItems(newPrintedItems);
+      // Mark items as printed in database and clear selection after successful print
+      const orderIds = selectedOrders.map(order => order.id);
+      await updatePrintStatus(orderIds, true);
       setSelectedForPrint(new Set());
 
     } catch (error) {
@@ -703,10 +701,8 @@ export const POTracker = () => {
         description: `Printed ${allZPLCodes.length} label(s) for ${order.sku_code || order.model_number || order.asin}`,
       });
 
-      // Mark item as printed
-      const newPrintedItems = new Set(printedItems);
-      newPrintedItems.add(order.id);
-      setPrintedItems(newPrintedItems);
+      // Mark item as printed in database
+      await updatePrintStatus([order.id], true);
 
     } catch (error) {
       console.error('Print error:', error);
@@ -1849,14 +1845,14 @@ export const POTracker = () => {
                                    {order.quantity}
                                  </Badge>
                                </TableCell>
-                               <TableCell>
-                                 <Badge 
-                                   variant={printedItems.has(order.id) ? 'default' : 'outline'}
-                                   className="text-xs"
-                                 >
-                                   {printedItems.has(order.id) ? 'Printed' : 'Not Printed Yet'}
-                                 </Badge>
-                               </TableCell>
+                                <TableCell>
+                                  <Badge 
+                                    variant={order.is_printed ? 'default' : 'outline'}
+                                    className="text-xs"
+                                  >
+                                    {order.is_printed ? 'Printed' : 'Not Printed Yet'}
+                                  </Badge>
+                                </TableCell>
                                <TableCell>
                                  <Button 
                                    variant="outline" 

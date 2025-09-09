@@ -2017,6 +2017,7 @@ export type Database = {
           external_id_type: string | null
           file_name: string
           id: string
+          is_printed: boolean
           item_key: string | null
           job_id: string | null
           model_number: string | null
@@ -2049,6 +2050,7 @@ export type Database = {
           external_id_type?: string | null
           file_name: string
           id?: string
+          is_printed?: boolean
           item_key?: string | null
           job_id?: string | null
           model_number?: string | null
@@ -2081,6 +2083,7 @@ export type Database = {
           external_id_type?: string | null
           file_name?: string
           id?: string
+          is_printed?: boolean
           item_key?: string | null
           job_id?: string | null
           model_number?: string | null
@@ -3968,6 +3971,7 @@ export type Database = {
           external_id_type: string | null
           file_name: string
           id: string
+          is_printed: boolean
           item_key: string | null
           job_id: string | null
           model_number: string | null

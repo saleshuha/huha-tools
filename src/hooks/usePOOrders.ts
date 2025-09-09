@@ -29,6 +29,7 @@ export interface POOrder {
   tracking_url?: string;
   created_at: string;
   updated_at: string;
+  is_printed?: boolean;
   sunsky_sku?: any;
 }
 
@@ -550,6 +551,28 @@ export const usePOOrders = () => {
     }
   }, [fetchPOOrders, toast]);
 
+  // Update print status
+  const updatePrintStatus = useCallback(async (orderIds: string[], isPrinted: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('po_orders')
+        .update({ is_printed: isPrinted })
+        .in('id', orderIds);
+
+      if (error) throw error;
+
+      await fetchPOOrders();
+      
+    } catch (error) {
+      console.error('Error updating print status:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update print status",
+        variant: "destructive"
+      });
+    }
+  }, [fetchPOOrders, toast]);
+
   return {
     poOrders,
     isLoading,
@@ -560,6 +583,7 @@ export const usePOOrders = () => {
     updateOrderStatus,
     updateTrackingInfo,
     getPOModelNumbers,
-    deletePOOrders
+    deletePOOrders,
+    updatePrintStatus
   };
 };
