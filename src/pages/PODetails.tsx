@@ -17,6 +17,7 @@ import { usePOOrders } from '@/hooks/usePOOrders';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { SunskyOrderDialog } from '@/components/SunskyOrderDialog';
+import { POLabelPrintPanel } from '@/components/po/POLabelPrintPanel';
 
 // Cache busting comment - Fixed poDetails issue - v2
 
@@ -1744,6 +1745,19 @@ export default function PODetailsPage() {
             </h1>
           </div>
           <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              className="gap-2"
+              onClick={() => {
+                const labelPanel = document.getElementById('label-print-panel');
+                if (labelPanel) {
+                  labelPanel.scrollIntoView({ behavior: 'smooth' });
+                }
+              }}
+            >
+              <Package className="h-4 w-4" />
+              Print Labels
+            </Button>
             
             {/* Print Dialog */}
             <Dialog open={printDialogOpen} onOpenChange={setPrintDialogOpen}>
@@ -2239,6 +2253,13 @@ export default function PODetailsPage() {
           </div>
         </div>
 
+        {/* Label Printing Panel */}
+        <div id="label-print-panel">
+          <POLabelPrintPanel 
+            poNumber={poNumber || ''} 
+            orders={matchedOrders}
+          />
+        </div>
 
         {/* Items Table */}
         <Card>
