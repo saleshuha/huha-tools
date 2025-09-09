@@ -118,6 +118,7 @@ export const POTracker = () => {
 
   // Sorting handler
   const handleSort = (field: keyof POOrder | 'combined_title') => {
+    console.log('Sorting by field:', field, 'Current direction:', sortDirection);
     if (sortField === field) {
       setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
     } else {
@@ -274,23 +275,54 @@ export const POTracker = () => {
 
   const filteredOrders = useMemo(() => {
     let filtered = [...poOrders];
-
-    if (searchQuery) {
-      const lowerCaseQuery = searchQuery.toLowerCase();
+    
+    // Use appropriate search query based on active tab
+    const currentSearchQuery = activeTab === 'labels' ? labelSearchQuery : searchQuery;
+    
+    if (currentSearchQuery) {
+      const lowerCaseQuery = currentSearchQuery.toLowerCase();
       filtered = filtered.filter(order =>
         order.po_number.toLowerCase().includes(lowerCaseQuery) ||
+        order.sku_code?.toLowerCase().includes(lowerCaseQuery) ||
         order.asin?.toLowerCase().includes(lowerCaseQuery) ||
         order.model_number?.toLowerCase().includes(lowerCaseQuery) ||
         order.title?.toLowerCase().includes(lowerCaseQuery)
       );
     }
-
+    
     if (statusFilter !== 'all') {
       filtered = filtered.filter(order => order.status === statusFilter);
     }
-
+    
+    // Apply sorting
+    filtered.sort((a, b) => {
+      let aValue: string | number | undefined;
+      let bValue: string | number | undefined;
+      
+      if (sortField === 'combined_title') {
+        aValue = `${a.title || ''} ${a.asin || ''}`.toLowerCase();
+        bValue = `${b.title || ''} ${b.asin || ''}`.toLowerCase();
+      } else {
+        aValue = a[sortField];
+        bValue = b[sortField];
+      }
+      
+      // Handle undefined values
+      if (aValue === undefined && bValue === undefined) return 0;
+      if (aValue === undefined) return sortDirection === 'asc' ? 1 : -1;
+      if (bValue === undefined) return sortDirection === 'asc' ? -1 : 1;
+      
+      // Convert to string for comparison if needed
+      const aStr = String(aValue).toLowerCase();
+      const bStr = String(bValue).toLowerCase();
+      
+      if (aStr < bStr) return sortDirection === 'asc' ? -1 : 1;
+      if (aStr > bStr) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+    
     return filtered;
-  }, [poOrders, searchQuery, statusFilter]);
+  }, [poOrders, searchQuery, labelSearchQuery, statusFilter, sortField, sortDirection, activeTab]);
 
   // Filtered PO Groups for labels search
   const filteredPOGroups = useMemo(() => {
@@ -1199,21 +1231,37 @@ export const POTracker = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {/* Search Bar */}
-                  <div className="flex items-center gap-4">
-                    <div className="relative flex-1 max-w-sm">
-                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                      <Input
-                        placeholder="Search PO number, ASIN, model..."
-                        value={labelSearchQuery}
-                        onChange={(e) => setLabelSearchQuery(e.target.value)}
-                        className="pl-9"
-                      />
-                    </div>
-                    <Badge variant="outline" className="text-xs">
-                      {filteredPOGroups.length} PO{filteredPOGroups.length !== 1 ? 's' : ''}
-                    </Badge>
-                  </div>
+                   {/* Search Bar */}
+                   <div className="flex items-center gap-4">
+                     <div className="relative flex-1 max-w-sm">
+                       <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                       <Input
+                         placeholder="Search PO number, ASIN, model..."
+                         value={labelSearchQuery}
+                         onChange={(e) => {
+                           console.log('Label search query changed to:', e.target.value);
+                           setLabelSearchQuery(e.target.value);
+                         }}
+                         className="pl-9 pr-9"
+                       />
+                       {labelSearchQuery && (
+                         <Button
+                           variant="ghost" 
+                           size="sm"
+                           className="absolute right-1 top-1/2 h-6 w-6 p-0 -translate-y-1/2"
+                           onClick={() => {
+                             console.log('Clearing label search');
+                             setLabelSearchQuery('');
+                           }}
+                         >
+                           <X className="h-3 w-3" />
+                         </Button>
+                       )}
+                     </div>
+                     <Badge variant="outline" className="text-xs">
+                       {filteredPOGroups.length} PO{filteredPOGroups.length !== 1 ? 's' : ''}
+                     </Badge>
+                   </div>
 
                   {/* PO Groups List */}
                   <div className="space-y-3">
