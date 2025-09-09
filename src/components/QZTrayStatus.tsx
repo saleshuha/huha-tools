@@ -6,13 +6,13 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { RefreshCw, Printer, AlertCircle, CheckCircle, Zap } from 'lucide-react';
 import { qzConnectionManager } from '@/utils/qz-connection-manager';
 import { useToast } from '@/hooks/use-toast';
-
 export function QZTrayStatus() {
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [printers, setPrinters] = useState<string[]>([]);
-  const { toast } = useToast();
-
+  const {
+    toast
+  } = useToast();
   useEffect(() => {
     // Set up connection listener
     const handleConnectionChange = (connected: boolean) => {
@@ -23,17 +23,14 @@ export function QZTrayStatus() {
         setPrinters([]);
       }
     };
-
     qzConnectionManager.addConnectionListener(handleConnectionChange);
 
     // Initial connection attempt
     attemptConnection();
-
     return () => {
       qzConnectionManager.removeConnectionListener(handleConnectionChange);
     };
   }, []);
-
   const loadPrinters = async () => {
     try {
       const printerList = await qzConnectionManager.getPrinters();
@@ -43,7 +40,6 @@ export function QZTrayStatus() {
       setPrinters([]);
     }
   };
-
   const attemptConnection = async () => {
     setIsConnecting(true);
     try {
@@ -51,7 +47,7 @@ export function QZTrayStatus() {
       if (connected) {
         toast({
           title: "QZ Tray Connected",
-          description: "Direct printing is now available",
+          description: "Direct printing is now available"
         });
       }
     } catch (error) {
@@ -61,7 +57,6 @@ export function QZTrayStatus() {
       setIsConnecting(false);
     }
   };
-
   const handleConnect = async () => {
     setIsConnecting(true);
     try {
@@ -69,7 +64,7 @@ export function QZTrayStatus() {
       if (connected) {
         toast({
           title: "QZ Tray Connected",
-          description: "Direct printing is now available across all pages",
+          description: "Direct printing is now available across all pages"
         });
       } else {
         toast({
@@ -88,35 +83,5 @@ export function QZTrayStatus() {
       setIsConnecting(false);
     }
   };
-
-  return (
-    <div className="flex items-center gap-2">
-      <div className="flex items-center gap-2">
-        {isConnected ? (
-          <CheckCircle className="h-4 w-4 text-green-600" />
-        ) : (
-          <AlertCircle className="h-4 w-4 text-red-600" />
-        )}
-        <span className="text-xs font-medium">
-          {isConnected ? `QZ (${printers.length})` : 'QZ Disconnected'}
-        </span>
-      </div>
-      
-      {!isConnected && (
-        <Button 
-          size="sm"
-          variant="outline" 
-          onClick={handleConnect} 
-          disabled={isConnecting}
-          className="h-7 px-2 text-xs"
-        >
-          {isConnecting ? (
-            <RefreshCw className="h-3 w-3 animate-spin" />
-          ) : (
-            <Zap className="h-3 w-3" />
-          )}
-        </Button>
-      )}
-    </div>
-  );
+  return;
 }
