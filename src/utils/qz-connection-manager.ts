@@ -95,7 +95,7 @@ export class QZConnectionManager {
         console.log('✅ Using global QZ Tray security setup');
       }
 
-      // Connect to QZ WebSocket with retry logic
+      // Connect to QZ WebSocket - don't disconnect if already active
       if (!window.qz.websocket.isActive()) {
         let retries = 3;
         while (retries > 0) {
@@ -109,6 +109,8 @@ export class QZConnectionManager {
             await new Promise(resolve => setTimeout(resolve, 1000));
           }
         }
+      } else {
+        console.log('♻️ QZ WebSocket already active, reusing connection');
       }
 
       console.log('✅ QZ Tray connected successfully');
