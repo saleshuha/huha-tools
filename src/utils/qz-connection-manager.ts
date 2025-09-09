@@ -57,26 +57,32 @@ export class QZConnectionManager {
     try {
       console.log('🔄 QZ Connection Manager: Attempting to connect...');
 
-      // Check if QZ Tray script is loaded
+      // Check if QZ Tray script is loaded (it should be in index.html)
       if (typeof window.qz === 'undefined') {
-        console.log('⚠️ QZ Tray script not found, attempting to load...');
-        await this.loadQZScript();
+        console.error('❌ QZ Tray script not loaded. Please check index.html');
+        throw new Error('QZ Tray script not available');
       }
 
-      // Wait a moment for script to initialize
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      // Attempt connection through QZTrayPrinter
-      const connected = await QZTrayPrinter.connect();
+      console.log('📡 QZ script found, attempting direct connection...');
       
-      if (connected) {
-        console.log('✅ QZ Connection Manager: Connected successfully');
-        this.isConnected = true;
-        this.notifyListeners();
-        return true;
-      } else {
-        throw new Error('Connection returned false');
+      // Use the global qz object directly with simpler connection
+      if (!window.qz.websocket.isActive()) {
+        await new Promise((resolve, reject) => {
+          window.qz.websocket.connect().then(() => {
+            console.log('✅ QZ WebSocket connected successfully');
+            resolve(true);
+          }).catch((error: any) => {
+            console.error('❌ QZ WebSocket connection failed:', error);
+            reject(error);
+          });
+        });
       }
+
+      console.log('✅ QZ Connection Manager: Connected successfully');
+      this.isConnected = true;
+      this.notifyListeners();
+      return true;
+      
     } catch (error) {
       console.error('❌ QZ Connection Manager: Connection failed:', error);
       this.isConnected = false;
@@ -120,7 +126,13 @@ export class QZConnectionManager {
         throw new Error('QZ Tray not connected');
       }
     }
-    return QZTrayPrinter.getPrinters();
+    
+    try {
+      return await window.qz.printers.find();
+    } catch (error) {
+      console.error('❌ Failed to get printers:', error);
+      return [];
+    }
   }
 
   async getDefaultPrinter(): Promise<string | null> {
@@ -130,7 +142,13 @@ export class QZConnectionManager {
         return null;
       }
     }
-    return QZTrayPrinter.getDefaultPrinter();
+    
+    try {
+      return await window.qz.printers.getDefault();
+    } catch (error) {
+      console.error('❌ Failed to get default printer:', error);
+      return null;
+    }
   }
 
   async print(zplCode: string, printerName?: string): Promise<void> {
